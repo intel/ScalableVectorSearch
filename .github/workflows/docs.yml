@@ -34,8 +34,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          sudo apt install -y doxygen
           pip install sphinx breathe sphinx_rtd_theme sphinx-rtd-theme
-          apt install doxygen
 
       - name: Build Wheel
         env:
