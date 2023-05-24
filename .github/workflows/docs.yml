@@ -40,7 +40,13 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt install -y doxygen
-          pip install archspec scikit-build sphinx breathe sphinx_rtd_theme sphinx-rtd-theme
+          pip install \
+            archspec \
+            scikit-build \
+            sphinx \
+            breathe \
+            sphinx_rtd_theme \
+            sphinx-collapse
 
       - name: Build Wheel
         env:
