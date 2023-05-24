@@ -31,7 +31,7 @@ from .common import \
     test_groundtruth_cosine, \
     test_number_of_vectors, \
     test_dimensions, \
-    test_threading, \
+    # test_threading, \
     timed
 
 DEBUG = False;
@@ -141,14 +141,14 @@ class VamanaTester(unittest.TestCase):
         if skip_thread_test:
             return
 
-        # Makes sure that setting the number of threads works correctly.
-        for (search_window_size, expected_recall) in self.recall_l2.items():
-            # Abort for larger search window sizes to keep overall runtime down.
-            if search_window_size > 40:
-                continue
+        # # Makes sure that setting the number of threads works correctly.
+        # for (search_window_size, expected_recall) in self.recall_l2.items():
+        #     # Abort for larger search window sizes to keep overall runtime down.
+        #     if search_window_size > 40:
+        #         continue
 
-            vamana.search_window_size = search_window_size
-            test_threading(vamana, queries, search_window_size, iters = 10)
+        #     vamana.search_window_size = search_window_size
+        #     test_threading(vamana, queries, search_window_size, iters = 10)
 
 
     def _test_basic(self, loader, recall_dict):

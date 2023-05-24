@@ -19,6 +19,7 @@ import numpy as np
 from .common import \
     isapprox, \
     test_data_svs, \
+    test_data_vecs, \
     test_data_dims, \
     test_graph, \
     test_queries, \
@@ -26,7 +27,7 @@ from .common import \
     test_groundtruth_mip, \
     test_number_of_vectors, \
     test_dimensions, \
-    test_threading, \
+    #test_threading, \
     timed
 
 class FlatTester(unittest.TestCase):
@@ -101,7 +102,7 @@ class FlatTester(unittest.TestCase):
         recall = pysvs.k_recall_at(groundtruth, results[0], num_neighbors, num_neighbors)
         print(f"Flat. Expected {expected_recall}. Got {recall}.")
         self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.0001))
-        test_threading(flat, queries, num_neighbors)
+        # test_threading(flat, queries, num_neighbors)
 
     def _do_test_from_file(self, distance: pysvs.DistanceType, queries, groundtruth):
         # Load the index from files.

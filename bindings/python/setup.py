@@ -15,7 +15,7 @@ cmake_args = [
 if os.environ.get("PYSVS_MULTIARCH", None) is not None:
     pysvs_microarchs = [
         # "icelake",
-        # "cascadelake",
+        "cascadelake",
         # "skylake_avx512",
         "haswell",
     ]
