@@ -27,7 +27,6 @@ from .common import \
     test_groundtruth_mip, \
     test_number_of_vectors, \
     test_dimensions, \
-    #test_threading, \
     timed
 
 class FlatTester(unittest.TestCase):

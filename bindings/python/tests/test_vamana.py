@@ -31,7 +31,6 @@ from .common import \
     test_groundtruth_cosine, \
     test_number_of_vectors, \
     test_dimensions, \
-    # test_threading, \
     timed
 
 DEBUG = False;

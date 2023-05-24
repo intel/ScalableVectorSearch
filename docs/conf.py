@@ -19,6 +19,7 @@ extensions = [
     "sphinx.ext.autodoc",   # Generate documentation for Python interface.
     "sphinx.ext.napoleon",  # Allow simpler layouts for Python docstrings.
     "sphinx.ext.autodoc.typehints",
+    "sphinx.ext.githubpages",
     "sphinx_collapse",  # Adds collapsible sections
     # "sphinx_autodoc_typehints",
 ]
