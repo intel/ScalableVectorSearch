@@ -14,11 +14,10 @@ cmake_args = [
 # Also, the micro-architectures defined below should be in order of preference.
 if os.environ.get("PYSVS_MULTIARCH", None) is not None:
     pysvs_microarchs = [
-        # "icelake",
         "cascadelake",
-        # "skylake_avx512",
-        "haswell",
+        "broadwell",
     ]
+
     cmake_array = ";".join(pysvs_microarchs)
     cmake_args.append(f"-DPYSVS_MICROARCHS={cmake_array}")
 
