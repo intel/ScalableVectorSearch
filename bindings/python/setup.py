@@ -13,13 +13,11 @@ cmake_args = [
 # N.B.: cibuildwheel must configure the multi-arch environment variable.
 # Also, the micro-architectures defined below should be in order of preference.
 if os.environ.get("PYSVS_MULTIARCH", None) is not None:
-    # The generated binaries for "cascadelake" and "icelake" appear to be identical.
-    # With that in mind, build the library for "cascadelake" so it's compatible with both
-    # architectures (as far as the somewhat simple loading logic is concerned).
     pysvs_microarchs = [
-        "icelake",
-        "cascadelake",
-        "skylake_avx512",
+        # "icelake",
+        # "cascadelake",
+        # "skylake_avx512",
+        "haswell",
     ]
     cmake_array = ";".join(pysvs_microarchs)
     cmake_args.append(f"-DPYSVS_MICROARCHS={cmake_array}")
