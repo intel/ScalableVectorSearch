@@ -1,4 +1,5 @@
 from skbuild import setup
+import archspec.cpu as cpu
 import os
 
 # If building in a cibuildwheel context, compile multiple versions of the library for
@@ -10,13 +11,22 @@ cmake_args = [
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=YES"
 ]
 
+# Utility to convert micro-architecture strings to
+def target(arch):
+    return cpu.TARGETS[arch]
+
 # N.B.: cibuildwheel must configure the multi-arch environment variable.
 # Also, the micro-architectures defined below should be in order of preference.
 if os.environ.get("PYSVS_MULTIARCH", None) is not None:
     pysvs_microarchs = [
         "cascadelake",
-        "broadwell",
     ]
+
+    # Add the current host to the list of micro-architecture if it doesn't already exist.
+    last_target = target(pysvs_microarchs[-1])
+    host_name = cpu.host().name
+    if host_name not in pysvs_microarchs and target(host_name) < last_target:
+        pysvs_microarchs.append(host_name)
 
     cmake_array = ";".join(pysvs_microarchs)
     cmake_args.append(f"-DPYSVS_MICROARCHS={cmake_array}")
