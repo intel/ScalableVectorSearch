@@ -1,5 +1,5 @@
 # Simple workflow for deploying static content to GitHub Pages
-name: build Docs
+name: Build Docs
 
 on:
   # For testing purposes.
@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   # Single deploy job since we're just deploying
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
