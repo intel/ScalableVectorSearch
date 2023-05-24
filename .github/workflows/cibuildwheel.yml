@@ -1,0 +1,44 @@
+name: CIBuildWheel
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  python-build:
+    name: Build Wheel
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install cibuildwheel
+      run: python -m pip install cibuildwheel
+
+    # Install inside the temporary working directory.
+    - name: Build Wheel
+      env:
+        TEMP_WORKSPACE: ${{ runner.temp }}/usr
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        cibuildwheel --only $(python tools/pybuild.py) bindings/python
+        pip install ./wheelhouse/pysvs*.whl --target=${TEMP_WORKSPACE}
+
+    # Make sure to add the location of the generated wheel to the python path.
+    - name: Run Default Tests
+      env:
+          PYTHONPATH: ${{ runner.temp }}/usr
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}
+      run: python -m unittest discover -s ${GITHUB_WORKSPACE}/bindings/python
+
+    - name: Run Older Microarch Tests
+      env:
+          PYTHONPATH: ${{ runner.temp }}/usr
+          PYSVS_OVERRIDE_BACKEND: "skylake_avx512"
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}
+      run: python -m unittest discover -s ${GITHUB_WORKSPACE}/bindings/python
+
