@@ -1,0 +1,12 @@
+__version__ = 'v0.0.1'
+
+[object]
+__version__ = 'v0.0.0'
+alpha = 1.2000000476837158
+construction_window_size = 200
+default_search_window_size = 0
+entry_point = 9426
+max_candidates = 1000
+max_out_degree = 128
+name = 'vamana config parameters'
+visited_set = false

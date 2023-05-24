@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+    "setuptools>=42",
+    "scikit-build",
+    "cmake>=3.18",      # Keep in-sync with `CMakeLists.txt`
+    "numpy>=1.10.0",    # Keep in-sync with `setup.py`
+    "archspec>=0.2.0",  # Keep in-sync with `setup.py`
+    #"pybind11",        # Installed in CMakeLists.txt
+]
+
+build-backend = "setuptools.build_meta"
+
+# CI Build Wheel
+[tool.cibuildwheel]
+build = "cp*-manylinux_x86_64"
+skip = "cp36-manylinux-x86_64"
+test-skip = ""
+
+archs = ["x86_64"]
+build-frontend = "pip"
+config-settings = {}
+dependency-versions = "pinned"
+environment.CC = "/opt/rh/devtoolset-11/root/usr/bin/cc"
+environment.CXX = "/opt/rh/devtoolset-11/root/usr/bin/c++"
+# Compile multiple versions for difference microarchitectures
+environment.PYSVS_MULTIARCH = "YES"
+environment-pass = []
+build-verbosity = "3"
+
+before-all = "yum --disablerepo=epel install -y devtoolset-11-gcc devtoolset-11-gcc-c++"
+before-build = "pip install ninja"
+repair-wheel-command = ""
+
+test-command = ""
+before-test = ""
+test-requires = []
+test-extras = []
+
+container-engine = "docker"
+
+manylinux-x86_64-image = "manylinux2014"
+manylinux-pypy_x86_64-image = "manylinux2014"
+
+[tool.cibuildwheel.linux]
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"

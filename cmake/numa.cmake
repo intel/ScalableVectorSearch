@@ -1,0 +1,5 @@
+if (SVS_ENABLE_NUMA)
+    find_package(Numa REQUIRED)
+    target_include_directories(${SVS_LIB} INTERFACE ${NUMA_INCLUDE_DIRS})
+    target_link_libraries(${SVS_LIB} INTERFACE ${NUMA_LIBRARY})
+endif()
