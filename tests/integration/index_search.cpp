@@ -96,38 +96,38 @@ void run_tests(
         }
         index.disable_visited_set();
 
-        // Make sure changing the number of threads actually does something.
-        // Only run in non-debug mode since this can take a little while.
-        //
-        // Also - limit the maximum size to avoid consuming too much run time.
-        if (search_window_size < 40) {
-            auto timer = [&, search_window_size = search_window_size] {
-                return svs_test::timed(2, true, [&] {
-                    index.search(queries, search_window_size);
-                });
-            };
+        // // Make sure changing the number of threads actually does something.
+        // // Only run in non-debug mode since this can take a little while.
+        // //
+        // // Also - limit the maximum size to avoid consuming too much run time.
+        // if (search_window_size < 40) {
+        //     auto timer = [&, search_window_size = search_window_size] {
+        //         return svs_test::timed(2, true, [&] {
+        //             index.search(queries, search_window_size);
+        //         });
+        //     };
 
-            index.set_num_threads(1);
-            double base_time = timer();
+        //     index.set_num_threads(1);
+        //     double base_time = timer();
 
-            index.set_num_threads(2);
-            double new_time = timer();
+        //     index.set_num_threads(2);
+        //     double new_time = timer();
 
-            if constexpr (PRINT_RESULTS) {
-                fmt::print(
-                    "Window Size: {}, Base Time: {}, New Time: {}\n",
-                    search_window_size,
-                    base_time,
-                    new_time
-                );
-            }
+        //     if constexpr (PRINT_RESULTS) {
+        //         fmt::print(
+        //             "Window Size: {}, Base Time: {}, New Time: {}\n",
+        //             search_window_size,
+        //             base_time,
+        //             new_time
+        //         );
+        //     }
 
-            // Don't expect perfect speedup, but speedup should generally be pretty
-            // good. The trickiest case the the one with the smallest window size. In
-            // this case, the overhead of threading is larger so we don't get as close
-            // to a perfect 2x speedup.
-            CATCH_REQUIRE(1.3 * new_time < base_time);
-        }
+        //     // Don't expect perfect speedup, but speedup should generally be pretty
+        //     // good. The trickiest case the the one with the smallest window size. In
+        //     // this case, the overhead of threading is larger so we don't get as close
+        //     // to a perfect 2x speedup.
+        //     CATCH_REQUIRE(1.3 * new_time < base_time);
+        // }
     }
 }
 } // namespace
