@@ -111,7 +111,7 @@ We would love to accept your contributions to this project. See [How to Contribu
 more details.
 
 ## Legal
-Refer to the [LICENSE file](LICENSE.md) for details.
+Refer to the [LICENSE file](LICENSE) for details.
 
 [^1]: Performance varies by use, configuration and other factors. Learn more at [www.Intel.com/PerformanceIndex](http://www.Intel.com/PerformanceIndex/).
 Performance results are based on testing as of dates shown in configurations and may not reflect all publicly
