@@ -75,6 +75,7 @@ Parameters Setting
 ^^^^^^^^^^^^^^^^^^^
 
 We used the following versions of each method:
+SVS `commit ad821d8 <https://github.com/IntelLabs/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c>`_,
 Vamana `commit 647f68f <https://github.com/microsoft/DiskANN/commit/647f68fe5aa7b45124ae298c219fe909d46a1834>`_,
 HNSWlib `commmit 4b2cb72 <https://github.com/nmslib/hnswlib/commit/4b2cb72c3c1bbddee55535ec6f360a0b2e40a81e>`_,
 ScaNN `commit d170ac5 <https://github.com/google-research/google-research/commit/d170ac58ce1d071614b2813b056afa292f5e490c>`_,
@@ -102,7 +103,7 @@ High-throughput Regime
 
 In the high-throughput regime, all methods are set assuming high throughput is the main priority and memory availability
 is not a major issue. We compare SVS to four widely adopted approaches: Vamana [SDSK19]_, HSNWlib [MaYa18]_, FAISS-IVFPQfs
-[JoDJ19]_, and ScaNN [GSLG20]_ [#ft2]_. See :ref:`param_setting_bench_large_scale_high_throughput_regime`
+[JoDJ19]_, and ScaNN [GSLG20]_. [#ft2]_ See :ref:`param_setting_bench_large_scale_high_throughput_regime`
 for details on the evaluated configurations and the version of the code used for each method.
 
 Results summary:
@@ -283,8 +284,7 @@ and the additional bandwidth reduction from LVQ-4x4 and LVQ-4x8 provides a signi
        the Intel logo, and other Intel marks are trademarks of Intel Corporation or its subsidiaries.  Other names and
        brands may be claimed as the property of others.
 
-.. [#ft3] All experimental results were completed by April 2023.
+.. [#ft3] All experimental results were completed by April 30th 2023.
 
-.. [#ft2] NGT [IwMi18]_ is
-       included in the :ref:`small_scale_benchs` and not in the large scale evaluation because the algorithm designed for
+.. [#ft2] NGT [IwMi18]_ is included in the :ref:`small_scale_benchs` and not in the large scale evaluation because the algorithm designed for
        large-scale datasets (NGT-QBG) achieves  low accuracy saturating at 0.86 recall even for a small 1-million vectors dataset.

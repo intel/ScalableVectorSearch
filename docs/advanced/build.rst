@@ -98,7 +98,7 @@ To include the C++ portion of the library in a CMake based project, follow the t
     include(FetchContent)
     FetchContent_Declare(
         svs
-        GIT_REPOSITORY https://github.com/intel-sandbox/ai.similarity-search.gss
+        GIT_REPOSITORY https://github.com/IntelLabs/ScalableVectorSearch.git
         GIT_TAG dev
     )
 

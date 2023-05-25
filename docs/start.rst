@@ -38,8 +38,8 @@ To build and install the Python module, pysvs, clone the repo and run the follow
 .. code-block:: sh
 
     # Clone the repository
-    git clone https://github.com/intel-sandbox/ai.similarity-search.gss
-    cd ai.similarity-search.gss
+    git clone https://github.com/IntelLabs/ScalableVectorSearch.git
+    cd ScalableVectorSearch
 
     # Install pysvs using pip
     CC=gcc-11 CXX=g++-11 pip install bindings/python
