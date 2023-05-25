@@ -51,17 +51,17 @@ def _message_prehook(spec, host = cpu.host()):
         spec = cpu.TARGETS[spec]
 
     import warnings
-    if host < spec:
-        message = """
-        Override backend is target for a newer CPU than the one you're currently using.
-        Application may crash.
-        """
-        warnings.warn(message, RuntimeWarning)
-
     if spec <= cpu.TARGETS["skylake_avx512"]:
         message = f"""
         Loading library for an older CPU architecture ({spec}).
         Performance may be degraded.
+        """
+        warnings.warn(message, RuntimeWarning)
+
+    if host < spec:
+        message = """
+        Override backend is target for a newer CPU than the one you're currently using.
+        Application may crash.
         """
         warnings.warn(message, RuntimeWarning)
 
