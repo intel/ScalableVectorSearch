@@ -1,7 +1,7 @@
 # Scalable Vector Search
 
 **Scalable Vector Search (SVS)** is a performance library for vector [similarity search](https://en.wikipedia.org/wiki/Similarity_search).
-SVS enables application and framework developers using similarity search to unleash its performance on Intel(R) XPUs.
+SVS enables application and framework developers using similarity search to unleash its performance on Intel &reg; XPUs.
 SVS provides vector similarity search:
 * on **billions** of **high-dimensional** vectors,
 * at **high accuracy**
@@ -22,7 +22,7 @@ All in all, SVS achieves:
 | low-memory (R=32) | 20.7x | 3x |
 | high-throughput (R=126) | 5.8x | 1.4x |
 
-See [Benchmarks]() for more details.
+See [Benchmarks](https://intellabs.github.io/ScalableVectorSearch/benchs/index.html) for more details.
 
 SVS is written in C++, with complete Python bindings.
 
@@ -37,11 +37,11 @@ SVS supports the following:
   - 3rd generation (Ice Lake)
   - 4th generation (Sapphire Rapids)
 
-See [Roadmap]() for upcoming features.
+See [Roadmap](https://intellabs.github.io/ScalableVectorSearch/roadmap.html) for upcoming features.
 
 ## Documentation
 
-[Our documentation]() provides a reference of the library API, as well as several guides, tutorials,
+[Our documentation](https://intellabs.github.io/ScalableVectorSearch/index.html) provides a reference of the library API, as well as several guides, tutorials,
 and benchmark comparisons.
 
 ## Installation
@@ -64,8 +64,8 @@ To build and install the Python module, pysvs, clone the repo and run the follow
 
 ```
 # Clone the repository
-git clone https://github.com/intel-sandbox/ai.similarity-search.gss
-cd ai.similarity-search.gss
+git clone https://github.com/IntelLabs/ScalableVectorSearch.git
+cd ScalableVectorSearch
 
 # Install pysvs using pip
 CC=gcc-11 CXX=g++-11 pip install bindings/python
@@ -76,10 +76,10 @@ To uninstall, simply run
 pip uninstall pysvs
 ```
 
-For more advanced building options see [LINK].
+For more advanced building options see [Advanced Library Building](https://intellabs.github.io/ScalableVectorSearch/advanced/build.html).
 
 ## Usage Example
-See the example in [LINK], or for more details [LINK to Getting Started].
+Follow a step by step example at [Getting Started](https://intellabs.github.io/ScalableVectorSearch/start.html), or directly access the [entire example code](https://intellabs.github.io/ScalableVectorSearch/start.html#entire-example).
 
 ## Library Philosophy
 
