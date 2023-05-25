@@ -1,0 +1,57 @@
+name: Linux Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        #build_type: [Debug, Release]
+        build_type: [Release]
+        cxx: [g++-11, clang++-13]
+        include:
+          - cxx: g++-11
+            cc: gcc-11
+          - cxx: clang++-13
+            cc: clang-13
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Configure build
+      working-directory: ${{ runner.temp }}
+      env:
+        CXX: ${{ matrix.cxx }}
+        CC: ${{ matrix.cc }}
+        TEMP_WORKSPACE: ${{ runner.temp }}
+      run: |
+        cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DSVS_BUILD_BINARIES=YES \
+              -DSVS_BUILD_TESTS=YES \
+              -DSVS_BUILD_EXAMPLES=YES \
+              -DSVS_NO_AVX512=NO
+
+    - name: Build Tests and Utilities
+      working-directory: ${{ runner.temp }}/build
+      run: make -j$(nproc)
+
+    - name: Run tests
+      env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}/build/tests
+      run: ctest -C ${{ matrix.build_type }}
+

@@ -1,0 +1,22 @@
+# Build directories
+/build*/
+usr/
+wheelhouse/
+
+# Bundled test data
+/data/
+
+# Misc tool related files
+*.swp
+tags
+compile_commands.json
+.python-version
+
+# Python related files
+__pycache__/
+/bindings/python/build/
+/bindings/python/_skbuild/
+/bindings/python/dist/
+
+# Example generated files.
+example_data_*/

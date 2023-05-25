@@ -1,0 +1,28 @@
+@PACKAGE_INIT@
+
+# Flags for optional dependencies
+set(SVS_ENABLE_NUMA @SVS_ENABLE_NUMA@)
+
+# Use a custom find module for transitive dependencies
+set(SVS_ORIGINAL_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
+list(INSERT CMAKE_MODULE_PATH 0 ${PACKAGE_PREFIX_DIR}/@LIB_CONFIG_INSTALL_DIR@)
+
+# Find the necessary dependencies
+include(CMakeFindDependencyMacro)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_dependency(Threads REQUIRED)
+find_dependency(tsl-robin-map REQUIRED)
+find_dependency(eve REQUIRED)
+find_dependency(tomlplusplus REQUIRED)
+find_dependency(fmt REQUIRED)
+
+# # Dependencies that could be optional at build time.
+if(SVS_ENABLE_NUMA)
+    find_dependency(Numa REQUIRED)
+endif()
+
+# Revert the CMAKE_MODULE_PATH to its original state
+set(CMAKE_MODULE_PATH ${SVS_ORIGINAL_CMAKE_MODULE_PATH})
+
+include("${CMAKE_CURRENT_LIST_DIR}/svs-targets.cmake")
+check_required_components(svs)

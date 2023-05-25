@@ -1,0 +1,56 @@
+# Simple workflow for deploying static content to GitHub Pages
+name: Build Docs
+
+on:
+  # For testing purposes.
+  pull_request:
+    branches:
+      - main
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  # Single deploy job since we're just deploying
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Dependencies
+        run: |
+          sudo apt install -y doxygen
+          pip install \
+            archspec \
+            scikit-build \
+            sphinx \
+            breathe \
+            sphinx_rtd_theme \
+            sphinx-collapse
+
+      - name: Build Wheel
+        env:
+          CC: clang-13
+          CXX: clang++-13
+        run: |
+          cd ${GITHUB_WORKSPACE}/bindings/python
+          python setup.py bdist_wheel --cmake-executable="cmake" --build-type=Debug -- -- -j2
+          pip install ./dist/pysvs*.whl
+
+      - name: Build Docs
+        working-directory: ${{ runner.temp }}
+        run: |
+          cmake \
+            -B${{ runner.temp }}/build_docs \
+            "-S${GITHUB_WORKSPACE}" \
+            -DSVS_BUILD_DOCS=YES
+          make -C ${{ runner.temp }}/build_docs
