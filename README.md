@@ -1,43 +1,48 @@
 # Scalable Vector Search
 
 **Scalable Vector Search (SVS)** is a performance library for vector [similarity search](https://en.wikipedia.org/wiki/Similarity_search).
-SVS enables application and framework developers using similarity search to unleash its performance on Intel &reg; XPUs.
+Thanks to the use of Locally-adaptive Vector Quantization [[ABHT23]](#1) and its highly optimized indexing and search algorithms,
 SVS provides vector similarity search:
 * on **billions** of **high-dimensional** vectors,
 * at **high accuracy**
 * and **state-of-the-art speed**,
 * while enabling the use of **less memory** than its alternatives.
 
-As an example, for *one billion* 96-dimensional vectors ([Deep-1B](http://sites.skoltech.ru/compvision/noimi/)),
-SVS outcompetes the alternatives [[ABHT23]](#1) as follows[^1]:
+This enables application and framework developers using similarity search to unleash its performance on Intel &reg; Xeon CPUs (2nd generation and newer).
+
+SVS offers a fully-featured and yet simple Python API, compatible with most standard libraries.
+SVS is written in C++ to facilitate its integration into performance-critical applications.
+
+## Performance
+
+SVS provides state-of-the-art performance and accuracy [[ABHT23]](#1) for billion-scale similarity search on
+[standard benchmarks](https://intellabs.github.io/ScalableVectorSearch/benchs/index.html).
+
+For example, for the standard billion-scale [Deep-1B](http://sites.skoltech.ru/compvision/noimi/) dataset,
+different configurations of SVS yield significantly increased performance (measured in queries per second, QPS) with a smaller memory footprint (horizontal axis) than the alternatives[^1]:
 
 <p align="center">
 <img src="./docs/figs/SVS_performance_memoryfootprint.png" height=80% width=80%>
 </p>
 
-All in all, SVS achieves:
-
-| SVS configuration | Max throughput advantage | Max memory savings |
-|-------------------------|:------------------------:|:------------------:|
-| low-memory (R=32) | 20.7x | 3x |
-| high-throughput (R=126) | 5.8x | 1.4x |
-
-See [Benchmarks](https://intellabs.github.io/ScalableVectorSearch/benchs/index.html) for more details.
-
-SVS is written in C++, with complete Python bindings.
+SVS is primarily optimized for large-scale similarity search but it still offers [state-of-the-art performance
+at million-scale](https://jubilant-adventure-vr8r2zw.pages.github.io/benchs/small_scale_benchs.html).
 
 ## Key Features
 
-SVS supports the following:
+SVS supports:
 * Similarity functions: Euclidean distance, inner product, cosine similarity.
 * Vectors with individual values encoded as: float32, float16, uint8, int8.
-* Vector compression (including Locally-adaptive Vector Quantization [[1]](#1))
+* Vector compression (including Locally-adaptive Vector Quantization [[ABHT23]](#1))
 * Optimizations for Intel &reg; Xeon &reg; processors:
   - 2nd generation (Cascade Lake)
   - 3rd generation (Ice Lake)
   - 4th generation (Sapphire Rapids)
 
 See [Roadmap](https://intellabs.github.io/ScalableVectorSearch/roadmap.html) for upcoming features.
+
+## Usage Example
+Follow a step by step example at [Getting Started](https://intellabs.github.io/ScalableVectorSearch/start.html), or directly access the [entire example code](https://intellabs.github.io/ScalableVectorSearch/start.html#entire-example).
 
 ## Documentation
 
@@ -78,16 +83,6 @@ pip uninstall pysvs
 
 For more advanced building options see [Advanced Library Building](https://intellabs.github.io/ScalableVectorSearch/advanced/build.html).
 
-## Usage Example
-Follow a step by step example at [Getting Started](https://intellabs.github.io/ScalableVectorSearch/start.html), or directly access the [entire example code](https://intellabs.github.io/ScalableVectorSearch/start.html#entire-example).
-
-## Library Philosophy
-
-The SVS core library is mainly a header-only library with some future additional utilities potentially being moved into a small shared-library.
-The reason for this design decision is to make maximum use of the compiler when we can (using features like compile-time vector dimensionality, statically resolved function calls, etc.) and to allow for flexible internal interfaces.
-While this has the potential to increase binary size over an object-oriented approach due to extra template instantiation, the goal to tackle this is through careful type erasure are critical interfaces.
-Using this approach, we can measure the performance impact of type erasure (i.e., dynamic dispatch) to ensure we don't lose performance.
-
 ## References
 Reference to cite when you use SVS in a research paper:
 
@@ -107,7 +102,7 @@ Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T.:Similarity search
 indices. In: arXiv preprint [arXiv:2304.04759](https://arxiv.org/abs/2304.04759) (2023)
 
 ## How to Contribute
-We would love to accept your contributions to this project. See [How to Contribute](contributing/CONTRIBUTING.md) for
+We welcome your contributions to this project. See [How to Contribute](contributing/CONTRIBUTING.md) for
 more details.
 
 ## Legal
