@@ -10,7 +10,7 @@ Introduction
 Scalable Vector Search
 ***********************
 **Scalable Vector Search (SVS)** is a performance library for vector `similarity search <https://en.wikipedia.org/wiki/Similarity_search>`_.
-SVS enables application and framework developers using similarity search to unleash its performance on Intel(R) XPUs.
+Thanks to the use of Locally-adaptive Vector Quantization [ABHT23]_ and its highly optimized indexing and search algorithms,
 SVS provides vector similarity search:
 
 * on **billions** of **high-dimensional** vectors,
@@ -18,8 +18,19 @@ SVS provides vector similarity search:
 * and **state-of-the-art speed**,
 * while enabling the use of **less memory** than its alternatives.
 
-As an example, for *one billion* 96-dimensional vectors (`Deep-1B <http://sites.skoltech.ru/compvision/noimi/>`_),
-SVS outcompetes the alternatives [ABHT23]_ as follows [#ft1]_:
+This enables application and framework developers using similarity search to unleash its performance on Intel |reg| Xeon CPUs (2nd generation and newer).
+
+SVS offers a fully-featured and yet simple Python API, compatible with most standard libraries.
+SVS is written in C++ to facilitate its integration into performance-critical applications.
+
+Performance
+============
+SVS provides state-of-the-art performance and accuracy [ABHT23]_ for billion-scale similarity search on
+:ref:`standard benchmarks <benchs>`.
+
+For example, for the standard billion-scale `Deep-1B <http://sites.skoltech.ru/compvision/noimi/>`_ dataset,
+different configurations of SVS yield significantly increased performance (measured in queries per second, QPS) with a
+smaller memory footprint (horizontal axis) than the alternatives [#ft1]_:
 
 |
 
@@ -30,24 +41,12 @@ SVS outcompetes the alternatives [ABHT23]_ as follows [#ft1]_:
 
 |
 
-All in all, SVS achieves:
-
-+-------------------------+--------------------------+--------------------+
-| SVS configuration       | Max throughput advantage | Max memory savings |
-+-------------------------+--------------------------+--------------------+
-| low-memory (R=32)       | 20.7x                    | 3x                 |
-+-------------------------+--------------------------+--------------------+
-| high-throughput (R=126) | 5.8x                     | 1.4x               |
-+-------------------------+--------------------------+--------------------+
-
-See :ref:`benchs` for more details.
-
-SVS is written in C++, with complete Python bindings.
+SVS is primarily optimized for large-scale similarity search but it still offers :ref:`state-of-the-art performance
+at million-scale <small_scale_benchs>`.
 
 Key Features
 ============
-
-SVS supports the following:
+SVS supports:
 
 * Similarity functions: Euclidean distance, inner product, cosine similarity (see :ref:`supported_distance_functions` for an updated list).
 * Vectors with individual values encoded as: float32, float16, uint8, int8 (see :ref:`supported_data_types` for an updated list).
