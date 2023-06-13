@@ -89,12 +89,10 @@ class LoadingTester(unittest.TestCase):
         spec = cpu.TARGETS["icelake"]
         host = cpu.TARGETS["skylake"]
         with warnings.catch_warnings(record = True) as w:
-            loader._message_prehook(spec, host)
-            # Number of warnings can exceed 1 if running on an older CPU.
-            # In this latter case, we get a "newer CPU" warning as well.
-            self.assertTrue(len(w) >= 1)
-            self.assertTrue(issubclass(w[0].category, RuntimeWarning))
-            self.assertTrue("Override" in str(w[0].message))
+            loader._message_prehook(arch)
+            self.assertTrue(len(w) == 1)
+            self.assertTrue(issubclass(w[-1].category, RuntimeWarning))
+            self.assertTrue("Override" in str(w[-1].message))
 
         # Running again with "quiet" enabled should suppress the warning
         set_quiet()
@@ -107,10 +105,12 @@ class LoadingTester(unittest.TestCase):
         archs = ["haswell", "skylake", "skylake_avx512"]
         for arch in archs:
             with warnings.catch_warnings(record = True) as w:
-                loader._message_prehook(arch)
-                self.assertTrue(len(w) == 1)
-                self.assertTrue(issubclass(w[-1].category, RuntimeWarning))
-                self.assertTrue("older CPU" in str(w[-1].message))
+                loader._message_prehook(spec, host)
+                # Number of warnings can exceed 1 if running on an older CPU.
+                # In this latter case, we get a "newer CPU" warning as well.
+                self.assertTrue(len(w) >= 1)
+                self.assertTrue(issubclass(w[0].category, RuntimeWarning))
+                self.assertTrue("older CPU" in str(w[0].message))
 
     def test_loaded(self):
         libraries = loader._load_manifest()["libraries"]

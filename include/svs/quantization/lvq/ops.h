@@ -100,30 +100,6 @@ struct DatasetPreOpBase {};
 template <typename T>
 concept DatasetPreOp = requires { std::derived_from<T, DatasetPreOpBase>; };
 
-// ///
-// /// No Operation.
-// ///
-// struct Noop : public DatasetPreOpBase {
-//     static std::string name() { return "preop-none"; }
-//
-//     // Distance types are not modified.
-//     template <typename Distance> using distance_type = Distance;
-//
-//     // The element-wise mapping function.
-//     using map_type = lib::identity;
-//     using misc_type = lib::Empty;
-//
-//     // Don't modify the distance type and return the identity map.
-//     template <
-//         typename Distance,
-//         data::ImmutableMemoryDataset Data,
-//         svs::threads::ThreadPool Pool>
-//     std::tuple<distance_type<Distance>, map_type, misc_type>
-//     operator()(const Distance& distance, Data& /*unused*/, Pool& /*unused*/) const {
-//         return std::make_tuple(distance, map_type(), lib::Empty());
-//     }
-// };
-
 ///
 /// Element-wise functor that performs the operation:
 /// ```
@@ -194,13 +170,6 @@ struct VectorBias : public DatasetPreOpBase {
     static std::string name() { return "preop-vector-bias"; }
 
     template <typename T> using element_type_t = typename T::element_type;
-
-    // // After applying the bias-removal functor, the bias needs to be re-applied at
-    // distance
-    // // computation time.
-    // //
-    // // To make this more efficient, special distance functions can be used.
-    // template <typename Distance> using distance_type = biased_distance_t<Distance>;
     using misc_type = std::vector<double>;
 
     ///
