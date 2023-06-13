@@ -28,6 +28,11 @@ option(SVS_BUILD_EXAMPLES
     OFF # disabled by default
 )
 
+option(SVS_TEST_EXAMPLES
+    "Enable ctest for examples without requiring building the test suite."
+    OFF # disabled by default
+)
+
 option(SVS_NO_AVX512
     "Disable use of AVX512 intrinsics."
     OFF # disabled by default

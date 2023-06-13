@@ -144,6 +144,8 @@ inline constexpr bool operator<(const Version& x, const Version& y) {
     return x.patch < y.patch;
 }
 
+inline constexpr bool operator>(const Version& x, const Version& y) { return y < x; }
+
 } // namespace lib
 
 ///
@@ -166,6 +168,11 @@ namespace lib {
 
 ///
 /// @brief Context used when saving aggregate objects.
+///
+/// VERSION HISTORY
+///
+/// v0.0.0 - Original version.
+/// v0.0.1 - Unknown change.
 ///
 constexpr Version CURRENT_SAVE_VERSION = Version(0, 0, 1);
 class SaveContext {
@@ -270,8 +277,14 @@ concept IsLoadHelperFor = requires(
 };
 
 template <IsSelfLoader T> struct LoaderFor {
-    T load(const toml::table& table, const LoadContext& ctx, const Version& version) const {
-        return T::load(table, ctx, version);
+    template <typename... Args>
+    T load(
+        const toml::table& table,
+        const LoadContext& ctx,
+        const Version& version,
+        Args&&... args
+    ) const {
+        return T::load(table, ctx, version, std::forward<Args>(args)...);
     }
 };
 
@@ -301,6 +314,11 @@ inline constexpr std::string_view config_file_name = "svs_config.toml";
 inline constexpr std::string_view config_version_key = "__version__";
 inline constexpr std::string_view config_object_key = "object";
 
+inline toml::table emplace_version(SaveType val) {
+    emplace(std::get<0>(val), config_version_key, std::get<1>(val));
+    return std::get<0>(std::move(val));
+}
+
 ///
 /// @brief Recursively save a class.
 ///
@@ -314,9 +332,7 @@ inline constexpr std::string_view config_object_key = "object";
 /// member ``save`` method.
 ///
 template <typename T> toml::table recursive_save(const T& x, const SaveContext& ctx) {
-    SaveType val = x.save(ctx);
-    emplace(std::get<0>(val), config_version_key, std::get<1>(val));
-    return std::get<0>(std::move(val));
+    return emplace_version(x.save(ctx));
 }
 
 ///
@@ -328,12 +344,12 @@ template <typename T> toml::table recursive_save(const T& x, const SaveContext& 
 ///
 /// Call this method to reload a member class as part of loading a class.
 ///
-template <typename Loader>
+template <typename Loader, typename... Args>
 auto recursive_load(
-    const Loader& loader, const toml::table& table, const LoadContext& ctx
+    const Loader& loader, const toml::table& table, const LoadContext& ctx, Args&&... args
 ) {
     auto version = get_version(table, config_version_key);
-    return loader.load(table, ctx, version);
+    return loader.load(table, ctx, version, std::forward<Args>(args)...);
 }
 
 ///
@@ -345,9 +361,41 @@ auto recursive_load(
 /// Call this method to reload a member class as part of loading a class when that member
 /// class is self loading.
 ///
-template <typename SelfLoader>
-auto recursive_load(const toml::table& table, const LoadContext& ctx) {
-    return recursive_load(LoaderFor<SelfLoader>(), table, ctx);
+template <typename SelfLoader, typename... Args>
+auto recursive_load(const toml::table& table, const LoadContext& ctx, Args&&... args) {
+    return recursive_load(LoaderFor<SelfLoader>(), table, ctx, std::forward<Args>(args)...);
+}
+
+///
+/// @brief Save the object into the given directory.
+///
+/// @param dir The directory where the object should be saved.
+/// @param f A callable object that takes a ``const svs::lib::SaveContext&` and returns
+///     a ``toml::table``.
+///
+/// As part of saving the object, multiple auxiliary files may be created in the
+/// directory. It is the caller's responsibility to ensure that no existing data in the
+/// given directory will be destroyed.
+///
+/// On the other hand, if during the saving of the object, any files are generated
+/// *outside* of this directory, that should be considered a bug. Please report such
+/// instances to the project maintainer.
+///
+template <typename F> void save_callable(const std::filesystem::path& dir, F&& f) {
+    // Create the directory.
+    // Per the documented API, if `dir` already exists, then there is no error.
+    // Otherwise, the parent directory must exist.
+    std::filesystem::create_directory(dir);
+
+    // Assume the saving context is in the same directory as the path.
+    auto ctx = SaveContext(dir);
+    toml::table table = emplace_version(f(ctx));
+    auto top_table = toml::table(
+        {{config_version_key, prepare(ctx.version())},
+         {config_object_key, std::move(table)}}
+    );
+    auto file = open_write(dir / config_file_name, std::ios_base::out);
+    file << top_table;
 }
 
 ///
@@ -365,20 +413,7 @@ auto recursive_load(const toml::table& table, const LoadContext& ctx) {
 /// instances to the project maintainer.
 ///
 template <typename T> void save(T& x, const std::filesystem::path& dir) {
-    // Create the directory.
-    // Per the documented API, if `dir` already exists, then there is no error.
-    // Otherwise, the parent directory must exist.
-    std::filesystem::create_directory(dir);
-
-    // Assume the saving context is in the same directory as the path.
-    auto ctx = SaveContext(dir);
-    toml::table table = recursive_save(x, ctx);
-    auto top_table = toml::table(
-        {{config_version_key, prepare(ctx.version())},
-         {config_object_key, std::move(table)}}
-    );
-    auto file = open_write(dir / config_file_name, std::ios_base::out);
-    file << top_table;
+    save_callable(dir, [&](const lib::SaveContext& ctx) { return x.save(ctx); });
 }
 
 ///

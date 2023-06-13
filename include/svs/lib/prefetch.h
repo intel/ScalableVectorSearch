@@ -14,7 +14,7 @@
 #include "svs/lib/misc.h"
 
 #include <cstdint>
-#include <iostream>
+#include <iterator>
 #include <span>
 #ifdef __SSE__
 #include <x86intrin.h>
@@ -60,5 +60,4 @@ template <typename T, size_t Extent> void prefetch_l0(std::span<T, Extent> span)
 template <typename... Args> void prefetch(Args&&... args) {
     prefetch_l0(std::forward<Args>(args)...);
 }
-
 } // namespace svs::lib

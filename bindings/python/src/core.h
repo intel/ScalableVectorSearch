@@ -22,6 +22,9 @@
 // pybind
 #include <pybind11/pybind11.h>
 
+// stl
+#include <filesystem>
+
 // Type aliases
 template <typename T> using Type = svs::meta::Type<T>;
 template <size_t N> using Val = svs::meta::Val<N>;
@@ -31,11 +34,35 @@ using svs::meta::unwrap;
 // Exposed Allocators
 // N.B.: As more allocators get implemented, this can be switched to a ``std::variant`` of
 // allocators that will get propagated throughout the code.
+//
+// Support for this might not be fully in place but should be relatively straight-forward
+// to add.
 using Allocators = svs::HugepageAllocator;
 
 // Standard loaders.
 using UnspecializedVectorDataLoader = svs::UnspecializedVectorDataLoader<Allocators>;
-using GraphLoader = svs::GraphLoader<uint32_t, Allocators>;
+
+class UnspecializedGraphLoader {
+  public:
+    UnspecializedGraphLoader() = delete;
+    UnspecializedGraphLoader(const std::filesystem::path& path)
+        : path_{path} {}
+
+    svs::GraphLoader<uint32_t, svs::data::PolymorphicBuilder<Allocators>> refine() const {
+        return svs::GraphLoader<uint32_t, svs::data::PolymorphicBuilder<Allocators>>(
+            path_, svs::data::PolymorphicBuilder(allocator_)
+        );
+    }
+
+    template <typename Builder>
+    svs::GraphLoader<uint32_t, Builder> refine(Builder builder) const {
+        return svs::GraphLoader<uint32_t, Builder>{path_, std::move(builder)};
+    }
+
+  private:
+    std::filesystem::path path_;
+    Allocators allocator_{};
+};
 
 // Distance Aliases
 using DistanceL2 = svs::distance::DistanceL2;
@@ -53,9 +80,6 @@ using LVQ4 = svs::quantization::lvq::UnspecializedOneLevelWithBias<4>;
 using LVQ4x4 = svs::quantization::lvq::UnspecializedTwoLevelWithBias<4, 4>;
 using LVQ4x8 = svs::quantization::lvq::UnspecializedTwoLevelWithBias<4, 8>;
 using LVQ8x8 = svs::quantization::lvq::UnspecializedTwoLevelWithBias<8, 8>;
-
-using GlobalQuant8 = svs::quantization::lvq::UnspecializedGlobalOneLevelWithBias<8>;
-using GlobalQuant4x4 = svs::quantization::lvq::UnspecializedGlobalTwoLevelWithBias<4, 4>;
 
 namespace core {
 void wrap(pybind11::module& m);

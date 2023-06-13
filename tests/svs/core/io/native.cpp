@@ -149,25 +149,6 @@ CATCH_TEST_CASE("Testing Native Reader Iterator", "[core][io]") {
             writer.flush();
             CATCH_REQUIRE(svs_test::compare_files(native_file, output_file) == true);
         }
-
-        CATCH_SECTION("Move Constructor") {
-            std::string other_output_file = svs_test::temp_directory() / "other.bin";
-            {
-                auto writer =
-                    svs::io::v1::NativeFile(output_file).writer(reader.ndims(), uuid);
-                for (auto i : reader) {
-                    writer << i;
-                }
-
-                writer =
-                    svs::io::v1::NativeFile(other_output_file).writer(reader.ndims(), uuid);
-                for (auto i : reader) {
-                    writer << i;
-                }
-            }
-            CATCH_REQUIRE(svs_test::compare_files(native_file, output_file) == true);
-            CATCH_REQUIRE(svs_test::compare_files(native_file, other_output_file) == true);
-        }
     }
 }
 

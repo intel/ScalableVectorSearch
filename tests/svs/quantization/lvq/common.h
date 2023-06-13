@@ -17,9 +17,6 @@
 // tests
 #include "tests/utils/generators.h"
 
-// Internal header
-// Don't worry too much about namespace alias.
-namespace lvq = svs::quantization::lvq;
 namespace test_q {
 
 ///
@@ -27,7 +24,7 @@ namespace test_q {
 /// with the given sign and number of bits.
 ///
 template <typename Sign, size_t Bits> auto create_generator() {
-    using Encoding = lvq::Encoding<Sign, Bits>;
+    using Encoding = svs::quantization::lvq::Encoding<Sign, Bits>;
     using value_type = typename Encoding::value_type;
     value_type lower = Encoding::min();
     value_type upper = Encoding::max();

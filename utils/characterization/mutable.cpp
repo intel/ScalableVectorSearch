@@ -139,7 +139,7 @@ void do_check(
 ) {
     // Compute groundtruth
     auto tic = svs::lib::now();
-    auto gt = reference.groundtruth(queries, NUM_NEIGHBORS);
+    auto gt = reference.groundtruth();
     double groundtruth_time = svs::lib::time_difference(tic);
 
     if (calibrate) {
@@ -246,12 +246,18 @@ int svs_main(std::vector<std::string> args) {
     }
 
     // Load the base dataset and queries.
+    auto queries = svs::VectorDataLoader<QueryEltype>(query_path).load();
+    auto data = svs::VectorDataLoader<Eltype, N>(data_path).load();
+    auto num_points = data.size();
+
     auto reference = svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>(
-        svs::io::auto_load<Eltype, N>(data_path, svs::HugepageAllocator()),
+        std::move(data),
+        Distance(),
         num_threads,
-        Distance()
+        div(num_points, 0.125 * modify_fraction),
+        NUM_NEIGHBORS,
+        queries
     );
-    auto queries = svs::io::auto_load<QueryEltype>(query_path);
     auto num_indices_to_add = div(reference.size(), initial_fraction);
     std::cout << "Initializing with " << num_indices_to_add << " entries!\n";
 
@@ -262,10 +268,6 @@ int svs_main(std::vector<std::string> args) {
         auto [vectors, indices] = reference.generate(num_indices_to_add);
         // Copy assign ``initial_indices``
         initial_indices = indices;
-        if (vectors.size() != num_indices_to_add || indices.size() != num_indices_to_add) {
-            throw ANNEXCEPTION("Something when horribly wrong!");
-        }
-
         for (size_t i = 0; i < num_indices_to_add; ++i) {
             data_mutable.set_datum(i, vectors.get_datum(i));
         }

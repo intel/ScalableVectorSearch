@@ -37,6 +37,8 @@ int svs_main(std::vector<std::string> args) {
     auto index = svs::index::vamana::auto_build(
         parameters,
         lvq::OneLevelWithBias<8, N>(svs::VectorDataLoader<svs::Float16, N>(data_path), 0),
+        // lvq::TwoLevelWithBias<4, 4, N>(svs::VectorDataLoader<svs::Float16, N>(data_path),
+        // 0),
         Distance(),
         num_threads,
         svs::DRAM()

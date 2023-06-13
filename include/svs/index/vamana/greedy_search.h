@@ -27,12 +27,12 @@ class NullTracker {
     NullTracker() = default;
 
     template <typename I>
-    void visited(SearchNeighbor<I> /*neighbor*/, size_t /*num_distance_computations*/) {}
+    void visited(Neighbor<I> /*neighbor*/, size_t /*num_distance_computations*/) {}
 };
 
 template <typename T, typename I>
 concept GreedySearchTracker =
-    requires(T tracker, SearchNeighbor<I> neighbor, size_t num_distance_computations) {
+    requires(T tracker, Neighbor<I> neighbor, size_t num_distance_computations) {
         tracker.visited(neighbor, num_distance_computations);
     };
 
@@ -47,6 +47,9 @@ struct GreedySearchPrefetchParameters {
 ///// Greedy Search
 /////
 
+// Default builder for generating neighbor elements.
+// Alternative builders that return some builder-like object are supported to enable
+// alternative search buffers to be used.
 struct NeighborBuilder {
     template <typename I>
     constexpr SearchNeighbor<I> operator()(I i, float distance) const {
@@ -81,16 +84,18 @@ void greedy_search(
 
     // Initialize entry points.
     for (const auto& id : entry_points) {
-        dataset.prefetch(id);
+        dataset.prefetch(id, data::fast_access);
     }
 
     // Populate initial points.
     search_buffer.clear();
     for (const auto& id : entry_points) {
-        auto dist = distance::compute(distance_function, query, dataset.get_datum(id));
+        auto dist = distance::compute(
+            distance_function, query, dataset.get_datum(id, data::fast_access)
+        );
         search_buffer.push_back(builder(id, dist));
         graph.prefetch_node(id);
-        search_tracker.visited(SearchNeighbor<I>{id, dist}, 1);
+        search_tracker.visited(Neighbor<I>{id, dist}, 1);
     }
 
     // Main search routine.
@@ -98,11 +103,13 @@ void greedy_search(
     const size_t prefetch_step = prefetch_parameters.step;
     while (!search_buffer.done()) {
         // Get the next unvisited vertex.
-        auto neighbor_id = search_buffer.next().id();
+        const auto& node = search_buffer.next();
+        auto node_id = node.id();
 
         // Get the adjacency list for this vertex and prepare prefetching logic.
-        auto neighbors = graph.get_node(neighbor_id);
+        auto neighbors = graph.get_node(node_id);
         auto prefetch_start = prefetch_parameters.offset;
+        search_tracker.visited(Neighbor<I>{node}, neighbors.size());
         for (auto id : neighbors) {
             if (search_buffer.visited(id)) {
                 continue;
@@ -112,20 +119,21 @@ void greedy_search(
             if (prefetch_start < neighbors.size()) {
                 size_t upper = std::min(neighbors.size(), prefetch_start + prefetch_step);
                 for (size_t i = prefetch_start; i < upper; ++i) {
-                    dataset.prefetch(neighbors[i]);
+                    dataset.prefetch(neighbors[i], data::fast_access);
                 }
                 prefetch_start += prefetch_step;
             }
 
-            const auto dist =
-                distance::compute(distance_function, query, dataset.get_datum(id));
-
+            auto dist = distance::compute(
+                distance_function, query, dataset.get_datum(id, data::fast_access)
+            );
             search_buffer.insert(builder(id, dist));
         }
     }
 }
 
-// Overload to provide a default search tracker.
+// Overload to provide a default search tracker because search trackers are taken by
+// lvalue reference.
 template <
     graphs::ImmutableMemoryGraph Graph,
     data::ImmutableMemoryDataset Dataset,

@@ -63,7 +63,7 @@ template <typename F> void for_standard_specializations(F&& f) {
     // XN(float,   svs::Float16, 200); // Text2Image - F16
     // XN(float,   svs::Float16, 128); // Sift - F16
     // XN(float,   svs::Float16, 100); // MSTuring 1B - F16
-    XN(float,   svs::Float16, 96);  // Deep 1B - F16
+    // X(float,   svs::Float16, 96, EnableBuild::FromFile);  // Deep 1B - F16
     // XN(float,   svs::Float16, 50);  // Glove50 - F16
     // XN(float,   svs::Float16, 25);  // Glove25 - F16
     X (float,   svs::Float16, Dynamic, EnableBuild::FromFile);

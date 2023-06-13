@@ -17,13 +17,6 @@ Data Loaders and Compressors
 Utilities and Helpers
 ---------------------
 
-.. doxygenstruct:: svs::quantization::lvq::NoResidual
-   :project: SVS
-
-.. doxygenstruct:: svs::quantization::lvq::DistanceMainResidual
-   :project: SVS
-   :members:
-
 .. doxygenstruct:: svs::quantization::lvq::Reload
    :project: SVS
    :members:

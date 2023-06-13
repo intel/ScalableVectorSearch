@@ -31,11 +31,13 @@
 /// @defgroup data_concept_entry The main concepts modeling datasets.
 ///
 
+#include "svs/lib/exception.h"
+#include "svs/lib/type_traits.h"
+#include "svs/third-party/fmt.h"
+
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-
-#include "svs/lib/type_traits.h"
 
 namespace svs {
 namespace data {
@@ -158,6 +160,49 @@ concept MemoryDataset = ImmutableMemoryDataset<T>
     { a.set_datum(i, v) };
 };
 // clang-format on
+
+///
+/// Copy the contents of one data to another.
+///
+template <ImmutableMemoryDataset Input, MemoryDataset Output>
+void copy(const Input& input, Output& output) {
+    auto isize = input.size();
+    auto osize = output.size();
+    if (isize != osize) {
+        auto message = fmt::format(
+            "Source of copy has {} elements while the destination has {}", isize, osize
+        );
+        throw ANNEXCEPTION(message);
+    }
+
+    for (size_t i = 0; i < isize; ++i) {
+        output.set_datum(i, input.get_datum(i));
+    }
+}
+
+///// Full dataset
+
+// Full datasets provide more semantics on top of the standard datasets.
+// The idea is that full datasets can have multiple indexing modes which can be exploited
+// by indexes.
+struct FastAccess {};
+struct FullAccess {};
+
+// Constant aliases
+inline constexpr FastAccess fast_access{};
+inline constexpr FullAccess full_access{};
+
+// Default indexing mode
+using DefaultAccess = FullAccess;
+inline constexpr DefaultAccess default_access{};
+
+// Build machinery to build a concept for indexing modes.
+template <typename T> inline constexpr bool is_access_mode = false;
+template <> inline constexpr bool is_access_mode<FastAccess> = true;
+template <> inline constexpr bool is_access_mode<FullAccess> = true;
+
+template <typename T>
+concept AccessMode = is_access_mode<T>;
 
 } // namespace data
 } // namespace svs

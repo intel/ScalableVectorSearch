@@ -136,11 +136,12 @@ inline auto data_f32() {
     )));
 }
 inline auto data_blocked_f32() {
-    return svs::io::load_blocked<float, svs::Dynamic>(svs::io::v1::NativeFile(data_svs_file(
-    )));
+    return svs::io::load_dataset<float, svs::Dynamic>(
+        svs::io::v1::NativeFile(data_svs_file()), svs::data::BlockedBuilder()
+    );
 }
 inline auto graph() {
-    return svs::io::load_graph<uint32_t>(
+    return svs::io::load_simple_graph<uint32_t>(
         svs::io::v1::NativeFile{graph_file()}, svs::HugepageAllocator()
     );
 }

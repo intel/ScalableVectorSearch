@@ -80,7 +80,8 @@ CATCH_TEST_CASE("Testing Dataset Loading and Writing", "[core][integrated_io]") 
 
     // Load data into memory from the vecs file.
     auto index_data = svs::io::load_dataset<float, EXPECTED_EXTENT>(
-        svs::io::vecs::VecsFile<float>{vecs_file}, svs::lib::VectorAllocator{}
+        svs::io::vecs::VecsFile<float>{vecs_file},
+        svs::data::PolymorphicBuilder(svs::lib::VectorAllocator{})
     );
 
     CATCH_REQUIRE(index_data.size() == reference_nvectors);
@@ -104,7 +105,7 @@ CATCH_TEST_CASE("Testing Dataset Loading and Writing", "[core][integrated_io]") 
         // Use a dynamically sized dimension for fun.
         CATCH_SECTION("Dynamic") {
             auto native = svs::io::load_dataset<float, svs::Dynamic>(
-                svs::io::v1::NativeFile{native_file_test}, svs::HugepageAllocator{}
+                svs::io::v1::NativeFile{native_file_test}
             );
             CATCH_REQUIRE(compare(index_data, native));
             CATCH_REQUIRE(native.get_datum(0).extent == svs::Dynamic);
@@ -112,7 +113,7 @@ CATCH_TEST_CASE("Testing Dataset Loading and Writing", "[core][integrated_io]") 
 
         CATCH_SECTION("Static") {
             auto native = svs::io::load_dataset<float, EXPECTED_EXTENT>(
-                svs::io::v1::NativeFile{native_file_test}, svs::HugepageAllocator{}
+                svs::io::v1::NativeFile{native_file_test}
             );
 
             CATCH_REQUIRE(compare(index_data, native));
@@ -128,7 +129,7 @@ CATCH_TEST_CASE("Testing Graph Loading and Saving", "[core][integrated_io]") {
 
     // Standard graph loading and saving.
     CATCH_REQUIRE(std::filesystem::exists(native_file_reference));
-    auto reference_graph = svs::io::load_graph<uint32_t>(
+    auto reference_graph = svs::io::load_simple_graph<uint32_t>(
         svs::io::v1::NativeFile{native_file_reference}, svs::HugepageAllocator{}
     );
 

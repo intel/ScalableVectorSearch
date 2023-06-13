@@ -57,7 +57,7 @@ struct StandardAssemble_ {
     using key_type = std::tuple<svs::DataType, svs::DataType, size_t>;
     using mapped_type = std::function<svs::Vamana(
         const std::filesystem::path& /*config_path*/,
-        const GraphLoader& /*graph_loader*/,
+        const UnspecializedGraphLoader& /*graph_loader*/,
         const UnspecializedVectorDataLoader& /*data_loader*/,
         svs::DistanceType /*distance_type*/,
         size_t /*num_threads*/
@@ -73,13 +73,13 @@ struct StandardAssemble_ {
     specialize(Type<Q> query_type, Type<T> data_type, Val<N> ndims) {
         key_type key = {unwrap(query_type), unwrap(data_type), unwrap(ndims)};
         mapped_type fn = [=](const std::filesystem::path& config_path,
-                             const GraphLoader& graph_path,
+                             const UnspecializedGraphLoader& graph_loader,
                              const UnspecializedVectorDataLoader& data,
                              svs::DistanceType distance_type,
                              size_t num_threads) {
             return svs::Vamana::assemble<Q>(
                 config_path,
-                graph_path,
+                graph_loader.refine(),
                 data.refine(data_type, ndims),
                 distance_type,
                 num_threads
@@ -152,7 +152,7 @@ template <typename Kind> struct CompressedAssemble_ {
     using key_type = std::tuple<svs::DistanceType, size_t>;
     using mapped_type = std::function<svs::Vamana(
         const std::filesystem::path& /*config_path*/,
-        const GraphLoader& /*graph_loader*/,
+        const UnspecializedGraphLoader& /*graph_loader*/,
         const Kind& /*data_loader*/,
         size_t /*n_threads*/
     )>;
@@ -162,11 +162,15 @@ template <typename Kind> struct CompressedAssemble_ {
     static std::pair<key_type, mapped_type> specialize(Distance distance, Val<N> dims) {
         key_type key = {svs::distance_type_v<Distance>, unwrap(dims)};
         mapped_type fn = [=](const std::filesystem::path& config_path,
-                             const GraphLoader& graph_loader,
+                             const UnspecializedGraphLoader& graph_loader,
                              const Kind& compressor,
                              size_t num_threads) {
             return svs::Vamana::assemble<float>(
-                config_path, graph_loader, compressor.refine(dims), distance, num_threads
+                config_path,
+                graph_loader.refine(),
+                compressor.refine(dims),
+                distance,
+                num_threads
             );
         };
         return std::make_pair(key, std::move(fn));
@@ -216,22 +220,16 @@ template <typename Kind> using CompressedBuild = Dispatcher<CompressedBuild_<Kin
 // Dataset Load Dispatch Logic.
 
 /// @brief Types used for index assembly.
-using VamanaAssembleTypes = std::variant<
-    UnspecializedVectorDataLoader,
-    LVQ4,
-    LVQ8,
-    LVQ4x4,
-    LVQ4x8,
-    LVQ8x8,
-    GlobalQuant8,
-    GlobalQuant4x4>;
+using VamanaAssembleTypes =
+    std::variant<UnspecializedVectorDataLoader, LVQ4, LVQ8, LVQ4x4, LVQ4x8, LVQ8x8>;
 
 /// @brief Types used for index construction.
-using VamanaBuildSourceTypes = std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4>;
+using VamanaBuildSourceTypes =
+    std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4, LVQ4x4>;
 
 svs::Vamana assemble(
     const std::string& config_path,
-    const GraphLoader& graph_file,
+    const UnspecializedGraphLoader& graph_file,
     const VamanaAssembleTypes& data_kind,
     svs::DistanceType distance_type,
     svs::DataType query_type,
@@ -419,6 +417,13 @@ Args:
         ``data_loader`` will with `enable_dims = True` will always attempt to use a generic
         implementation.
     num_threads: The number of threads to use for queries (can be changed after loading).
+
+Data types supported by the loader are the following:
+
+    * ``pysvs.DataType.float32``
+    * ``pysvs.DataType.float16``
+    * ``pysvs.DataType.int8``
+    * ``pysvs.DataType.uint8``
         )"
     );
 

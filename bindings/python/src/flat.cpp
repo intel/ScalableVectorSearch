@@ -115,7 +115,7 @@ template <typename Kind> using CompressedAssembler = Dispatcher<CompressedAssemb
 ///// Load Dataset from Files
 /////
 
-using FlatSourceTypes = std::variant<UnspecializedVectorDataLoader, LVQ8, GlobalQuant8>;
+using FlatSourceTypes = std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4x4>;
 
 svs::Flat assemble(
     const FlatSourceTypes& source,

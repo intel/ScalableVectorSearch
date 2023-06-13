@@ -113,18 +113,4 @@ class DistanceDispatcher {
     DistanceType distance_type_;
 };
 
-///
-/// Hook to allow distance implementations to customize adjusting when performing
-/// self-comparison for a dataset.
-///
-/// Useful when quantization techniques are used that require more processing work to
-/// compare two compressed vectors.
-///
-template <typename Distance, typename VectorType> struct SelfDistance {
-    using type = Distance;
-    static constexpr type modify(const Distance& distance) {
-        return threads::shallow_copy(distance);
-    }
-};
-
 } // namespace svs

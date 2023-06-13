@@ -364,22 +364,43 @@ template <size_t N> struct L2Impl<N, float, Float16> {
 template <size_t N> struct L2Impl<N, Float16, Float16> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm256_setzero_ps();
-        auto mask = create_mask<8>(length);
-        auto all = no_mask<8>();
+        auto sum = _mm512_setzero_ps();
+        auto mask = create_mask<16>(length);
+        auto all = no_mask<16>();
 
-        for (size_t j = 0; j < length.size(); j += 8) {
-            auto va_f16 = _mm_maskz_loadu_epi16(islast<8>(length, j) ? mask : all, a + j);
-            auto vb_f16 = _mm_maskz_loadu_epi16(islast<8>(length, j) ? mask : all, b + j);
-            auto va = _mm256_cvtph_ps(va_f16);
-            auto vb = _mm256_cvtph_ps(vb_f16);
-            auto tmp = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(tmp, tmp, sum);
+        for (size_t j = 0; j < length.size(); j += 16) {
+            auto va_f16 =
+                _mm256_maskz_loadu_epi16(islast<16>(length, j) ? mask : all, a + j);
+            auto vb_f16 =
+                _mm256_maskz_loadu_epi16(islast<16>(length, j) ? mask : all, b + j);
+            auto va = _mm512_cvtph_ps(va_f16);
+            auto vb = _mm512_cvtph_ps(vb_f16);
+            auto tmp = _mm512_sub_ps(va, vb);
+            sum = _mm512_fmadd_ps(tmp, tmp, sum);
         }
 
-        return simd::_mm256_reduce_add_ps(sum);
+        return _mm512_reduce_add_ps(sum);
     };
 };
+
+// template <size_t N> struct L2Impl<N, Float16, Float16> {
+//     SVS_NOINLINE static float
+//     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
+//         auto sum = _mm256_setzero_ps();
+//         auto mask = create_mask<8>(length);
+//         auto all = no_mask<8>();
+//
+//         for (size_t j = 0; j < length.size(); j += 8) {
+//             auto va_f16 = _mm_maskz_loadu_epi16(islast<8>(length, j) ? mask : all, a +
+//             j); auto vb_f16 = _mm_maskz_loadu_epi16(islast<8>(length, j) ? mask : all, b
+//             + j); auto va = _mm256_cvtph_ps(va_f16); auto vb = _mm256_cvtph_ps(vb_f16);
+//             auto tmp = _mm256_sub_ps(va, vb);
+//             sum = _mm256_fmadd_ps(tmp, tmp, sum);
+//         }
+//
+//         return simd::_mm256_reduce_add_ps(sum);
+//     };
+// };
 #endif
 
 /////

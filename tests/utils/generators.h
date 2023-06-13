@@ -111,7 +111,7 @@ template <typename Generator> auto generate(Generator& generator) {
     return generator.get();
 }
 
-template <typename T> struct Populator {};
+template <typename T> struct Populator;
 
 template <typename T> struct Populator<std::vector<T>> {
     template <typename Generator>

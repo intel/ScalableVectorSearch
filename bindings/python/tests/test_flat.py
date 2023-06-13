@@ -54,10 +54,6 @@ class FlatTester(unittest.TestCase):
                 pysvs.DistanceType.L2: 0.9917,
                 pysvs.DistanceType.MIP: 0.99212,
             }),
-            (pysvs.GlobalQuant8(file, 0), {
-                pysvs.DistanceType.L2: 0.98886,
-                pysvs.DistanceType.MIP: 0.99509,
-            }),
         ]
 
     def _do_test(self, flat, queries, groundtruth, expected_recall = 1.0):

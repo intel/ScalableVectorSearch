@@ -39,10 +39,10 @@ template <
 void heuristic_prune_neighbors(
     size_t max_result_size,
     float alpha,
-    const Data& data,
+    const Data& dataset,
     Dist& distance_function,
     size_t current_node_id,
-    std::span<const Neighbors> pool,
+    const std::span<const Neighbors>& pool,
     std::vector<I, Alloc>& result
 ) {
     auto cmp = distance::comparator(distance_function);
@@ -53,32 +53,39 @@ void heuristic_prune_neighbors(
 
     result.clear();
     result.reserve(max_result_size);
-    std::vector<bool> pruned(pool.size(), false);
+    size_t poolsize = pool.size();
+    std::vector<bool> pruned(poolsize, false);
     size_t start = 0;
-    while (result.size() < max_result_size && start < pool.size()) {
-        const auto& sn = pool[start];
-        const auto query = data.get_datum(sn.id());
-        distance::maybe_fix_argument(distance_function, query);
 
-        if (pruned[start] || sn.id() == current_node_id) {
-            start++;
+    while (result.size() < max_result_size && start < poolsize) {
+        auto id = pool[start].id();
+        if (pruned[start] || id == current_node_id) {
+            ++start;
             continue;
         }
-
         pruned[start] = true;
-        result.push_back(sn.id());
-        for (size_t t = start + 1; t < pool.size() && t < max_result_size; t++) {
+
+        // Only once we know this item needs to be processed to we retrieve
+        // the corresponding data and perform preprocessing.
+        const auto& query = dataset.get_datum(id, data::full_access);
+        distance::maybe_fix_argument(distance_function, query);
+        result.push_back(id);
+        for (size_t t = start + 1; t < poolsize; ++t) {
             if (pruned[t]) {
                 continue;
             }
 
-            auto djk =
-                distance::compute(distance_function, query, data.get_datum(pool[t].id()));
-            if (cmp(alpha * djk, pool[t].distance())) {
+            const auto& candidate = pool[t];
+            auto djk = distance::compute(
+                distance_function,
+                query,
+                dataset.get_datum(candidate.id(), data::full_access)
+            );
+            if (cmp(alpha * djk, candidate.distance())) {
                 pruned[t] = true;
             }
         }
-        start++;
+        ++start;
     }
 }
 } // namespace svs::index::vamana

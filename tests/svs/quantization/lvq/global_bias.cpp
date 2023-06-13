@@ -90,13 +90,6 @@ void test_biased_distance(double eps = 0.0001, double margin = 0.01, bool verbos
             CATCH_REQUIRE((a.at(i, j) == target));
         }
     }
-
-    ///// Test Saving and loading.
-    svs_test::prepare_temp_directory();
-    auto dir = svs_test::temp_directory();
-    svs::lib::save(biased_distance, dir);
-    auto other = svs::lib::load<BiasDistance>(dir);
-    CATCH_REQUIRE((biased_distance == other));
 }
 } // namespace
 
@@ -104,7 +97,7 @@ void test_biased_distance(double eps = 0.0001, double margin = 0.01, bool verbos
 ///// Tests
 /////
 
-CATCH_TEST_CASE("Global Vector Bias", "[quantizaiton][global_vector_bias]") {
+CATCH_TEST_CASE("Global Vector Bias", "[quantizaiton][lvq]") {
     test_biased_distance<svs::distance::DistanceL2, lvq::EuclideanBiased>();
     test_biased_distance<svs::distance::DistanceIP, lvq::InnerProductBiased>();
 }

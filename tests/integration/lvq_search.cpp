@@ -51,14 +51,6 @@ template <size_t Primary, size_t Residual, size_t Dims>
 struct NameBuilder<lvq::TwoLevelWithBias<Primary, Residual, Dims>> {
     static std::string key() { return fmt::format("LVQ{}x{}", Primary, Residual); }
 };
-template <size_t Primary, size_t Dims>
-struct NameBuilder<lvq::GlobalOneLevelWithBias<Primary, Dims>> {
-    static std::string key() { return fmt::format("Global{}", Primary); }
-};
-template <size_t Primary, size_t Residual, size_t Dims>
-struct NameBuilder<lvq::GlobalTwoLevelWithBias<Primary, Residual, Dims>> {
-    static std::string key() { return fmt::format("Global{}x{}", Primary, Residual); }
-};
 
 template <typename T> std::string get_key() { return NameBuilder<T>::key(); }
 
@@ -71,9 +63,7 @@ std::vector<std::pair<size_t, double>> get_recall(const std::string& key) {
         {"LVQ4", {{2, 0.4225}, {3, 0.498}, {5, 0.5966}, {10, 0.7055}, {20, 0.7883}}},
         {"LVQ4x4", {{2, 0.4225}, {3, 0.498}, {5, 0.5966}, {10, 0.7055}, {20, 0.7883}}},
         {"LVQ4x8", {{2, 0.4225}, {3, 0.498}, {5, 0.5966}, {10, 0.7055}, {20, 0.7883}}},
-        {"LVQ8x8", {{2, 0.4575}, {3, 0.53833}, {5, 0.6438}, {10, 0.7584}, {20, 0.85925}}},
-        {"Global8", {{2, 0.4565}, {3, 0.538}, {5, 0.6406}, {10, 0.7582}, {20, 0.8602}}},
-        {"Global4x4", {{2, 0.377}, {3, 0.458}, {5, 0.5472}, {10, 0.6396}, {20, 0.7049}}}};
+        {"LVQ8x8", {{2, 0.4575}, {3, 0.53833}, {5, 0.6438}, {10, 0.7584}, {20, 0.85925}}}};
     return map.at(key);
 };
 
@@ -180,9 +170,5 @@ CATCH_TEST_CASE("Testing Search", "[integration][lvq_search]") {
         test_search(lvq::TwoLevelWithBias<4, 4, E>(loader), distance, queries, gt);
         test_search(lvq::TwoLevelWithBias<4, 8, E>(loader), distance, queries, gt);
         test_search(lvq::TwoLevelWithBias<8, 8, E>(loader), distance, queries, gt);
-
-        // Global
-        test_search(lvq::GlobalOneLevelWithBias<8, E>(loader), distance, queries, gt);
-        test_search(lvq::GlobalTwoLevelWithBias<4, 4, E>(loader), distance, queries, gt);
     });
 }

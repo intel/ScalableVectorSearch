@@ -21,6 +21,12 @@
 namespace svs {
 namespace io {
 
+template <typename Ret, typename File, typename Builder>
+Ret load_graph(const File& file, const Builder& builder) {
+    using Idx = typename Ret::index_type;
+    return Ret{load_dataset<Idx, Dynamic>(file, builder)};
+}
+
 ///
 /// Simple
 ///
@@ -28,7 +34,7 @@ namespace io {
 // Reader rvalue reference overload.
 template <typename Idx, typename File, typename Allocator>
 graphs::SimpleGraph<Idx> load_simple_graph(const File& file, const Allocator& allocator) {
-    return graphs::SimpleGraph<Idx>(load_dataset<Idx, Dynamic>(file, allocator));
+    return load_graph<graphs::SimpleGraph<Idx>>(file, data::PolymorphicBuilder{allocator});
 }
 
 ///
@@ -37,14 +43,7 @@ graphs::SimpleGraph<Idx> load_simple_graph(const File& file, const Allocator& al
 
 template <typename Idx, typename File>
 graphs::SimpleBlockedGraph<Idx> load_blocked_graph(const File& file) {
-    return graphs::SimpleBlockedGraph<Idx>(load_blocked<Idx, Dynamic>(file));
-}
-
-// Load with a variant argument.
-// TODO: Fix me!!!
-template <typename Idx, typename File, typename Allocator>
-graphs::SimpleGraph<Idx> load_graph(const File& file, const Allocator& allocator) {
-    return load_simple_graph<Idx>(file, allocator);
+    return load_graph<graphs::SimpleBlockedGraph<Idx>>(file, data::BlockedBuilder());
 }
 
 /////

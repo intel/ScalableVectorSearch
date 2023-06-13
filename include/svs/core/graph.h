@@ -22,27 +22,46 @@
 
 namespace svs {
 
-///
-/// @brief The default graph type.
-///
-template <typename Idx = uint32_t> using DefaultGraph = graphs::SimpleGraph<Idx>;
+namespace detail {
+// Mapping of back-end data builders to the resolved graphtype.
+template <typename Idx, typename Builder> struct GraphMapping;
+
+// Deine for the PolymorphicBuilder
+template <typename Idx, typename Allocator>
+struct GraphMapping<Idx, data::PolymorphicBuilder<Allocator>> {
+    using type = graphs::SimpleGraph<Idx>;
+};
+
+// Define for the BlockedBuilder
+template <typename Idx> struct GraphMapping<Idx, data::BlockedBuilder> {
+    using type = graphs::SimpleBlockedGraph<Idx>;
+};
+
+} // namespace detail
 
 ///
 /// @brief Loader for SVS graphs.
 ///
 /// @tparam Idx The type used to encode nodes in the graph.
-/// @tparam Allocator The allocator to use for the graph's memory.
+/// @tparam Builder The builder for the backing data for the graph.
 ///
-template <typename Idx = uint32_t, typename Allocator = HugepageAllocator>
+template <
+    typename Idx = uint32_t,
+    typename Builder = data::PolymorphicBuilder<HugepageAllocator>>
 struct GraphLoader {
+    // Type aliases
+    using return_type = typename detail::GraphMapping<Idx, Builder>::type;
+
     /// @brief Default constructor.
     GraphLoader()
-        : allocator_{} {}
-    GraphLoader(lib::InferPath SVS_UNUSED(tag), Allocator allocator = {})
-        : allocator_{std::move(allocator)}
+        : builder_{} {}
+    GraphLoader(lib::InferPath SVS_UNUSED(tag))
+        : path_{std::nullopt} {}
+
+    GraphLoader(lib::InferPath SVS_UNUSED(tag), Builder builder)
+        : builder_{std::move(builder)}
         , path_{std::nullopt} {}
 
-    ///
     /// @brief Construct a new GraphLoader
     ///
     /// @param path The file path to the graph directory on disk.
@@ -51,17 +70,20 @@ struct GraphLoader {
     /// The saved graph diredctory will generally be created when saving a graph based
     /// index. The ``path`` argument should be this directory.
     ///
-    GraphLoader(const std::filesystem::path& path, Allocator allocator = {})
-        : allocator_{std::move(allocator)}
+    GraphLoader(const std::filesystem::path& path)
+        : path_{path} {}
+
+    GraphLoader(const std::filesystem::path& path, Builder builder)
+        : builder_{std::move(builder)}
         , path_{path} {}
 
     // Return a graph loaded from the provided file.
-    DefaultGraph<Idx> unsafe_load_direct() const {
-        return io::load_graph<Idx>(*path_, allocator_);
+    return_type unsafe_load_direct() const {
+        return io::load_graph<return_type>(path_.value(), builder_);
     }
 
     /// @brief Load the graph into memory.
-    DefaultGraph<Idx> load() const {
+    return_type load() const {
         // First, check that a file in the optional actually exists.
         if (!path_.has_value()) {
             throw ANNEXCEPTION("Trying to load a graph providing a file path!");
@@ -82,7 +104,7 @@ struct GraphLoader {
         return unsafe_load_direct();
     }
 
-    DefaultGraph<Idx> load_from_table(
+    return_type load_from_table(
         const toml::table& table, const lib::LoadContext& ctx, const lib::Version version
     ) const {
         if (version != lib::Version(0, 0, 0)) {
@@ -108,12 +130,12 @@ struct GraphLoader {
         if (!binaryfile.has_value()) {
             throw ANNEXCEPTION("Could not open file with uuid ", uuid.str(), '!');
         }
-        return io::load_graph<Idx>(binaryfile.value(), allocator_);
+        return io::load_graph<return_type>(binaryfile.value(), builder_);
     }
 
     ///// Members
-    Allocator allocator_;
-    std::optional<std::filesystem::path> path_ = {};
+    Builder builder_{};
+    std::optional<std::filesystem::path> path_{};
 };
 
 ///
@@ -124,7 +146,7 @@ struct GraphLoader {
 /// @param allocator The allocator to use for the graph.
 ///
 template <typename Idx = uint32_t, typename Allocator = HugepageAllocator>
-DefaultGraph<Idx> default_graph(
+graphs::SimpleGraph<Idx> default_graph(
     size_t num_nodes, size_t max_degree, const Allocator& allocator = HugepageAllocator()
 ) {
     return graphs::SimpleGraph<Idx>(allocator, num_nodes, max_degree);

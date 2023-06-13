@@ -77,10 +77,17 @@ def read_svs(filename: str, dtype = np.float32):
         A numpy matrix with the results.
     """
     with open(filename, "rb") as fin:
+        # Read through the magic number
+        struct.unpack('q', fin.read(8))
+        # Read throug the UUID
+        _uuid = struct.unpack('q', fin.read(8))
+        _uuid = struct.unpack('q', fin.read(8))
+
+        # Get the number of vectors and the dimensionality.
         nvectors = struct.unpack('q', fin.read(8))[0]
         vec_size = struct.unpack('q', fin.read(8))[0]
 
-    header_size = 64
+    header_size = 1024
     X = np.fromfile(filename, dtype = dtype, offset = header_size)
     return np.ascontiguousarray(X.reshape((-1, vec_size)))
 

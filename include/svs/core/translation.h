@@ -22,6 +22,7 @@
 #include "svs/lib/narrow.h"
 #include "svs/lib/readwrite.h"
 #include "svs/lib/saveload.h"
+#include "svs/lib/threads.h"
 
 #include "svs/third-party/fmt.h"
 
@@ -44,7 +45,19 @@ class IDTranslator {
         tsl::robin_map<external_id_type, internal_id_type>::const_iterator;
     using value_type = typename const_iterator::value_type;
 
+    // Construct the identity transformation of size `n`.
+    struct Identity {
+        Identity() = delete;
+        Identity(size_t n)
+            : n_{n} {}
+        size_t n_;
+    };
+
     IDTranslator() = default;
+    IDTranslator(Identity tag) {
+        auto ids = threads::UnitRange<size_t>{0, tag.n_};
+        insert(ids, ids);
+    }
 
     ///
     /// @brief Return the number of translations.

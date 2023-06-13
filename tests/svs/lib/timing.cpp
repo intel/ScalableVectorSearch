@@ -46,13 +46,15 @@ CATCH_TEST_CASE("Timing", "[lib][timing]") {
     CATCH_SECTION("TimeData") {
         auto x = svs::lib::TimeData();
         CATCH_REQUIRE(x.num_calls == 0);
-        CATCH_REQUIRE(x.time == std::chrono::nanoseconds(0));
+        CATCH_REQUIRE(x.total_time == std::chrono::nanoseconds(0));
 
         x = svs::lib::TimeData(10, std::chrono::nanoseconds(100));
         auto y = svs::lib::TimeData(20, std::chrono::nanoseconds(210));
         x += y;
         CATCH_REQUIRE(x.num_calls == 10 + 20);
-        CATCH_REQUIRE(x.time == std::chrono::nanoseconds(310));
+        CATCH_REQUIRE(x.total_time == std::chrono::nanoseconds(310));
+        CATCH_REQUIRE(x.min_time == std::chrono::nanoseconds(100));
+        CATCH_REQUIRE(x.max_time == std::chrono::nanoseconds(210));
     }
 
     CATCH_SECTION("Basic") {

@@ -72,6 +72,7 @@ int svs_main(std::vector<std::string> args) {
         alpha,
         max_candidates,
         construction_window_size,
+        true,
         search_window_size,
         visited_set};
 
