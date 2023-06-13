@@ -54,7 +54,7 @@ template <size_t N> class MaybeStatic {
 
     /// Return the stored size.
     constexpr static size_t size() { return N; };
-    constexpr operator size_t() { return size(); }
+    constexpr operator size_t() const { return size(); }
 
     template <size_t Step> constexpr bool islast(size_t i) const {
         constexpr size_t last_iter = Step * (lib::div_round_up(N, Step) - 1);
@@ -79,7 +79,7 @@ template <> class MaybeStatic<Dynamic> {
 
     /// Return the stored size.
     constexpr size_t size() const { return size_; };
-    constexpr operator size_t() { return size(); }
+    constexpr operator size_t() const { return size(); }
 
     template <size_t Step> constexpr bool islast(size_t i) const {
         const size_t last_iter = Step * (lib::div_round_up(size(), Step) - 1);

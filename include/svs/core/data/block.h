@@ -11,18 +11,21 @@
 
 #pragma once
 
-#include <cmath>
-#include <span>
-#include <vector>
-
-// #include "svs/allocators/allocator.h"
 #include "svs/concepts/data.h"
 #include "svs/core/allocator.h"
+#include "svs/core/compact.h"
+#include "svs/core/data/simple.h"
 #include "svs/lib/array.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/prefetch.h"
+#include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
+#include "svs/third-party/toml.h"
+
+#include <cmath>
+#include <span>
+#include <vector>
 
 namespace svs {
 namespace data {
@@ -49,6 +52,10 @@ template <typename T, size_t Extent = Dynamic> class BlockedData {
     using element_type = T;
     using value_type = std::span<T, Extent>;
     using const_value_type = std::span<const T, Extent>;
+
+    // Mode API
+    template <AccessMode = DefaultAccess> using mode_const_value_type = const_value_type;
+    template <AccessMode = DefaultAccess> using mode_value_type = value_type;
 
     ///// Constructors
     BlockedData(
@@ -159,21 +166,25 @@ template <typename T, size_t Extent = Dynamic> class BlockedData {
         }
     }
 
-    const_value_type get_datum(size_t i) const {
+    template <AccessMode Mode = DefaultAccess>
+    const_value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) const {
         auto [block_id, data_id] = resolve(i);
         return getindex(blocks_, block_id).slice(data_id);
     }
 
-    value_type get_datum(size_t i) {
+    template <AccessMode Mode = DefaultAccess>
+    value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) {
         auto [block_id, data_id] = resolve(i);
         return getindex(blocks_, block_id).slice(data_id);
     }
 
-    void prefetch(size_t i) const { lib::prefetch(get_datum(i)); }
+    template <AccessMode Mode = DefaultAccess>
+    void prefetch(size_t i, Mode SVS_UNUSED(mode) = {}) const {
+        lib::prefetch(get_datum(i));
+    }
 
-    template <typename U, size_t OtherExtent>
-        requires std::is_convertible_v<std::remove_const_t<U>, T>
-    void set_datum(size_t i, std::span<U, OtherExtent> datum) {
+    template <typename U, size_t OtherExtent, AccessMode Mode = DefaultAccess>
+    void set_datum(size_t i, std::span<U, OtherExtent> datum, Mode SVS_UNUSED(mode) = {}) {
         if constexpr (checkbounds_v) {
             if (datum.size() != dimensions()) {
                 throw ANNEXCEPTION(
@@ -185,11 +196,21 @@ template <typename T, size_t Extent = Dynamic> class BlockedData {
                 );
             }
         }
-        std::copy(datum.begin(), datum.end(), get_datum(i).begin());
+
+        if constexpr (std::is_same_v<T, std::remove_const_t<U>>) {
+            std::copy(datum.begin(), datum.end(), get_datum(i).begin());
+        } else {
+            std::transform(
+                datum.begin(),
+                datum.end(),
+                get_datum(i).begin(),
+                [](const U& u) { return lib::relaxed_narrow<T>(u); }
+            );
+        }
     }
 
-    template <typename U, typename Alloc>
-    void set_datum(size_t i, const std::vector<U, Alloc>& v) {
+    template <typename U, typename Alloc, AccessMode Mode = DefaultAccess>
+    void set_datum(size_t i, const std::vector<U, Alloc>& v, Mode SVS_UNUSED(mode) = {}) {
         set_datum(i, lib::as_span(v));
     }
 
@@ -205,6 +226,38 @@ template <typename T, size_t Extent = Dynamic> class BlockedData {
         return other;
     }
 
+    // Distance Adaptors
+    template <typename Distance> static Distance adapt_distance(const Distance& distance) {
+        return threads::shallow_copy(distance);
+    }
+
+    template <typename Distance> static Distance self_distance(const Distance& distance) {
+        return threads::shallow_copy(distance);
+    }
+
+    ///// Compaction
+    template <typename I, typename Alloc, threads::ThreadPool Pool>
+    void compact(
+        const std::vector<I, Alloc>& new_to_old,
+        Pool& threadpool,
+        size_t batchsize = 1'000'000
+    ) {
+        // Alllocate scratch space.
+        auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
+        compact_data(*this, buffer, new_to_old, threadpool);
+    }
+
+    template <typename I, typename Alloc>
+    void compact(const std::vector<I, Alloc>& new_to_old, size_t batchsize = 1'000'000) {
+        auto pool = threads::SequentialThreadPool();
+        compact(new_to_old, pool, batchsize);
+    }
+
+    ///// Saving
+    lib::SaveType save(const lib::SaveContext& ctx) const {
+        return GenericSaver(*this).save(ctx);
+    }
+
   private:
     // The block size for elements in the dataset.
     lib::PowerOfTwo blocksize_;
@@ -215,6 +268,24 @@ template <typename T, size_t Extent = Dynamic> class BlockedData {
 
     // The block size in bytes.
     lib::PowerOfTwo blocksize_bytes_;
+};
+
+class BlockedBuilder {
+  public:
+    BlockedBuilder() = default;
+
+    template <typename T, size_t Extent = Dynamic>
+    using return_type = data::BlockedData<T, Extent>;
+
+    // Allocate a blocked dataset.
+    template <typename T, size_t Extent = Dynamic>
+    return_type<T, Extent> build(size_t size, size_t dimensions) const {
+        return data::BlockedData<T, Extent>(size, dimensions);
+    }
+
+    // TODO: Save blocking parameters to the toml file to allow them to be
+    // reloaded.
+    void load_hook(const toml::table&) const {}
 };
 
 } // namespace data

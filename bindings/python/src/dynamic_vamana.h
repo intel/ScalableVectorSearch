@@ -11,8 +11,28 @@
 
 #pragma once
 
+#include "core.h"
+
 #include <pybind11/pybind11.h>
 
 namespace dynamic_vamana {
+
+// Specializations
+template <typename F> void for_standard_specializations(F&& f) {
+#define X(Q, T, Dist, N) f(Type<Q>(), Type<T>(), Dist(), Val<N>())
+    X(float, float, DistanceL2, svs::Dynamic);
+    X(float, float, DistanceIP, svs::Dynamic);
+    X(float, svs::Float16, DistanceL2, svs::Dynamic);
+    X(float, svs::Float16, DistanceIP, svs::Dynamic);
+#undef X
+}
+
+template <typename F> void for_compressed_specializations(F&& f) {
+#define X(Dist, N) f(Dist(), Val<N>())
+    X(DistanceL2, svs::Dynamic);
+    X(DistanceIP, svs::Dynamic);
+#undef X
+}
+
 void wrap(pybind11::module& m);
 } // namespace dynamic_vamana

@@ -23,12 +23,3 @@ These methods are documented below.
 .. doxygenfunction:: svs::index::vamana::auto_build
    :project: SVS
 
-Vamana Utility Classes
-----------------------
-
-Miscellaneous helper classes and functions to be used with the VamanaIndex are documented in this section.
-
-.. doxygenstruct:: svs::index::vamana::NoPostOp
-   :project: SVS
-   :members:
-

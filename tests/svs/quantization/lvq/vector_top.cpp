@@ -20,7 +20,7 @@
 
 namespace lvq = svs::quantization::lvq;
 
-CATCH_TEST_CASE("Vector Quantization Top", "[quantization][vector_quantization]") {
+CATCH_TEST_CASE("Vector Quantization Top", "[quantization][lvq]") {
     CATCH_SECTION("GlobalMinMax") {
         auto extrema = lvq::GlobalMinMax();
 

@@ -14,9 +14,6 @@ Graph Loading
    :project: SVS
    :members:
 
-.. doxygentypedef:: svs::DefaultGraph
-   :project: SVS
-
 .. NOTE::
 
    The various graph implementations given above are all instances of the more general concept :cpp:concept:`svs::graphs::ImmutableMemoryGraph`.

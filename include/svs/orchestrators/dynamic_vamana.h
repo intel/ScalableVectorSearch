@@ -88,6 +88,8 @@ class DynamicVamana
   public:
     using base_type = manager::IndexManager<DynamicVamanaInterface, DynamicVamanaImpl>;
 
+    struct AssembleTag {};
+
     ///
     /// @brief Construct a new DynamicVamana instance.
     ///
@@ -97,6 +99,13 @@ class DynamicVamana
     template <typename Impl>
     explicit DynamicVamana(std::unique_ptr<Impl> impl)
         : base_type{std::move(impl)} {}
+
+    template <typename QueryType, typename Impl>
+    explicit DynamicVamana(
+        AssembleTag SVS_UNUSED(tag), Type<QueryType> SVS_UNUSED(type), Impl impl
+    )
+        : base_type{std::make_unique<DynamicVamanaImpl<QueryType, Impl>>(std::move(impl))} {
+    }
 
     ///// Vamana Interface
 
@@ -173,6 +182,14 @@ class DynamicVamana
         return v;
     }
 
+    void save(
+        const std::filesystem::path& config_dir,
+        const std::filesystem::path& graph_dir,
+        const std::filesystem::path& data_dir
+    ) {
+        impl_->save(config_dir, graph_dir, data_dir);
+    }
+
     // Building
     template <typename QueryType, data::ImmutableMemoryDataset Data, typename Distance>
     static DynamicVamana build(
@@ -185,6 +202,34 @@ class DynamicVamana
         fmt::print("Entering build!\n");
         return make_dynamic_vamana<QueryType>(
             parameters, std::move(data), ids, std::move(distance), num_threads
+        );
+    }
+
+    // Assembly
+    template <
+        typename QueryType,
+        typename GraphLoader,
+        typename DataLoader,
+        typename Distance>
+    static DynamicVamana assemble(
+        const std::filesystem::path& config_path,
+        const GraphLoader& graph_loader,
+        const DataLoader& data_loader,
+        const Distance& distance,
+        size_t num_threads,
+        bool debug_load_from_static = false
+    ) {
+        return DynamicVamana(
+            AssembleTag(),
+            Type<QueryType>(),
+            index::vamana::auto_dynamic_assemble(
+                config_path,
+                graph_loader,
+                data_loader,
+                distance,
+                num_threads,
+                debug_load_from_static
+            )
         );
     }
 };

@@ -293,7 +293,7 @@ namespace v1 {
 // The rest is padding.
 static constexpr size_t header_size = 1024; // bytes
 static constexpr size_t header_padding =
-    header_size - 3 * sizeof(size_t) - sizeof(lib::UUID);
+    header_size - 3 * sizeof(uint64_t) - sizeof(lib::UUID);
 
 /// @brief The magic number for V1 encoded files.
 static constexpr uint64_t magic_number = 0xcad4a6b2579980fe;
@@ -365,7 +365,8 @@ template <typename T = void> class Writer {
     void writeheader(bool resume = true) {
         auto position = stream_.tellp();
         // Write to the header the number of vectors actually written.
-        stream_.seekp(0, std::ofstream::beg);
+        stream_.seekp(0);
+        assert(stream_.good());
         lib::write_binary(stream_, Header(vectors_written_, dimension_, uuid_));
         if (resume) {
             stream_.seekp(position, std::ofstream::beg);
@@ -382,23 +383,8 @@ template <typename T = void> class Writer {
     // `std::ofstream` isn't copyable anyways.
     Writer(const Writer&) = delete;
     Writer& operator=(const Writer&) = delete;
-
-    // For the move constructor, the compiler generated default is fine because there
-    // is no clean up work to be done.
-    Writer(Writer&& other) noexcept = default;
-
-    // For the move assignment operator, we need to make sure the moved-out object is
-    // cleaned up correctly.
-    Writer& operator=(Writer&& other) noexcept {
-        if (this != &other) {
-            writeheader();
-            stream_ = std::move(other.stream_);
-            dimension_ = other.dimension_;
-            writes_this_vector_ = other.writes_this_vector_;
-            vectors_written_ = other.vectors_written_;
-        }
-        return *this;
-    }
+    Writer(Writer&&) = delete;
+    Writer& operator=(Writer&&) = delete;
 
     // Write the header for the file.
     ~Writer() noexcept { writeheader(); }

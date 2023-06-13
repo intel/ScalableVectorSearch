@@ -53,8 +53,7 @@ void convert(
         std::move(data),
         svs::lib::narrow<uint32_t>(entry_point),
         Distance(),
-        1,
-        svs::index::vamana::UncompressedSaver()};
+        1};
 
     index.set_alpha(alpha);
     index.set_construction_window_size(construction_window_size);

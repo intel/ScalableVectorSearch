@@ -74,12 +74,12 @@ inline constexpr size_t round_up_to_multiple_of(size_t x, size_t multiple_of) {
 /// Construct a span for a vector.
 ///
 template <typename T, typename Alloc> std::span<T> as_span(std::vector<T, Alloc>& v) {
-    return std::span<T>(v.data(), v.size());
+    return std::span<T>(v);
 }
 
 template <typename T, typename Alloc>
 std::span<const T> as_const_span(const std::vector<T, Alloc>& v) {
-    return std::span<const T>(v.data(), v.size());
+    return std::span<const T>(v);
 }
 
 template <typename T, typename Alloc>
@@ -102,7 +102,7 @@ std::span<T, N> as_span(std::vector<T, Alloc>& v) {
         return as_span(v);
     } else {
         detail::bounds_check(v.size(), N);
-        return std::span<T, N>(v.data(), v.size());
+        return std::span<T, N>(v);
     }
 }
 
@@ -112,7 +112,7 @@ std::span<const T, N> as_const_span(const std::vector<T, Alloc>& v) {
         return as_const_span(v);
     } else {
         detail::bounds_check(v.size(), N);
-        return std::span<const T, N>(v.data(), v.size());
+        return std::span<const T, N>(v);
     }
 }
 
@@ -305,4 +305,23 @@ inline PowerOfTwo prevpow2(size_t value) {
     const size_t max_leading_zeros = 8 * sizeof(size_t) - 1;
     return PowerOfTwo{max_leading_zeros - leading_zeros};
 };
+
+// ///
+// /// @brief A boolean-like class that occupies a full by when used in a ``std::vector``.
+// ///
+// class Bool {
+//   public:
+//     constexpr Bool() = default;
+//     constexpr explicit Bool(bool value)
+//         : value_{value} {}
+//     constexpr Bool& operator=(bool value) {
+//         value_ = value;
+//         return *this;
+//     }
+//     [[nodiscard]] constexpr operator bool() const { return value_; }
+//
+//   private:
+//     bool value_ = false;
+// };
+
 } // namespace svs::lib

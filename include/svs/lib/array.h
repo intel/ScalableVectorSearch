@@ -372,9 +372,11 @@ class DenseArray {
     /// @brief Return a mutable view over the memory of this array.
     DenseArray<T, Dims, T*> view() { return DenseArray<T, Dims, T*>(begin(), dims_); }
     /// @brief Return a constant view over the memory of this array.
-    DenseArray<const T, Dims, const T*> view() const {
+    DenseArray<const T, Dims, const T*> cview() const {
         return DenseArray<const T, Dims, const T*>(begin(), dims_);
     }
+    /// @brief Return a constant view over the memory of this array.
+    DenseArray<const T, Dims, const T*> view() const { return cview(); }
 
   private:
     Base base_;

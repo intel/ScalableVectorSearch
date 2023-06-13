@@ -111,13 +111,17 @@ template <size_t Bits, size_t Extent> class MinRange : public CVStorage {
     }
 
     // Compression Operator.
-    return_type operator()(lib::AnySpanLike auto data) {
+    return_type operator()(lib::AnySpanLike auto data, selector_t selector = 0) {
         // Find the maximum absolute value of the data to encode.
         auto [min, max] = extrema(data);
 
         float bias = min;
-        float decompressor = (max - min) / max_s;
-        float compressor = max_s / (max - min);
+        float decompressor = 1;
+        float compressor = 1;
+        if (max != min) {
+            decompressor = (max - min) / max_s;
+            compressor = max_s / (max - min);
+        }
 
         auto cv = view<Unsigned, Bits, Extent>(size_);
         for (size_t i = 0; i < data.size(); ++i) {
@@ -126,7 +130,7 @@ template <size_t Bits, size_t Extent> class MinRange : public CVStorage {
             cv.set(compressed, i);
         }
 
-        return return_type{decompressor, bias, cv};
+        return return_type{decompressor, bias, selector, cv};
     }
 
   private:

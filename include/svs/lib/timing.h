@@ -83,17 +83,30 @@ inline std::pair<double, std::string_view> pretty_number(double seconds) {
 }
 
 struct TimeData {
-    uint64_t num_calls = 0;
-    std::chrono::nanoseconds time{0};
+    // Type aliases
+    using ns = std::chrono::nanoseconds;
 
+    // Members
+  public:
+    uint64_t num_calls = 0;
+    ns total_time{0};
+    ns min_time = ns::max();
+    ns max_time = ns::min();
+
+    // Methods
+  public:
     constexpr TimeData() = default;
-    explicit constexpr TimeData(uint64_t num_calls, std::chrono::nanoseconds time)
+    explicit constexpr TimeData(uint64_t num_calls, ns time)
         : num_calls{num_calls}
-        , time{time} {}
+        , total_time{time}
+        , min_time{time}
+        , max_time{time} {}
 
     constexpr TimeData& operator+=(TimeData other) {
         num_calls += other.num_calls;
-        time += other.time;
+        total_time += other.total_time;
+        min_time = std::min(min_time, other.min_time);
+        max_time = std::max(max_time, other.max_time);
         return *this;
     }
 };
@@ -217,7 +230,7 @@ class Timer {
     }
 
     /// Return the accumulated time from all calls.
-    std::chrono::nanoseconds get_time() const { return accumulated_data_.time; }
+    std::chrono::nanoseconds get_time() const { return accumulated_data_.total_time; }
 
     /// Return the number of times this timer was called.
     uint64_t get_num_calls() const { return accumulated_data_.num_calls; }
@@ -254,12 +267,14 @@ class Timer {
         auto section_length = std::max(longest_name(), size_t(7)) + indent_size;
         auto padding = std::string(section_length - 7, ' ');
         auto str = fmt::format(
-            "Section{}{:>10}{:>13}{:>12}{:>13}",
+            "Section{}{:>10}{:>13}{:>12}{:>13}{:>13}{:>13}",
             padding,
             "num calls",
             "time",
             "%",
-            "average"
+            "average",
+            "min",
+            "max"
         );
 
         auto hyphens = std::string(str.size(), '-');
@@ -291,23 +306,29 @@ class Timer {
     ) const {
         auto prefix = std::string(this_indent, ' ');
         auto padding = std::string(section_length - this_indent - label.size(), ' ');
-        auto [num_calls, time] = accumulated_data_;
-        auto time_seconds = as_seconds(time);
+        auto [num_calls, total_time, min_time, max_time] = accumulated_data_;
+        auto total_time_seconds = as_seconds(total_time);
 
-        auto [time_format, time_units] = pretty_number(time);
-        auto [avg_format, avg_units] = pretty_number(time_seconds / num_calls);
+        auto [time_format, time_units] = pretty_number(total_time);
+        auto [avg_format, avg_units] = pretty_number(total_time_seconds / num_calls);
+        auto [min_time_format, min_time_units] = pretty_number(min_time);
+        auto [max_time_format, max_time_units] = pretty_number(max_time);
 
         fmt::print(
-            "{}{}{}{:10}{:10.4}{:>3}{:12.4}{:10.4}{:>3}\n",
+            "{}{}{}{:10}{:10.4}{:>3}{:12.4}{:10.4}{:>3}{:10.4}{:>3}{:10.4}{:>3}\n",
             prefix,
             label,
             padding,
             num_calls,
             time_format,
             time_units,
-            time_seconds / measured_time,
+            total_time_seconds / measured_time,
             avg_format,
-            avg_units
+            avg_units,
+            min_time_format,
+            min_time_units,
+            max_time_format,
+            max_time_units
         );
         for (const auto& it : subtimers()) {
             (it.second)->print_inner(

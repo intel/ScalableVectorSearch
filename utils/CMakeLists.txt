@@ -22,6 +22,8 @@ function(create_utility exe file)
     endif()
 endfunction()
 
+create_utility(graph_stat graph_stat.cpp)
+
 # Legacy conversion routines.
 create_utility(convert_legacy convert_legacy.cpp)
 create_utility(assemble_vamana assemble_vamana.cpp)
@@ -31,15 +33,13 @@ create_utility(build_index build_index.cpp)
 create_utility(compute_recall compute_recall.cpp)
 create_utility(convert_data_to_float16 convert_data_to_float16.cpp)
 create_utility(search_index search_index.cpp)
-# if (SVS_ENABLE_NUMA)
-#     create_utility(search_index_numa search_index_numa.cpp)
-# endif()
 create_utility(consolidate characterization/consolidate.cpp)
 create_utility(mutable characterization/mutable.cpp)
 
 # Quantization
 create_utility(build_quantized quantization/build_quantized.cpp)
-# create_utility(experiment quantization/experiment.cpp)
+create_utility(dynamic_lvq quantization/dynamic_lvq.cpp)
+# create_utility(clustered_lvq quantization/clustered_lvq.cpp)
 
 # Benchmark
 create_utility(benchmark_index_build benchmarks/index_build.cpp)

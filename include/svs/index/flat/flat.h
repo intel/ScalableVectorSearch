@@ -293,7 +293,9 @@ class FlatIndex {
             [&](const auto& query_indices, uint64_t /*tid*/) {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
-                distance::BroadcastDistance distances{distance_, query_indices.size()};
+                distance::BroadcastDistance distances{
+                    data_.adapt_distance(distance_), query_indices.size()};
+
                 search_patch(
                     queries,
                     data_indices,
@@ -311,13 +313,16 @@ class FlatIndex {
     //
     // Insert the computed distance for each query/distance pair into `scratch`, which
     // will maintain the correct number of nearest neighbors.
-    template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
+    template <
+        typename QueryType,
+        typename DistFull,
+        typename Pred = lib::Returns<lib::Const<true>>>
     void search_patch(
         const data::ConstSimpleDataView<QueryType>& queries,
         const threads::UnitRange<size_t>& data_indices,
         const threads::UnitRange<size_t>& query_indices,
         sorter_type& scratch,
-        distance::BroadcastDistance<distance_type>& distance_functors,
+        distance::BroadcastDistance<DistFull>& distance_functors,
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         assert(distance_functors.size() >= query_indices.size());
@@ -325,7 +330,7 @@ class FlatIndex {
         // Fix arguments
         for (size_t i = 0; i < query_indices.size(); ++i) {
             distance::maybe_fix_argument(
-                distance_functors[i], queries.get_datum(query_indices[i])
+                distance_functors[i], queries.get_datum(query_indices[i], data::full_access)
             );
         }
 
@@ -335,7 +340,7 @@ class FlatIndex {
                 continue;
             }
 
-            auto datum = data_.get_datum(data_index);
+            auto datum = data_.get_datum(data_index, data::full_access);
 
             // Loop over the queries.
             // Compute the distance between each query and the dataset element and insert
@@ -343,7 +348,9 @@ class FlatIndex {
             for (size_t i = 0; i < query_indices.size(); ++i) {
                 auto query_index = query_indices[i];
                 auto d = distance::compute(
-                    distance_functors[i], queries.get_datum(query_index), datum
+                    distance_functors[i],
+                    queries.get_datum(query_index, data::full_access),
+                    datum
                 );
                 scratch.insert(query_index, {data_index, d});
             }
@@ -387,42 +394,31 @@ class FlatIndex {
 };
 
 /// @brief Forward an existing dataset.
-template <data::ImmutableMemoryDataset Data, typename Distance, threads::ThreadPool Pool>
-std::tuple<Data&&, Distance> load_dataset(
-    NoopLoaderTag SVS_UNUSED(tag), Data&& data, Distance distance, Pool& /*threadpool*/
+template <data::ImmutableMemoryDataset Data, threads::ThreadPool Pool>
+Data&& load_dataset(
+    NoopLoaderTag SVS_UNUSED(tag), Data&& data, Pool& /*threadpool*/
 ) {
-    return std::tuple<Data&&, Distance>(std::forward<Data>(data), std::move(distance));
+    return std::forward<Data>(data);
 }
 
 /// @brief Load a standard dataset.
-template <typename T, size_t Extent, typename Distance, threads::ThreadPool Pool>
-std::tuple<DefaultDataset<T, Extent>, Distance> load_dataset(
+template <typename T, size_t Extent, typename Builder, threads::ThreadPool Pool>
+typename VectorDataLoader<T, Extent, Builder>::return_type load_dataset(
     VectorDataLoaderTag SVS_UNUSED(tag),
-    const VectorDataLoader<T, Extent>& loader,
-    Distance distance,
+    const VectorDataLoader<T, Extent, Builder>& loader,
     Pool& /*threadpool*/
 ) {
-    return std::make_tuple(loader.load(), std::move(distance));
+    return loader.load();
 }
 
 /// @brief Load a compressed dataset.
-template <typename Loader, typename Distance, threads::ThreadPool Pool>
+template <typename Loader, threads::ThreadPool Pool>
 auto load_dataset(
-    quantization::lvq::CompressorTag SVS_UNUSED(tag),
-    const Loader& loader,
-    Distance distance,
-    Pool& threadpool
+    quantization::lvq::CompressorTag SVS_UNUSED(tag), const Loader& loader, Pool& threadpool
 ) {
-    auto bundle = loader.load(distance, threadpool.size());
-
-    // No support for two-level quantization yet.
-    static_assert(
-        std::is_same_v<
-            std::decay_t<decltype(bundle.residual)>,
-            quantization::lvq::NoResidual>,
-        "Flat index does not yet support two-level LVQ!"
+    return loader.load(
+        svs::data::PolymorphicBuilder<HugepageAllocator>(), threadpool.size()
     );
-    return std::make_tuple(std::move(bundle.main), std::move(bundle.distance));
 }
 
 ///
@@ -458,13 +454,12 @@ auto auto_assemble(
     DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto
 ) {
     auto threadpool = threads::as_threadpool(threadpool_proto);
-    auto [data, final_distance] = load_dataset(
+    auto data = load_dataset(
         lib::loader_tag<std::decay_t<DataProto>>,
         std::forward<DataProto>(data_proto),
-        std::move(distance),
         threadpool
     );
-    return FlatIndex(std::move(data), std::move(final_distance), std::move(threadpool));
+    return FlatIndex(std::move(data), std::move(distance), std::move(threadpool));
 }
 
 /// @brief Alias for a short-lived flat index.

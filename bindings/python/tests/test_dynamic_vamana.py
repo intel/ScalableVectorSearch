@@ -14,6 +14,8 @@ import pysvs
 
 # stdlib
 import unittest
+import os
+from tempfile import TemporaryDirectory
 
 # helpers
 from .dynamic import ReferenceDataset
@@ -48,6 +50,33 @@ class DynamicVamanaTester(unittest.TestCase):
         self.assertTrue(recall < expected_recall + recall_delta)
         self.assertTrue(recall > expected_recall - recall_delta)
 
+        # Make sure saving and reloading work.
+        with TemporaryDirectory() as tempdir:
+            configdir = os.path.join(tempdir, "config")
+            graphdir = os.path.join(tempdir, "graph")
+            datadir = os.path.join(tempdir, "data")
+            index.save(configdir, graphdir, datadir);
+
+            reloaded = pysvs.DynamicVamana(
+                configdir,
+                pysvs.GraphLoader(graphdir),
+                pysvs.VectorDataLoader(datadir, pysvs.DataType.float32),
+                pysvs.DistanceType.L2,
+                num_threads = 2,
+            )
+
+            self.assertEqual(index.search_window_size, reloaded.search_window_size)
+            self.assertEqual(index.alpha, reloaded.alpha)
+            self.assertEqual(index.construction_window_size, reloaded.construction_window_size)
+
+            I, D = reloaded.search(reference.queries, num_neighbors)
+            reloaded_recall = pysvs.k_recall_at(gt, I, num_neighbors, num_neighbors)
+
+            # Because saving triggers graph compaction, we can't guarentee that the reloaded
+            # recall is the same as the original index.
+            print(f"    Reloaded Recall: {reloaded_recall}")
+            self.assertTrue(reloaded_recall < expected_recall + recall_delta)
+            self.assertTrue(reloaded_recall > expected_recall - recall_delta)
 
     def test_loop(self):
         num_threads = 2
@@ -80,6 +109,8 @@ class DynamicVamanaTester(unittest.TestCase):
             num_threads,
         )
 
+        index.search_window_size = 10
+        self.assertEqual(index.search_window_size, 10)
         self.assertEqual(index.alpha, parameters.alpha)
         self.assertEqual(index.construction_window_size, parameters.window_size)
 
@@ -119,4 +150,5 @@ class DynamicVamanaTester(unittest.TestCase):
                 self.recall_check(
                     index, reference, num_neighbors, expected_recall, expected_recall_delta
                 )
+                consolidate_count = 0
 

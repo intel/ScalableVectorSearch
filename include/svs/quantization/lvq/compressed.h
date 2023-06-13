@@ -32,6 +32,11 @@
 namespace svs::quantization::lvq {
 
 ///
+/// The encoding to use for centroid selection.
+///
+using selector_t = uint8_t;
+
+///
 /// @brief Compute the number of bytes to store a compressed vector.
 ///
 /// @param nbits The number of bits used to encode each vector component.
@@ -40,11 +45,8 @@ namespace svs::quantization::lvq {
 /// Given a compressed vector using `nbits` per element and a length `length` compute
 /// the number of bytes required to store the vector.
 ///
-/// To maintain alignment, we round up the length to be a multiple of 8.
-/// This ensures that the storage used occupies an integer number of bytes.
-///
 constexpr size_t compute_storage(size_t nbits, size_t length) {
-    return nbits * lib::round_up_to_multiple_of(length, 8) / 8;
+    return lib::div_round_up(nbits * length, 8);
 }
 
 ///
@@ -174,7 +176,7 @@ template <size_t Bits> struct Encoding<Signed, Bits> {
     Encoding() = default;
 
     ///
-    /// Return the number of bytes required to store `length` densly packed `Bits`-sized
+    /// Return the number of bytes required to store `length` densely packed `Bits`-sized
     /// elements.
     ///
     static constexpr size_t bytes(size_t length) { return compute_storage(Bits, length); }
@@ -250,6 +252,11 @@ template <size_t Bits> struct Encoding<Unsigned, Bits> {
 };
 
 ///
+/// Allow span resizing when constructing a CompressedVector.
+///
+struct AllowShrinkingTag {};
+
+///
 /// Compressed Vector
 ///
 /// Expresses a view over a span of bytes containing the encoded data.
@@ -263,6 +270,11 @@ template <size_t Bits> struct Encoding<Unsigned, Bits> {
 template <typename Sign, size_t Bits, size_t Extent, bool IsConst>
 class CompressedVectorBase {
   public:
+    ///
+    /// Static member describing if this is const.
+    ///
+    static constexpr bool is_const = IsConst;
+
     ///
     /// The encoding to use for this combination of sign and number of bits.
     ///
@@ -297,6 +309,20 @@ class CompressedVectorBase {
     using mutable_span_type = std::span<std::byte, storage_extent>;
     using span_type = std::conditional_t<IsConst, const_span_type, mutable_span_type>;
 
+    static constexpr size_t compute_bytes()
+        requires(Extent != Dynamic)
+    {
+        constexpr size_t bytes = compute_storage(Bits, Extent);
+        return bytes;
+    }
+
+    static constexpr size_t compute_bytes(lib::MaybeStatic<Extent> sz) {
+        return compute_storage(Bits, sz);
+    }
+
+    // Disable default construction.
+    CompressedVectorBase() = delete;
+
     ///
     /// Construct a `CompressedVector` over the contents of `data`.
     /// This is a view and will not take ownership nor extent the lifetime of `data`.
@@ -317,8 +343,34 @@ class CompressedVectorBase {
         , data_{data} {
         // Debug size check if running in dynamic mode.
         if constexpr (Extent == Dynamic) {
-            assert(data.size() >= compute_storage(Bits, size));
+            if (data.size() != compute_bytes(size)) {
+                throw ANNEXCEPTION("Incorrect size!");
+            }
         }
+    }
+
+    ///
+    /// Construct a CompressedVector from potentially oversized span.
+    ///
+    /// @param tag Indicate that it is okay to use a subset of the provided span.
+    /// @param size The requested number of elements in the compressed view.
+    /// @param source The source span to construct a view over.
+    ///
+    /// Construct a CompressedVector view over the given span.
+    /// If necessary, the constructed view will be over only a subset of the provided span.
+    /// If this is the case, the subset will begin at the start of ``source``.
+    ///
+    template <typename T, size_t N>
+    explicit CompressedVectorBase(
+        AllowShrinkingTag SVS_UNUSED(tag),
+        lib::MaybeStatic<Extent> size,
+        std::span<T, N> source
+    )
+        : size_{size}
+        , data_{source.begin(), compute_bytes(size)} {
+        // Refuse to compile if we can prove that the source span is too short.
+        static_assert(storage_extent == Dynamic || N == Dynamic || N >= storage_extent);
+        assert(source.size_bytes() >= compute_bytes(size));
     }
 
     ///
@@ -355,7 +407,10 @@ class CompressedVectorBase {
     ///
     /// Return the size in bytes of the underlying storage.
     ///
-    constexpr size_t size_bytes() const { return data_.size_bytes(); }
+    constexpr size_t size_bytes() const {
+        assert(data_.size_bytes() == compute_bytes(size_));
+        return data_.size_bytes();
+    }
 
     ///
     /// Return the uncompressed value at index `i`.
@@ -422,6 +477,34 @@ class CompressedVectorBase {
     }
 
     ///
+    /// @brief Copy to contents of another compressed vector view.
+    ///
+    /// Requires that the other CompressedVectorBase has the same run-time dimensions.
+    ///
+    template <size_t OtherExtent, bool OtherConst>
+        requires(!IsConst)
+    void copy_from(const CompressedVectorBase<Sign, Bits, OtherExtent, OtherConst>& other) {
+        static_assert(Extent == Dynamic || OtherExtent == Dynamic || Extent == OtherExtent);
+        assert(other.size() == size());
+        memcpy(data(), other.data(), size_bytes());
+    }
+
+    ///
+    /// @brief Assign the contents of ``other`` to the compressed vector.
+    ///
+    /// Requires that each element of ``other`` can be losslessly converted to an integer
+    /// in the span ``[Encoding::min(), Encoding::max()]``.
+    ///
+    template <typename I, typename Alloc>
+        requires(!IsConst)
+    void copy_from(const std::vector<I, Alloc>& other) {
+        assert(size() == other.size());
+        for (size_t i = 0, imax = size(); i < imax; ++i) {
+            set(other[i], i);
+        }
+    }
+
+    ///
     /// Safely extract a value of type `T` beginning at byte `i`.
     /// Allow caller to specify the number of bytes to help with AVX decoding.
     ///
@@ -456,13 +539,13 @@ class CompressedVectorBase {
     /// Perform any necessary steps to convert a raw extracted, unsigned, zero padded
     /// byte to the `value_type` of the encoder.
     ///
-    value_type decode(uint8_t value) const { return encoding_type::decode(value); }
+    static value_type decode(uint8_t value) { return encoding_type::decode(value); }
 
     ///
     /// Encode a `value_type` to an unsigned byte suitable for encoding in
     /// `bits` nubmer of bits.
     ///
-    uint8_t encode(value_type value) const { return encoding_type::encode(value); }
+    static uint8_t encode(value_type value) { return encoding_type::encode(value); }
 
   private:
     [[no_unique_address]] lib::MaybeStatic<Extent> size_;
@@ -486,12 +569,9 @@ class CVStorage {
 
     template <typename Sign, size_t Bits, size_t Extent>
     MutableCompressedVector<Sign, Bits, Extent> view(lib::MaybeStatic<Extent> size = {}) {
-        using vector_type = MutableCompressedVector<Sign, Bits, Extent>;
-        size_t bytes = Encoding<Sign, Bits>::bytes(size);
-        constexpr size_t storage_extent = vector_type::storage_extent;
-
-        storage_.resize(bytes);
-        return vector_type{size, lib::as_span<storage_extent>(storage_)};
+        using Mut = MutableCompressedVector<Sign, Bits, Extent>;
+        storage_.resize(Mut::compute_bytes(size));
+        return Mut{size, typename Mut::span_type{storage_}};
     }
 
     template <typename Sign, size_t Bits>
@@ -806,6 +886,7 @@ void unpack(
     unpack(v, Unpacker(meta::Val<pick_simd_width<Bits>()>(), cv));
 }
 
+// Generic entry-point for unpacking into a destination.
 template <std::integral I, size_t VecWidth, typename Sign, size_t Bits, size_t Extent>
 void unpack(std::span<I> v, Unpacker<VecWidth, Sign, Bits, Extent> unpacker) {
     assert(v.size() == unpacker.size());

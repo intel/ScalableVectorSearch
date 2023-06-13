@@ -92,7 +92,6 @@ The required arguments are as follows:
     - Nearest neighbors and performance stats will be created here.
 (11) Distance type (string - distance type)
 
-Valid Memory Styles: (dram, memmap)
 Valid Distance Types: (L2, MIP, Cosine)
 )";
 

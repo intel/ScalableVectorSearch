@@ -46,72 +46,13 @@
 
 namespace svs::index::vamana {
 
-///
-/// @brief No operation following graph search.
-///
-/// Following the main search routine, we have an opportunity to modify the contents
-/// of the search buffer.
-///
-/// For example, if a quantization technique is used, we may wish to introduce a reranking
-/// step that has access to the uncompressed dataset to more accurately recompute distances
-/// between returned entities in the `SearchBuffer`.
-///
-/// By default, no such post-operation occurs and that is described by this struct.
-///
-/// All defined VamanaIndex post-operations should define `operator()` like the template
-/// below.
-///
-struct NoPostOp {
-    ///
-    /// @brief Feed-through post-operation.
-    ///
-    /// @param search_buffer The search buffer following graph search. This function is free
-    ///     to modify the state of the search buffer if desired.
-    /// @param dataset The primary dataset stored in the index.
-    /// @param query The current query.
-    /// @param distance The distance functor. It can be assumed that
-    ///     ``distance::maybe_fix_argument`` has already been called with the current query.
-    /// Stub function that simply returns the search buffer unmodified.
-    template <typename SearchBuffer, typename Dataset, typename Query, typename Distance>
-    SearchBuffer& operator()(
-        SearchBuffer& search_buffer,
-        const Dataset& SVS_UNUSED(dataset),
-        const Query& SVS_UNUSED(query),
-        Distance& SVS_UNUSED(distance)
-    ) {
-        return search_buffer;
-    }
-
-    ///// IO
-    static constexpr std::string_view name = "NoPostOp";
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-
-    lib::SaveType save(const lib::SaveContext& /*ctx*/) const {
-        return lib::SaveType(toml::table({{"name", name}}), save_version);
-    }
-
-    static NoPostOp load(
-        const toml::table& table,
-        const lib::LoadContext& /*ctx*/,
-        const lib::Version& version
-    ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
-        auto this_name = get(table, "name").value();
-        if (this_name != name) {
-            throw ANNEXCEPTION(
-                "Trying to load NoPostOp but found ", this_name, " instead!"
-            );
-        }
-        return NoPostOp();
-    }
-};
-
 struct VamanaConfigParameters {
     static constexpr std::string_view name = "vamana config parameters";
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    /// Change notes:
+    ///
+    /// v0.0.1 - Added the "use_full_search_history" option.
+    ///     Loading from older versions default this to "true"
+    static constexpr lib::Version save_version = lib::Version(0, 0, 1);
 
     // Save and Reload.
     lib::SaveType save(const lib::SaveContext& /*ctx*/) const {
@@ -123,7 +64,8 @@ struct VamanaConfigParameters {
              {"max_candidates", prepare(max_candidates)},
              {"construction_window_size", prepare(construction_window_size)},
              {"default_search_window_size", prepare(search_window_size)},
-             {"visited_set", visited_set}}
+             {"visited_set", visited_set},
+             {"use_full_search_history", use_full_search_history}}
         );
         return std::make_pair(std::move(table), save_version);
     }
@@ -131,8 +73,12 @@ struct VamanaConfigParameters {
     static VamanaConfigParameters load(
         const toml::table& table,
         const lib::LoadContext& SVS_UNUSED(ctx),
-        const lib::Version& /*version*/
+        const lib::Version& version
     ) {
+        if (version > lib::Version(0, 0, 1)) {
+            throw ANNEXCEPTION("Version mismatch!");
+        }
+
         auto this_name = get(table, "name").value();
         if (this_name != name) {
             throw ANNEXCEPTION(
@@ -146,6 +92,9 @@ struct VamanaConfigParameters {
             get<float>(table, "alpha"),
             get<size_t>(table, "max_candidates"),
             get<size_t>(table, "construction_window_size"),
+            // Default "use_full_search_history" to "true" because v0.0.0 did not
+            // implement it.
+            get<bool>(table, "use_full_search_history", true),
             get<size_t>(table, "default_search_window_size"),
             get<bool>(table, "visited_set")};
     }
@@ -159,37 +108,10 @@ struct VamanaConfigParameters {
     float alpha;
     size_t max_candidates;
     size_t construction_window_size;
+    bool use_full_search_history;
     // runtime parameters
     size_t search_window_size;
     bool visited_set;
-};
-
-///// Saving
-
-// TODO: We probably need to have a more formal method of dispatching to the correct
-// saving patterns based on the provenance of the original data.
-//
-// This would require propagating semantically *what kind* of dataset we're handling
-// in the index, but the complexity may be worth it. Otherwise, I'm not sure how we're
-// going to reliably generalize saving.
-struct UnknownSaver {
-    static constexpr bool is_vamana_saver = true;
-    static constexpr bool saving_enabled = false;
-};
-
-struct UncompressedSaver {
-    static constexpr bool is_vamana_saver = true;
-    static constexpr bool saving_enabled = true;
-
-    template <data::ImmutableMemoryDataset Data, typename Distance>
-    void save_dataset(
-        const std::filesystem::path& dir,
-        const Data& data,
-        const Distance& SVS_UNUSED(distance),
-        NoPostOp SVS_UNUSED(post_op)
-    ) const {
-        lib::save(data, dir);
-    }
 };
 
 ///
@@ -215,14 +137,19 @@ struct UncompressedSaver {
 template <
     graphs::ImmutableMemoryGraph Graph,
     data::ImmutableMemoryDataset Data,
-    typename Dist,
-    typename PostOp = NoPostOp,
-    typename Saver = UnknownSaver>
+    typename Dist>
 class VamanaIndex {
   public:
     static constexpr bool supports_insertions = false;
     static constexpr bool supports_deletions = false;
-    static constexpr bool supports_saving = Saver::saving_enabled;
+    static constexpr bool supports_saving = true;
+
+    // Do we need reranking.
+    // Not the best heuristic ever. Basically checks is the types of the full access and
+    // and fast access are different. If so, then reranking should be done.
+    static constexpr bool needs_reranking = !std::is_same_v<
+        typename Data::template mode_const_value_type<data::FullAccess>,
+        typename Data::template mode_const_value_type<data::FastAccess>>;
 
     ///// Type Aliases
 
@@ -249,20 +176,19 @@ class VamanaIndex {
     data_type data_;
     entry_point_type entry_point_;
 
-    // Thread local data structures.
-    distance::BroadcastDistance<Dist> distance_;
+    // Base distance type.
+    distance_type distance_;
 
     // "prototype" because it is copy-constructed by each thread when it begins working on
     // a batch of queries.
     search_buffer_type search_buffer_prototype_ = {};
     threads::NativeThreadPool threadpool_;
-    PostOp post_op_;
-    [[no_unique_address]] Saver saver_ = Saver{};
 
     // Construction parameters
     float alpha_ = 0.0;
     size_t max_candidates_ = 1'000;
     size_t construction_window_size_ = 0;
+    bool use_full_search_history_ = true;
 
     // Methods
   public:
@@ -275,8 +201,6 @@ class VamanaIndex {
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
     /// @param threadpool The threadpool to use to conduct searches.
-    /// @param post_op Cleanup operations to occur after the graph search stage for any
-    ///     reranking or similar procedure.
     /// @param saver The helper class used to save the dataset.
     ///
     /// This is a lower-level function that is meant to take a collection of instantiated
@@ -295,34 +219,24 @@ class VamanaIndex {
         Data data,
         Idx entry_point,
         Dist distance_function,
-        threads::NativeThreadPool threadpool,
-        PostOp post_op = PostOp{},
-        Saver saver = Saver{}
+        threads::NativeThreadPool threadpool
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
-        , distance_{std::move(distance_function), threadpool.size()}
+        , distance_{std::move(distance_function)}
         , search_buffer_prototype_{}
-        , threadpool_{std::move(threadpool)}
-        , post_op_{std::move(post_op)}
-        , saver_{std::move(saver)} {}
+        , threadpool_{std::move(threadpool)} {}
 
     VamanaIndex(
-        Graph graph,
-        Data data,
-        Idx entry_point,
-        Dist distance_function,
-        size_t num_threads,
-        Saver saver = Saver{}
+        Graph graph, Data data, Idx entry_point, Dist distance_function, size_t num_threads
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
-        , distance_{std::move(distance_function), num_threads}
+        , distance_{std::move(distance_function)}
         , search_buffer_prototype_{}
-        , threadpool_{num_threads}
-        , saver_{std::move(saver)} {}
+        , threadpool_{num_threads} {}
 
     ///
     /// @brief Build a VamanaIndex over the given dataset.
@@ -354,17 +268,14 @@ class VamanaIndex {
         Data data,
         Idx entry_point,
         Dist distance_function,
-        threads::NativeThreadPool threadpool,
-        Saver saver = Saver{}
+        threads::NativeThreadPool threadpool
     )
         : VamanaIndex{
               std::move(graph),
               std::move(data),
               entry_point,
               std::move(distance_function),
-              std::move(threadpool),
-              PostOp(),
-              std::move(saver)} {
+              std::move(threadpool)} {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
@@ -372,8 +283,9 @@ class VamanaIndex {
         alpha_ = parameters.alpha;
         max_candidates_ = parameters.max_candidate_pool_size;
         construction_window_size_ = parameters.window_size;
+        use_full_search_history_ = parameters.use_full_search_history;
 
-        auto builder = VamanaBuilder(graph_, data_, distance_[0], parameters, threadpool_);
+        auto builder = VamanaBuilder(graph_, data_, distance_, parameters, threadpool_);
         builder.construct(1.0F, entry_point_[0]);
         builder.construct(parameters.alpha, entry_point_[0]);
     }
@@ -387,7 +299,27 @@ class VamanaIndex {
         set_max_candidates(parameters.max_candidates);
         set_construction_window_size(parameters.construction_window_size);
         set_search_window_size(parameters.search_window_size);
+        set_full_search_history(parameters.use_full_search_history);
         parameters.visited_set ? enable_visited_set() : disable_visited_set();
+    }
+
+    // If the dataset supports multiple levels of accessing, then we want to rerank
+    // the results of the search buffer post-search.
+    //
+    // This recomputes distances between the query and the full access elements of the
+    // dataset elements contained in the search buffer and re-sorts the buffer according
+    // to the newly computed distances.
+    template <typename Distance, typename Query>
+    void rerank(Distance& distance, const Query& query, search_buffer_type& buffer) const {
+        for (size_t i = 0, imax = buffer.size(); i < imax; ++i) {
+            auto& neighbor = buffer[i];
+            auto id = neighbor.id();
+
+            auto new_distance =
+                distance::compute(distance, query, data_.get_datum(id, data::full_access));
+            neighbor.set_distance(new_distance);
+        }
+        buffer.sort();
     }
 
     ///
@@ -403,7 +335,6 @@ class VamanaIndex {
     ///     correspondence to the queries. Row `i` in the result corresponds to the
     ///     neighbors for the `i`th query. Neighbors within each row are ordered from
     ///     nearest to furthest.
-    ///
     ///
     /// Internally, this method calls the mutating version of search. See the documentation
     /// of that method for more details.
@@ -449,9 +380,9 @@ class VamanaIndex {
         threads::run(
             threadpool_,
             threads::StaticPartition{queries.size()},
-            [&](const auto is, uint64_t tid) {
+            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 auto buffer = threads::shallow_copy(search_buffer_prototype_);
-                auto& distance = distance_[tid];
+                auto distance = data_.adapt_distance(distance_);
 
                 // TODO: Use iterators for returning neighbors.
                 //
@@ -470,7 +401,10 @@ class VamanaIndex {
                     greedy_search(graph_, data_, query, distance, buffer, entry_point_);
 
                     // Copy back results.
-                    post_op_(buffer, data_, query, distance);
+                    if constexpr (needs_reranking) {
+                        rerank(distance, query, buffer);
+                    }
+
                     for (size_t j = 0; j < num_neighbors; ++j) {
                         const auto& neighbor = buffer[j];
                         result.index(i, j) = neighbor.id();
@@ -516,7 +450,6 @@ class VamanaIndex {
     void set_num_threads(size_t num_threads) {
         num_threads = std::max(num_threads, size_t(1));
         threadpool_.resize(num_threads);
-        distance_.resize(num_threads);
     }
 
     ///// Window Interface
@@ -566,6 +499,15 @@ class VamanaIndex {
         construction_window_size_ = construction_window_size;
     }
 
+    ///
+    /// @brief Enable using the full search history for candidate generation while
+    /// building.
+    ///
+    void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
+
+    /// @brief Return whether the full search history is being used for index construction.
+    bool get_full_search_history() const { return use_full_search_history_; }
+
     ///// Saving
 
     ///
@@ -602,11 +544,13 @@ class VamanaIndex {
             alpha_,
             get_max_candidates(),
             get_construction_window_size(),
+            get_full_search_history(),
             get_search_window_size(),
             visited_set_enabled()};
+        // Config
         lib::save(parameters, config_directory);
         // Data
-        saver_.save_dataset(data_directory, data_, distance_[0], post_op_);
+        lib::save(data_, data_directory);
         // Graph
         lib::save(graph_, graph_directory);
     }
@@ -617,153 +561,47 @@ class VamanaIndex {
 ///
 /// @brief Forward an existing dataset.
 ///
-template <data::ImmutableMemoryDataset Data, typename Distance, threads::ThreadPool Pool>
-std::tuple<Data&, Distance, NoPostOp, size_t, UncompressedSaver> load_dataset(
-    NoopLoaderTag SVS_UNUSED(tag), Data& data, Distance distance, Pool& threadpool
-) {
+template <data::ImmutableMemoryDataset Data, threads::ThreadPool Pool>
+std::tuple<Data&, size_t>
+load_dataset(NoopLoaderTag SVS_UNUSED(tag), Data& data, Pool& threadpool) {
     size_t entry_point = utils::find_medioid(data, threadpool);
-    return std::tuple<Data&, Distance, NoPostOp, size_t, UncompressedSaver>(
-        data, std::move(distance), NoPostOp(), entry_point, UncompressedSaver()
-    );
+    return std::tuple<Data&, size_t>(data, entry_point);
 }
 
 ///
 /// @brief Load a standard dataset.
 ///
-template <typename T, size_t Extent, typename Distance, threads::ThreadPool Pool>
-std::tuple<DefaultDataset<T, Extent>, Distance, NoPostOp, size_t, UncompressedSaver>
-load_dataset(
+template <typename T, size_t Extent, typename Builder, threads::ThreadPool Pool>
+std::tuple<typename VectorDataLoader<T, Extent, Builder>::return_type, size_t> load_dataset(
     VectorDataLoaderTag SVS_UNUSED(tag),
-    const VectorDataLoader<T, Extent>& loader,
-    Distance distance,
+    const VectorDataLoader<T, Extent, Builder>& loader,
     Pool& threadpool
 ) {
     auto data = loader.load();
     size_t medioid_index = utils::find_medioid(data, threadpool);
-    return std::make_tuple(
-        std::move(data), std::move(distance), NoPostOp(), medioid_index, UncompressedSaver()
-    );
+    return std::make_tuple(std::move(data), medioid_index);
 }
 
-///// Bridge to vector quantization
-template <size_t Bits, size_t Extent> class ResidualReranker {
-  public:
-    using dataset_type =
-        quantization::lvq::CompressedDataset<quantization::lvq::Signed, Bits, Extent>;
-
-    explicit ResidualReranker(dataset_type residuals)
-        : residuals_{std::move(residuals)} {}
-
-    ///
-    /// The reranking operation.
-    /// Preconditons:
-    /// * `maybe_fix_argument` must already be applied to the distance function.
-    ///
-    template <typename SearchBuffer, typename Dataset, typename Query, typename Distance>
-    SearchBuffer& operator()(
-        SearchBuffer& search_buffer,
-        const Dataset& primary_dataset,
-        const Query& query,
-        Distance& rerank_distance
-    ) {
-        for (size_t i = 0; i < search_buffer.size(); ++i) {
-            auto& neighbor = search_buffer[i];
-            auto id = neighbor.id();
-
-            // Get the pieces needed to reconstruct the higher precision data point.
-            const auto& primary = primary_dataset.get_datum(id);
-            const auto& residual = residuals_.get_datum(id);
-            auto stitched = quantization::lvq::combine(primary, residual);
-            auto new_distance = distance::compute(rerank_distance, query, stitched);
-            neighbor.set_distance(new_distance);
-        }
-        // Resort the search buffer now that we've updated the distances.
-        search_buffer.sort();
-        return search_buffer;
-    }
-
-    ///
-    /// @brief Return a constant reference to the residual dataset.
-    ///
-    /// This method is largely intended to allow saving of the reranking dataset.
-    ///
-    const dataset_type& underlying() const { return residuals_; }
-
-  private:
-    dataset_type residuals_;
-};
-
-///
-/// @brief One level vector compression strategies require no reranking.
-///
-inline NoPostOp wrap_reranker(quantization::lvq::NoResidual /*unused*/) {
-    return NoPostOp();
-}
-
-inline quantization::lvq::NoResidual unwrap_reranker(NoPostOp /*unused*/) {
-    return quantization::lvq::NoResidual();
-}
-
-///
-/// @brief Use the residual dataset to instantiate a post-search reranker.
-///
-/// @param residual The residual encoded dataset.
-///
-template <size_t Bits, size_t Extent>
-ResidualReranker<Bits, Extent> wrap_reranker(
-    quantization::lvq::CompressedDataset<quantization::lvq::Signed, Bits, Extent> residual
-) {
-    return ResidualReranker<Bits, Extent>(std::move(residual));
-}
-
-template <size_t Bits, size_t Extent>
-const quantization::lvq::CompressedDataset<quantization::lvq::Signed, Bits, Extent>&
-unwrap_reranker(const ResidualReranker<Bits, Extent>& reranker) {
-    return reranker.underlying();
-}
-
-struct LVQSaver {
-    static constexpr bool is_vamana_saver = true;
-    static constexpr bool saving_enabled = true;
-
-    template <data::ImmutableMemoryDataset Primary, typename Distance, typename PostOp>
-    void save_dataset(
-        const std::filesystem::path& dir,
-        const Primary& data,
-        const Distance& distance,
-        const PostOp& post_op
-    ) const {
-        auto temp = quantization::lvq::DistanceMainResidualRef{
-            distance, data, unwrap_reranker(post_op)};
-        lib::save(temp, dir);
-    }
-};
-
-template <typename LVQLoader, typename Distance, threads::ThreadPool Pool>
+template <typename LVQLoader, threads::ThreadPool Pool>
 auto load_dataset(
     quantization::lvq::CompressorTag SVS_UNUSED(tag),
     const LVQLoader& loader,
-    const Distance& distance,
     Pool& threadpool
 ) {
+    // TODO: Allow propagation of allocators.
     // TODO: Propagate threat pools around to avoid creating new threads all the time.
-    auto bundle = loader.load(distance, threadpool.size());
+    auto lvq_dataset =
+        loader.load(data::PolymorphicBuilder<HugepageAllocator>(), threadpool.size());
 
     // Compute the index of the approximate medioid
     size_t medioid_index = utils::find_medioid(
-        bundle.main,
+        lvq_dataset,
         threadpool,
-        lib::ReturnsTrueType(),           /*predicate*/
-        quantization::lvq::Decompressor() /*element-wise map*/
+        lib::ReturnsTrueType(),    /*predicate*/
+        lvq_dataset.decompressor() /*element-wise map*/
     );
 
-    return std::make_tuple(
-        std::move(bundle.main),
-        std::move(bundle.distance),
-        wrap_reranker(std::move(bundle.residual)),
-        medioid_index,
-        LVQSaver()
-    );
+    return std::make_tuple(std::move(lvq_dataset), medioid_index);
 }
 
 ///
@@ -851,14 +689,8 @@ auto auto_build(
     const Allocator& graph_allocator
 ) {
     auto threadpool = threads::as_threadpool(threadpool_proto);
-    auto [data, final_distance, post_op, entry_point, saver] =
-        load_dataset(lib::loader_tag<DataProto>, data_proto, distance, threadpool);
-
-    // TODO: Limitation for now. Can't build indexes that require post-ops.
-    static_assert(
-        std::is_same_v<std::decay_t<decltype(post_op)>, NoPostOp>,
-        "Cannot yet build indexes that require post operations!"
-    );
+    auto [data, entry_point] =
+        load_dataset(lib::loader_tag<DataProto>, data_proto, threadpool);
 
     // Default graph.
     auto graph = default_graph(data.size(), parameters.graph_max_degree, graph_allocator);
@@ -868,9 +700,8 @@ auto auto_build(
         std::move(graph),
         std::move(data),
         lib::narrow<I>(entry_point),
-        std::move(final_distance),
-        std::move(threadpool),
-        std::move(saver)};
+        std::move(distance),
+        std::move(threadpool)};
 }
 
 ///
@@ -904,8 +735,8 @@ auto auto_assemble(
     ThreadPoolProto threadpool_proto
 ) {
     auto threadpool = threads::as_threadpool(threadpool_proto);
-    auto [data, final_distance, post_op, computed_entry_point, saver] =
-        load_dataset(lib::loader_tag<DataProto>, data_proto, distance, threadpool);
+    auto [data, computed_entry_point] =
+        load_dataset(lib::loader_tag<DataProto>, data_proto, threadpool);
 
     auto graph = graph_loader.load();
     // Extract the index type of the provided graph.
@@ -914,10 +745,8 @@ auto auto_assemble(
         std::move(graph),
         std::move(data),
         lib::narrow<I>(computed_entry_point),
-        std::move(final_distance),
-        std::move(threadpool),
-        std::move(post_op),
-        std::move(saver)};
+        std::move(distance),
+        std::move(threadpool)};
 
     auto config = lib::load<VamanaConfigParameters>(config_path);
     index.apply(config);

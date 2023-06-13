@@ -60,6 +60,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/concepts/distance.cpp
     # Core
     ${TEST_DIR}/svs/core/allocator.cpp
+    ${TEST_DIR}/svs/core/compact.cpp
     ${TEST_DIR}/svs/core/data.cpp
     ${TEST_DIR}/svs/core/data/block.cpp
     ${TEST_DIR}/svs/core/data/simple.cpp
@@ -71,6 +72,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/io/vecs.cpp
     ${TEST_DIR}/svs/core/io/native.cpp
     ${TEST_DIR}/svs/core/io.cpp
+    ${TEST_DIR}/svs/core/kmeans.cpp
     ${TEST_DIR}/svs/core/medioid.cpp
     ${TEST_DIR}/svs/core/polymorphic_pointer.cpp
     ${TEST_DIR}/svs/core/recall.cpp
@@ -79,6 +81,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/flat/inserters.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
+    ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
 )
 

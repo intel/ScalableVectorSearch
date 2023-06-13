@@ -159,6 +159,151 @@ const char* ALL_IDS_DOCSTRING = R"(
 Return a Numpy vector of all IDs currently in the index.
 )";
 
+// Index saving.
+void save_index(
+    svs::DynamicVamana& index,
+    const std::string& config_path,
+    const std::string& graph_dir,
+    const std::string& data_dir
+) {
+    index.save(config_path, graph_dir, data_dir);
+}
+
+// Assembly.
+struct StandardAssemble_ {
+    /// Keys:
+    /// (0) - The type of the elements of the query vectors.
+    /// (1) - The type of the elements of the data vectors.
+    /// (2) - The requested distance type.
+    /// (3) - Compile-time dimensionality
+    using key_type = std::tuple<svs::DataType, svs::DataType, svs::DistanceType, size_t>;
+    using mapped_type = std::function<svs::DynamicVamana(
+        const std::filesystem::path& /*config_path*/,
+        const UnspecializedGraphLoader& /*graph_loader*/,
+        const UnspecializedVectorDataLoader& /*data_loader*/,
+        size_t /*num_threads*/,
+        bool /*debug_load_from_static*/
+    )>;
+
+    template <typename Q, typename T, typename Dist, size_t N>
+    static std::pair<key_type, mapped_type>
+    specialize(Type<Q> query_type, Type<T> data_type, Dist distance, Val<N> ndims) {
+        key_type key = {
+            unwrap(query_type),
+            unwrap(data_type),
+            svs::distance_type_v<Dist>,
+            unwrap(ndims)};
+        mapped_type fn = [=](const std::filesystem::path& config_path,
+                             const UnspecializedGraphLoader& graph_loader,
+                             const UnspecializedVectorDataLoader& data,
+                             size_t num_threads,
+                             bool debug_load_from_static) {
+            return svs::DynamicVamana::assemble<Q>(
+                config_path,
+                graph_loader.refine(svs::data::BlockedBuilder()),
+                data.refine(data_type, ndims, svs::data::BlockedBuilder()),
+                distance,
+                num_threads,
+                debug_load_from_static
+            );
+        };
+        return std::make_pair(key, std::move(fn));
+    }
+
+    template <typename F> static void fill(F&& f) {
+        for_standard_specializations(
+            [&f](auto query_type, auto data_type, auto distance, auto ndims) {
+                f(specialize(query_type, data_type, distance, ndims));
+            }
+        );
+    }
+};
+using StandardAssembler = Dispatcher<StandardAssemble_>;
+
+template <typename Loader> struct LVQAssemble_ {
+    /// Keys:
+    /// (0) - The requested distance type.
+    /// (1) - Compile-time dimensionality
+    using key_type = std::tuple<svs::DistanceType, size_t>;
+    using mapped_type = std::function<svs::DynamicVamana(
+        const std::filesystem::path& /*config_path*/,
+        const UnspecializedGraphLoader& /*graph_loader*/,
+        const Loader& /*data_loader*/,
+        size_t /*num_threads*/,
+        bool /*debug_load_from_static*/
+    )>;
+
+    template <typename Dist, size_t N>
+    static std::pair<key_type, mapped_type> specialize(Dist distance, Val<N> ndims) {
+        key_type key = {svs::distance_type_v<Dist>, unwrap(ndims)};
+        mapped_type fn = [=](const std::filesystem::path& config_path,
+                             const UnspecializedGraphLoader& graph_loader,
+                             const Loader& data_loader,
+                             size_t num_threads,
+                             bool debug_load_from_static) {
+            return svs::DynamicVamana::assemble<float>(
+                config_path,
+                graph_loader.refine(svs::data::BlockedBuilder()),
+                // The addition of the block builder happens inside the constructor
+                // for the loader.
+                data_loader.refine(ndims),
+                distance,
+                num_threads,
+                debug_load_from_static
+            );
+        };
+        return std::make_pair(key, std::move(fn));
+    }
+
+    template <typename F> static void fill(F&& f) {
+        for_compressed_specializations([&f](auto distance, auto ndims) {
+            f(specialize(distance, ndims));
+        });
+    }
+};
+template <typename Loader> using LVQAssembler = Dispatcher<LVQAssemble_<Loader>>;
+
+using DynamicVamanaAssembleTypes =
+    std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4x8>;
+
+svs::DynamicVamana assemble(
+    const std::string& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    const DynamicVamanaAssembleTypes& data_loader,
+    svs::DistanceType distance_type,
+    svs::DataType query_type,
+    bool enforce_dims,
+    size_t num_threads,
+    bool debug_load_from_static
+) {
+    return std::visit<svs::DynamicVamana>(
+        [&](auto&& loader) {
+            using T = std::decay_t<decltype(loader)>;
+            if constexpr (std::is_same_v<T, UnspecializedVectorDataLoader>) {
+                const auto& f = dispatch(
+                    StandardAssembler::get(),
+                    !enforce_dims,
+                    loader.dims_,
+                    query_type,
+                    loader.type_,
+                    distance_type
+                );
+                return f(
+                    config_path, graph_loader, loader, num_threads, debug_load_from_static
+                );
+            } else {
+                const auto& f = dispatch(
+                    LVQAssembler<T>::get(), !enforce_dims, loader.dims_, distance_type
+                );
+                return f(
+                    config_path, graph_loader, loader, num_threads, debug_load_from_static
+                );
+            }
+        },
+        data_loader
+    );
+}
+
 } // namespace
 
 void wrap(py::module& m) {
@@ -191,6 +336,19 @@ void wrap(py::module& m) {
 
     vamana.def("consolidate", &svs::DynamicVamana::consolidate, CONSOLIDATE_DOCSTRING);
     vamana.def("compact", &svs::DynamicVamana::compact, COMPACT_DOCSTRING);
+
+    // Reloading
+    vamana.def(
+        py::init(&assemble),
+        py::arg("config_path"),
+        py::arg("graph_loader"),
+        py::arg("data_loader"),
+        py::arg("distance") = svs::L2,
+        py::arg("query_type") = svs::DataType::float32,
+        py::arg("enforce_dims") = false,
+        py::arg("num_threads") = 1,
+        py::arg("debug_load_from_static") = false
+    );
 
     // Index building.
     add_build_specialization<float>(vamana);
@@ -226,6 +384,32 @@ void wrap(py::module& m) {
             return npv;
         },
         ALL_IDS_DOCSTRING
+    );
+
+    // Saving
+    vamana.def(
+        "save",
+        &save_index,
+        py::arg("config_directory"),
+        py::arg("graph_directory"),
+        py::arg("data_directory"),
+        R"(
+Save a constructed index to disk (useful following index construction).
+
+Args:
+    config_directory: Directory where index configuration information will be saved.
+    graph_directory: Directory where graph will be saved.
+    data_directory: Directory where the dataset will be saved.
+
+
+Note: All directories should be separate to avoid accidental name collision with any
+auxiliary files that are needed when saving the various components of the index.
+
+If the directory does not exist, it will be created if its parent exists.
+
+It is the caller's responsibilty to ensure that no existing data will be
+overwritten when saving the index to this directory.
+    )"
     );
 }
 

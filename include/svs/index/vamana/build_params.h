@@ -21,6 +21,21 @@ namespace svs::index::vamana {
 
 /// @brief Parameters controlling graph construction for the Vamana graph index.
 struct VamanaBuildParameters {
+    VamanaBuildParameters(
+        float alpha_,
+        size_t graph_max_degree_,
+        size_t window_size_,
+        size_t max_candidate_pool_size_,
+        size_t nthreads_,
+        bool use_full_search_history_ = true
+    )
+        : alpha{alpha_}
+        , graph_max_degree{graph_max_degree_}
+        , window_size{window_size_}
+        , max_candidate_pool_size{max_candidate_pool_size_}
+        , nthreads{nthreads_}
+        , use_full_search_history{use_full_search_history_} {}
+
     /// The pruning parameter.
     float alpha;
 
@@ -43,5 +58,11 @@ struct VamanaBuildParameters {
     /// Reason for deprecation: Number of threads is often obtained from external sources
     /// so including it in this struct no longer entirely makes sense.
     size_t nthreads;
+
+    /// When building, either the contents of the search buffer can be used or the entire
+    /// search history can be used.
+    ///
+    /// The latter case may yield a slightly better graph as the cost of more search time.
+    bool use_full_search_history = true;
 };
 } // namespace svs::index::vamana

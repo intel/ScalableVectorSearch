@@ -9,16 +9,50 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// stdlib
-#include <span>
+// header under test
+#include "svs/core/data/block.h"
 
 // svs
-#include "svs/core/data/block.h"
+#include "svs/core/data.h"
+
+// test utilities
+#include "tests/utils/utils.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// stdlib
+#include <span>
+
 namespace {
+
+template <typename T> bool is_blocked(const T&) { return false; }
+template <typename T, size_t N> bool is_blocked(const svs::data::BlockedData<T, N>&) {
+    return true;
+}
+
+template <typename Left, typename Right>
+bool data_equal(const Left& left, const Right& right) {
+    auto lsize = left.size();
+    auto ldims = left.dimensions();
+
+    auto rsize = right.size();
+    auto rdims = right.dimensions();
+
+    if (lsize != rsize || ldims != rdims) {
+        return false;
+    }
+
+    for (size_t i = 0; i < lsize; ++i) {
+        auto l = left.get_datum(i);
+        auto r = right.get_datum(i);
+        if (!std::equal(l.begin(), l.end(), r.begin())) {
+            return false;
+        }
+    }
+    return true;
+}
+
 template <size_t Extent = svs::Dynamic> void test_blocked() {
     // Use a small block size so we can test the block bridging logic.
     size_t blocksize_bytes = 4096;
@@ -29,32 +63,33 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
     if constexpr (Extent != svs::Dynamic) {
         CATCH_REQUIRE(Extent == dimensions);
     }
+    CATCH_REQUIRE(!is_blocked(10));
 
     size_t expected_blocksize = 128;
 
     auto data =
         svs::data::BlockedData<float, Extent>(num_elements, dimensions, blocksize_bytes);
+    CATCH_REQUIRE(is_blocked(data));
     CATCH_REQUIRE(data.dimensions() == 5);
     CATCH_REQUIRE(data.blocksize_bytes().value() == blocksize_bytes);
     CATCH_REQUIRE(data.blocksize().value() == expected_blocksize);
     CATCH_REQUIRE(data.size() == num_elements);
 
-    std::vector<float> values(dimensions);
-    CATCH_REQUIRE(values.size() == dimensions);
-    auto set_contents = [&]() {
+    auto set_contents = [dimensions](auto& data) {
+        std::vector<float> values(dimensions);
         for (size_t i = 0; i < data.size(); ++i) {
             std::fill(values.begin(), values.end(), i);
             data.set_datum(i, std::span<float, Extent>{values.data(), values.size()});
         }
     };
 
-    auto check_contents = [&](const auto& this_data) {
+    auto check_contents = [dimensions](const auto& this_data) {
         for (size_t i : this_data.eachindex()) {
             // Make sure prefetching at least works.
-            data.prefetch(i);
+            this_data.prefetch(i);
 
             // Make sure that our data assignment was propagated correctly.
-            auto datum = data.get_datum(i);
+            auto datum = this_data.get_datum(i);
             CATCH_REQUIRE(datum.size() == dimensions);
             CATCH_REQUIRE(std::all_of(datum.begin(), datum.end(), [&](float v) {
                 return v == i;
@@ -62,9 +97,12 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
         }
     };
 
-    set_contents();
+    set_contents(data);
     check_contents(data);
+    auto copy = data.copy();
     check_contents(data.copy());
+    CATCH_REQUIRE(is_blocked(copy));
+    CATCH_REQUIRE(data_equal(data, data.copy()));
 
     ///// Resizing
     CATCH_REQUIRE(data.num_blocks() == 16);
@@ -74,7 +112,7 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
     CATCH_REQUIRE(data.capacity() > 4000);
     CATCH_REQUIRE(data.num_blocks() == 32);
 
-    set_contents();
+    set_contents(data);
     check_contents(data);
     check_contents(data.copy());
 
@@ -84,6 +122,22 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
     CATCH_REQUIRE(data.num_blocks() == 16);
     check_contents(data);
     check_contents(data.copy());
+
+    ///// Saving and Loading.
+    svs_test::prepare_temp_directory();
+    auto temp = svs_test::temp_directory();
+    svs::lib::save(data, temp);
+    auto simple_data = svs::VectorDataLoader<float>(temp).load();
+    check_contents(simple_data);
+    CATCH_REQUIRE(!is_blocked(simple_data));
+    CATCH_REQUIRE(data_equal(simple_data, data));
+
+    // Reload as a blocked dataset.
+    auto reloaded =
+        svs::VectorDataLoader<float, svs::Dynamic, svs::data::BlockedBuilder>(temp).load();
+    check_contents(reloaded);
+    CATCH_REQUIRE(is_blocked(reloaded));
+    CATCH_REQUIRE(data_equal(reloaded, data));
 }
 } // namespace
 

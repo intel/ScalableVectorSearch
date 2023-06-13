@@ -38,6 +38,10 @@ namespace svs::graphs {
 //
 // Note that the the length variable `Len` is the same type as the adjacency list entries.
 //
+// Valid adjacency list members should follow the invariant:
+//
+// N0 < N1 < ... < NLen
+//
 // In general, C++'s support for type-punning, even for trivially constructible and
 // copyable types leaves quite a bit of head-scratching.
 //
@@ -110,6 +114,19 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     }
 
     ///
+    /// @brief Return whether or not the adjacency list has an edge from ``src`` to ``dst``.
+    ///
+    /// Complexity: Logarithmic in the max degree.
+    ///
+    bool has_edge(Idx src, Idx dst) const {
+        const auto& list = get_node(src);
+        auto begin = list.begin();
+        auto end = list.end();
+        // TODO: Ensure legacy loaded graphs have sorted adjacency lists.
+        return (std::find(begin, end, dst) != end);
+    }
+
+    ///
     /// @brief Return the current out degree of vertex ``i``.
     ///
     size_t get_node_degree(Idx i) const { return data_.get_datum(i).front(); }
@@ -163,15 +180,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     void replace_node(Idx i, std::span<const Idx> new_neighbors) {
         std::span<Idx> raw_data = data_.get_datum(i);
 
-        // TODO (MH): Enable this assertion and make it pass debug tests.
-        // assert(lib::ranges::all_unique(new_neighbors));
-
         // Clamp the number of elements to copy to the maximum out degree to correctly
         // handle the case where the caller passes in too many neighbors.
         //
         // In this case, we take the first `max_degree_` number of elements.
         Idx elements_to_copy =
             std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
+
         std::span<const Idx> adjusted_neighbors = new_neighbors.first(elements_to_copy);
         value_type adjacency_list = raw_data.subspan(1, elements_to_copy);
 
@@ -219,19 +234,31 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             return current_size;
         }
 
-        // If there is room, place this node at the end.
-        // Also check for redundant assignments.
+        // At this point, we know there is room.
+        // Next, we need to find the position where we will insert the new edge.
+        // We fuse this with redundant edge insertion detection since the insertion
+        // position will also tell us where the edge would already exist.
         Idx new_size = current_size + 1;
         value_type adjacency_list = raw_data.subspan(1, new_size);
 
-        // TODO (MH): This *decreases* accuracy for MIP and Cosine similarity. What?
-        //
-        // for (Idx i = 0; i < current_size; ++i) {
-        //     if (adjacency_list[i] == dst) {
-        //         return current_size;
-        //     }
-        // }
-        adjacency_list.back() = dst;
+        auto begin = adjacency_list.begin();
+        auto end = adjacency_list.end();
+
+        // TODO: Replace with binary search eventually.
+        // Blocking issue: legacy loaded graphs need validation of the sorted adjacency
+        // lists.
+        auto it = std::find(begin, end - 1, dst);
+        // auto it = std::lower_bound(begin, end - 1, dst);
+        if (it != end - 1 && (*it == dst)) {
+            return current_size;
+        }
+
+        // Insert at the new location.
+        std::copy_backward(it, end - 1, end);
+        (*it) = dst;
+
+        // // Assign the new edge and update the number of neighbors.
+        // adjacency_list.back() = dst;
         raw_data.front() = new_size;
         return new_size;
     }
@@ -243,6 +270,25 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     const data_type& get_data() const { return data_; }
     data_type& get_data() { return data_; }
+
+    ///// Saving
+    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    lib::SaveType save(const lib::SaveContext& ctx) const {
+        auto uuid = lib::UUID{};
+        auto filename = ctx.generate_name("graph");
+        io::save(data_, io::NativeFile(filename), uuid);
+        return lib::SaveType(
+            toml::table(
+                {{"name", "graph"},
+                 {"binary_file", filename.filename().c_str()},
+                 {"max_degree", prepare(max_degree())},
+                 {"num_vertices", prepare(n_nodes())},
+                 {"uuid", uuid.str()},
+                 {"eltype", name<datatype_v<Idx>>()}}
+            ),
+            save_version
+        );
+    }
 
   protected:
     data_type data_;
@@ -283,25 +329,6 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimplePolymorphicData<Idx>
 
     explicit SimpleGraph(data_type data)
         : parent_type{std::move(data)} {}
-
-    ///// Saving
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
-        auto uuid = lib::UUID{};
-        auto filename = ctx.generate_name("graph");
-        io::save(get_data(), io::NativeFile(filename), uuid);
-        return lib::SaveType(
-            toml::table(
-                {{"name", "graph"},
-                 {"binary_file", filename.filename().c_str()},
-                 {"max_degree", prepare(parent_type::max_degree())},
-                 {"num_vertices", prepare(parent_type::n_nodes())},
-                 {"uuid", uuid.str()},
-                 {"eltype", name<datatype_v<Idx>>()}}
-            ),
-            save_version
-        );
-    }
 };
 
 template <typename Idx>

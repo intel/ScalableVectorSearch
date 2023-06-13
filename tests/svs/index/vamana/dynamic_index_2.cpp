@@ -141,7 +141,10 @@ void do_check(
 ) {
     // Compute groundtruth
     auto tic = svs::lib::now();
-    auto gt = reference.groundtruth(queries, NUM_NEIGHBORS);
+    auto gt = reference.groundtruth();
+    CATCH_REQUIRE(gt.n_neighbors() == NUM_NEIGHBORS);
+    CATCH_REQUIRE(gt.n_queries() == queries.size());
+
     double groundtruth_time = svs::lib::time_difference(tic);
 
     if (calibrate) {
@@ -189,6 +192,8 @@ void test_loop(
         // Add Points
         {
             auto [points, time] = reference.add_points(index, num_points);
+            CATCH_REQUIRE(points <= num_points);
+            CATCH_REQUIRE(points > num_points - reference.bucket_size());
             index.debug_check_invariants(true);
             do_check(index, reference, queries, time, stringify("add ", points, " points"));
         }
@@ -196,6 +201,8 @@ void test_loop(
         // Delete Points
         {
             auto [points, time] = reference.delete_points(index, num_points);
+            CATCH_REQUIRE(points <= num_points);
+            CATCH_REQUIRE(points > num_points - reference.bucket_size());
             index.debug_check_invariants(true);
             do_check(
                 index, reference, queries, time, stringify("delete ", points, " points")
@@ -224,7 +231,7 @@ void test_loop(
     }
 }
 
-CATCH_TEST_CASE("Testing Graph Index", "[graph_index]") {
+CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     // Set hyper parameters here
     const size_t max_degree = 64;
 #if defined(NDEBUG)
@@ -234,18 +241,23 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index]") {
     const float initial_fraction = 0.05;
     const float modify_fraction = 0.005;
 #endif
-    const size_t num_threads = 2;
+    const size_t num_threads = 10;
     const float alpha = 1.2;
 
     // Load the base dataset and queries.
-    auto reference = svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>(
-        svs::io::auto_load<Eltype, N>(
-            test_dataset::data_svs_file(), svs::HugepageAllocator()
-        ),
-        num_threads,
-        Distance()
-    );
+    auto data = svs::VectorDataLoader<Eltype, N>(test_dataset::data_svs_file()).load();
+    auto num_points = data.size();
     auto queries = test_dataset::queries();
+
+    auto reference = svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>(
+        std::move(data),
+        Distance(),
+        num_threads,
+        div(num_points, 0.5 * modify_fraction),
+        NUM_NEIGHBORS,
+        queries
+    );
+
     auto num_indices_to_add = div(reference.size(), initial_fraction);
     std::cout << "Initializing with " << num_indices_to_add << " entries!\n";
 
@@ -255,6 +267,11 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index]") {
     {
         auto [vectors, indices] = reference.generate(num_indices_to_add);
         // Copy assign ``initial_indices``
+        auto num_points_added = indices.size();
+        CATCH_REQUIRE(vectors.size() == num_points_added);
+        CATCH_REQUIRE(num_points_added <= num_indices_to_add);
+        CATCH_REQUIRE(num_points_added > num_indices_to_add - reference.bucket_size());
+
         initial_indices = indices;
         if (vectors.size() != num_indices_to_add || indices.size() != num_indices_to_add) {
             throw ANNEXCEPTION("Something when horribly wrong!");
@@ -302,4 +319,27 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index]") {
     );
 
     test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
+
+    // Try saving the index.
+    svs_test::prepare_temp_directory();
+    auto tmp = svs_test::temp_directory();
+    index.save(tmp / "config", tmp / "graph", tmp / "data");
+
+    auto reloaded = svs::index::vamana::auto_dynamic_assemble(
+        tmp / "config",
+        svs::GraphLoader<uint32_t, svs::data::BlockedBuilder>(tmp / "graph"),
+        svs::VectorDataLoader<float, svs::Dynamic, svs::data::BlockedBuilder>(tmp / "data"),
+        svs::DistanceL2(),
+        2
+    );
+
+    // Make sure parameters were saved across the saving.
+    CATCH_REQUIRE(index.get_alpha() == reloaded.get_alpha());
+    CATCH_REQUIRE(index.get_max_candidates() == reloaded.get_max_candidates());
+    CATCH_REQUIRE(
+        index.get_construction_window_size() == reloaded.get_construction_window_size()
+    );
+    CATCH_REQUIRE(index.size() == reloaded.size());
+    // ID's preserved across runs.
+    index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
 }

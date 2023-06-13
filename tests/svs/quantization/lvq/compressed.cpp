@@ -37,8 +37,7 @@ template <size_t Bits> void test_unsigned_encoder() {
     CATCH_REQUIRE((Encoder::absmax() == (1 << Bits) - 1));
     for (auto i : {5, 20, 200, 1489}) {
         size_t bytes = Encoder::bytes(i);
-        CATCH_REQUIRE(bytes >= svs::lib::div_round_up(Bits * i, 8));
-        CATCH_REQUIRE(bytes % Bits == 0);
+        CATCH_REQUIRE(bytes == svs::lib::div_round_up(Bits * i, 8));
     }
     for (size_t i = 0; i <= Encoder::max(); ++i) {
         CATCH_REQUIRE((Encoder::encode(i) == i));
@@ -58,8 +57,7 @@ template <size_t Bits> void test_signed_encoder() {
 
     for (auto i : {5, 20, 200, 1489}) {
         size_t bytes = Encoder::bytes(i);
-        CATCH_REQUIRE(bytes >= svs::lib::div_round_up(Bits * i, 8));
-        CATCH_REQUIRE(bytes % Bits == 0);
+        CATCH_REQUIRE(bytes == svs::lib::div_round_up(Bits * i, 8));
     }
 
     int64_t min = Encoder::min();
@@ -99,12 +97,97 @@ template <size_t Bits> void test_encode_decode() {
 ///
 /// Test
 ///
+
+template <typename Sign, size_t Bits, size_t Extent>
+void test_compressed_constructors(svs::lib::MaybeStatic<Extent> size = {}) {
+    using Compressed = lvq::CompressedVector<Sign, Bits, Extent>;
+    using MutCompressed = lvq::MutableCompressedVector<Sign, Bits, Extent>;
+
+    // Oversize the underlying storage to test shrinking logic.
+    constexpr size_t StorageExtent = lvq::compute_storage_extent(Bits, Extent);
+    size_t storage_bytes = lvq::compute_storage(Bits, size);
+    constexpr size_t OversizedExtent =
+        StorageExtent == svs::Dynamic ? svs::Dynamic : StorageExtent + 10;
+
+    auto storage = std::vector<std::byte>(storage_bytes + 10);
+
+    auto span = std::span<std::byte, StorageExtent>(storage.begin(), storage_bytes);
+    auto const_span =
+        std::span<const std::byte, StorageExtent>(storage.begin(), storage_bytes);
+
+    auto test_cv = [&](const auto& cv) {
+        using CVT = std::remove_cvref_t<decltype(cv)>;
+        CATCH_REQUIRE(cv.size() == size);
+        size_t expected_storage = lvq::compute_storage(Bits, size);
+        CATCH_REQUIRE(cv.size_bytes() == expected_storage);
+        CATCH_REQUIRE(cv.compute_bytes(size) == expected_storage);
+        CATCH_REQUIRE(CVT::storage_extent == lvq::compute_storage_extent(Bits, Extent));
+
+        if constexpr (Extent != svs::Dynamic) {
+            CATCH_REQUIRE(CVT::compute_bytes() == expected_storage);
+        }
+    };
+
+    // Construct from just a span is allowed if the length is known at compile time.
+    if constexpr (Extent != svs::Dynamic) {
+        auto cv = MutCompressed{span};
+        test_cv(cv);
+        test_cv(cv.as_const());
+        auto cv_const = Compressed{span};
+        test_cv(cv_const);
+    }
+
+    // Test the normal constructors.
+    {
+        auto cv = MutCompressed{size, span};
+        test_cv(cv);
+        test_cv(cv.as_const());
+        auto cv_const = Compressed{size, span};
+        test_cv(cv_const);
+        cv_const = Compressed{size, const_span};
+
+        if constexpr (Extent == svs::Dynamic) {
+            auto span_short = span.subspan(0, 3);
+            CATCH_REQUIRE_THROWS_AS(MutCompressed(size, span_short), svs::ANNException);
+            CATCH_REQUIRE_THROWS_AS(Compressed(size, span_short), svs::ANNException);
+        }
+    }
+
+    // Shrinking constructor.
+    {
+        auto span_oversized = std::span<std::byte, OversizedExtent>(storage);
+        auto const_span_oversized = std::span<const std::byte, OversizedExtent>(storage);
+
+        auto cv = MutCompressed{lvq::AllowShrinkingTag(), size, span_oversized};
+        test_cv(cv);
+        test_cv(cv.as_const());
+
+        auto cv_const = Compressed{lvq::AllowShrinkingTag(), size, const_span_oversized};
+        test_cv(cv_const);
+        cv_const = Compressed{lvq::AllowShrinkingTag(), size, span_oversized};
+        test_cv(cv_const);
+
+        // If we're constructing a static-length CV, try building from a dynamic span.
+        if constexpr (Extent == svs::Dynamic) {
+            auto span_oversized_d = std::span<std::byte, svs::Dynamic>(storage);
+            auto const_span_oversized_d = std::span<const std::byte, svs::Dynamic>(storage);
+            cv = MutCompressed{lvq::AllowShrinkingTag(), size, span_oversized_d};
+            test_cv(cv);
+            cv_const = Compressed{lvq::AllowShrinkingTag(), size, const_span_oversized_d};
+            test_cv(cv_const);
+            cv_const = Compressed{lvq::AllowShrinkingTag(), size, span_oversized_d};
+            test_cv(cv_const);
+        }
+    }
+}
+
 template <typename Sign, size_t Bits, size_t Extent>
 void test_compressed(svs::lib::MaybeStatic<Extent> size = {}, size_t ntests = 5) {
-    using compressed_type = lvq::MutableCompressedVector<Sign, Bits, Extent>;
-    using const_compressed_type = lvq::CompressedVector<Sign, Bits, Extent>;
+    test_compressed_constructors<Sign, Bits, Extent>(size);
 
-    using value_type = typename compressed_type::value_type;
+    using MutCompressed = lvq::MutableCompressedVector<Sign, Bits, Extent>;
+    using Compressed = lvq::CompressedVector<Sign, Bits, Extent>;
+    using value_type = typename MutCompressed::value_type;
 
     // Make sure the `value_type` is a suitable signed small integer.
     if constexpr (std::is_same_v<Sign, lvq::Signed>) {
@@ -114,25 +197,24 @@ void test_compressed(svs::lib::MaybeStatic<Extent> size = {}, size_t ntests = 5)
         static_assert(std::is_same_v<value_type, uint8_t>);
     }
 
-    constexpr size_t StorageExtent = compressed_type::storage_extent;
     size_t storage_bytes = lvq::compute_storage(Bits, size);
 
     // Allocate memory and construct a `CompressedVector` view over the data.
     std::vector<std::byte> v(storage_bytes);
-    std::span<std::byte, StorageExtent> view{v.data(), v.size()};
-    compressed_type cv{size, view};
+    MutCompressed cv{size, typename MutCompressed::span_type{v}};
+
     CATCH_REQUIRE((cv.size() == size));
     CATCH_REQUIRE(cv.extent == Extent);
     if constexpr (Extent != svs::Dynamic) {
         CATCH_REQUIRE(cv.size() == Extent);
         CATCH_REQUIRE(cv.storage_extent == storage_bytes);
         // Only need 8-bytes for the pointer
-        CATCH_REQUIRE(sizeof(compressed_type) == 8);
+        CATCH_REQUIRE(sizeof(MutCompressed) == 8);
     } else {
         CATCH_REQUIRE(cv.storage_extent == svs::Dynamic);
-        // Only need 24 bytes - 8 for the actual length, 8 for the pointer, and 8 for the
-        // span length.
-        CATCH_REQUIRE(sizeof(compressed_type) == 24);
+        // Need 24 bytes - 8 for the actual length, 8 for the pointer, and 8 for the span
+        // length.
+        CATCH_REQUIRE(sizeof(MutCompressed) == 24);
     }
 
     CATCH_REQUIRE((cv.data() == v.data()));
@@ -148,22 +230,52 @@ void test_compressed(svs::lib::MaybeStatic<Extent> size = {}, size_t ntests = 5)
     //
     // Assign each value to the compressed vector and ensure that the correct values
     // come out the other end.
+    auto cv_size = cv.size();
     for (size_t i = 0; i < ntests; ++i) {
         svs_test::populate(reference, g);
-        for (size_t j = 0; j < cv.size(); ++j) {
+        for (size_t j = 0; j < cv_size; ++j) {
             cv.set(reference.at(j), j);
             CATCH_REQUIRE((cv.get(j) == reference.at(j)));
         }
 
         // Implicit conversion to `const`
-        const_compressed_type cv_const = cv;
+        Compressed cv_const = cv;
 
         // Ensure that the `const` version works pretty much the same as the `non-const`
         // version.
-        for (size_t j = 0; j < cv.size(); ++j) {
+        for (size_t j = 0; j < cv_size; ++j) {
             CATCH_REQUIRE((cv.get(j) == reference.at(j)));
             CATCH_REQUIRE((cv_const.get(j) == reference.at(j)));
         }
+
+        // Test copying.
+        auto other_storage = lvq::CVStorage();
+        auto other = other_storage.template view<Sign, Bits, Extent>(size);
+        CATCH_REQUIRE(other.size() == cv_size);
+
+        // Rely on std::vector initializing to 0.
+        for (size_t j = 0; j < cv_size; ++j) {
+            CATCH_REQUIRE(other.get(j) == Compressed::decode(0));
+        }
+        other.copy_from(cv);
+        for (size_t j = 0; j < cv_size; ++j) {
+            CATCH_REQUIRE(other.get(j) == reference.at(j));
+        }
+
+        // Copy from a vector.
+        svs_test::populate(reference, g);
+        other.copy_from(reference);
+        for (size_t j = 0; j < cv_size; ++j) {
+            CATCH_REQUIRE(other.get(j) == reference.at(j));
+        }
+
+        bool some_different = false;
+        for (size_t j = 0; j < cv_size; ++j) {
+            if (other.get(j) != cv.get(j)) {
+                some_different = true;
+            }
+        }
+        CATCH_REQUIRE(some_different);
     }
 }
 
@@ -234,7 +346,42 @@ void test_unpacker(size_t mask, int64_t bias, svs::lib::MaybeStatic<Extent> size
 template <size_t N> using Val = svs::meta::Val<N>;
 } // namespace
 
-CATCH_TEST_CASE("Quantization Utilities", "[quantization][core_quantization]") {
+CATCH_TEST_CASE("Quantization Utilities", "[quantization][lvq][lvq_compressed]") {
+    CATCH_SECTION("Compute Storage") {
+        auto test_compute_storage = [](size_t nbits, size_t length, size_t expected) {
+            CATCH_REQUIRE(lvq::compute_storage(nbits, length) == expected);
+            CATCH_REQUIRE(lvq::compute_storage_extent(nbits, length) == expected);
+            CATCH_REQUIRE(lvq::compute_storage_extent(nbits, svs::Dynamic) == svs::Dynamic);
+        };
+
+        test_compute_storage(2, 15, 4);
+        test_compute_storage(2, 16, 4);
+        test_compute_storage(2, 17, 5);
+
+        test_compute_storage(3, 15, 6);
+        test_compute_storage(3, 16, 6);
+        test_compute_storage(3, 17, 7);
+
+        test_compute_storage(4, 15, 8);
+        test_compute_storage(4, 16, 8);
+        test_compute_storage(4, 17, 9);
+
+        test_compute_storage(5, 15, 10);
+        test_compute_storage(5, 16, 10);
+        test_compute_storage(5, 17, 11);
+
+        test_compute_storage(6, 15, 12);
+        test_compute_storage(6, 16, 12);
+        test_compute_storage(6, 17, 13);
+
+        test_compute_storage(7, 15, 14);
+        test_compute_storage(7, 16, 14);
+        test_compute_storage(7, 17, 15);
+
+        test_compute_storage(8, 15, 15);
+        test_compute_storage(8, 16, 16);
+        test_compute_storage(8, 17, 17);
+    }
     // Test bitmask generation.
     CATCH_SECTION("Mask") {
         // Setting single bits.
@@ -285,6 +432,12 @@ CATCH_TEST_CASE("Quantization Utilities", "[quantization][core_quantization]") {
             CATCH_REQUIRE(IR{Val<6>{}, 6} == IR{4, 5, 4, 9});
             CATCH_REQUIRE(IR{Val<6>{}, 7} == IR{5, 5, 2, 7});
         }
+    }
+
+    // Naming
+    CATCH_SECTION("Naming") {
+        CATCH_REQUIRE(std::string(lvq::Signed::name) == "signed");
+        CATCH_REQUIRE(std::string(lvq::Unsigned::name) == "unsigned");
     }
 
     // Test encoders.

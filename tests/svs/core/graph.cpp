@@ -56,10 +56,21 @@ CATCH_TEST_CASE("Simple Graph", "[graphs][simple]") {
         }
 
         for (Idx j = 0; j < n_nodes; ++j) {
-            graph.add_edge(j, (j + i + 1) % n_nodes);
-            // TODO (MH): Reenable
-            // // Filter out redundant assignments.
-            // graph.add_edge(j, (j + i + 1) % n_nodes);
+            bool should_be_added = (i < max_degree);
+            auto dst = (j + i + 1) % n_nodes;
+            CATCH_REQUIRE(!graph.has_edge(j, dst));
+            graph.add_edge(j, dst);
+
+            // Make sure that the edge is added (or not) depending on whether the graph
+            // is full or not.
+            if (should_be_added) {
+                CATCH_REQUIRE(graph.has_edge(j, dst));
+            } else {
+                CATCH_REQUIRE(!graph.has_edge(j, dst));
+            }
+
+            // Filter out redundant assignments.
+            graph.add_edge(j, dst);
         }
     }
 

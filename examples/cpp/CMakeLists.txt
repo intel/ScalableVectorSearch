@@ -1,4 +1,4 @@
-if(SVS_BUILD_TESTS)
+if(SVS_BUILD_TESTS OR SVS_TEST_EXAMPLES)
     # N.B.: Including `CTest` automatically calls `enable_testing()`.
     # Without this include, `enable_testing()` is never called and thus `add_test()`
     # has no effect.

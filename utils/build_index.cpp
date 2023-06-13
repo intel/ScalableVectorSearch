@@ -84,11 +84,8 @@ The required arguments are as follows:
 (8) Config directory for saving.
 (9) Graph directory for saving.
 (10) Data directory for saving.
-(11) Graph memory style (string - memory style).
-(12) Data memory style (string - memory style).
-(13) Distance type (string - distance type).
+(11) Distance type (string - distance type).
 
-Valid Memory Styles: (dram, memmap)
 Valid Distance Types: (L2, MIP, Cosine)
 )";
 

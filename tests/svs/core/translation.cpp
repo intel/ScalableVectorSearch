@@ -72,6 +72,17 @@ void check(
 } // namespace
 
 CATCH_TEST_CASE("Translation Table", "[core][translation]") {
+    CATCH_SECTION("Identity Constructor") {
+        auto translator = svs::IDTranslator(svs::IDTranslator::Identity(10));
+        CATCH_REQUIRE(translator.size() == 10);
+        for (size_t i = 0; i < 10; ++i) {
+            CATCH_REQUIRE(translator.has_external(i));
+            CATCH_REQUIRE(translator.has_internal(i));
+            CATCH_REQUIRE(translator.get_external(i) == i);
+            CATCH_REQUIRE(translator.get_internal(i) == i);
+        }
+    }
+
     CATCH_SECTION("Basic Tests") {
         auto translator = svs::IDTranslator();
         CATCH_REQUIRE(translator.size() == 0);

@@ -85,12 +85,12 @@ int svs_main(std::vector<std::string> args) {
     index.set_search_window_size(30);
     svs::QueryResult<size_t> results = index.search(queries, 10);
     double recall = svs::k_recall_at_n(groundtruth, results);
-    check(0.8239, recall);
+    check(0.8246, recall);
     //! [Perform Queries]
 
     //! [Search Window Size]
     auto expected_recall =
-        std::map<size_t, double>({{10, 0.5991}, {20, 0.7475}, {30, 0.8239}, {40, 0.8654}});
+        std::map<size_t, double>({{10, 0.6006}, {20, 0.7486}, {30, 0.8246}, {40, 0.8655}});
     for (auto windowsize : {10, 20, 30, 40}) {
         recall = run_recall(index, queries, groundtruth, windowsize, 10, "Sweep");
         check(expected_recall.at(windowsize), recall);
@@ -112,7 +112,7 @@ int svs_main(std::vector<std::string> args) {
     );
 
     recall = run_recall(index, queries, groundtruth, 30, 10, "Reload");
-    check(recall, 0.8239);
+    check(recall, 0.8246);
     //! [Loading]
 
     //! [Compressed Loader]
@@ -130,14 +130,14 @@ int svs_main(std::vector<std::string> args) {
     );
 
     recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Load");
-    check(0.8226, recall);
+    check(0.823, recall);
     //! [Search Compressed]
 
     //! [Build Index Compressed]
     // Compressed building
     index = svs::Vamana::build<float>(parameters, compressor, svs::DistanceL2());
     recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Build");
-    check(0.8223, recall);
+    check(0.8226, recall);
     //! [Build Index Compressed]
 
     //! [Only Loading]

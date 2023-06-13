@@ -197,12 +197,12 @@ class GraphConsolidator {
         }
     }
 
-    template <typename Deleted>
+    template <typename SelfDistance, typename Deleted>
     void filter_candidates(
         neighbor_vector_type& valid_candidates,
         const set_type& all_candidates,
         const datum_type& src_data,
-        Distance& distance,
+        SelfDistance& distance,
         const Deleted& is_deleted
     ) const {
         distance::maybe_fix_argument(distance, src_data);
@@ -213,7 +213,10 @@ class GraphConsolidator {
             }
 
             valid_candidates.push_back(
-                {dst, distance::compute(distance, src_data, data_.get_datum(dst))}
+                {dst,
+                 distance::compute(
+                     distance, src_data, data_.get_datum(dst, data::full_access)
+                 )}
             );
         }
 
@@ -229,7 +232,7 @@ class GraphConsolidator {
         const Deleted& is_deleted
     ) const {
         auto& [all_candidates, valid_candidates, final_candidates] = tls;
-        Distance distance = threads::shallow_copy(distance_);
+        auto distance = data_.self_distance(distance_);
 
         for (auto i : local_ids) {
             size_t src = global_ids[i];
@@ -249,7 +252,11 @@ class GraphConsolidator {
 
             // Insert non-deleted candidates into the vector to prepare for pruning.
             filter_candidates(
-                valid_candidates, all_candidates, data_.get_datum(src), distance, is_deleted
+                valid_candidates,
+                all_candidates,
+                data_.get_datum(src, data::full_access),
+                distance,
+                is_deleted
             );
 
             heuristic_prune_neighbors(

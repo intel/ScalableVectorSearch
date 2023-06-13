@@ -46,6 +46,39 @@ template <size_t M, size_t N> bool check_dims(size_t m, size_t n) {
 ///// Simple Data
 /////
 
+// Generic save routine meant to be shared by the SimpleData specializations and the
+// BlockedData.
+//
+// Ensures the two stay in-sync for the common parts.
+template <data::ImmutableMemoryDataset Data> class GenericSaver {
+  public:
+    GenericSaver(const Data& data)
+        : data_{data} {}
+
+    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    lib::SaveType save(const lib::SaveContext& ctx) const {
+        using T = typename Data::element_type;
+        // UUID used to identify the file.
+        auto uuid = lib::UUID{};
+        auto filename = ctx.generate_name("data");
+        io::save(data_, io::NativeFile(filename), uuid);
+        return lib::SaveType(
+            toml::table({
+                {"name", "uncompressed"},
+                {"binary_file", filename.filename().c_str()},
+                {"dims", prepare(data_.dimensions())},
+                {"num_vectors", prepare(data_.size())},
+                {"uuid", uuid.str()},
+                {"eltype", name<datatype_v<T>>()},
+            }),
+            save_version
+        );
+    }
+
+  private:
+    const Data& data_;
+};
+
 // Forward Declaration
 template <typename T, size_t Extent> class SimpleDataView;
 template <typename T, size_t Extent> class ConstSimpleDataView;
@@ -72,6 +105,18 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     using value_type = std::span<element_type, Extent>;
     /// The type used to return a constant handle to stored vectors.
     using const_value_type = std::span<const element_type, Extent>;
+
+    ///// Access Compatibility
+    template <AccessMode = DefaultAccess> using mode_value_type = value_type;
+    template <AccessMode = DefaultAccess> using mode_const_value_type = const_value_type;
+
+    template <typename Distance> static Distance adapt_distance(const Distance& distance) {
+        return threads::shallow_copy(distance);
+    }
+
+    template <typename Distance> static Distance self_distance(const Distance& distance) {
+        return threads::shallow_copy(distance);
+    }
 
     /////
     ///// Constructors
@@ -103,7 +148,10 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     ///
     /// * ``0 <= i < size()``
     ///
-    const_value_type get_datum(size_t i) const { return data_.slice(i); }
+    template <AccessMode Mode = DefaultAccess>
+    const_value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) const {
+        return data_.slice(i);
+    }
 
     ///
     /// @brief Return a mutable handle to vector stored as position ``i``.
@@ -115,10 +163,16 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     ///
     /// * ``0 <= i < size()``
     ///
-    value_type get_datum(size_t i) { return data_.slice(i); }
+    template <AccessMode Mode = DefaultAccess>
+    value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) {
+        return data_.slice(i);
+    }
 
     /// Prefetch the vector at position ``i`` into the L1 cache.
-    void prefetch(size_t i) const { lib::prefetch(get_datum(i)); }
+    template <AccessMode Mode = DefaultAccess>
+    void prefetch(size_t i, Mode SVS_UNUSED(mode) = {}) const {
+        lib::prefetch(get_datum(i));
+    }
 
     ///
     /// @brief Overwrite the contents of the vector at position ``i``.
@@ -135,7 +189,8 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     /// * ``datum.size() == dimensions()``
     /// * ``0 <= i < size()``
     ///
-    template <typename U, size_t N> void set_datum(size_t i, std::span<U, N> datum) {
+    template <typename U, size_t N, AccessMode Mode = DefaultAccess>
+    void set_datum(size_t i, std::span<U, N> datum, Mode SVS_UNUSED(mode) = {}) {
         if (!check_dims<Extent, N>(dimensions(), datum.size())) {
             throw ANNEXCEPTION(
                 "Trying to assign vector of size ",
@@ -148,7 +203,9 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
 
         // Store the results.
         // Unfortunately, GCC is not smart enough to emit a memmove when `T` and `U` are
-        // the same by inlining and optimizing `lib::narrow`.
+        // the same by inlining and optimizing `lib::relaxed_narrow`.
+        //
+        // Use ``relaxed_narrow`` to allow `float` arguments to `Float16` datasets.
         if constexpr (std::is_same_v<T, std::remove_const_t<U>>) {
             std::copy(datum.begin(), datum.end(), get_datum(i).begin());
         } else {
@@ -156,9 +213,14 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
                 datum.begin(),
                 datum.end(),
                 get_datum(i).begin(),
-                [](const U& u) { return lib::narrow<T>(u); }
+                [](const U& u) { return lib::relaxed_narrow<T>(u); }
             );
         }
+    }
+
+    template <typename U, AccessMode Mode = DefaultAccess>
+    void set_datum(size_t i, const std::vector<U>& datum, Mode mode = {}) {
+        set_datum(i, lib::as_span(datum), mode);
     }
 
     const array_type& get_array() const { return data_; }
@@ -175,17 +237,17 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
 
     /// @brief Return a ConstSimpleDataView over this data.
     ConstSimpleDataView<T, Extent> cview() const {
-        return ConstSimpleDataView{data(), size(), dimensions()};
+        return ConstSimpleDataView<T, Extent>{data(), size(), dimensions()};
     }
 
     /// @brief Return a ConstSimpleDataView over this data.
     ConstSimpleDataView<T, Extent> view() const {
-        return ConstSimpleDataView{data(), size(), dimensions()};
+        return ConstSimpleDataView<T, Extent>{data(), size(), dimensions()};
     }
 
     /// @brief Return a SimpleDataView over this data.
     SimpleDataView<T, Extent> view() {
-        return SimpleDataView{data(), size(), dimensions()};
+        return SimpleDataView<T, Extent>{data(), size(), dimensions()};
     }
 
     const Base& getbase() const { return data_.getbase(); }
@@ -193,6 +255,11 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
 
     const T& data_begin() const { return data_.first(); }
     const T& data_end() const { return data_.last(); }
+
+    ///// IO
+    lib::SaveType save(const lib::SaveContext& ctx) const {
+        return GenericSaver(*this).save(ctx);
+    }
 
     // --- !! DANGER !! ---
     array_type&& acquire() { return std::move(data_); }
@@ -395,26 +462,6 @@ class SimplePolymorphicData : public SimpleDataBase<T, Extent, PolymorphicPointe
     ///
     explicit SimplePolymorphicData(size_t n_elements, size_t n_dimensions)
         : SimplePolymorphicData(lib::DefaultAllocator{}, n_elements, n_dimensions) {}
-
-    ///// IO
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
-        // Generate a UUID for the saving.
-        auto uuid = lib::UUID{};
-        auto filename = ctx.generate_name("data");
-        io::save(*this, io::NativeFile(filename), uuid);
-        return lib::SaveType(
-            toml::table({
-                {"name", "uncompressed"},
-                {"binary_file", filename.filename().c_str()},
-                {"dims", prepare(parent_type::dimensions())},
-                {"num_vectors", prepare(parent_type::size())},
-                {"uuid", uuid.str()},
-                {"eltype", name<datatype_v<T>>()},
-            }),
-            save_version
-        );
-    }
 };
 
 template <typename T1, size_t E1, typename T2, size_t E2>
@@ -442,6 +489,57 @@ SimplePolymorphicData(DenseArray<T, Dims, Base> data)
 
 template <typename T, size_t Extent, typename Base>
 SimplePolymorphicData(SimpleData<T, Extent, Base> data) -> SimplePolymorphicData<T, Extent>;
+
+/////
+///// Builders
+/////
+
+namespace detail {
+template <typename T> inline constexpr bool is_variant = false;
+template <typename... Ts> inline constexpr bool is_variant<std::variant<Ts...>> = true;
+} // namespace detail
+
+// Instantiators.
+template <typename Allocator = lib::DefaultAllocator> class PolymorphicBuilder {
+  public:
+    PolymorphicBuilder() = default;
+    PolymorphicBuilder(const Allocator& allocator)
+        : allocator_{allocator} {}
+
+    template <typename T, size_t Extent = Dynamic>
+    using return_type = data::SimplePolymorphicData<T, Extent>;
+
+    // Allocate a ``data::SimplePolymorphicData`` of an appropriate size.
+    template <typename T, size_t Extent = Dynamic>
+    return_type<T, Extent> build(size_t size, size_t dimensions) const {
+        if constexpr (detail::is_variant<Allocator>) {
+            return std::visit(
+                [&](auto alloc) {
+                    return data::SimplePolymorphicData<T, Extent>(alloc, size, dimensions);
+                },
+                allocator_
+            );
+        } else {
+            return data::SimplePolymorphicData<T, Extent>(allocator_, size, dimensions);
+        }
+    }
+
+    // Pre-processing hook during reloading.
+    // Nothing to do for the PolymorphicBuilder.
+    void load_hook(const toml::table&) const {}
+
+  private:
+    Allocator allocator_{};
+};
+
+template <typename Builder, typename T, size_t Extent>
+using builder_return_type = typename Builder::template return_type<T, Extent>;
+
+template <typename T, size_t Extent, typename Builder>
+builder_return_type<Builder, T, Extent>
+build(const Builder& builder, size_t size, size_t dimensions) {
+    return builder.template build<T, Extent>(size, dimensions);
+}
 
 } // namespace data
 } // namespace svs

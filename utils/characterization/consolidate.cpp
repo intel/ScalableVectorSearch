@@ -42,13 +42,12 @@ int svs_main(std::vector<std::string> args) {
 
     // Load the graph.
     std::cout << "Loading Graph" << std::endl;
-    auto graph =
-        svs::io::load_graph<Idx>(svs::io::NativeFile{graph_path}, svs::HugepageAllocator());
+    auto graph = svs::io::load_simple_graph<Idx>(
+        svs::io::NativeFile{graph_path}, svs::HugepageAllocator()
+    );
 
     std::cout << "Loading Data" << std::endl;
-    auto data = svs::io::load_dataset<Eltype, Extent>(
-        svs::io::NativeFile{data_path}, svs::HugepageAllocator()
-    );
+    auto data = svs::VectorDataLoader<Eltype, Extent>(data_path).load();
 
     // Create a random number generator.
     std::cout << "Generating Indices" << std::endl;

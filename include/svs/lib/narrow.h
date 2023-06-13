@@ -85,12 +85,26 @@ CLANG_NDEBUG_NOINLINE constexpr T narrow(U u) noexcept(false) {
 template <class T, class U>
     requires(!svs::is_arithmetic_v<T>)
 constexpr T narrow(U u) noexcept(false) {
-    const T t = narrow_cast<T>(u);
-    if (static_cast<U>(t) != u) {
-        throw narrowing_error{};
+    if constexpr (std::is_same_v<T, U>) {
+        return u;
+    } else {
+        const T t = narrow_cast<T>(u);
+        if (static_cast<U>(t) != u) {
+            throw narrowing_error{};
+        }
+        return t;
     }
+}
 
-    return t;
+/// Behaves like `narrow` but can be lossy is `allow_lossy_conversion<T, U> == true`.
+template <class T, class U>
+    requires svs::is_arithmetic_v<T>
+constexpr T relaxed_narrow(U u) noexcept(false) {
+    if constexpr (allow_lossy_conversion<U, T>) {
+        return narrow_cast<T>(u);
+    } else {
+        return narrow<T>(u);
+    }
 }
 
 } // namespace lib

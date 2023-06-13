@@ -165,9 +165,8 @@ CATCH_TEST_CASE("Top Level Searcher", "[integration][exhaustive]") {
 
     // Load data using both the file path method and from a direct file.
     // Use the `DefaultAllocator` to allow implicit copies.
-    auto data = svs::io::load_dataset<float, svs::Dynamic>(
-        svs::io::v1::NativeFile{test_dataset::data_svs_file()}, svs::lib::DefaultAllocator{}
-    );
+    auto data = svs::io::load_dataset<float, svs::Dynamic>(svs::io::v1::NativeFile{
+        test_dataset::data_svs_file()});
 
     CATCH_SECTION("Euclidean") {
         // From file

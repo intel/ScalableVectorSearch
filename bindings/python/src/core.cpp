@@ -78,11 +78,6 @@ void wrap_lvq(py::module& m) {
     // Compression Sources
     wrap_lvq_definition<LVQ4>(m, "LVQ4", "Perform one level LVQ compression using 4-bits.");
     wrap_lvq_definition<LVQ8>(m, "LVQ8", "Perform one level LVQ compression using 8-bits.");
-    wrap_lvq_definition<GlobalQuant8>(
-        m,
-        "GlobalQuant8",
-        "Perform one level compression using 8-bits using global constants."
-    );
     wrap_lvq_definition<LVQ4x4>(
         m,
         "LVQ4x4",
@@ -98,12 +93,6 @@ void wrap_lvq(py::module& m) {
         m,
         "LVQ8x8",
         "Perform two level compression using 8 bits for the primary and residual."
-    );
-    wrap_lvq_definition<GlobalQuant4x4>(
-        m,
-        "GlobalQuant4x4",
-        "Perform two level compression using 4 bits for the primary and residual using "
-        "global constants."
     );
 }
 } // namespace
@@ -153,7 +142,9 @@ Args:
         );
 
     ///// GraphLoader
-    py::class_<GraphLoader> graph_loader(m, "GraphLoader", "Loader for graph files.");
+    py::class_<UnspecializedGraphLoader> graph_loader(
+        m, "GraphLoader", "Loader for graph files."
+    );
     graph_loader.def(
         py::init<std::string>(),
         py::arg("directory"),

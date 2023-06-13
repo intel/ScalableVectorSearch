@@ -55,15 +55,6 @@ template <typename T> std::vector<float> slurp(const T& x) {
     return v;
 }
 
-template <typename T, typename Alloc>
-std::span<const T> as_const_span(const std::vector<T, Alloc>& v) {
-    return std::span<const T>(v.data(), v.size());
-}
-
-template <typename T, typename Alloc> std::span<T> as_span(std::vector<T, Alloc>& v) {
-    return std::span<T>(v.data(), v.size());
-}
-
 ///
 /// Often, scale parameters are stored as `Float16` values inside the compressed structures.
 /// By passing a floating point value through a `Float16`, we can ensure that the floating
@@ -80,6 +71,13 @@ using compressed_generator_t = decltype(test_q::create_generator<Sign, Bits>());
 
 namespace test_fixtures {
 template <size_t Bits, size_t Extent> struct ScaledBiased {
+  private:
+    [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
+    compressed_generator_t<lvq::Unsigned, Bits> generator_;
+    Catch::Generators::GeneratorWrapper<float> float_;
+    lvq::CVStorage compressed_{};
+    std::vector<float> reference_{};
+
   public:
     using vector_type = lvq::ScaledBiasedVector<Bits, Extent>;
     static constexpr float float_min = -3;
@@ -109,22 +107,26 @@ template <size_t Bits, size_t Extent> struct ScaledBiased {
             cv.set(reference_[i], i);
             reference_[i] = (scale * reference_[i]) + bias;
         }
-        return std::make_pair(vector_type{scale, bias, cv.as_const()}, as_span(reference_));
+        return std::make_pair(
+            vector_type{scale, bias, 0, cv.as_const()}, svs::lib::as_span(reference_)
+        );
     }
 
     // N.B.: The copy constructor for the Catch random number generator is deleted.
     // SO, we need to explicitly describe how to copy this.
     ScaledBiased copy() const { return ScaledBiased(static_size()); }
-
-  private:
-    [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
-    compressed_generator_t<lvq::Unsigned, Bits> generator_;
-    Catch::Generators::GeneratorWrapper<float> float_;
-    lvq::CVStorage compressed_{};
-    std::vector<float> reference_{};
 };
 
 template <size_t Primary, size_t Residual, size_t Extent> struct ScaledBiasedWithResidual {
+  private:
+    [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
+    compressed_generator_t<lvq::Unsigned, Primary> primary_generator_;
+    compressed_generator_t<lvq::Signed, Residual> residual_generator_;
+    Catch::Generators::GeneratorWrapper<float> float_;
+    lvq::CVStorage primary_{};
+    lvq::CVStorage residual_{};
+    std::vector<float> reference_{};
+
   public:
     using vector_type = lvq::ScaledBiasedWithResidual<Primary, Residual, Extent>;
     static constexpr float float_min = -3;
@@ -177,8 +179,9 @@ template <size_t Primary, size_t Residual, size_t Extent> struct ScaledBiasedWit
         }
 
         auto v = vector_type{
-            lvq::ScaledBiasedVector(scale, bias, primary.as_const()), residual.as_const()};
-        return std::make_pair(v, as_span(reference_));
+            lvq::ScaledBiasedVector(scale, bias, 0, primary.as_const()),
+            residual.as_const()};
+        return std::make_pair(v, svs::lib::as_span(reference_));
     }
 
     // N.B.: The copy constructor for the Catch random number generator is deleted.
@@ -186,15 +189,6 @@ template <size_t Primary, size_t Residual, size_t Extent> struct ScaledBiasedWit
     ScaledBiasedWithResidual copy() const {
         return ScaledBiasedWithResidual(static_size());
     }
-
-  private:
-    [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
-    compressed_generator_t<lvq::Unsigned, Primary> primary_generator_;
-    compressed_generator_t<lvq::Signed, Residual> residual_generator_;
-    Catch::Generators::GeneratorWrapper<float> float_;
-    lvq::CVStorage primary_{};
-    lvq::CVStorage residual_{};
-    std::vector<float> reference_{};
 };
 } // namespace test_fixtures
 
@@ -225,7 +219,7 @@ void test_distance(TestGenerator& rhs, Distance distance, size_t num_tests = NUM
 
         // Test distances
         svs_test::populate(lhs, generator);
-        auto lhs_span = as_const_span(lhs);
+        auto lhs_span = svs::lib::as_const_span(lhs);
         float reference = svs::distance::compute(distance, lhs_span, rhs_ref);
 
         // Reference distance computation.
@@ -268,38 +262,12 @@ void test_biased_distance(
 
         // Test distances
         svs_test::populate(lhs, generator);
-        auto lhs_span = as_const_span(lhs);
+        auto lhs_span = svs::lib::as_const_span(lhs);
         float reference = svs::distance::compute(distance, lhs_span, rhs_ref);
 
         svs::distance::maybe_fix_argument(distance_bias, lhs_span);
         float dist = svs::distance::compute(distance_bias, lhs_span, rhs_compressed);
         CATCH_REQUIRE(reference == Catch::Approx(dist).epsilon(0.0001).margin(0.001));
-    }
-}
-
-///
-/// Test computation of distances between two vectors using the same compression scheme.
-///
-template <typename TestGenerator, typename Distance>
-void test_self_distance(
-    TestGenerator& rhs, Distance distance, size_t num_tests = NUM_TESTS
-) {
-    // Copy the generator to make an independent version for the left hand side.
-    auto lhs = rhs.copy();
-
-    // Instantiate the distance struct that contains the
-    using self_distance = svs::SelfDistance<Distance, typename TestGenerator::vector_type>;
-    auto distance_self = self_distance::modify(distance);
-
-    for (size_t i = 0; i < num_tests; ++i) {
-        const auto& [lhs_compressed, lhs_ref] = lhs.generate();
-        const auto& [rhs_compressed, rhs_ref] = rhs.generate();
-
-        // Test distances
-        float reference = svs::distance::compute(distance, lhs_ref, rhs_ref);
-        svs::distance::maybe_fix_argument(distance_self, lhs_compressed);
-        float dist = svs::distance::compute(distance_self, lhs_compressed, rhs_compressed);
-        CATCH_REQUIRE(reference == Catch::Approx(dist).epsilon(0.01).margin(0.02));
     }
 }
 
@@ -319,9 +287,7 @@ void test_biased_self_distance(
 
     // Construct the self distance function through the biased distance.
     auto distance_bias = lvq::biased_distance_t<Distance>(bias);
-    using self_distance =
-        svs::SelfDistance<decltype(distance_bias), typename TestGenerator::vector_type>;
-    auto distance_self = self_distance::modify(distance_bias);
+    auto distance_self = lvq::DecompressionAdaptor{distance_bias};
 
     for (size_t i = 0; i < num_tests; ++i) {
         const auto& [lhs_compressed, lhs_ref] = lhs.generate();
@@ -349,7 +315,7 @@ template <size_t N> using Val = svs::meta::Val<N>;
 
 } // namespace
 
-CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][vector_quantization]") {
+CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
     using DistanceL2 = svs::distance::DistanceL2;
     using DistanceIP = svs::distance::DistanceIP;
 
@@ -360,17 +326,10 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][vector_quantizatio
         // Statically Sized
         svs::lib::foreach (bits, []<size_t N>(Val<N> /*unused*/) {
             auto generator = test_fixtures::ScaledBiased<N, TEST_DIM>();
-            // Standard distance computations.
             test_distance(generator, DistanceL2());
             test_distance(generator, DistanceIP());
-            // Distance computations with the mean removed from each component of the
-            // dataset.
             test_biased_distance(generator, DistanceL2());
             test_biased_distance(generator, DistanceIP());
-            // Self distance in the unbiased case.
-            test_self_distance(generator, DistanceL2());
-            test_self_distance(generator, DistanceIP());
-            // Self distance with a global bias.
             test_biased_self_distance(generator, DistanceL2());
             test_biased_self_distance(generator, DistanceIP());
         });
@@ -380,17 +339,10 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][vector_quantizatio
             auto generator =
                 test_fixtures::ScaledBiased<N, svs::Dynamic>(svs::lib::MaybeStatic(TEST_DIM)
                 );
-            // Standard distance computations.
             test_distance(generator, DistanceL2());
             test_distance(generator, DistanceIP());
-            // Distance computations with the mean removed from each component of the
-            // dataset.
             test_biased_distance(generator, DistanceL2());
             test_biased_distance(generator, DistanceIP());
-            // Self distance in the unbiased case.
-            test_self_distance(generator, DistanceL2());
-            test_self_distance(generator, DistanceIP());
-            // Self distance with a global bias.
             test_biased_self_distance(generator, DistanceL2());
             test_biased_self_distance(generator, DistanceIP());
         });
@@ -404,13 +356,12 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][vector_quantizatio
         svs::lib::foreach (bits, [&residuals]<size_t N>(Val<N> /*unused*/) {
             svs::lib::foreach (residuals, []<size_t M>(Val<M> /*unused*/) {
                 auto generator = test_fixtures::ScaledBiasedWithResidual<N, M, TEST_DIM>();
-                // Standard distance computations.
                 test_distance(generator, DistanceL2());
                 test_distance(generator, DistanceIP());
-                // Distance computations with the mean removed from each component of the
-                // dataset.
                 test_biased_distance(generator, DistanceL2());
                 test_biased_distance(generator, DistanceIP());
+                test_biased_self_distance(generator, DistanceL2());
+                test_biased_self_distance(generator, DistanceIP());
             });
         });
         static_case.finish();
@@ -423,13 +374,12 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][vector_quantizatio
                     test_fixtures::ScaledBiasedWithResidual<N, M, svs::Dynamic>(
                         svs::lib::MaybeStatic(TEST_DIM)
                     );
-                // Standard distance computations.
                 test_distance(generator, DistanceL2());
                 test_distance(generator, DistanceIP());
-                // Distance computations with the mean removed from each component of the
-                // dataset.
                 test_biased_distance(generator, DistanceL2());
                 test_biased_distance(generator, DistanceIP());
+                test_biased_self_distance(generator, DistanceL2());
+                test_biased_self_distance(generator, DistanceIP());
             });
         });
         dynamic_case.finish();

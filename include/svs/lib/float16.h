@@ -96,7 +96,9 @@ inline uint16_t float_to_float16_untyped(const float x) {
 #endif
 } // namespace detail
 
-class Float16 {
+// On GCC - we need to add this attribute so that Float16 members can appear inside
+// packed structs.
+class __attribute__((packed)) Float16 {
   public:
     Float16() = default;
 
@@ -112,6 +114,10 @@ class Float16 {
 
     // conversion functions
     operator float() const { return detail::float16_to_float_untyped(value_); }
+    Float16& operator=(float x) {
+        value_ = detail::float_to_float16_untyped(x);
+        return *this;
+    }
 
     // Allow users to set and expect the contents of the class as a uint16_t using an
     // explicit API.
@@ -126,6 +132,8 @@ class Float16 {
         : value_{value} {}
     uint16_t value_;
 };
+static_assert(std::is_trivial_v<Float16>);
+static_assert(std::is_standard_layout_v<Float16>);
 
 /////
 ///// Operators
@@ -146,6 +154,7 @@ using Float16 = float16::Float16;
 // SVS local arithmetric trait.
 template <> inline constexpr bool is_arithmetic_v<Float16> = true;
 template <> inline constexpr bool is_signed_v<Float16> = true;
+template <> inline constexpr bool allow_lossy_conversion<float, Float16> = true;
 
 } // namespace svs
 

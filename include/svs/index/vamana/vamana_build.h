@@ -37,10 +37,131 @@
 #include <algorithm>
 #include <concepts>
 #include <memory>
+#include <optional>
 #include <tuple>
 #include <vector>
 
 namespace svs::index::vamana {
+
+// TODO: Make this more official.
+namespace detail {
+
+template <typename Data>
+inline constexpr bool needs_reranking = !std::is_same_v<
+    typename Data::template mode_const_value_type<data::FullAccess>,
+    typename Data::template mode_const_value_type<data::FastAccess>>;
+}
+
+// Optional search tracker to get full history of graph search.
+template <typename Idx> class OptionalTracker {
+  public:
+    using set_type = tsl::robin_set<Neighbor<Idx>, IDHash, IDEqual>;
+    using const_iterator = typename set_type::const_iterator;
+
+  private:
+    std::optional<set_type> neighbors_;
+
+  public:
+    ///// Constructors
+    OptionalTracker(bool enable)
+        : neighbors_{std::nullopt} {
+        if (enable) {
+            neighbors_.emplace();
+        }
+    }
+
+    ///// Methods
+    bool enabled() const { return neighbors_.has_value(); }
+    size_t size() const { return enabled() ? (*neighbors_).size() : 0; }
+
+    const_iterator begin() const { return neighbors_.value().begin(); }
+    const_iterator end() const { return neighbors_.value().end(); }
+
+    void clear() {
+        // This method is safe to call even if the tracker isn't being used.
+        if (enabled()) {
+            (*neighbors_).clear();
+        }
+    }
+
+    ///// Search Tracker API
+    void visited(const Neighbor<Idx>& neighbor, size_t SVS_UNUSED(distance_computations)) {
+        if (enabled()) {
+            (*neighbors_).insert(neighbor);
+        }
+    }
+};
+
+// Define an auxiliary struct to disambiguate constructor calls.
+struct BackedgeBufferParameters {
+    size_t bucket_size_;
+    size_t num_buckets_;
+};
+
+///
+/// @brief A helper type for managing synchronization and parallelism of backedges
+///
+/// The big idea is to use locking over coarse regions of indices.
+/// This still provides synchronized access to individual entries, but allows parallelized
+/// access to multiple buckets.
+///
+template <typename Idx> class BackedgeBuffer {
+  public:
+    // Map an vertex to it's expanded adjacency list.
+    using set_type = tsl::robin_set<Idx>;
+    using map_type = tsl::robin_map<Idx, set_type>;
+
+  private:
+    // The number of elements assigned to each bucket - starting sequentialy from zero.
+    // Used to determine which bucket an index belongs to.
+    size_t bucket_size_;
+    std::vector<map_type> buckets_;
+    std::vector<std::mutex> bucket_locks_;
+
+  public:
+    ///// Constructors
+    BackedgeBuffer(BackedgeBufferParameters parameters)
+        : bucket_size_{parameters.bucket_size_}
+        , buckets_(parameters.num_buckets_)
+        , bucket_locks_{parameters.num_buckets_} {}
+
+    BackedgeBuffer(size_t num_elements, size_t bucket_size)
+        : BackedgeBuffer(BackedgeBufferParameters{
+              bucket_size, lib::div_round_up(num_elements, bucket_size)}) {}
+
+    // Add a point.
+    void add_edge(Idx src, Idx dst) {
+        // Get the bucket that the source vertex belongs to.
+        size_t bucket = src / bucket_size_;
+        // Lock the bucket and update the adjacency list.
+        std::lock_guard lock(bucket_locks_.at(bucket));
+
+        // The "try_emplace" method will default construct the set if it doesn't exist.
+        // Whether or not the set existed to begin with, we get an iterator to the set
+        // which we can then add the destination to.
+        auto& map = buckets_.at(bucket);
+        auto [iterator, _] = map.try_emplace(src);
+        iterator.value().insert(dst);
+    }
+
+    // Return the underlying buckets directly.
+    // Buckets can be iterated over to add back edges.
+    std::vector<map_type>& buckets() { return buckets_; }
+
+    // Return the number of buckets in the buffer
+    size_t num_buckets() const {
+        assert(buckets_.size() == bucket_locks_.size());
+        return buckets_.size();
+    }
+
+    // Reset the container for another iteration.
+    void reset() {
+        for (size_t i = 0, imax = num_buckets(); i < imax; ++i) {
+            std::lock_guard lock(bucket_locks_.at(i));
+            buckets_.at(i).clear();
+        }
+    }
+};
 
 template <
     graphs::MemoryGraph Graph,
@@ -55,9 +176,6 @@ class VamanaBuilder {
 
     template <typename T> using set_type = tsl::robin_set<T>;
 
-    using self_distance = SelfDistance<Dist, data::const_value_type_t<Data>>;
-    using build_distance_type = typename self_distance::type;
-
     using update_type =
         threads::SequentialTLS<std::vector<std::pair<Idx, std::vector<Idx>>>>;
 
@@ -71,12 +189,11 @@ class VamanaBuilder {
     )
         : graph_{graph}
         , data_{data}
-        , distance_function_{self_distance::modify(distance_function)}
+        , distance_function_{std::move(distance_function)}
         , params_{params}
         , threadpool_{threadpool}
         , vertex_locks_(data.size())
-        , overflow_flags_(data.size())
-        , overflow_maps_{threadpool.size()} {
+        , backedge_buffer_{data.size(), 1000} {
         // Check class invariants.
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION(
@@ -117,8 +234,12 @@ class VamanaBuilder {
             auto stop = std::min(num_nodes, batchsize * (batch_id + 1)) + base;
 
             // Perform search.
+            // N.B. - We purposely pass "params_.alpha" instead of the external "alpha"
+            // because it seems to generally yield better results.
             auto x = timer.push_back("generate neighbors");
-            generate_neighbors(threads::IteratorPair{start, stop}, entry_points, timer);
+            generate_neighbors(
+                threads::IteratorPair{start, stop}, params_.alpha, entry_points, timer
+            );
             search_time += lib::as_seconds(x.finish());
 
             auto y = timer.push_back("reverse edges");
@@ -172,7 +293,10 @@ class VamanaBuilder {
     ///
     template <typename /*std::ranges::random_access_range*/ R>
     void generate_neighbors(
-        const R& indices, const std::vector<Idx>& entry_points, lib::Timer& timer
+        const R& indices,
+        float alpha,
+        const std::vector<Idx>& entry_points,
+        lib::Timer& timer
     ) {
         auto range = threads::StaticPartition{indices};
 
@@ -181,40 +305,75 @@ class VamanaBuilder {
         threads::run(threadpool_, range, [&](const auto& local_indices, uint64_t tid) {
             // Thread local variables
             auto& thread_local_updates = updates.at(tid);
-            auto distance_function = threads::shallow_copy(distance_function_);
-            std::vector<SearchNeighbor<Idx>> pool{};
+            auto distance_function = data_.self_distance(distance_function_);
+            std::vector<Neighbor<Idx>> pool{};
             search_buffer_type search_buffer{params_.window_size};
             set_type<Idx> visited{};
+            auto tracker = OptionalTracker<Idx>(params_.use_full_search_history);
 
             for (auto node_id : local_indices) {
                 pool.clear();
                 search_buffer.clear();
                 visited.clear();
-                const auto query = data_.get_datum(node_id);
+                tracker.clear();
+
+                const auto& query = data_.get_datum(node_id, data::full_access);
 
                 // Perform the greedy search.
+                // The search tracker will be used if it is enabled.
                 greedy_search(
-                    graph_, data_, query, distance_function, search_buffer, entry_points
+                    graph_,
+                    data_,
+                    query,
+                    distance_function,
+                    search_buffer,
+                    entry_points,
+                    NeighborBuilder(),
+                    tracker
                 );
 
-                // Pull out the visited candidates from the search buffer.
-                auto upper =
-                    std::min(search_buffer.size(), params_.max_candidate_pool_size);
-                for (size_t i = 0; i < upper; ++i) {
-                    auto neighbor = search_buffer[i];
-                    pool.push_back(neighbor);
-                    visited.insert(neighbor.id_);
+                auto compute_distance = [&](size_t id) {
+                    return distance::compute(
+                        distance_function, query, data_.get_datum(id, data::full_access)
+                    );
+                };
+
+                // Rerank with full precision if needed.
+                auto recompute_distance = [&](const Neighbor<Idx>& neighbor) {
+                    if constexpr (detail::needs_reranking<Data>) {
+                        auto id = neighbor.id();
+                        return Neighbor<Idx>(id, compute_distance(id));
+                    } else {
+                        return neighbor;
+                    }
+                };
+
+                // If the full search history is to be used, then use the tracker to
+                // populate the candidate pool.
+                //
+                // Otherwise, pull results directly out of the search buffer.
+                if (tracker.enabled()) {
+                    for (const auto& neighbor : tracker) {
+                        pool.push_back(recompute_distance(neighbor));
+                        visited.insert(neighbor.id());
+                    }
+                } else {
+                    for (size_t i = 0, imax = search_buffer.size(); i < imax; ++i) {
+                        const auto& neighbor = search_buffer[i];
+                        pool.push_back(recompute_distance(neighbor));
+                        visited.insert(neighbor.id());
+                    }
                 }
 
-                // Add neighbors of the query that are not part of `visisted`.
-                distance::maybe_fix_argument(distance_function, query);
+                // Add neighbors of the query that are not part of `visited`.
                 for (auto id : graph_.get_node(node_id)) {
-                    if (id != node_id && !visited.contains(id)) {
-                        auto dist = distance::compute(
-                            distance_function, query, data_.get_datum(id)
-                        );
-                        visited.insert(id);
-                        pool.push_back(SearchNeighbor<Idx>(id, dist));
+                    assert(id != node_id);
+                    // Try to emplace the node id into the visited set.
+                    // If the id was inserted, then it didn't already exist in the visited
+                    // set and we need to add it to the candidate pool.
+                    auto [_, inserted] = visited.emplace(id);
+                    if (inserted) {
+                        pool.emplace_back(id, compute_distance(id));
                     }
                 }
 
@@ -228,8 +387,7 @@ class VamanaBuilder {
                 auto& pruned_results = thread_local_updates.back().second;
                 heuristic_prune_neighbors(
                     params_.graph_max_degree,
-                    //(95 * params_.graph_max_degree) / 100,
-                    params_.alpha,
+                    alpha,
                     data_,
                     distance_function,
                     node_id,
@@ -238,6 +396,7 @@ class VamanaBuilder {
                 );
             }
         });
+
         main.finish();
 
         // Apply updates.
@@ -257,149 +416,87 @@ class VamanaBuilder {
     void add_reverse_edges(const R& indices, float alpha, lib::Timer& timer) {
         // Apply backedges to all new candidate adjacency lists.
         // If adding an edge to the graph will cause it to violate the maximum degree
-        // constraint, save the excess to the `overflow` associative data structure
-        // in the case that the underlying graph can't support out-degrees higher than
-        // the specified max degree.
+        // constraint, save the excess to the backedge buffer.
+        auto backedge_timer = timer.push_back("backedge generation");
         auto range = threads::StaticPartition{indices};
-
-        // Clear all overflow maps.
-        clear_threadlocal_overflow();
-        clear_overflow_flags();
-
-        auto backedges = timer.push_back("backedge generation");
-        threads::run(threadpool_, range, [&](const auto& is, uint64_t tid) {
-            auto& overflow_map = overflow_maps_.at(tid);
+        backedge_buffer_.reset();
+        threads::run(threadpool_, range, [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
             for (auto node_id : is) {
                 for (auto other_id : graph_.get_node(node_id)) {
                     std::lock_guard lock{vertex_locks_[other_id]};
                     if (graph_.get_node_degree(other_id) < params_.graph_max_degree) {
                         graph_.add_edge(other_id, node_id);
                     } else {
-                        // Mark this node as being full.
-                        // We can use relaxed semantics because all threads are only ever
-                        // setting the atomic variables in this case.
-                        //
-                        // It doesn't matter if both try to write to the same variable
-                        // because they are writing the same value.
-                        set_overflow_flag(other_id, true);
-                        auto [position, _] = overflow_map.try_emplace(other_id);
-                        position.value().insert(node_id);
+                        backedge_buffer_.add_edge(other_id, node_id);
                     }
                 }
             }
         });
-        backedges.finish();
+        backedge_timer.finish();
 
         // For all vertices that now exceed the max degree requirement, run the pruning
         // procedure on the union of their current adjacency list as well as any extra edges
         // that were recorded in the previous process.
         //
         // Take care to avoid duplicate entries.
-        //
-        // TODO: There's an interesting balance to this batch size.
-        // If it's too large, than load balancing is really bad.
-        // If it's too small, than we fight over the atomic variable running our load
-        // balancing algorithms in `threads::run`.
-        const size_t prune_batchsize = 1000;
-        auto prune_handle = timer.push_back("pruning backedges");
+        auto prune_timer = timer.push_back("pruning backedges");
         threads::run(
             threadpool_,
-            threads::DynamicPartition{overflow_flags_.size(), prune_batchsize},
-            [&](const auto node_indices, uint64_t SVS_UNUSED(tid)) {
+            threads::DynamicPartition{backedge_buffer_.buckets(), 1},
+            [&](auto& buckets, uint64_t SVS_UNUSED(tid)) {
                 // Thread local auxiliary data structures.
-                search_buffer_type buffer{params_.max_candidate_pool_size};
+                std::vector<Neighbor<Idx>> candidates{};
                 std::vector<Idx> pruned_results{};
-                auto distance_function = threads::shallow_copy(distance_function_);
-                for (const auto node_id : node_indices) {
-                    // If this entry is not marked as having overflowed, then move on to
-                    // the next one.
-                    if (!get_overflow_flag(node_id)) {
-                        continue;
-                    }
+                auto distance_function = data_.self_distance(distance_function_);
+                auto cmp = distance::comparator(distance_function);
+                for (auto& bucket : buckets) {
+                    for (const auto& kv : bucket) {
+                        // The ``neighbors`` class is a set.
+                        auto src = kv.first;
+                        const auto& neighbors = kv.second;
+                        const auto& src_data = data_.get_datum(src, data::full_access);
+                        distance::maybe_fix_argument(distance_function, src_data);
 
-                    buffer.clear();
-                    const auto node_data = data_.get_datum(node_id);
-                    distance::maybe_fix_argument(distance_function, node_data);
+                        // Helper lambda to make distance computations look a little
+                        // cleaner.
+                        auto make_neighbor = [&](auto i) {
+                            return Neighbor<Idx>{
+                                i,
+                                distance::compute(
+                                    distance_function,
+                                    src_data,
+                                    data_.get_datum(i, data::full_access)
+                                )};
+                        };
 
-                    // Helper lambda to make distance computations look a little cleaner.
-                    auto make_neighbor = [&](auto i) {
-                        return SearchNeighbor<Idx>{
-                            i,
-                            distance::compute(
-                                distance_function, node_data, data_.get_datum(i)
-                            )};
-                    };
+                        candidates.clear();
+                        // Add the overflow candidates.
+                        for (auto n : neighbors) {
+                            candidates.push_back(make_neighbor(n));
+                        }
 
-                    // Add the current neighbors to the list of potential neighbors.
-                    for (auto n : graph_.get_node(node_id)) {
-                        buffer.insert(make_neighbor(n));
-                    }
-
-                    // Snoop through all thread local overflows and add any additional
-                    // neighobrs.
-                    overflow_maps_.visit([&](const auto& map) {
-                        if (auto itr = map.find(node_id); itr != map.end()) {
-                            for (const auto& other_id : itr->second) {
-                                buffer.insert(make_neighbor(other_id));
+                        // Add the old adjacency list.
+                        for (auto n : graph_.get_node(src)) {
+                            if (!neighbors.contains(n)) {
+                                candidates.push_back(make_neighbor(n));
                             }
                         }
-                    });
+                        std::sort(candidates.begin(), candidates.end(), cmp);
+                        candidates.resize(
+                            std::min(candidates.size(), params_.max_candidate_pool_size)
+                        );
 
-                    heuristic_prune_neighbors(
-                        params_.graph_max_degree,
-                        //(95 * params_.graph_max_degree) / 100,
-                        alpha,
-                        data_,
-                        distance_function,
-                        node_id,
-                        buffer.view(),
-                        pruned_results
-                    );
-                    graph_.replace_node(node_id, pruned_results);
-                }
-            }
-        );
-    }
-
-    ///
-    /// Clear all thread-local overflow maps.
-    ///
-    void clear_threadlocal_overflow() {
-        threads::run(threadpool_, [&](uint64_t tid) { overflow_maps_.at(tid).clear(); });
-    }
-
-    ///
-    /// Set overflow flag for node `i` to `value` using the provided memory ordering.
-    ///
-    /// By default, `std::memory_order_relaxed` is used because all threads are all trying
-    /// to set flags, or purely reading flags.
-    ///
-    /// In the former case, there is no race if two threads set a flag because the end
-    /// result of a flag being set is the same.
-    ///
-    /// In the latter, there is no race condition for read-only data.
-    ///
-    void set_overflow_flag(
-        Idx i, bool value, std::memory_order ordering = std::memory_order_relaxed
-    ) {
-        getindex(overflow_flags_, i).store(value, ordering);
-    }
-
-    bool
-    get_overflow_flag(Idx i, std::memory_order ordering = std::memory_order_relaxed) const {
-        return getindex(overflow_flags_, i).load(ordering);
-    }
-
-    ///
-    /// Clear all overflow flags.
-    ///
-    void clear_overflow_flags() {
-        threads::run(
-            threadpool_,
-            threads::StaticPartition(overflow_flags_.size()),
-            [&](const auto& is, uint64_t /*unused*/) {
-                for (const auto& i : is) {
-                    set_overflow_flag(i, false);
+                        heuristic_prune_neighbors(
+                            params_.graph_max_degree,
+                            alpha,
+                            data_,
+                            distance_function,
+                            src,
+                            lib::as_const_span(candidates),
+                            pruned_results
+                        );
+                        graph_.replace_node(src, pruned_results);
+                    }
                 }
             }
         );
@@ -411,15 +508,14 @@ class VamanaBuilder {
     /// The dataset we're building the graph over.
     const Data& data_;
     /// The distance function to use.
-    build_distance_type distance_function_;
+    Dist distance_function_;
     /// Parameters regarding index construction.
     VamanaBuildParameters params_;
     /// Worker threadpool.
     Pool& threadpool_;
     /// Per-vertex locks.
     std::vector<SpinLock> vertex_locks_;
-    /// Per-vertex overflow.
-    std::vector<std::atomic<bool>> overflow_flags_;
-    threads::SequentialTLS<tsl::robin_map<Idx, tsl::robin_set<Idx>>> overflow_maps_;
+    /// Overflow backedge buffer.
+    BackedgeBuffer<Idx> backedge_buffer_;
 };
 } // namespace svs::index::vamana

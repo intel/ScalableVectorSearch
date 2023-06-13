@@ -15,10 +15,10 @@ def assert_equal(lhs, rhs, message: str = ""):
 
 def run_test_float(index, queries, groundtruth):
     expected = {
-        10: 0.5991,
-        20: 0.7475,
-        30: 0.8239,
-        40: 0.8654,
+        10: 0.5996,
+        20: 0.7483,
+        30: 0.8242,
+        40: 0.8651,
     }
 
     for window_size in range(10, 50, 10):
@@ -31,10 +31,10 @@ def run_test_float(index, queries, groundtruth):
 
 def run_test_onelevel8(index, queries, groundtruth):
     expected = {
-        10: 0.5989,
-        20: 0.7473,
-        30: 0.8226,
-        40: 0.8641,
+        10: 0.5993,
+        20: 0.7477,
+        30: 0.8227,
+        40: 0.8634,
     }
 
     for window_size in range(10, 50, 10):
@@ -47,10 +47,10 @@ def run_test_onelevel8(index, queries, groundtruth):
 
 def run_test_build_onelevel8(index, queries, groundtruth):
     expected = {
-        10: 0.5998,
-        20: 0.748,
-        30: 0.8223,
-        40: 0.8636,
+        10: 0.6005,
+        20: 0.7482,
+        30: 0.822,
+        40: 0.863,
     }
 
     for window_size in range(10, 50, 10):
@@ -129,7 +129,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8239)
+    assert(recall == 0.8242)
     # [perform-queries]
 
     # [search-window-size]
@@ -177,7 +177,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8239)
+    assert(recall == 0.8242)
     # [loading]
 
     ##### Begin Test
@@ -233,7 +233,7 @@ def run():
     I, D = index.search(queries, 10)
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Compressed recall: {recall}")
-    assert(recall == 0.8226)
+    assert(recall == 0.8227)
     # [search-compressed]
 
     ##### Begin Test
@@ -260,7 +260,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8223)
+    assert(recall == 0.822)
     # [loading]
 
     ##### Begin Test

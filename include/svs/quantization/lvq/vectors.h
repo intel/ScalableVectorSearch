@@ -74,6 +74,7 @@ template <typename T> inline constexpr bool is_onelevel_compression_v = false;
 ///
 template <typename T> inline constexpr bool is_twolevel_compression_v = false;
 
+// The "ScaleBias" struct is
 template <size_t N = 0> struct ScaleBias {
     float scale;
     float bias;
@@ -102,20 +103,23 @@ template <size_t Bits, size_t Extent> struct ScaledBiasedVector {
 
     // Construct from constant `CompressedVector`.
     template <Arithmetic T>
-    ScaledBiasedVector(T scale, T bias, vector_type data)
+    ScaledBiasedVector(T scale, T bias, selector_t selector, vector_type data)
         : scale{scale}
         , bias{bias}
-        , data{data} {}
+        , data{data}
+        , selector{selector} {}
 
     // Construct from `MutableCompressedVector`.
     template <Arithmetic T>
-    ScaledBiasedVector(T scale, T bias, mutable_vector_type data)
+    ScaledBiasedVector(T scale, T bias, selector_t selector, mutable_vector_type data)
         : scale{scale}
         , bias{bias}
-        , data{data} {}
+        , data{data}
+        , selector{selector} {}
 
     float get(size_t i) const { return static_cast<float>(scale) * data.get(i) + bias; }
     size_t size() const { return data.size(); }
+    selector_t get_selector() const { return selector; }
 
     const std::byte* pointer() const { return data.data(); }
     constexpr size_t size_bytes() const { return data.size_bytes(); }
@@ -132,9 +136,14 @@ template <size_t Bits, size_t Extent> struct ScaledBiasedVector {
     }
 
     ///// Members
+    // The vector-wise scaling amount.
     scalar_type scale;
+    // The vector-wise offset.
     scalar_type bias;
+    // Memory span for compressed data.
     vector_type data;
+    // The index of the centroid this vector belongs to.
+    selector_t selector;
 };
 
 template <size_t Bits, size_t Extent>
@@ -165,6 +174,11 @@ template <size_t Primary, size_t Residual, size_t N> struct ScaledBiasedWithResi
     /// Return the number of elements in the vector.
     ///
     size_t size() const { return primary_.size(); }
+
+    ///
+    /// Return the centroid selector.
+    ///
+    selector_t get_selector() const { return primary_.get_selector(); }
 
     ///
     /// Prepare for distance computations.
@@ -269,9 +283,17 @@ struct InnerProductReference {
 // 4. Apply any post-op reductions to the SIMD accumulation register.
 template <typename Distance, typename Vector> struct DistanceHelper;
 
+// Decompressing *with* a component-wise add-in.
 template <typename T, int64_t N, size_t S, typename P>
-wide_<float, N> decompress_step(wide_<T, N> x, ScaleBias<S> aux, size_t /*i*/, P pred) {
-    return eve::add[pred.else_(0)](aux.scale * eve::convert(x, eve::as<float>()), aux.bias);
+wide_<float, N>
+decompress_step(wide_<T, N> x, ScaleBias<S> aux, size_t i, const float* centroid, P pred) {
+    auto mask = pred.else_(0);
+
+    // Load the corresponding centroid to be added component-wise to the resconstructed
+    // vector fragment.
+    auto centroid_chunk = eve::load[mask](&centroid[N * i], eve::as<wide_<float, N>>());
+    return centroid_chunk +
+           eve::add[mask](aux.scale * eve::convert(x, eve::as<float>()), aux.bias);
 }
 
 template <typename T, int64_t N, size_t S, typename P>
@@ -339,7 +361,7 @@ struct DistanceHelper<Distance, T> {
     ///
     /// Construct a distance computer from a ScaledVector.
     ///
-    DistanceHelper(Distance /*unused*/, const T& v)
+    DistanceHelper(Distance SVS_UNUSED(distance), const T& v)
         : unpacker_{v.unpacker()}
         , aux_{v.prepare_aux()} {}
 
@@ -352,10 +374,11 @@ struct DistanceHelper<Distance, T> {
     /// Decompress one vector bundle.
     ///
     template <typename P = eve::ignore_none_>
-    accumulator_type decompress(size_t i, P pred = eve::ignore_none_()) {
+    accumulator_type
+    decompress(size_t i, const float* centroid, P pred = eve::ignore_none_()) {
         assert(i <= lib::div_round_up(unpacker_.size(), simd_width));
         integer_wide_type unpacked = unpacker_.get(i, pred);
-        return decompress_step(unpacked, aux_, i, pred);
+        return decompress_step(unpacked, aux_, i, centroid, pred);
     }
 
     ///
@@ -406,7 +429,7 @@ struct DistanceHelper<Distance, T> {
     ///
     /// Construct a distance computer from a ScaledVector.
     ///
-    DistanceHelper(Distance /*unused*/, const T& v)
+    DistanceHelper(Distance SVS_UNUSED(distance), const T& v)
         : primary_unpacker_{v.primary_unpacker()}
         , residual_unpacker_{v.residual_unpacker()}
         , aux_{v.prepare_aux()} {}
@@ -415,6 +438,19 @@ struct DistanceHelper<Distance, T> {
     /// Create a zeroed accumulator.
     ///
     accumulator_type accumulator() { return accumulator_type(0); }
+
+    ///
+    /// Decompress one vector bundle.
+    ///
+    template <typename P = eve::ignore_none_>
+    accumulator_type
+    decompress(size_t i, const float* centroid, P pred = eve::ignore_none_()) {
+        assert(i <= lib::div_round_up(primary_unpacker_.size(), simd_width));
+        assert(i <= lib::div_round_up(residual_unpacker_.size(), simd_width));
+        auto p = primary_unpacker_.get(i, pred);
+        auto r = residual_unpacker_.get(i, pred);
+        return decompress_step(combine(p, r, aux_), aux_, i, centroid, pred);
+    }
 
     ///
     /// Distance computation step.
@@ -452,8 +488,7 @@ DistanceHelper(Distance, const T&) -> DistanceHelper<Distance, T>;
 /////
 
 template <typename T, size_t N>
-    requires is_onelevel_compression_v<T>
-void decompress(std::span<float, N> dst, const T& src) {
+void decompress(std::span<float, N> dst, const T& src, const float* centroid) {
     assert(dst.size() == src.size());
     auto helper = DistanceHelper(NoDistance(), src);
     constexpr size_t simd_width = decltype(helper)::simd_width;
@@ -464,36 +499,39 @@ void decompress(std::span<float, N> dst, const T& src) {
     // Main unrolled loop.
     float* base = dst.data();
     for (size_t i = 0; i < iterations; ++i) {
-        eve::store(helper.decompress(i), base);
+        eve::store(helper.decompress(i, centroid), base);
         base += simd_width;
     }
 
     // Handle tail elements.
     if (remaining != 0) {
         auto predicate = eve::keep_first(lib::narrow_cast<int64_t>(remaining));
-        eve::store[predicate](helper.decompress(iterations, predicate), base);
+        eve::store[predicate](helper.decompress(iterations, centroid, predicate), base);
     }
 }
 
 template <typename T>
-    requires is_onelevel_compression_v<T>
-void decompress(std::vector<float>& dst, const T& src) {
+void decompress(std::vector<float>& dst, const T& src, const float* centroid) {
     dst.resize(src.size());
-    decompress(lib::as_span(dst), src);
+    decompress(lib::as_span(dst), src, centroid);
 }
 
 class Decompressor {
   public:
-    Decompressor() = default;
+    Decompressor() = delete;
+    Decompressor(std::shared_ptr<const data::SimpleData<float>>&& centroids)
+        : centroids_{std::move(centroids)}
+        , buffer_(centroids_->dimensions()) {}
 
-    template <typename T>
-        requires is_onelevel_compression_v<T>
-    std::span<const float> operator()(const T& compressed) {
-        decompress(buffer_, compressed);
+    template <typename T> std::span<const float> operator()(const T& compressed) {
+        decompress(
+            buffer_, compressed, centroids_->get_datum(compressed.get_selector()).data()
+        );
         return lib::as_const_span(buffer_);
     }
 
   private:
+    std::shared_ptr<const data::SimpleData<float>> centroids_;
     std::vector<float> buffer_ = {};
 };
 
@@ -581,82 +619,105 @@ class EuclideanBiased {
     static constexpr bool implicit_broadcast = false;
 
     // Constructors
-    EuclideanBiased(const std::shared_ptr<std::vector<float>>& bias)
-        : biased_query_(bias->size())
-        , bias_{bias} {}
+    EuclideanBiased(const std::shared_ptr<const data::SimpleData<float>>& centroids)
+        : processed_query_(centroids->size(), centroids->dimensions())
+        , centroids_{centroids} {}
 
-    EuclideanBiased(const std::vector<float>& bias)
-        : EuclideanBiased{std::make_shared<std::vector<float>>(bias)} {}
+    EuclideanBiased(std::shared_ptr<const data::SimpleData<float>>&& centroids)
+        : processed_query_(centroids->size(), centroids->dimensions())
+        , centroids_{std::move(centroids)} {}
+
+    EuclideanBiased(const std::vector<float>& centroid)
+        : processed_query_(1, centroid.size())
+        , centroids_{} {
+        // Construct the shared pointer by first creating a non-const version, then
+        // using the copy-constructor.
+        auto centroids = std::make_shared<data::SimpleData<float>>(1, centroid.size());
+        centroids->set_datum(0, centroid);
+        centroids_ = centroids;
+    }
 
     // Shallow Copy
-    // Don't preserve the state of the `biased_query_` vector.
-    EuclideanBiased shallow_copy() const { return EuclideanBiased{bias_}; }
+    // Don't preserve the state of `processed_query_`.
+    EuclideanBiased shallow_copy() const { return EuclideanBiased{centroids_}; }
 
     ///
-    /// Apply the inverse bias to `query` and cache the result internally, using a
-    /// one-argument `compute` method.
+    /// Subtract each centroid from the query and store the result in `processed_query_`.
+    /// This essentially moves the query by the same amount as the original data point,
+    /// preserving L2 distance.
     ///
     void fix_argument(const std::span<const float>& query) {
         // Check pre-conditions.
-        assert(bias_->size() == query.size());
+        assert(centroids_->dimensions() == query.size());
         // Component-wise add the bias to the query and cache the result.
-        std::transform(
-            query.begin(), query.end(), bias_->cbegin(), biased_query_.begin(), std::minus()
-        );
+        auto jmax = query.size();
+        for (size_t i = 0, imax = centroids_->size(); i < imax; ++i) {
+            const auto& centroid = centroids_->get_datum(i);
+            auto dst = processed_query_.get_datum(i);
+            for (size_t j = 0; j < jmax; ++j) {
+                dst[j] = query[j] - centroid[j];
+            }
+        }
+    }
+
+    // For testing purposes.
+    template <typename T, std::integral I = size_t>
+    float compute(const T& y, I selector = 0) const
+        requires(lib::is_spanlike_v<T>)
+    {
+        auto inner = distance::DistanceL2{};
+        return distance::compute(inner, view_query(selector), y);
     }
 
     ///
     /// Compute the Euclidean difference between a quantized vector `y` and a cached
     /// shifted query.
     ///
-    template <typename T> float compute(const T& y) const {
+    template <typename T>
+    float compute(const T& y) const
+        requires(!lib::is_spanlike_v<T>)
+    {
         // If the argument `y` is a `std::span`, it's not a compressed vector so fall-back
         // to doing normal distance computations.
         distance::DistanceL2 inner{};
-        return distance::compute(inner, view_query(), y);
+        return distance::compute(inner, view_query(y.get_selector()), y);
     }
 
-    std::span<const float> view_query() const {
-        return std::span<const float>{biased_query_.data(), biased_query_.size()};
+    std::span<const float> view_query(size_t i) const {
+        return processed_query_.get_datum(i);
     }
 
     ///
     /// Return the global bias as a `std::span`.
     ///
-    std::span<const float> view_bias() const { return lib::as_const_span(*bias_); }
+    data::ConstSimpleDataView<float> view_bias() const { return centroids_->cview(); }
 
-    ///// Saving and Loading.
-    static constexpr std::string_view name = distance::DistanceL2::name;
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& /*ctx*/) const {
-        return lib::SaveType(
-            toml::table({{"name", name}, {"bias", prepare(*bias_)}}), save_version
-        );
-    }
-
-    static EuclideanBiased load(
-        const toml::table& table,
-        const lib::LoadContext& /*ctx*/,
-        const lib::Version& version
-    ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-        return EuclideanBiased(get_vector<float>(table, "bias"));
-    }
+    std::span<const float> get_centroid(size_t i) const { return centroids_->get_datum(i); }
 
   private:
-    std::vector<float> biased_query_;
-    std::shared_ptr<std::vector<float>> bias_;
+    data::SimpleData<float> processed_query_;
+    std::shared_ptr<const data::SimpleData<float>> centroids_;
 };
 
 inline bool operator==(const EuclideanBiased& x, const EuclideanBiased& y) {
     const auto& xbias = x.view_bias();
     const auto& ybias = y.view_bias();
-    if (xbias.size() != ybias.size()) {
+    auto xsize = xbias.size();
+    auto xdims = xbias.dimensions();
+
+    auto ysize = ybias.size();
+    auto ydims = ybias.dimensions();
+    if (xsize != ysize || xdims != ydims) {
         return false;
     }
-    return std::equal(xbias.begin(), xbias.end(), ybias.begin());
+    for (size_t i = 0; i < xsize; ++i) {
+        auto xdatum = xbias.get_datum(i);
+        auto ydatum = ybias.get_datum(i);
+        if (!std::equal(xdatum.begin(), xdatum.end(), ydatum.begin())) {
+            return false;
+        }
+    }
+    return true;
 }
 
 class InnerProductBiased {
@@ -667,19 +728,26 @@ class InnerProductBiased {
     static constexpr bool implicit_broadcast = false;
 
     // Constructor
-    InnerProductBiased(const std::shared_ptr<std::vector<float>>& bias)
-        : bias_{bias} {}
+    InnerProductBiased(const std::shared_ptr<const data::SimpleData<float>>& centroids)
+        : processed_query_(centroids->size())
+        , centroids_{centroids} {}
 
-    InnerProductBiased(const std::vector<float>& bias)
-        : InnerProductBiased{std::make_shared<std::vector<float>>(bias)} {}
+    InnerProductBiased(std::shared_ptr<const data::SimpleData<float>>&& centroids)
+        : processed_query_(centroids->size())
+        , centroids_{std::move(centroids)} {}
+
+    InnerProductBiased(const std::vector<float>& centroid)
+        : processed_query_(1)
+        , centroids_{} {
+        // Construct the shared pointer by first creating a non-const version, then
+        // using the copy-constructor.
+        auto centroids = std::make_shared<data::SimpleData<float>>(1, centroid.size());
+        centroids->set_datum(0, centroid);
+        centroids_ = centroids;
+    }
 
     // Shallow Copy
-    InnerProductBiased shallow_copy() const { return InnerProductBiased{bias_}; }
-
-    ///
-    /// Return the global bias as a `std::span`.
-    ///
-    std::span<const float> view_bias() const { return lib::as_const_span(*bias_); }
+    InnerProductBiased shallow_copy() const { return InnerProductBiased{centroids_}; }
 
     ///
     /// Precompute the inner product between the query and the global bias.
@@ -691,51 +759,63 @@ class InnerProductBiased {
     ///
     void fix_argument(const std::span<const float>& query) {
         // Check pre-conditions.
-        assert(bias_->size() == query.size());
+        assert(centroids_->dimensions() == query.size());
+        assert(processed_query_.size() == centroids_->size());
+
+        // Pre-compute the inner-product between the query and each centroid.
         distance::DistanceIP inner_distance{};
-        bias_product_ = distance::compute(inner_distance, query, view_bias());
+        for (size_t i = 0, imax = centroids_->size(); i < imax; ++i) {
+            processed_query_[i] =
+                distance::compute(inner_distance, query, centroids_->get_datum(i));
+        }
+    }
+
+    template <size_t N, typename T, std::integral I = size_t>
+    float compute(const std::span<const float, N>& query, const T& y, I selector = 0) const
+        requires(lib::is_spanlike_v<T>)
+    {
+        auto inner = distance::DistanceIP{};
+        return distance::compute(inner, query, y) + processed_query_[selector];
     }
 
     template <typename T>
-    float compute(const std::span<const float>& query, const T& y) const {
+    float compute(const std::span<const float>& query, const T& y) const
+        requires(!lib::is_spanlike_v<T>)
+    {
         // If the argument `y` is a `std::span`, it's not a compressed vector so fall-back
         // to doing normal distance computations.
         distance::DistanceIP inner{};
-        return bias_product_ + distance::compute(inner, query, y);
+        return distance::compute(inner, query, y) + processed_query_[y.get_selector()];
     }
 
-    ///// Saving and Loading
-    static constexpr std::string_view name = distance::DistanceIP::name;
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& /*ctx*/) const {
-        return lib::SaveType(
-            toml::table({{"name", name}, {"bias", prepare(*bias_)}}), save_version
-        );
-    }
+    ///
+    /// Return the global bias as a `std::span`.
+    ///
+    data::ConstSimpleDataView<float> view_bias() const { return centroids_->cview(); }
 
-    static InnerProductBiased load(
-        const toml::table& table,
-        const lib::LoadContext& /*ctx*/,
-        const lib::Version& version
-    ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-        return InnerProductBiased(get_vector<float>(table, "bias"));
-    }
+    std::span<const float> get_centroid(size_t i) const { return centroids_->get_datum(i); }
 
   private:
-    std::shared_ptr<std::vector<float>> bias_;
-    float bias_product_ = 0;
+    // The results of computing the inner product between each centroid and the query.
+    // Applied after the distance computation between the query and compressed vector.
+    std::vector<float> processed_query_;
+    std::shared_ptr<const data::SimpleData<float>> centroids_;
 };
 
 inline bool operator==(const InnerProductBiased& x, const InnerProductBiased& y) {
     const auto& xbias = x.view_bias();
     const auto& ybias = y.view_bias();
-    if (xbias.size() != ybias.size()) {
+    if (xbias.size() != ybias.size() || xbias.dimensions() != ybias.dimensions()) {
         return false;
     }
-    return std::equal(xbias.begin(), xbias.end(), ybias.begin());
+    for (size_t i = 0, imax = xbias.size(); i < imax; ++i) {
+        const auto& xdatum = xbias.get_datum(i);
+        const auto& ydatum = ybias.get_datum(i);
+        if (!std::equal(xdatum.begin(), xdatum.end(), ydatum.begin())) {
+            return false;
+        }
+    }
+    return true;
 }
 
 namespace detail {
@@ -795,75 +875,9 @@ template <typename T> using biased_distance_t = typename detail::BiasedDistance<
 /// Essentially, allows for distance computations between two elements of a compressed
 /// dataset.
 ///
-template <typename Distance> class DecompressionAdaptor;
-
-template <typename Distance>
-    requires fast_quantized<Distance>
-class DecompressionAdaptor<Distance> {
+template <typename Distance> class DecompressionAdaptor {
   public:
     using distance_type = Distance;
-    // Use the same comparison as the wrapped distance function.
-    using compare = distance::compare_t<Distance>;
-    // We require per-query state, so cannot implicitly broadcast.
-    static constexpr bool implicit_broadcast = false;
-
-    // Constructor
-    DecompressionAdaptor(const Distance& distance, size_t size_hint = 0)
-        : distance_{distance}
-        , decompressed_(size_hint) {}
-
-    // Shallow copy
-    DecompressionAdaptor shallow_copy() const {
-        return DecompressionAdaptor(distance_, decompressed_.size());
-    }
-
-    ///
-    /// Precompute the decompressed value for the compressed vector.
-    ///
-    template <typename Left>
-        requires(is_onelevel_compression_v<Left>)
-    void fix_argument(Left left) {
-        decompress(decompressed_, left);
-    }
-
-    template <typename Right>
-        requires(is_onelevel_compression_v<Right>)
-    float compute(const Right& right) const {
-        return distance::compute(distance_, view(), right);
-    }
-
-    std::span<const float> view() const {
-        return std::span<const float>(decompressed_.data(), decompressed_.size());
-    }
-
-  private:
-    distance_type distance_;
-    std::vector<float> decompressed_;
-};
-
-///
-/// Specialization of the DecompressionAdaptor for the `EuclideanBiased` distance
-/// function.
-///
-/// Applies an optimization of assuming that the bias removal is uniform for the entire
-/// dataset and thus skips reapplying any bias adjustment since it will have no effect
-/// on the final result.
-///
-/// Implementation details: Essentially just a wrapper around
-/// `DecompressionAdaptor<distance::DistanceL2>`.
-///
-template <>
-class DecompressionAdaptor<EuclideanBiased>
-    : public DecompressionAdaptor<distance::DistanceL2> {
-  public:
-    using parent_type = DecompressionAdaptor<distance::DistanceL2>;
-    DecompressionAdaptor(const EuclideanBiased& /*distance*/, size_t size_hint = 0)
-        : parent_type{distance::DistanceL2(), size_hint} {}
-};
-
-template <> class DecompressionAdaptor<InnerProductBiased> {
-  public:
-    using distance_type = InnerProductBiased;
     using compare = distance::compare_t<distance_type>;
     static constexpr bool implicit_broadcast = false;
 
@@ -871,48 +885,45 @@ template <> class DecompressionAdaptor<InnerProductBiased> {
         : inner_{inner}
         , decompressed_(size_hint) {}
 
+    DecompressionAdaptor(distance_type&& inner, size_t size_hint = 0)
+        : inner_{std::move(inner)}
+        , decompressed_(size_hint) {}
+
+    ///
+    /// @brief Construct the internal portion of DecompressionAdaptor directly.
+    ///
+    /// The goal of the decompression adaptor is to wrap around an inner distance functor
+    /// and decompress the left-hand component when requested, forwarding the decompressed
+    /// value to the inner functor upon future distance computations.
+    ///
+    /// The inner distance functor may have non-trivial state associated with it.
+    /// This constructor allows to construction of that inner functor directly to avoid
+    /// a copy or move constructor.
+    ///
+    template <typename... Args>
+    DecompressionAdaptor(std::in_place_t SVS_UNUSED(tag), Args&&... args)
+        : inner_{std::forward<Args>(args)...}
+        , decompressed_() {}
+
     DecompressionAdaptor shallow_copy() const {
         return DecompressionAdaptor(inner_, decompressed_.size());
     }
 
     // Distance API.
-    template <typename Left>
-        requires(is_onelevel_compression_v<Left>)
-    void fix_argument(Left left) {
-        decompress(decompressed_, left);
-
-        const auto& bias = inner_.view_bias();
-        assert(bias.size() == decompressed_.size());
-        // Decompress the query and add in the bias to restore it to its original value.
-        for (size_t i = 0, imax = left.size(); i < imax; ++i) {
-            decompressed_[i] += bias[i];
-        }
-        // Pass the decompressed vector into the bias routine.
+    template <typename Left> void fix_argument(Left left) {
+        decompress(decompressed_, left, inner_.get_centroid(left.get_selector()).data());
         inner_.fix_argument(view());
     }
 
-    template <typename Right>
-        requires(is_onelevel_compression_v<Right>)
-    float compute(const Right& right) const {
-        return inner_.compute(view(), right);
+    template <typename Right> float compute(const Right& right) const {
+        return distance::compute(inner_, view(), right);
     }
 
-    std::span<const float> view() const {
-        return std::span<const float>(decompressed_.data(), decompressed_.size());
-    }
+    std::span<const float> view() const { return decompressed_; }
 
   private:
     distance_type inner_;
     std::vector<float> decompressed_;
 };
-
 } // namespace quantization::lvq
-
-// Wire up SelfDistance dispatch to support vector quantization.
-template <typename Distance, typename VectorType>
-    requires(quantization::lvq::is_onelevel_compression_v<VectorType>)
-struct SelfDistance<Distance, VectorType> {
-    using type = quantization::lvq::DecompressionAdaptor<Distance>;
-    static constexpr type modify(const Distance& distance) { return type(distance); }
-};
 } // namespace svs

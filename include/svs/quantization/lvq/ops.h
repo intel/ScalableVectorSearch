@@ -100,29 +100,29 @@ struct DatasetPreOpBase {};
 template <typename T>
 concept DatasetPreOp = requires { std::derived_from<T, DatasetPreOpBase>; };
 
-///
-/// No Operation.
-///
-struct Noop : public DatasetPreOpBase {
-    static std::string name() { return "preop-none"; }
-
-    // Distance types are not modified.
-    template <typename Distance> using distance_type = Distance;
-
-    // The element-wise mapping function.
-    using map_type = lib::identity;
-    using misc_type = lib::Empty;
-
-    // Don't modify the distance type and return the identity map.
-    template <
-        typename Distance,
-        data::ImmutableMemoryDataset Data,
-        svs::threads::ThreadPool Pool>
-    std::tuple<distance_type<Distance>, map_type, misc_type>
-    operator()(const Distance& distance, Data& /*unused*/, Pool& /*unused*/) const {
-        return std::make_tuple(distance, map_type(), lib::Empty());
-    }
-};
+// ///
+// /// No Operation.
+// ///
+// struct Noop : public DatasetPreOpBase {
+//     static std::string name() { return "preop-none"; }
+//
+//     // Distance types are not modified.
+//     template <typename Distance> using distance_type = Distance;
+//
+//     // The element-wise mapping function.
+//     using map_type = lib::identity;
+//     using misc_type = lib::Empty;
+//
+//     // Don't modify the distance type and return the identity map.
+//     template <
+//         typename Distance,
+//         data::ImmutableMemoryDataset Data,
+//         svs::threads::ThreadPool Pool>
+//     std::tuple<distance_type<Distance>, map_type, misc_type>
+//     operator()(const Distance& distance, Data& /*unused*/, Pool& /*unused*/) const {
+//         return std::make_tuple(distance, map_type(), lib::Empty());
+//     }
+// };
 
 ///
 /// Element-wise functor that performs the operation:
@@ -195,11 +195,12 @@ struct VectorBias : public DatasetPreOpBase {
 
     template <typename T> using element_type_t = typename T::element_type;
 
-    // After applying the bias-removal functor, the bias needs to be re-applied at distance
-    // computation time.
-    //
-    // To make this more efficient, special distance functions can be used.
-    template <typename Distance> using distance_type = biased_distance_t<Distance>;
+    // // After applying the bias-removal functor, the bias needs to be re-applied at
+    // distance
+    // // computation time.
+    // //
+    // // To make this more efficient, special distance functions can be used.
+    // template <typename Distance> using distance_type = biased_distance_t<Distance>;
     using misc_type = std::vector<double>;
 
     ///
@@ -211,106 +212,21 @@ struct VectorBias : public DatasetPreOpBase {
     /// (2) A copyable map operator that operates subtracts the componentwise mean from
     ///     an entry in the dataset.
     ///
-    template <
-        typename Distance,
-        data::ImmutableMemoryDataset Data,
-        svs::threads::ThreadPool Pool>
-    std::tuple<distance_type<Distance>, ScaleShift<element_type_t<Data>>, misc_type>
-    operator()(const Distance& /*unused*/, const Data& data, Pool& pool) const {
+    template <data::ImmutableMemoryDataset Data, svs::threads::ThreadPool Pool>
+    std::tuple<ScaleShift<element_type_t<Data>>, misc_type>
+    operator()(const Data& data, Pool& pool) const {
         using T = element_type_t<Data>;
-        using NewDistance = distance_type<Distance>;
 
         // Compute the component-wise mean of the dataset.
         // Negate the medioid to get the bias we've applied to the dataset.
         std::vector<double> means_f64 = utils::compute_medioid(data, pool);
-        std::vector<float> means_f32{means_f64.begin(), means_f64.end()};
+        auto negative_means = std::vector<double>(means_f64.begin(), means_f64.end());
+        range::negate(negative_means);
 
-        range::negate(means_f64);
-        auto ones = std::vector<double>(means_f64.size(), 1.0);
+        auto ones = std::vector<double>(negative_means.size(), 1.0);
         return std::make_tuple(
-            NewDistance{means_f32}, ScaleShift<T>(ones, means_f64), means_f64
+            ScaleShift<T>(std::move(ones), std::move(negative_means)), std::move(means_f64)
         );
     }
 };
-
-///
-/// `BiasVariance` pre-operation that scales the per-dimension standard deviation by
-/// `scale`. Let `X` be a dataset, `x[j]` be the `j`th element of `X` and `x[j][i]` be the
-/// `i`th component of `x[j]`.
-///
-/// This pre-operation computes `mean` and `stdev` where
-/// ```
-/// mean[i] = sum(x[j][i], j in eachindex(X))
-/// ```
-/// (i.e., the mean of the `i`th components) and
-/// ```
-/// stdev[i] = stdev(x[j][i], j in eachindex(X))
-/// ```
-/// (i.e., the standard deviation of the `i`th components).
-///
-/// The standard deviation is then scaled by `scale`.
-///
-/// Returns a map operator that subtracts out the mean and divides by the scaled standard
-/// deviation.
-///
-class BiasVariance : public DatasetPreOpBase {
-  private:
-    // Members
-    float scale_;
-
-  public:
-    // Constructor
-    BiasVariance(float scale)
-        : scale_{scale} {}
-
-    // Methods
-    static std::string name() { return "preop-variance-bias"; }
-    const float& scale() const { return scale_; }
-
-    template <typename T> using element_type_t = typename T::element_type;
-    template <typename Distance> using distance_type = Distance;
-
-    // Miscellaneous return type.
-    //
-    // Returns the removed means and the scaled standard deviations.
-    struct MeanScaledStdev {
-        MeanScaledStdev(std::vector<double> mean, std::vector<double> stdev)
-            : mean{std::move(mean)}
-            , stdev{std::move(stdev)} {}
-
-        std::vector<double> mean;
-        std::vector<double> stdev;
-    };
-    using misc_type = MeanScaledStdev;
-
-    template <
-        typename Distance,
-        data::ImmutableMemoryDataset Data,
-        svs::threads::ThreadPool Pool>
-    std::tuple<distance_type<Distance>, ScaleShift<element_type_t<Data>>, misc_type>
-    operator()(const Distance& distance, const Data& data, Pool& pool) const {
-        using T = element_type_t<Data>;
-
-        std::vector<double> means = utils::compute_medioid(data, pool);
-        std::vector<double> variance =
-            utils::op_pairwise(data, utils::CountVariance(means), pool);
-
-        // Compute the component-wise standard deviation.
-        auto stdev = std::vector<double>(variance.size());
-        range::sqrt(variance, stdev);
-
-        // Scale the standard deviation.
-        range::transform(stdev, range::MulBy(scale()));
-
-        // Construct the miscellaneous return type before preparing the mean and
-        // standard deviation for the map operator.
-        auto misc = MeanScaledStdev(means, stdev);
-
-        // Negate the bias and invert the bias.
-        range::negate(means);
-        range::invert(stdev);
-        return std::make_tuple(distance, ScaleShift<T>(stdev, means), misc);
-    }
-};
-
 } // namespace svs::quantization::lvq

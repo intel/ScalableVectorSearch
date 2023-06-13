@@ -21,6 +21,7 @@
 
 // stl
 #include <concepts>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -91,6 +92,8 @@ template <typename T> toml::array prepare(const std::vector<T>& v) {
     }
     return array;
 }
+
+inline std::string prepare(const std::filesystem::path& path) { return path; }
 
 /////
 ///// Reading

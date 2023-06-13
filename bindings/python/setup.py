@@ -20,6 +20,7 @@ def target(arch):
 if os.environ.get("PYSVS_MULTIARCH", None) is not None:
     pysvs_microarchs = [
         "cascadelake",
+        # "skylake_avx512",
     ]
 
     # Add the current host to the list of micro-architecture if it doesn't already exist.
