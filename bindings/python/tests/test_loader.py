@@ -89,7 +89,7 @@ class LoadingTester(unittest.TestCase):
         spec = cpu.TARGETS["icelake"]
         host = cpu.TARGETS["skylake"]
         with warnings.catch_warnings(record = True) as w:
-            loader._message_prehook(arch)
+            loader._message_prehook(spec, host)
             self.assertTrue(len(w) == 1)
             self.assertTrue(issubclass(w[-1].category, RuntimeWarning))
             self.assertTrue("Override" in str(w[-1].message))
@@ -105,7 +105,7 @@ class LoadingTester(unittest.TestCase):
         archs = ["haswell", "skylake", "skylake_avx512"]
         for arch in archs:
             with warnings.catch_warnings(record = True) as w:
-                loader._message_prehook(spec, host)
+                loader._message_prehook(arch)
                 # Number of warnings can exceed 1 if running on an older CPU.
                 # In this latter case, we get a "newer CPU" warning as well.
                 self.assertTrue(len(w) >= 1)
