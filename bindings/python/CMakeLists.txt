@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.18) # keep in-sync with `pyproject.toml`
 project(pysvs)
 
-message("CMAKE VERSION: ${CMAKE_VERSION}")
-
 # Install pybind11 manually for version control.
 include(FetchContent)
 FetchContent_Declare(

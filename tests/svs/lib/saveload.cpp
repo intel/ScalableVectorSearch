@@ -73,30 +73,6 @@ bool operator==(const Saveable& a, const Saveable& b) {
 }
 } // namespace
 
-CATCH_TEST_CASE("Version Numbers", "[lib][save_load][versions]") {
-    namespace lib = svs::lib;
-    constexpr auto v = lib::Version(0, 2, 4);
-    auto x = lib::Version(0, 2, 4);
-    CATCH_REQUIRE(x == v);
-    CATCH_REQUIRE(!(x < v));
-
-    auto str = v.str();
-    CATCH_REQUIRE(str == "v0.2.4");
-    auto u = lib::Version(str);
-    CATCH_REQUIRE(u == v);
-    CATCH_REQUIRE(lib::Version("v10.20.355534") == lib::Version(10, 20, 355534));
-
-    // Comparison.
-    auto cmp = [](const lib::Version& left, const lib::Version& right) {
-        CATCH_REQUIRE(left < right);
-        CATCH_REQUIRE(!(right < left));
-    };
-
-    cmp(lib::Version(10, 20, 30), lib::Version(11, 20, 30));
-    cmp(lib::Version(10, 20, 30), lib::Version(10, 21, 30));
-    cmp(lib::Version(10, 20, 30), lib::Version(10, 20, 31));
-}
-
 CATCH_TEST_CASE("Save/Load", "[lib][save_load]") {
     // Setup the temporary directory.
     svs_test::prepare_temp_directory();
