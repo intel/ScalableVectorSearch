@@ -118,6 +118,7 @@ target_compile_options(
         -Wno-parentheses # GCC in CI has issues without it
 )
 
+
 if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebugInfo)
     target_compile_options(svs_compile_options INTERFACE -O3)
 endif()

@@ -4,10 +4,22 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
 project(svs
     LANGUAGES CXX
+    # The version is tested in the files:
+    # - /tests/svs/lib/version.cpp
+    # - /bindings/python/tests/test_common.py
+    # Manually keep in-sync with:
+    # - /bindings/python/setup.py
     VERSION 0.0.1
 )
 
 set(SVS_LIB svs_devel)
+
+# Version variables.
+set(SVS_VERSION ${PROJECT_VERSION})
+set(SVS_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(SVS_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(SVS_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
 add_library(${SVS_LIB} INTERFACE)
 set_target_properties(${SVS_LIB} PROPERTIES EXPORT_NAME svs)
 add_library(svs::svs ALIAS ${SVS_LIB})
@@ -21,6 +33,15 @@ target_include_directories(
 # We use C++ 20 features in our exposed headers.
 # Anyone using us as a depdency and including our headers will need to be C++20 compatible.
 target_compile_features(${SVS_LIB} INTERFACE cxx_std_20)
+
+# Populate with the version number macro.
+target_compile_options(
+    ${SVS_LIB}
+    INTERFACE
+    "-DSVS_VERSION_MAJOR=${SVS_VERSION_MAJOR}"
+    "-DSVS_VERSION_MINOR=${SVS_VERSION_MINOR}"
+    "-DSVS_VERSION_PATCH=${SVS_VERSION_PATCH}"
+)
 
 #####
 ##### Options and extra build steps
@@ -90,6 +111,8 @@ install(
 ##### Config File
 #####
 
+set(VERSION_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/svsConfigVersion.cmake")
+
 include(CMakePackageConfigHelpers)
 configure_package_config_file(
     "${CMAKE_CURRENT_LIST_DIR}/cmake/Config.cmake.in"
@@ -97,8 +120,16 @@ configure_package_config_file(
     INSTALL_DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
 
+# Don't make compatibility guarentees until we reach a compatibility milestone.
+write_basic_package_version_file(
+    ${VERSION_CONFIG}
+    VERSION ${SVS_VERSION}
+    COMPATIBILITY ExactVersion
+)
+
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/svsConfig.cmake"
+    "${VERSION_CONFIG}"
     DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
 

@@ -141,6 +141,11 @@ PYBIND11_MODULE(PYSVS_MODULE_NAME, m) {
     // "first class" in the top level `pysvs` module>
     auto name_override = ScopedModuleNameOverride(m, "pysvs");
     m.doc() = "Python bindings";
+    m.def(
+        "library_version",
+        []() { return svs::lib::svs_version.str(); },
+        "Obtain the version string of the backing C++ library."
+    );
 
     py::enum_<svs::DistanceType>(m, "DistanceType", "Select which distance function to use")
         .value("L2", svs::DistanceType::L2, "Euclidean Distance (minimize)")
