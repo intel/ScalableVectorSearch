@@ -229,7 +229,7 @@ template <auto N> inline constexpr bool is_val_type_v<Val<N>> = true;
 
 // Concept for accepting accepting either a `Val` or something convertible to an integer.
 template <typename T>
-concept IntegerLike = requires { std::convertible_to<T, size_t> || is_val_type_v<T>; };
+concept IntegerLike = std::convertible_to<T, size_t> || is_val_type_v<T>;
 
 } // namespace meta
 } // namespace lib

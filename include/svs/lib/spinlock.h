@@ -54,13 +54,13 @@ class SpinLock {
     /// Releases the non-shared lock held by the execution agent.
     /// Throws no exceptions.
     ///
-    void unlock() noexcept { value_.store(false, std::memory_order_acq_rel); }
+    void unlock() noexcept { value_.store(false, std::memory_order_release); }
 
     ///
-    /// Return `true` if the lock is held by some (not necessarilyt the current) execution
+    /// Return `true` if the lock is held by some (not necessarily the current) execution
     /// agent.
     ///
-    bool islocked() const noexcept { return value_.load(std::memory_order_acq_rel); }
+    bool islocked() const noexcept { return value_.load(std::memory_order_acquire); }
 
   private:
     std::atomic<bool> value_{false};
