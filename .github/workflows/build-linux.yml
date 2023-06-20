@@ -21,12 +21,12 @@ jobs:
     strategy:
       matrix:
         build_type: [Release]
-        cxx: [g++-11, gcc-13, clang++-13]
+        cxx: [g++-11, g++-12, clang++-13]
         include:
           - cxx: g++-11
             cc: gcc-11
-          - cxx: g++-13
-            cc: gcc-13
+          - cxx: g++-12
+            cc: gcc-12
           - cxx: clang++-13
             cc: clang-13
 
