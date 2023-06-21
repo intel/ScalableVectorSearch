@@ -197,7 +197,7 @@ Once those are installed, simply navigate to the root directory of the source an
 
 .. code-block:: sh
 
-    cibuildwheel --only (python tools/pybuild.py) bindings/python
+    cibuildwheel --only $(python tools/pybuild.py) bindings/python
 
 The resulting Python wheel will be generated into the "wheelhouse" directly and can be installed from there.
 
