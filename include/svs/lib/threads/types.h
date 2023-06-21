@@ -55,12 +55,12 @@ class ThreadingException : public std::runtime_error {
 template <typename I>
 concept PartitionableIterator = requires {
     // `I` must be a random access iterator.
-    std::random_access_iterator<I>;
+    requires std::random_access_iterator<I>;
 
     // Furthermore, the difference type must "play nicely" with integers.
-    std::convertible_to<std::iter_difference_t<I>, size_t>;
-    std::convertible_to<uint64_t, std::iter_difference_t<I>>;
-    std::convertible_to<int64_t, std::iter_difference_t<I>>;
+    requires std::convertible_to<std::iter_difference_t<I>, size_t>;
+    requires std::convertible_to<uint64_t, std::iter_difference_t<I>>;
+    requires std::convertible_to<int64_t, std::iter_difference_t<I>>;
 };
 
 template <std::random_access_iterator I> struct IteratorPair : std::pair<I, I> {

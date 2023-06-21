@@ -97,7 +97,7 @@ template <typename T>
 concept ImmutableMemoryGraph = requires(const T& const_g) {
     // The encoding of vertices in the graph.
     typename T::index_type;
-    std::integral<typename T::index_type>;
+    requires std::integral<typename T::index_type>;
 
     // Has `reference` and `const_reference` type aliases.
     typename T::reference;

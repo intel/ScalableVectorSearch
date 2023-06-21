@@ -89,11 +89,6 @@ endif()
 ##### Necessary Compiler Flags
 #####
 
-# Fix Clang complaining about the sized delete operator.
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation)
-endif()
-
 #####
 ##### Helper target to apply relevant compiler optimizations.
 #####
@@ -123,6 +118,15 @@ if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebugIn
     target_compile_options(svs_compile_options INTERFACE -O3)
 endif()
 
+#####
+##### Compiler specific flags
+#####
+
+# Fix Clang complaining about the sized delete operator.
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation)
+endif()
+
 # Provide better diagnostics for broken templates.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_compile_options(
@@ -131,5 +135,14 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         -fconcepts-diagnostics-depth=10
         -ftemplate-backtrace-limit=0
     )
+
+    if (CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 12.0)
+        # GCC-12 throws errors in its own intrinsics library with uninitialized variables.
+        # See: https://sourceware.org/bugzilla/show_bug.cgi?id=19444
+        #
+        # Since we're largely header-only and can't separately compile distance related
+        # functions, the best we can do is disable the offending checks.
+        target_compile_options(svs_compile_options INTERFACE -Wno-uninitialized)
+    endif()
 endif()
 

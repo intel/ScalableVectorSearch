@@ -98,7 +98,7 @@ namespace svs::quantization::lvq {
 struct DatasetPreOpBase {};
 
 template <typename T>
-concept DatasetPreOp = requires { std::derived_from<T, DatasetPreOpBase>; };
+concept DatasetPreOp = std::derived_from<T, DatasetPreOpBase>;
 
 ///
 /// Element-wise functor that performs the operation:
