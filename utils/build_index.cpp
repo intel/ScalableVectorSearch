@@ -49,15 +49,10 @@ void build_index(
 
     auto tic = std::chrono::steady_clock::now();
     svs::index::vamana::VamanaBuildParameters parameters{
-        alpha,
-        max_degree,
-        build_search_window_size,
-        max_candidate_pool_size,
-        n_threads,
-    };
+        alpha, max_degree, build_search_window_size, max_candidate_pool_size};
 
     auto index = svs::Vamana::build<E>(
-        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type
+        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type, n_threads
     );
     index.save(config_directory, graph_directory, data_directory);
     auto toc = std::chrono::steady_clock::now();

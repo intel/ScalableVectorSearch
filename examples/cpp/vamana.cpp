@@ -61,17 +61,17 @@ int svs_main(std::vector<std::string> args) {
 
     //! [Build Parameters]
     auto parameters = svs::index::vamana::VamanaBuildParameters{
-        1.2,  // alpha
-        64,   // graph max degree
-        128,  // search window size
-        1024, // max candidate pool size
-        4     // num threads
+        1.2, // alpha
+        64,  // graph max degree
+        128, // search window size
+        1024 // max candidate pool size
     };
     //! [Build Parameters]
 
     //! [Index Build]
+    size_t num_threads = 4;
     svs::Vamana index = svs::Vamana::build<float>(
-        parameters, svs::VectorDataLoader<float>(data_vecs), svs::DistanceL2()
+        parameters, svs::VectorDataLoader<float>(data_vecs), svs::DistanceL2(), num_threads
     );
     //! [Index Build]
 
@@ -135,7 +135,8 @@ int svs_main(std::vector<std::string> args) {
 
     //! [Build Index Compressed]
     // Compressed building
-    index = svs::Vamana::build<float>(parameters, compressor, svs::DistanceL2());
+    index =
+        svs::Vamana::build<float>(parameters, compressor, svs::DistanceL2(), num_threads);
     recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Build");
     check(0.8226, recall);
     //! [Build Index Compressed]

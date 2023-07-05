@@ -80,6 +80,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/translation.cpp
     # Index Specific Functionality
     ${TEST_DIR}/svs/index/flat/inserters.cpp
+    ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
     ${TEST_DIR}/svs/index/vamana/vamana_build.cpp

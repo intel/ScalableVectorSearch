@@ -52,8 +52,8 @@ int svs_main(std::vector<std::string> args) {
     auto lvq_dataset = compressor.compress(data, svs::data::BlockedBuilder());
 
     size_t max_degree = 32;
-    auto parameters = svs::index::vamana::VamanaBuildParameters{
-        1.2, max_degree, 2 * max_degree, 1000, num_threads};
+    auto parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2, max_degree, 2 * max_degree, 1000};
 
     auto index = svs::index::vamana::MutableVamanaIndex{
         parameters, std::move(lvq_dataset), ids, svs::distance::DistanceL2(), num_threads};

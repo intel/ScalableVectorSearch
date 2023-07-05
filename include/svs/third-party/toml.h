@@ -34,8 +34,7 @@ inline bool maybe_config_file(const std::filesystem::path& path) {
     return path.extension() == ".toml";
 }
 
-template <typename T>
-const T& get_checked(const std::optional<T>& x, std::string_view key) {
+template <typename T> T get_checked(const std::optional<T>& x, std::string_view key) {
     if (!x.has_value()) {
         if constexpr (has_datatype_v<T>) {
             throw ANNEXCEPTION(

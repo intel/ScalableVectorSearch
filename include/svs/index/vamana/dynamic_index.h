@@ -636,7 +636,6 @@ class MutableVamanaIndex {
             graph_.max_degree(),
             construction_window_size_,
             max_candidates_,
-            threadpool_.size(),
             use_full_search_history_};
 
         VamanaBuilder builder{graph_, data_, distance_, parameters, threadpool_};

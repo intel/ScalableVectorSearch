@@ -12,6 +12,8 @@
 # Tests for the Vamana index portion of the PySVS module.
 import unittest
 import os
+import warnings
+
 from tempfile import TemporaryDirectory
 
 import pysvs
@@ -191,6 +193,13 @@ class VamanaTester(unittest.TestCase):
         for loader, recall_dict in self.loader_and_recall:
             self._test_basic(loader, recall_dict)
 
+    def test_deprecation(self):
+        with warnings.catch_warnings(record = True) as w:
+            p = pysvs.VamanaBuildParameters(num_threads = 1)
+            self.assertTrue(len(w) == 1)
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            self.assertTrue("VamanaBuildParameters" in str(w[0].message))
+
     def _alpha_map(self):
         return {
             pysvs.DistanceType.L2: 1.2,
@@ -252,9 +261,8 @@ class VamanaTester(unittest.TestCase):
             graph_max_degree = 30,
             window_size = 40,
             max_candidate_pool_size = 30,
-            num_threads = num_threads,
         )
-        vamana = pysvs.Vamana.build(parameters, data, distance)
+        vamana = pysvs.Vamana.build(parameters, data, distance, num_threads = num_threads)
 
         # Load the queries and groundtruth
         queries = pysvs.read_vecs(test_queries)
@@ -327,9 +335,10 @@ class VamanaTester(unittest.TestCase):
             graph_max_degree = 30,
             window_size = 40,
             max_candidate_pool_size = 30,
-            num_threads = num_threads,
         )
-        vamana = pysvs.Vamana.build(parameters, compressor, distance)
+        vamana = pysvs.Vamana.build(
+            parameters, compressor, distance, num_threads = num_threads
+        )
 
         # Load the queries and groundtruth
         queries = pysvs.read_vecs(test_queries)

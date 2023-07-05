@@ -276,6 +276,7 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
         const index::vamana::VamanaBuildParameters& parameters,
         DataLoader&& data_loader,
         Distance distance,
+        size_t num_threads = 1,
         const Allocator& graph_allocator = HugepageAllocator()
     ) {
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
@@ -286,7 +287,7 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
                     parameters,
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
-                    parameters.nthreads,
+                    num_threads,
                     graph_allocator
                 );
             });
@@ -296,7 +297,7 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
                 parameters,
                 std::forward<DataLoader>(data_loader),
                 distance,
-                parameters.nthreads,
+                num_threads,
                 graph_allocator
             );
         }

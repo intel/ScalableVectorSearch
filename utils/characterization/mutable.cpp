@@ -274,7 +274,7 @@ int svs_main(std::vector<std::string> args) {
     }
 
     svs::index::vamana::VamanaBuildParameters parameters{
-        ALPHA, max_degree, 2 * max_degree, 1000, num_threads};
+        ALPHA, max_degree, 2 * max_degree, 1000};
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(

@@ -50,12 +50,11 @@ svs::Vamana build_index(
         max_degree,
         build_search_window_size,
         max_candidate_pool_size,
-        n_threads,
     };
 
     auto tic = svs::lib::now();
     svs::Vamana index = svs::Vamana::build<E>(
-        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type
+        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type, n_threads
     );
 
     auto diff = svs::lib::time_difference(tic);

@@ -283,7 +283,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     }
 
     svs::index::vamana::VamanaBuildParameters parameters{
-        1.2, max_degree, 2 * max_degree, 1000, num_threads};
+        1.2, max_degree, 2 * max_degree, 1000};
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(

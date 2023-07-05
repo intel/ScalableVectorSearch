@@ -106,7 +106,8 @@ struct StandardBuild_ {
     using mapped_type = std::function<svs::Vamana(
         const svs::index::vamana::VamanaBuildParameters&,
         const UnspecializedVectorDataLoader&,
-        svs::DistanceType
+        svs::DistanceType,
+        size_t
     )>;
 
     // Specialize index building based on run-time values for:
@@ -120,9 +121,10 @@ struct StandardBuild_ {
         auto key = key_type{unwrap(data_type), unwrap(ndims)};
         mapped_type fn = [=](const svs::index::vamana::VamanaBuildParameters& parameters,
                              const UnspecializedVectorDataLoader& data,
-                             svs::DistanceType distance_type) {
+                             svs::DistanceType distance_type,
+                             size_t num_threads) {
             return svs::Vamana::build<Q>(
-                parameters, data.refine(data_type, ndims), distance_type
+                parameters, data.refine(data_type, ndims), distance_type, num_threads
             );
         };
         return std::make_pair(key, std::move(fn));
@@ -191,15 +193,19 @@ template <typename Kind> struct CompressedBuild_ {
     using key_type = std::tuple<svs::DistanceType, size_t>;
     using mapped_type = std::function<svs::Vamana(
         const svs::index::vamana::VamanaBuildParameters& /*build_parameters*/,
-        const Kind& /*data_loader*/
+        const Kind& /*data_loader*/,
+        size_t /*num_threads*/
     )>;
 
     template <typename Distance, size_t N>
     static std::pair<key_type, mapped_type> specialize(Distance distance, Val<N> dims) {
         key_type key = {svs::distance_type_v<Distance>, unwrap(dims)};
         mapped_type fn = [=](const svs::index::vamana::VamanaBuildParameters& parameters,
-                             const Kind& compressor) {
-            return svs::Vamana::build<float>(parameters, compressor.refine(dims), distance);
+                             const Kind& compressor,
+                             size_t num_threads) {
+            return svs::Vamana::build<float>(
+                parameters, compressor.refine(dims), distance, num_threads
+            );
         };
         return std::make_pair(key, std::move(fn));
     }
@@ -271,15 +277,19 @@ template <typename ElementType>
 svs::Vamana build_from_array(
     const svs::index::vamana::VamanaBuildParameters& parameters,
     py_contiguous_array_t<ElementType> py_data,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    size_t num_threads
 ) {
-    return svs::Vamana::build<ElementType>(parameters, create_data(py_data), distance_type);
+    return svs::Vamana::build<ElementType>(
+        parameters, create_data(py_data), distance_type, num_threads
+    );
 }
 
 svs::Vamana build_from_file(
     const svs::index::vamana::VamanaBuildParameters& parameters,
     const VamanaBuildSourceTypes& data_source,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    size_t num_threads
 ) {
     return std::visit<svs::Vamana>(
         [&](auto&& data_loader) {
@@ -289,12 +299,12 @@ svs::Vamana build_from_file(
                 const auto& f = dispatch(
                     StandardBuilder::get(), true, data_loader.dims_, data_loader.type_
                 );
-                return f(parameters, data_loader, distance_type);
+                return f(parameters, data_loader, distance_type, num_threads);
             } else {
                 const auto& f = dispatch(
                     CompressedBuild<T>::get(), true, data_loader.dims_, distance_type
                 );
-                return f(parameters, data_loader);
+                return f(parameters, data_loader, num_threads);
             }
         },
         data_source
@@ -309,6 +319,7 @@ void add_build_specialization(py::class_<svs::Vamana>& vamana) {
         py::arg("parameters"),
         py::arg("py_data"),
         py::arg("distance_type"),
+        py::arg("num_threads") = 1,
         R"(
 Construct a Vamana index over the given data, returning a searchable index.
 
@@ -318,6 +329,7 @@ Args:
     py_data: The dataset to index. **NOTE**: PySVS will maintain an internal copy of the
         dataset. This may change in future releases.
     distance_type: The distance type to use for this dataset.
+    num_threads: The number of threads to use for index construction. Default: 1.
         )"
     );
 }
@@ -330,7 +342,6 @@ void save_index(
 ) {
     index.save(config_path, graph_dir, data_dir);
 }
-
 } // namespace detail
 
 void wrap(py::module& m) {
@@ -344,12 +355,32 @@ void wrap(py::module& m) {
 
     parameters
         .def(
-            py::init<float, size_t, size_t, size_t, size_t>(),
+            py::init([](float alpha,
+                        size_t graph_max_degree,
+                        size_t window_size,
+                        size_t max_candidate_pool_size,
+                        size_t num_threads) {
+                if (num_threads != std::numeric_limits<size_t>::max()) {
+                    PyErr_WarnEx(
+                        PyExc_DeprecationWarning,
+                        "Constructing VamanaBuildParameters with the \"num_threads\" "
+                        "keyword "
+                        "argument is deprecated, no longer has any effect, and will be "
+                        "removed "
+                        "from future versions of the library. Use the \"num_threads\" "
+                        "keyword "
+                        "argument of \"pysvs.Vamana.build\" instead!",
+                        1
+                    );
+                }
+                return svs::index::vamana::VamanaBuildParameters{
+                    alpha, graph_max_degree, window_size, max_candidate_pool_size};
+            }),
             py::arg("alpha") = 1.2,
             py::arg("graph_max_degree") = 32,
             py::arg("window_size") = 64,
             py::arg("max_candidate_pool_size") = 80,
-            py::arg("num_threads") = 1,
+            py::arg("num_threads") = std::numeric_limits<size_t>::max(),
             R"(
 Construct a new instance from keyword arguments.
 
@@ -366,7 +397,6 @@ Args:
         be larger than `graph_max_degree`.
     max_candidate_pool_size: Limit on the number of candidates to consider for neighbor
         updates. Should be larger than `window_size`.
-    num_threads: The number of threads to use for index construction.
             )"
         )
         .def_readwrite("alpha", &svs::index::vamana::VamanaBuildParameters::alpha)
@@ -379,8 +409,7 @@ Args:
         .def_readwrite(
             "max_candidate_pool_size",
             &svs::index::vamana::VamanaBuildParameters::max_candidate_pool_size
-        )
-        .def_readwrite("num_threads", &svs::index::vamana::VamanaBuildParameters::nthreads);
+        );
 
     ///
     /// Vamana Static Module
@@ -454,6 +483,7 @@ Data types supported by the loader are the following:
         py::arg("build_parameters"),
         py::arg("data_loader"),
         py::arg("distance_type"),
+        py::arg("num_threads") = 1,
         R"(
 Construct a Vamana index over the given data file, returning a searchable index.
 
@@ -463,6 +493,7 @@ Args:
     data_loader: The source of the data on-disk. Can either be :py:class:`pysvs.DataFile` to
         represent a standard uncompressed dataset, or a compressed loader.
     distance_type: The similarity-function to use for this index.
+    num_threads: The number of threads to use for index construction. Default: 1.
         )"
     );
 
