@@ -47,13 +47,17 @@ To build and install the Python module, pysvs, clone the repo and run the follow
 If you encounter any issues with the pip install command, we suggest you follow an alternative installation procedure using
 `cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`_. To generate a wheel using your current version of
 Python you will need to have cibuildwheel installed as well as `docker <https://www.docker.com/>`_.
-Once those are installed, navigate to the root directory of the source and run
+Once those are installed, follow these steps:
+
+1. Navigate to the root directory of the source and, if the ``bindings/python/_skbuild`` folder exists, remove it.
+
+2. From the root directory of the source run
 
 .. code-block:: sh
 
     cibuildwheel --only $(python tools/pybuild.py) bindings/python
 
-If the ``bindings/python/_skbuild`` folder exists, remove it. Then simply run
+3. Then simply run
 
 .. code-block:: sh
 
