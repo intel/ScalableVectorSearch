@@ -44,6 +44,23 @@ To build and install the Python module, pysvs, clone the repo and run the follow
     # Install pysvs using pip
     CC=gcc-11 CXX=g++-11 pip install bindings/python
 
+If you encounter any issues with the pip install command, we suggest you follow an alternative installation procedure using
+`cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`_. To generate a wheel using your current version of
+Python you will need to have cibuildwheel installed as well as `docker <https://www.docker.com/>`_.
+Once those are installed, navigate to the root directory of the source and run
+
+.. code-block:: sh
+
+    cibuildwheel --only $(python tools/pybuild.py) bindings/python
+
+If the ``bindings/python/_skbuild`` folder exists, remove it. Then simply run
+
+.. code-block:: sh
+
+    pip install ./wheelhouse/pysvs*.whl
+
+For more details see :ref:`building_python_library`.
+
 C++ build
 ==========
 SVS provides a cmake target to enable source builds against the library. See :ref:`cpp_cmake_support` for details.

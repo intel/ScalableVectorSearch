@@ -192,7 +192,7 @@ This library uses C++ 20 and many AVX-512 hardware features to achieve performan
 However, we still want to support older CPUs and reasonably old Linux distributions that may have some GLIBC limitations.
 To that end, we also support building the Python library using `cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`_ and enabling multiple microarchitecture backends.
 
-To generate a wheel using your current version of Python you will need to cibuildwheel installed as well as `docker <https://www.docker.com/>`_.
+To generate a wheel using your current version of Python you will need to have cibuildwheel installed as well as `docker <https://www.docker.com/>`_.
 Once those are installed, simply navigate to the root directory of the source and run
 
 .. code-block:: sh
