@@ -81,25 +81,44 @@ To uninstall, simply run
 pip uninstall pysvs
 ```
 
+If you encounter any issues with the pip install command, we suggest you follow an alternative installation procedure using
+[cibuildwheel](<https://cibuildwheel.readthedocs.io/en/stable/>). To generate a wheel using your current version of
+Python you will need to have cibuildwheel installed as well as [docker](<https://www.docker.com/>).
+Once those are installed, follow these steps:
+
+1. Navigate to the root directory of the source and, if the ``bindings/python/_skbuild`` folder exists, remove it.
+
+2. From the root directory of the source run
+
+```
+cibuildwheel --only $(python tools/pybuild.py) bindings/python
+```
+
+3. Then simply run
+
+```
+    pip install ./wheelhouse/pysvs*.whl
+```
+
 For more advanced building options see [Advanced Library Building](https://intellabs.github.io/ScalableVectorSearch/advanced/build.html).
 
 ## References
 Reference to cite when you use SVS in a research paper:
 
 ```
-@misc{aguerrebere2023similarity,
-title={Similarity search in the blink of an eye with compressed indices},
-author={Cecilia Aguerrebere and Ishwar Bhati and Mark Hildebrand and Mariano Tepper and Ted Willke},
-year={2023},
-eprint={2304.04759},
-archivePrefix={arXiv},
-primaryClass={cs.LG}
+@article{aguerrebere2023similarity,
+        title={Similarity search in the blink of an eye with compressed indices},
+        volume = {16},
+        number = {11},        
+        journal = {Proceedings of the VLDB Endowment},
+        author={Cecilia Aguerrebere and Ishwar Bhati and Mark Hildebrand and Mariano Tepper and Ted Willke},        
+        year = {2023}
 }
 ```
 
 <a id="1">[ABHT23]</a>
 Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T.:Similarity search in the blink of an eye with compressed
-indices. In: arXiv preprint [arXiv:2304.04759](https://arxiv.org/abs/2304.04759) (2023)
+indices. In: Proceedings of the VLDB Endowment, 16, 11 (2023)
 
 ## How to Contribute
 We welcome your contributions to this project. See [How to Contribute](contributing/CONTRIBUTING.md) for
