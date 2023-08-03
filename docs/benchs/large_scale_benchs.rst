@@ -174,6 +174,7 @@ For **SVS** and **Vamana**, we use the following parameter setting to build Vama
 * ``alpha`` = 1.2 and ``alpha`` =  0.95 for Euclidean distance and inner product respectively.
 
 For SVS, we include various LVQ settings (LVQ-8, LVQ-4x4, LVQ-4x8, and LVQ8x8) as well as float16 and float32 encodings.
+LVQ-compressed vectors are padded to half cache lines (``padding`` = 32).
 
 For **HSNWlib**, we build all graphs with a window search size of 200 and ``graph_max_degree`` = 128 (this corresponds
 to M=64 in HSNW notation), except deep-96-1B for which we must reduce ``graph_max_degree`` to 96 to fit the

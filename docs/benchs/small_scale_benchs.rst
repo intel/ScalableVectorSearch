@@ -11,7 +11,7 @@ We present here the results of an exhaustive evaluation, comparing SVS to other 
 System Setup and Datasets
 =========================
 
-We run our experiments on a 3rd generation Intel\ |reg| Xeon\ |reg| Platinum 8360Y CPU @2.40GHz with
+We run our experiments on a 3rd generation Intel\ |reg| Xeon\ |reg| 8360Y CPU @2.40GHz with
 36 cores (single socket), equipped with 256GB DDR4 memory per socket @2933MT/s speed,  running Ubuntu 22.04. [#ft1]_ [#ft3]_
 
 We use ``numactl`` to ran all experiments in a single socket (see :ref:`numa` for details).
@@ -165,6 +165,7 @@ We adopt the standard ANN-benchmarks [AuBF20]_ protocol and generate Pareto curv
 methods and datasets. For the graph-based methods (HSNWlib, Vamana, SVS) we use the same ``graph_max_degree`` values (32, 64 and 128).
 For IVFPQfs, ScaNN and NGT-qg we consider the provided `yaml configuration files <https://github.com/erikbern/ann-benchmarks/>`_.
 For SVS, we include various LVQ settings (LVQ-8, LVQ-4x4, LVQ-4x8, and LVQ8x8) as well as float16 and float32 encodings.
+LVQ-compressed vectors are padded to half cache lines (``padding`` = 32).
 
 .. _benchs-compression-evaluation_small_scale:
 
@@ -181,6 +182,7 @@ by LVQ makes it very relevant even for datasets with a few million points.
 
 The figure compares search performance for different LVQ settings, as well as using float32 and float16 encoded
 vectors, for the 960-dimensional :ref:`gist-960-1M <datasets>` dataset (graph built with ``graph_max_degree`` = 128).
+LVQ-compressed vectors are padded to half cache lines (``padding`` = 32).
 
 For a search accuracy of 0.9 10 recall at 10, **SVS with LVQ-4x4** compressed vectors has a **4.3x** and a **4.5x higher
 QPS** than its float32 counterpart for batch sizes 1k and 128 respectively. Similar performance gains are achieved by

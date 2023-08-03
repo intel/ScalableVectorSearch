@@ -1,0 +1,8 @@
+.. _avx512:
+
+AVX-512
+==========
+
+SVS makes heavy use of AVX-512 instructions, and performance will be considerably
+degraded if these are not available. A warning message will appear when loading the SVS Python module if the system
+does not support AVX-512 instructions.
