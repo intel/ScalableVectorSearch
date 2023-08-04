@@ -163,7 +163,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
 
         auto timer = lib::Timer();
         size_t start = 0;
-        size_t datasize = data.size();
+        size_t datasize = data_.size();
         size_t num_queries = queries.size();
         while (start < datasize) {
             // Create a bucket of sequential IDs.
