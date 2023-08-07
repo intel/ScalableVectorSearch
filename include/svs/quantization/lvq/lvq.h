@@ -225,8 +225,8 @@ class LVQDataset {
     LVQDataset(primary_type primary, residual_type residual)
         : primary_{std::move(primary)}
         , residual_{std::move(residual)} {
-        auto primary_size = primary.size();
-        auto residual_size = residual.size();
+        auto primary_size = primary_.size();
+        auto residual_size = residual_.size();
         if (primary_size != residual_size) {
             auto msg = fmt::format(
                 "Primary size is {} while residual size is {}!", primary_size, residual_size
@@ -234,8 +234,8 @@ class LVQDataset {
             throw ANNEXCEPTION(msg);
         }
 
-        auto primary_dims = primary.dimensions();
-        auto residual_dims = residual.dimensions();
+        auto primary_dims = primary_.dimensions();
+        auto residual_dims = residual_.dimensions();
         if (primary_dims != residual_dims) {
             auto msg = fmt::format(
                 "Primary dimensions is {} while residual dimensions is {}!",
