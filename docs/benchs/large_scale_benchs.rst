@@ -237,6 +237,9 @@ and the additional bandwidth reduction from LVQ-4x4 and LVQ-4x8 provides a signi
 | **LVQ-4x8**        | 2.5x     | 1.3x     | **3.1x** | 1.6x     | **4.7x** | 2.1x     |
 +--------------------+----------+----------+----------+----------+----------+----------+
 
+Ablation Results
+----------------
+
 **Click on the triangles** to see the throughput vs recall curves comparing SVS with several LVQ settings, as well as float32
 and float16 encodings, for each dataset.
 
@@ -274,6 +277,9 @@ and float16 encodings, for each dataset.
 
 |
 
+Ablation + comparison to other methods
+--------------------------------------
+
 **Click on the triangles** to see the throughput vs recall curves comparing the highest performing SVS-LVQ setting
 (a Pareto curve built with results from LVQ-8, LVQ-4x4, LVQ4x8 and LVQ8x8), SVS using float32 and float16 encodings,
 as well as other methods for each dataset.
@@ -285,14 +291,6 @@ as well as other methods for each dataset.
     .. image:: ../figs/bench_largeScale_ablation_and_other_methods_deep-1B.png
        :width: 700
        :alt: deep-96-1B compression evaluation results
-
-.. collapse:: t2i-200-100M
-
-    Results for the t2i-200-100M dataset
-
-    .. image:: ../figs/bench_largeScale_ablation_and_other_methods_text2image-100M.png
-       :width: 700
-       :alt: t2i-200-100M compression evaluation results
 
 
 .. collapse:: DPR-768-10M
