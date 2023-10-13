@@ -12,6 +12,7 @@
 #pragma once
 
 // svs
+#include "eve/algo.hpp"
 #include "svs/concepts/distance.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
@@ -80,7 +81,7 @@ template <size_t N = 0> struct ScaleBias {
     float bias;
 };
 
-ScaleBias(float, float) -> ScaleBias<0>;
+ScaleBias(float, float)->ScaleBias<0>;
 
 /////
 ///// Compressed Vector Implementations.
@@ -227,6 +228,15 @@ ScaledBiasedWithResidual<Primary, Residual, N> combine(
 ///// Distances
 /////
 
+// Optimized inner product for LVQ datasets
+// <q, (scale * x + bias)> => scale * <q, x> + <q, bias>
+// Since, scale and bias are per LVQ vector scalar constants
+// <q, bias> = bias * sum(q). sum(q) is precomputed for a query. Therefore,
+// first calculate only <q,x> and finally multiply add the constants
+struct DistanceFastIP {
+    float query_sum; // preprocessed query sum
+};
+
 struct EuclideanReference {
     using compare = std::less<>;
     static constexpr bool implicit_broadcast = true;
@@ -331,6 +341,20 @@ wide_<float, N> apply_step(
     return accum + x * converted;
 }
 
+template <typename T, int64_t N, typename P, size_t S>
+wide_<float, N> apply_step(
+    DistanceFastIP /*unused*/,
+    wide_<float, N> accum,
+    wide_<float, N> x,
+    wide_<T, N> y,
+    ScaleBias<S> /*aux*/,
+    size_t /*i*/,
+    P /*unused*/
+) {
+    // In the first step, just do <x,y>
+    return accum + x * eve::convert(y, eve::as<float>());
+}
+
 template <int64_t N, size_t S>
 float finish_step(
     distance::DistanceL2 /*unused*/, wide_<float, N> accum, ScaleBias<S> /*aux*/
@@ -347,6 +371,12 @@ float finish_step(
     return eve::reduce(accum, eve::plus);
 }
 
+template <int64_t N, size_t S>
+float finish_step(DistanceFastIP distance, wide_<float, N> accum, ScaleBias<S> aux) {
+    // Scale and add bias*query_sum only once in the final step
+    return aux.scale * eve::reduce(accum, eve::plus) + aux.bias * distance.query_sum;
+}
+
 struct NoDistance {};
 template <typename Distance, typename T>
     requires is_onelevel_compression_v<T>
@@ -361,9 +391,10 @@ struct DistanceHelper<Distance, T> {
     ///
     /// Construct a distance computer from a ScaledVector.
     ///
-    DistanceHelper(Distance SVS_UNUSED(distance), const T& v)
+    DistanceHelper(Distance distance, const T& v)
         : unpacker_{v.unpacker()}
-        , aux_{v.prepare_aux()} {}
+        , aux_{v.prepare_aux()}
+        , distance_{distance} {}
 
     ///
     /// Create a zeroed accumulator.
@@ -392,17 +423,18 @@ struct DistanceHelper<Distance, T> {
         P pred = eve::ignore_none_()
     ) {
         integer_wide_type unpacked = unpacker_.get(i, pred);
-        return apply_step(Distance(), current, left, unpacked, aux_, i, pred);
+        return apply_step(distance_, current, left, unpacked, aux_, i, pred);
     }
 
     ///
     /// Perform the final reduction.
     ///
-    float finish(accumulator_type sum) { return finish_step(Distance(), sum, aux_); }
+    float finish(accumulator_type sum) { return finish_step(distance_, sum, aux_); }
 
     ///// Members
     unpacker_type unpacker_;
     auxiliary_type aux_;
+    [[no_unique_address]] Distance distance_;
 };
 
 // Two level helpers
@@ -415,7 +447,6 @@ wide_<detail::biggest_int_t<T, U>, N> combine(
            eve::convert(residual, eve::as<Common>());
 }
 
-// Euclidean Distance - Two Level
 template <typename Distance, typename T>
     requires is_twolevel_compression_v<T>
 struct DistanceHelper<Distance, T> {
@@ -429,10 +460,11 @@ struct DistanceHelper<Distance, T> {
     ///
     /// Construct a distance computer from a ScaledVector.
     ///
-    DistanceHelper(Distance SVS_UNUSED(distance), const T& v)
+    DistanceHelper(Distance distance, const T& v)
         : primary_unpacker_{v.primary_unpacker()}
         , residual_unpacker_{v.residual_unpacker()}
-        , aux_{v.prepare_aux()} {}
+        , aux_{v.prepare_aux()}
+        , distance_{distance} {}
 
     ///
     /// Create a zeroed accumulator.
@@ -466,18 +498,19 @@ struct DistanceHelper<Distance, T> {
         auto r = residual_unpacker_.get(i, pred);
 
         // Combine the primary and residual then apply the distance computation.
-        return apply_step(Distance(), current, left, combine(p, r, aux_), aux_, i, pred);
+        return apply_step(distance_, current, left, combine(p, r, aux_), aux_, i, pred);
     }
 
     ///
     /// Perform the final reduction.
     ///
-    float finish(accumulator_type sum) { return finish_step(Distance(), sum, aux_); }
+    float finish(accumulator_type sum) { return finish_step(distance_, sum, aux_); }
 
     ///// Members
     primary_unpacker_type primary_unpacker_;
     residual_unpacker_type residual_unpacker_;
     auxiliary_type aux_;
+    [[no_unique_address]] Distance distance_;
 };
 
 template <typename Distance, typename T>
@@ -544,6 +577,7 @@ inline constexpr bool is_compressed_vector =
 template <typename T> inline constexpr bool fast_quantized = false;
 template <> inline constexpr bool fast_quantized<distance::DistanceL2> = true;
 template <> inline constexpr bool fast_quantized<distance::DistanceIP> = true;
+template <> inline constexpr bool fast_quantized<DistanceFastIP> = true;
 
 template <typename Distance, typename T>
     requires fast_quantized<Distance> && is_compressed_vector<T>
@@ -768,12 +802,17 @@ class InnerProductBiased {
             processed_query_[i] =
                 distance::compute(inner_distance, query, centroids_->get_datum(i));
         }
+
+        // This preprocessing needed for DistanceFastIP
+        query_sum_ = eve::algo::reduce(query, 0.0f);
     }
 
     template <size_t N, typename T, std::integral I = size_t>
     float compute(const std::span<const float, N>& query, const T& y, I selector = 0) const
         requires(lib::is_spanlike_v<T>)
     {
+        // If the argument `y` is a `std::span`, it's not a compressed vector so fall-back
+        // to doing normal distance computations.
         auto inner = distance::DistanceIP{};
         return distance::compute(inner, query, y) + processed_query_[selector];
     }
@@ -782,9 +821,8 @@ class InnerProductBiased {
     float compute(const std::span<const float>& query, const T& y) const
         requires(!lib::is_spanlike_v<T>)
     {
-        // If the argument `y` is a `std::span`, it's not a compressed vector so fall-back
-        // to doing normal distance computations.
-        distance::DistanceIP inner{};
+        // Defaults to optimized inner product calculation
+        DistanceFastIP inner{query_sum_};
         return distance::compute(inner, query, y) + processed_query_[y.get_selector()];
     }
 
@@ -800,6 +838,7 @@ class InnerProductBiased {
     // Applied after the distance computation between the query and compressed vector.
     std::vector<float> processed_query_;
     std::shared_ptr<const data::SimpleData<float>> centroids_;
+    float query_sum_ = 0;
 };
 
 inline bool operator==(const InnerProductBiased& x, const InnerProductBiased& y) {

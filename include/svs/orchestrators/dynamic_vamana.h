@@ -57,7 +57,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryType, Impl, DynamicVamanaInterf
     void add_points(
         const float* data, size_t dim0, size_t dim1, std::span<const size_t> ids
     ) override {
-        auto points = data::ConstSimpleDataView(data, dim0, dim1);
+        auto points = data::ConstSimpleDataView<float>(data, dim0, dim1);
         impl().add_points(points, ids);
     }
 
@@ -102,7 +102,7 @@ class DynamicVamana
 
     template <typename QueryType, typename Impl>
     explicit DynamicVamana(
-        AssembleTag SVS_UNUSED(tag), Type<QueryType> SVS_UNUSED(type), Impl impl
+        AssembleTag SVS_UNUSED(tag), lib::meta::Type<QueryType> SVS_UNUSED(type), Impl impl
     )
         : base_type{std::make_unique<DynamicVamanaImpl<QueryType, Impl>>(std::move(impl))} {
     }
@@ -221,7 +221,7 @@ class DynamicVamana
     ) {
         return DynamicVamana(
             AssembleTag(),
-            Type<QueryType>(),
+            lib::meta::Type<QueryType>(),
             index::vamana::auto_dynamic_assemble(
                 config_path,
                 graph_loader,

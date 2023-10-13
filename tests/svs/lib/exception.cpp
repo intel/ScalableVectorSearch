@@ -31,17 +31,6 @@ bool throws() {
 }
 
 CATCH_TEST_CASE("ANNException", "[core]") {
-    CATCH_SECTION("Argument Formatting") {
-        std::string message = svs::lib::detail::format_args("hello ", "world (", 10, ").");
-        CATCH_REQUIRE(message == "hello world (10).");
-
-        message = svs::lib::detail::format_args(SVS_LINEINFO);
-        int line_above = __LINE__ - 1;
-        std::string expected = svs::lib::detail::format_args("(line ", line_above, " in ");
-        CATCH_REQUIRE(startswith(message, expected));
-        CATCH_REQUIRE(endswith(message, "svs/lib/exception.cpp)"));
-    }
-
     CATCH_SECTION("Constructors") {
         // rvalue ref
         auto a = svs::ANNException("rvalue string");
@@ -52,7 +41,8 @@ CATCH_TEST_CASE("ANNException", "[core]") {
         CATCH_REQUIRE(std::string{b.what()} == "lvalue string");
         // variadic constructor
         // NOTE: The checked error message is not very pretty.
-        auto c = svs::ANNException("rvalue string", lvalue_string, 10, SVS_LINEINFO);
+        auto c =
+            svs::ANNException("{}{}{}{}", "rvalue string", lvalue_string, 10, SVS_LINEINFO);
         CATCH_REQUIRE(startswith(std::string{c.what()}, "rvalue stringlvalue string10(line")
         );
     }

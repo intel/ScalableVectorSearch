@@ -48,18 +48,14 @@ target_compile_options(
 #####
 
 include("cmake/options.cmake")
+
 include("cmake/clang-tidy.cmake")
+include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
 include("cmake/numa.cmake")
 include("cmake/robin-map.cmake")
 include("cmake/fmt.cmake")
 include("cmake/toml.cmake")
-
-# TODO: Right now this is always needed.
-# Decoupling our dependence on EVE to disable quantization will be ... tricky ...
-if(SVS_ENABLE_QUANTIZATION)
-    include("cmake/eve.cmake")
-endif()
 
 #####
 ##### Build Objects
@@ -79,6 +75,15 @@ endif()
 
 if(SVS_BUILD_DOCS)
     add_subdirectory(docs)
+endif()
+
+# The benchmark directory contains a sub-component that is used by both the benchmarking
+# framework and the unit-tests.
+#
+# If only the unit tests are enabled, then the benchmark will be built as a minimal
+# component to avoid excessive compilation time.
+if(SVS_BUILD_BENCHMARK OR SVS_BUILD_TESTS)
+    add_subdirectory(benchmark)
 endif()
 
 #####

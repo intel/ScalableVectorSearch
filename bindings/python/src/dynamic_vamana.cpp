@@ -17,6 +17,8 @@
 #include "vamana.h"
 
 // svs
+#include "svs/extensions/vamana/lvq.h"
+#include "svs/lib/dispatcher.h"
 #include "svs/orchestrators/dynamic_vamana.h"
 
 // pybind
@@ -198,10 +200,22 @@ struct StandardAssemble_ {
                              const UnspecializedVectorDataLoader& data,
                              size_t num_threads,
                              bool debug_load_from_static) {
+            auto load_graph = svs::lib::Lazy([&]() {
+                return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
+            });
+
+            auto load_data = svs::lib::Lazy([&]() {
+                // Forward the allocator we wish to use
+                using A = RebindAllocator<T>;
+                return svs::data::BlockedData<T, N, A>::load(
+                    data.path_, as_blocked(A(data.allocator_))
+                );
+            });
+
             return svs::DynamicVamana::assemble<Q>(
                 config_path,
-                graph_loader.refine(svs::data::BlockedBuilder()),
-                data.refine(data_type, ndims, svs::data::BlockedBuilder()),
+                load_graph,
+                load_data,
                 distance,
                 num_threads,
                 debug_load_from_static
@@ -218,7 +232,7 @@ struct StandardAssemble_ {
         );
     }
 };
-using StandardAssembler = Dispatcher<StandardAssemble_>;
+using StandardAssembler = svs::lib::Dispatcher<StandardAssemble_>;
 
 template <typename Loader> struct LVQAssemble_ {
     /// Keys:
@@ -241,12 +255,14 @@ template <typename Loader> struct LVQAssemble_ {
                              const Loader& data_loader,
                              size_t num_threads,
                              bool debug_load_from_static) {
+            auto load_graph = svs::lib::Lazy([&]() {
+                return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
+            });
+
             return svs::DynamicVamana::assemble<float>(
                 config_path,
-                graph_loader.refine(svs::data::BlockedBuilder()),
-                // The addition of the block builder happens inside the constructor
-                // for the loader.
-                data_loader.refine(ndims),
+                load_graph,
+                data_loader.refine(ndims, as_blocked),
                 distance,
                 num_threads,
                 debug_load_from_static
@@ -261,7 +277,7 @@ template <typename Loader> struct LVQAssemble_ {
         });
     }
 };
-template <typename Loader> using LVQAssembler = Dispatcher<LVQAssemble_<Loader>>;
+template <typename Loader> using LVQAssembler = svs::lib::Dispatcher<LVQAssemble_<Loader>>;
 
 using DynamicVamanaAssembleTypes =
     std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4x8>;
@@ -280,21 +296,15 @@ svs::DynamicVamana assemble(
         [&](auto&& loader) {
             using T = std::decay_t<decltype(loader)>;
             if constexpr (std::is_same_v<T, UnspecializedVectorDataLoader>) {
-                const auto& f = dispatch(
-                    StandardAssembler::get(),
-                    !enforce_dims,
-                    loader.dims_,
-                    query_type,
-                    loader.type_,
-                    distance_type
+                const auto& f = StandardAssembler::lookup(
+                    !enforce_dims, loader.dims_, query_type, loader.type_, distance_type
                 );
                 return f(
                     config_path, graph_loader, loader, num_threads, debug_load_from_static
                 );
             } else {
-                const auto& f = dispatch(
-                    LVQAssembler<T>::get(), !enforce_dims, loader.dims_, distance_type
-                );
+                const auto& f =
+                    LVQAssembler<T>::lookup(!enforce_dims, loader.dims_, distance_type);
                 return f(
                     config_path, graph_loader, loader, num_threads, debug_load_from_static
                 );

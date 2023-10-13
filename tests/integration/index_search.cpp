@@ -36,8 +36,8 @@ namespace {
 const bool PRINT_RESULTS = false;
 void run_tests(
     svs::Vamana& index,
-    const svs::data::SimplePolymorphicData<float>& queries,
-    const svs::data::SimplePolymorphicData<uint32_t>& groundtruth,
+    const svs::data::SimpleData<float>& queries,
+    const svs::data::SimpleData<uint32_t>& groundtruth,
     const std::map<size_t, double>& expected_results
 ) {
     // If we make a change that somehow improves accuracy, we'll want to know.
@@ -165,7 +165,7 @@ CATCH_TEST_CASE("Testing Search", "[integration][search]") {
     // Note: can't construct from an initializer list because initializer lists want to
     // copy.
     auto groundtruth_map =
-        std::unordered_map<svs::DistanceType, svs::data::SimplePolymorphicData<uint32_t>>{};
+        std::unordered_map<svs::DistanceType, svs::data::SimpleData<uint32_t>>{};
     groundtruth_map.emplace(svs::L2, test_dataset::groundtruth_euclidean());
     groundtruth_map.emplace(svs::MIP, test_dataset::groundtruth_mip());
     groundtruth_map.emplace(svs::Cosine, test_dataset::groundtruth_cosine());

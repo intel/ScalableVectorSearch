@@ -239,14 +239,19 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
                     AssembleTag(),
                     config_path,
                     graph_loader,
-                    data_loader,
+                    std::forward<DataLoader>(data_loader),
                     distance_function,
                     num_threads
                 );
             });
         } else {
             return make_vamana<QueryType>(
-                AssembleTag(), config_path, graph_loader, data_loader, distance, num_threads
+                AssembleTag(),
+                config_path,
+                graph_loader,
+                std::forward<DataLoader>(data_loader),
+                distance,
+                num_threads
             );
         }
     }
@@ -261,6 +266,8 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
     /// @param data_loader Either a data loader from disk or a dataset by value.
     ///     See detailed notes below.
     /// @param distance The distance functor to use or a ``svs::DistanceType`` enum.
+    /// @param num_threads The number of threads to use for query processing (may be
+    ///     changed after class construction).
     /// @param graph_allocator The allocator to use for the backing graph.
     ///
     /// @copydoc hidden_vamana_auto_build_doc
@@ -271,12 +278,13 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
         typename QueryType,
         typename DataLoader,
         typename Distance,
-        typename Allocator = HugepageAllocator>
+        typename Allocator = HugepageAllocator<uint32_t>>
     static Vamana build(
         const index::vamana::VamanaBuildParameters& parameters,
         DataLoader&& data_loader,
         Distance distance,
-        const Allocator& graph_allocator = HugepageAllocator()
+        size_t num_threads = 1,
+        const Allocator& graph_allocator = {}
     ) {
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
@@ -286,7 +294,7 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
                     parameters,
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
-                    parameters.nthreads,
+                    num_threads,
                     graph_allocator
                 );
             });
@@ -296,7 +304,7 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
                 parameters,
                 std::forward<DataLoader>(data_loader),
                 distance,
-                parameters.nthreads,
+                num_threads,
                 graph_allocator
             );
         }

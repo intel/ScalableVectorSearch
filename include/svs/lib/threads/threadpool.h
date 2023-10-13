@@ -32,7 +32,7 @@ namespace threads {
 
 // clang-format off
 template <typename Pool>
-concept ThreadPool = requires(Pool& pool, const Pool& const_pool, FunctionType& f) {
+concept ThreadPool = requires(Pool& pool, const Pool& const_pool, FunctionRef f) {
     ///
     /// Return the number of threads in the thread pool.
     ///
@@ -57,13 +57,13 @@ concept ResizeableThreadPool = requires(Pool& pool, size_t sz) {
 
 template <ThreadPool Pool, typename F> void run(Pool& pool, F&& f) {
     auto f_wrapped = thunks::wrap(ThreadCount{pool.size()}, f);
-    pool.run(f_wrapped);
+    pool.run(FunctionRef(f_wrapped));
 }
 
 template <ThreadPool Pool, typename T, typename F> void run(Pool& pool, T&& arg, F&& f) {
     if (!arg.empty()) {
         auto f_wrapped = thunks::wrap(ThreadCount{pool.size()}, f, std::forward<T>(arg));
-        pool.run(f_wrapped);
+        pool.run(FunctionRef(f_wrapped));
     }
 }
 
@@ -78,7 +78,7 @@ class SequentialThreadPool {
   public:
     SequentialThreadPool() = default;
     static constexpr size_t size() { return 1; }
-    static void run(FunctionType& f) { f(0); }
+    static void run(FunctionRef f) { f(0); }
 };
 static_assert(ThreadPool<SequentialThreadPool>);
 
@@ -153,10 +153,10 @@ template <typename Builder> class NativeThreadPoolBase {
         }
     }
 
-    void run(FunctionType& f) {
+    void run(FunctionRef f) {
         std::lock_guard lock{*use_mutex_};
         for (size_t i = 0; i < threads_.size(); ++i) {
-            threads_[i].assign({&f, i + 1});
+            threads_[i].assign({f, i + 1});
         }
         // Run on the main function.
         try {

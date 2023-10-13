@@ -44,7 +44,7 @@ svs::Matrix<float> compute_distances(
     size_t num_queries,
     size_t num_data
 ) {
-    svs::Matrix<float> distances{num_queries, num_data};
+    svs::Matrix<float> distances{svs::make_dims(num_queries, num_data)};
     for (size_t i = 0; i < num_queries; ++i) {
         const auto& query = queries.get_datum(i);
         svs::distance::maybe_fix_argument(distance, query);

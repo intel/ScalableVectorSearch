@@ -11,9 +11,8 @@
 
 #pragma once
 
-#include "svs/core/data/abstract_io.h"
-#include "svs/core/data/block.h"
-#include "svs/core/data/simple.h"
+// svs
+#include "svs/concepts/data.h"
 #include "svs/core/io.h"
 
 #include "svs/lib/array.h"
@@ -24,36 +23,85 @@
 
 namespace svs::io {
 
-namespace detail {
-inline void static_size_check(size_t expected, size_t actual) {
-    if (expected != actual) {
-        throw ANNEXCEPTION(
-            "Trying to populate a dataset with static extent ",
-            expected,
-            " while the loaded dataset has dimension ",
-            actual,
-            "!"
-        );
+// Dispatch tags to control the loading and saving pipeline.
+constexpr lib::PriorityTag<2> default_populate_tag = lib::PriorityTag<2>();
+constexpr lib::PriorityTag<2> default_save_tag = lib::PriorityTag<2>();
+
+// Generic dataset population.
+// TODO (long term): Constrain this to vector-based datasets?
+template <data::MemoryDataset Data, typename File>
+void populate_impl(Data& data, const File& file, lib::PriorityTag<0> /*tag*/) {
+    using T = typename Data::element_type;
+    auto reader = file.reader(lib::meta::Type<T>());
+    size_t i = 0;
+    for (auto v : reader) {
+        data.set_datum(i, v);
+        ++i;
     }
 }
-} // namespace detail
+
+// Intercept the native file to perform dispatch on the actual file type.
+template <data::MemoryDataset Data>
+void populate_impl(Data& data, const NativeFile& file, lib::PriorityTag<1> tag) {
+    file.resolve([&](const auto& resolved_file) {
+        populate_impl(data, resolved_file, tag.next());
+    });
+}
+
+///
+/// @brief Populate the entries of `data` with the contents of `file`.
+///
+template <data::MemoryDataset Data, typename File>
+void populate(Data& data, const File& file) {
+    populate_impl(data, file, default_populate_tag);
+}
+
+/////
+///// Saving
+/////
+
+template <data::ImmutableMemoryDataset Dataset, typename File>
+void save_impl(
+    const Dataset& data,
+    const File& file,
+    const lib::UUID& uuid = lib::ZeroUUID,
+    lib::PriorityTag<0> SVS_UNUSED(tag) = lib::PriorityTag<0>()
+) {
+    auto writer = file.writer(data.dimensions(), uuid);
+    for (size_t i = 0; i < data.size(); ++i) {
+        writer << data.get_datum(i);
+    }
+}
+
+template <data::ImmutableMemoryDataset Dataset, typename File>
+void save(const Dataset& data, const File& file, const lib::UUID& uuid = lib::ZeroUUID) {
+    save_impl(data, file, uuid, default_save_tag);
+}
+
+///
+/// @brief Save the dataset as a "*vecs" file.
+///
+/// @param data The dataset to save.
+/// @param path The file path to where the data will be saved.
+///
+template <data::ImmutableMemoryDataset Dataset>
+void save_vecs(const Dataset& data, const std::filesystem::path& path) {
+    auto file = vecs::VecsFile{path};
+    auto writer = file.writer(data.dimensionsions());
+    for (size_t i = 0; i < data.size(); ++i) {
+        writer << data.get_datum(i);
+    }
+}
 
 /////
 ///// Dataset Loading
 /////
 
 // Generic dataset loading.
-template <typename T, size_t Extent, typename File, typename Builder>
-typename Builder::template return_type<T, Extent>
-load_impl(const File& file, const Builder& builder) {
+template <typename File, lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t> load_impl(const File& file, const F& lazy) {
     auto [vectors_to_read, ndims] = file.get_dims();
-
-    // Size check to throw an error early.
-    if constexpr (Extent != Dynamic) {
-        detail::static_size_check(Extent, ndims);
-    }
-
-    auto data = data::build<T, Extent>(builder, vectors_to_read, ndims);
+    auto data = lazy(vectors_to_read, ndims);
     populate(data, file);
     return data;
 }
@@ -66,46 +114,40 @@ inline NativeFile to_native(const std::string_view& x) { return to_native(std::s
 inline NativeFile to_native(const std::filesystem::path& x) { return NativeFile(x); }
 } // namespace detail
 
-template <
-    typename T,
-    size_t Extent,
-    typename File,
-    typename Builder = data::PolymorphicBuilder<>>
-auto load_dataset(const File& file, const Builder& builder = data::PolymorphicBuilder<>{}) {
-    return load_impl<T, Extent>(detail::to_native(file), builder);
+template <typename File, lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t> load_dataset(const File& file, const F& lazy) {
+    return load_impl(detail::to_native(file), lazy);
 }
 
 ///
 /// @brief Load a dataset from file. Automcatically detect the file type based on extension.
 ///
 /// @tparam T The element type of the vector components in the file.
-/// @tparam Extent The compile-time dimensionality of the dataset to load. This will be
-///     check by the actual loading mechanism if it's able to.
-/// @tparam Allocator The allocator type to use for the resulting dataset.
+/// @tparam F A ``svs::lib::Lazy`` callable to construct the destination data type.
 ///
 /// @param filename The path to the file on disk.
-/// @param allocator The allocator instance to use for allocation.
+/// @param construct The deferred constructor for the dataset.
+///
+/// The lazy callable `F` must take two `size_t` arguments: (1) the number of elements in
+/// the dataset and (2) the number of dimensions for each vector and return an allocated
+/// dataset capable of holding a dataset with those dimensions.
 ///
 /// Recognized file extentions:
 /// * .svs: The native file format for this library.
 /// * .vecs: The usual [f/b/i]vecs form.
 /// * .bin: Files generated by DiskANN.
 ///
-template <
-    typename T,
-    size_t Extent = Dynamic,
-    typename Builder = data::PolymorphicBuilder<>>
-auto auto_load(
-    const std::string& filename, const Builder& builder = data::PolymorphicBuilder<>{}
-) {
+template <typename T, lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t>
+auto_load(const std::string& filename, const F& construct) {
     if (filename.ends_with("svs")) {
-        return load_dataset<T, Extent>(io::NativeFile(filename), builder);
+        return load_dataset(io::NativeFile(filename), construct);
     } else if (filename.ends_with("vecs")) {
-        return load_dataset<T, Extent>(io::vecs::VecsFile<T>(filename), builder);
+        return load_dataset(io::vecs::VecsFile<T>(filename), construct);
     } else if (filename.ends_with("bin")) {
-        return load_dataset<T, Extent>(io::binary::BinaryFile(filename), builder);
+        return load_dataset(io::binary::BinaryFile(filename), construct);
     } else {
-        throw ANNEXCEPTION("Unknown file extension for input file: ", filename, ".");
+        throw ANNEXCEPTION("Unknown file extension for input file: {}.", filename);
     }
 }
 

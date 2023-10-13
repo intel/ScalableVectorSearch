@@ -14,6 +14,8 @@
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
+#include "svs/lib/meta.h"
+#include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
 
 ///
@@ -39,6 +41,32 @@ enum DistanceType {
     Cosine
 };
 
+inline constexpr std::string_view name(DistanceType type) {
+    switch (type) {
+        case DistanceType::L2: {
+            return "L2";
+        }
+        case DistanceType::MIP: {
+            return "MIP";
+        }
+        case DistanceType::Cosine: {
+            return "Cosine";
+        }
+    }
+    throw ANNEXCEPTION("Unknown distance type!");
+}
+
+inline DistanceType parse_distance_type(std::string_view str) {
+    if (constexpr auto check = name(DistanceType::L2); check == str) {
+        return DistanceType::L2;
+    } else if (constexpr auto check = name(DistanceType::MIP); check == str) {
+        return DistanceType::MIP;
+    } else if (constexpr auto check = name(DistanceType::Cosine); check == str) {
+        return DistanceType::Cosine;
+    }
+    throw ANNEXCEPTION("Unknown distance name: {}!", str);
+}
+
 namespace detail {
 template <typename Distance> struct DistanceTypeEnumMap;
 
@@ -59,6 +87,46 @@ template <> struct DistanceTypeEnumMap<distance::DistanceCosineSimilarity> {
 template <typename Distance>
 inline constexpr DistanceType distance_type_v =
     detail::DistanceTypeEnumMap<Distance>::value;
+
+// Saving and Loading.
+namespace lib {
+template <> struct Saver<svs::DistanceType> {
+    static SaveNode save(svs::DistanceType distance) { return svs::name(distance); }
+};
+
+template <> struct Loader<svs::DistanceType> {
+    using toml_type = toml::value<std::string>;
+    static constexpr bool is_version_free = true;
+    static svs::DistanceType load(const toml_type& val) {
+        return svs::parse_distance_type(val.get());
+    }
+};
+} // namespace lib
+
+// Specialize the unwrapper for the built-in distance types.
+namespace lib::meta {
+template <> struct Unwrapper<distance::DistanceL2> {
+    using type = DistanceType;
+    static constexpr DistanceType unwrap(distance::DistanceL2 SVS_UNUSED(f)) {
+        return DistanceType::L2;
+    }
+};
+
+template <> struct Unwrapper<distance::DistanceIP> {
+    using type = DistanceType;
+    static constexpr DistanceType unwrap(distance::DistanceIP SVS_UNUSED(f)) {
+        return DistanceType::MIP;
+    }
+};
+
+template <> struct Unwrapper<distance::DistanceCosineSimilarity> {
+    using type = DistanceType;
+    static constexpr DistanceType unwrap(distance::DistanceCosineSimilarity SVS_UNUSED(f)) {
+        return DistanceType::Cosine;
+    }
+};
+
+} // namespace lib::meta
 
 ///
 /// @brief Dynamically dispatch from an distance enum to a distance functor.
@@ -103,10 +171,8 @@ class DistanceDispatcher {
             case DistanceType::Cosine: {
                 return f(DistanceCosineSimilarity{}, std::forward<Args>(args)...);
             }
-            default: {
-                throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
-            }
         }
+        throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
     }
 
   private:
@@ -114,3 +180,10 @@ class DistanceDispatcher {
 };
 
 } // namespace svs
+
+///// Formatting
+template <> struct fmt::formatter<svs::DistanceType> : svs::format_empty {
+    auto format(auto x, auto& ctx) const {
+        return fmt::format_to(ctx.out(), "{}", svs::name(x));
+    }
+};

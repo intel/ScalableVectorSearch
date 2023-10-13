@@ -90,8 +90,7 @@ std::span<const T> as_span(const std::vector<T, Alloc>& v) {
 namespace detail {
 inline void bounds_check(size_t got, size_t expected) {
     if (got != expected) {
-        throw ANNEXCEPTION(fmt::format("Size mismatch. Got {}, expected {}!", got, expected)
-        );
+        throw ANNEXCEPTION("Size mismatch. Got {}, expected {}!", got, expected);
     }
 }
 } // namespace detail
@@ -252,9 +251,11 @@ using ReturnsTrueType = Returns<Const<true>>;
 class PowerOfTwo {
   public:
     // Constructors
-    PowerOfTwo() = default;
-    explicit PowerOfTwo(size_t value)
+    constexpr PowerOfTwo() = default;
+    constexpr explicit PowerOfTwo(size_t value)
         : value_{value} {}
+
+    friend constexpr bool operator==(PowerOfTwo, PowerOfTwo) = default;
 
     // Accessors
     [[nodiscard]] constexpr size_t raw() const { return value_; }
@@ -305,6 +306,144 @@ inline PowerOfTwo prevpow2(size_t value) {
     const size_t max_leading_zeros = 8 * sizeof(size_t) - 1;
     return PowerOfTwo{max_leading_zeros - leading_zeros};
 };
+
+/////
+///// Lazy
+/////
+
+template <typename... Fs> class Lazy : public Fs... {
+  public:
+    Lazy(const Fs&... fs)
+        : Fs{fs}... {}
+    Lazy(Fs&&... fs)
+        : Fs{std::move(fs)}... {}
+    using Fs::operator()...;
+};
+
+#define SVS_LAZY(expr) svs::lib::Lazy([=]() { return expr; })
+
+template <typename T> inline constexpr bool is_lazy = false;
+template <typename... Fs> inline constexpr bool is_lazy<Lazy<Fs...>> = true;
+
+template <typename F>
+concept LazyFunctor = is_lazy<F>;
+
+template <typename F, typename... Ts>
+concept LazyInvocable = is_lazy<F> && std::invocable<F, Ts...>;
+
+template <LazyFunctor F, typename... Ts>
+using lazy_result_t = std::invoke_result_t<F, Ts...>;
+
+/// @brief Concept for detecting a zero argument `load()` member function.
+template <typename T, typename... Ts>
+concept HasLoad = requires(const T& x, Ts&&... ts) { x.load(std::forward<Ts>(ts)...); };
+
+/// @brief Obtain the return_type of a `load()` member functions.
+template <typename T, typename... Ts>
+using load_t = decltype(std::declval<const T&>().load(std::declval<Ts>()...));
+
+/////
+///// ScopeGuard
+/////
+
+///
+/// @brief Scope guard that invokes its callback's call operator upon destruction.
+///
+/// This is a class that provides a RAII style callback/cleanup mechanism at the end of
+/// a scoped block.
+///
+/// When this object's desctructor is run, it will invoke
+/// ```c++
+/// std::decay_t<T>::operator()()
+/// ```
+/// of its contained callback.
+///
+/// Expects the callback operator to be ``noexcept`` and have a ``void`` return type.
+///
+/// This class is non-copyable and non-moveable.
+///
+/// The utility function ``svs::lib::make_scope_guard`` can be used for type deduction when
+/// creating a ScopeGuard.
+///
+/// ```c++
+/// size_t count = 0;
+/// {
+///     auto guard = svs::lib::make_scope_guard([&count]() noexcept {
+///         ++count;
+///     });
+/// }
+/// assert(count == 1);
+/// ```
+///
+/// @tparam T The type of the callback operator. May be a reference type if the ScopeGuard
+///     was constructed from an l-value refences to the provided callback.
+///
+/// @sa ``svs::lib::make_scope_guard``.
+///
+template <typename T> class ScopeGuard {
+  public:
+    /// Definition: T
+    using callback_type = T;
+    static constexpr bool is_reference = std::is_reference_v<std::remove_const_t<T>>;
+
+    static_assert(std::is_nothrow_invocable_v<callback_type>);
+    static_assert(std::is_void_v<std::invoke_result_t<callback_type>>);
+
+    /// ScopeGuard is not default constructible.
+    ScopeGuard() = delete;
+
+    ///
+    /// @brief Create a ScopeGuard for the given callback.
+    ///
+    /// Implementation notes:
+    ///
+    /// If the callback is a reference type, then C++ reference collapsing yields
+    /// ```
+    /// callback_type&& -> T& && -> T&
+    /// ```
+    /// which turns the argument `f` to a reference.
+    ///
+    /// If the callback is a value type, then we have an r-value reference as expected.
+    ///
+    explicit ScopeGuard(callback_type&& f)
+        : f_{std::forward<callback_type&&>(f)} {}
+
+    // Disable the special member functions.
+    ScopeGuard(const ScopeGuard&) = delete;
+    ScopeGuard& operator=(const ScopeGuard&) = delete;
+    ScopeGuard(ScopeGuard&&) = delete;
+    ScopeGuard& operator=(ScopeGuard&&) = delete;
+
+    // Invoke the callback on destruction.
+    ~ScopeGuard() { f_(); }
+
+    ///// Members
+  private:
+    T f_;
+};
+
+namespace detail {
+template <typename T>
+using deduce_scopeguard_parameter_t =
+    std::conditional_t<std::is_rvalue_reference_v<T>, std::decay_t<T>, T>;
+}
+
+///
+/// @brief Construct a ScopeGuard wrapped around the argument `f`.
+///
+/// Constructs a ScopeGuard around the argument without invoking the object's copy
+/// constructor.
+///
+/// This means that if `f` is given as an l-value reference, the constructed ScopeGuard
+/// will reference `f`.
+///
+/// If `f` is given as an r-value reference, then the constructed ScopeGuard will take
+/// ownership of `f` via `f`'s move constructor.
+///
+template <typename F>
+ScopeGuard<detail::deduce_scopeguard_parameter_t<F&&>> make_scope_guard(F&& f) {
+    return ScopeGuard<detail::deduce_scopeguard_parameter_t<F&&>>(SVS_FWD(f));
+}
 
 // ///
 // /// @brief A boolean-like class that occupies a full by when used in a ``std::vector``.

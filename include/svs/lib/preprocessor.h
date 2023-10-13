@@ -36,3 +36,5 @@
 #else
 #define SVS_FORCE_INLINE __attribute__((always_inline))
 #endif
+
+#define SVS_FWD(x) static_cast<decltype(x)&&>(x)

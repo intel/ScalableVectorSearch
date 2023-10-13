@@ -10,7 +10,7 @@
  */
 
 // header under test
-#include "svs/core/data/block.h"
+#include "svs/core/data/simple.h"
 
 // svs
 #include "svs/core/data.h"
@@ -67,8 +67,10 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
 
     size_t expected_blocksize = 128;
 
-    auto data =
-        svs::data::BlockedData<float, Extent>(num_elements, dimensions, blocksize_bytes);
+    auto parameters = svs::data::BlockingParameters{
+        .blocksize_bytes = svs::lib::prevpow2(blocksize_bytes)};
+    auto allocator = svs::data::Blocked<svs::lib::Allocator<float>>(parameters);
+    auto data = svs::data::BlockedData<float, Extent>(num_elements, dimensions, allocator);
     CATCH_REQUIRE(is_blocked(data));
     CATCH_REQUIRE(data.dimensions() == 5);
     CATCH_REQUIRE(data.blocksize_bytes().value() == blocksize_bytes);
@@ -126,15 +128,14 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
     ///// Saving and Loading.
     svs_test::prepare_temp_directory();
     auto temp = svs_test::temp_directory();
-    svs::lib::save(data, temp);
+    svs::lib::save_to_disk(data, temp);
     auto simple_data = svs::VectorDataLoader<float>(temp).load();
     check_contents(simple_data);
     CATCH_REQUIRE(!is_blocked(simple_data));
     CATCH_REQUIRE(data_equal(simple_data, data));
 
     // Reload as a blocked dataset.
-    auto reloaded =
-        svs::VectorDataLoader<float, svs::Dynamic, svs::data::BlockedBuilder>(temp).load();
+    auto reloaded = svs::lib::load_from_disk<svs::data::BlockedData<float>>(temp);
     check_contents(reloaded);
     CATCH_REQUIRE(is_blocked(reloaded));
     CATCH_REQUIRE(data_equal(reloaded, data));
@@ -142,6 +143,39 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
 } // namespace
 
 CATCH_TEST_CASE("Testing Blocked Data", "[core][data][blocked]") {
+    CATCH_SECTION("BlockingParameters") {
+        using T = svs::data::BlockingParameters;
+        auto p = T{};
+        CATCH_REQUIRE(p.blocksize_bytes == T::default_blocksize_bytes);
+
+        p = T{.blocksize_bytes = svs::lib::PowerOfTwo(10)};
+        CATCH_REQUIRE(p.blocksize_bytes == svs::lib::PowerOfTwo(10));
+    }
+
+    CATCH_SECTION("Blocked Allocator") {
+        // Use an integer for the "allocator" to test value propagation.
+        // Since the `Blocked` class doesn't actually use the allocator, this is okay
+        // for functionality testing.
+        using T = svs::data::Blocked<int>;
+        using P = svs::data::BlockingParameters;
+        auto x = T();
+        CATCH_REQUIRE(x.get_allocator() == 0); // Default constructed integer.
+        CATCH_REQUIRE(x.parameters() == P{});
+
+        x = T(10);
+        CATCH_REQUIRE(x.get_allocator() == 10);
+        CATCH_REQUIRE(x.parameters() == P{});
+
+        auto p = P{.blocksize_bytes = svs::lib::PowerOfTwo(10)};
+        x = T(p);
+        CATCH_REQUIRE(x.get_allocator() == 0);
+        CATCH_REQUIRE(x.parameters() == p);
+
+        x = T(p, 10);
+        CATCH_REQUIRE(x.get_allocator() == 10);
+        CATCH_REQUIRE(x.parameters() == p);
+    }
+
     CATCH_SECTION("Basic Functionality") {
         test_blocked();
         test_blocked<5>();

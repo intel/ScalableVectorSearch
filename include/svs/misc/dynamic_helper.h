@@ -44,7 +44,7 @@ void shuffle(std::vector<I, Alloc>& v, Rng& rng) {
     std::shuffle(std::begin(v), std::end(v), rng);
 }
 
-using RNGType = decltype(std::default_random_engine());
+using RNGType = std::mt19937_64;
 
 template <typename Idx> std::vector<Idx> init_indices(size_t n) {
     auto iota = threads::UnitRange<Idx>(0, n);
@@ -96,7 +96,7 @@ template <typename Idx> struct Bucket {
 template <typename Idx, typename Eltype, size_t N, typename Dist> class ReferenceDataset {
   public:
     // Type Aliases
-    using data_type = data::SimplePolymorphicData<Eltype, N>;
+    using data_type = data::SimpleData<Eltype, N>;
 
   private:
     ///// Members
@@ -120,7 +120,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     /// @brief Reserve buckets to be used when adding points.
     std::vector<Bucket<Idx>> reserve_buckets_{};
     /// @brief Random number generator for deterministic runs.
-    RNGType rng_ = std::default_random_engine();
+    RNGType rng_ = {};
 
   public:
     // Methods
@@ -134,8 +134,6 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     ///     ground truth.
     /// @param queries The query set that will be used.
     ///
-    ///
-    ///
     template <data::ImmutableMemoryDataset Queries>
     ReferenceDataset(
         data_type data,
@@ -143,27 +141,28 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
         size_t num_threads,
         size_t bucket_size,
         size_t num_neighbors,
-        const Queries& queries
+        const Queries& queries,
+        uint64_t rng_seed
     )
         : data_{std::move(data)}
         , num_queries_{queries.size()}
         , num_neighbors_{num_neighbors}
         , bucket_size_{bucket_size}
         , distance_(std::move(distance))
-        , threadpool_{num_threads} {
+        , threadpool_{num_threads}
+        , rng_{rng_seed} {
         // Perform some sanity checks.
         if (bucket_size_ < num_neighbors) {
-            auto message = fmt::format(
+            throw ANNEXCEPTION(
                 "Bucket size {} is less than number of neighbors {}",
                 bucket_size_,
                 num_neighbors_
             );
-            throw ANNEXCEPTION(message);
         }
 
         auto timer = lib::Timer();
         size_t start = 0;
-        size_t datasize = data_.size();
+        size_t datasize = data.size();
         size_t num_queries = queries.size();
         while (start < datasize) {
             // Create a bucket of sequential IDs.
@@ -231,7 +230,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     void check_ids(const Matrix<size_t>& indices) const {
         for (auto e : indices) {
             if (e != std::numeric_limits<size_t>::max() && !is_valid(e)) {
-                throw ANNEXCEPTION("Index return ID ", e, " which is invalid!");
+                throw ANNEXCEPTION("Index return ID {} which is invalid!", e);
             }
         }
     }
@@ -342,7 +341,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
         }
         if (count != num_points) {
             throw ANNEXCEPTION(
-                "Trying to add ", num_points, " points but only found ", count, '!'
+                "Trying to add {} points but only found {}!", num_points, count
             );
         }
 
@@ -412,11 +411,9 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
         const size_t index_size = index.size();
         if (index_size != valid()) {
             throw ANNEXCEPTION(
-                "Index claims to have ",
+                "Index claims to have {} valid IDs when it should have {}!",
                 index_size,
-                " valid IDs when it should have ",
-                valid(),
-                '!'
+                valid()
             );
         }
 
@@ -428,14 +425,14 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
         // Make sure all valid ID's in the Reference are in ``index``.
         for (auto e : valid_) {
             if (!index.has_id(e)) {
-                throw ANNEXCEPTION("Index does not have id ", e, " when it should!");
+                throw ANNEXCEPTION("Index does not have id {} when it should!", e);
             }
         }
 
         // Now, make sure all ID's in the index are valid.
         for (auto e : index.external_ids()) {
             if (!valid_.contains(e)) {
-                throw ANNEXCEPTION("Index contains a invalid id ", e, '!');
+                throw ANNEXCEPTION("Index contains a invalid id {}!", e);
             }
         }
     }

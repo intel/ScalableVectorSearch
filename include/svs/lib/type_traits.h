@@ -39,30 +39,13 @@ concept Arithmetic = is_arithmetic_v<std::remove_const_t<T>>;
 /// @brief Open-ended trait to enable lossy conversions.
 ///
 /// Specialization List:
+///     double -> float
 ///     float -> svs::Float16
 ///
 template <typename From, typename To> inline constexpr bool allow_lossy_conversion = false;
+template <> inline constexpr bool allow_lossy_conversion<double, float> = true;
 
 namespace type_traits {
-template <typename T> struct MakeConst {
-    using type = const T;
-};
-
-template <typename T> using make_const_t = typename MakeConst<T>::type;
-
-// Specialize `std::span`
-template <typename T, size_t Extent> struct MakeConst<std::span<T, Extent>> {
-    using type = std::span<const T, Extent>;
-};
-
-// clang-format off
-template <typename T>
-concept DatabaseElement = requires {
-    // Need to be able to make it constant.
-    typename make_const_t<T>;
-};
-// clang-format on
-
 ///
 /// Construct a sentinel element for type T with respect to the comparison function `Cmp`.
 /// The sentinal value ``s`` should satisfy

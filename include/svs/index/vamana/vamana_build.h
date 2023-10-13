@@ -15,6 +15,7 @@
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
 #include "svs/index/vamana/build_params.h"
+#include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/prune.h"
 #include "svs/index/vamana/search_buffer.h"
@@ -42,15 +43,6 @@
 #include <vector>
 
 namespace svs::index::vamana {
-
-// TODO: Make this more official.
-namespace detail {
-
-template <typename Data>
-inline constexpr bool needs_reranking = !std::is_same_v<
-    typename Data::template mode_const_value_type<data::FullAccess>,
-    typename Data::template mode_const_value_type<data::FastAccess>>;
-}
 
 // Optional search tracker to get full history of graph search.
 template <typename Idx> class OptionalTracker {
@@ -197,7 +189,7 @@ class VamanaBuilder {
         // Check class invariants.
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION(
-                "Expected graph to be pre-allocated with ", data_.size(), " vertices!"
+                "Expected graph to be pre-allocated with {} vertices!", data_.size()
             );
         }
     }
@@ -305,11 +297,18 @@ class VamanaBuilder {
         threads::run(threadpool_, range, [&](const auto& local_indices, uint64_t tid) {
             // Thread local variables
             auto& thread_local_updates = updates.at(tid);
-            auto distance_function = data_.self_distance(distance_function_);
+
+            // Scratch space.
             std::vector<Neighbor<Idx>> pool{};
             search_buffer_type search_buffer{params_.window_size};
             set_type<Idx> visited{};
             auto tracker = OptionalTracker<Idx>(params_.use_full_search_history);
+
+            // Unpack adaptor.
+            auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
+            auto&& graph_search_distance = build_adaptor.graph_search_distance();
+            auto&& general_distance = build_adaptor.general_distance();
+            auto general_accessor = build_adaptor.general_accessor();
 
             for (auto node_id : local_indices) {
                 pool.clear();
@@ -317,35 +316,40 @@ class VamanaBuilder {
                 visited.clear();
                 tracker.clear();
 
-                const auto& query = data_.get_datum(node_id, data::full_access);
+                const auto& graph_search_query =
+                    build_adaptor.access_query_for_graph_search(data_, node_id);
 
                 // Perform the greedy search.
                 // The search tracker will be used if it is enabled.
                 greedy_search(
                     graph_,
                     data_,
-                    query,
-                    distance_function,
+                    build_adaptor.graph_search_accessor(),
+                    graph_search_query,
+                    graph_search_distance,
                     search_buffer,
                     entry_points,
                     NeighborBuilder(),
                     tracker
                 );
 
-                auto compute_distance = [&](size_t id) {
-                    return distance::compute(
-                        distance_function, query, data_.get_datum(id, data::full_access)
-                    );
-                };
+                const auto& post_search_query = build_adaptor.modify_post_search_query(
+                    data_, node_id, graph_search_query
+                );
 
-                // Rerank with full precision if needed.
-                auto recompute_distance = [&](const Neighbor<Idx>& neighbor) {
-                    if constexpr (detail::needs_reranking<Data>) {
-                        auto id = neighbor.id();
-                        return Neighbor<Idx>(id, compute_distance(id));
-                    } else {
-                        return neighbor;
-                    }
+                // If the query and distance functors are sufficiently different for the
+                // graph search and the general case, then we *may* need to reapply fix
+                // argument before we can do any further distance computations.
+                //
+                // Decide whether we need to make this call.
+                if constexpr (decltype(build_adaptor)::refix_argument_after_search) {
+                    distance::maybe_fix_argument(general_distance, post_search_query);
+                }
+
+                auto modify_distance = [&](NeighborLike auto const& n) {
+                    return build_adaptor.post_search_modify(
+                        data_, general_distance, post_search_query, n
+                    );
                 };
 
                 // If the full search history is to be used, then use the tracker to
@@ -354,13 +358,13 @@ class VamanaBuilder {
                 // Otherwise, pull results directly out of the search buffer.
                 if (tracker.enabled()) {
                     for (const auto& neighbor : tracker) {
-                        pool.push_back(recompute_distance(neighbor));
+                        pool.push_back(modify_distance(neighbor));
                         visited.insert(neighbor.id());
                     }
                 } else {
                     for (size_t i = 0, imax = search_buffer.size(); i < imax; ++i) {
                         const auto& neighbor = search_buffer[i];
-                        pool.push_back(recompute_distance(neighbor));
+                        pool.push_back(modify_distance(neighbor));
                         visited.insert(neighbor.id());
                     }
                 }
@@ -373,12 +377,21 @@ class VamanaBuilder {
                     // set and we need to add it to the candidate pool.
                     auto [_, inserted] = visited.emplace(id);
                     if (inserted) {
-                        pool.emplace_back(id, compute_distance(id));
+                        pool.emplace_back(
+                            id,
+                            distance::compute(
+                                general_distance,
+                                post_search_query,
+                                general_accessor(data_, id)
+                            )
+                        );
                     }
                 }
 
                 std::sort(
-                    pool.begin(), pool.end(), distance::comparator(distance_function)
+                    pool.begin(),
+                    pool.end(),
+                    TotalOrder(distance::comparator(general_distance))
                 );
                 pool.resize(std::min(pool.size(), params_.max_candidate_pool_size));
 
@@ -386,10 +399,12 @@ class VamanaBuilder {
                 thread_local_updates.emplace_back(node_id, std::vector<Idx>{});
                 auto& pruned_results = thread_local_updates.back().second;
                 heuristic_prune_neighbors(
+                    prune_strategy(distance_function_),
                     params_.graph_max_degree,
                     alpha,
                     data_,
-                    distance_function,
+                    general_accessor,
+                    general_distance,
                     node_id,
                     lib::as_const_span(pool),
                     pruned_results
@@ -447,15 +462,19 @@ class VamanaBuilder {
                 // Thread local auxiliary data structures.
                 std::vector<Neighbor<Idx>> candidates{};
                 std::vector<Idx> pruned_results{};
-                auto distance_function = data_.self_distance(distance_function_);
-                auto cmp = distance::comparator(distance_function);
+                auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
+
+                auto general_accessor = build_adaptor.general_accessor();
+                auto&& general_distance = build_adaptor.general_distance();
+
+                auto cmp = distance::comparator(general_distance);
                 for (auto& bucket : buckets) {
                     for (const auto& kv : bucket) {
                         // The ``neighbors`` class is a set.
                         auto src = kv.first;
                         const auto& neighbors = kv.second;
-                        const auto& src_data = data_.get_datum(src, data::full_access);
-                        distance::maybe_fix_argument(distance_function, src_data);
+                        const auto& src_data = general_accessor(data_, src);
+                        distance::maybe_fix_argument(general_distance, src_data);
 
                         // Helper lambda to make distance computations look a little
                         // cleaner.
@@ -463,9 +482,7 @@ class VamanaBuilder {
                             return Neighbor<Idx>{
                                 i,
                                 distance::compute(
-                                    distance_function,
-                                    src_data,
-                                    data_.get_datum(i, data::full_access)
+                                    general_distance, src_data, general_accessor(data_, i)
                                 )};
                         };
 
@@ -481,16 +498,18 @@ class VamanaBuilder {
                                 candidates.push_back(make_neighbor(n));
                             }
                         }
-                        std::sort(candidates.begin(), candidates.end(), cmp);
+                        std::sort(candidates.begin(), candidates.end(), TotalOrder(cmp));
                         candidates.resize(
                             std::min(candidates.size(), params_.max_candidate_pool_size)
                         );
 
                         heuristic_prune_neighbors(
-                            params_.graph_max_degree,
+                            prune_strategy(distance_function_),
+                            params_.prune_to,
                             alpha,
                             data_,
-                            distance_function,
+                            general_accessor,
+                            general_distance,
                             src,
                             lib::as_const_span(candidates),
                             pruned_results

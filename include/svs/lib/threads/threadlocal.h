@@ -54,36 +54,46 @@ const size_t CACHE_LINE_BYTES = 64;
 ///
 /// Useful for allocating containers that are meant to be used per-thread.
 ///
-template <typename T> struct CacheAlignedAllocator {
+template <typename T, size_t Alignment = CACHE_LINE_BYTES> struct AlignedAllocator {
     using value_type = T;
-    CacheAlignedAllocator() noexcept = default;
+    constexpr static size_t alignment = Alignment;
+
+    // Need to explicitly define `rebind` since the trailing parameters for this allocator
+    // are value parameters rather than type parameters.
+    template <typename U> struct rebind {
+        using other = AlignedAllocator<U, Alignment>;
+    };
+
+    // Constructors
+    AlignedAllocator() noexcept = default;
 
     template <typename U>
-    CacheAlignedAllocator(const CacheAlignedAllocator<U>& /*other*/) {}
+    AlignedAllocator(const AlignedAllocator<U, Alignment>& /*other*/) {}
 
+    // Methods
     value_type* allocate(size_t count) {
-        size_t bytes =
-            CACHE_LINE_BYTES * lib::div_round_up(sizeof(T) * count, CACHE_LINE_BYTES);
-        return static_cast<value_type*>(
-            ::operator new(bytes, std::align_val_t{CACHE_LINE_BYTES})
-        );
+        size_t bytes = alignment * lib::div_round_up(sizeof(T) * count, alignment);
+        return static_cast<value_type*>(::operator new(bytes, std::align_val_t{alignment}));
     }
 
     void deallocate(value_type* ptr, size_t count) noexcept {
-        ::operator delete(ptr, count, std::align_val_t{CACHE_LINE_BYTES});
+        ::operator delete(ptr, count, std::align_val_t{alignment});
     }
 };
 
-template <typename T, typename U>
+// Default to the cacheline granularity for x86 base platforms.
+template <typename T> using CacheAlignedAllocator = AlignedAllocator<T, CACHE_LINE_BYTES>;
+
+template <typename T, typename U, size_t N>
 constexpr bool operator==(
-    const CacheAlignedAllocator<T>& /*unused*/, const CacheAlignedAllocator<U>& /*unused*/
+    const AlignedAllocator<T, N>& /*unused*/, const AlignedAllocator<U, N>& /*unused*/
 ) {
     return true;
 }
 
-template <typename T, typename U>
+template <typename T, typename U, size_t N>
 constexpr bool
-operator!=(const CacheAlignedAllocator<T>& x, const CacheAlignedAllocator<U>& y) {
+operator!=(const AlignedAllocator<T, N>& x, const AlignedAllocator<U, N>& y) {
     return !(x == y);
 }
 

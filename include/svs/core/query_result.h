@@ -13,6 +13,7 @@
 
 #include "svs/core/io/vecs.h"
 #include "svs/lib/array.h"
+#include "svs/lib/neighbor.h"
 
 #include <cassert>
 #include <type_traits>
@@ -55,8 +56,8 @@ template <typename Idx, template <typename> typename Array = Matrix> class Query
     /// distances for `n_neighbors` nearest neighbors for `n_queries` queries.
     ///
     QueryResultImpl(size_t n_queries, size_t n_neighbors)
-        : distances_{Array<float>(n_queries, n_neighbors)}
-        , indices_{Array<Idx>(n_queries, n_neighbors)} {}
+        : distances_{make_dims(n_queries, n_neighbors)}
+        , indices_{make_dims(n_queries, n_neighbors)} {}
 
     ///
     /// @brief Construct a QueryResultImpl from indices and distance directly.
@@ -123,6 +124,12 @@ template <typename Idx, template <typename> typename Array = Matrix> class Query
     /// @copydoc distance(size_t,size_t) const
     float& distance(size_t query, size_t neighbor) {
         return distances_.at(query, neighbor);
+    }
+
+    template <NeighborLike Neighbor>
+    void set(const Neighbor& neighbor, size_t query_index, size_t neighbor_index) {
+        index(query_index, neighbor_index) = neighbor.id();
+        distance(query_index, neighbor_index) = neighbor.distance();
     }
 
     ///

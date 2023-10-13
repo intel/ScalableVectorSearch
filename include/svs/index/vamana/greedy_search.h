@@ -60,6 +60,7 @@ struct NeighborBuilder {
 template <
     graphs::ImmutableMemoryGraph Graph,
     data::ImmutableMemoryDataset Dataset,
+    data::AccessorFor<Dataset> Accessor,
     typename QueryType,
     distance::Distance<QueryType, typename Dataset::const_value_type> Dist,
     typename Buffer,
@@ -69,7 +70,8 @@ template <
 void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
-    QueryType query,
+    const Accessor& accessor,
+    const QueryType& query,
     Dist& distance_function,
     Buffer& search_buffer,
     const Ep& entry_points,
@@ -84,15 +86,13 @@ void greedy_search(
 
     // Initialize entry points.
     for (const auto& id : entry_points) {
-        dataset.prefetch(id, data::fast_access);
+        accessor.prefetch(dataset, id);
     }
 
     // Populate initial points.
     search_buffer.clear();
     for (const auto& id : entry_points) {
-        auto dist = distance::compute(
-            distance_function, query, dataset.get_datum(id, data::fast_access)
-        );
+        auto dist = distance::compute(distance_function, query, accessor(dataset, id));
         search_buffer.push_back(builder(id, dist));
         graph.prefetch_node(id);
         search_tracker.visited(Neighbor<I>{id, dist}, 1);
@@ -119,14 +119,12 @@ void greedy_search(
             if (prefetch_start < neighbors.size()) {
                 size_t upper = std::min(neighbors.size(), prefetch_start + prefetch_step);
                 for (size_t i = prefetch_start; i < upper; ++i) {
-                    dataset.prefetch(neighbors[i], data::fast_access);
+                    accessor.prefetch(dataset, neighbors[i]);
                 }
                 prefetch_start += prefetch_step;
             }
 
-            auto dist = distance::compute(
-                distance_function, query, dataset.get_datum(id, data::fast_access)
-            );
+            auto dist = distance::compute(distance_function, query, accessor(dataset, id));
             search_buffer.insert(builder(id, dist));
         }
     }
@@ -137,6 +135,7 @@ void greedy_search(
 template <
     graphs::ImmutableMemoryGraph Graph,
     data::ImmutableMemoryDataset Dataset,
+    data::AccessorFor<Dataset> Accessor,
     typename QueryType,
     distance::Distance<QueryType, typename Dataset::const_value_type> Dist,
     typename Buffer,
@@ -145,6 +144,7 @@ template <
 void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
+    const Accessor& accessor,
     QueryType query,
     Dist& distance_function,
     Buffer& search_buffer,
@@ -156,6 +156,7 @@ void greedy_search(
     greedy_search(
         graph,
         dataset,
+        accessor,
         query,
         distance_function,
         search_buffer,

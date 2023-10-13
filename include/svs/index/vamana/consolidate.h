@@ -14,6 +14,7 @@
 // local
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
+#include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/prune.h"
 #include "svs/lib/array.h"
 #include "svs/lib/threads.h"
@@ -42,14 +43,15 @@ namespace svs::index::vamana {
 ///
 ///   This parameter controlls how large of a batch is processed during each phase.
 ///
-/// * `max_degree`: The target maximum degree of the graph.
+/// * `prune_to`: The number of candidates to prune to.
 ///
 /// * `alpha`: The pruning parameter to use when constructing a new set of neighbors for
 ///   vertices with at least one deleted neighbor.
 ///
 struct ConsolidationParameters {
     size_t update_batch_size;
-    size_t max_degree;
+    size_t prune_to;
+    size_t max_candidate_pool_size;
     float alpha;
 };
 
@@ -60,15 +62,15 @@ struct ConsolidationParameters {
 template <std::integral I> class BulkUpdate {
   public:
     // Constructor
-    BulkUpdate(size_t max_batch_size, size_t max_degree)
-        : neighbors_{max_batch_size, max_degree}
+    BulkUpdate(size_t max_batch_size, size_t prune_to)
+        : neighbors_{make_dims(max_batch_size, prune_to)}
         , lengths_{max_batch_size}
         , needs_update_{max_batch_size} {}
 
     ///
     /// Pre-conditions:
     /// * 0 <= src < max_batch_size
-    /// * neighbors.size() <= max_degree
+    /// * neighbors.size() <= prune_to
     /// * May be called concurrently from multiple threads as long as `src` is
     ///   unique for each thread.
     ///
@@ -197,11 +199,12 @@ class GraphConsolidator {
         }
     }
 
-    template <typename SelfDistance, typename Deleted>
+    template <data::AccessorFor<Data> Accessor, typename SelfDistance, typename Deleted>
     void filter_candidates(
         neighbor_vector_type& valid_candidates,
         const set_type& all_candidates,
         const datum_type& src_data,
+        const Accessor& accessor,
         SelfDistance& distance,
         const Deleted& is_deleted
     ) const {
@@ -213,10 +216,7 @@ class GraphConsolidator {
             }
 
             valid_candidates.push_back(
-                {dst,
-                 distance::compute(
-                     distance, src_data, data_.get_datum(dst, data::full_access)
-                 )}
+                {dst, distance::compute(distance, src_data, accessor(data_, dst))}
             );
         }
 
@@ -232,7 +232,11 @@ class GraphConsolidator {
         const Deleted& is_deleted
     ) const {
         auto& [all_candidates, valid_candidates, final_candidates] = tls;
-        auto distance = data_.self_distance(distance_);
+
+        auto build_adaptor = extensions::build_adaptor(data_, distance_);
+
+        auto accessor = build_adaptor.general_accessor();
+        auto&& general_distance = build_adaptor.general_distance();
 
         for (auto i : local_ids) {
             size_t src = global_ids[i];
@@ -254,16 +258,22 @@ class GraphConsolidator {
             filter_candidates(
                 valid_candidates,
                 all_candidates,
-                data_.get_datum(src, data::full_access),
-                distance,
+                accessor(data_, src),
+                accessor,
+                general_distance,
                 is_deleted
             );
 
+            size_t new_candidate_size =
+                std::min(valid_candidates.size(), params_.max_candidate_pool_size);
+            valid_candidates.resize(new_candidate_size);
             heuristic_prune_neighbors(
-                params_.max_degree,
+                prune_strategy(distance_),
+                params_.prune_to,
                 params_.alpha,
                 data_,
-                distance,
+                accessor,
+                general_distance,
                 src,
                 lib::as_const_span(valid_candidates),
                 final_candidates
@@ -289,7 +299,7 @@ class GraphConsolidator {
 
     template <typename Delete> void operator()(const Delete& is_deleted) {
         // Allocate necessary scratch space.
-        BulkUpdate<I> update_buffer{params_.update_batch_size, params_.max_degree};
+        BulkUpdate<I> update_buffer{params_.update_batch_size, params_.prune_to};
         threads::SequentialTLS<ConsolidateThreadLocal<I>> tls{threadpool_.size()};
 
         const size_t num_nodes = graph_.n_nodes();
@@ -343,12 +353,13 @@ void consolidate(
     Graph& graph,
     const Data& data,
     Pool& threadpool,
-    size_t max_degree,
+    size_t prune_to,
+    size_t max_candidate_pool_size,
     float alpha,
     const Distance& distance,
     Deleted&& is_deleted
 ) {
-    ConsolidationParameters params{200'000, max_degree, alpha};
+    ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
     auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
     consolidator(is_deleted);
 }

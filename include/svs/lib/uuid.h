@@ -46,7 +46,7 @@ inline constexpr uint8_t ascii_hex_to_byte(char ch) {
     } else if (ch >= 'A' && ch <= 'F') {
         return lib::narrow_cast<uint8_t>((ch - 'A') + uint8_t(10));
     }
-    throw ANNEXCEPTION("Character \"", ch, "\" is not a hexadecimal digit!");
+    throw ANNEXCEPTION("Character \"{}\" is not a hexadecimal digit!", ch);
 }
 
 ///
@@ -149,11 +149,9 @@ class UUID {
         const size_t expected = num_formatted_chars;
         if (nchars != expected) {
             throw ANNEXCEPTION(
-                "UUID string does not contain ",
+                "UUID string does not contain {} characters! Instead, it has {}!",
                 expected,
-                " characters! Instead, it has ",
-                nchars,
-                '!'
+                nchars
             );
         }
 
@@ -232,31 +230,5 @@ static_assert(sizeof(UUID) == 16, "UUID must be 16 bytes!");
 static_assert(std::is_trivially_copyable_v<UUID>, "UUID must be trivially copyable!");
 
 inline constexpr UUID ZeroUUID = UUID(ZeroInitializer());
-
-///
-/// Return whether constant objects of type `T` have a `uuid()` method that returns a UUID.
-///
-template <typename T> constexpr bool has_uuid_method() { return false; }
-
-template <typename T>
-    requires requires(const T& x) {
-        { x.uuid() } -> std::convertible_to<UUID>;
-    }
-constexpr bool has_uuid_method() {
-    return true;
-}
-
-///
-/// @brief Get a UUID from `x` if it has a `uuid` method. Otherwise, generate a random UUID.
-///
-/// In this context, having a `UUID
-///
-template <typename T> UUID get_or_generate_uuid(const T& x) {
-    if constexpr (has_uuid_method<T>()) {
-        return x.uuid();
-    } else {
-        return UUID();
-    }
-}
 
 } // namespace svs::lib

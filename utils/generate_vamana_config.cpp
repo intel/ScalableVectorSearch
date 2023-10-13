@@ -33,6 +33,7 @@ Arguments:
     alpha - The alpha value used for construction.
     max_candidates - The maximum number of candidates for construction.
     construction_window_size - The search window size to use for construction.
+    prune_to - The number of candidates to prune to.
     search_window_size - The search window size to use for querying.
     visited_set - Whether the visited set is enabled or now.
 )";
@@ -41,7 +42,7 @@ void show_help() { fmt::print("{}\n", HELP); }
 
 ///// svsmain
 int svs_main(std::vector<std::string> args) {
-    size_t expected = 9;
+    size_t expected = 10;
     size_t nargs = args.size();
     if (nargs != expected) {
         fmt::print("Expected {} args, instead got {}\n", expected, nargs);
@@ -63,6 +64,7 @@ int svs_main(std::vector<std::string> args) {
     auto alpha = std::stof(args.at(i++));
     auto max_candidates = std::stoull(args.at(i++));
     auto construction_window_size = std::stoull(args.at(i++));
+    auto prune_to = std::stoull(args.at(i++));
     auto search_window_size = std::stoull(args.at(i++));
     bool visited_set = std::stoull(args.at(i++));
 
@@ -72,11 +74,12 @@ int svs_main(std::vector<std::string> args) {
         alpha,
         max_candidates,
         construction_window_size,
+        prune_to,
         true,
         search_window_size,
         visited_set};
 
-    svs::lib::save(parameters, path);
+    svs::lib::save_to_disk(parameters, path);
     return 0;
 }
 

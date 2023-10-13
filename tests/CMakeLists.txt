@@ -27,21 +27,21 @@ set(TEST_SOURCES
     ${TEST_DIR}/utils/benchmarks.cpp
     ${TEST_DIR}/utils/generators.cpp
     ${TEST_DIR}/utils/schemas.cpp
-    # ${TEST_DIR}/utils/vq_dataset.cpp
     # Lib
     ${TEST_DIR}/svs/lib/algorithms.cpp
     ${TEST_DIR}/svs/lib/array.cpp
     ${TEST_DIR}/svs/lib/datatype.cpp
+    ${TEST_DIR}/svs/lib/dispatcher.cpp
     ${TEST_DIR}/svs/lib/exception.cpp
+    ${TEST_DIR}/svs/lib/invoke.cpp
     ${TEST_DIR}/svs/lib/file.cpp
     ${TEST_DIR}/svs/lib/file_iterator.cpp
     ${TEST_DIR}/svs/lib/float16.cpp
-    ${TEST_DIR}/svs/lib/memory.cpp
     ${TEST_DIR}/svs/lib/meta.cpp
     ${TEST_DIR}/svs/lib/misc.cpp
     ${TEST_DIR}/svs/lib/narrow.cpp
     ${TEST_DIR}/svs/lib/neighbor.cpp
-    # ${TEST_DIR}/svs/lib/numa.cpp -- requires SVS_ENABLE_NUMA
+    # ${TEST_DIR}/svs/lib/numa.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
     ${TEST_DIR}/svs/lib/readwrite.cpp
     ${TEST_DIR}/svs/lib/saveload.cpp
     ${TEST_DIR}/svs/lib/spinlock.cpp
@@ -57,6 +57,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/uuid.cpp
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp
+    ${TEST_DIR}/svs/third-party/toml.cpp
     # Concepts
     ${TEST_DIR}/svs/concepts/distance.cpp
     # Core
@@ -65,6 +66,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data.cpp
     ${TEST_DIR}/svs/core/data/block.cpp
     ${TEST_DIR}/svs/core/data/simple.cpp
+    ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
     ${TEST_DIR}/svs/core/distances/inner_product.cpp
@@ -73,17 +75,26 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/io/vecs.cpp
     ${TEST_DIR}/svs/core/io/native.cpp
     ${TEST_DIR}/svs/core/io.cpp
+    ${TEST_DIR}/svs/core/loading.cpp
     ${TEST_DIR}/svs/core/kmeans.cpp
     ${TEST_DIR}/svs/core/medioid.cpp
-    ${TEST_DIR}/svs/core/polymorphic_pointer.cpp
     ${TEST_DIR}/svs/core/recall.cpp
     ${TEST_DIR}/svs/core/translation.cpp
     # Index Specific Functionality
     ${TEST_DIR}/svs/index/flat/inserters.cpp
+    ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
+    ${TEST_DIR}/svs/index/vamana/index.cpp
+    ${TEST_DIR}/svs/index/vamana/prune.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
     ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
+    ${TEST_DIR}/svs/quantization/lvq/compressed.cpp
+    ${TEST_DIR}/svs/quantization/lvq/datasets.cpp
+    ${TEST_DIR}/svs/quantization/lvq/vectors.cpp
+    ${TEST_DIR}/svs/quantization/lvq/global_bias.cpp
+    ${TEST_DIR}/svs/quantization/lvq/vector_top.cpp
+    ${TEST_DIR}/svs/quantization/lvq/lvq.cpp
 )
 
 #####
@@ -99,7 +110,7 @@ SET(INTEGRATION_TESTS
     ${TEST_DIR}/integration/index_search.cpp
     ${TEST_DIR}/integration/index_build.cpp
     ${TEST_DIR}/integration/lvq_search.cpp
-    # # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_ENABLE_NUMA
+    # # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
 )
 
 if ((NOT CMAKE_BUILD_TYPE STREQUAL "Debug") OR SVS_FORCE_INTEGRATION_TESTS)
@@ -116,29 +127,15 @@ set(NUMA_TESTS
     ${TEST_DIR}/integration/numa_search.cpp
 )
 
-if (SVS_ENABLE_NUMA)
+if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     message("Enabling NUMA tests!")
     list(APPEND TEST_SOURCES ${NUMA_TESTS})
 endif()
 
-#####
-##### Quantization Tests
-#####
 
-set(QUANTIZATION_TESTS
-    ${TEST_DIR}/svs/quantization/lvq/compressed.cpp
-    ${TEST_DIR}/svs/quantization/lvq/datasets.cpp
-    ${TEST_DIR}/svs/quantization/lvq/vectors.cpp
-    ${TEST_DIR}/svs/quantization/lvq/global_bias.cpp
-    ${TEST_DIR}/svs/quantization/lvq/vector_top.cpp
-    ${TEST_DIR}/svs/quantization/lvq/lvq.cpp
-)
-
-# Option dependent tests
-if (SVS_ENABLE_QUANTIZATION)
-    message("Enabling quantization tests!")
-    list(APPEND TEST_SOURCES ${QUANTIZATION_TESTS})
-endif()
+#####
+##### Test Executable
+#####
 
 add_executable(tests ${TEST_SOURCES})
 

@@ -16,9 +16,6 @@
 
 #include "svs/core/data.h"
 #include "svs/core/recall.h"
-#include "svs/lib/array.h"
-#include "svs/lib/misc.h"
-#include "svs/lib/narrow.h"
 #include "svsmain.h"
 
 const std::string HELP =
@@ -40,8 +37,7 @@ int svs_main(std::vector<std::string> args) {
     const auto& groundtruth_path = args[1];
     const auto& results_path = args[2];
     auto recall = svs::k_recall_at_n(
-        svs::io::auto_load<uint32_t>(groundtruth_path),
-        svs::io::auto_load<uint32_t>(results_path)
+        svs::load_data<uint32_t>(groundtruth_path), svs::load_data<uint32_t>(results_path)
     );
     std::cout << recall << '\n';
     return 0;

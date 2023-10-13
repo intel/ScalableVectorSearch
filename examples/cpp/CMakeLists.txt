@@ -21,6 +21,7 @@ endfunction()
 
 # Examples
 create_simple_example(hello_world test_hello_world hello_world.cpp)
+create_simple_example(saveload test_saveload saveload.cpp)
 create_simple_example(types test_types types.cpp)
 
 ## More complicated examples involving more extensive setup.

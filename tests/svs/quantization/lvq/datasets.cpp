@@ -158,8 +158,24 @@ void test_comparison(const Reference& x, const Dataset& y) {
     }
 }
 
-template <typename Dataset> Dataset make_copy(const Dataset& data) {
-    auto other = Dataset(data.size(), data.static_dims());
+template <typename Sign, size_t Bits, size_t Extent, typename Alloc>
+lvq::CompressedDataset<Sign, Bits, Extent, Alloc>
+make_copy(lvq::CompressedDataset<Sign, Bits, Extent, Alloc>& data) {
+    auto other = lvq::CompressedDataset<Sign, Bits, Extent, Alloc>(
+        data.size(), data.static_dims(), data.get_allocator()
+    );
+    for (size_t i = 0, imax = data.size(); i < imax; ++i) {
+        other.set_datum(i, data.get_datum(i));
+    }
+    return other;
+}
+
+template <size_t Bits, size_t Extent, typename Alloc>
+lvq::ScaledBiasedDataset<Bits, Extent, Alloc>
+make_copy(lvq::ScaledBiasedDataset<Bits, Extent, Alloc>& data) {
+    auto other = lvq::ScaledBiasedDataset<Bits, Extent, Alloc>(
+        data.size(), data.static_dims(), data.get_alignment(), data.get_allocator()
+    );
     for (size_t i = 0, imax = data.size(); i < imax; ++i) {
         other.set_datum(i, data.get_datum(i));
     }
@@ -216,8 +232,8 @@ class CompressedReference {
     size_t size() const { return reference_.size(); }
     void resize(size_t new_size) { reference_.resize(new_size); }
 
-    template <typename Sign, size_t Bits, size_t Extent, typename Storage>
-    void assign(lvq::CompressedDataset<Sign, Bits, Extent, Storage>& data, size_t start) {
+    template <typename Sign, size_t Bits, size_t Extent, typename Alloc>
+    void assign(lvq::CompressedDataset<Sign, Bits, Extent, Alloc>& data, size_t start) {
         // Make sure we're filling to the end.
         CATCH_REQUIRE(data.size() == start + size());
         for (size_t i = 0, imax = size(); i < imax; ++i) {
@@ -225,19 +241,16 @@ class CompressedReference {
         }
     }
 
-    template <typename Sign, size_t Bits, size_t Extent, typename Builder>
-    void populate(
-        size_t size, MaybeStatic<Extent> dims = {}, const Builder& builder = Builder{}
-    ) {
+    template <typename Sign, size_t Bits, size_t Extent, typename Alloc>
+    void populate(size_t size, MaybeStatic<Extent> dims = {}, const Alloc& allocator = {}) {
         configure(dims, size);
-        using Dataset =
-            lvq::CompressedDataset<Sign, Bits, Extent, lvq::get_storage_tag<Builder>>;
+        using Dataset = lvq::CompressedDataset<Sign, Bits, Extent, Alloc>;
 
         // Create a random number generator for the dynamic range under test.
         auto generator = test_q::create_generator<Sign, Bits>();
         // Allocate the dataset and randomly generate the reference data while assiging
         // reference data to the compressed dataset.
-        auto dataset = Dataset(size, dims, builder);
+        auto dataset = Dataset(size, dims, allocator);
         CATCH_REQUIRE((dataset.size() == size));
         CATCH_REQUIRE((dataset.dimensions() == dims));
         for (size_t i = 0; i < size; ++i) {
@@ -253,8 +266,8 @@ class CompressedReference {
         // Make sure saving and loading works correctly.
         svs_test::prepare_temp_directory();
         auto dir = svs_test::temp_directory();
-        svs::lib::save(dataset, dir);
-        auto other = svs::lib::load<Dataset>(dir);
+        svs::lib::save_to_disk(dataset, dir);
+        auto other = svs::lib::load_from_disk<Dataset>(dir, dataset.get_allocator());
         test_comparison(*this, other);
 
         static_assert(std::is_same_v<decltype(dataset), decltype(other)>);
@@ -325,8 +338,8 @@ class ScaledBiasedReference {
         scales_.resize(new_size);
     }
 
-    template <size_t Bits, size_t Extent, typename Storage>
-    void assign(lvq::ScaledBiasedDataset<Bits, Extent, Storage>& data, size_t start) {
+    template <size_t Bits, size_t Extent, typename Alloc>
+    void assign(lvq::ScaledBiasedDataset<Bits, Extent, Alloc>& data, size_t start) {
         // Make sure we're filling to the end.
         CATCH_REQUIRE(data.size() == start + size());
         for (size_t i = 0, imax = size(); i < imax; ++i) {
@@ -334,20 +347,19 @@ class ScaledBiasedReference {
         }
     }
 
-    template <size_t Bits, size_t Extent, typename Builder>
+    template <size_t Bits, size_t Extent, typename Alloc>
     void populate(
         size_t size,
         MaybeStatic<Extent> dims = {},
         size_t alignment = 0,
-        const Builder& builder = Builder()
+        const Alloc& allocator = {}
     ) {
         configure(dims, size);
-        using Dataset =
-            lvq::ScaledBiasedDataset<Bits, Extent, lvq::get_storage_tag<Builder>>;
+        using Dataset = lvq::ScaledBiasedDataset<Bits, Extent, Alloc>;
         auto generator = test_q::create_generator<lvq::Unsigned, Bits>();
         auto float_generator = svs_test::make_generator<float>(0, 100);
 
-        auto dataset = Dataset(size, dims, alignment, builder);
+        auto dataset = Dataset(size, dims, alignment, allocator);
         CATCH_REQUIRE((dataset.size() == size));
         CATCH_REQUIRE((dataset.dimensions() == dims));
         if (Extent != svs::Dynamic) {
@@ -370,8 +382,8 @@ class ScaledBiasedReference {
         // Make sure saving and loading works correctly.
         svs_test::prepare_temp_directory();
         auto dir = svs_test::temp_directory();
-        svs::lib::save(dataset, dir);
-        auto other = svs::lib::load<Dataset>(dir);
+        svs::lib::save_to_disk(dataset, dir);
+        auto other = svs::lib::load_from_disk<Dataset>(dir, dataset.get_allocator());
         test_comparison(*this, other);
         static_assert(std::is_same_v<decltype(dataset), decltype(other)>);
         if constexpr (Dataset::is_resizeable) {
@@ -447,61 +459,59 @@ CATCH_TEST_CASE("Compressed Dataset", "[quantization][lvq][lvq_datasets]") {
 
     CATCH_SECTION("Compressed Dataset") {
         auto tester = CompressedReference();
+        namespace lvq = svs::quantization::lvq;
+
+        auto allocator = svs::lib::Allocator<std::byte>{};
+        auto blocking_parameters =
+            svs::data::BlockingParameters{.blocksize_bytes = svs::lib::PowerOfTwo(12)};
+        auto blocked = svs::data::Blocked{blocking_parameters, allocator};
+
         svs::lib::foreach (bits, [&]<size_t N>(Val<N> /*unused*/) {
             tester.template populate<lvq::Signed, N, TEST_DIM>(
-                dataset_size, MaybeStatic<TEST_DIM>(), svs::data::PolymorphicBuilder<>()
+                dataset_size, MaybeStatic<TEST_DIM>(), allocator
             );
             tester.template populate<lvq::Unsigned, N, TEST_DIM>(
-                dataset_size, MaybeStatic<TEST_DIM>(), svs::data::PolymorphicBuilder<>()
+                dataset_size, MaybeStatic<TEST_DIM>(), allocator
             );
 
             tester.template populate<lvq::Signed, N, TEST_DIM>(
-                dataset_size, MaybeStatic<TEST_DIM>(), svs::data::BlockedBuilder()
+                dataset_size, MaybeStatic<TEST_DIM>(), blocked
             );
             tester.template populate<lvq::Unsigned, N, TEST_DIM>(
-                dataset_size, MaybeStatic<TEST_DIM>(), svs::data::BlockedBuilder()
+                dataset_size, MaybeStatic<TEST_DIM>(), blocked
             );
 
             tester.template populate<lvq::Signed, N, svs::Dynamic>(
-                dataset_size,
-                MaybeStatic<svs::Dynamic>(TEST_DIM),
-                svs::data::PolymorphicBuilder<>()
+                dataset_size, MaybeStatic<svs::Dynamic>(TEST_DIM), allocator
             );
             tester.template populate<lvq::Unsigned, N, svs::Dynamic>(
-                dataset_size,
-                MaybeStatic<svs::Dynamic>(TEST_DIM),
-                svs::data::PolymorphicBuilder<>()
+                dataset_size, MaybeStatic<svs::Dynamic>(TEST_DIM), allocator
             );
         });
     }
 
     CATCH_SECTION("Scaled Biased Dataset") {
         auto tester = ScaledBiasedReference();
+        namespace lvq = svs::quantization::lvq;
+
+        auto allocator = svs::lib::Allocator<std::byte>();
+        auto blocking_parameters =
+            svs::data::BlockingParameters{.blocksize_bytes = svs::lib::PowerOfTwo(12)};
+        auto blocked = svs::data::Blocked{blocking_parameters, allocator};
+
         svs::lib::foreach (bits, [&]<size_t N>(Val<N> /*unused*/) {
             for (size_t alignment : {0, 32}) {
                 tester.template populate<N, TEST_DIM>(
-                    dataset_size,
-                    MaybeStatic<TEST_DIM>(),
-                    alignment,
-                    svs::data::PolymorphicBuilder<>()
+                    dataset_size, MaybeStatic<TEST_DIM>(), alignment, allocator
                 );
                 tester.template populate<N, TEST_DIM>(
-                    dataset_size,
-                    MaybeStatic<TEST_DIM>(),
-                    alignment,
-                    svs::data::BlockedBuilder()
+                    dataset_size, MaybeStatic<TEST_DIM>(), alignment, blocked
                 );
                 tester.template populate<N, svs::Dynamic>(
-                    dataset_size,
-                    MaybeStatic<svs::Dynamic>(TEST_DIM),
-                    alignment,
-                    svs::data::PolymorphicBuilder<>()
+                    dataset_size, MaybeStatic<svs::Dynamic>(TEST_DIM), alignment, allocator
                 );
                 tester.template populate<N, svs::Dynamic>(
-                    dataset_size,
-                    MaybeStatic<svs::Dynamic>(TEST_DIM),
-                    alignment,
-                    svs::data::BlockedBuilder()
+                    dataset_size, MaybeStatic<svs::Dynamic>(TEST_DIM), alignment, blocked
                 );
             }
         });

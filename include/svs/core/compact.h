@@ -13,7 +13,6 @@
 
 // svs
 #include "svs/concepts/data.h"
-#include "svs/core/data/simple.h"
 #include "svs/lib/threads.h"
 #include "svs/third-party/fmt.h"
 
@@ -41,10 +40,9 @@ void compact_data(
     auto data_dims = data.dimensions();
     auto buffer_dims = buffer.dimensions();
     if (data_dims != buffer_dims) {
-        auto msg = fmt::format(
+        throw ANNEXCEPTION(
             "Data dims ({}) does not match buffer dims ({})", data_dims, buffer_dims
         );
-        throw ANNEXCEPTION(msg);
     }
 
     // The batchsize is the amount of room we have in the temporary buffer.

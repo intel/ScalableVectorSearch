@@ -12,10 +12,11 @@
 # Tests for the Vamana index portion of the PySVS module.
 import unittest
 import os
+import warnings
+
 from tempfile import TemporaryDirectory
 
 import pysvs
-
 
 # Local dependencies
 from .common import \
@@ -191,6 +192,13 @@ class VamanaTester(unittest.TestCase):
         for loader, recall_dict in self.loader_and_recall:
             self._test_basic(loader, recall_dict)
 
+    def test_deprecation(self):
+        with warnings.catch_warnings(record = True) as w:
+            p = pysvs.VamanaBuildParameters(num_threads = 1)
+            self.assertTrue(len(w) == 1)
+            self.assertTrue(issubclass(w[0].category, DeprecationWarning))
+            self.assertTrue("VamanaBuildParameters" in str(w[0].message))
+
     def _alpha_map(self):
         return {
             pysvs.DistanceType.L2: 1.2,
@@ -213,36 +221,36 @@ class VamanaTester(unittest.TestCase):
         result_map = {
             # Expected results for the L2 Distance
             pysvs.DistanceType.L2 : {
-                2: 0.217,
-                3: 0.265666,
-                4: 0.306,
-                5: 0.332,
-                10: 0.4379,
-                20: 0.54005,
-                50: 0.66526,
-                100: 0.74538,
+                2: 0.2185,
+                3: 0.264333,
+                4: 0.3045,
+                5: 0.3308,
+                10: 0.4383,
+                20: 0.5398,
+                50: 0.66378,
+                100: 0.74339,
             },
             # Expected results for the MIP Distance
             pysvs.DistanceType.MIP : {
-                2: 0.0875,
-                3: 0.11333,
-                4: 0.13275,
-                5: 0.1588,
-                10: 0.2319,
-                20: 0.33925,
-                50: 0.52666,
-                100: 0.67995,
+                2: 0.09,
+                3: 0.11566667,
+                4: 0.143,
+                5: 0.1642,
+                10: 0.242,
+                20: 0.35485,
+                50: 0.53504,
+                100: 0.68658,
             },
             # Expected results for Cosine Distance
             pysvs.DistanceType.Cosine : {
-                2: 0.0725,
-                3: 0.1003333,
-                4: 0.1185,
+                2: 0.0785,
+                3: 0.0976666667,
+                4: 0.1165,
                 5: 0.1392,
-                10: 0.2146,
-                20: 0.31415,
-                50: 0.50552,
-                100: 0.67075,
+                10: 0.2136,
+                20: 0.32545,
+                50: 0.51474,
+                100: 0.67853,
             },
         }
 
@@ -252,9 +260,8 @@ class VamanaTester(unittest.TestCase):
             graph_max_degree = 30,
             window_size = 40,
             max_candidate_pool_size = 30,
-            num_threads = num_threads,
         )
-        vamana = pysvs.Vamana.build(parameters, data, distance)
+        vamana = pysvs.Vamana.build(parameters, data, distance, num_threads = num_threads)
 
         # Load the queries and groundtruth
         queries = pysvs.read_vecs(test_queries)
@@ -286,6 +293,12 @@ class VamanaTester(unittest.TestCase):
         self._test_build(data, pysvs.DistanceType.MIP)
         self._test_build(data, pysvs.DistanceType.Cosine)
 
+        # Build using float16
+        data_f16 = data.astype('float16')
+        self._test_build(data_f16, pysvs.DistanceType.L2)
+        self._test_build(data_f16, pysvs.DistanceType.MIP)
+        self._test_build(data_f16, pysvs.DistanceType.Cosine)
+
         # Build from file loader
         loader = pysvs.VectorDataLoader(test_data_svs, pysvs.DataType.float32)
         self._test_build(loader, pysvs.DistanceType.L2)
@@ -299,25 +312,25 @@ class VamanaTester(unittest.TestCase):
         result_map = {
             # Expected results for the L2 Distance
             pysvs.DistanceType.L2 : {
-                2: 0.2125,
-                3: 0.26,
-                4: 0.30425,
-                5: 0.3288,
-                10: 0.4397,
-                20: 0.54035,
-                50: 0.66418,
-                100: 0.74519,
+                2: 0.213,
+                3: 0.2626667,
+                4: 0.30675,
+                5: 0.3312,
+                10: 0.4357,
+                20: 0.54075,
+                50: 0.66342,
+                100: 0.74416,
             },
             # Expected results for the MIP Distance
             pysvs.DistanceType.MIP : {
-                2: 0.0845,
-                3: 0.109,
-                4: 0.132,
-                5: 0.1508,
-                10: 0.2342,
-                20: 0.3459,
-                50: 0.52454,
-                100: 0.67546,
+                2: 0.098,
+                3: 0.124,
+                4: 0.14725,
+                5: 0.1648,
+                10: 0.2512,
+                20: 0.3574,
+                50: 0.53772,
+                100: 0.68581,
             },
         }
 
@@ -327,9 +340,10 @@ class VamanaTester(unittest.TestCase):
             graph_max_degree = 30,
             window_size = 40,
             max_candidate_pool_size = 30,
-            num_threads = num_threads,
         )
-        vamana = pysvs.Vamana.build(parameters, compressor, distance)
+        vamana = pysvs.Vamana.build(
+            parameters, compressor, distance, num_threads = num_threads
+        )
 
         # Load the queries and groundtruth
         queries = pysvs.read_vecs(test_queries)

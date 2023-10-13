@@ -88,7 +88,7 @@ inline FileSchema parse_schema(const std::string& repr) {
 
     auto itr = map.find(repr);
     if (itr == map.end()) {
-        throw ANNEXCEPTION("Unknown schema \"", repr, "\"!");
+        throw ANNEXCEPTION("Unknown schema \"{}\"!", repr);
     }
     return itr->second;
 }
@@ -602,7 +602,7 @@ class NativeFile {
     template <typename F> auto resolve(F&& f) const {
         auto schema = classify(path_);
         if (!schema) {
-            throw ANNEXCEPTION("Could not resolve ", path_, " for native file loading!");
+            throw ANNEXCEPTION("Could not resolve {} for native file loading!", path_);
         }
 
         return visit_file_type(schema.value(), path_, std::forward<F>(f));
@@ -634,19 +634,4 @@ class NativeFile {
 };
 
 } // namespace io
-
-// Pointer Traits for the header mapped pointer.
-namespace lib::memory {
-template <typename T, typename Header>
-struct PointerTraits<io::HeaderMappedPtr<T, Header>> : PointerTraitsBase {
-    using value_type = T;
-    using allocator = void;
-    static constexpr bool is_persistent = true;
-    static constexpr bool disable_implicit_copy = true;
-    // Data Access.
-    static T* access(io::HeaderMappedPtr<T, Header>& x) { return x.data(); }
-    static const T* access(const io::HeaderMappedPtr<T, Header>& x) { return x.data(); }
-};
-
-} // namespace lib::memory
 } // namespace svs

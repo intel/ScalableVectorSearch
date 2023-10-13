@@ -23,6 +23,19 @@
 #include <string>
 #include <string_view>
 
+// Forward Declaration.
+namespace svs::lib {
+struct Version;
+}
+
+namespace fmt {
+template <> struct formatter<svs::lib::Version> : public svs::format_empty {
+    auto format(const auto& x, auto& ctx) const {
+        return fmt::format_to(ctx.out(), "v{}.{}.{}", x.major, x.minor, x.patch);
+    }
+};
+} // namespace fmt
+
 namespace svs::lib {
 
 ///
@@ -62,7 +75,7 @@ template <std::integral T> [[nodiscard]] T parse_int(std::string_view view) {
 ///
 struct Version {
     /// @brief Return the formatted version as "vMAJOR.MINOR.PATCH".
-    std::string str() const { return fmt::format("v{}.{}.{}", major, minor, patch); }
+    std::string str() const { return fmt::format("{}", *this); }
 
     /// @brief Construct a new Version class.
     constexpr explicit Version(size_t major, size_t minor, size_t patch)

@@ -103,6 +103,27 @@ CATCH_TEST_CASE("Testing Neighbors", "[core]") {
         }
     }
 
+    CATCH_SECTION("Total Order") {
+        using N = svs::Neighbor<int32_t>;
+        CATCH_SECTION("Less") {
+            auto cmp = svs::TotalOrder(std::less<>());
+            CATCH_REQUIRE(cmp(N(0, 100), N(10, 120)));
+            CATCH_REQUIRE(!cmp(N(10, 120), N(0, 100)));
+
+            CATCH_REQUIRE(cmp(N(0, 100), N(10, 100)));
+            CATCH_REQUIRE(!cmp(N(10, 100), N(0, 100)));
+        }
+
+        CATCH_SECTION("Greater") {
+            auto cmp = svs::TotalOrder(std::greater<>());
+            CATCH_REQUIRE(!cmp(N(0, 100), N(10, 120)));
+            CATCH_REQUIRE(cmp(N(10, 120), N(0, 100)));
+
+            CATCH_REQUIRE(cmp(N(0, 100), N(10, 100)));
+            CATCH_REQUIRE(!cmp(N(10, 100), N(0, 100)));
+        }
+    }
+
     CATCH_SECTION("SearchNeighbor") {
         using SN = svs::SearchNeighbor<uint32_t>;
         CATCH_REQUIRE(std::is_default_constructible_v<SN> == true);

@@ -33,6 +33,8 @@ namespace svs {
 /// of equality don't play well with the ordering semantics which are based on distance.
 ///
 template <typename Idx, typename Meta = void> struct Neighbor : public Meta {
+    using index_type = Idx;
+
     constexpr Neighbor() = default;
 
     template <typename... Args>
@@ -51,6 +53,8 @@ template <typename Idx, typename Meta = void> struct Neighbor : public Meta {
 };
 
 template <typename Idx> struct Neighbor<Idx, void> {
+    using index_type = Idx;
+
     constexpr Neighbor() = default;
     constexpr Neighbor(Idx id, float distance)
         : id_{id}
@@ -116,6 +120,20 @@ struct NeighborEqual {
     template <typename Idx, typename Meta>
     constexpr bool operator()(const Neighbor<Idx, Meta>& x, const Neighbor<Idx, Meta>& y) {
         return equal(x, y);
+    }
+};
+
+template <typename Cmp> class TotalOrder {
+  private:
+    [[no_unique_address]] Cmp cmp_;
+
+  public:
+    TotalOrder(const Cmp& cmp)
+        : cmp_{cmp} {}
+
+    template <typename Idx, typename Meta>
+    constexpr bool operator()(const Neighbor<Idx, Meta>& x, const Neighbor<Idx, Meta>& y) {
+        return cmp_(x, y) ? true : (cmp_(y, x) ? false : x.id() < y.id());
     }
 };
 

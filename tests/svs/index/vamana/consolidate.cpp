@@ -58,7 +58,7 @@ CATCH_TEST_CASE("Graph Consolidation", "[graph_index]") {
 
         svs::distance::DistanceL2 distance{};
         svs::index::vamana::consolidate(
-            graph, data, threadpool, graph.max_degree(), 1.2, distance, predicate
+            graph, data, threadpool, graph.max_degree(), 750, 1.2, distance, predicate
         );
         std::cout << "Pruning took " << svs::lib::time_difference(svs::lib::now(), tic)
                   << std::endl;

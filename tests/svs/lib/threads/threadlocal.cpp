@@ -50,6 +50,30 @@ template <typename T> int64_t address_offset(const T* a, const T* b) {
     return reinterpret_cast<const std::byte*>(a) - reinterpret_cast<const std::byte*>(b);
 }
 
+// Static tests
+using Allocator = svs::threads::AlignedAllocator<float, 4096>;
+using Traits = std::allocator_traits<Allocator>;
+
+#define SVSTEST_CHECK(lhs, rhs) static_assert(std::is_same_v<typename Traits::lhs, rhs>);
+
+SVSTEST_CHECK(allocator_type, Allocator);
+SVSTEST_CHECK(value_type, float);
+SVSTEST_CHECK(pointer, float*);
+SVSTEST_CHECK(const_pointer, const float*);
+SVSTEST_CHECK(void_pointer, void*);
+SVSTEST_CHECK(const_void_pointer, const void*);
+SVSTEST_CHECK(difference_type, std::ptrdiff_t);
+SVSTEST_CHECK(size_type, std::size_t);
+SVSTEST_CHECK(propagate_on_container_copy_assignment, std::false_type);
+SVSTEST_CHECK(propagate_on_container_move_assignment, std::false_type);
+SVSTEST_CHECK(propagate_on_container_swap, std::false_type);
+SVSTEST_CHECK(is_always_equal, std::true_type);
+
+// Rebind
+static_assert(std::is_same_v<
+              typename Traits::rebind_alloc<size_t>,
+              svs::threads::AlignedAllocator<size_t, 4096>>);
+
 } // namespace
 
 CATCH_TEST_CASE("Utils", "[core][util]") {
@@ -87,6 +111,7 @@ CATCH_TEST_CASE("Utils", "[core][util]") {
     CATCH_SECTION("CacheAlignedAllocator") {
         // Try the allocator on its own.
         svs::threads::CacheAlignedAllocator<size_t> alloc{};
+        CATCH_REQUIRE(decltype(alloc)::alignment == svs::threads::CACHE_LINE_BYTES);
         for (size_t i = 1; i < 100; ++i) {
             size_t* ptr = alloc.allocate(i);
             intptr_t address = reinterpret_cast<intptr_t>(ptr);
@@ -102,6 +127,27 @@ CATCH_TEST_CASE("Utils", "[core][util]") {
             CATCH_REQUIRE(
                 reinterpret_cast<intptr_t>(v.data()) % svs::threads::CACHE_LINE_BYTES == 0
             );
+        }
+    }
+
+    CATCH_SECTION("PageAlignedAllocator") {
+        // Try the allocator on its own.
+        constexpr size_t alignment = 4096;
+        svs::threads::AlignedAllocator<size_t, alignment> alloc{};
+        CATCH_REQUIRE(decltype(alloc)::alignment == alignment);
+        for (size_t i = 1; i < 100; ++i) {
+            size_t* ptr = alloc.allocate(i);
+            intptr_t address = reinterpret_cast<intptr_t>(ptr);
+            CATCH_REQUIRE((address % alignment) == 0);
+            alloc.deallocate(ptr, i);
+        }
+
+        // Put it in a vector.
+        std::vector<int, svs::threads::AlignedAllocator<int, alignment>> v{};
+        for (int i = 0; i < 100; ++i) {
+            v.push_back(i);
+            CATCH_REQUIRE(v.at(i) == i);
+            CATCH_REQUIRE(reinterpret_cast<intptr_t>(v.data()) % alignment == 0);
         }
     }
 

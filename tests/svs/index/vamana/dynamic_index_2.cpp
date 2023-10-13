@@ -245,7 +245,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     const float alpha = 1.2;
 
     // Load the base dataset and queries.
-    auto data = svs::VectorDataLoader<Eltype, N>(test_dataset::data_svs_file()).load();
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
     auto num_points = data.size();
     auto queries = test_dataset::queries();
 
@@ -255,7 +255,8 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
         num_threads,
         div(num_points, 0.5 * modify_fraction),
         NUM_NEIGHBORS,
-        queries
+        queries,
+        0x12345678
     );
 
     auto num_indices_to_add = div(reference.size(), initial_fraction);
@@ -283,7 +284,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     }
 
     svs::index::vamana::VamanaBuildParameters parameters{
-        1.2, max_degree, 2 * max_degree, 1000, num_threads};
+        1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(
@@ -327,8 +328,8 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
 
     auto reloaded = svs::index::vamana::auto_dynamic_assemble(
         tmp / "config",
-        svs::GraphLoader<uint32_t, svs::data::BlockedBuilder>(tmp / "graph"),
-        svs::VectorDataLoader<float, svs::Dynamic, svs::data::BlockedBuilder>(tmp / "data"),
+        SVS_LAZY(svs::graphs::SimpleBlockedGraph<uint32_t>::load(tmp / "graph")),
+        SVS_LAZY(svs::data::BlockedData<float>::load(tmp / "data")),
         svs::DistanceL2(),
         2
     );

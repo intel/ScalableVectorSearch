@@ -14,7 +14,6 @@
 // stdlib
 #include <atomic>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -25,12 +24,40 @@
 namespace svs {
 namespace threads {
 
-// The function type used by the lowest level threads.
-using FunctionType = std::function<void(uint64_t)>;
+using FunctionType = void(*)(void*, size_t);
+
+/// @brief A function pointer-like object that can point to capturing lambdas.
+struct FunctionRef {
+  public:
+    FunctionType fn = nullptr;
+    void* arg = nullptr;
+
+  public:
+    FunctionRef() = default;
+
+    // N.B.: Need to constrain the argument to not be a `FunctionRef` (otherwise, this
+    // seems to have higher precedence than the copy constructor).
+    template<typename F>
+        requires (!std::is_same_v<std::remove_const_t<F>, FunctionRef>)
+    explicit FunctionRef(F& f)
+        : fn{+[](void* arg, size_t tid) { static_cast<F*>(arg)->operator()(tid); }}
+        , arg{static_cast<void*>(&f)} {}
+
+    void operator()(size_t tid) const { fn(arg, tid); }
+    constexpr friend bool operator==(FunctionRef, FunctionRef) = default;
+};
+
 struct ThreadFunctionRef {
-    FunctionType* fn;
-    size_t thread_id;
-    void operator()() const { (*fn)(thread_id); }
+  public:
+    FunctionRef fn {};
+    size_t thread_id = 0;
+
+  public:
+    ThreadFunctionRef() = default;
+    ThreadFunctionRef(FunctionRef fn_, size_t thread_id_)
+        : fn{fn_}, thread_id{thread_id_} {}
+
+    void operator()() const { fn(thread_id); }
 };
 
 /////
@@ -38,26 +65,19 @@ struct ThreadFunctionRef {
 /////
 
 namespace thunks {
-namespace concepts {
-
-template <typename F>
-concept ConvertibleToFunctionType = std::convertible_to<F, FunctionType>;
-
-} // namespace concepts
 
 template <typename F, typename... Args> struct Thunk {};
 
-template <typename F>
-    requires concepts::ConvertibleToFunctionType<F>
-struct Thunk<F> {
-    static FunctionType wrap(ThreadCount /*unused*/, F& f) {
-        return FunctionType{std::forward<F>(f)};
-    }
+// No change to the underlying lambda.
+template <std::invocable<size_t> F>
+struct Thunk<F>
+{
+    static auto wrap(ThreadCount /*unused*/, F& f) -> F& { return f; }
 };
 
 // Static partition
 template <typename F, typename I> struct Thunk<F, StaticPartition<I>> {
-    static FunctionType wrap(ThreadCount nthreads, F& f, StaticPartition<I> space) {
+    static auto wrap(ThreadCount nthreads, F& f, StaticPartition<I> space) {
         // Captures:
         // - `f` by reference: Lives outside function scope.
         // - `space` by value: Cheap to copy.
@@ -80,7 +100,7 @@ template <typename F, typename I> struct Thunk<F, StaticPartition<I>> {
 
 // Dynamic partition
 template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
-    static FunctionType
+    static auto
     wrap(ThreadCount SVS_UNUSED(nthreads), F& f, DynamicPartition<I> space) {
         auto count = std::make_shared<std::atomic<uint64_t>>(0);
         return [&f, space, count](uint64_t tid) {
@@ -104,7 +124,7 @@ template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
 
 // Thunk entry point.
 template <typename F, typename... Args>
-FunctionType wrap(ThreadCount nthreads, F& f, Args&&... args) {
+auto wrap(ThreadCount nthreads, F& f, Args&&... args) {
     return Thunk<F, std::decay_t<Args>...>::wrap(nthreads, f, std::forward<Args>(args)...);
 }
 

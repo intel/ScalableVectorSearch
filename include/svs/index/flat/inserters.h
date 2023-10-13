@@ -114,7 +114,7 @@ template <typename T, typename Cmp> class BulkInserter {
 
     // Constructor
     BulkInserter(size_t batch_size, size_t num_neighbors, Cmp compare)
-        : data_{batch_size, num_neighbors}
+        : data_{make_dims(batch_size, num_neighbors)}
         , compare_{compare} {}
 
     BulkInserter()

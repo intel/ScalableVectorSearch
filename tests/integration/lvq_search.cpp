@@ -11,8 +11,9 @@
 
 // svs
 #include "svs/core/recall.h"
-#include "svs/index/vamana/index.h"
+#include "svs/extensions/vamana/lvq.h"
 #include "svs/lib/saveload.h"
+#include "svs/orchestrators/vamana.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -43,13 +44,14 @@ namespace {
 // to unique string names that are suitable for dictionary keys.
 template <typename T> struct NameBuilder;
 
-template <size_t Primary, size_t Dims>
-struct NameBuilder<lvq::OneLevelWithBias<Primary, Dims>> {
-    static std::string key() { return fmt::format("LVQ{}", Primary); }
-};
 template <size_t Primary, size_t Residual, size_t Dims>
-struct NameBuilder<lvq::TwoLevelWithBias<Primary, Residual, Dims>> {
-    static std::string key() { return fmt::format("LVQ{}x{}", Primary, Residual); }
+struct NameBuilder<lvq::LVQDataset<Primary, Residual, Dims>> {
+    static std::string key() {
+        if constexpr (Residual == 0) {
+            return fmt::format("LVQ{}", Primary);
+        } else
+            return fmt::format("LVQ{}x{}", Primary, Residual);
+    }
 };
 
 template <typename T> std::string get_key() { return NameBuilder<T>::key(); }
@@ -67,12 +69,11 @@ std::vector<std::pair<size_t, double>> get_recall(const std::string& key) {
     return map.at(key);
 };
 
-template <typename Index>
 void run_search(
-    Index& index,
+    svs::Vamana& index,
     const std::vector<std::pair<size_t, double>> window_recall,
-    const svs::data::SimplePolymorphicData<float>& queries,
-    const svs::data::SimplePolymorphicData<uint32_t>& groundtruth
+    const svs::data::SimpleData<float>& queries,
+    const svs::data::SimpleData<uint32_t>& groundtruth
 ) {
     double epsilon = 0.0001;
     for (auto [windowsize, recall] : window_recall) {
@@ -88,16 +89,16 @@ void run_search(
 
 template <typename DataProto, typename Distance>
 void test_search(
-    const DataProto& data_proto,
+    DataProto data_proto,
     const Distance& distance,
-    const svs::data::SimplePolymorphicData<float>& queries,
-    const svs::data::SimplePolymorphicData<uint32_t>& groundtruth
+    const svs::data::SimpleData<float>& queries,
+    const svs::data::SimpleData<uint32_t>& groundtruth
 ) {
     size_t num_threads = 2;
-    auto index = svs::index::vamana::auto_assemble(
+    auto index = svs::Vamana::assemble<float>(
         test_dataset::vamana_config_file(),
         svs::GraphLoader(test_dataset::graph_file()),
-        data_proto,
+        std::move(data_proto),
         distance,
         num_threads
     );
@@ -134,10 +135,10 @@ void test_search(
     index.save(config_dir, graph_dir, data_dir);
 
     // Reload
-    auto reloaded = svs::index::vamana::auto_assemble(
+    auto reloaded = svs::Vamana::assemble<float>(
         config_dir,
         svs::GraphLoader(graph_dir),
-        DataProto{svs::quantization::lvq::Reload(data_dir)},
+        svs::lib::Lazy([&]() { return svs::lib::load_from_disk<DataProto>(data_dir); }),
         distance,
         num_threads
     );
@@ -152,8 +153,7 @@ CATCH_TEST_CASE("Testing Search", "[integration][lvq_search]") {
     namespace vamana = svs::index::vamana;
 
     const size_t N = 128;
-    auto data_file = test_dataset::data_svs_file();
-
+    auto datafile = test_dataset::data_svs_file();
     auto queries = test_dataset::queries();
     auto gt = test_dataset::groundtruth_euclidean();
 
@@ -161,14 +161,14 @@ CATCH_TEST_CASE("Testing Search", "[integration][lvq_search]") {
 
     svs::lib::foreach (extents, [&]<size_t E>(svs::meta::Val<E> /*unused*/) {
         fmt::print("LVQ Search - Extent {}\n", E);
-        auto loader = svs::VectorDataLoader<float, E>(data_file);
         auto distance = svs::distance::DistanceL2();
+        auto data = svs::data::SimpleData<float, E>::load(datafile);
 
         // Local
-        test_search(lvq::OneLevelWithBias<8, E>(loader), distance, queries, gt);
-        test_search(lvq::OneLevelWithBias<4, E>(loader), distance, queries, gt);
-        test_search(lvq::TwoLevelWithBias<4, 4, E>(loader), distance, queries, gt);
-        test_search(lvq::TwoLevelWithBias<4, 8, E>(loader), distance, queries, gt);
-        test_search(lvq::TwoLevelWithBias<8, 8, E>(loader), distance, queries, gt);
+        test_search(lvq::LVQDataset<8, 0, E>::compress(data), distance, queries, gt);
+        test_search(lvq::LVQDataset<4, 0, E>::compress(data), distance, queries, gt);
+        test_search(lvq::LVQDataset<4, 4, E>::compress(data), distance, queries, gt);
+        test_search(lvq::LVQDataset<4, 8, E>::compress(data), distance, queries, gt);
+        test_search(lvq::LVQDataset<8, 8, E>::compress(data), distance, queries, gt);
     });
 }

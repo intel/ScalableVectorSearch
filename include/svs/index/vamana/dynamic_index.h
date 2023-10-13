@@ -21,6 +21,7 @@
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
+#include "svs/core/loading.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
 #include "svs/core/translation.h"
@@ -33,32 +34,6 @@
 #include "svs/lib/threads.h"
 
 namespace svs::index::vamana {
-namespace detail {
-template <typename Data, threads::ThreadPool Pool, typename F = lib::ReturnsTrueType>
-size_t find_medioid_helper(
-    const Data& data, Pool& threadpool, F&& predicate = lib::ReturnsTrueType()
-) {
-    return utils::find_medioid(data, threadpool, std::forward<F>(predicate));
-}
-
-template <
-    size_t Primary,
-    size_t Residual,
-    size_t N,
-    typename Storage,
-    threads::ThreadPool Pool,
-    typename F = lib::ReturnsTrueType>
-size_t find_medioid_helper(
-    const quantization::lvq::LVQDataset<Primary, Residual, N, Storage>& data,
-    Pool& threadpool,
-    F&& predicate = lib::ReturnsTrueType()
-) {
-    return utils::find_medioid(
-        data, threadpool, std::forward<F>(predicate), data.decompressor()
-    );
-}
-
-} // namespace detail
 
 /////
 ///// MutableVamanaIndex
@@ -121,13 +96,6 @@ class MutableVamanaIndex {
     static constexpr bool supports_deletions = true;
     static constexpr bool supports_saving = true;
 
-    // Do we need reranking.
-    // Not the best heuristic ever. Basically checks is the types of the full access and
-    // and fast access are different. If so, then reranking should be done.
-    static constexpr bool needs_reranking = !std::is_same_v<
-        typename Data::template mode_const_value_type<data::FullAccess>,
-        typename Data::template mode_const_value_type<data::FastAccess>>;
-
     // Type Aliases
     using Idx = typename Graph::index_type;
     using value_type = typename Data::value_type;
@@ -164,6 +132,7 @@ class MutableVamanaIndex {
     // Configurations
     size_t construction_window_size_;
     size_t max_candidates_;
+    size_t prune_to_;
     float alpha_ = 1.2;
     bool use_full_search_history_ = true;
 
@@ -230,13 +199,14 @@ class MutableVamanaIndex {
         , threadpool_(num_threads)
         , construction_window_size_(parameters.window_size)
         , max_candidates_(parameters.max_candidate_pool_size)
+        , prune_to_(parameters.prune_to)
         , alpha_(parameters.alpha)
         , use_full_search_history_{parameters.use_full_search_history} {
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
         // Compute the entry point.
-        entry_point_.push_back(detail::find_medioid_helper(data_, threadpool_));
+        entry_point_.push_back(extensions::compute_entry_point(data_, threadpool_));
 
         // Perform graph construction.
         auto builder = VamanaBuilder(graph_, data_, distance_, parameters, threadpool_);
@@ -259,7 +229,7 @@ class MutableVamanaIndex {
         graph_type graph,
         const Dist& distance_function,
         IDTranslator translator,
-        size_t num_threads
+        threads::NativeThreadPool threadpool
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -268,9 +238,10 @@ class MutableVamanaIndex {
         , translator_{std::move(translator)}
         , distance_{distance_function}
         , search_buffer_prototype_{config.search_window_size}
-        , threadpool_{num_threads}
+        , threadpool_{std::move(threadpool)}
         , construction_window_size_{config.construction_window_size}
         , max_candidates_{config.max_candidates}
+        , prune_to_{config.prune_to}
         , alpha_{config.alpha}
         , use_full_search_history_{config.use_full_search_history} {}
 
@@ -417,6 +388,25 @@ class MutableVamanaIndex {
     ///
     size_t dimensions() const { return data_.dimensions(); }
 
+    auto greedy_search_closure() const {
+        return [&](const auto& query, const auto& accessor, auto& distance, auto& buffer) {
+            // Perform the greedy search using the provided resources.
+            greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                entry_point_,
+                SkipBuilder{status_}
+            );
+            // Take a pass over the search buffer to remove any deleted elements that
+            // might remain.
+            buffer.cleanup();
+        };
+    }
+
     ///
     /// @brief Return the ``num_neighbors`` approximate nearest neighbors to ``queries``.
     ///
@@ -432,25 +422,6 @@ class MutableVamanaIndex {
         return result;
     }
 
-    // If the dataset supports multiple levels of accessing, then we want to rerank
-    // the results of the search buffer post-search.
-    //
-    // This recomputes distances between the query and the full access elements of the
-    // dataset elements contained in the search buffer and re-sorts the buffer according
-    // to the newly computed distances.
-    template <typename Distance, typename Query>
-    void rerank(Distance& distance, const Query& query, search_buffer_type& buffer) const {
-        for (size_t i = 0, imax = buffer.size(); i < imax; ++i) {
-            auto& neighbor = buffer[i];
-            auto id = neighbor.id();
-
-            auto new_distance =
-                distance::compute(distance, query, data_.get_datum(id, data::full_access));
-            neighbor.set_distance(new_distance);
-        }
-        buffer.sort();
-    }
-
     template <typename QueryType, typename I>
     void search(
         data::ConstSimpleDataView<QueryType> queries,
@@ -463,37 +434,20 @@ class MutableVamanaIndex {
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 auto buffer = threads::shallow_copy(search_buffer_prototype_);
-                auto distance = data_.adapt_distance(distance_);
-
-                // TODO: Use iterators for returning neighbors.
-                //
-                // Perform a sanity check on the search buffer.
-                // If the buffer is too small, we need to set it to a minimum size to avoid
-                // segfaults when extracting the neighbors.
                 if (buffer.capacity() < num_neighbors) {
                     buffer.change_maxsize(num_neighbors);
                 }
+                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
 
-                for (auto i : is) {
-                    // Perform the greedy search.
-                    // Results from the search will be present in `buffer`.
-                    const auto& query = queries.get_datum(i);
-                    greedy_search(
-                        graph_, data_, query, distance, buffer, entry_point_, builder
-                    );
-
-                    buffer.cleanup();
-                    // TODO: Properly teach datasets how to inform the index that
-                    // reranking is required.
-                    if constexpr (needs_reranking) {
-                        rerank(distance, query, buffer);
-                    }
-                    for (size_t j = 0; j < num_neighbors; ++j) {
-                        const auto& neighbor = buffer[j];
-                        result.index(i, j) = neighbor.id();
-                        result.distance(i, j) = neighbor.distance();
-                    }
-                }
+                extensions::per_thread_batch_search(
+                    data_,
+                    buffer,
+                    scratch,
+                    queries,
+                    result,
+                    threads::UnitRange{is},
+                    greedy_search_closure()
+                );
             }
         );
 
@@ -580,11 +534,9 @@ class MutableVamanaIndex {
         const size_t num_ids = external_ids.size();
         if (num_points != num_ids) {
             throw ANNEXCEPTION(
-                "Number of points (",
+                "Number of points ({}) not equal to the number of external ids ({})!",
                 num_points,
-                ") not equal to the number of external ids (",
-                num_ids,
-                ")!"
+                num_ids
             );
         }
 
@@ -636,7 +588,7 @@ class MutableVamanaIndex {
             graph_.max_degree(),
             construction_window_size_,
             max_candidates_,
-            threadpool_.size(),
+            prune_to_,
             use_full_search_history_};
 
         VamanaBuilder builder{graph_, data_, distance_, parameters, threadpool_};
@@ -838,7 +790,8 @@ class MutableVamanaIndex {
         auto entry_point = entry_point_[0];
         if (status_.at(entry_point) == SlotMetadata::Deleted) {
             fmt::print("Replacing entry point! ... ");
-            auto new_entry_point = detail::find_medioid_helper(data_, threadpool_, valid);
+            auto new_entry_point =
+                extensions::compute_entry_point(data_, threadpool_, valid);
             fmt::print(" New point: {}\n", new_entry_point);
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
@@ -849,7 +802,8 @@ class MutableVamanaIndex {
             graph_,
             data_,
             threadpool_,
-            graph_.max_degree(),
+            prune_to_,
+            max_candidates_,
             alpha_,
             distance_,
             check_is_deleted
@@ -883,32 +837,36 @@ class MutableVamanaIndex {
         compact();
 
         // Save auxiliary data structures.
-        lib::save_callable(config_directory, [&](const lib::SaveContext& ctx) {
-            // Save the construction parameters.
-            auto parameters = VamanaConfigParameters{
-                graph_.max_degree(),
-                entry_point_.front(),
-                alpha_,
-                get_max_candidates(),
-                get_construction_window_size(),
-                get_full_search_history(),
-                get_search_window_size(),
-                visited_set_enabled()};
+        lib::save_to_disk(
+            lib::SaveOverride([&](const lib::SaveContext& ctx) {
+                // Save the construction parameters.
+                auto parameters = VamanaConfigParameters{
+                    graph_.max_degree(),
+                    entry_point_.front(),
+                    alpha_,
+                    get_max_candidates(),
+                    get_construction_window_size(),
+                    prune_to_,
+                    get_full_search_history(),
+                    get_search_window_size(),
+                    visited_set_enabled()};
 
-            return lib::SaveType(
-                toml::table{{
-                    {"name", prepare(name())},
-                    {"parameters", lib::recursive_save(parameters, ctx)},
-                    {"translation", lib::recursive_save(translator_, ctx)},
-                }},
-                save_version
-            );
-        });
+                return lib::SaveTable(
+                    save_version,
+                    {
+                        {"name", lib::save(name())},
+                        {"parameters", lib::save(parameters, ctx)},
+                        {"translation", lib::save(translator_, ctx)},
+                    }
+                );
+            }),
+            config_directory
+        );
 
         // Save the dataset.
-        lib::save(data_, data_directory);
+        lib::save_to_disk(data_, data_directory);
         // Save the graph.
-        lib::save(graph_, graph_directory);
+        lib::save_to_disk(graph_, graph_directory);
     }
 
     /////
@@ -936,13 +894,7 @@ class MutableVamanaIndex {
         size_t data_size = data_.size();
         auto throw_size_error = [=](const std::string& name, size_t other_size) {
             throw ANNEXCEPTION(
-                "SIZE INVARIANT: Data size is ",
-                data_size,
-                " but ",
-                name,
-                " is ",
-                other_size,
-                '.'
+                "SIZE INVARIANT: Data size is {} but {} is {}.", data_size, name, other_size
             );
         };
 
@@ -999,15 +951,11 @@ class MutableVamanaIndex {
                 if (!is_valid(j)) {
                     const auto& metadata = status_[j];
                     throw ANNEXCEPTION(
-                        "Node number ",
+                        "Node number {} has an invalid ({}) neighbor ({}) at position {}!",
                         i,
-                        " has an invalid (",
                         index::vamana::name(metadata),
-                        ") neighbor (",
                         j,
-                        ") at position ",
-                        count,
-                        '!'
+                        count
                     );
                 }
                 count++;
@@ -1022,26 +970,11 @@ template <typename Data, typename Dist, typename ExternalIds>
 MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, size_t)
     -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
-template <typename T, size_t Extent>
-data::BlockedData<T, Extent> dynamic_load_dataset(
-    VectorDataLoaderTag SVS_UNUSED(tag),
-    const VectorDataLoader<T, Extent, data::BlockedBuilder>& loader
-) {
-    return loader.load();
-}
-
-template <typename Loader>
-auto dynamic_load_dataset(
-    quantization::lvq::CompressorTag SVS_UNUSED(tag), const Loader& loader
-) {
-    return loader.load(data::BlockedBuilder());
-}
-
 // Assembly
-template <typename Idx, typename DataLoader, typename Distance>
+template <lib::LazyInvocable<> GraphLoader, typename DataLoader, typename Distance>
 auto auto_dynamic_assemble(
     const std::filesystem::path& config_path,
-    const GraphLoader<Idx, data::BlockedBuilder>& graph_loader,
+    const GraphLoader& graph_loader,
     const DataLoader& data_loader,
     Distance distance,
     size_t num_threads,
@@ -1053,19 +986,19 @@ auto auto_dynamic_assemble(
     bool debug_load_from_static = false
 ) {
     // Load the dataset
-    auto data = dynamic_load_dataset(lib::loader_tag<DataLoader>, data_loader);
+    auto threadpool = threads::NativeThreadPool(num_threads);
+    auto data = svs::detail::dispatch_load(data_loader, threadpool);
 
     // Load the graph.
-    auto graph = graph_loader.load();
+    auto graph = graph_loader();
 
     // Make sure the data and the graph have the same size.
     auto datasize = data.size();
     auto graphsize = graph.n_nodes();
     if (datasize != graphsize) {
-        auto message = fmt::format(
+        throw ANNEXCEPTION(
             "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
         );
-        throw ANNEXCEPTION(message);
     }
 
     // Unload the ID translator and config parameters.
@@ -1079,32 +1012,29 @@ auto auto_dynamic_assemble(
         // since the internal and external IDs for the static index are the samen.
         if (debug_load_from_static) {
             return std::make_tuple(
-                lib::recursive_load<VamanaConfigParameters>(table, ctx),
+                lib::load<VamanaConfigParameters>(table, ctx),
                 IDTranslator(IDTranslator::Identity(datasize))
             );
         } else {
             return std::make_tuple(
-                lib::recursive_load<VamanaConfigParameters>(
-                    subtable(table, "parameters"), ctx
-                ),
-                lib::recursive_load<IDTranslator>(subtable(table, "translation"), ctx)
+                lib::load_at<VamanaConfigParameters>(table, "parameters", ctx),
+                lib::load_at<IDTranslator>(table, "translation", ctx)
             );
         }
     }};
-    auto [parameters, translator] = lib::load(reloader, config_path);
+    auto [parameters, translator] = lib::load_from_disk(reloader, config_path);
 
     // Make sure that the translator covers all the IDs in the graph and data.
     auto translator_size = translator.size();
     if (translator_size != datasize) {
-        auto message = fmt::format(
+        throw ANNEXCEPTION(
             "Translator has {} IDs but should have {}", translator_size, datasize
         );
-        throw ANNEXCEPTION(message);
     }
 
     for (size_t i = 0; i < datasize; ++i) {
         if (!translator.has_internal(i)) {
-            throw ANNEXCEPTION("Translator is missing internal id ", i);
+            throw ANNEXCEPTION("Translator is missing internal id {}", i);
         }
     }
 
@@ -1116,7 +1046,7 @@ auto auto_dynamic_assemble(
         std::move(graph),
         std::move(distance),
         std::move(translator),
-        num_threads};
+        std::move(threadpool)};
 }
 
 } // namespace svs::index::vamana

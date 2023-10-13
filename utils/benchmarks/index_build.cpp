@@ -77,7 +77,8 @@ std::vector<BenchmarkResult> benchmark(
         build_setup.max_degree,
         build_setup.construction_window_size,
         1000,
-        num_threads};
+        build_setup.max_degree,
+        true};
 
     auto build_time = timer.push_back("index build");
     auto index = svs::index::vamana::auto_build(

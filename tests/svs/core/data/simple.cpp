@@ -87,16 +87,13 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         set_sequential(x);
 
         // Construct a view.
-        auto y = svs::data::SimpleDataView(x);
+        auto y = x.view();
         CATCH_REQUIRE(y.size() == x.size());
         CATCH_REQUIRE(y.dimensions() == x.dimensions());
         CATCH_REQUIRE(is_sequential(y));
 
-        // Try implicit conversion.
-        y = x;
-        CATCH_REQUIRE(is_sequential(y));
-
-        const auto z = svs::data::ConstSimpleDataView(x);
+        // Const view.
+        const auto z = x.cview();
         CATCH_REQUIRE(is_sequential(z));
         CATCH_REQUIRE(wants_const_view(x.cview()));
     }
@@ -146,29 +143,10 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
 
         set_sequential(x);
         CATCH_REQUIRE(is_sequential(x));
-        auto y = svs::data::SimpleDataView(x);
+        auto y = x.view();
         CATCH_REQUIRE(y.size() == x.size());
         CATCH_REQUIRE(y.dimensions() == x.dimensions());
         CATCH_REQUIRE(is_sequential(y));
         CATCH_REQUIRE(y.get_datum(0).extent == 4);
-    }
-
-    // Now, try different allocators.
-    CATCH_SECTION("Polymorphic Data") {
-        auto allocator = svs::lib::VectorAllocator{};
-        auto x = svs::data::SimplePolymorphicData<size_t>(allocator, 10, 20);
-        CATCH_REQUIRE(x.size() == 10);
-        CATCH_REQUIRE(x.dimensions() == 20);
-        CATCH_REQUIRE(x.get_datum(2).extent == svs::Dynamic);
-        set_sequential(x);
-        CATCH_REQUIRE(is_sequential(x));
-
-        // Move assign a new object into `x`.
-        x = svs::data::SimplePolymorphicData<size_t>(
-            svs::lib::UniquePtrAllocator{}, 10, 20
-        );
-        CATCH_REQUIRE(!is_sequential(x));
-        set_sequential(x);
-        CATCH_REQUIRE(is_sequential(x));
     }
 }

@@ -14,7 +14,9 @@
 #include "core.h"
 #include "manager.h"
 
+#include "svs/extensions/flat/lvq.h"
 #include "svs/lib/datatype.h"
+#include "svs/lib/dispatcher.h"
 #include "svs/orchestrators/exhaustive.h"
 
 // stl
@@ -84,7 +86,7 @@ struct StandardAssemble_ {
         });
     }
 };
-using StandardAssembler = Dispatcher<StandardAssemble_>;
+using StandardAssembler = svs::lib::Dispatcher<StandardAssemble_>;
 
 template <typename Kind> struct CompressedAssemble_ {
     using key_type = std::tuple<svs::DistanceType, size_t>;
@@ -109,7 +111,8 @@ template <typename Kind> struct CompressedAssemble_ {
         });
     }
 };
-template <typename Kind> using CompressedAssembler = Dispatcher<CompressedAssemble_<Kind>>;
+template <typename Kind>
+using CompressedAssembler = svs::lib::Dispatcher<CompressedAssemble_<Kind>>;
 
 /////
 ///// Load Dataset from Files
@@ -127,14 +130,12 @@ svs::Flat assemble(
         [&](auto&& loader) {
             using T = std::decay_t<decltype(loader)>;
             if constexpr (std::is_same_v<T, UnspecializedVectorDataLoader>) {
-                const auto& f = dispatch(
-                    StandardAssembler::get(), true, loader.dims_, query_type, loader.type_
-                );
+                const auto& f =
+                    StandardAssembler::lookup(true, loader.dims_, query_type, loader.type_);
                 return f(loader, distance_type, n_threads);
             } else {
-                const auto& f = dispatch(
-                    CompressedAssembler<T>::get(), true, loader.dims_, distance_type
-                );
+                const auto& f =
+                    CompressedAssembler<T>::lookup(true, loader.dims_, distance_type);
                 return f(loader, n_threads);
             }
         },
@@ -145,19 +146,19 @@ svs::Flat assemble(
 /////
 ///// Initialize from Numpy Array
 /////
-template <typename ElementType>
+template <typename QueryType, typename ElementType>
 svs::Flat assemble_from_array(
     py_contiguous_array_t<ElementType> py_data,
     svs::DistanceType distance_type,
     size_t n_threads
 ) {
-    return svs::Flat::assemble<ElementType>(create_data(py_data), distance_type, n_threads);
+    return svs::Flat::assemble<QueryType>(create_data(py_data), distance_type, n_threads);
 }
 
-template <typename ElementType>
+template <typename QueryType, typename ElementType>
 void add_assemble_specialization(py::class_<svs::Flat>& flat) {
     flat.def(
-        py::init(&assemble_from_array<ElementType>),
+        py::init(&assemble_from_array<QueryType, ElementType>),
         py::arg("data"),
         py::arg("distance"),
         py::arg("num_threads") = 1,
@@ -197,9 +198,10 @@ Args:
     );
 
     // Build from Array
-    detail::add_assemble_specialization<float>(flat);
-    detail::add_assemble_specialization<uint8_t>(flat);
-    detail::add_assemble_specialization<int8_t>(flat);
+    detail::add_assemble_specialization<float, svs::Float16>(flat);
+    detail::add_assemble_specialization<float, float>(flat);
+    detail::add_assemble_specialization<uint8_t, uint8_t>(flat);
+    detail::add_assemble_specialization<int8_t, int8_t>(flat);
 
     // Make the flat index searchable.
     add_search_specialization<float>(flat);

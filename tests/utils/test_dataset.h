@@ -121,32 +121,21 @@ inline std::filesystem::path groundtruth_cosine_file() {
 }
 
 ///// Helper Functions
-inline auto queries() { return svs::io::auto_load<float>(query_file()); }
+inline auto queries() { return svs::load_data<float>(query_file()); }
 inline auto groundtruth_euclidean() {
-    return svs::io::auto_load<uint32_t>(groundtruth_euclidean_file());
+    return svs::load_data<uint32_t>(groundtruth_euclidean_file());
 }
-inline auto groundtruth_mip() {
-    return svs::io::auto_load<uint32_t>(groundtruth_mip_file());
-}
+inline auto groundtruth_mip() { return svs::load_data<uint32_t>(groundtruth_mip_file()); }
 inline auto groundtruth_cosine() {
-    return svs::io::auto_load<uint32_t>(groundtruth_cosine_file());
+    return svs::load_data<uint32_t>(groundtruth_cosine_file());
 }
-inline auto data_f32() {
-    return svs::io::load_dataset<float, svs::Dynamic>(svs::io::v1::NativeFile(data_svs_file(
-    )));
-}
+inline auto data_f32() { return svs::load_data<float, svs::Dynamic>(data_svs_file()); }
 inline auto data_blocked_f32() {
-    return svs::io::load_dataset<float, svs::Dynamic>(
-        svs::io::v1::NativeFile(data_svs_file()), svs::data::BlockedBuilder()
-    );
+    return svs::data::BlockedData<float>::load(data_svs_file());
 }
-inline auto graph() {
-    return svs::io::load_simple_graph<uint32_t>(
-        svs::io::v1::NativeFile{graph_file()}, svs::HugepageAllocator()
-    );
-}
+inline auto graph() { return svs::graphs::SimpleGraph<uint32_t>::load(graph_file()); }
 inline auto graph_blocked() {
-    return svs::io::load_blocked_graph<uint32_t>(svs::io::v1::NativeFile{graph_file()});
+    return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_file());
 }
 
 ///// Graph Stats

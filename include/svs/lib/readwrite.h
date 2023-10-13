@@ -84,32 +84,33 @@ template <typename T, typename Stream> T read_binary(Stream& stream) {
 
 // We use a similar strategy for writing that we used for reading.
 template <typename Stream, typename T> struct BinaryWriter {
-    static void call(Stream& stream, const T& x) {
+    static size_t call(Stream& stream, const T& x) {
         static_assert(std::is_trivially_copyable_v<T>);
         using char_type = typename Stream::char_type;
         stream.write(reinterpret_cast<const char_type*>(&x), sizeof(T));
+        return sizeof(T);
     }
 };
 
 template <typename Stream, typename T, size_t Extent>
 struct BinaryWriter<Stream, std::span<T, Extent>> {
-    static void call(Stream& stream, const std::span<T> span) {
+    static size_t call(Stream& stream, const std::span<T> span) {
         static_assert(std::is_trivially_copyable_v<T>);
         using char_type = typename Stream::char_type;
-        stream.write(
-            reinterpret_cast<const char_type*>(span.data()), sizeof(T) * span.size()
-        );
+        size_t bytes = sizeof(T) * span.size();
+        stream.write(reinterpret_cast<const char_type*>(span.data()), bytes);
+        return bytes;
     }
 };
 
 template <typename Stream, typename T, typename Allocator>
 struct BinaryWriter<Stream, std::vector<T, Allocator>> {
-    static void call(Stream& stream, const std::vector<T, Allocator>& vec) {
+    static size_t call(Stream& stream, const std::vector<T, Allocator>& vec) {
         static_assert(std::is_trivially_copyable_v<T>);
         using char_type = typename Stream::char_type;
-        stream.write(
-            reinterpret_cast<const char_type*>(vec.data()), sizeof(T) * vec.size()
-        );
+        size_t bytes = sizeof(T) * vec.size();
+        stream.write(reinterpret_cast<const char_type*>(vec.data()), bytes);
+        return bytes;
     }
 };
 
@@ -119,6 +120,8 @@ struct BinaryWriter<Stream, std::vector<T, Allocator>> {
 /// @param stream A ``std::basic_ostream`` compatible object.j:wa
 /// @param val The value to write.
 ///
+/// @returns The number of bytes written to the stream.
+///
 /// Writing will occur sequentially on each byte beginning from the least significant
 /// byte.
 ///
@@ -127,8 +130,8 @@ struct BinaryWriter<Stream, std::vector<T, Allocator>> {
 /// * Any ``std::is_trivially_copyable`` type.
 /// * A ``std::vector`` or ``std::span`` of such types.
 ///
-template <typename T, typename Stream> void write_binary(Stream& stream, const T& val) {
-    BinaryWriter<Stream, T>::call(stream, val);
+template <typename T, typename Stream> size_t write_binary(Stream& stream, const T& val) {
+    return BinaryWriter<Stream, T>::call(stream, val);
 }
 } // namespace lib
 } // namespace svs

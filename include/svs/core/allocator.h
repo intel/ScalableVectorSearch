@@ -31,6 +31,8 @@
 #include "svs/lib/misc.h"
 #include "svs/lib/narrow.h"
 
+#include "tsl/robin_map.h"
+
 #include <array>
 #include <fcntl.h>
 #include <filesystem>
@@ -47,26 +49,178 @@
 
 namespace svs {
 
-// Forward declarations.
-class HugepageAllocator;
+/////
+///// hugepage allocator
+/////
 
-///
-/// @brief Standard allocators used for large internal data structures.
-///
-/// Algorithms accepting this variant will use the provided alternative in the variant as
-/// the memory provider for the class and use some form of type-erasure to provide a unified
-/// return type.
-///
-using StandardAllocators = std::variant<HugepageAllocator>;
+// Pagesize and memory map flags for x86 architectures.
+// It probably makes sense to put these into their own struct if we want to migrate
+// to different architectures/operating systems with different page granulatiries.
+//
+// That will likely require some more significant changes in the logic here, but at
+// least there should be enough flexibility built in to allow for that.
+struct HugepageX86Parameters {
+    constexpr HugepageX86Parameters(size_t pagesize, int mmap_flags)
+        : pagesize{pagesize}
+        , mmap_flags{mmap_flags} {};
+
+    // Members
+    size_t pagesize;
+    int mmap_flags;
+
+    // Check Equality
+    friend bool operator==(HugepageX86Parameters l, HugepageX86Parameters r) = default;
+};
+
+// Hugepage Allocation will happen in the order given below.
+static constexpr std::array<HugepageX86Parameters, 3> hugepage_x86_options{
+    HugepageX86Parameters{1 << 30, MAP_HUGETLB | MAP_HUGE_1GB},
+    HugepageX86Parameters{1 << 21, MAP_HUGETLB | MAP_HUGE_2MB},
+    HugepageX86Parameters{1 << 12, 0},
+};
+
+namespace detail {
+
+struct HugepageAllocation {
+    void* ptr;
+    size_t sz;
+};
+
+[[nodiscard]] inline HugepageAllocation hugepage_mmap(size_t bytes, bool force = false) {
+    assert(bytes != 0);
+    void* ptr = MAP_FAILED;
+    size_t sz = 0;
+    for (auto params : hugepage_x86_options) {
+        // Don't fallback to huge pages if `force == true`.
+        if (force && params == hugepage_x86_options.back()) {
+            break;
+        }
+
+        auto pagesize = params.pagesize;
+        auto flags = params.mmap_flags;
+        sz = lib::round_up_to_multiple_of(bytes, pagesize);
+        ptr = mmap(
+            nullptr,
+            sz,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE | flags,
+            -1,
+            0
+        );
+
+        if (ptr != MAP_FAILED) {
+            break;
+        }
+    }
+
+    if (ptr == MAP_FAILED) {
+        throw ANNEXCEPTION("Hugepage memory map allocation of size {} failed!", bytes);
+    }
+    return HugepageAllocation{.ptr = ptr, .sz = sz};
+}
+
+[[nodiscard]] inline bool hugepage_unmap(void* ptr, size_t sz) {
+    return (munmap(ptr, sz) == 0);
+}
+
+class GenericHugepageAllocator {
+  public:
+    GenericHugepageAllocator() = default;
+
+    template <typename... Args> [[nodiscard]] void* allocate(size_t bytes, Args&&... args) {
+        auto [ptr, sz] = hugepage_mmap(bytes, SVS_FWD(args)...);
+        {
+            std::lock_guard lock{mutex_};
+            ptr_to_size_.insert({ptr, sz});
+        }
+        return ptr;
+    }
+
+    void deallocate(void* ptr) {
+        std::lock_guard lock{mutex_};
+        auto itr = ptr_to_size_.find(ptr);
+        if (itr == ptr_to_size_.end()) {
+            throw ANNEXCEPTION("Could not find a corresponding size of unmap pointer!");
+        }
+        size_t sz = itr->second;
+        ptr_to_size_.erase(itr);
+        if (!hugepage_unmap(ptr, sz)) {
+            throw ANNEXCEPTION("Unmap failed!");
+        }
+    }
+
+    static tsl::robin_map<void*, size_t> get_allocations() {
+        std::lock_guard lock{mutex_};
+        return ptr_to_size_;
+    }
+
+  private:
+    inline static std::mutex mutex_{};
+    inline static tsl::robin_map<void*, size_t> ptr_to_size_{};
+};
+} // namespace detail
 
 ///
 /// @ingroup core_allocators_entry
-/// @brief Most common large-scale allocator for DRAM.
+/// @brief Allocator class to use hugepages to back memory allocations.
 ///
-using DRAM = HugepageAllocator;
+template <typename T> class HugepageAllocator {
+  private:
+    bool force_ = false;
+
+  public:
+    // Allocator type aliases.
+    using value_type = T;
+    using propagate_on_container_copy_assignment = std::true_type;
+    using propagate_on_container_move_assignment = std::true_type;
+    using propagate_on_container_swap = std::true_type;
+    using is_always_equal = std::true_type;
+
+    ///
+    /// @brief Construct a new allocator
+    ///
+    /// When default construction is used, the resulting allocator will be configured to
+    /// use normal pages if sufficient huge pages are not available to fulfill an
+    /// allocation.
+    ///
+    HugepageAllocator() = default;
+
+    ///
+    /// @brief Construct a new HugepageAllocator
+    ///
+    /// @param force - If ``true``, ensure that memory allocations are fulfilled with
+    ///     hugepages, throwing an exception if not enough pages are available.
+    ///
+    ///     If ``false``, than normal 4 KiB will be used if huge pages are not available.
+    ///
+    explicit HugepageAllocator(bool force)
+        : force_{force} {}
+
+    // Enable rebinding of allocators.
+    template <typename U> friend class HugepageAllocator;
+
+    template <typename U>
+    HugepageAllocator(const HugepageAllocator<U>& other)
+        : force_{other.force_} {}
+
+    template <typename U> bool operator==(const HugepageAllocator<U>&) { return true; }
+
+    [[nodiscard]] T* allocate(size_t n) {
+        return static_cast<T*>(
+            detail::GenericHugepageAllocator().allocate(sizeof(T) * n, force_)
+        );
+    }
+
+    void deallocate(void* ptr, size_t SVS_UNUSED(n)) {
+        detail::GenericHugepageAllocator().deallocate(ptr);
+    }
+
+    // Perform default initialization.
+    void construct(T* ptr) { ::new (static_cast<void*>(ptr)) T; }
+};
 
 /////
-///// hugepage allocator
+///// Memory Mapper
 /////
 
 ///
@@ -200,127 +354,6 @@ template <typename T> class MMapPtr {
     ~MMapPtr() { unmap(); }
 };
 
-// Pagesize and memory map flags for x86 architectures.
-// It probably makes sense to put these into their own struct if we want to migrate
-// to different architectures/operating systems with different page granulatiries.
-//
-// That will likely require some more significant changes in the logic here, but at
-// least there should be enough flexibility built in to allow for that.
-struct HugepageX86Parameters {
-    constexpr HugepageX86Parameters(size_t pagesize, int mmap_flags)
-        : pagesize{pagesize}
-        , mmap_flags{mmap_flags} {};
-
-    // Members
-    size_t pagesize;
-    int mmap_flags;
-
-    // Check Equality
-    friend bool operator==(HugepageX86Parameters l, HugepageX86Parameters r) = default;
-};
-
-// Hugepage Allocation will happen in the order given below.
-static constexpr std::array<HugepageX86Parameters, 3> hugepage_x86_options{
-    HugepageX86Parameters{1 << 30, MAP_HUGETLB | MAP_HUGE_1GB},
-    HugepageX86Parameters{1 << 21, MAP_HUGETLB | MAP_HUGE_2MB},
-    HugepageX86Parameters{1 << 12, 0},
-};
-
-///
-/// @ingroup core_allocators_entry
-/// @brief Allocator class to use hugepages to back memory allocations.
-///
-class HugepageAllocator {
-  private:
-    bool force_ = false;
-
-  public:
-    ///
-    /// @brief Construct a new allocator
-    ///
-    /// When default construction is used, the resulting allocator will be configured to
-    /// use normal pages if sufficient huge pages are not available to fulfill an
-    /// allocation.
-    ///
-    HugepageAllocator() = default;
-
-    ///
-    /// @brief Construct a new HugepageAllocator
-    ///
-    /// @param force - If ``true``, ensure that memory allocations are fulfilled with
-    ///     hugepages, throwing an exception if not enough pages are available.
-    ///
-    ///     If ``false``, than normal 4 KiB will be used if huge pages are not available.
-    ///
-    explicit HugepageAllocator(bool force)
-        : force_{force} {};
-
-    // TODO: What kind of type restrictions are there actually on `T`?
-    template <typename T> MMapPtr<T> allocate_managed(lib::Bytes bytes) const {
-        // Try to allocate sing huge pages.
-        // First 1 GiB, then 2 MiB.
-        void* mmap_ptr_void = MAP_FAILED;
-        size_t requested_bytes = value(bytes);
-        size_t allocated_bytes = 0;
-        for (auto params : hugepage_x86_options) {
-            // Forcing logic.
-            // If the constructor of the allocator really want's huge pages, don't
-            // fallback to 4K pages.
-            if (force_ && params == hugepage_x86_options.back()) {
-                break;
-            }
-
-            // Unpack parameters.
-            auto pagesize = params.pagesize;
-            auto mmap_flags = params.mmap_flags;
-
-            // Round up to the page size.
-            allocated_bytes = lib::round_up_to_multiple_of(requested_bytes, pagesize);
-            mmap_ptr_void = mmap(
-                nullptr,
-                allocated_bytes,
-                PROT_READ | PROT_WRITE,
-                MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE | mmap_flags,
-                -1,
-                0
-            );
-
-            if (mmap_ptr_void != MAP_FAILED) {
-                break;
-            }
-        }
-
-        if (mmap_ptr_void == MAP_FAILED) {
-            throw ANNEXCEPTION(
-                "Hugepage memory map allocation of size ", requested_bytes, " failed!"
-            );
-        }
-
-        return MMapPtr<T>{mmap_ptr_void, allocated_bytes};
-    }
-};
-
-namespace lib::memory {
-// Allocator specifier
-template <> struct IsAllocator<HugepageAllocator> {
-    static constexpr bool value = true;
-};
-
-// Storage Traits
-template <typename T> struct PointerTraits<MMapPtr<T>> : PointerTraitsBase {
-    using value_type = T;
-    using allocator = HugepageAllocator;
-    static constexpr bool disable_implicit_copy = true;
-    // Data Access
-    static T* access(MMapPtr<T>& ptr) { return ptr.data(); }
-    static const T* access(const MMapPtr<T>& ptr) { return ptr.data(); }
-};
-} // namespace lib::memory
-
-/////
-///// Memory Mapper
-/////
-
 ///
 /// @ingroup core_allocators_entry
 /// @brief Allocate memory for a data collection directly from a file using memory mapping.
@@ -397,15 +430,15 @@ class MemoryMapper {
         // Check policy against the filesystem state.
         if (policy_ == MustCreate && exists) {
             throw ANNEXCEPTION(
-                "Memory Map Allocator is configured to create a file (",
-                filename,
-                ") that already exists!"
+                "Memory Map Allocator is configured to create a file ({}) that already "
+                "exists!",
+                filename
             );
         } else if (policy_ == MustUseExisting && !exists) {
             throw ANNEXCEPTION(
-                "Memory Map Allocator is configured to use an existing file (",
-                filename,
-                ") that does not exist!"
+                "Memory Map Allocator is configured to use an existing file ({}) that does "
+                "not exist!",
+                filename
             );
         }
 
@@ -417,9 +450,9 @@ class MemoryMapper {
             auto create_flags = O_RDWR | O_CREAT | O_TRUNC;
             fd = open(filename.c_str(), create_flags, static_cast<mode_t>(0600));
             if (fd == -1) {
-                throw ANNEXCEPTION("Could not create file ", filename, "!");
+                throw ANNEXCEPTION("Could not create file {}!", filename);
             }
-            auto result = lseek(fd, lib::narrow<int64_t>(value(bytes) - 1), SEEK_SET);
+            auto result = lseek(fd, lib::narrow<int64_t>(bytes.value() - 1), SEEK_SET);
             if (result == -1) {
                 close(fd);
                 throw ANNEXCEPTION("Cannot resize mmap file");
@@ -431,28 +464,26 @@ class MemoryMapper {
             }
         } else {
             auto filesize = std::filesystem::file_size(filename);
-            if (filesize < value(bytes)) {
+            if (filesize < bytes.value()) {
                 throw ANNEXCEPTION(
-                    "The size of file (",
-                    filename,
-                    ") to memory map is ",
+                    "The size of file ({}) to memory map is {} which is less than the "
+                    "number of bytes ({}) requested!",
                     filesize,
-                    " which is less than the number of bytes (",
-                    value(bytes),
-                    " requested!"
+                    filename,
+                    bytes.value()
                 );
             }
             // By this point, we found our file and it looks large enough.
             // Time to perform the memory mapping and set our flags appropriately.
             fd = open(filename.c_str(), open_permissions(permission_));
             if (fd == -1) {
-                throw ANNEXCEPTION("Could not open file ", filename, "!");
+                throw ANNEXCEPTION("Could not open file {}!", filename);
             }
         }
         lseek(fd, 0, SEEK_SET);
         void* base = ::mmap(
             nullptr,
-            value(bytes),
+            bytes.value(),
             mmap_permissions(permission_),
             MAP_NORESERVE       // Don't reserve space in DRAM for this until used
                 | MAP_SHARED    // Accessible from all processes
@@ -465,21 +496,7 @@ class MemoryMapper {
         if (base == nullptr || base == MAP_FAILED) {
             throw ANNEXCEPTION("Memory Map Failed!");
         }
-        return MMapPtr<void>(base, value(bytes));
+        return MMapPtr<void>(base, bytes.value());
     }
 };
-
-/////
-///// Parse a string into an allocator type.
-/////
-
-inline StandardAllocators select_memory_style(const std::string& memory_style_str) {
-    if (memory_style_str == "dram") {
-        return HugepageAllocator{};
-    }
-    throw ANNEXCEPTION(
-        "Unsupported memory option (", memory_style_str, "). Use dram/memmap."
-    );
-}
-
 } // namespace svs

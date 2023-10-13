@@ -53,11 +53,11 @@ void build_index(
         max_degree,
         build_search_window_size,
         max_candidate_pool_size,
-        n_threads,
-    };
+        max_degree,
+        true};
 
     auto index = svs::Vamana::build<E>(
-        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type
+        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type, n_threads
     );
     index.save(config_directory, graph_directory, data_directory);
     auto toc = std::chrono::steady_clock::now();

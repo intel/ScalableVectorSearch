@@ -68,9 +68,7 @@ class IDTranslator {
             const size_t i2e = internal_to_external_.size();
 
             if (e2i != i2e) {
-                throw ANNEXCEPTION(
-                    "Size mismatch! E2I is ", e2i, " while I2E is ", i2e, '!'
-                );
+                throw ANNEXCEPTION("Size mismatch! E2I is {} while I2E is {}!", e2i, i2e);
             }
         }
         return external_to_internal_.size();
@@ -106,11 +104,9 @@ class IDTranslator {
         auto internal_count = std::distance(int_begin, int_end);
         if (external_count != internal_count) {
             throw ANNEXCEPTION(
-                "Length of external IDs is ",
+                "Length of external IDs is {} while the length of internal IDs is {}!",
                 external_count,
-                " while the length of internal IDs is ",
-                internal_count,
-                '!'
+                internal_count
             );
         }
 
@@ -321,7 +317,7 @@ class IDTranslator {
     static constexpr std::string_view kind = "external to internal id translation";
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
-    lib::SaveType save(const lib::SaveContext& ctx) const {
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
         auto filename = ctx.generate_name("id_translation", "binary");
         // Save the translations to a file.
         auto stream = lib::open_write(filename);
@@ -330,20 +326,20 @@ class IDTranslator {
             lib::write_binary(stream, i->first);
             lib::write_binary(stream, i->second);
         }
-        auto table = toml::table(
+        return lib::SaveTable(
+            save_version,
             {{"kind", kind},
-             {"num_points", prepare(size())},
-             {"external_id_type", name<datatype_v<external_id_type>>()},
-             {"internal_id_type", name<datatype_v<internal_id_type>>()},
-             {"filename", std::string(filename.filename())}}
+             {"num_points", lib::save(size())},
+             {"external_id_type", lib::save(datatype_v<external_id_type>)},
+             {"internal_id_type", lib::save(datatype_v<internal_id_type>)},
+             {"filename", lib::save(filename.filename())}}
         );
-        return lib::SaveType(std::move(table), save_version);
     }
 
     static IDTranslator load(
         const toml::table& table, const lib::LoadContext& ctx, const lib::Version& version
     ) {
-        if (kind != get(table, "kind").value()) {
+        if (kind != lib::load_at<std::string>(table, "kind")) {
             throw ANNEXCEPTION("Mismatched kind!");
         }
 
@@ -353,18 +349,18 @@ class IDTranslator {
 
         constexpr std::string_view external_id_name = name<datatype_v<external_id_type>>();
         constexpr std::string_view internal_id_name = name<datatype_v<internal_id_type>>();
-        if (external_id_name != get(table, "external_id_type").value()) {
+        if (external_id_name != lib::load_at<std::string>(table, "external_id_type")) {
             throw ANNEXCEPTION("Mismatched external id types!");
         }
-        if (internal_id_name != get(table, "internal_id_type").value()) {
+        if (internal_id_name != lib::load_at<std::string>(table, "internal_id_type")) {
             throw ANNEXCEPTION("Mismatched internal id types!");
         }
 
         // Now that we've more-or-less validated the metadata, time to start loading
         // the points.
-        auto num_points = get<size_t>(table, "num_points");
+        auto num_points = lib::load_at<size_t>(table, "num_points");
         auto translator = IDTranslator{};
-        auto resolved = ctx.get_directory() / get(table, "filename").value();
+        auto resolved = ctx.get_directory() / lib::load_at<std::string>(table, "filename");
         auto stream = lib::open_read(resolved);
         for (size_t i = 0; i < num_points; ++i) {
             auto external_id = lib::read_binary<external_id_type>(stream);
@@ -385,7 +381,7 @@ class IDTranslator {
     ) const {
         for (auto i = begin; i != end; ++i) {
             if (modify(map.contains(*i))) {
-                throw ANNEXCEPTION(message, " ID ", *i, '!');
+                throw ANNEXCEPTION("{} ID {}!", message, *i);
             }
         }
     }

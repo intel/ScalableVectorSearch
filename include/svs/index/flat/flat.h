@@ -18,16 +18,52 @@
 #include "svs/concepts/distance.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/core/loading.h"
 #include "svs/core/query_result.h"
+#include "svs/lib/invoke.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/threads.h"
-#include "svs/lib/traits.h"
-#include "svs/quantization/lvq/lvq.h"
 
 // stdlib
 #include <tuple>
 
 namespace svs::index::flat {
+
+namespace extensions {
+
+struct FlatDistance {
+    template <typename Data, typename Distance>
+    svs::svs_invoke_result_t<FlatDistance, const Data&, const Distance&>
+    operator()(const Data& data, const Distance& distance) const {
+        return svs::svs_invoke(*this, data, distance);
+    }
+};
+
+struct FlatAccessor {
+    template <typename Data>
+    svs::svs_invoke_result_t<FlatAccessor, Data> operator()(const Data& data) const {
+        return svs::svs_invoke(*this, data);
+    }
+};
+
+// Customization point objects.
+inline constexpr FlatDistance distance{};
+inline constexpr FlatAccessor accessor{};
+
+// Default implementations.
+template <typename Data, typename Distance>
+Distance svs_invoke(
+    svs::tag_t<distance>, const Data& SVS_UNUSED(dataset), const Distance& distance
+) {
+    return threads::shallow_copy(distance);
+}
+
+template <typename Data>
+data::GetDatumAccessor svs_invoke(svs::tag_t<accessor>, const Data& SVS_UNUSED(data)) {
+    return data::GetDatumAccessor{};
+}
+
+} // namespace extensions
 
 // The flat index is "special" because we wish to enable the `FlatIndex` to either:
 // (1) Own the data and thread pool.
@@ -269,9 +305,7 @@ class FlatIndex {
                 for (auto i : query_indices) {
                     const auto& neighbors = scratch.result(i);
                     for (size_t j = 0; j < num_neighbors; ++j) {
-                        const auto& neighbor = neighbors[j];
-                        result.index(i, j) = neighbor.id();
-                        result.distance(i, j) = neighbor.distance();
+                        result.set(neighbors[j], i, j);
                     }
                 }
             }
@@ -294,7 +328,7 @@ class FlatIndex {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
                 distance::BroadcastDistance distances{
-                    data_.adapt_distance(distance_), query_indices.size()};
+                    extensions::distance(data_, distance_), query_indices.size()};
 
                 search_patch(
                     queries,
@@ -326,11 +360,12 @@ class FlatIndex {
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         assert(distance_functors.size() >= query_indices.size());
+        auto accessor = extensions::accessor(data_);
 
         // Fix arguments
         for (size_t i = 0; i < query_indices.size(); ++i) {
             distance::maybe_fix_argument(
-                distance_functors[i], queries.get_datum(query_indices[i], data::full_access)
+                distance_functors[i], queries.get_datum(query_indices[i])
             );
         }
 
@@ -340,7 +375,7 @@ class FlatIndex {
                 continue;
             }
 
-            auto datum = data_.get_datum(data_index, data::full_access);
+            auto datum = accessor(data_, data_index);
 
             // Loop over the queries.
             // Compute the distance between each query and the dataset element and insert
@@ -348,9 +383,7 @@ class FlatIndex {
             for (size_t i = 0; i < query_indices.size(); ++i) {
                 auto query_index = query_indices[i];
                 auto d = distance::compute(
-                    distance_functors[i],
-                    queries.get_datum(query_index, data::full_access),
-                    datum
+                    distance_functors[i], queries.get_datum(query_index), datum
                 );
                 scratch.insert(query_index, {data_index, d});
             }
@@ -393,46 +426,18 @@ class FlatIndex {
     }
 };
 
-/// @brief Forward an existing dataset.
-template <data::ImmutableMemoryDataset Data, threads::ThreadPool Pool>
-Data&& load_dataset(
-    NoopLoaderTag SVS_UNUSED(tag), Data&& data, Pool& /*threadpool*/
-) {
-    return std::forward<Data>(data);
-}
-
-/// @brief Load a standard dataset.
-template <typename T, size_t Extent, typename Builder, threads::ThreadPool Pool>
-typename VectorDataLoader<T, Extent, Builder>::return_type load_dataset(
-    VectorDataLoaderTag SVS_UNUSED(tag),
-    const VectorDataLoader<T, Extent, Builder>& loader,
-    Pool& /*threadpool*/
-) {
-    return loader.load();
-}
-
-/// @brief Load a compressed dataset.
-template <typename Loader, threads::ThreadPool Pool>
-auto load_dataset(
-    quantization::lvq::CompressorTag SVS_UNUSED(tag), const Loader& loader, Pool& threadpool
-) {
-    return loader.load(
-        svs::data::PolymorphicBuilder<HugepageAllocator>(), threadpool.size()
-    );
-}
-
 ///
 /// @class hidden_flat_auto_assemble
 ///
 /// data_loader
 /// ===========
 ///
-/// The data loader should be an instance of one of the classes below.
+/// The data loader should be any object loadable via ``svs::detail::dispatch_load``
+/// returning a Vamana compatible dataset. Concrete examples include:
 ///
 /// * An instance of ``VectorDataLoader``.
-/// * An LVQ loader: ``svs::quantization::lvq::OneLevelWithBias``.
+/// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
 /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
-///
 ///
 
 ///
@@ -454,11 +459,7 @@ auto auto_assemble(
     DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto
 ) {
     auto threadpool = threads::as_threadpool(threadpool_proto);
-    auto data = load_dataset(
-        lib::loader_tag<std::decay_t<DataProto>>,
-        std::forward<DataProto>(data_proto),
-        threadpool
-    );
+    auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
     return FlatIndex(std::move(data), std::move(distance), std::move(threadpool));
 }
 

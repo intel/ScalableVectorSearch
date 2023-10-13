@@ -116,17 +116,15 @@ class ManagerImpl : public IFace {
         // Generalizing this to multiple query types will require some metaprogramming
         // dances.
         if (data.type() == datatype_v<QueryType>) {
-            const auto view = data::ConstSimpleDataView(
+            const auto view = data::ConstSimpleDataView<QueryType>(
                 data.template get_unchecked<QueryType>(), dim0, dim1
             );
             implementation_.search(view, nneighbors, result);
         } else {
             throw ANNEXCEPTION(
-                "Unsupported data type! Got: ",
+                "Unsupported datatype! Got: {}. Expected: {}.",
                 data.type(),
-                ".  Expected: ",
-                datatype_v<QueryType>,
-                '.'
+                (datatype_v<QueryType>)
             );
         }
     }

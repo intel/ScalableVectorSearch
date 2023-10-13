@@ -37,10 +37,18 @@ using svs::meta::unwrap;
 //
 // Support for this might not be fully in place but should be relatively straight-forward
 // to add.
-using Allocators = svs::HugepageAllocator;
+using Allocator = svs::HugepageAllocator<std::byte>;
+
+// Functor to wrap an allocator inside a blocked struct.
+inline constexpr auto as_blocked = [](const auto& allocator) {
+    return svs::data::Blocked<std::decay_t<decltype(allocator)>>{allocator};
+};
+
+template <typename T>
+using RebindAllocator = typename std::allocator_traits<Allocator>::rebind_alloc<T>;
 
 // Standard loaders.
-using UnspecializedVectorDataLoader = svs::UnspecializedVectorDataLoader<Allocators>;
+using UnspecializedVectorDataLoader = svs::UnspecializedVectorDataLoader<Allocator>;
 
 class UnspecializedGraphLoader {
   public:
@@ -48,20 +56,17 @@ class UnspecializedGraphLoader {
     UnspecializedGraphLoader(const std::filesystem::path& path)
         : path_{path} {}
 
-    svs::GraphLoader<uint32_t, svs::data::PolymorphicBuilder<Allocators>> refine() const {
-        return svs::GraphLoader<uint32_t, svs::data::PolymorphicBuilder<Allocators>>(
-            path_, svs::data::PolymorphicBuilder(allocator_)
-        );
-    }
+    const std::filesystem::path& path() const { return path_; }
+    const Allocator& allocator() const { return allocator_; }
 
-    template <typename Builder>
-    svs::GraphLoader<uint32_t, Builder> refine(Builder builder) const {
-        return svs::GraphLoader<uint32_t, Builder>{path_, std::move(builder)};
+    svs::graphs::SimpleGraph<uint32_t> load() const {
+        using other = std::allocator_traits<Allocator>::rebind_alloc<uint32_t>;
+        return svs::graphs::SimpleGraph<uint32_t, other>::load(path_, other(allocator_));
     }
 
   private:
     std::filesystem::path path_;
-    Allocators allocator_{};
+    Allocator allocator_{};
 };
 
 // Distance Aliases
@@ -75,11 +80,11 @@ using DistanceIP = svs::distance::DistanceIP;
 // Compressors - online compression of existing data
 using LVQReloader = svs::quantization::lvq::Reload;
 
-using LVQ8 = svs::quantization::lvq::UnspecializedOneLevelWithBias<8>;
-using LVQ4 = svs::quantization::lvq::UnspecializedOneLevelWithBias<4>;
-using LVQ4x4 = svs::quantization::lvq::UnspecializedTwoLevelWithBias<4, 4>;
-using LVQ4x8 = svs::quantization::lvq::UnspecializedTwoLevelWithBias<4, 8>;
-using LVQ8x8 = svs::quantization::lvq::UnspecializedTwoLevelWithBias<8, 8>;
+using LVQ8 = svs::quantization::lvq::ProtoLVQLoader<8, 0, Allocator>;
+using LVQ4 = svs::quantization::lvq::ProtoLVQLoader<4, 0, Allocator>;
+using LVQ4x4 = svs::quantization::lvq::ProtoLVQLoader<4, 4, Allocator>;
+using LVQ4x8 = svs::quantization::lvq::ProtoLVQLoader<4, 8, Allocator>;
+using LVQ8x8 = svs::quantization::lvq::ProtoLVQLoader<8, 8, Allocator>;
 
 namespace core {
 void wrap(pybind11::module& m);

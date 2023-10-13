@@ -13,7 +13,6 @@
 #include "svs/core/compact.h"
 
 // Utility headers
-#include "svs/core/data/block.h"
 #include "svs/core/data/simple.h"
 
 // catch2

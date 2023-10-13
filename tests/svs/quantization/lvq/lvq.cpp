@@ -41,19 +41,16 @@ namespace {
 //
 // }
 
-template <typename T, size_t N, typename Distance> void test_lvq_top() {
+template <typename T, size_t N> void test_lvq_top() {
     // First, construct an online compression.
-    auto vector_data_file = svs::VectorDataLoader<float, N>{test_dataset::data_svs_file()};
-    auto loader = T{vector_data_file};
-    auto lvq_dataset = loader.load();
+    auto lvq_dataset =
+        T::compress(svs::data::SimpleData<float, N>::load(test_dataset::data_svs_file()));
 
     // Try saving and reloading.
     svs_test::prepare_temp_directory();
     auto temp_dir = svs_test::temp_directory();
-    svs::lib::save(lvq_dataset, temp_dir);
-    loader = T{lvq::Reload(temp_dir)};
-    auto reloaded_lvq_dataset = loader.load();
-
+    svs::lib::save_to_disk(lvq_dataset, temp_dir);
+    auto reloaded_lvq_dataset = svs::lib::load_from_disk<T>(temp_dir);
     static_assert(std::is_same_v<decltype(lvq_dataset), decltype(reloaded_lvq_dataset)>);
 }
 
@@ -80,14 +77,12 @@ CATCH_TEST_CASE("End-to-End Vector Quantization", "[quantization][lvq]") {
 
     // One Level Compression.
     CATCH_SECTION("One Level Compression") {
-        test_lvq_top<lvq::OneLevelWithBias<8, 128>, 128, DistanceL2>();
-        test_lvq_top<lvq::OneLevelWithBias<8, 128>, 128, DistanceIP>();
-        test_lvq_top<lvq::OneLevelWithBias<4, 128>, 128, DistanceL2>();
-        test_lvq_top<lvq::OneLevelWithBias<4, 128>, 128, DistanceIP>();
+        test_lvq_top<lvq::LVQDataset<8, 0, 128>, 128>();
+        test_lvq_top<lvq::LVQDataset<4, 0, 128>, 128>();
     }
 
     CATCH_SECTION("Two Level Compression") {
-        test_lvq_top<lvq::TwoLevelWithBias<4, 4, 128>, 128, DistanceL2>();
-        test_lvq_top<lvq::TwoLevelWithBias<4, 4, 128>, 128, DistanceIP>();
+        test_lvq_top<lvq::LVQDataset<4, 4, 128>, 128>();
+        test_lvq_top<lvq::LVQDataset<4, 4, 128>, 128>();
     }
 }

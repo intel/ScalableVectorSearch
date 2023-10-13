@@ -451,11 +451,9 @@ class CompressedVectorBase {
     {
         if (!(encoding_type::check_bounds(v0))) {
             throw ANNEXCEPTION(
-                "Value of type ",
+                "Value of type {} cannot be expressed using {} bits!",
                 static_cast<int>(v0),
-                " cannot be expressed using ",
-                bits,
-                " bits!"
+                bits
             );
         }
         uint8_t v = encode(v0);

@@ -27,11 +27,11 @@ inline bool check_file(const std::filesystem::path& path, std::ios_base::openmod
         auto status = fs::status(path);
         bool exists = fs::exists(path);
         if (!exists || !fs::status_known(status) || fs::is_directory(status)) {
-            throw ANNEXCEPTION("Trying to open non-existent file ", path, " for reading!");
+            throw ANNEXCEPTION("Trying to open non-existent file {} for reading!", path);
         }
 
         if (fs::is_empty(path)) {
-            throw ANNEXCEPTION("Trying to open empty file ", path, " for reading!");
+            throw ANNEXCEPTION("Trying to open empty file {} for reading!", path);
         }
     }
 
@@ -39,7 +39,7 @@ inline bool check_file(const std::filesystem::path& path, std::ios_base::openmod
         // Check that the directory exists.
         if (path.has_parent_path() && !fs::is_directory(path.parent_path())) {
             throw ANNEXCEPTION(
-                "Trying to open a file ", path, " for writing in a non-existent directory!"
+                "Trying to open a file {} for writing in a non-existent directory!", path
             );
         }
     }

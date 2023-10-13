@@ -34,6 +34,8 @@ template <size_t N> class MaybeStatic {
   public:
     /// Construct a new instance of this class.
     constexpr MaybeStatic() = default;
+    constexpr MaybeStatic(ZeroInitializer)
+        : MaybeStatic() {}
 
     ///
     /// @brief Construct with checking.
@@ -43,11 +45,10 @@ template <size_t N> class MaybeStatic {
     constexpr explicit MaybeStatic(size_t size) {
         if (size != N) {
             throw ANNEXCEPTION(
-                "Tying to construct a static length of value ",
+                "Tying to construct a static length of value {} with a runtime value of "
+                "{}!",
                 N,
-                " with a runtime value of ",
-                size,
-                '!'
+                size
             );
         }
     }
@@ -72,6 +73,8 @@ template <> class MaybeStatic<Dynamic> {
   public:
     /// Default constructor is deleted to avoid uninitialized sizes.
     MaybeStatic() = delete;
+    constexpr explicit MaybeStatic(ZeroInitializer)
+        : MaybeStatic(0) {}
 
     /// Construct a new instance with the given runtime size.
     constexpr explicit MaybeStatic(size_t size)

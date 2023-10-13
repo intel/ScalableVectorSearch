@@ -28,7 +28,8 @@ namespace py = pybind11;
 namespace allocators {
 void wrap(pybind11::module& m) {
     // Hugepage Allocator
-    py::class_<svs::HugepageAllocator> dram_allocator(
+    // Use `std::byte` as a stand-in for various rebindings that will be used.
+    py::class_<svs::HugepageAllocator<std::byte>> dram_allocator(
         m,
         "DRAM",
         R"(

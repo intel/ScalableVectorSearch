@@ -48,8 +48,8 @@ CATCH_TEST_CASE("Data Loading/Saving", "[core][data]") {
     svs_test::prepare_temp_directory();
     auto temp_directory = svs_test::temp_directory();
 
-    CATCH_SECTION("Polymorphic Data") {
-        auto x = svs::data::SimplePolymorphicData<float, svs::Dynamic>(10, 10);
+    CATCH_SECTION("Data") {
+        auto x = svs::data::SimpleData<float, svs::Dynamic>(10, 10);
 
         // Populate the contents of `x`.
         set_sequential(x);
@@ -57,7 +57,7 @@ CATCH_TEST_CASE("Data Loading/Saving", "[core][data]") {
         CATCH_REQUIRE(x == x);
 
         // Save to the temporary directory.
-        svs::lib::save(x, temp_directory);
+        svs::lib::save_to_disk(x, temp_directory);
         auto loader = svs::VectorDataLoader<float, 10>(temp_directory);
         auto y = loader.load();
         CATCH_REQUIRE(x == y);
@@ -71,7 +71,7 @@ CATCH_TEST_CASE("Data Loading/Saving", "[core][data]") {
         CATCH_REQUIRE_THROWS_AS(wrongloader.load(), svs::ANNException);
 
         ///// Make sure the loading escape hatch works.
-        auto z = svs::data::SimplePolymorphicData<float, svs::Dynamic>(10, 10);
+        auto z = svs::data::SimpleData<float, svs::Dynamic>(10, 10);
         set_sequential(z, [](auto x) { return x + 100; });
         CATCH_REQUIRE(z != x);
 
