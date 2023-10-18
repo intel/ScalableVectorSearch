@@ -50,12 +50,12 @@ svs::Vamana build_index(
         max_degree,
         build_search_window_size,
         max_candidate_pool_size,
-        n_threads,
-    };
+        max_degree,
+        true};
 
     auto tic = svs::lib::now();
     svs::Vamana index = svs::Vamana::build<E>(
-        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type
+        parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type, n_threads
     );
 
     auto diff = svs::lib::time_difference(tic);
@@ -82,24 +82,24 @@ CATCH_TEST_CASE("Test Building", "[integration][build]") {
         {100, 0.74538}};
 
     const std::map<size_t, double> result_map_mip{
-        {2, 0.0875},
-        {3, 0.11333},
-        {4, 0.13275},
-        {5, 0.1588},
-        {10, 0.2319},
-        {20, 0.33925},
-        {50, 0.52666},
-        {100, 0.67991}};
+        {2, 0.09},
+        {3, 0.1156667},
+        {4, 0.143},
+        {5, 0.1642},
+        {10, 0.242},
+        {20, 0.35485},
+        {50, 0.53504},
+        {100, 0.68658}};
 
     const std::map<size_t, double> result_map_cosine{
         {2, 0.0725},
-        {3, 0.100333},
-        {4, 0.1185},
+        {3, 0.0976666},
+        {4, 0.1165},
         {5, 0.1392},
-        {10, 0.2146},
-        {20, 0.31415},
-        {50, 0.5055},
-        {100, 0.67052}};
+        {10, 0.2136},
+        {20, 0.32545},
+        {50, 0.51474},
+        {100, 0.67853}};
 
     const auto result_map = std::map<svs::DistanceType, std::map<size_t, double>>{
         {svs::L2, result_map_l2},
@@ -109,7 +109,7 @@ CATCH_TEST_CASE("Test Building", "[integration][build]") {
     // Note: can't construct from an initializer list because initializer lists want to
     // copy.
     auto groundtruth_map =
-        std::unordered_map<svs::DistanceType, svs::data::SimplePolymorphicData<uint32_t>>{};
+        std::unordered_map<svs::DistanceType, svs::data::SimpleData<uint32_t>>{};
     groundtruth_map.emplace(svs::L2, test_dataset::groundtruth_euclidean());
     groundtruth_map.emplace(svs::MIP, test_dataset::groundtruth_mip());
     groundtruth_map.emplace(svs::Cosine, test_dataset::groundtruth_cosine());
@@ -134,7 +134,7 @@ CATCH_TEST_CASE("Test Building", "[integration][build]") {
         const auto& expected_results = result_map.at(distance_type);
         const double epsilon = 0.01;
 
-        const auto queries = svs::io::auto_load<float>(test_dataset::query_file());
+        const auto queries = svs::load_data<float>(test_dataset::query_file());
         for (auto [windowsize, expected_recall] : expected_results) {
             index.set_search_window_size(windowsize);
             auto results = index.search(queries, windowsize);

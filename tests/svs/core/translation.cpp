@@ -228,8 +228,8 @@ CATCH_TEST_CASE("Translation Table", "[core][translation]") {
             svs_test::prepare_temp_directory();
             auto tempdir = svs_test::temp_directory();
 
-            svs::lib::save(translator, tempdir);
-            auto reloaded = svs::lib::load<svs::IDTranslator>(tempdir);
+            svs::lib::save_to_disk(translator, tempdir);
+            auto reloaded = svs::lib::load_from_disk<svs::IDTranslator>(tempdir);
 
             check(translator, external_ids, internal_ids);
             check(reloaded, external_ids, internal_ids);

@@ -110,9 +110,7 @@ void test_flat(Index& index, const Queries& queries, const GroundTruth& groundtr
 // Test the single-threaded implementation.
 CATCH_TEST_CASE("Flat Index", "[integration][exhaustive]") {
     auto queries = test_dataset::queries();
-
-    auto data = svs::io::load_dataset<float, svs::Dynamic>(svs::io::v1::NativeFile{
-        test_dataset::data_svs_file()});
+    auto data = svs::load_data<float>(test_dataset::data_svs_file());
 
     std::cout << "Data size: (" << data.size() << ", " << data.dimensions() << ")"
               << std::endl;
@@ -165,8 +163,7 @@ CATCH_TEST_CASE("Top Level Searcher", "[integration][exhaustive]") {
 
     // Load data using both the file path method and from a direct file.
     // Use the `DefaultAllocator` to allow implicit copies.
-    auto data = svs::io::load_dataset<float, svs::Dynamic>(svs::io::v1::NativeFile{
-        test_dataset::data_svs_file()});
+    auto data = svs::load_data<float>(test_dataset::data_svs_file());
 
     CATCH_SECTION("Euclidean") {
         // From file

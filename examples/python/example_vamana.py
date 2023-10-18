@@ -15,10 +15,10 @@ def assert_equal(lhs, rhs, message: str = ""):
 
 def run_test_float(index, queries, groundtruth):
     expected = {
-        10: 0.5996,
-        20: 0.7483,
-        30: 0.8242,
-        40: 0.8651,
+        10: 0.5664,
+        20: 0.7397,
+        30: 0.8288,
+        40: 0.8837,
     }
 
     for window_size in range(10, 50, 10):
@@ -31,10 +31,10 @@ def run_test_float(index, queries, groundtruth):
 
 def run_test_onelevel8(index, queries, groundtruth):
     expected = {
-        10: 0.5993,
-        20: 0.7477,
-        30: 0.8227,
-        40: 0.8634,
+        10: 0.5676,
+        20: 0.7405,
+        30: 0.8266,
+        40: 0.8804,
     }
 
     for window_size in range(10, 50, 10):
@@ -47,10 +47,10 @@ def run_test_onelevel8(index, queries, groundtruth):
 
 def run_test_build_onelevel8(index, queries, groundtruth):
     expected = {
-        10: 0.6005,
-        20: 0.7482,
-        30: 0.822,
-        40: 0.863,
+        10: 0.5703,
+        20: 0.7407,
+        30: 0.8278,
+        40: 0.8799,
     }
 
     for window_size in range(10, 50, 10):
@@ -90,7 +90,6 @@ def run():
     parameters = pysvs.VamanaBuildParameters(
         graph_max_degree = 64,
         window_size = 128,
-        num_threads = 4,
     )
     # [build-parameters]
 
@@ -102,6 +101,7 @@ def run():
             os.path.join(test_data_dir, "data.fvecs"), pysvs.DataType.float32
         ),
         pysvs.DistanceType.L2,
+        num_threads = 4,
     )
     # [build-index]
 
@@ -112,6 +112,7 @@ def run():
         parameters,
         data,
         pysvs.DistanceType.L2,
+        num_threads = 4,
     )
     # [build-index-fromNumpyArray]
 
@@ -129,7 +130,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8242)
+    assert(recall == 0.8288)
     # [perform-queries]
 
     # [search-window-size]
@@ -177,7 +178,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8242)
+    assert(recall == 0.8288)
     # [loading]
 
     ##### Begin Test
@@ -233,7 +234,7 @@ def run():
     I, D = index.search(queries, 10)
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Compressed recall: {recall}")
-    assert(recall == 0.8227)
+    assert(recall == 0.8266)
     # [search-compressed]
 
     ##### Begin Test
@@ -246,6 +247,7 @@ def run():
         parameters,
         compressed_loader,
         pysvs.DistanceType.L2,
+        num_threads = 4
     )
     # [build-index-compressed]
 
@@ -260,7 +262,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.822)
+    assert(recall == 0.8278)
     # [loading]
 
     ##### Begin Test

@@ -22,57 +22,18 @@ namespace svs::quantization::lvq {
 //
 // Summary of Dataset Types defined in this file.
 //
-// -- CompressedDataset<Sign, Bits, Extent>
+// -- CompressedDataset<Sign, Bits, Extent, Allocator>
 // A compressed dataset storing only quantized data with no scaling or bias.
 //
-// -- ScaledBiasedDataset<Bits, Extent>
+// -- ScaledBiasedDataset<Bits, Extent, Allocator>
 // Each vector is encoded using two constants, a bias (the smallest value any dimension
 // can take) and a scaling parameter.
 //
 
-// Backing storage for LVQ datasets.
-struct FlatStorage {
-    // Require this static member to provide some static asserts in the dataset
-    // implementations.
-    //
-    // Basically, leave some bread-crumbs for when we inevitably return to it.
-    static constexpr bool is_lvq_storage_tag = true;
-    static constexpr bool is_resizeable = false;
-
-    template <size_t Extent = Dynamic>
-    using type = data::SimplePolymorphicData<std::byte, Extent>;
-
-    using builder = data::PolymorphicBuilder<HugepageAllocator>;
-
-    template <size_t Extent = Dynamic>
-    using loader_type = VectorDataLoader<std::byte, Extent, builder>;
-};
-
-struct BlockedStorage {
-    static constexpr bool is_lvq_storage_tag = true;
-    static constexpr bool is_resizeable = true;
-
-    template <size_t Extent = Dynamic> using type = data::BlockedData<std::byte, Extent>;
-
-    using builder = data::BlockedBuilder;
-
-    template <size_t Extent = Dynamic>
-    using loader_type = VectorDataLoader<std::byte, Extent, builder>;
-};
-
 namespace detail {
-
-template <typename T> struct StorageTag;
-template <typename Allocator> struct StorageTag<data::PolymorphicBuilder<Allocator>> {
-    using type = FlatStorage;
-};
-
-template <> struct StorageTag<data::BlockedBuilder> {
-    using type = BlockedStorage;
-};
+template <typename A> inline constexpr bool is_blocked = false;
+template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
 } // namespace detail
-
-template <typename T> using get_storage_tag = typename detail::StorageTag<T>::type;
 
 /////
 ///// Layout Helpers
@@ -109,8 +70,9 @@ template <size_t Bits, size_t Extent> class ScaledBiasedVectorLayout {
 
     template <typename T, size_t N>
         requires(std::is_same_v<std::remove_cv_t<T>, std::byte>)
-    CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>>
-    vector(std::span<T, N> raw_data) const {
+    CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>> vector(
+        std::span<T, N> raw_data
+    ) const {
         return CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>>(
             AllowShrinkingTag(), dims_, raw_data
         );
@@ -168,7 +130,7 @@ template <size_t Bits, size_t Extent> class ScaledBiasedVectorLayout {
 namespace detail {
 template <typename T, typename U> void assert_equal(T&& x, U&& y) {
     if (x != y) {
-        throw ANNEXCEPTION("Validation mismatch. Got ", x, ". Expected ", y, '!');
+        throw ANNEXCEPTION("Validation mismatch. Got {}. Expected {}!", x, y);
     }
 }
 } // namespace detail
@@ -176,12 +138,15 @@ template <typename T, typename U> void assert_equal(T&& x, U&& y) {
 ///
 /// Compressed Dataset
 ///
-template <typename Sign, size_t Bits, size_t Extent, typename Storage = FlatStorage>
+template <
+    typename Sign,
+    size_t Bits,
+    size_t Extent,
+    typename Alloc = lib::Allocator<std::byte>>
 class CompressedDataset {
-    static_assert(Storage::is_lvq_storage_tag);
-
   public:
-    static constexpr bool is_resizeable = Storage::is_resizeable;
+    static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
+    using allocator_type = Alloc;
 
     ///
     /// The number of bits used for this encoding.
@@ -196,10 +161,7 @@ class CompressedDataset {
     /// The compile-time dimensionality of the raw byte storage backing the compressed
     /// data.
     ///
-    static constexpr size_t data_extent = compute_storage_extent(Bits, Extent);
-    using dataset_type = typename Storage::template type<data_extent>;
-    using dataset_loader = typename Storage::template loader_type<data_extent>;
-    using default_builder_type = typename Storage::builder;
+    using dataset_type = data::SimpleData<std::byte, Dynamic, allocator_type>;
 
     static size_t total_bytes(lib::MaybeStatic<Extent> dims) {
         return const_value_type::compute_bytes(dims);
@@ -208,12 +170,14 @@ class CompressedDataset {
     ///
     /// Allocate an empty dataset.
     ///
-    template <typename Builder = default_builder_type>
     CompressedDataset(
-        size_t size, lib::MaybeStatic<Extent> dims = {}, const Builder& builder = Builder{}
+        size_t size, lib::MaybeStatic<Extent> dims, const allocator_type& allocator
     )
         : dims_{dims}
-        , data_{data::build<std::byte, data_extent>(builder, size, total_bytes(dims))} {}
+        , data_{size, total_bytes(dims), allocator} {}
+
+    CompressedDataset(size_t size, lib::MaybeStatic<Extent> dims = {})
+        : CompressedDataset{size, dims, allocator_type{}} {}
 
     CompressedDataset(dataset_type data, lib::MaybeStatic<Extent> dims = {})
         : dims_{dims}
@@ -229,6 +193,7 @@ class CompressedDataset {
     lib::MaybeStatic<Extent> static_dims() const { return dims_; }
     size_t dimensions() const { return static_dims(); }
     void prefetch(size_t i) const { data_.prefetch(i); }
+    const allocator_type& get_allocator() const { return data_.get_allocator(); }
 
     value_type get_datum(size_t i) {
         return value_type(AllowShrinkingTag(), static_dims(), data_.get_datum(i));
@@ -265,18 +230,18 @@ class CompressedDataset {
 
     static constexpr std::string_view kind = "compressed dataset";
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
-        return lib::SaveType(
-            toml::table({
-                {"inner", lib::recursive_save(data_, ctx)},
-                {"kind", kind},
-                {"sign", Sign::name},
-                {"bits", prepare(Bits)},
-                {"ndims", prepare(dimensions())},
-                {"data_dims", prepare(data_.dimensions())},
-                {"num_points", prepare(size())},
-            }),
-            save_version
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        return lib::SaveTable(
+            save_version,
+            {
+                {"inner", lib::save(data_, ctx)},
+                SVS_LIST_SAVE(kind),
+                {"sign", lib::save(Sign::name)},
+                {"bits", lib::save(Bits)},
+                {"ndims", lib::save(dimensions())},
+                {"data_dims", lib::save(data_.dimensions())},
+                {"num_points", lib::save(size())},
+            }
         );
     }
 
@@ -284,25 +249,23 @@ class CompressedDataset {
         const toml::table& table,
         const lib::LoadContext& ctx,
         const lib::Version& version,
-        const default_builder_type& builder = {}
+        const allocator_type& allocator = {}
     ) {
         if (version != save_version) {
             throw ANNEXCEPTION("Unhandled version!");
         }
 
         // Parse and validate.
-        detail::assert_equal(get(table, "kind").value(), kind);
-        detail::assert_equal(get(table, "sign").value(), Sign::name);
-        detail::assert_equal(get<size_t>(table, "bits"), Bits);
-        auto ndims = get<size_t>(table, "ndims");
+        detail::assert_equal(lib::load_at<std::string>(table, "kind"), kind);
+        detail::assert_equal(lib::load_at<std::string>(table, "sign"), Sign::name);
+        detail::assert_equal(lib::load_at<size_t>(table, "bits"), Bits);
+        auto ndims = lib::load_at<size_t>(table, "ndims");
         if constexpr (Extent != Dynamic) {
             detail::assert_equal(ndims, Extent);
         }
         // Load the sub-table.
         return CompressedDataset(
-            lib::recursive_load(
-                dataset_loader(lib::InferPath(), builder), subtable(table, "inner"), ctx
-            ),
+            lib::load_at<dataset_type>(table, "inner", ctx, allocator),
             lib::MaybeStatic<Extent>(ndims)
         );
     }
@@ -316,25 +279,19 @@ class CompressedDataset {
 /// ScaledBiasedDataset
 ///
 
-template <size_t Bits, size_t Extent, typename Storage = FlatStorage>
+template <size_t Bits, size_t Extent, typename Alloc = lib::Allocator<std::byte>>
 class ScaledBiasedDataset {
-    // Sanity check on the storage type parameter.
-    static_assert(Storage::is_lvq_storage_tag);
-
   public:
-    static constexpr bool is_resizeable = Storage::is_resizeable;
+    static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
     using helper_type = ScaledBiasedVectorLayout<Bits, Extent>;
+    using allocator_type = Alloc;
 
     using compressed_vector_type = CompressedVector<Unsigned, Bits, Extent>;
     using Encoded_value_type = typename compressed_vector_type::value_type;
-    static constexpr bool supports_saving = false;
     // Pad data extent to be a multiple of half the underlying cache line size for better
     // bandwidth characteristics.
     static constexpr size_t encoding_bits = Bits;
-    using dataset_type = typename Storage::template type<Dynamic>;
-    using centroid_type = data::SimpleData<float, Dynamic>;
-    using dataset_loader = typename Storage::template loader_type<Dynamic>;
-    using default_builder_type = typename Storage::builder;
+    using dataset_type = data::SimpleData<std::byte, Dynamic, allocator_type>;
 
     static constexpr size_t compressed_vector_extent =
         compressed_vector_type::storage_extent;
@@ -356,29 +313,26 @@ class ScaledBiasedDataset {
     ///
     /// Flat storage can accept an allocator.
     ///
-    template <typename Builder = default_builder_type>
     ScaledBiasedDataset(
         size_t size,
-        lib::MaybeStatic<Extent> dims = {},
-        size_t alignment = 0,
-        const Builder& builder = Builder{}
+        lib::MaybeStatic<Extent> dims,
+        size_t alignment,
+        const allocator_type& allocator
     )
         : layout_helper_{dims}
         , alignment_{alignment}
-        , centroids_{std::make_shared<centroid_type>(1, dims)}
-        , data_{data::build<std::byte, Dynamic>(
-              builder, size, compute_data_dimensions(layout_helper_, alignment)
-          )} {}
+        , data_{size, compute_data_dimensions(layout_helper_, alignment), allocator} {}
 
     ScaledBiasedDataset(
-        dataset_type data,
-        std::shared_ptr<centroid_type> centroids,
-        size_t alignment,
-        lib::MaybeStatic<Extent> dims = {}
+        size_t size, lib::MaybeStatic<Extent> dims = {}, size_t alignment = 0
+    )
+        : ScaledBiasedDataset(size, dims, alignment, allocator_type{}) {}
+
+    ScaledBiasedDataset(
+        dataset_type data, size_t alignment, lib::MaybeStatic<Extent> dims = {}
     )
         : layout_helper_{dims}
         , alignment_{alignment}
-        , centroids_{std::move(centroids)}
         , data_{std::move(data)} {
         auto data_dims = data_.dimensions();
         if (data_dims < compute_data_dimensions(layout_helper_)) {
@@ -392,26 +346,7 @@ class ScaledBiasedDataset {
     }
 
     size_t get_alignment() const { return alignment_; }
-
-    ///// Set the centroids.
-    template <size_t OtherExtent>
-    void set_centroids(const data::SimpleData<float, OtherExtent>& centroids) {
-        // Perform a size check on the other centroids.
-        auto centroid_dims = centroids.dimensions();
-        auto dims = dimensions();
-        if (centroid_dims != dims) {
-            auto message = fmt::format(
-                "Trying to assign centroids with {} dimensions to a dataset with {}",
-                centroid_dims,
-                dims
-            );
-            throw ANNEXCEPTION(message);
-        }
-
-        // Create an appropriately sized destination and copy.
-        centroids_ = std::make_shared<centroid_type>(centroids.size(), centroid_dims);
-        data::copy(centroids, *centroids_);
-    }
+    const allocator_type& get_allocator() const { return data_.get_allocator(); }
 
     ///// Dataset Inteface
     // N.B.: ScaledBiasedVector is immutable.
@@ -439,10 +374,6 @@ class ScaledBiasedDataset {
         layout_helper_.set(data_.get_datum(i), data);
     }
 
-    ///// Get the underlying centroids.
-    std::shared_ptr<const centroid_type> view_centroids() const { return centroids_; }
-    std::span<const float> get_centroid(size_t i) const { return centroids_->get_datum(i); }
-
     ///// Resizing
     void resize(size_t new_size)
         requires is_resizeable
@@ -463,24 +394,26 @@ class ScaledBiasedDataset {
     /////
 
     static constexpr std::string_view kind = "scaled biased compressed dataset";
-    static constexpr lib::Version save_version = lib::Version(0, 0, 1);
 
-    lib::SaveType save(const lib::SaveContext& ctx) const {
+    // Version History
+    // v0.0.1 - Unknown Change.
+    // v0.0.2 - BREAKING
+    //   - Removed centroids from being stored with the ScaledBiasedCompressedDataset.
+    //     Centroids are now stored in the higher level LVQ dataset.
+    static constexpr lib::Version save_version = lib::Version(0, 0, 2);
+
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
         // TODO: Enable support for saving and reloading padded datasets.
         size_t padding = data_.dimensions() - layout_helper_.total_bytes();
-        return lib::SaveType(
-            toml::table(
-                {{"inner", lib::recursive_save(data_, ctx)},
-                 {"centroids", lib::recursive_save(*centroids_, ctx)},
-                 {"num_centroids", prepare(centroids_->size())},
-                 {"kind", kind},
-                 {"bits", prepare(Bits)},
-                 {"ndims", prepare(dimensions())},
-                 {"data_dims", prepare(data_.dimensions())},
-                 {"padding", prepare(padding)},
-                 {"num_points", prepare(size())}}
-            ),
-            save_version
+        return lib::SaveTable(
+            save_version,
+            {{"inner", lib::save(data_, ctx)},
+             {"kind", lib::save(kind)},
+             {"bits", lib::save(Bits)},
+             {"ndims", lib::save(dimensions())},
+             {"data_dims", lib::save(data_.dimensions())},
+             {"padding", lib::save(padding)},
+             {"num_points", lib::save(size())}}
         );
     }
 
@@ -488,37 +421,24 @@ class ScaledBiasedDataset {
         const toml::table& table,
         const lib::LoadContext& ctx,
         const lib::Version& version,
-        const default_builder_type& builder = default_builder_type()
+        const allocator_type& allocator = {}
     ) {
         if (version != save_version) {
             throw ANNEXCEPTION("Unhandled version!");
         }
 
         // Parse and validate.
-        detail::assert_equal(get(table, "kind").value(), kind);
-        detail::assert_equal(get<size_t>(table, "bits"), Bits);
-        auto ndims = get<size_t>(table, "ndims");
+        detail::assert_equal(lib::load_at<std::string>(table, "kind"), kind);
+        detail::assert_equal(lib::load_at<size_t>(table, "bits"), Bits);
+        auto ndims = lib::load_at<size_t>(table, "ndims");
         if constexpr (Extent != Dynamic) {
             detail::assert_equal(ndims, Extent);
         }
 
-        // TODO: Enable direct loading to SimpleData
-        auto centroids_poly = lib::recursive_load(
-            VectorDataLoader<float>(), subtable(table, "centroids"), ctx
-        );
-
-        auto centroids = std::make_shared<centroid_type>(
-            centroids_poly.size(), centroids_poly.dimensions()
-        );
-        data::copy(centroids_poly, *centroids);
-
         // Load the sub-table.
         return ScaledBiasedDataset(
-            lib::recursive_load(
-                dataset_loader(lib::InferPath(), builder), subtable(table, "inner"), ctx
-            ),
-            std::move(centroids),
-            get<size_t>(table, "data_dims"),
+            lib::load_at<dataset_type>(table, "inner", ctx, allocator),
+            lib::load_at<size_t>(table, "data_dims"),
             lib::MaybeStatic<Extent>(ndims)
         );
     }
@@ -526,7 +446,6 @@ class ScaledBiasedDataset {
   private:
     [[no_unique_address]] helper_type layout_helper_;
     size_t alignment_;
-    std::shared_ptr<centroid_type> centroids_;
     dataset_type data_;
 };
 } // namespace svs::quantization::lvq

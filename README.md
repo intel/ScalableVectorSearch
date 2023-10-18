@@ -28,12 +28,12 @@ different configurations of SVS yield significantly increased performance (measu
 SVS is primarily optimized for large-scale similarity search but it still offers [state-of-the-art performance
 at million-scale](https://intellabs.github.io/ScalableVectorSearch/benchs/small_scale_benchs.html).
 
-Best performance is obtained with 4th generation (Sapphire Rapids) by making use of AVX-512 instructions, 
-with excellent results also with 2nd and 3rd Intel &reg; Xeon &reg; processors (Cascade Lake 
+Best performance is obtained with 4th generation (Sapphire Rapids) by making use of AVX-512 instructions,
+with excellent results also with 2nd and 3rd Intel &reg; Xeon &reg; processors (Cascade Lake
 and Ice Lake).
 
-Performance will be degraded if AVX-512 instructions are not available. 
-A warning message will appear when loading the SVS Python module if the system does not support 
+Performance will be degraded if AVX-512 instructions are not available.
+A warning message will appear when loading the SVS Python module if the system does not support
 AVX-512 instructions.
 
 ## Key Features
@@ -117,10 +117,10 @@ Reference to cite when you use SVS in a research paper:
 @article{aguerrebere2023similarity,
         title={Similarity search in the blink of an eye with compressed indices},
         volume = {16},
-        number = {11},    
-        pages = {3433--3446},    
+        number = {11},
+        pages = {3433--3446},
         journal = {Proceedings of the VLDB Endowment},
-        author={Cecilia Aguerrebere and Ishwar Bhati and Mark Hildebrand and Mariano Tepper and Ted Willke},        
+        author={Cecilia Aguerrebere and Ishwar Bhati and Mark Hildebrand and Mariano Tepper and Ted Willke},
         year = {2023}
 }
 ```

@@ -64,7 +64,7 @@ void search_index(
     );
 
     index.set_search_window_size(search_window_size);
-    const auto query_data = svs::io::auto_load<E_query>(query_filename);
+    const auto query_data = svs::load_data<E_query>(query_filename);
     std::vector<float> latencies(query_data.size());
 
     fmt::print("Running Search.\n");

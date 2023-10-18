@@ -13,9 +13,9 @@
 #include "svsmain.h"
 
 // svs
+#include "svs/extensions/vamana/lvq.h"
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/misc/dynamic_helper.h"
-#include "svs/quantization/lvq/lvq.h"
 
 namespace lvq = svs::quantization::lvq;
 
@@ -53,7 +53,7 @@ int svs_main(std::vector<std::string> args) {
 
     size_t max_degree = 32;
     auto parameters = svs::index::vamana::VamanaBuildParameters{
-        1.2, max_degree, 2 * max_degree, 1000, num_threads};
+        1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
 
     auto index = svs::index::vamana::MutableVamanaIndex{
         parameters, std::move(lvq_dataset), ids, svs::distance::DistanceL2(), num_threads};

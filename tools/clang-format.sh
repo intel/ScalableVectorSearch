@@ -2,7 +2,7 @@
 
 # Allow users to supply a custom path to `clang-format`
 CLANGFORMAT="${1:-clang-format}"
-DIRECTORIES=( "bindings/python/src" "include" "tests" "utils" "examples/cpp" )
+DIRECTORIES=( "bindings/python/src" "include" "benchmark" "tests" "utils" "examples/cpp" )
 
 for i in "${DIRECTORIES[@]}"
 do

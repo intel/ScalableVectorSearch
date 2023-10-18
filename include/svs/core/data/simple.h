@@ -14,8 +14,8 @@
 // svs
 #include "svs/concepts/data.h"
 #include "svs/core/allocator.h"
-#include "svs/core/data/abstract_io.h"
-#include "svs/core/polymorphic_pointer.h"
+#include "svs/core/compact.h"
+#include "svs/core/data/io.h"
 
 #include "svs/lib/array.h"
 #include "svs/lib/boundscheck.h"
@@ -42,6 +42,12 @@ template <size_t M, size_t N> bool check_dims(size_t m, size_t n) {
     }
 }
 
+namespace detail {
+inline bool is_likely_reload(const std::filesystem::path& path) {
+    return std::filesystem::is_directory(path) || maybe_config_file(path);
+}
+} // namespace detail
+
 /////
 ///// Simple Data
 /////
@@ -50,55 +56,91 @@ template <size_t M, size_t N> bool check_dims(size_t m, size_t n) {
 // BlockedData.
 //
 // Ensures the two stay in-sync for the common parts.
-template <data::ImmutableMemoryDataset Data> class GenericSaver {
+class GenericSerializer {
   public:
-    GenericSaver(const Data& data)
-        : data_{data} {}
-
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
+
+    template <data::ImmutableMemoryDataset Data>
+    static lib::SaveTable save(const Data& data, const lib::SaveContext& ctx) {
         using T = typename Data::element_type;
         // UUID used to identify the file.
         auto uuid = lib::UUID{};
         auto filename = ctx.generate_name("data");
-        io::save(data_, io::NativeFile(filename), uuid);
-        return lib::SaveType(
-            toml::table({
+        io::save(data, io::NativeFile(filename), uuid);
+        return lib::SaveTable(
+            save_version,
+            {
                 {"name", "uncompressed"},
-                {"binary_file", filename.filename().c_str()},
-                {"dims", prepare(data_.dimensions())},
-                {"num_vectors", prepare(data_.size())},
+                {"binary_file", lib::save(filename.filename())},
+                {"dims", lib::save(data.dimensions())},
+                {"num_vectors", lib::save(data.size())},
                 {"uuid", uuid.str()},
-                {"eltype", name<datatype_v<T>>()},
-            }),
-            save_version
+                {"eltype", lib::save(datatype_v<T>)},
+            }
         );
     }
 
-  private:
-    const Data& data_;
+    template <typename T, lib::LazyInvocable<size_t, size_t> F>
+    static lib::lazy_result_t<F, size_t, size_t> load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const F& lazy
+    ) {
+        if (version != save_version) {
+            throw ANNException("Version mismatch!");
+        }
+
+        auto datatype = lib::load_at<DataType>(table, "eltype");
+        if (datatype != datatype_v<T>) {
+            throw ANNEXCEPTION(
+                "Trying to load an uncompressed dataset with element types {} to a dataset "
+                "with element types {}.",
+                name(datatype),
+                name<datatype_v<T>>()
+            );
+        }
+
+        // Now that this is out of the way, resolve the file and load the data.
+        auto uuid = lib::load_at<lib::UUID>(table, "uuid");
+        auto binaryfile = io::find_uuid(ctx.get_directory(), uuid);
+        if (!binaryfile.has_value()) {
+            throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
+        }
+        return io::load_dataset(binaryfile.value(), lazy);
+    }
 };
 
 // Forward Declaration
-template <typename T, size_t Extent> class SimpleDataView;
-template <typename T, size_t Extent> class ConstSimpleDataView;
+template <typename T, size_t Extent, typename Alloc> class SimpleData;
+
+template <typename T, size_t Extent = Dynamic>
+using SimpleDataView = SimpleData<T, Extent, View<T>>;
+
+template <typename T, size_t Extent = Dynamic>
+using ConstSimpleDataView = SimpleData<const T, Extent, View<const T>>;
 
 /// The following properties hold:
 /// * Vectors are stored contiguously in memory.
 /// * All vectors have the same length.
-template <typename T, size_t Extent, typename Base> class SimpleDataBase {
+template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T>>
+class SimpleData {
   public:
     /// The static dimensionality of the underlying data.
     static constexpr size_t extent = Extent;
-    static constexpr bool supports_saving = true;
+
     /// The various instantiations of ``SimpleDataBase`` are expected to have dense layouts.
     /// Therefore, they are directly memory map compatible from appropriate files.
     static constexpr bool is_memory_map_compatible = true;
-    using dim_type = std::tuple<size_t, dim_type_t<Extent>>;
-    using array_type = DenseArray<T, dim_type, Base>;
+    static constexpr bool is_view = is_view_type_v<Alloc>;
+    static constexpr bool is_const = std::is_const_v<T>;
 
-    /// The allocator type used for this instance.
-    using allocator_type = lib::memory::allocator_type_t<Base>;
+    using dim_type = std::tuple<size_t, dim_type_t<Extent>>;
+    using array_type = DenseArray<T, dim_type, Alloc>;
+
+    // /// The allocator type used for this instance.
+    // using allocator_type = lib::memory::allocator_type_t<Base>;
+    using allocator_type = Alloc;
     /// The data type used to encode each dimension of the stored vectors.
     using element_type = T;
     /// The type used to return a mutable handle to stored vectors.
@@ -106,33 +148,30 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     /// The type used to return a constant handle to stored vectors.
     using const_value_type = std::span<const element_type, Extent>;
 
-    ///// Access Compatibility
-    template <AccessMode = DefaultAccess> using mode_value_type = value_type;
-    template <AccessMode = DefaultAccess> using mode_const_value_type = const_value_type;
-
-    template <typename Distance> static Distance adapt_distance(const Distance& distance) {
-        return threads::shallow_copy(distance);
-    }
-
-    template <typename Distance> static Distance self_distance(const Distance& distance) {
-        return threads::shallow_copy(distance);
-    }
+    /// Return the underlying allocator.
+    const allocator_type& get_allocator() const { return data_.get_allocator(); }
 
     /////
     ///// Constructors
     /////
 
-    SimpleDataBase() = default;
+    SimpleData() = default;
 
-    explicit SimpleDataBase(array_type data)
+    explicit SimpleData(array_type data)
         : data_{std::move(data)} {}
 
-    explicit SimpleDataBase(Base base, size_t n_elements, size_t n_dimensions)
-        : data_{std::move(base), n_elements, meta::forward_extent<Extent>(n_dimensions)} {}
+    explicit SimpleData(size_t n_elements, size_t n_dimensions, const Alloc& allocator)
+        : data_{
+              make_dims(n_elements, meta::forward_extent<Extent>(n_dimensions)),
+              allocator} {}
 
-    explicit SimpleDataBase(size_t n_elements, size_t n_dimensions)
-        requires lib::memory::may_trivially_construct<allocator_type>
-        : data_{allocator_type{}, n_elements, meta::forward_extent<Extent>(n_dimensions)} {}
+    explicit SimpleData(size_t n_elements, size_t n_dimensions)
+        : SimpleData(n_elements, n_dimensions, Alloc()) {}
+
+    // View compatibility layers.
+    explicit SimpleData(T* ptr, size_t n_elements, size_t n_dimensions)
+        requires(is_view)
+        : SimpleData(n_elements, n_dimensions, View{ptr}) {}
 
     ///// Data Interface
 
@@ -148,10 +187,7 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     ///
     /// * ``0 <= i < size()``
     ///
-    template <AccessMode Mode = DefaultAccess>
-    const_value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) const {
-        return data_.slice(i);
-    }
+    const_value_type get_datum(size_t i) const { return data_.slice(i); }
 
     ///
     /// @brief Return a mutable handle to vector stored as position ``i``.
@@ -163,16 +199,10 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     ///
     /// * ``0 <= i < size()``
     ///
-    template <AccessMode Mode = DefaultAccess>
-    value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) {
-        return data_.slice(i);
-    }
+    value_type get_datum(size_t i) { return data_.slice(i); }
 
     /// Prefetch the vector at position ``i`` into the L1 cache.
-    template <AccessMode Mode = DefaultAccess>
-    void prefetch(size_t i, Mode SVS_UNUSED(mode) = {}) const {
-        lib::prefetch(get_datum(i));
-    }
+    void prefetch(size_t i) const { lib::prefetch(get_datum(i)); }
 
     ///
     /// @brief Overwrite the contents of the vector at position ``i``.
@@ -189,15 +219,12 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
     /// * ``datum.size() == dimensions()``
     /// * ``0 <= i < size()``
     ///
-    template <typename U, size_t N, AccessMode Mode = DefaultAccess>
-    void set_datum(size_t i, std::span<U, N> datum, Mode SVS_UNUSED(mode) = {}) {
+    template <typename U, size_t N> void set_datum(size_t i, std::span<U, N> datum) {
         if (!check_dims<Extent, N>(dimensions(), datum.size())) {
             throw ANNEXCEPTION(
-                "Trying to assign vector of size ",
+                "Trying to assign vector of size {} to a dataset with dimensionality {}.",
                 datum.size(),
-                " to a dataset with dimensionality ",
-                dimensions(),
-                '!'
+                dimensions()
             );
         }
 
@@ -218,9 +245,9 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
         }
     }
 
-    template <typename U, AccessMode Mode = DefaultAccess>
-    void set_datum(size_t i, const std::vector<U>& datum, Mode mode = {}) {
-        set_datum(i, lib::as_span(datum), mode);
+    template <typename U, typename A>
+    void set_datum(size_t i, const std::vector<U, A>& datum) {
+        set_datum(i, lib::as_span(datum));
     }
 
     const array_type& get_array() const { return data_; }
@@ -237,237 +264,87 @@ template <typename T, size_t Extent, typename Base> class SimpleDataBase {
 
     /// @brief Return a ConstSimpleDataView over this data.
     ConstSimpleDataView<T, Extent> cview() const {
-        return ConstSimpleDataView<T, Extent>{data(), size(), dimensions()};
+        return ConstSimpleDataView<T, Extent>{size(), dimensions(), View{data()}};
     }
 
     /// @brief Return a ConstSimpleDataView over this data.
     ConstSimpleDataView<T, Extent> view() const {
-        return ConstSimpleDataView<T, Extent>{data(), size(), dimensions()};
+        return ConstSimpleDataView<T, Extent>{size(), dimensions(), View{data()}};
     }
 
     /// @brief Return a SimpleDataView over this data.
     SimpleDataView<T, Extent> view() {
-        return SimpleDataView<T, Extent>{data(), size(), dimensions()};
+        return SimpleDataView<T, Extent>{size(), dimensions(), View{data()}};
     }
-
-    const Base& getbase() const { return data_.getbase(); }
-    Base& getbase_mutable() { return data_.getbase_mutable(); }
 
     const T& data_begin() const { return data_.first(); }
     const T& data_end() const { return data_.last(); }
 
     ///// IO
-    lib::SaveType save(const lib::SaveContext& ctx) const {
-        return GenericSaver(*this).save(ctx);
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        return GenericSerializer::save(*this, ctx);
     }
 
-    // --- !! DANGER !! ---
-    array_type&& acquire() { return std::move(data_); }
+    ///
+    /// @brief Reload a previously saved dataset.
+    ///
+    /// @param table The table containing saved hyper parameters.
+    /// @param ctx The current load context.
+    /// @param version The version number used when saving the dataset.
+    /// @param allocator Allocator instance to use upon reloading.
+    ///
+    /// This method is implicitly called when using
+    /// @code{cpp}
+    /// svs::lib::load_from_disk<svs::data::SimpleData<T, Extent>>("directory");
+    /// @endcode
+    ///
+    static SimpleData load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const allocator_type& allocator = {}
+    )
+        requires(!is_view)
+    {
+        return GenericSerializer::load<T>(
+            table, ctx, version, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
+    }
+
+    ///
+    /// @brief Try to automatically load the dataset.
+    ///
+    /// @param path The filepath to a dataset on disk.
+    /// @param allocator The allocator instance to use when constructing this class.
+    ///
+    /// The argument ``path`` can point to:
+    /// * The directory previously used to save a dataset (or the config file of such a
+    ///   directory).
+    /// * A ".[f/b/i]vecs" file.
+    ///
+    static SimpleData
+    load(const std::filesystem::path& path, const allocator_type& allocator = {})
+        requires(!is_view)
+    {
+        if (detail::is_likely_reload(path)) {
+            return lib::load_from_disk<SimpleData>(path, allocator);
+        } else {
+            return io::auto_load<T>(
+                path, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+                    return SimpleData(n_elements, n_dimensions, allocator);
+                })
+            );
+        }
+    }
 
   private:
     array_type data_;
 };
 
-///
-/// @brief A dense collection of vectors in R^n using a smart pointer for memory storage.
-///
-/// @tparam T The data type used to encode each dimension of the stored vectors.
-/// @tparam Extent The compile-time dimensionality of each vector. Defaults to ``Dynamic``
-///     is this information is not known.
-/// @tparam Base The smart pointer-like object used to manage the lifetime of the memory
-///     for the vectors.
-///
-template <typename T, size_t Extent = Dynamic, typename Base = lib::DefaultStorage<T>>
-class SimpleData : public SimpleDataBase<T, Extent, Base> {
-  public:
-    // type aliases
-    using parent_type = SimpleDataBase<T, Extent, Base>;
-    /// The allocator type used for this instance.
-    using allocator_type = typename parent_type::allocator_type;
-    using array_type = typename parent_type::array_type;
-
-    // constructors
-    SimpleData() = default;
-    SimpleData(array_type data)
-        : parent_type{std::move(data)} {}
-
-    ///
-    /// @brief Construct a new dataset.
-    ///
-    /// @param n_elements The number of vectors in the dataset.
-    /// @param n_dimensions The number of dimensions for each vector in the dataset.
-    ///
-    /// Assumes that the allocator associated with this class's smart pointer is default
-    /// constructible.
-    ///
-    SimpleData(size_t n_elements, size_t n_dimensions)
-        : parent_type(n_elements, n_dimensions) {}
-
-    ///
-    /// @brief Construct a new dataset.
-    ///
-    /// @param allocator The allocator instance to use for allocation.
-    /// @param n_elements The number of vectors in the dataset.
-    /// @param n_dimensions The number of dimensions for each vector in the dataset.
-    ///
-    template <typename Allocator>
-        requires std::is_same_v<Allocator, allocator_type>
-    SimpleData(Allocator allocator, size_t n_elements, size_t n_dimensions)
-        : parent_type{make_dense_array<T>(
-              allocator, n_elements, meta::forward_extent<Extent>(n_dimensions)
-          )} {}
-};
-
-// Deduction Guide
-template <typename T, typename Dims, typename Base>
-SimpleData(DenseArray<T, Dims, Base>)
-    -> SimpleData<T, DenseArray<T, Dims, Base>::template getextent<1>(), Base>;
-
-/////
-///// Specializations
-/////
-
-///
-/// @brief A non-owning mutable view of a dense collection of vectors in R^n.
-///
-/// @tparam T The data type used to encode each dimension of the stored vectors.
-/// @tparam Extent The compile-time dimensionality of each vector. Defaults to ``Dynamic``
-///     is this information is not known.
-///
-template <typename T, size_t Extent = Dynamic>
-class SimpleDataView : public SimpleDataBase<T, Extent, T*> {
-  public:
-    // type aliases
-    using parent_type = SimpleDataBase<T, Extent, T*>;
-
-    ///
-    /// @brief Construct a non-owning dense dataset view beginning at ``base``.
-    ///
-    /// @param base The base pointer for the data to construct a view over.
-    /// @param n_elements The number of vectors in the dataset.
-    /// @param n_dimensions The number of dimensions in each vector.
-    ///
-    /// If ``Extent != svs::Dynamic``, then ``n_dimensions == Extent`` must hold.
-    /// Otherwise, the behavior is undefined.
-    ///
-    SimpleDataView(T* base, size_t n_elements, size_t n_dimensions)
-        : parent_type{base, n_elements, n_dimensions} {}
-
-    /// @brief Construct a non-owning mutable view over the provided dataset.
-    template <typename Base>
-    SimpleDataView(SimpleData<T, Extent, Base>& other)
-        : SimpleDataView(other.data(), other.size(), other.dimensions()) {}
-};
-
-// deduction guide
-template <typename T, size_t Extent, typename Base>
-SimpleDataView(SimpleDataBase<T, Extent, Base>&) -> SimpleDataView<T, Extent>;
-
-///
-/// @brief A non-owning constant view of a dense collection of vectors in R^n.
-///
-/// @tparam T The data type used to encode each dimension of the stored vectors.
-/// @tparam Extent The compile-time dimensionality of each vector. Defaults to ``Dynamic``
-///     is this information is not known.
-///
-template <typename T, size_t Extent = Dynamic>
-class ConstSimpleDataView : public SimpleDataBase<const T, Extent, const T*> {
-  public:
-    // type aliases
-    using parent_type = SimpleDataBase<const T, Extent, const T*>;
-
-    // constructors
-    ConstSimpleDataView() = default;
-
-    ///
-    /// @brief Construct a non-owning constant dense dataset view beginning at ``base``.
-    ///
-    /// @param base The base pointer for the data to construct a view over.
-    /// @param n_elements The number of vectors in the dataset.
-    /// @param n_dimensions The number of dimensions in each vector.
-    ///
-    /// If ``Extent != svs::Dynamic``, then ``n_dimensions == Extent`` must hold.
-    /// Otherwise, the behavior is undefined.
-    ///
-    ConstSimpleDataView(const T* base, size_t n_elements, size_t n_dimensions)
-        : parent_type{base, n_elements, n_dimensions} {}
-
-    /// @brief Construct a non-owning mutable view over the provided dataset.
-    template <typename Base>
-    ConstSimpleDataView(const SimpleData<T, Extent, Base>& other)
-        : ConstSimpleDataView(other.data(), other.size(), other.dimensions()) {}
-};
-
-// deduction guide
-template <typename T, size_t Extent, typename Base>
-ConstSimpleDataView(SimpleData<T, Extent, Base>&) -> ConstSimpleDataView<T, Extent>;
-
-///
-/// @brief A dense collection of vectors in R^n using a polymorphic allocator for storage.
-///
-/// @tparam T The data type used to encode each dimension of the stored vectors.
-/// @tparam Extent The compile-time dimensionality of each vector. Defaults to ``Dynamic``
-///     is this information is not known.
-///
-/// In general, this class should be used if polymorphism of the allocator is desired but
-/// not necessarily relevant for performance.
-///
-template <typename T, size_t Extent = Dynamic>
-class SimplePolymorphicData : public SimpleDataBase<T, Extent, PolymorphicPointer<T>> {
-  public:
-    // type aliases
-    using parent_type = SimpleDataBase<T, Extent, PolymorphicPointer<T>>;
-    using dim_type = typename parent_type::dim_type;
-    using array_type = typename parent_type::array_type;
-
-    // constructors
-    explicit SimplePolymorphicData(array_type data)
-        : parent_type{std::move(data)} {}
-
-    template <typename OtherBase>
-    explicit SimplePolymorphicData(DenseArray<T, dim_type, OtherBase> data)
-        : parent_type{polymorph(std::move(data))} {}
-
-    ///
-    /// @brief Convert the dataset to a SimplePolymorphicData
-    ///
-    /// @param other The other dataset to acquire.
-    ///
-    /// Takes ownership of the other dataset, using type-erasure on its storage pointer.
-    ///
-    template <typename OtherBase>
-    explicit SimplePolymorphicData(SimpleData<T, Extent, OtherBase> other)
-        : parent_type{polymorph(other.acquire())} {}
-
-    ///
-    /// @brief Construct a dataset using the provided allocator.
-    ///
-    /// @param allocator The allocator to use for memory allocation.
-    /// @param n_elements The number of element to be in the final dataset.
-    /// @param n_dimensions The dimensionality of each vector in the dataset.
-    ///
-    template <lib::memory::MemoryAllocator Allocator>
-    explicit SimplePolymorphicData(
-        Allocator allocator, size_t n_elements, size_t n_dimensions
-    )
-        : parent_type{polymorph(make_dense_array<T>(
-              std::move(allocator), n_elements, meta::forward_extent<Extent>(n_dimensions)
-          ))} {}
-
-    ///
-    /// @brief Construct a dataset using an unspecified default allocator.
-    ///
-    /// @param n_elements The number of element to be in the final dataset.
-    /// @param n_dimensions The dimensionality of each vector in the dataset.
-    ///
-    explicit SimplePolymorphicData(size_t n_elements, size_t n_dimensions)
-        : SimplePolymorphicData(lib::DefaultAllocator{}, n_elements, n_dimensions) {}
-};
-
-template <typename T1, size_t E1, typename T2, size_t E2>
-bool operator==(
-    const SimplePolymorphicData<T1, E1>& x, const SimplePolymorphicData<T2, E2>& y
-) {
+template <typename T1, size_t E1, typename A1, typename T2, size_t E2, typename A2>
+bool operator==(const SimpleData<T1, E1, A1>& x, const SimpleData<T2, E2, A2>& y) {
     if ((x.size() != y.size()) || (x.dimensions() != y.dimensions())) {
         return false;
     }
@@ -482,64 +359,292 @@ bool operator==(
     return true;
 }
 
-// deduction guides
-template <typename T, typename Dims, typename Base>
-SimplePolymorphicData(DenseArray<T, Dims, Base> data)
-    -> SimplePolymorphicData<T, DenseArray<T, Dims, Base>::template getextent<1>()>;
-
-template <typename T, size_t Extent, typename Base>
-SimplePolymorphicData(SimpleData<T, Extent, Base> data) -> SimplePolymorphicData<T, Extent>;
-
 /////
-///// Builders
+///// Specialization for Blocked.
 /////
 
-namespace detail {
-template <typename T> inline constexpr bool is_variant = false;
-template <typename... Ts> inline constexpr bool is_variant<std::variant<Ts...>> = true;
-} // namespace detail
-
-// Instantiators.
-template <typename Allocator = lib::DefaultAllocator> class PolymorphicBuilder {
+struct BlockingParameters {
   public:
-    PolymorphicBuilder() = default;
-    PolymorphicBuilder(const Allocator& allocator)
-        : allocator_{allocator} {}
+    static constexpr lib::PowerOfTwo default_blocksize_bytes{30};
 
-    template <typename T, size_t Extent = Dynamic>
-    using return_type = data::SimplePolymorphicData<T, Extent>;
+    friend bool operator==(const BlockingParameters&, const BlockingParameters&) = default;
 
-    // Allocate a ``data::SimplePolymorphicData`` of an appropriate size.
-    template <typename T, size_t Extent = Dynamic>
-    return_type<T, Extent> build(size_t size, size_t dimensions) const {
-        if constexpr (detail::is_variant<Allocator>) {
-            return std::visit(
-                [&](auto alloc) {
-                    return data::SimplePolymorphicData<T, Extent>(alloc, size, dimensions);
-                },
-                allocator_
-            );
-        } else {
-            return data::SimplePolymorphicData<T, Extent>(allocator_, size, dimensions);
+  public:
+    lib::PowerOfTwo blocksize_bytes = default_blocksize_bytes;
+};
+
+template <typename Alloc> class Blocked {
+  public:
+    using allocator_type = Alloc;
+    const allocator_type& get_allocator() const { return allocator_; }
+    const BlockingParameters& parameters() const { return parameters_; }
+
+    constexpr Blocked() = default;
+    explicit Blocked(const allocator_type& alloc)
+        : allocator_{alloc} {}
+    explicit Blocked(const BlockingParameters& parameters)
+        : parameters_{parameters} {}
+    explicit Blocked(const BlockingParameters& parameters, const allocator_type& alloc)
+        : parameters_{parameters}
+        , allocator_{alloc} {}
+
+  private:
+    BlockingParameters parameters_{};
+    Alloc allocator_{};
+};
+
+///
+/// @brief A specialization of ``SimpleData`` for large-scale dynamic datasets.
+///
+template <typename T, size_t Extent, typename Alloc>
+class SimpleData<T, Extent, Blocked<Alloc>> {
+  public:
+    ///// Static Members
+
+    ///
+    /// Default block size in bytes.
+    ///
+    static constexpr bool supports_saving = true;
+
+    // Type Aliases
+    using dim_type = std::tuple<size_t, dim_type_t<Extent>>;
+    using allocator_type = Blocked<Alloc>;
+    using inner_allocator_type = Alloc;
+    using array_type = DenseArray<T, dim_type, inner_allocator_type>;
+
+    /// Return the underlying allocator.
+    const allocator_type& get_allocator() const { return allocator_; }
+
+    // value types
+    using element_type = T;
+    using value_type = std::span<T, Extent>;
+    using const_value_type = std::span<const T, Extent>;
+
+    ///// Constructors
+    SimpleData(size_t n_elements, size_t n_dimensions, const Blocked<Alloc>& alloc)
+        : blocksize_{lib::prevpow2(
+              alloc.parameters().blocksize_bytes.value() / (sizeof(T) * n_dimensions)
+          )}
+        , blocks_{}
+        , dimensions_{n_dimensions}
+        , size_{n_elements}
+        , allocator_{alloc} {
+        size_t elements_per_block = blocksize_.value();
+        size_t num_blocks = lib::div_round_up(n_elements, elements_per_block);
+        blocks_.reserve(num_blocks);
+        for (size_t i = 0; i < num_blocks; ++i) {
+            add_block();
         }
     }
 
-    // Pre-processing hook during reloading.
-    // Nothing to do for the PolymorphicBuilder.
-    void load_hook(const toml::table&) const {}
+    SimpleData(size_t n_elements, size_t n_dimensions)
+        : SimpleData{n_elements, n_dimensions, Blocked<Alloc>()} {}
+
+    ///
+    /// Convert a linear index into an inner-outer index to access the blocked dataset.
+    /// Returns a pair `p` where:
+    /// - `p.first` is the block index.
+    /// - `p.second` is the index within the block.
+    ///
+    std::pair<size_t, size_t> resolve(size_t i) const {
+        return std::pair<size_t, size_t>{i / blocksize_, i % blocksize_};
+    }
+
+    ///
+    /// Return the blocksize with reference to the stored data vectors.
+    ///
+    lib::PowerOfTwo blocksize() const { return blocksize_; }
+
+    ///
+    /// Return the blocksize with respect to bytes.
+    ///
+    lib::PowerOfTwo blocksize_bytes() const {
+        return allocator_.parameters().blocksize_bytes;
+    }
+
+    ///
+    /// Return the number of blocks in the dataset.
+    ///
+    size_t num_blocks() const { return blocks_.size(); }
+
+    ///
+    /// Return the maximum number of data vectors that can be stored before a new block is
+    /// required.
+    ///
+    size_t capacity() const { return num_blocks() * blocksize(); }
+
+    ///
+    /// Return an iterator over each index in the dataset.
+    ///
+    threads::UnitRange<size_t> eachindex() const {
+        return threads::UnitRange<size_t>{0, size()};
+    }
+
+    ///
+    /// Add a new data block to the end of the current collection of blocks.
+    ///
+    void add_block() {
+        blocks_.emplace_back(
+            make_dims(blocksize().value(), meta::forward_extent<Extent>(dimensions())),
+            allocator_.get_allocator()
+        );
+    }
+
+    ///
+    /// Remove a data block from the end of the block list.
+    ///
+    void drop_block() {
+        if (!blocks_.empty()) {
+            blocks_.pop_back();
+        }
+    }
+
+    ///
+    /// Resizing
+    ///
+    void resize(size_t new_size) {
+        if (new_size > size()) {
+            // Add blocks until there is sufficient capacity.
+            while (new_size > capacity()) {
+                add_block();
+            }
+            size_ = new_size;
+        } else if (new_size < size()) {
+            // Reset size then drop blocks until the new size is within the last block.
+            size_ = new_size;
+            while (capacity() - blocksize().value() > new_size) {
+                drop_block();
+            }
+        }
+    }
+
+    /////
+    ///// Dataset API
+    /////
+
+    size_t size() const { return size_; }
+    constexpr size_t dimensions() const {
+        if constexpr (Extent != Dynamic) {
+            return Extent;
+        } else {
+            return dimensions_;
+        }
+    }
+
+    const_value_type get_datum(size_t i) const {
+        auto [block_id, data_id] = resolve(i);
+        return getindex(blocks_, block_id).slice(data_id);
+    }
+
+    value_type get_datum(size_t i) {
+        auto [block_id, data_id] = resolve(i);
+        return getindex(blocks_, block_id).slice(data_id);
+    }
+
+    void prefetch(size_t i) const { lib::prefetch(get_datum(i)); }
+
+    template <typename U, size_t OtherExtent>
+    void set_datum(size_t i, std::span<U, OtherExtent> datum) {
+        if constexpr (checkbounds_v) {
+            if (datum.size() != dimensions()) {
+                throw ANNEXCEPTION(
+                    "Datum with dimensions {} is not equal to internal dimensions {}!",
+                    datum.size(),
+                    dimensions_
+                );
+            }
+        }
+
+        if constexpr (std::is_same_v<T, std::remove_const_t<U>>) {
+            std::copy(datum.begin(), datum.end(), get_datum(i).begin());
+        } else {
+            std::transform(
+                datum.begin(),
+                datum.end(),
+                get_datum(i).begin(),
+                [](const U& u) { return lib::relaxed_narrow<T>(u); }
+            );
+        }
+    }
+
+    template <typename U, typename A> void set_datum(size_t i, const std::vector<U, A>& v) {
+        set_datum(i, lib::as_span(v));
+    }
+
+    ///
+    /// Construct an identical copy of the dataset.
+    /// Not implemented as a copy constructor to avoid unintentional copies.
+    ///
+    SimpleData copy() const {
+        SimpleData other{size(), dimensions(), allocator_};
+        for (const auto& i : eachindex()) {
+            other.set_datum(i, get_datum(i));
+        }
+        return other;
+    }
+
+    ///// Compaction
+    template <typename I, typename A, threads::ThreadPool Pool>
+    void compact(
+        const std::vector<I, A>& new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
+    ) {
+        // Alllocate scratch space.
+        batchsize = std::min(batchsize, size());
+        auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
+        compact_data(*this, buffer, new_to_old, threadpool);
+    }
+
+    template <typename I, typename A>
+    void compact(const std::vector<I, A>& new_to_old, size_t batchsize = 1'000'000) {
+        auto pool = threads::SequentialThreadPool();
+        compact(new_to_old, pool, batchsize);
+    }
+
+    ///// Saving
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        return GenericSerializer::save(*this, ctx);
+    }
+
+    static SimpleData load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const Blocked<Alloc>& allocator = {}
+    ) {
+        return GenericSerializer::load<T>(
+            table,
+            ctx,
+            version,
+            lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
+    }
+
+    static SimpleData
+    load(const std::filesystem::path& path, const Blocked<Alloc>& allocator = {}) {
+        if (detail::is_likely_reload(path)) {
+            return lib::load_from_disk<SimpleData>(path, allocator);
+        } else {
+            return io::auto_load<T>(
+                path, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
+                    return SimpleData(n_elements, n_dimensions, allocator);
+                })
+            );
+        }
+    }
 
   private:
-    Allocator allocator_{};
+    // The blocksize in terms of number of vectors.
+    lib::PowerOfTwo blocksize_;
+    std::vector<array_type> blocks_;
+    size_t dimensions_;
+    size_t size_;
+    Blocked<Alloc> allocator_;
 };
 
-template <typename Builder, typename T, size_t Extent>
-using builder_return_type = typename Builder::template return_type<T, Extent>;
-
-template <typename T, size_t Extent, typename Builder>
-builder_return_type<Builder, T, Extent>
-build(const Builder& builder, size_t size, size_t dimensions) {
-    return builder.template build<T, Extent>(size, dimensions);
-}
+template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T>>
+using BlockedData = SimpleData<T, Extent, Blocked<Alloc>>;
 
 } // namespace data
 } // namespace svs

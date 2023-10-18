@@ -65,17 +65,15 @@ double k_recall_at_n_impl(
 
     if (groundtruth.size() != results.size()) {
         throw ANNEXCEPTION(
-            "Groundtruth contains ",
+            "Groundtruth contains {} points while the result has {} points!",
             groundtruth.size(),
-            " points while the result has ",
-            results.size(),
-            " points!"
+            results.size()
         );
     }
 
     auto throw_exception = [](const char* aname, size_t a, const char* bname, size_t b) {
         throw ANNEXCEPTION(
-            "Argument ", aname, " (", a, ") must be less than ", bname, " (", b, ")."
+            "Argument {} ({}) must be less than {} ({})", aname, a, bname, b
         );
     };
 

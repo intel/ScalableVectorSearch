@@ -86,24 +86,22 @@ struct DistanceCosineSimilarity {
     static constexpr std::string_view name = "cosine_similarity";
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
-    lib::SaveType save(const lib::SaveContext& /*ctx*/) const {
-        return lib::SaveType(toml::table{{"name", name}}, save_version);
+    lib::SaveTable save() const {
+        return lib::SaveTable(save_version, {SVS_LIST_SAVE(name)});
     }
 
     DistanceCosineSimilarity static load(
-        const toml::table& table,
-        const lib::LoadContext& /*ctx*/,
-        const lib::Version& version
+        const toml::table& table, const lib::Version& version
     ) {
         // Version check
         if (version != save_version) {
             throw ANNEXCEPTION("Unhandled version!");
         }
 
-        auto retrieved = get(table, "name").value();
+        auto retrieved = lib::load_at<std::string>(table, "name");
         if (retrieved != name) {
             throw ANNEXCEPTION(
-                "Loading error. Expected name ", name, ". Instead, got ", retrieved, '!'
+                "Loading error. Expected name {}. Instead, got {}!", name, retrieved
             );
         }
         return DistanceCosineSimilarity();

@@ -42,9 +42,8 @@ int svs_main(std::vector<std::string> args) {
 
     // Load the graph.
     std::cout << "Loading Graph" << std::endl;
-    auto graph = svs::io::load_simple_graph<Idx>(
-        svs::io::NativeFile{graph_path}, svs::HugepageAllocator()
-    );
+    auto graph =
+        svs::graphs::SimpleGraph<Idx>::load(graph_path, svs::HugepageAllocator<Idx>());
 
     std::cout << "Loading Data" << std::endl;
     auto data = svs::VectorDataLoader<Eltype, Extent>(data_path).load();
@@ -75,6 +74,7 @@ int svs_main(std::vector<std::string> args) {
         data,
         threadpool,
         graph.max_degree(),
+        750,
         1.2f,
         distance,
         [&](const auto& i) { return indices_to_delete.contains(i); }

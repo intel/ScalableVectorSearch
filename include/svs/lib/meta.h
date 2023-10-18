@@ -153,6 +153,10 @@ template <typename T> struct Unwrapper<Type<T>> {
     static constexpr type unwrap(Type<T> /*unused*/) { return datatype_v<T>; }
 };
 
+template <typename... Ts> constexpr std::tuple<unwrapped_t<Ts>...> make_key(Ts&&... ts) {
+    return std::tuple<unwrapped_t<Ts>...>(meta::unwrap(ts)...);
+}
+
 /////
 ///// Match
 /////
@@ -165,7 +169,7 @@ auto match(meta::Types<T, Ts...> /*unused*/, DataType type, F&& f) {
 
     // At the end of recursion, throw an exception.
     if constexpr (sizeof...(Ts) == 0) {
-        throw ANNEXCEPTION("Type ", type, " is not supported for this operation!");
+        throw ANNEXCEPTION("Type {} is not supported for this operation!", type);
     } else {
         return match(meta::Types<Ts...>{}, type, std::forward<F>(f));
     }
@@ -217,7 +221,14 @@ constexpr Val<N / M> operator/(Val<N> /*unused*/, Val<M> /*unused*/) {
     return Val<N / M>{};
 }
 
-template <size_t N> constexpr auto forward_extent(size_t /*unused*/) { return Val<N>{}; }
+template <size_t N> constexpr auto forward_extent(size_t x) {
+    if (x != N) {
+        throw ANNEXCEPTION(
+            "Tring to forward a compile time value of {} with a runtime value of {}!", N, x
+        );
+    }
+    return Val<N>{};
+}
 template <> inline constexpr auto forward_extent<Dynamic>(size_t x) { return x; }
 
 // The result type of extent forwarding.
@@ -230,6 +241,17 @@ template <auto N> inline constexpr bool is_val_type_v<Val<N>> = true;
 // Concept for accepting accepting either a `Val` or something convertible to an integer.
 template <typename T>
 concept IntegerLike = std::convertible_to<T, size_t> || is_val_type_v<T>;
+
+// A template dance to determine whether or not the first type of a parameter pack is
+// a `LoadContext` or not.
+template <typename T, typename... Args> inline constexpr bool first_is() {
+    if constexpr (sizeof...(Args) == 0) {
+        return false;
+    } else {
+        using FirstT = std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>;
+        return std::is_same_v<T, FirstT>;
+    }
+}
 
 } // namespace meta
 } // namespace lib

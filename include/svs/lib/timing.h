@@ -24,13 +24,12 @@
 namespace svs::lib {
 
 using default_clock = std::chrono::steady_clock;
+using default_time_point = std::chrono::time_point<default_clock>;
 
 ///
 /// Return a time-stamp for the current time.
 ///
-inline std::chrono::time_point<default_clock> now() {
-    return std::chrono::steady_clock::now();
-}
+inline default_time_point now() { return default_clock::now(); }
 
 ///
 /// Return the raw difference between two time points.
@@ -38,10 +37,7 @@ inline std::chrono::time_point<default_clock> now() {
 /// @tparam T The desired return type.
 ///
 template <typename T = double>
-T time_difference(
-    std::chrono::time_point<default_clock> second,
-    std::chrono::time_point<default_clock> first
-) {
+T time_difference(default_time_point second, default_time_point first) {
     return std::chrono::duration<T>(second - first).count();
 }
 
@@ -52,8 +48,7 @@ template <typename T> double as_seconds(T x) {
 ///
 /// Return the raw difference between the current time and a previous time point.
 ///
-template <typename T = double>
-T time_difference(std::chrono::time_point<default_clock> first) {
+template <typename T = double> T time_difference(default_time_point first) {
     return time_difference<T>(now(), first);
 }
 

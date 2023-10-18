@@ -50,12 +50,9 @@ inline std::pair<size_t, size_t> get_dims(std::ifstream& stream, size_t elsize) 
     size_t remainder = filesize % total_line_size;
     if (remainder != 0) {
         throw ANNEXCEPTION(
-            "Vecs file is the incorrect length! ",
-            "Expected ",
+            "Vecs file is the incorrect length! Expected {}, got {}.",
             total_line_size,
-            ", got ",
-            filesize,
-            "."
+            filesize
         );
     }
     return std::make_pair(vectors_in_file, dimensions_per_vector);

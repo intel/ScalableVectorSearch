@@ -25,6 +25,7 @@
 
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/tuples.h"
+#include "svs/third-party/fmt.h"
 
 // Gather information about the current line.
 #define SVS_LINEINFO svs::lib::detail::LineInfo(__LINE__, __FILE__)
@@ -33,31 +34,28 @@
 /// @ingroup lib_exception
 /// @brief Construct an exception with line information.
 ///
-#define ANNEXCEPTION(...) svs::lib::ANNException(SVS_LINEINFO, __VA_ARGS__)
+#define ANNEXCEPTION(format, ...) \
+    svs::lib::ANNException(format " {}", __VA_ARGS__ __VA_OPT__(, ) SVS_LINEINFO)
+
+namespace svs::lib::detail {
+struct LineInfo {
+    inline LineInfo(int line, std::string_view file)
+        : line_{line}
+        , file_{file} {}
+    int line_;
+    std::string_view file_;
+};
+} // namespace svs::lib::detail
+
+// Enable formatting for LineInfo.
+template <> struct fmt::formatter<svs::lib::detail::LineInfo> : svs::format_empty {
+    auto format(svs::lib::detail::LineInfo linfo, auto& ctx) const {
+        return fmt::format_to(ctx.out(), "(line {} in {})", linfo.line_, linfo.file_);
+    }
+};
 
 namespace svs {
 namespace lib {
-namespace detail {
-struct LineInfo {
-    inline LineInfo(int line, std::string&& file)
-        : line_{line}
-        , file_{std::move(file)} {}
-    int line_;
-    std::string file_;
-};
-
-inline std::ostream& operator<<(std::ostringstream& stream, const LineInfo& lineinfo) {
-    stream << "(line " << lineinfo.line_ << " in " << lineinfo.file_ << ")";
-    return stream;
-}
-
-template <typename... Args> std::string format_args(Args&&... args) {
-    std::ostringstream stream{};
-    // Fold all arguments into the stream.
-    ((stream << args), ...);
-    return stream.str();
-}
-} // namespace detail
 
 ///
 /// @ingroup lib_exception
@@ -70,24 +68,25 @@ class ANNException : public std::runtime_error {
         : std::runtime_error{message} {}
 
     ///
-    /// @brief Construct a new exception by concatenating the arguments.
+    /// @brief Construct a new exception using the given format string and arguments.
     ///
-    /// @param args A collection of arguments. The only requirements is that each element
-    ///     of type ``Arg`` in the pack overloads ``std::operator<<(std::ostream&, Arg)``.
+    /// @param format A fmtlib compatible formatting string.
+    /// @param args A collection of arguments to place in the formatting string. All
+    ///     argument types must implement fmtlib formatting.
     ///
     /// Construct an ``ANNException`` with all arguments formatted and concatenated as a
     /// string message.
     ///
+    /// @example
+    /// ```c++
+    /// int a = 10;
+    /// int b = 20;
+    /// throw ANNException("Value mismatch. Expected {}, got {}.", a, b);
+    /// ```
+    ///
     template <typename... Args>
-    SVS_NOINLINE explicit ANNException(Args&&... args)
-        : std::runtime_error{detail::format_args(std::forward<Args>(args)...)} {}
-
-    // Constructor taking a lineinfo as the first argument.
-    // Meant to be called from the ANNEXCEPTION macro.
-    template <typename... Args>
-    SVS_NOINLINE explicit ANNException(detail::LineInfo&& lineinfo, Args&&... args)
-        : std::runtime_error{
-              detail::format_args(std::forward<Args>(args)..., ' ', lineinfo)} {}
+    SVS_NOINLINE explicit ANNException(fmt::format_string<Args...> format, Args&&... args)
+        : std::runtime_error(fmt::format(format, SVS_FWD(args)...)) {}
 };
 } // namespace lib
 

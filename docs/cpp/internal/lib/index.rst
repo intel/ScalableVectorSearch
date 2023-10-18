@@ -9,4 +9,5 @@ Library Components
    public.rst
    array.rst
    algorithms.rst
+   saveload.rst
 

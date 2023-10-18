@@ -9,17 +9,16 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// stdlib
-#include <type_traits>
-
 // svs
 #include "svs/lib/datatype.h"
+#include "svs/lib/saveload.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
 // stl
 #include <string_view>
+#include <type_traits>
 
 template <typename CPP, svs::DataType SVS> void test(std::string_view name) {
     CATCH_REQUIRE(std::is_same_v<CPP, svs::cpp_type_t<SVS>>);
@@ -32,6 +31,12 @@ template <typename CPP, svs::DataType SVS> void test(std::string_view name) {
     auto name_string = std::string(name);
     CATCH_REQUIRE(std::string(constexpr_name) == name_string);
     CATCH_REQUIRE(std::string(svs::name(SVS)) == name_string);
+
+    // Make sure parsing works.
+    CATCH_REQUIRE(svs::parse_datatype(constexpr_name) == SVS);
+
+    // saving and loading.
+    CATCH_REQUIRE(svs::lib::load<svs::DataType>(svs::lib::save(SVS)) == SVS);
 }
 
 CATCH_TEST_CASE("Data Type", "[core][datatype]") {
@@ -41,19 +46,23 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
         test<uint16_t, DataType::uint16>("uint16");
         test<uint32_t, DataType::uint32>("uint32");
         test<uint64_t, DataType::uint64>("uint64");
+        CATCH_REQUIRE(svs::parse_datatype("uint128") == DataType::undef);
 
         test<int8_t, DataType::int8>("int8");
         test<int16_t, DataType::int16>("int16");
         test<int32_t, DataType::int32>("int32");
         test<int64_t, DataType::int64>("int64");
+        CATCH_REQUIRE(svs::parse_datatype("int128") == DataType::undef);
 
         test<svs::Float16, DataType::float16>("float16");
         test<float, DataType::float32>("float32");
         test<double, DataType::float64>("float64");
+        CATCH_REQUIRE(svs::parse_datatype("float128") == DataType::undef);
 
         test<std::byte, DataType::byte>("byte");
 
         CATCH_REQUIRE(svs::datatype_v<std::string> == DataType::undef);
+        CATCH_REQUIRE(svs::parse_datatype("undef") == DataType::undef);
     }
 
     CATCH_SECTION("Hash") {

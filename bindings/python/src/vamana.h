@@ -66,7 +66,7 @@ template <typename F> void for_standard_specializations(F&& f) {
     // X(float,   svs::Float16, 96, EnableBuild::FromFile);  // Deep 1B - F16
     // XN(float,   svs::Float16, 50);  // Glove50 - F16
     // XN(float,   svs::Float16, 25);  // Glove25 - F16
-    X (float,   svs::Float16, Dynamic, EnableBuild::FromFile);
+    X (float,   svs::Float16, Dynamic, EnableBuild::FromFileAndArray);
 
     XN(uint8_t, uint8_t,      128); // BigANN 1B
     X (uint8_t, uint8_t,      Dynamic, EnableBuild::FromFileAndArray);

@@ -38,12 +38,6 @@ template <typename Data, typename Indices> class DataViewImpl {
     using value_type = typename raw_data_type::value_type;
     using const_value_type = typename raw_data_type::const_value_type;
 
-    template <AccessMode Mode = DefaultAccess>
-    using mode_value_type = typename raw_data_type::template mode_value_type<Mode>;
-    template <AccessMode Mode = DefaultAccess>
-    using mode_const_value_type =
-        typename raw_data_type::template mode_const_value_type<Mode>;
-
     ///// Constructors
     DataViewImpl(raw_reference data, const Indices& indices)
         : data_{data}
@@ -65,17 +59,7 @@ template <typename Data, typename Indices> class DataViewImpl {
         return data_.get().get_datum(parent_id(i));
     }
 
-    template <AccessMode Mode> auto get_datum(size_t i, Mode mode) const {
-        return data_.get().get_datum(parent_id(i), mode);
-    }
-
     void prefetch(size_t i) const { data_.get().prefetch(parent_id(i)); }
-
-    // value_type get_datum(size_t i)
-    //     requires MemoryDataset<raw_data_type>
-    // {
-    //     return data_.get().get_datum(parent_id(i));
-    // }
 
     template <typename T>
     void set_datum(size_t i, const T& v)
@@ -101,11 +85,6 @@ template <typename Data, typename Indices> class DataViewImpl {
     /// @brief Return an iterator yielding each valid index of the view.
     threads::UnitRange<size_t> eachindex() const {
         return threads::UnitRange<size_t>(0, size());
-    }
-
-    ///// Distance adapting
-    template <typename Distance> auto adapt_distance(const Distance& distance) const {
-        return data_.get().adapt_distance(distance);
     }
 
   private:

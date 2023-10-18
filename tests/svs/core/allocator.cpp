@@ -24,84 +24,48 @@
 // tests
 #include "tests/utils/utils.h"
 
-CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
-    CATCH_SECTION("Testing `VectorAllocator`") {
-        auto allocator = svs::lib::VectorAllocator{};
-        std::vector<float> v = svs::lib::allocate_managed<float>(allocator, 100);
-        CATCH_REQUIRE(v.size() == 100);
-        CATCH_REQUIRE(v.capacity() >= 100);
-        auto maybe_filename = svs::lib::memory::filename(v);
-        CATCH_REQUIRE(maybe_filename.has_value() == false);
-    }
+// Compile-time tests
+namespace {
+using Alloc = svs::HugepageAllocator<float>;
+using Traits = std::allocator_traits<Alloc>;
 
+#define SVS_SAME(left, right) std::is_same_v<typename left, right>
+
+static_assert(std::is_same_v<typename Traits::allocator_type, Alloc>);
+static_assert(std::is_same_v<typename Traits::value_type, float>);
+static_assert(std::is_same_v<typename Traits::pointer, float*>);
+static_assert(std::is_same_v<typename Traits::const_pointer, const float*>);
+static_assert(std::is_same_v<typename Traits::void_pointer, void*>);
+static_assert(std::is_same_v<typename Traits::const_void_pointer, const void*>);
+static_assert(std::is_same_v<typename Traits::difference_type, int64_t>);
+static_assert(std::is_same_v<typename Traits::size_type, size_t>);
+static_assert(std::is_same_v<
+              typename Traits::propagate_on_container_copy_assignment,
+              std::true_type>);
+static_assert(std::is_same_v<
+              typename Traits::propagate_on_container_move_assignment,
+              std::true_type>);
+static_assert(std::is_same_v<typename Traits::propagate_on_container_swap, std::true_type>);
+static_assert(std::is_same_v<typename Traits::is_always_equal, std::true_type>);
+
+} // namespace
+
+CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
     CATCH_SECTION("Testing `HugepageAllocator`") {
-        auto allocator = svs::HugepageAllocator{};
         constexpr size_t num_elements = 1024;
         CATCH_SECTION("Basic Behavior") {
-            svs::MMapPtr<float> ptr =
-                svs::lib::allocate_managed<float>(allocator, num_elements);
-            CATCH_REQUIRE(ptr);
-            CATCH_REQUIRE(ptr.size() >= sizeof(float) * num_elements);
-
-            // Make sure we can write to each element.
-            for (size_t i = 0; i < num_elements; ++i) {
-                *(ptr.data() + i) = 1.0f;
+            {
+                auto v = std::vector<size_t, svs::HugepageAllocator<size_t>>(num_elements);
+                CATCH_REQUIRE(v.size() == num_elements);
+                // We should have an entry for this allocation.
+                auto allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+                CATCH_REQUIRE(allocations.size() == 1);
+                auto* ptr = v.data();
+                CATCH_REQUIRE(allocations.contains(ptr));
+                CATCH_REQUIRE(allocations.at(ptr) >= sizeof(size_t) * num_elements);
+                // Destructor runs - allocations should get unmapped.
             }
-
-            void* actual_pointer = ptr.base();
-            CATCH_REQUIRE(actual_pointer == ptr.data());
-
-            // First off, test the un-mapping logic.
-            // The idea is that after un-mapping, the resource should be left in a null
-            // state.
-            CATCH_REQUIRE(ptr != svs::MMapPtr<float>{});
-            ptr.unmap();
-            CATCH_REQUIRE(ptr == svs::MMapPtr<float>{});
-        }
-
-        CATCH_SECTION("Destructors") {
-            auto ptr = svs::lib::allocate_managed<float>(allocator, num_elements);
-            CATCH_REQUIRE(ptr);
-            for (size_t i = 0; i < num_elements; ++i) {
-                *(ptr.data() + i) = 1.0f;
-            }
-            CATCH_REQUIRE(ptr != nullptr);
-        }
-
-        // Move Constructor
-        CATCH_SECTION("Move Constructor") {
-            auto ptr = svs::lib::allocate_managed<float>(allocator, num_elements);
-            CATCH_REQUIRE(ptr);
-            for (size_t i = 0; i < num_elements; ++i) {
-                *(ptr.data() + i) = i;
-            }
-            auto other{std::move(ptr)};
-            // Make sure the other one was "moved out" correctly.
-            CATCH_REQUIRE(ptr == nullptr);
-            CATCH_REQUIRE(other);
-            // Everything in the range of the new pointer should be initialized correctly.
-            for (size_t i = 0; i < num_elements; ++i) {
-                CATCH_REQUIRE(*(other.data() + i) == i);
-            }
-        }
-
-        // Move Assignment Operator.
-        CATCH_SECTION("Move Constructor") {
-            auto ptr = svs::lib::allocate_managed<float>(allocator, num_elements);
-            CATCH_REQUIRE(ptr);
-            for (size_t i = 0; i < num_elements; ++i) {
-                *(ptr.data() + i) = i;
-            }
-            auto other = decltype(ptr){};
-            CATCH_REQUIRE(other == nullptr);
-            other = std::move(ptr);
-            // Make sure the other one was "moved out" correctly.
-            CATCH_REQUIRE(ptr == nullptr);
-            CATCH_REQUIRE(other);
-            // Everything in the range of the new pointer should be initialized correctly.
-            for (size_t i = 0; i < num_elements; ++i) {
-                CATCH_REQUIRE(*(other.data() + i) == i);
-            }
+            CATCH_REQUIRE(svs::detail::GenericHugepageAllocator::get_allocations().empty());
         }
     }
 
@@ -113,8 +77,8 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
             const size_t nelements = 100;
             const auto bytes = svs::lib::Bytes(nelements * sizeof(T));
             auto temp_file = temp_dir / "file1.bin";
-            // Make sure we get an error when trying to map an existing file that doesn't
-            // exist.
+            // Make sure we get an error when trying to map an existing file that
+            // doesn't exist.
             auto mapper = svs::MemoryMapper();
             CATCH_REQUIRE(mapper.policy() == svs::MemoryMapper::MustUseExisting);
             CATCH_REQUIRE(mapper.permission() == svs::MemoryMapper::ReadOnly);
@@ -130,7 +94,7 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
                     std::filesystem::file_size(temp_file) >= sizeof(float) * nelements
                 );
                 // Write to each elements.
-                auto base = svs::lib::memory::access_storage(ptr);
+                auto* base = ptr.data();
                 for (size_t i = 0; i < nelements; ++i) {
                     *(base + i) = i;
                 }
@@ -148,7 +112,7 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
             mapper.setpolicy(svs::MemoryMapper::MustUseExisting);
             mapper.setpermission(svs::MemoryMapper::ReadOnly);
             svs::MMapPtr<float> ptr = mapper.mmap(temp_file, bytes);
-            auto base = svs::lib::memory::access_storage(ptr);
+            auto* base = ptr.data();
             for (size_t i = 0; i < nelements; ++i) {
                 CATCH_REQUIRE(*(base + i) == i);
             }
@@ -162,7 +126,7 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
             // Make sure we can still allocate with the correct number of elements.
             mapper.setpolicy(svs::MemoryMapper::MayCreate);
             ptr = mapper.mmap(temp_file, bytes);
-            base = svs::lib::memory::access_storage(ptr);
+            base = ptr.data();
             for (size_t i = 0; i < nelements; ++i) {
                 CATCH_REQUIRE(*(base + i) == i);
             }

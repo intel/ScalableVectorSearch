@@ -145,6 +145,13 @@ class FlatTester(unittest.TestCase):
         flat = pysvs.Flat(data_f32, pysvs.DistanceType.L2)
         self._do_test(flat, queries_f32, groundtruth)
 
+        # Test `float16`
+        print("Flat, From Array, Float16")
+        data_f16 = data_f32.astype('float16')
+        queries_f16 = queries_f32.astype('float16')
+        flat = pysvs.Flat(data_f16, pysvs.DistanceType.L2)
+        self._do_test(flat, queries_f16, groundtruth)
+
         # Test `int8`
         print("Flat, From Array, Int8")
         data_i8 = data_f32.astype('int8')

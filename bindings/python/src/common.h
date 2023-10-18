@@ -26,6 +26,30 @@ const size_t Dynamic = svs::Dynamic;
 ///
 template <bool T = false> void static_unreachable() { static_assert(T); }
 
+// Implementation here is largely inspired by:
+//
+// https://github.com/pybind/pybind11/issues/1776#issuecomment-491514980W
+//
+// With updates to reflect current pybind11.
+namespace pybind11::detail {
+template <> struct npy_format_descriptor<svs::Float16> {
+    static pybind11::dtype dtype() {
+        // Obtaining the ID of the numpy float16 datatype:
+        // ```
+        // import numpy as np
+        // print(np.datatype(np.float16).num)
+        // ```
+        handle ptr = npy_api::get().PyArray_DescrFromType_(23);
+        return reinterpret_borrow<pybind11::dtype>(ptr);
+    }
+    static std::string format() {
+        // following: https://docs.python.org/3/library/struct.html#format-characters
+        return "e";
+    }
+    static constexpr auto name = _("float16");
+};
+} // namespace pybind11::detail
+
 ///
 /// Alias for the numpy arrays we support.
 ///
@@ -73,9 +97,8 @@ template <typename Eltype>
 svs::MatrixView<Eltype>
 matrix_view(pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
     return svs::MatrixView<Eltype>{
+        svs::make_dims(data.shape(0), data.shape(1)),
         data.template mutable_unchecked<2>().mutable_data(0, 0),
-        data.shape(0),
-        data.shape(1),
     };
 }
 
@@ -112,22 +135,20 @@ template <typename T> numpy_mapped_type<T> convert_numpy(T x) {
 /// Construct a `SimplePolymorphicData` objects from a numpy array.
 ///
 template <typename T>
-svs::data::SimplePolymorphicData<numpy_mapped_type<T>, Dynamic>
-create_data(const pybind11::array_t<T, pybind11::array::c_style>& data) {
+svs::data::
+    SimpleData<numpy_mapped_type<T>, Dynamic, svs::HugepageAllocator<numpy_mapped_type<T>>>
+    create_data(const pybind11::array_t<T, pybind11::array::c_style>& data) {
     using MappedT = numpy_mapped_type<T>;
-    auto poly = svs::data::SimplePolymorphicData<MappedT, Dynamic>{
-        svs::HugepageAllocator(),
-        svs::lib::narrow<size_t>(data.shape(0)),
-        svs::lib::narrow<size_t>(data.shape(1)),
-    };
-    std::transform(data.data(), data.data() + data.size(), poly.data(), [](auto&& x) {
+    auto out = svs::data::SimpleData<MappedT, Dynamic, svs::HugepageAllocator<MappedT>>{
+        svs::lib::narrow<size_t>(data.shape(0)), svs::lib::narrow<size_t>(data.shape(1))};
+    std::transform(data.data(), data.data() + data.size(), out.data(), [](auto&& x) {
         return convert_numpy(x);
     });
-    return poly;
+    return out;
 }
 
 template <typename T, size_t Extent = Dynamic>
-svs::data::BlockedData<T, Extent>
+svs::data::BlockedData<T, Extent, svs::HugepageAllocator<T>>
 create_blocked_data(const pybind11::array_t<T, pybind11::array::c_style>& py_data) {
     using MappedT = numpy_mapped_type<T>;
     if (py_data.ndim() != 2) {
@@ -149,7 +170,9 @@ create_blocked_data(const pybind11::array_t<T, pybind11::array::c_style>& py_dat
         }
     }
 
-    auto data = svs::data::BlockedData<MappedT, Extent>(count, dims);
+    auto data = svs::data::BlockedData<MappedT, Extent, svs::HugepageAllocator<MappedT>>(
+        count, dims
+    );
     auto direct_access = py_data.template unchecked<2>();
     std::vector<MappedT> buffer(dims);
 
@@ -160,88 +183,4 @@ create_blocked_data(const pybind11::array_t<T, pybind11::array::c_style>& py_dat
         data.set_datum(i, buffer);
     }
     return data;
-}
-
-///
-/// Helper type to assist in building dispatch tables for various index implementations.
-/// A dispatch table consists of keys used for the dispatch, and mapped values which
-/// contain type erased `std::functions` that call the implementing function using the
-/// types used to create the key.
-///
-/// Dependent on a type `T` which must have the following properties:
-///
-/// -- Type Aliases
-/// * `T::key_type` - A tuple consisting of runtime values corresponding to the unique
-///   types used to construct the inner function.
-///
-///   For example, if the implemented function depends on an arithmetic type `T`` and a set
-///   dimensionality `N`, the inner function would be constructed using the types
-///   `svs::meta::Type<T>()` and `svs::meta::Val<N>()` while the key tuple would consist
-///   of `(svs::datatype_v<T>, N)`.
-///
-/// * `T::mapped_type` - The type of the `std::function` implementing the dispatch.
-///
-/// -- Static Methods
-/// ```
-/// template<typename F>
-/// static void T::fill(F&& f);
-/// ```
-/// Fill in a dispatch table. For each specialization of interest, call
-/// `f(std::pair<T::key_type, T::mapped_type>);` to register the dispatched function.
-///
-/// -- API
-/// The main API used to interact with the dispatcher is the `get()` static method, which
-/// will return a dispatch table whose type can be queried using `map_type`.
-///
-/// **Implementation details**: The dispatch table is implemented using a magic static
-/// variable. Thus, a new dispatch table is not constructed every time `get()` is called.
-///
-template <typename T> struct Dispatcher {
-    using key_type = typename T::key_type;
-    using mapped_type = typename T::mapped_type;
-    using map_type = std::unordered_map<key_type, mapped_type, svs::lib::TupleHash>;
-
-    static map_type populate() {
-        auto map = map_type();
-        T::fill([&map](std::pair<key_type, mapped_type> kv) { map.insert(kv); });
-        return map;
-    }
-
-    static const map_type& get() {
-        static map_type dispatcher = populate();
-        return dispatcher;
-    }
-};
-
-///
-/// Perform the dynamic dispatch encoded in the `dispatcher`.
-/// @param try_generic Boolean flag to indicate that generic (Dynamic) dimensionality can
-///        be used. If `false`, then the dimensionality argument `ndims` must be used as
-///        given.
-/// @param ndims The dimensionality of the data involved. Usually passed to try and match
-///        an implementation specialized for that dimension. If `try_generic == true`, then
-///        the dispatch logic will try a fallback using dynamically sized dimensionality
-///        as well.
-/// @param args Any other arguments required the the dispatch tuple.
-///
-/// **Note**: The `ndims` argument will always be passed to the tail of the constructed
-/// dispatch tuple.
-///
-template <typename Dispatcher, typename... Args>
-const typename Dispatcher::mapped_type&
-dispatch(const Dispatcher& dispatcher, bool try_generic, size_t ndims, Args&&... args) {
-    // First, try finding an implementation with the given number of dimensions.
-    auto key = std::make_tuple(args..., ndims);
-    if (auto iter = dispatcher.find(key); iter != dispatcher.end()) {
-        return iter->second;
-    }
-
-    // First attempt failed, try performing a generic lookup.
-    if (try_generic && ndims != Dynamic) {
-        key = std::make_tuple(args..., Dynamic);
-        if (auto iter = dispatcher.find(key); iter != dispatcher.end()) {
-            return iter->second;
-        }
-    }
-    throw ANNEXCEPTION("Unimplemented Specialization!");
 }

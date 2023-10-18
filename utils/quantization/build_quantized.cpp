@@ -15,8 +15,8 @@
 #include <vector>
 
 #include "svs/core/data.h"
+#include "svs/extensions/vamana/lvq.h"
 #include "svs/orchestrators/vamana.h"
-#include "svs/quantization/lvq/lvq.h"
 
 #include "svsmain.h"
 
@@ -31,8 +31,8 @@ int svs_main(std::vector<std::string> args) {
     const size_t num_threads = 10;
     const size_t max_degree = 64;
 
-    auto parameters =
-        svs::index::vamana::VamanaBuildParameters{1.2, max_degree, 100, 1000, num_threads};
+    auto parameters = svs::index::vamana::VamanaBuildParameters{
+        1.2, max_degree, 100, 1000, max_degree - 4, true};
 
     auto index = svs::index::vamana::auto_build(
         parameters,

@@ -106,12 +106,72 @@ inline constexpr std::string_view name(DataType type) {
     // clang-format on
 }
 
+inline constexpr DataType parse_datatype_floating(std::string_view name) {
+    if (name == "float16") {
+        return DataType::float16;
+    } else if (name == "float32") {
+        return DataType::float32;
+    } else if (name == "float64") {
+        return DataType::float64;
+    }
+    return DataType::undef;
+}
+
+inline constexpr DataType parse_datatype_unsigned(std::string_view name) {
+    if (name == "uint8") {
+        return DataType::uint8;
+    } else if (name == "uint16") {
+        return DataType::uint16;
+    } else if (name == "uint32") {
+        return DataType::uint32;
+    } else if (name == "uint64") {
+        return DataType::uint64;
+    }
+    return DataType::undef;
+}
+
+inline constexpr DataType parse_datatype_signed(std::string_view name) {
+    if (name == "int8") {
+        return DataType::int8;
+    } else if (name == "int16") {
+        return DataType::int16;
+    } else if (name == "int32") {
+        return DataType::int32;
+    } else if (name == "int64") {
+        return DataType::int64;
+    }
+    return DataType::undef;
+}
+
+inline constexpr DataType parse_datatype(std::string_view name) {
+    // Handle outliers.
+    if (name == "undef") {
+        return DataType::undef;
+    }
+    if (name == "byte") {
+        return DataType::byte;
+    }
+
+    // Floating point.
+    if (name.starts_with("float")) {
+        return parse_datatype_floating(name);
+    }
+    if (name.starts_with("uint")) {
+        return parse_datatype_unsigned(name);
+    }
+    if (name.starts_with("int")) {
+        return parse_datatype_signed(name);
+    }
+    return DataType::undef;
+}
+
 inline std::ostream& operator<<(std::ostream& stream, svs::DataType type) {
     return stream << name(type);
 }
 
 namespace lib {
 
+// Formatting
 inline std::string format_internal(
     const std::vector<DataType>& types, const char* delim, const char* last_delim
 ) {

@@ -169,10 +169,9 @@ void copy(const Input& input, Output& output) {
     auto isize = input.size();
     auto osize = output.size();
     if (isize != osize) {
-        auto message = fmt::format(
+        throw ANNEXCEPTION(
             "Source of copy has {} elements while the destination has {}", isize, osize
         );
-        throw ANNEXCEPTION(message);
     }
 
     for (size_t i = 0; i < isize; ++i) {
@@ -180,29 +179,24 @@ void copy(const Input& input, Output& output) {
     }
 }
 
-///// Full dataset
+struct GetDatumAccessor {
+    template <ImmutableMemoryDataset Data, std::integral I>
+    SVS_FORCE_INLINE auto operator()(const Data& data, I i) const
+        -> decltype(data.get_datum(i)) {
+        return data.get_datum(i);
+    }
 
-// Full datasets provide more semantics on top of the standard datasets.
-// The idea is that full datasets can have multiple indexing modes which can be exploited
-// by indexes.
-struct FastAccess {};
-struct FullAccess {};
+    template <ImmutableMemoryDataset Data, std::integral I>
+    SVS_FORCE_INLINE void prefetch(const Data& data, I i) const {
+        data.prefetch(i);
+    }
+};
 
-// Constant aliases
-inline constexpr FastAccess fast_access{};
-inline constexpr FullAccess full_access{};
-
-// Default indexing mode
-using DefaultAccess = FullAccess;
-inline constexpr DefaultAccess default_access{};
-
-// Build machinery to build a concept for indexing modes.
-template <typename T> inline constexpr bool is_access_mode = false;
-template <> inline constexpr bool is_access_mode<FastAccess> = true;
-template <> inline constexpr bool is_access_mode<FullAccess> = true;
-
-template <typename T>
-concept AccessMode = is_access_mode<T>;
+template <typename Accessor, typename Data>
+concept AccessorFor = requires(const Accessor& accessor, const Data& data, size_t i) {
+                          accessor(data, i);
+                          accessor.prefetch(data, i);
+                      };
 
 } // namespace data
 } // namespace svs

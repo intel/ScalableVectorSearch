@@ -119,7 +119,7 @@ void convert_data(const std::vector<std::string>& args) {
         itr->second(src_path, dst_path);
         return;
     }
-    throw ANNEXCEPTION(fmt::format("Could not find method for eltype {}.", eltype));
+    throw ANNEXCEPTION("Could not find method for eltype {}.", eltype);
 }
 
 /////
@@ -140,7 +140,7 @@ Arguments:
     dest         - The path where the new file will be generated.
 )";
 
-void print_help() { fmt::print("{}", help); }
+void print_help() { fmt::print(help); }
 
 int svs_main(std::vector<std::string> args) {
     auto nargs = args.size();

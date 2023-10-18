@@ -1,0 +1,173 @@
+[[vamana_static_build]]
+__version__ = 'v0.0.1'
+build_type = 'uncompressed'
+description = 'bigann-10m'
+data = 'bigann/bigann_10m_u8.bvecs'
+data_type = 'uint8'
+queries = 'bigann/bigann_queries.bvecs'
+query_type = 'uint8'
+distance = 'L2'
+groundtruth = 'bigann/bigann_10m_groundtruth.ivecs'
+ndims = 128
+num_threads = 72
+search_window_sizes = []
+
+    [vamana_static_build.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 1.2
+    graph_max_degree = 128
+    prune_to = 124
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    use_full_search_history = true
+    window_size = 200
+
+    [vamana_static_build.search_parameters]
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.8, 0.85, 0.9 ]
+
+[[vamana_static_build]]
+__version__ = 'v0.0.1'
+build_type = 'uncompressed'
+description = 'deep-10m'
+data = 'deep/deep_10m_f16.fvecs'
+data_type = 'float16'
+queries = 'deep/deep_queries.fvecs'
+query_type = 'float32'
+groundtruth = 'deep/deep_10m_groundtruth.ivecs'
+distance = 'L2'
+ndims = 96
+num_threads = 72
+search_window_sizes = []
+
+    [vamana_static_build.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 1.2
+    graph_max_degree = 128
+    prune_to = 124
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    use_full_search_history = true
+    window_size = 200
+
+    [vamana_static_build.search_parameters]
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.8, 0.85, 0.9 ]
+
+[[vamana_static_build]]
+__version__ = 'v0.0.1'
+build_type = 'uncompressed'
+description = 'dpr-1m'
+data = 'dpr/dpr_1m_f16.fvecs'
+data_type = 'float16'
+queries = 'dpr/dpr_queries_10k_f32.fvecs'
+query_type = 'float32'
+groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
+distance = 'MIP'
+ndims = 768
+num_threads = 72
+search_window_sizes = []
+
+    [vamana_static_build.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 0.95
+    graph_max_degree = 128
+    prune_to = 124
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    use_full_search_history = true
+    window_size = 200
+
+    [vamana_static_build.search_parameters]
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.8, 0.85, 0.9 ]
+
+[[vamana_static_build]]
+__version__ = 'v0.0.1'
+build_type = 'uncompressed'
+description = 'msturing-10m'
+data = 'msturing/msturing_10m_f16.fvecs'
+data_type = 'float16'
+queries = 'msturing/msturing_queries_10k_f32.fvecs'
+query_type = 'float32'
+groundtruth = 'msturing/msturing_10m_groundtruth_10k.ivecs'
+distance = 'L2'
+ndims = 100
+num_threads = 72
+search_window_sizes = []
+
+    [vamana_static_build.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 1.2
+    graph_max_degree = 128
+    prune_to = 124
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    use_full_search_history = true
+    window_size = 200
+
+    [vamana_static_build.search_parameters]
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.8, 0.85, 0.9 ]
+
+[[vamana_static_build]]
+__version__ = 'v0.0.1'
+build_type = 'uncompressed'
+description = 'spacev-10m'
+data = 'spacev/spacev_10m_i8.bvecs'
+data_type = 'int8'
+queries = 'spacev/spacev_queries_i8.bvecs'
+query_type = 'int8'
+groundtruth = 'spacev/spacev_10m_groundtruth_10k.ivecs'
+distance = 'L2'
+ndims = 100
+num_threads = 72
+search_window_sizes = []
+
+    [vamana_static_build.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 1.2
+    graph_max_degree = 128
+    prune_to = 124
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    use_full_search_history = true
+    window_size = 200
+
+    [vamana_static_build.search_parameters]
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.8, 0.85, 0.9 ]
+
+[[vamana_static_build]]
+__version__ = 'v0.0.1'
+build_type = 'uncompressed'
+description = 'text2image-10m'
+data = 'text2image/text2image_10m_f16.fvecs'
+data_type = 'float16'
+queries = 'text2image/text2image_queries_10k_f32.fvecs'
+query_type = 'float32'
+groundtruth = 'text2image/text2image_10m_10k_groundtruth.ivecs'
+distance = 'MIP'
+ndims = 200
+num_threads = 72
+search_window_sizes = []
+
+    [vamana_static_build.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 0.95
+    graph_max_degree = 128
+    prune_to = 124
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    use_full_search_history = true
+    window_size = 200
+
+    [vamana_static_build.search_parameters]
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.8, 0.85, 0.9 ]

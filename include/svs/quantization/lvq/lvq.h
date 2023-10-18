@@ -22,8 +22,8 @@
 #include "svs/core/data.h"
 #include "svs/core/kmeans.h"
 #include "svs/lib/meta.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/saveload.h"
-#include "svs/lib/traits.h"
 
 // stl
 #include <string>
@@ -34,8 +34,10 @@ namespace svs {
 namespace quantization {
 namespace lvq {
 
-// Loader traits
-struct CompressorTag : public lib::AbstractLoaderTag {};
+namespace detail {
+// This type alias is shared between both one-level and two-level LVQ datasets.
+using centroid_type = data::SimpleData<float, Dynamic>;
+} // namespace detail
 
 class GlobalMinMax {
   private:
@@ -161,88 +163,74 @@ void generic_compress_residual(
     );
 }
 
-// Partial template specializations to get the access mode value types set-up correctly.
-// Can't define these inside the LVQDataset classes themselves because partial alias
-// template specialization is not allowed in classes.
-namespace detail {
-
-// Default version - don't implement to hopefully get better error messages if a particular
-// combination is not implemented.
-template <data::AccessMode Mode, size_t Primary, size_t Residual, size_t Extent>
-struct ValueType;
-
-template <size_t Primary, size_t Residual, size_t Extent>
-struct ValueType<data::FullAccess, Primary, Residual, Extent> {
-    using type = ScaledBiasedWithResidual<Primary, Residual, Extent>;
-};
-
-template <size_t Primary, size_t Residual, size_t Extent>
-struct ValueType<data::FastAccess, Primary, Residual, Extent> {
-    using type = ScaledBiasedVector<Primary, Extent>;
-};
-
-template <data::AccessMode Mode, size_t Primary, size_t Residual, size_t Extent>
-using const_value_type = typename ValueType<Mode, Primary, Residual, Extent>::type;
-
-} // namespace detail
-
 // Multi-level Dataset
-template <size_t Primary, size_t Residual, size_t Extent, typename Storage = FlatStorage>
+template <
+    size_t Primary,
+    size_t Residual = 0,
+    size_t Extent = Dynamic,
+    typename Alloc = lib::Allocator<std::byte>>
 class LVQDataset {
-    // Require that both the primary and residual datasets have the same backend storage.
-    // This ensures that both are resizeable if being used in a dynamic context.
-    static_assert(Storage::is_lvq_storage_tag);
-
     // Class invariants:
     //
     // * primary_.size() == residual_.size();
     // * primary_.dimensions() == residual_.dimensiosn();
 
   public:
-    static constexpr bool is_resizeable = Storage::is_resizeable;
-    using primary_type = ScaledBiasedDataset<Primary, Extent, Storage>;
-    using residual_type = CompressedDataset<Signed, Residual, Extent, Storage>;
+    constexpr static size_t primary_bits = Primary;
+    constexpr static size_t residual_bits = Residual;
+    static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
+    using primary_type = ScaledBiasedDataset<Primary, Extent, Alloc>;
+    using residual_type = CompressedDataset<Signed, Residual, Extent, Alloc>;
+    using centroid_type = detail::centroid_type;
+    using allocator_type = Alloc;
 
     // Members
   private:
     primary_type primary_;
     residual_type residual_;
+    std::shared_ptr<centroid_type> centroids_;
 
     // Methods
   public:
+    using const_primary_value_type = ScaledBiasedVector<Primary, Extent>;
+
     // Define the base template that is never meant to actually be instantiated.
     // Instead, we wish to use the full specializations instead.
     using const_value_type = ScaledBiasedWithResidual<Primary, Residual, Extent>;
     using value_type = const_value_type;
 
-    template <data::AccessMode Mode>
-    using mode_const_value_type = detail::const_value_type<Mode, Primary, Residual, Extent>;
-    template <data::AccessMode Mode> using mode_value_type = mode_const_value_type<Mode>;
-
     ///// Constructors
 
     // Construct from constituent parts.
-    LVQDataset(primary_type primary, residual_type residual)
+    LVQDataset(primary_type primary, residual_type residual, const centroid_type& centroids)
         : primary_{std::move(primary)}
-        , residual_{std::move(residual)} {
+        , residual_{std::move(residual)}
+        , centroids_{
+              std::make_shared<centroid_type>(centroids.size(), centroids.dimensions())} {
         auto primary_size = primary_.size();
         auto residual_size = residual_.size();
         if (primary_size != residual_size) {
-            auto msg = fmt::format(
+            throw ANNEXCEPTION(
                 "Primary size is {} while residual size is {}!", primary_size, residual_size
             );
-            throw ANNEXCEPTION(msg);
         }
+        data::copy(centroids, *centroids_);
 
         auto primary_dims = primary_.dimensions();
         auto residual_dims = residual_.dimensions();
+        auto centroid_dims = centroids.dimensions();
         if (primary_dims != residual_dims) {
-            auto msg = fmt::format(
+            throw ANNEXCEPTION(
                 "Primary dimensions is {} while residual dimensions is {}!",
                 primary_dims,
                 residual_dims
             );
-            throw ANNEXCEPTION(msg);
+        }
+
+        if (primary_dims != centroid_dims) {
+            throw ANNEXCEPTION(
+                "Primary dimension is {} while centroids is {}", primary_dims, centroid_dims
+            );
         }
     }
 
@@ -250,36 +238,26 @@ class LVQDataset {
     size_t size() const { return primary_.size(); }
     size_t dimensions() const { return primary_.dimensions(); }
 
-    /// @brief Access just the first level of the two level dataset.
-    ScaledBiasedVector<Primary, Extent>
-    get_datum(size_t i, data::FastAccess SVS_UNUSED(mode)) const {
-        return primary_.get_datum(i);
-    }
-
     ///
     /// @brief Access both levels of the two-level dataset.
     ///
     /// Return a type that lazily combines the primary and residual.
     ///
-    ScaledBiasedWithResidual<Primary, Residual, Extent>
-    get_datum(size_t i, data::FullAccess SVS_UNUSED(mode)) const {
+    const_value_type get_datum(size_t i) const {
         return combine(primary_.get_datum(i), residual_.get_datum(i));
     }
 
-    const_value_type get_datum(size_t i) const { return get_datum(i, data::full_access); }
-
-    /// @brief Prefetch data in the first-level dataset.
-    void prefetch(size_t i, data::FastAccess SVS_UNUSED(mode)) const {
-        primary_.prefetch(i);
-    }
-
     /// @brief Prefetch data in the first and second level datasets.
-    void prefetch(size_t i, data::FullAccess SVS_UNUSED(mode)) const {
-        prefetch(i, data::fast_access);
+    void prefetch(size_t i) const {
+        primary_.prefetch(i);
         residual_.prefetch(i);
     }
 
-    void prefetch(size_t i) const { prefetch(i, data::full_access); }
+    /// @brief Access only the first level of the dataset.
+    const_primary_value_type get_primary(size_t i) const { return primary_.get_datum(i); }
+
+    /// @brief Prefetch only the primary dataset.
+    void prefetch_primary(size_t i) const { primary_.prefetch(i); }
 
     ///// Resizing
     void resize(size_t new_size)
@@ -291,16 +269,18 @@ class LVQDataset {
     }
 
     ///// Compaction
-    template <typename I, typename Alloc, threads::ThreadPool Pool>
+    template <typename I, typename A, threads::ThreadPool Pool>
         requires is_resizeable
     void compact(
-        const std::vector<I, Alloc>& new_to_old,
-        Pool& threadpool,
-        size_t batchsize = 1'000'000
+        const std::vector<I, A>& new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
     ) {
         primary_.compact(new_to_old, threadpool, batchsize);
         residual_.compact(new_to_old, threadpool, batchsize);
     }
+
+    // Return a shared copy of the LVQ centroids.
+    std::shared_ptr<const centroid_type> view_centroids() const { return centroids_; }
+    std::span<const float> get_centroid(size_t i) const { return centroids_->get_datum(i); }
 
     ///// Insertion
     template <typename QueryType, size_t N>
@@ -309,12 +289,12 @@ class LVQDataset {
         assert(datum.size() == dims);
 
         // First, find the nearest centroid.
-        auto selector = find_nearest(datum, *(primary_.view_centroids())).id();
+        auto selector = find_nearest(datum, *centroids_).id();
 
         // Now that we have the nearest neighbor, perform primary compression, followed
         // by residual compression.
         auto buffer = std::vector<double>(dims);
-        const auto& centroid = primary_.get_centroid(selector);
+        const auto& centroid = get_centroid(selector);
         for (size_t i = 0; i < dims; ++i) {
             buffer[i] = datum[i] - centroid[i];
         }
@@ -328,65 +308,132 @@ class LVQDataset {
         residual_.set_datum(i, residual_compressor(primary_.get_datum(i), buffer));
     }
 
-    ///// Distance Adaptors
-    EuclideanBiased adapt_distance(const distance::DistanceL2& SVS_UNUSED(dist)) const {
-        return EuclideanBiased(primary_.view_centroids());
+    ///// Decompressor
+    Decompressor decompressor() const { return Decompressor{centroids_}; }
+
+    ///// Static Constructors.
+    template <data::ImmutableMemoryDataset Dataset>
+    static LVQDataset compress(const Dataset& data, const allocator_type& allocator = {}) {
+        return compress(data, 1, 0, allocator);
     }
 
-    InnerProductBiased adapt_distance(const distance::DistanceIP& SVS_UNUSED(dist)) const {
-        return InnerProductBiased(primary_.view_centroids());
+    template <data::ImmutableMemoryDataset Dataset>
+    static LVQDataset compress(
+        const Dataset& data,
+        size_t num_threads,
+        size_t alignment,
+        const allocator_type& allocator = {}
+    ) {
+        auto pool = threads::NativeThreadPool{num_threads};
+        return compress(data, pool, alignment, allocator);
     }
 
-    Decompressor decompressor() const { return Decompressor{primary_.view_centroids()}; }
+    template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
+    static LVQDataset compress(
+        const Dataset& data,
+        Pool& threadpool,
+        size_t alignment,
+        const allocator_type& allocator = {}
+    ) {
+        size_t data_dims = data.dimensions();
+        auto static_ndims = lib::MaybeStatic<Extent>(data_dims);
+        if (Extent != Dynamic) {
+            size_t data_dims = data.dimensions();
+            if (data_dims != Extent) {
+                throw ANNEXCEPTION("Dimension mismatch!");
+            }
+        }
 
-    DecompressionAdaptor<EuclideanBiased>
-    self_distance(const distance::DistanceL2& SVS_UNUSED(dist)) const {
-        return DecompressionAdaptor<EuclideanBiased>{
-            std::in_place, primary_.view_centroids()};
-    }
+        // Primary Compression.
+        VectorBias op{};
+        auto&& [map, centroid] = op(data, threadpool);
+        auto primary = primary_type{data.size(), static_ndims, alignment, allocator};
 
-    DecompressionAdaptor<InnerProductBiased>
-    self_distance(const distance::DistanceIP& SVS_UNUSED(dist)) const {
-        return DecompressionAdaptor<InnerProductBiased>{
-            std::in_place, primary_.view_centroids()};
+        // Need to do a little dance to get the means into a form that can be cleanly
+        // assigned to the dataset.
+        auto centroids = centroid_type(1, centroid.size());
+        centroids.set_datum(0, centroid);
+        generic_compress(
+            primary,
+            data,
+            lib::Compose(MinRange<Primary, Extent>(static_ndims), map),
+            threadpool
+        );
+
+        // Residual Compression.
+        auto residual = residual_type{data.size(), static_ndims, allocator};
+        generic_compress_residual(
+            residual, primary, data, ResidualEncoder<Residual>(), map, threadpool
+        );
+        return LVQDataset{std::move(primary), std::move(residual), centroids};
     }
 
     ///// Saving
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
-        auto table = toml::table(
-            {{"primary", lib::recursive_save(primary_, ctx)},
-             {"residual", lib::recursive_save(residual_, ctx)}}
+
+    // Version History
+    // v0.0.1 - BREAKING
+    //   - Moved LVQ centroid storage location into the LVQ dataset instead of with
+    //     the primary dataset.
+    static constexpr lib::Version save_version = lib::Version(0, 0, 1);
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        return lib::SaveTable(
+            save_version,
+            {SVS_LIST_SAVE_(primary, ctx),
+             SVS_LIST_SAVE_(residual, ctx),
+             {"centroids", lib::save(*centroids_, ctx)}}
         );
-        return lib::SaveType(std::move(table), save_version);
+    }
+
+    static LVQDataset load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const allocator_type& allocator = {}
+    ) {
+        if (version != save_version) {
+            throw ANNEXCEPTION(
+                "LVQ Dataset was saved using version {}, which is incompatible with the "
+                "current version ({}).",
+                version,
+                save_version
+            );
+        }
+        return LVQDataset{
+            SVS_LOAD_MEMBER_AT_(table, primary, ctx, allocator),
+            SVS_LOAD_MEMBER_AT_(table, residual, ctx, allocator),
+            lib::load_at<centroid_type>(table, "centroids", ctx)};
     }
 };
 
 // Specialize one-level LVQ
-template <size_t Primary, size_t Extent, typename Storage>
-class LVQDataset<Primary, 0, Extent, Storage> {
-    static_assert(Storage::is_lvq_storage_tag);
-
-    // Type aliases
+template <size_t Primary, size_t Extent, typename Alloc>
+class LVQDataset<Primary, 0, Extent, Alloc> {
   public:
-    static constexpr bool is_resizeable = Storage::is_resizeable;
-    using primary_type = ScaledBiasedDataset<Primary, Extent, Storage>;
+    constexpr static size_t primary_bits = Primary;
+    constexpr static size_t residual_bits = 0;
+
+    static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
+    using allocator_type = Alloc;
+    using primary_type = ScaledBiasedDataset<Primary, Extent, allocator_type>;
+    using centroid_type = detail::centroid_type;
 
     // Members
   private:
     primary_type primary_;
+    std::shared_ptr<centroid_type> centroids_;
 
     // Methods
   public:
     using value_type = typename primary_type::value_type;
     using const_value_type = typename primary_type::const_value_type;
 
-    template <data::AccessMode Mode> using mode_const_value_type = const_value_type;
-    template <data::AccessMode Mode> using mode_value_type = value_type;
-
     ///// Constructors
-    LVQDataset(primary_type primary)
-        : primary_{std::move(primary)} {}
+    LVQDataset(primary_type primary, const centroid_type& centroids)
+        : primary_{std::move(primary)}
+        , centroids_{
+              std::make_shared<centroid_type>(centroids.size(), centroids.dimensions())} {
+        data::copy(centroids, *centroids_);
+    }
 
     // Dataset API
     size_t size() const { return primary_.size(); }
@@ -401,15 +448,9 @@ class LVQDataset<Primary, 0, Extent, Storage> {
     /// This class does not have different behavior under different access modes.
     /// It exposes the access mode API for compatibility purposes.
     ///
-    template <data::AccessMode Mode = data::DefaultAccess>
-    const_value_type get_datum(size_t i, Mode SVS_UNUSED(mode) = {}) const {
-        return primary_.get_datum(i);
-    }
+    const_value_type get_datum(size_t i) const { return primary_.get_datum(i); }
 
-    template <data::AccessMode Mode = data::DefaultAccess>
-    void prefetch(size_t i, Mode SVS_UNUSED(mode) = {}) const {
-        primary_.prefetch(i);
-    }
+    void prefetch(size_t i) const { primary_.prefetch(i); }
 
     ///// Resizing
     void resize(size_t new_size)
@@ -419,15 +460,16 @@ class LVQDataset<Primary, 0, Extent, Storage> {
     }
 
     ///// Compaction
-    template <typename I, typename Alloc, threads::ThreadPool Pool>
+    template <typename I, typename A, threads::ThreadPool Pool>
         requires is_resizeable
     void compact(
-        const std::vector<I, Alloc>& new_to_old,
-        Pool& threadpool,
-        size_t batchsize = 1'000'000
+        const std::vector<I, A>& new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
     ) {
         primary_.compact(new_to_old, threadpool, batchsize);
     }
+
+    std::shared_ptr<const centroid_type> view_centroids() const { return centroids_; }
+    std::span<const float> get_centroid(size_t i) const { return centroids_->get_datum(i); }
 
     ///// Insertion
     template <typename QueryType, size_t N>
@@ -440,13 +482,13 @@ class LVQDataset<Primary, 0, Extent, Storage> {
         }
 
         // First, map the data to its nearest centroid.
-        auto selector = find_nearest(datum, *primary_.view_centroids()).id();
+        auto selector = find_nearest(datum, *centroids_).id();
 
         // Now that we have a nearest neighbor, compress and perform the assignment.
         // We first subtract out the centroid from the data, then use the two-level
         // compression codec to finish up.
         auto buffer = std::vector<double>(dims);
-        const auto& centroid = primary_.get_centroid(selector);
+        const auto& centroid = get_centroid(selector);
         for (size_t i = 0; i < dims; ++i) {
             buffer[i] = datum[i] - centroid[i];
         }
@@ -455,44 +497,172 @@ class LVQDataset<Primary, 0, Extent, Storage> {
         primary_.set_datum(i, compressor(buffer, lib::narrow_cast<selector_t>(selector)));
     }
 
-    ///// Distance Adaptors
-    EuclideanBiased adapt_distance(const distance::DistanceL2& SVS_UNUSED(dist)) const {
-        return EuclideanBiased(primary_.view_centroids());
+    ///// Decompressor
+    Decompressor decompressor() const { return Decompressor{centroids_}; }
+
+    ///// Static Constructors
+    template <data::ImmutableMemoryDataset Dataset>
+    static LVQDataset compress(const Dataset& data, const allocator_type& allocator = {}) {
+        return compress(data, 1, 0, allocator);
     }
 
-    InnerProductBiased adapt_distance(const distance::DistanceIP& SVS_UNUSED(dist)) const {
-        return InnerProductBiased(primary_.view_centroids());
+    template <data::ImmutableMemoryDataset Dataset>
+    static LVQDataset compress(
+        const Dataset& data,
+        size_t num_threads,
+        size_t alignment,
+        const allocator_type& allocator = {}
+    ) {
+        auto pool = threads::NativeThreadPool{num_threads};
+        return compress(data, pool, alignment, allocator);
     }
 
-    Decompressor decompressor() const { return Decompressor{primary_.view_centroids()}; }
+    template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
+    static LVQDataset compress(
+        const Dataset& data,
+        Pool& threadpool,
+        size_t alignment,
+        const allocator_type& allocator = {}
+    ) {
+        if (Extent != Dynamic) {
+            size_t data_dims = data.dimensions();
+            if (data_dims != Extent) {
+                throw ANNEXCEPTION("Dimension mismatch!");
+            }
+        }
 
-    DecompressionAdaptor<EuclideanBiased>
-    self_distance(const distance::DistanceL2& SVS_UNUSED(dist)) const {
-        return DecompressionAdaptor<EuclideanBiased>{
-            std::in_place, primary_.view_centroids()};
-    }
+        // Primary Compression.
+        VectorBias op{};
+        // Derive dataset per-vector means and construct a vector-wise operator `map`
+        // That can be applied to each element in the dataset to remove this mean.
+        auto [map, centroid] = op(data, threadpool);
+        // Allocate the compressed dataset.
+        auto dims = lib::MaybeStatic<Extent>(data.dimensions());
+        auto primary = primary_type{data.size(), dims, alignment, allocator};
 
-    DecompressionAdaptor<InnerProductBiased>
-    self_distance(const distance::DistanceIP& SVS_UNUSED(dist)) const {
-        return DecompressionAdaptor<InnerProductBiased>{
-            std::in_place, primary_.view_centroids()};
+        // Need to do a little dance to get the means into a form that can be cleanly
+        // assigned to the dataset.
+        auto centroids = centroid_type{1, centroid.size()};
+        centroids.set_datum(0, centroid);
+
+        // Compress the dataset by:
+        // 1. Lazily removing the per-vector bias using `map`.
+        // 2. Using the `MinRange` compression codec to compress the result of `map`.
+        generic_compress(
+            primary,
+            data,
+            lib::Compose(MinRange<Primary, Extent>(dims), std::move(map)),
+            threadpool
+        );
+        return LVQDataset{std::move(primary), centroids};
     }
 
     ///// Saving
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
-        auto table = toml::table({{"primary", lib::recursive_save(primary_, ctx)}});
-        return lib::SaveType(std::move(table), save_version);
+
+    // Version History
+    // v0.0.1 - BREAKING
+    //   - Moved LVQ centroid storage location into the LVQ dataset instead of with
+    //     the primary dataset.
+    static constexpr lib::Version save_version = lib::Version(0, 0, 1);
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        return lib::SaveTable(
+            save_version,
+            {SVS_LIST_SAVE_(primary, ctx), {"centroids", lib::save(*centroids_, ctx)}}
+        );
+    }
+
+    static LVQDataset load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const allocator_type& allocator = {}
+    ) {
+        if (version != save_version) {
+            throw ANNEXCEPTION(
+                "LVQ Dataset was saved using version {}, which is incompatible with the "
+                "current version ({}).",
+                version,
+                save_version
+            );
+        }
+
+        return LVQDataset{
+            SVS_LOAD_MEMBER_AT_(table, primary, ctx, allocator),
+            lib::load_at<centroid_type>(table, "centroids", ctx)};
     }
 };
 
 /////
-///// Mid Level Implementations
+///// LVQDataset Concept
 /////
 
-// Valid source types for compression.
-using source_element_types_t = meta::Types<float, svs::Float16>;
-inline constexpr source_element_types_t SOURCE_ELEMENT_TYPES{};
+template <typename T> inline constexpr bool is_lvq_dataset = false;
+template <size_t Primary, size_t Residual, size_t Extent, typename Storage>
+inline constexpr bool is_lvq_dataset<LVQDataset<Primary, Residual, Extent, Storage>> = true;
+
+template <typename T>
+concept IsLVQDataset = is_lvq_dataset<T>;
+
+template <typename T>
+concept IsTwoLevelDataset = is_lvq_dataset<T> && (T::residual_bits != 0);
+
+// Accessor for obtaining the primary level of a two-level dataset.
+struct PrimaryAccessor {
+    template <IsTwoLevelDataset Data>
+    using const_value_type = typename Data::const_primary_value_type;
+
+    template <IsTwoLevelDataset Data>
+    const_value_type<Data> operator()(const Data& data, size_t i) const {
+        return data.get_primary(i);
+    }
+
+    template <IsTwoLevelDataset Data> void prefetch(const Data& data, size_t i) const {
+        return data.prefetch_primary(i);
+    }
+};
+
+/////
+///// Distance Adaptation.
+/////
+
+///
+/// @brief Adapt the distance functor for use with the LVQ dataset.
+///
+/// @param dataset The dataset from which LVQ vectors will be obtained.
+/// @param distance The distance functor to modify.
+///
+/// The returned distance functor will be appropiate for use with compressed dataset vector
+/// data on the left and LVQ vectors originating from the dataset on the right.
+///
+template <IsLVQDataset Data, typename Distance>
+biased_distance_t<Distance>
+adapt(const Data& dataset, const Distance& SVS_UNUSED(distance)) {
+    return biased_distance_t<Distance>(dataset.view_centroids());
+}
+
+///
+/// @brief Adapt the distance functor for self-distance use over the LVQ dataset.
+///
+/// @param dataset The dataset from which LVQ vectors will be obtained.
+/// @param distance The distance functor to modify.
+///
+/// The returned distance functor can be used to compute distances between two elements of
+/// the LVQ dataset.
+///
+template <IsLVQDataset Data, typename Distance>
+DecompressionAdaptor<biased_distance_t<Distance>>
+adapt_for_self(const Data& dataset, const Distance& SVS_UNUSED(distance)) {
+    return DecompressionAdaptor<biased_distance_t<Distance>>(
+        std::in_place, dataset.view_centroids()
+    );
+}
+
+/////
+///// Load Helpers
+/////
+
+// Types to use for lazy compression.
+inline constexpr meta::Types<float, Float16> CompressionTs{};
 
 // How are we expecting to obtain the data.
 struct OnlineCompression {
@@ -500,7 +670,7 @@ struct OnlineCompression {
     explicit OnlineCompression(const std::filesystem::path& path, DataType type)
         : path{path}
         , type{type} {
-        if (!meta::in(type, SOURCE_ELEMENT_TYPES)) {
+        if (!meta::in(type, CompressionTs)) {
             throw ANNEXCEPTION("Invalid type!");
         }
     }
@@ -512,10 +682,11 @@ struct OnlineCompression {
 };
 
 ///
-/// @brief Dispatch type indicating that a compressed dataset should be reloaded directly.
+/// @brief Dispatch type indicating that a compressed dataset should be reloaded
+/// directly.
 ///
-/// LVQ based loaders can either perform dataset compression online, or reload a previously
-/// saved dataset.
+/// LVQ based loaders can either perform dataset compression online, or reload a
+/// previously saved dataset.
 ///
 /// Using this type in LVQ loader constructors indicates that reloading is desired.
 ///
@@ -524,7 +695,8 @@ struct Reload {
     ///
     /// @brief Construct a new Reloader.
     ///
-    /// @param directory The directory where a LVQ compressed dataset was previously saved.
+    /// @param directory The directory where a LVQ compressed dataset was previously
+    /// saved.
     ///
     explicit Reload(const std::filesystem::path& directory)
         : directory{directory} {}
@@ -534,493 +706,110 @@ struct Reload {
     std::filesystem::path directory;
 };
 
-// The various ways we can instantiate LVQ-based datasets.
+// The various ways we can instantiate LVQ-based datasets..
 using SourceTypes = std::variant<OnlineCompression, Reload>;
 
-// Forward Declarations
-template <size_t Primary, size_t Extent> class OneLevelWithBias;
+// Forward Declaration.
+template <size_t Primary, size_t Residual, size_t Extent, typename Alloc> struct LVQLoader;
 
-template <size_t Primary> struct UnspecializedOneLevelWithBias {
+template <size_t Primary, size_t Residual = 0, typename Alloc = lib::Allocator<std::byte>>
+struct ProtoLVQLoader {
+  public:
     // Constructors
-    UnspecializedOneLevelWithBias() = default;
+    ProtoLVQLoader() = default;
 
     // TODO: Propagate allocator request.
-    template <typename Allocator>
-    UnspecializedOneLevelWithBias(
-        const UnspecializedVectorDataLoader<Allocator>& datafile, size_t padding = 0
+    explicit ProtoLVQLoader(
+        const UnspecializedVectorDataLoader<Alloc>& datafile, size_t alignment = 0
     )
         : source_{std::in_place_type_t<OnlineCompression>(), datafile.path_, datafile.type_}
         , dims_{datafile.dims_}
-        , padding_{padding} {}
+        , alignment_{alignment}
+        , allocator_{datafile.allocator_} {}
 
-    UnspecializedOneLevelWithBias(Reload reloader, size_t dims, size_t padding = 0)
+    explicit ProtoLVQLoader(
+        Reload reloader, size_t dims, size_t alignment, const Alloc& allocator
+    )
         : source_{std::move(reloader)}
         , dims_{dims}
-        , padding_{padding} {}
+        , alignment_{alignment}
+        , allocator_{allocator} {}
 
-    ///
-    /// @brief Construct a fully-typed compressor from the generic compressor.
-    ///
-    template <size_t Extent>
-    OneLevelWithBias<Primary, Extent> refine(meta::Val<Extent> /*unused*/) const {
-        return OneLevelWithBias<Primary, Extent>{*this};
-    }
+    explicit ProtoLVQLoader(Reload reloader, size_t dims, size_t alignment)
+        : ProtoLVQLoader(std::move(reloader), dims, alignment, Alloc()) {}
 
-    ///// Members
-    SourceTypes source_;
-    size_t dims_;
-    size_t padding_;
-};
-
-///
-/// @brief One-level locally-adaptive vector quantization loader
-///
-/// @tparam Primary The number of bits to use for each component.
-/// @tparam Extent The compile-time logical number of dimensions for the dataset to
-///     be loaded.
-///
-/// This class is responsible for loading and compressing a dataset using one-level
-/// locally-adaptive vector quantization.
-///
-/// This class can be constructed in multiple ways which affects what happens when the
-/// ``load`` method is called.
-///
-/// * If constructed from a ``svs::VectorDataLoader``, this class will lazily compress
-///   the data pointed to by the loader.
-/// * If constructed from an ``svs::quantization::lvq::Reload`` will reload a previously
-///   compressed dataset. See ``svs::quantization::lvq::DistanceMainResidual`` for some
-///   idea of how to save a compressed dataset.
-///
-template <size_t Primary, size_t Extent = svs::Dynamic> class OneLevelWithBias {
-  public:
-    // Traits
-    using loader_tag = CompressorTag;
-
-    // Sources from which compressed files can be obtained.
-    using op_type = VectorBias;
-
-    using default_builder_type = data::PolymorphicBuilder<HugepageAllocator>;
-
-    // Type of the primary encoded dataset.
-    template <typename Builder>
-    using primary_type = ScaledBiasedDataset<Primary, Extent, get_storage_tag<Builder>>;
-
-    template <typename Builder>
-    using return_type = LVQDataset<Primary, 0, Extent, get_storage_tag<Builder>>;
-
-  private:
-    SourceTypes source_;
-    size_t padding_;
-
-  public:
-    ///
-    /// @brief Construct a LVQ compressor that will lazily compress the provided dataset.
-    ///
-    /// @param source The uncompressed vector data to compress with LVQ.
-    /// @param padding The desired alignment for the start of each compressed vector.
-    ///
-    template <typename T>
-    OneLevelWithBias(const VectorDataLoader<T, Extent>& source, size_t padding = 0)
-        : source_{std::in_place_type_t<OnlineCompression>(), source.get_path(), datatype_v<T>}
-        , padding_{padding} {
-        static_assert(meta::in<T>(SOURCE_ELEMENT_TYPES));
-    }
-
-    ///
-    /// @brief Reload a previously saved LVQ dataset.
-    ///
-    /// @param reload Reload with the directory containing the compressed dataset.
-    /// @param padding The desired alignment for the start of each compressed vector.
-    ///
-    OneLevelWithBias(Reload reload, size_t padding = 0)
-        : source_{reload}
-        , padding_{padding} {}
-
-    OneLevelWithBias(const UnspecializedOneLevelWithBias<Primary>& unspecialized)
-        : source_{unspecialized.source_}
-        , padding_{unspecialized.padding_} {
-        // Perform a dimensionality check.
+    template <size_t Extent, typename F = std::identity>
+    LVQLoader<
+        Primary,
+        Residual,
+        Extent,
+        std::decay_t<std::invoke_result_t<F, const Alloc&>>>
+    refine(meta::Val<Extent>, F&& f = std::identity()) const {
+        using ARet = std::decay_t<std::invoke_result_t<F, const Alloc&>>;
+        // Make sure the pre-set values are correct.
         if constexpr (Extent != Dynamic) {
-            auto source_dims = unspecialized.dims_;
-            if (source_dims != Extent) {
-                throw ANNEXCEPTION("Dims mismatch!");
+            if (Extent != dims_) {
+                throw ANNEXCEPTION("Invalid specialization!");
             }
         }
+        return LVQLoader<Primary, Residual, Extent, ARet>(
+            source_, alignment_, f(allocator_)
+        );
     }
 
-    ///
-    /// @brief Load a compressed dataset using the given distance function.
-    ///
-    /// @param distance The distance functor to use for the compressed vector data elements.
-    /// @param num_threads The number of threads to use for compression.
-    ///     Only used if this class was constructed from a ``svs::VectorDataLoader``.
-    ///
-    template <typename Builder = default_builder_type>
-    return_type<Builder>
-    load(const Builder& builder = {}, [[maybe_unused]] size_t num_threads = 1) const {
-        return std::visit<return_type<Builder>>(
+  public:
+    SourceTypes source_;
+    size_t dims_;
+    size_t alignment_;
+    Alloc allocator_;
+};
+
+template <size_t Primary, size_t Residual, size_t Extent, typename Alloc> struct LVQLoader {
+  public:
+    using loaded_type = LVQDataset<Primary, Residual, Extent, Alloc>;
+
+    explicit LVQLoader(SourceTypes source, size_t alignment, const Alloc& allocator)
+        : source_{std::move(source)}
+        , alignment_{alignment}
+        , allocator_{allocator} {}
+
+    loaded_type load() const {
+        auto pool = threads::SequentialThreadPool();
+        return load(pool);
+    }
+
+    template <threads::ThreadPool Pool> loaded_type load(Pool& threadpool) const {
+        return std::visit<loaded_type>(
             [&](auto source) {
                 using T = std::decay_t<decltype(source)>;
-                if constexpr (std::is_same_v<T, OnlineCompression>) {
-                    return compress_dispatch(
-                        source.path, source.type, builder, num_threads
+                if constexpr (std::is_same_v<T, Reload>) {
+                    // TODO: Enable different loaded alignment.
+                    return lib::load_from_disk<loaded_type>(source.directory, allocator_);
+                } else {
+                    return meta::match(
+                        CompressionTs,
+                        source.type,
+                        [&]<typename T>(meta::Type<T> SVS_UNUSED(type)) {
+                            return loaded_type::compress(
+                                data::SimpleData<T>::load(source.path),
+                                threadpool,
+                                alignment_,
+                                allocator_
+                            );
+                        }
                     );
-                } else if constexpr (std::is_same_v<T, Reload>) {
-                    return reload(source.directory, builder);
                 }
             },
             source_
         );
     }
 
-    template <typename Builder = default_builder_type>
-    return_type<Builder> compress_dispatch(
-        const std::filesystem::path& path,
-        DataType source_eltype,
-        const Builder& builder = {},
-        size_t num_threads = 1
-    ) const {
-        return match(
-            SOURCE_ELEMENT_TYPES,
-            source_eltype,
-            [&]<typename T>(meta::Type<T> /*unused*/) {
-                return compress_file<T>(path, builder, num_threads);
-            }
-        );
-    }
-
-    template <typename SourceType, typename Builder = default_builder_type>
-    return_type<Builder> compress_file(
-        const std::filesystem::path& path,
-        const Builder& builder = {},
-        size_t num_threads = 1
-    ) const {
-        auto data = VectorDataLoader<SourceType>(path).load();
-        return compress(data, builder, num_threads);
-    }
-
-    template <data::ImmutableMemoryDataset Data, typename Builder = default_builder_type>
-    return_type<Builder>
-    compress(const Data& data, const Builder& builder = {}, size_t num_threads = 1) const {
-        threads::NativeThreadPool threadpool{num_threads};
-
-        if constexpr (Extent != Dynamic) {
-            size_t data_dims = data.dimensions();
-            if (data_dims != Extent) {
-                throw ANNEXCEPTION(
-                    "File data has dimensions ",
-                    data_dims,
-                    " while compression engine is expecting ",
-                    Extent,
-                    " dimensions!"
-                );
-            }
-        }
-
-        // Primary Compression.
-        VectorBias op{};
-        // Derive dataset per-vector means and construct a vector-wise operator `map`
-        // That can be applied to each element in the dataset to remove this mean.
-        auto [map, centroid] = op(data, threadpool);
-        // Allocate the compressed dataset.
-        auto dims = lib::MaybeStatic<Extent>(data.dimensions());
-        primary_type<Builder> primary{data.size(), dims, padding_, builder};
-
-        // Need to do a little dance to get the means into a form that can be cleanly
-        // assigned to the dataset.
-        auto means_f32 = std::vector<float>(centroid.begin(), centroid.end());
-        auto means = data::SimpleData<float>(1, means_f32.size());
-        means.set_datum(0, means_f32);
-        primary.set_centroids(means);
-
-        // Compress the dataset by:
-        // 1. Lazily removing the per-vector bias using `map`.
-        // 2. Using the `MinRange` compression codec to compress the result of `map`.
-        generic_compress(
-            primary,
-            data,
-            lib::Compose(MinRange<Primary, Extent>(dims), std::move(map)),
-            threadpool
-        );
-
-        return return_type<Builder>{std::move(primary)};
-    }
-
-    template <typename Builder = default_builder_type>
-    return_type<Builder>
-    reload(const std::filesystem::path& dir, const Builder& builder = {}) const {
-        auto loader = lib::LoadOverride{[&](const toml::table& table,
-                                            const lib::LoadContext& ctx,
-                                            const lib::Version& SVS_UNUSED(version)) {
-            // auto this_name = get(table, "name").value();
-            // if (this_name != LVQSaveParameters::name) {
-            //     throw ANNException("Name mismatch!");
-            // }
-
-            return return_type<Builder>{
-                lib::recursive_load<primary_type<Builder>>(
-                    subtable(table, "primary"), ctx, builder
-                ),
-            };
-        }};
-        return lib::load(loader, dir);
-    }
-};
-
-// Forward Declaration.
-template <size_t Primary, size_t Residual, size_t Extent> class TwoLevelWithBias;
-
-template <size_t Primary, size_t Residual> struct UnspecializedTwoLevelWithBias {
-    UnspecializedTwoLevelWithBias() = default;
-
-    template <typename Allocator>
-    UnspecializedTwoLevelWithBias(
-        const UnspecializedVectorDataLoader<Allocator>& datafile, size_t padding = 0
-    )
-        : source_{std::in_place_type_t<OnlineCompression>(), datafile.path_, datafile.type_}
-        , dims_{datafile.dims_}
-        , padding_{padding} {}
-
-    UnspecializedTwoLevelWithBias(Reload reloader, size_t dims, size_t padding = 0)
-        : source_{std::move(reloader)}
-        , dims_{dims}
-        , padding_{padding} {}
-
-    ///
-    /// @brief Construct a fully-typed compressor from the generic compressor.
-    ///
-    template <size_t Extent>
-    TwoLevelWithBias<Primary, Residual, Extent> refine(meta::Val<Extent> /*unused*/) const {
-        return TwoLevelWithBias<Primary, Residual, Extent>{*this};
-    }
-
-    ///// Members
-    SourceTypes source_;
-    size_t dims_;
-    size_t padding_;
-};
-
-///
-/// @brief Two-level locally-adaptive vector quantization loader
-///
-/// @tparam Primary The number of bits to use for each component for the primary dataset.
-/// @tparam Residual The number of bits to use for each component in the residual dataset.
-/// @tparam Extent The compile-time logical number of dimensions for the dataset to
-///     be loaded.
-///
-/// This class is responsible for loading and compressing a dataset using one-level
-/// locally-adaptive vector quantization.
-///
-/// This class can be constructed in multiple ways which affects what happens when the
-/// ``load`` method is called.
-///
-/// * If constructed from a ``svs::VectorDataLoader``, this class will lazily compress
-///   the data pointed to by the loader.
-/// * If constructed from an ``svs::quantization::lvq::Reload`` will reload a previously
-///   compressed dataset. See ``svs::quantization::lvq::DistanceMainResidual`` for some
-///   idea of how to save a compressed dataset.
-///
-template <size_t Primary, size_t Residual, size_t Extent = Dynamic> class TwoLevelWithBias {
-  public:
-    // Traits
-    using loader_tag = CompressorTag;
-
-    // Sources from which compressed files can be obtained.
-    using op_type = VectorBias;
-
-    using default_builder_type = data::PolymorphicBuilder<HugepageAllocator>;
-
-    ///
-    /// @brief Type of the primary encoded dataset.
-    ///
-    /// @tparam Extent The static length of the encoded data.
-    ///
-    template <typename Builder>
-    using primary_type = ScaledBiasedDataset<Primary, Extent, get_storage_tag<Builder>>;
-
-    ///
-    /// @brief Type of the residual dataset.
-    ///
-    /// @tparam Extent The static length of the encoded data.
-    ///
-    template <typename Builder>
-    using residual_type =
-        CompressedDataset<Signed, Residual, Extent, get_storage_tag<Builder>>;
-
-    ///
-    /// @brief The composite return type following application of this dataset loader.
-    ///
-    /// @tparam Distance The distance type to use for the original dataset. Implementations
-    ///     of compression loaders may modify the distance type to help undo some
-    ///     steps performed during the compression process.
-    ///
-    /// @tparam Extent The number of dimensions in this dataset.
-    ///
-    template <typename Builder>
-    using return_type = LVQDataset<Primary, Residual, Extent, get_storage_tag<Builder>>;
-
   private:
     SourceTypes source_;
-    size_t padding_;
-
-  public:
-    ///
-    /// @brief Construct a new loader from the given source.
-    ///
-    /// @param source The source of the dataset.
-    /// @param padding Extra padding per compressed vector in bytes. Setting this to a
-    ///     multiple of either a half or a full cache line can substantially improve
-    ///     performance at the cost of lower compression.
-    ///
-    template <typename T>
-    TwoLevelWithBias(const VectorDataLoader<T, Extent>& source, size_t padding = 0)
-        : source_{std::in_place_type_t<OnlineCompression>(), source.get_path(), datatype_v<T>}
-        , padding_{padding} {
-        static_assert(meta::in<T>(SOURCE_ELEMENT_TYPES));
-    }
-
-    ///
-    /// @brief Reload a previously saved LVQ dataset.
-    ///
-    /// @param reload Reloader with the directory containing the compressed dataset.
-    /// @param padding The desired alignment for the start of each compressed vector.
-    ///
-    TwoLevelWithBias(Reload reload, size_t padding = 0)
-        : source_{reload}
-        , padding_{padding} {}
-
-    TwoLevelWithBias(const UnspecializedTwoLevelWithBias<Primary, Residual>& unspecialized)
-        : source_{unspecialized.source_}
-        , padding_{unspecialized.padding_} {
-        // Perform a dimensionality check.
-        if constexpr (Extent != Dynamic) {
-            auto source_dims = unspecialized.dims_;
-            if (source_dims != Extent) {
-                throw ANNEXCEPTION("Dims mismatch!");
-            }
-        }
-    }
-
-    ///
-    /// @brief Load a compressed dataset using the given distance function.
-    ///
-    /// @param distance The distance functor to use for the compressed vector data elements.
-    /// @param num_threads The number of threads to use for compression.
-    ///     Only used if this class was constructed from a ``svs::VectorDataLoader``.
-    ///
-    template <typename Builder = default_builder_type>
-    return_type<Builder>
-    load(const Builder& builder = {}, [[maybe_unused]] size_t num_threads = 1) const {
-        return std::visit<return_type<Builder>>(
-            [&](auto source) {
-                using T = std::decay_t<decltype(source)>;
-                if constexpr (std::is_same_v<T, OnlineCompression>) {
-                    return compress_dispatch(
-                        source.path, source.type, builder, num_threads
-                    );
-                } else if constexpr (std::is_same_v<T, Reload>) {
-                    return reload(source.directory, builder);
-                }
-            },
-            source_
-        );
-    }
-
-    ///
-    /// @brief Load a compressed dataset.
-    ///
-    template <typename Builder = default_builder_type>
-    return_type<Builder> compress_dispatch(
-        const std::filesystem::path& path,
-        DataType source_eltype,
-        const Builder& builder = {},
-        size_t num_threads = 1
-    ) const {
-        return match(
-            SOURCE_ELEMENT_TYPES,
-            source_eltype,
-            [&]<typename T>(meta::Type<T> /*unused*/) {
-                return compress_file<T>(path, builder, num_threads);
-            }
-        );
-    }
-
-    template <typename SourceType, typename Builder = default_builder_type>
-    return_type<Builder> compress_file(
-        const std::filesystem::path& path,
-        const Builder& builder = {},
-        size_t num_threads = 1
-    ) const {
-        auto data = VectorDataLoader<SourceType>(path).load();
-        return compress(data, builder, num_threads);
-    }
-
-    template <data::ImmutableMemoryDataset Data, typename Builder = default_builder_type>
-    return_type<Builder>
-    compress(const Data& data, const Builder& builder = {}, size_t num_threads = 1) const {
-        auto static_ndims = lib::MaybeStatic<Extent>(data.dimensions());
-        threads::NativeThreadPool threadpool{num_threads};
-
-        if constexpr (Extent != Dynamic) {
-            size_t data_dims = data.dimensions();
-            if (data_dims != Extent) {
-                throw ANNEXCEPTION(
-                    "File data has dimensions ",
-                    data_dims,
-                    " while compression engine is expecting ",
-                    Extent,
-                    " dimensions!"
-                );
-            }
-        }
-
-        // Primary Compression.
-        VectorBias op{};
-        auto&& [map, centroid] = op(data, threadpool);
-        auto primary = primary_type<Builder>{data.size(), static_ndims, padding_, builder};
-
-        auto means_f32 = std::vector<float>(centroid.begin(), centroid.end());
-        auto means = data::SimpleData<float>(1, means_f32.size());
-        means.set_datum(0, means_f32);
-        primary.set_centroids(means);
-
-        generic_compress(
-            primary,
-            data,
-            lib::Compose(MinRange<Primary, Extent>(static_ndims), map),
-            threadpool
-        );
-
-        // Residual Compression.
-        auto residual = residual_type<Builder>{data.size(), static_ndims, builder};
-        generic_compress_residual(
-            residual, primary, data, ResidualEncoder<Residual>(), map, threadpool
-        );
-        return return_type<Builder>{std::move(primary), std::move(residual)};
-    }
-
-    template <typename Builder = default_builder_type>
-    return_type<Builder>
-    reload(const std::filesystem::path& dir, const Builder& builder = {}) const {
-        auto loader = lib::LoadOverride{[&](const toml::table& table,
-                                            const lib::LoadContext& ctx,
-                                            const lib::Version& SVS_UNUSED(version)) {
-            // auto this_name = get(table, "name").value();
-            // if (this_name != LVQSaveParameters::name) {
-            //     throw ANNException("Name mismatch!");
-            // }
-
-            return return_type<Builder>{
-                lib::recursive_load<primary_type<Builder>>(
-                    subtable(table, "primary"), ctx, builder
-                ),
-                lib::recursive_load<residual_type<Builder>>(
-                    subtable(table, "residual"), ctx, builder
-                )};
-        }};
-        return lib::load(loader, dir);
-    }
+    size_t alignment_;
+    Alloc allocator_;
 };
+
 } // namespace lvq
 } // namespace quantization
 } // namespace svs

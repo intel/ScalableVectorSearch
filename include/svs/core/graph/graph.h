@@ -12,9 +12,7 @@
 #pragma once
 
 #include "svs/concepts/graph.h"
-#include "svs/core/data/block.h"
 #include "svs/core/data/simple.h"
-#include "svs/core/polymorphic_pointer.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/saveload.h"
@@ -80,11 +78,12 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         reset();
     }
 
-    template <lib::memory::MemoryAllocator Allocator>
+    // TODO: Constrain template approparitely.
+    template <typename Allocator>
     explicit SimpleGraphBase(
-        const Allocator& allocator, size_t num_nodes, size_t max_degree
+        size_t num_nodes, size_t max_degree, const Allocator& allocator
     )
-        : data_{allocator, num_nodes, max_degree + 1}
+        : data_{num_nodes, max_degree + 1, allocator}
         , max_degree_{lib::narrow<Idx>(max_degree)} {
         reset();
     }
@@ -218,11 +217,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         if constexpr (checkbounds_v) {
             if (dst >= n_nodes()) {
                 throw ANNEXCEPTION(
-                    "Trying to assign an edge to node ",
+                    "Trying to assign an edge to node {} when the number of nodes in the "
+                    "graph is {}!",
                     dst,
-                    " when the number of nodes in the graph is ",
-                    n_nodes(),
-                    '!'
+                    n_nodes()
                 );
             }
         }
@@ -273,21 +271,53 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     ///// Saving
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    lib::SaveType save(const lib::SaveContext& ctx) const {
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
         auto uuid = lib::UUID{};
         auto filename = ctx.generate_name("graph");
         io::save(data_, io::NativeFile(filename), uuid);
-        return lib::SaveType(
-            toml::table(
-                {{"name", "graph"},
-                 {"binary_file", filename.filename().c_str()},
-                 {"max_degree", prepare(max_degree())},
-                 {"num_vertices", prepare(n_nodes())},
-                 {"uuid", uuid.str()},
-                 {"eltype", name<datatype_v<Idx>>()}}
-            ),
-            save_version
+        return lib::SaveTable(
+            save_version,
+            {{"name", "graph"},
+             {"binary_file", lib::save(filename.filename())},
+             {"max_degree", lib::save(max_degree())},
+             {"num_vertices", lib::save(n_nodes())},
+             {"uuid", lib::save(uuid.str())},
+             {"eltype", lib::save(datatype_v<Idx>)}}
         );
+    }
+
+  protected:
+    template <lib::LazyInvocable<data_type> F, typename... Args>
+    static lib::lazy_result_t<F, data_type> load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const F& lazy,
+        Args&&... args
+    ) {
+        if (version != lib::Version(0, 0, 0)) {
+            throw ANNEXCEPTION("Unhandled version!");
+        }
+
+        // Perform a sanity check on the element type.
+        // Make sure we're loading the correct kind.
+        auto eltype = lib::load_at<DataType>(table, "eltype");
+        if (eltype != datatype_v<Idx>) {
+            throw ANNEXCEPTION(
+                "Trying to load a graph with adjacency list types {} to a graph with "
+                "adjacency list types {}.",
+                name(eltype),
+                name<datatype_v<Idx>>()
+            );
+        }
+
+        // Now that this is out of the way, resolve the file and load the data.
+        auto uuid = lib::load_at<lib::UUID>(table, "uuid");
+        auto binaryfile = io::find_uuid(ctx.get_directory(), uuid);
+        if (!binaryfile.has_value()) {
+            throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
+        }
+        return lazy(data_type::load(binaryfile.value(), std::forward<Args>(args)...));
     }
 
   protected:
@@ -307,10 +337,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 /// This data structure represents a graph using a single large allocation and a set maximum
 /// degree. Accessing adjacency lists takes `O(1)` time. Only out-bound edges are stored.
 ///
-template <std::unsigned_integral Idx>
-class SimpleGraph : public SimpleGraphBase<Idx, data::SimplePolymorphicData<Idx>> {
+template <std::unsigned_integral Idx, typename Alloc = HugepageAllocator<Idx>>
+class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, Alloc>> {
   public:
-    using parent_type = SimpleGraphBase<Idx, data::SimplePolymorphicData<Idx>>;
+    using parent_type = SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, Alloc>>;
     using data_type = typename parent_type::data_type;
     using parent_type::get_data;
 
@@ -323,23 +353,47 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimplePolymorphicData<Idx>
     explicit SimpleGraph(size_t num_nodes, size_t max_degree)
         : parent_type{num_nodes, max_degree} {}
 
-    template <lib::memory::MemoryAllocator Allocator>
-    explicit SimpleGraph(const Allocator& allocator, size_t num_nodes, size_t max_degree)
-        : parent_type{allocator, num_nodes, max_degree} {}
+    explicit SimpleGraph(size_t num_nodes, size_t max_degree, const Alloc& allocator)
+        : parent_type{num_nodes, max_degree, allocator} {}
 
     explicit SimpleGraph(data_type data)
         : parent_type{std::move(data)} {}
+
+    explicit SimpleGraph(parent_type&& parent)
+        : parent_type(std::move(parent)) {}
+
+    ///// Loading
+    static constexpr SimpleGraph load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const Alloc& allocator = {}
+    ) {
+        auto lazy = lib::Lazy([](data_type data) { return SimpleGraph(std::move(data)); });
+        return parent_type::load(table, ctx, version, lazy, allocator);
+    }
+
+    static constexpr SimpleGraph
+    load(const std::filesystem::path& path, const Alloc& allocator = {}) {
+        if (data::detail::is_likely_reload(path)) {
+            return lib::load_from_disk<SimpleGraph>(path, allocator);
+        } else {
+            return SimpleGraph(data_type::load(path, allocator));
+        }
+    }
 };
 
-template <typename Idx>
-bool operator==(const SimpleGraph<Idx>& x, const SimpleGraph<Idx>& y) {
+template <typename Idx, typename A1, typename A2>
+bool operator==(const SimpleGraph<Idx, A1>& x, const SimpleGraph<Idx, A2>& y) {
     return graphs_equal(x, y);
 }
 
 template <std::unsigned_integral Idx>
-class SimpleBlockedGraph : public SimpleGraphBase<Idx, data::BlockedData<Idx>> {
+class SimpleBlockedGraph
+    : public SimpleGraphBase<Idx, data::BlockedData<Idx, Dynamic, HugepageAllocator<Idx>>> {
   public:
-    using parent_type = SimpleGraphBase<Idx, data::BlockedData<Idx>>;
+    using parent_type =
+        SimpleGraphBase<Idx, data::BlockedData<Idx, Dynamic, HugepageAllocator<Idx>>>;
     using data_type = typename parent_type::data_type;
 
     // Constructors
@@ -349,9 +403,29 @@ class SimpleBlockedGraph : public SimpleGraphBase<Idx, data::BlockedData<Idx>> {
     explicit SimpleBlockedGraph(data_type data)
         : parent_type{std::move(data)} {}
 
+    explicit SimpleBlockedGraph(parent_type&& parent)
+        : parent_type(std::move(parent)) {}
+
     // Resizeable API
     void unsafe_resize(size_t new_size) { (parent_type::data_).resize(new_size); }
     void add_node() { unsafe_resize(parent_type::n_nodes() + 1); }
+
+    ///// Loading
+    static constexpr SimpleBlockedGraph load(
+        const toml::table& table, const lib::LoadContext& ctx, const lib::Version& version
+    ) {
+        auto lazy =
+            lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
+        return parent_type::load(table, ctx, version, lazy);
+    }
+
+    static constexpr SimpleBlockedGraph load(const std::filesystem::path& path) {
+        if (data::detail::is_likely_reload(path)) {
+            return lib::load_from_disk<SimpleBlockedGraph>(path);
+        } else {
+            return SimpleBlockedGraph(data_type::load(path));
+        }
+    }
 };
 
 } // namespace svs::graphs

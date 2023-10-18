@@ -90,9 +90,7 @@ CATCH_TEST_CASE("Val", "[core]") {
 
     // Extent Forwarding
     CATCH_SECTION("Extent Forwarding") {
-        CATCH_REQUIRE(svs::meta::forward_extent<0>(100) == svs::meta::Val<0>{});
-        CATCH_REQUIRE(svs::meta::forward_extent<5>(100) == svs::meta::Val<5>{});
-        CATCH_REQUIRE(svs::meta::forward_extent<10>(100) == svs::meta::Val<10>{});
+        CATCH_REQUIRE_THROWS_AS(svs::meta::forward_extent<0>(100), svs::ANNException);
         CATCH_REQUIRE(svs::meta::forward_extent<100>(100) == svs::meta::Val<100>{});
 
         CATCH_REQUIRE(svs::meta::forward_extent<svs::Dynamic>(0) == 0);

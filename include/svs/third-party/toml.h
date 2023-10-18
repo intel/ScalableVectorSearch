@@ -12,16 +12,21 @@
 #pragma once
 
 // local
-#include "svs/lib/datatype.h"
+// #include "svs/lib/datatype.h"
 #include "svs/lib/exception.h"
+#include "svs/lib/meta.h"
 #include "svs/lib/narrow.h"
+#include "svs/lib/timing.h"
 
 // third-party
+#include "fmt/ostream.h"
 #include "toml++/toml.h"
 
 // stl
+#include <chrono>
 #include <concepts>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -30,149 +35,145 @@
 
 namespace svs {
 
-inline bool maybe_config_file(const std::filesystem::path& path) {
-    return path.extension() == ".toml";
-}
-
-template <typename T>
-const T& get_checked(const std::optional<T>& x, std::string_view key) {
-    if (!x.has_value()) {
-        if constexpr (has_datatype_v<T>) {
-            throw ANNEXCEPTION(
-                "Table has a key ",
-                key,
-                " but it's not the correct type (",
-                name<datatype_v<T>>(),
-                '!'
-            );
-        } else {
-            throw ANNEXCEPTION("Table has a key ", key, " but it's not the correct type!");
-        }
-    }
-    return *x;
-}
+namespace toml_helper {
 
 namespace detail {
-inline void
-throw_if_empty(const toml::node_view<const toml::node>& view, std::string_view key) {
-    if (!view) {
-        throw ANNEXCEPTION("Table does not have an entry at position ", key, '!');
-    }
-}
+template <typename T> struct IsTomlType {
+    static constexpr bool value = false;
+};
+
+template <> struct IsTomlType<toml::node> {
+    static constexpr bool value = true;
+};
+
+template <> struct IsTomlType<toml::table> {
+    static constexpr bool value = true;
+};
+
+template <> struct IsTomlType<toml::array> {
+    static constexpr bool value = true;
+};
+
+template <typename T> struct IsTomlType<toml::value<T>> {
+    static constexpr bool value = true;
+};
+
+template <> struct IsTomlType<toml::date_time> {
+    static constexpr bool value = true;
+};
+
+template <typename T> struct TypeMapping;
+
+// Built-in type mapping.
+template <std::integral I> struct TypeMapping<I> {
+    using type = int64_t;
+};
+template <> struct TypeMapping<bool> {
+    using type = bool;
+};
+template <std::floating_point F> struct TypeMapping<F> {
+    using type = double;
+};
+template <> struct TypeMapping<std::string> {
+    using type = std::string;
+};
+// For better error messages.
+template <typename T> struct NameMap;
+template <> struct NameMap<int64_t> {
+    static constexpr std::string_view name() { return "int64"; }
+};
+template <> struct NameMap<bool> {
+    static constexpr std::string_view name() { return "bool"; }
+};
+template <> struct NameMap<double> {
+    static constexpr std::string_view name() { return "float64"; }
+};
+template <> struct NameMap<std::string> {
+    static constexpr std::string_view name() { return "float64"; }
+};
+
+template <> struct NameMap<toml::table> {
+    static constexpr std::string_view name() { return "toml-table"; }
+};
+template <> struct NameMap<toml::array> {
+    static constexpr std::string_view name() { return "toml-array"; }
+};
+template <typename T> struct NameMap<toml::value<T>> {
+    static constexpr std::string_view name() { return NameMap<T>::name(); }
+};
+
 } // namespace detail
 
-template <typename T> T get_checked(const toml::table& table, std::string_view key) {
+template <typename T> inline constexpr bool is_toml_type_v = detail::IsTomlType<T>::value;
+
+template <typename T>
+concept TomlType = is_toml_type_v<T>;
+
+template <typename T> using type_mapping_t = typename detail::TypeMapping<T>::type;
+
+template <typename T>
+concept HasTypeMapping = requires { typename detail::TypeMapping<T>::type; };
+
+// Try to safely convert the node reference to a remore refined type.
+template <typename T>
+    requires is_toml_type_v<T>
+const T& get_as(const toml::node& node) {
+    const auto* p = node.as<T>();
+    if (p == nullptr) {
+        throw ANNEXCEPTION(
+            "Bad node cast at {} to type {}!",
+            fmt::streamed(node.source()),
+            detail::NameMap<T>::name()
+        );
+    }
+    return *p;
+}
+
+// It is useful to hook into the path-checking at a higher level, but defer the actual
+// refinement until later.
+//
+// This overload makes returning a node-reference more efficient.
+template <> inline const toml::node& get_as<toml::node>(const toml::node& node) {
+    return node;
+}
+
+template <HasTypeMapping T> T get_as(const toml::node& node) {
+    return lib::narrow<T>(get_as<toml::value<type_mapping_t<T>>>(node).get());
+}
+
+template <typename T>
+auto get_as(const toml::table& table, std::string_view key) -> decltype(auto) {
     auto view = table[key];
-    detail::throw_if_empty(view, key);
-    return get_checked(view.value<T>(), key);
-}
-
-/////
-///// Prepare objects for TOML writing.
-/////
-
-///
-/// @brief Convert integer types to a form for saving.
-///
-/// Either converts losslessly to a 64-bit signed integer or fails with an exception.
-///
-template <std::integral I> int64_t prepare(I x) { return lib::narrow<int64_t>(x); }
-
-///
-/// @brief Convert floating point types to a form for saving.
-///
-/// Either converts losslessly to a 64-bit float or fails with an exception.
-///
-template <std::floating_point F> double prepare(F x) { return lib::narrow<double>(x); }
-
-template <typename T> toml::array prepare(const std::vector<T>& v) {
-    auto array = toml::array{};
-    for (const auto& x : v) {
-        array.push_back(x);
+    if (!view) {
+        throw ANNEXCEPTION(
+            "Bad access to key {} in table at {}.", key, fmt::streamed(table.source())
+        );
     }
-    return array;
+    return get_as<T>(*view.node());
 }
 
-inline std::string prepare(const std::filesystem::path& path) { return path; }
-
-/////
-///// Reading
-/////
-
-template <typename T>
-T get(const toml::table& table, std::string_view key, T default_value) {
-    return lib::narrow<T>(table[key].value_or(default_value));
-}
+} // namespace toml_helper
 
 ///
-/// @brief Get the value stored in the table corresponding to the given key.
+/// Construct a date_time
 ///
-/// @param table The table to extract from.
-/// @param key The key to access.
-///
-/// Throws ANNException in the following cases:
-///     * `key` does not exist in `table`.
-///     * `key` does exist but is not convertible to `T`.
-///     * `key` does exist but conversion to `T` is lossy.
-///
-template <typename T> T get(const toml::table& table, std::string_view key) {
-    return lib::narrow<T>(get_checked<T>(table, key));
-}
 
-///
-/// @brief Get the string value at the given path.
-///
-/// @param table The table to extract from.
-/// @param key The key to access.
-///
-/// @returns The result of the table access if it exists and is a string. Otherwise, an
-///          empty optiona.
-///
-inline std::optional<std::string> get(const toml::table& table, std::string_view key) {
-    return table[key].value<std::string>();
-}
-
-inline std::string
-get(const toml::table& table, std::string_view key, std::string_view default_value) {
-    return std::string(table[key].value_or(default_value));
-}
-
-inline const toml::table& subtable(const toml::table& table, std::string_view key) {
-    auto* sub = table[key].as_table();
-    if (sub == nullptr) {
-        throw ANNEXCEPTION("Tried to access non-existent subtable at key ", key, '!');
-    }
-    return *sub;
-}
-
-template <typename T>
-std::vector<T> get_vector(const toml::table& table, std::string_view key) {
-    // First, we need make sure what we have is actually an array.
-    if (auto* array = table[key].as_array()) {
-        auto v = std::vector<T>();
-        for (const auto& item : *array) {
-            v.push_back(lib::narrow<T>(item.template value<T>().value()));
-        }
-        return v;
-    }
-    throw ANNEXCEPTION("Key ", key, " does not point to an array!");
-}
-
-/////
-///// Writing
-/////
-
-template <std::integral T> void emplace(toml::table& table, std::string_view key, T value) {
-    table.emplace(key, lib::narrow<int64_t>(value));
-}
-
-template <std::floating_point T>
-void emplace(toml::table& table, std::string_view key, T value) {
-    table.emplace(key, lib::narrow_cast<double>(value));
-}
-
-inline void emplace(toml::table& table, std::string_view key, std::string_view value) {
-    table.emplace(key, value);
+inline toml::date_time date_time() {
+    auto now = std::chrono::system_clock::now();
+    auto today = std::chrono::floor<std::chrono::days>(now);
+    auto ymd = std::chrono::year_month_day(today);
+    auto date = toml::date(
+        static_cast<int>(ymd.year()),
+        static_cast<unsigned>(ymd.month()),
+        static_cast<unsigned>(ymd.day())
+    );
+    auto hh_mm_ss = std::chrono::hh_mm_ss(now - today);
+    auto time = toml::time{
+        lib::narrow_cast<uint8_t>(hh_mm_ss.hours().count()),
+        lib::narrow_cast<uint8_t>(hh_mm_ss.minutes().count()),
+        lib::narrow_cast<uint8_t>(hh_mm_ss.seconds().count()),
+    };
+    return toml::date_time(date, time);
 }
 
 } // namespace svs

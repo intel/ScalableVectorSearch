@@ -24,6 +24,7 @@
 #include <type_traits>
 
 namespace svs {
+
 namespace detail {
 
 ///
@@ -134,55 +135,124 @@ template <typename T> using canonical_form_t = typename detail::canonical_form<T
 // Utilities for communicating static vs dynamic extent in higher-level data structures.
 template <size_t N> using dim_type_t = typename detail::DimTypeHelper<N>::type;
 
-#define SVS_ARRAY_FORWARD(...) std::forward<decltype(__VA_ARGS__)>(__VA_ARGS__)
+template <detail::IsDim... Ts> std::tuple<canonical_form_t<Ts>...> make_dims(Ts&&... ts) {
+    return std::tuple<canonical_form_t<Ts>...>(SVS_FWD(ts)...);
+}
+
+template <typename T> struct View {
+  public:
+    View(T* ptr_)
+        : ptr{ptr_} {}
+
+  public:
+    T* ptr;
+};
+
+template <typename T> inline constexpr bool is_view_type_v = false;
+template <typename T> inline constexpr bool is_view_type_v<View<T>> = true;
+
+namespace array_impl {
+
+// Shared implementations across various DenseArray specializations.
+template <typename Dims> [[nodiscard]] constexpr size_t extent() {
+    return svs::detail::getextent<Dims>;
+}
+
+template <typename Dims> [[nodiscard]] constexpr size_t ndims() {
+    return std::tuple_size_v<Dims>;
+}
+
+template <typename Dims>
+[[nodiscard]] constexpr inline std::array<size_t, ndims<Dims>()>
+    SVS_FORCE_INLINE dims(const Dims& dims) {
+    return std::apply(
+        [](auto... args) {
+            return std::array<size_t, ndims<Dims>()>{meta::unwrap(args)...};
+        },
+        dims
+    );
+}
+
+template <typename Dims>
+[[nodiscard]] SVS_FORCE_INLINE inline constexpr size_t size(const Dims& dims) {
+    return std::apply([](auto... args) { return (meta::unwrap(args) * ...); }, dims);
+}
+
+template <size_t i, typename Dims>
+[[nodiscard]] SVS_FORCE_INLINE inline constexpr size_t getsize(const Dims& dims) {
+    return meta::unwrap(std::get<i>(dims));
+}
+
+template <size_t i, typename Dims>
+[[nodiscard]] SVS_FORCE_INLINE inline constexpr size_t getextent() {
+    return svs::detail::get_extent_impl<std::tuple_element_t<i, Dims>>;
+}
+
+template <typename Dims>
+[[nodiscard]] SVS_FORCE_INLINE inline std::array<size_t, ndims<Dims>()>
+strides(const Dims& dims) {
+    return svs::detail::default_strides(dims);
+}
+
+template <typename Dims, typename... Is>
+[[nodiscard]] SVS_FORCE_INLINE inline size_t offset(const Dims& dims, Is&&... indices) {
+    static_assert(sizeof...(indices) == ndims<Dims>());
+    return detail::offset(dims, detail::unchecked_make_array(SVS_FWD(indices)...));
+}
+
+} // namespace array_impl
 
 ///
 /// @brief A N-dimensional array class supporting compile-time dimensionality.
 ///
 /// @tparam T The value type of the array. Must be a trivial type.
 ///
-template <typename T, typename Dims, typename Base = lib::DefaultStorage<T>>
-class DenseArray {
+template <typename T, typename Dims, typename Alloc = lib::Allocator<T>> class DenseArray {
   private:
+    // N.B.: This is an important assumption for many algorithms of this type.
+    // Don't remove this requirement without careful consideration.
     static_assert(std::is_trivial_v<T>);
 
   public:
-    /// Definition: T
-    using value_type = T;
-    /// Definition: T*
-    using pointer = T*;
-    /// Definition: const T*
-    using const_pointer = const T*;
-    /// Definition: value_type&
-    using reference = value_type&;
-    //// Definition: const value_type&
-    using const_reference = const value_type&;
-    using span = std::span<T, detail::getextent<Dims>>;
-    using const_span = std::span<const T, detail::getextent<Dims>>;
-    using base_type = Base;
+    ///// Allocator Aware
+    using allocator_type = Alloc;
+    using atraits = std::allocator_traits<allocator_type>;
+    using pointer = typename atraits::pointer;
+    using const_pointer = typename atraits::const_pointer;
 
-    // Storage based traits
-    using allocator_type = lib::memory::allocator_type_t<Base>;
+    ///// Container
+    using value_type = T;
+    using reference = T&;
+    using const_reference = const T&;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
+    using difference_type = typename std::iterator_traits<iterator>::difference_type;
+    using size_type = size_t;
+
+    // Ensure consistency.
+    static_assert(std::is_same_v<value_type, typename atraits::value_type>);
+
+    ///// Misc Type Defs
+    using const_span = std::span<const T, detail::getextent<Dims>>;
+    using span = std::span<T, detail::getextent<Dims>>;
+
+    // Get the underlying allocator.
+    const allocator_type& get_allocator() const { return allocator_; }
 
     /// @brief Return the extent of the span returned for `slice`.
-    static constexpr size_t extent() { return detail::getextent<Dims>; };
+    static constexpr size_t extent() { return array_impl::extent<Dims>(); }
 
     /// @brief The number of dimensions for the array.
-    [[nodiscard]] static constexpr size_t ndims() { return std::tuple_size_v<Dims>; }
+    [[nodiscard]] static constexpr size_t ndims() { return array_impl::ndims<Dims>(); }
     /// @brief The dimensions of the array.
     [[nodiscard]] constexpr std::array<size_t, ndims()> dims() const {
-        return std::apply(
-            [](auto... args) { return std::array<size_t, ndims()>{meta::unwrap(args)...}; },
-            dims_
-        );
+        return array_impl::dims(dims_);
     }
 
     [[nodiscard]] constexpr Dims static_dims() const { return dims_; }
 
     /// @brief Return the total number of elements contained in the array.
-    [[nodiscard]] constexpr size_t size() const {
-        return std::apply([](auto... args) { return (meta::unwrap(args) * ...); }, dims_);
-    }
+    [[nodiscard]] constexpr size_t size() const { return array_impl::size(dims_); }
 
     /// @brief Return the memory footprint of the array in bytes.
     [[nodiscard]] constexpr size_t bytes() const { return sizeof(T) * size(); }
@@ -193,7 +263,7 @@ class DenseArray {
     /// @tparam i The dimensions to query. Must be in `[0, ndims()]`.
     ///
     template <size_t i> [[nodiscard]] size_t getsize() const {
-        return meta::unwrap(std::get<i>(dims_));
+        return array_impl::getsize<i>(dims_);
     }
 
     ///
@@ -204,12 +274,12 @@ class DenseArray {
     /// If the queried dimension is dynamically sized, returns ``svs::Dyanmic``.
     ///
     template <size_t i> [[nodiscard]] static constexpr size_t getextent() {
-        return detail::get_extent_impl<std::tuple_element_t<i, Dims>>;
+        return array_impl::getextent<i, Dims>();
     }
 
     // Indexing
     [[nodiscard]] std::array<size_t, ndims()> strides() const {
-        return detail::default_strides(dims_);
+        return array_impl::strides(dims_);
     }
 
     // Given `ndims()` indices, compute the linear offset from the base pointer for the
@@ -218,10 +288,7 @@ class DenseArray {
     // TODO: Add a bounds chekcing version and allow bounds checking to be a compile-time
     // option for debugging.
     template <typename... Is> [[nodiscard]] size_t offset(Is&&... indices) const {
-        static_assert(sizeof...(indices) == ndims());
-        return detail::offset(
-            dims(), detail::unchecked_make_array(SVS_ARRAY_FORWARD(indices)...)
-        );
+        return array_impl::offset(dims_, SVS_FWD(indices)...);
     }
 
     ///
@@ -232,12 +299,12 @@ class DenseArray {
     /// It is the callers responsibility to ensure that all indices are inbounds.
     ///
     template <typename... Is> reference at(Is&&... indices) {
-        return *(data() + offset(SVS_ARRAY_FORWARD(indices)...));
+        return *(data() + offset(SVS_FWD(indices)...));
     }
 
     /// @copydoc at()
     template <typename... Is> const_reference at(Is&&... indices) const {
-        return *(data() + offset(SVS_ARRAY_FORWARD(indices)...));
+        return *(data() + offset(SVS_FWD(indices)...));
     }
 
     /// @brief Return a const reference to the first element of the array.
@@ -255,22 +322,18 @@ class DenseArray {
     /// The returned span will have the same extent as the last dimension of the array.
     ///
     template <typename... Is> [[nodiscard]] span slice(Is&&... indices) {
-        size_t o = offset(SVS_ARRAY_FORWARD(indices)..., 0);
+        size_t o = offset(SVS_FWD(indices)..., 0);
         return span{data() + o, getsize<ndims() - 1>()};
     }
 
     /// @copydoc slice()
     template <typename... Is> [[nodiscard]] const_span slice(Is&&... indices) const {
-        size_t o = offset(SVS_ARRAY_FORWARD(indices)..., 0);
+        size_t o = offset(SVS_FWD(indices)..., 0);
         return const_span{data() + o, getsize<ndims() - 1>()};
     }
 
-    [[nodiscard]] pointer data() { return lib::memory::access_storage(base_); }
-    [[nodiscard]] const_pointer data() const { return lib::memory::access_storage(base_); }
-
-    [[nodiscard]] const Base& getbase() const { return base_; }
-    [[nodiscard]] Base& getbase_mutable() { return base_; }
-    [[nodiscard]] Base&& acquire_base() { return std::move(base_); }
+    [[nodiscard]] pointer data() { return pointer_; }
+    [[nodiscard]] const_pointer data() const { return pointer_; }
 
     // Special Members
     DenseArray() = default;
@@ -278,85 +341,93 @@ class DenseArray {
     // Copy constructor for owning data.
     // Creates another array from the same memory source and copies over the contents.
     DenseArray(const DenseArray& other)
-        requires lib::memory::implicit_copy_enabled_v<base_type> &&
-                     lib::memory::is_owning_v<base_type>
-        : base_{lib::allocate_managed<T>(allocator_type{}, other.size())}
-        , dims_{other.dims_} {
-        std::copy(other.begin(), other.end(), begin());
+        : pointer_{nullptr}
+        , dims_{other.dims_}
+        , allocator_{
+              atraits::select_on_container_copy_construction(other.get_allocator())} {
+        size_t sz = other.size();
+        pointer_ = atraits::allocate(allocator_, sz);
+        assign(other.begin(), other.end());
     }
 
-    DenseArray& operator=(const DenseArray& other)
-        requires lib::memory::implicit_copy_enabled_v<base_type> &&
-                 lib::memory::is_owning_v<base_type>
-    {
+    DenseArray& operator=(const DenseArray& other) {
         if (this != &other) {
-            base_ = lib::allocate_managed<T>(allocator_type{}, other.size());
+            // Because this container does not implement dynamic resizing, we always need
+            // to tear down the current instance before copying over elements.
+            //
+            // We *could* add an optimization where both the source and the destination
+            // are exactly the same size.
+            if (pointer_ != nullptr) {
+                tear_down();
+            }
+            // Conditionally propagate the other's allocator.
+            if constexpr (atraits::propagate_on_container_copy_assignment::value) {
+                allocator_ = other.allocator_;
+            }
+            // Copy over the dimensions.
             dims_ = other.dims_;
-            std::copy(other.begin(), other.end(), begin());
+            size_t sz = size();
+            // Allocate and copy contents.
+            pointer_ = atraits::allocate(allocator_, sz);
+            assign(other.begin(), other.end());
         }
         return *this;
     }
 
-    // Non-owning implicit copy.
-    DenseArray(const DenseArray& other)
-        requires lib::memory::implicit_copy_enabled_v<base_type> &&
-                     (!lib::memory::is_owning_v<base_type>)
-        : base_{other.base_}
-        , dims_{other.dims_} {}
+    DenseArray(DenseArray&& other) noexcept
+        : pointer_{std::exchange(other.pointer_, nullptr)}
+        , dims_{other.dims_}
+        , allocator_{std::move(other.allocator_)} {}
 
-    DenseArray& operator=(const DenseArray& other)
-        requires lib::memory::implicit_copy_enabled_v<base_type> &&
-                 (!lib::memory::is_owning_v<base_type>)
-    {
-        if (this != &other) {
-            base_ = other.base_;
-            dims_ = other.dims_;
+    DenseArray& operator=(DenseArray&& other) {
+        // Handle de-allocation of our current resoucres.
+        if (pointer_ != nullptr) {
+            tear_down();
+        }
+
+        if constexpr (atraits::propagate_on_container_move_assignment::value) {
+            move_assign_pilfer(other);
+        } else {
+            move_assign_copy_if_unequal(other);
         }
         return *this;
     }
 
-    // TODO: Mark as `noexcept` depeding on the base.
-    DenseArray(DenseArray&& /*unused*/) noexcept = default;
-    DenseArray& operator=(DenseArray&& /*unused*/) noexcept = default;
-    ~DenseArray() = default;
+    ~DenseArray() noexcept {
+        if (pointer_ != nullptr) {
+            tear_down();
+        }
+    }
+
+    void swap(DenseArray& other) {
+        using std::swap;
+        swap(pointer_, other.pointer_);
+        swap(dims_, other.dims_);
+        if constexpr (atraits::propagate_on_container_swap::value) {
+            swap(allocator_, other.allocator_);
+        }
+    }
+
+    // Define for ADL purposes.
+    friend void swap(DenseArray& a, DenseArray& b) { a.swap(b); }
 
     /////
     ///// Constructors
     /////
 
-    // If the base can be copied, we can use this constructor.
-    explicit DenseArray(Base&& base, Dims dims)
-        : base_{std::move(base)}
-        , dims_{std::move(dims)} {}
+    explicit DenseArray(Dims dims, const Alloc& allocator)
+        : pointer_{nullptr}
+        , dims_{std::move(dims)}
+        , allocator_{allocator} {
+        size_t sz = size();
+        pointer_ = atraits::allocate(allocator_, sz);
+        for (pointer p = pointer_, e = pointer_ + sz; p != e; ++p) {
+            atraits::construct(allocator_, std::to_address(p));
+        }
+    }
 
-    template <detail::IsDim... Ts>
-    explicit DenseArray(const Base& base, Ts... dims)
-        : base_{base}
-        , dims_{Dims(dims...)} {}
-
-    // If the base cannot be copied, but can only be moved, try to use this constructor.
-    template <detail::IsDim... Ts>
-    explicit DenseArray(Base&& base, Ts... dims)
-        : base_{std::move(base)}
-        , dims_{Dims(dims...)} {}
-
-    // Construct from scratch
-    // clang-format off
-    template <detail::IsDim... Ts>
-    explicit DenseArray(Ts... dims)
-        requires lib::memory::may_trivially_construct<allocator_type>
-        : base_{lib::allocate_managed<T>(allocator_type{}, (meta::unwrap(dims) * ...))}
-        , dims_{Dims(dims...)} {}
-
-    // Pass in an allocator to both allocate and configure dims.
-    template <typename Allocator, detail::IsDim... Ts>
-    explicit DenseArray(Allocator&& allocator, Ts... dims)
-        requires lib::memory::is_allocator_v<std::decay_t<Allocator>>
-        : base_{lib::allocate_managed<T>(
-            SVS_ARRAY_FORWARD(allocator), (meta::unwrap(dims) * ...)
-        )}
-        , dims_{Dims(dims...)} {}
-    // clang-format on
+    explicit DenseArray(Dims dims)
+        : DenseArray(std::move(dims), Alloc()) {}
 
     // Iterator
 
@@ -370,29 +441,253 @@ class DenseArray {
     const_pointer end() const { return data() + size(); }
 
     /// @brief Return a mutable view over the memory of this array.
-    DenseArray<T, Dims, T*> view() { return DenseArray<T, Dims, T*>(begin(), dims_); }
+    DenseArray<T, Dims, View<T>> view() {
+        return DenseArray<T, Dims, View<T>>(dims_, pointer_);
+    }
     /// @brief Return a constant view over the memory of this array.
+    DenseArray<const T, Dims, View<const T>> cview() const {
+        return DenseArray<const T, Dims, View<const T>>(dims_, pointer_);
+    }
+    /// @brief Return a constant view over the memory of this array.
+    DenseArray<const T, Dims, View<const T>> view() const { return cview(); }
+
+  private:
+    void tear_down() noexcept {
+        size_t sz = size();
+        for (pointer p = pointer_, e = pointer_ + sz; p != e; ++p) {
+            atraits::destroy(allocator_, std::to_address(p));
+        }
+        atraits::deallocate(allocator_, pointer_, sz);
+        pointer_ = nullptr;
+    }
+
+    template <typename It> void assign(It b, It e) {
+        assert(std::distance(b, e) == std::distance(begin(), end()));
+        assert(std::distance(b, e) == lib::narrow<int64_t>(size()));
+        pointer p = pointer_;
+        for (; b != e; ++b) {
+            atraits::construct(allocator_, p, *b);
+            ++p;
+        }
+    }
+
+    // Move assignment by pilfering the pointer from the other array.
+    // If `propagate_on_container_move_assignment`, then the allocate will also be move
+    // assigned.
+    void move_assign_pilfer(DenseArray& other) {
+        if constexpr (atraits::propagate_on_container_move_assignment::value) {
+            allocator_ = std::move(other.allocator_);
+        }
+        dims_ = std::move(other.dims_);
+        pointer_ = std::exchange(other.pointer_, nullptr);
+    }
+
+    void move_assign_copy_if_unequal(DenseArray& other) {
+        // If the two allocators are equal - then we can at least pilfer the pointer of the
+        // other container.
+        if (allocator_ == other.allocator_) {
+            move_assign_pilfer(other);
+            return;
+        }
+
+        dims_ = other.dims_;
+        size_t sz = size();
+        pointer_ = atraits::allocate(allocator_, sz);
+        assign(std::move_iterator(other.begin()), std::move_iterator(other.end()));
+        other.tear_down();
+    }
+
+  private:
+    pointer pointer_{nullptr};
+    [[no_unique_address]] Dims dims_{};
+    [[no_unique_address]] Alloc allocator_;
+};
+
+template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
+  private:
+    // N.B.: This is an important assumption for many algorithms of this type.
+    // Don't remove this requirement without careful consideration.
+    static_assert(std::is_trivial_v<T>);
+
+  public:
+    static constexpr bool is_const = std::is_const_v<T>;
+
+    ///// Allocator Aware
+    using pointer = T*;
+    using const_pointer = const T*;
+
+    ///// Container
+    using value_type = std::remove_cv_t<T>;
+    using reference = T&;
+    using const_reference = const T&;
+    using iterator = pointer;
+    using const_iterator = const_pointer;
+    using difference_type = typename std::iterator_traits<iterator>::difference_type;
+    using size_type = size_t;
+
+    ///// Misc Type Defs
+    using const_span = std::span<const T, detail::getextent<Dims>>;
+    using span = std::span<T, detail::getextent<Dims>>;
+
+    /// @brief Return the extent of the span returned for `slice`.
+    static constexpr size_t extent() { return array_impl::extent<Dims>(); }
+
+    /// @brief The number of dimensions for the array.
+    [[nodiscard]] static constexpr size_t ndims() { return array_impl::ndims<Dims>(); }
+    /// @brief The dimensions of the array.
+    [[nodiscard]] constexpr std::array<size_t, ndims()> dims() const {
+        return array_impl::dims(dims_);
+    }
+
+    [[nodiscard]] constexpr Dims static_dims() const { return dims_; }
+
+    /// @brief Return the total number of elements contained in the array.
+    [[nodiscard]] constexpr size_t size() const { return array_impl::size(dims_); }
+
+    /// @brief Return the memory footprint of the array in bytes.
+    [[nodiscard]] constexpr size_t bytes() const { return sizeof(T) * size(); }
+
+    ///
+    /// @brief Return the value of the `i`th dimension.
+    ///
+    /// @tparam i The dimensions to query. Must be in `[0, ndims()]`.
+    ///
+    template <size_t i> [[nodiscard]] size_t getsize() const {
+        return array_impl::getsize<i>(dims_);
+    }
+
+    ///
+    /// @brief Return the extent (compiletime value) of the `i`th dimension.
+    ///
+    /// @tparam i The dimensions to query. Must be in `[0, ndims()]`.
+    ///
+    /// If the queried dimension is dynamically sized, returns ``svs::Dyanmic``.
+    ///
+    template <size_t i> [[nodiscard]] static constexpr size_t getextent() {
+        return array_impl::getextent<i, Dims>();
+    }
+
+    // Indexing
+    [[nodiscard]] std::array<size_t, ndims()> strides() const {
+        return array_impl::strides(dims_);
+    }
+
+    // Given `ndims()` indices, compute the linear offset from the base pointer for the
+    // element pointed to by those indices.
+    //
+    // TODO: Add a bounds chekcing version and allow bounds checking to be a compile-time
+    // option for debugging.
+    template <typename... Is> [[nodiscard]] size_t offset(Is&&... indices) const {
+        return array_impl::offset(dims_, SVS_FWD(indices)...);
+    }
+
+    ///
+    /// @brief Access the specified element.
+    ///
+    /// @param indices The indices to access. Must satisfy ``sizeof...(indices) == ndims()``
+    ///
+    /// It is the callers responsibility to ensure that all indices are inbounds.
+    ///
+    template <typename... Is>
+    reference at(Is&&... indices)
+        requires(!is_const)
+    {
+        return *(data() + offset(SVS_FWD(indices)...));
+    }
+
+    /// @copydoc at()
+    template <typename... Is> const_reference at(Is&&... indices) const {
+        return *(data() + offset(SVS_FWD(indices)...));
+    }
+
+    /// @brief Return a const reference to the first element of the array.
+    [[nodiscard]] constexpr const_reference first() const { return *(data()); }
+
+    /// @brief Return a const reference to the last element of the array.
+    [[nodiscard]] constexpr const_reference last() const { return *(data() + size() - 1); }
+
+    ///
+    /// @brief Obtain a `std::span` over the requested row.
+    ///
+    /// @param indices The indices specifying the row to access. Must satisfy
+    ///     ``sizeof...(indices) == ndims() - 1``.
+    ///
+    /// The returned span will have the same extent as the last dimension of the array.
+    ///
+    template <typename... Is>
+    [[nodiscard]] span slice(Is&&... indices)
+        requires(!is_const)
+    {
+        size_t o = offset(SVS_FWD(indices)..., 0);
+        return span{data() + o, getsize<ndims() - 1>()};
+    }
+
+    /// @copydoc slice()
+    template <typename... Is> [[nodiscard]] const_span slice(Is&&... indices) const {
+        size_t o = offset(SVS_FWD(indices)..., 0);
+        return const_span{data() + o, getsize<ndims() - 1>()};
+    }
+
+    [[nodiscard]] pointer data()
+        requires(!is_const)
+    {
+        return pointer_;
+    }
+    [[nodiscard]] const_pointer data() const { return pointer_; }
+
+    // Special Members
+    constexpr DenseArray() = default;
+
+    /////
+    ///// Constructors
+    /////
+
+    explicit DenseArray(Dims dims, pointer ptr)
+        : pointer_{ptr}
+        , dims_{std::move(dims)} {}
+
+    explicit DenseArray(Dims dims, View<T> view)
+        : DenseArray{std::move(dims), view.ptr} {}
+
+    // Iterator
+    pointer begin()
+        requires(!is_const)
+    {
+        return data();
+    }
+    const_pointer begin() const { return data(); }
+    pointer end()
+        requires(!is_const)
+    {
+        return data() + size();
+    }
+    const_pointer end() const { return data() + size(); }
+
+    DenseArray<T, Dims, T*> view()
+        requires(!std::is_const_v<T>)
+    {
+        return DenseArray<T, Dims, T*>(begin(), dims_);
+    }
+
     DenseArray<const T, Dims, const T*> cview() const {
         return DenseArray<const T, Dims, const T*>(begin(), dims_);
     }
-    /// @brief Return a constant view over the memory of this array.
     DenseArray<const T, Dims, const T*> view() const { return cview(); }
 
   private:
-    Base base_;
-    Dims dims_;
+  private:
+    pointer pointer_{nullptr};
+    [[no_unique_address]] Dims dims_{};
 };
 
-#undef SVS_ARRAY_FORWARD
-
-template <size_t I, typename T, typename Dims, typename Base>
-size_t getsize(const DenseArray<T, Dims, Base>& array) {
+template <size_t I, typename T, typename Dims, typename Alloc>
+size_t getsize(const DenseArray<T, Dims, Alloc>& array) {
     return array.template getsize<I>();
 }
 
-template <size_t I, typename T, typename Dims, typename Base>
-constexpr size_t getextent(const DenseArray<T, Dims, Base>& /*unused*/) {
-    return DenseArray<T, Dims, Base>::template getextent<I>();
+template <size_t I, typename T, typename Dims, typename Alloc>
+constexpr size_t getextent(const DenseArray<T, Dims, Alloc>& /*unused*/) {
+    return DenseArray<T, Dims, Alloc>::template getextent<I>();
 }
 
 /////
@@ -420,8 +715,8 @@ constexpr size_t getextent(const DenseArray<T, Dims, Base>& /*unused*/) {
 /// @copydoc hidden_make_dense_array_dims
 ///
 template <typename T, detail::IsDim... Dims> auto make_dense_array(Dims... dims) {
-    return DenseArray<T, std::tuple<canonical_form_t<Dims>...>, lib::DefaultStorage<T>>(
-        dims...
+    return DenseArray<T, std::tuple<canonical_form_t<Dims>...>, lib::Allocator<T>>(
+        std::tuple<canonical_form_t<Dims>...>(dims...)
     );
 }
 
@@ -437,53 +732,13 @@ template <typename T, detail::IsDim... Dims> auto make_dense_array(Dims... dims)
 ///
 /// @copydoc hidden_make_dense_array_dims
 ///
-template <typename T, typename Allocator, detail::IsDim... Dims>
-requires lib::memory::is_allocator_v<std::decay_t<Allocator>>
-auto make_dense_array(Allocator&& allocator, Dims... dims) {
-    // Compute the storage type
-    using storage_type = decltype(lib::allocate_managed<T>(
-        std::forward<Allocator>(allocator), (meta::unwrap(dims) * ...)
-    ));
-    return DenseArray<T, std::tuple<canonical_form_t<Dims>...>, storage_type>(
-        std::forward<Allocator>(allocator), dims...
+template <typename T, typename Alloc, detail::IsDim... Dims>
+    requires (!detail::IsDim<Alloc>)
+auto make_dense_array(const Alloc& allocator, Dims... dims) {
+    return DenseArray<T, std::tuple<canonical_form_t<Dims>...>, Alloc>(
+        std::tuple<canonical_form_t<Dims>...>(dims...), allocator
     );
 }
-
-///
-/// @ingroup make_dense_array_family
-/// @brief Construct a ``DenseArray`` around the provided base object.
-///
-/// @param base The (smart) pointer owning the storage that is being used to back the array.
-/// @param dims The (potentially static) dimensions of the resulting array.
-///
-/// @copydoc hidden_make_dense_array_dims
-///
-/// **NOTE**: If the deduced type for ``base`` is a (const qualified) pointer, the returned
-/// array will be a non-owning view over the memory.
-///
-/// It is the caller's responsibility to ensure that sufficient memory has been allocated.
-///
-template <lib::memory::Storage Base, detail::IsDim... Dims>
-auto make_dense_array(Base base, Dims... dims) {
-    using T = lib::memory::storage_value_type_t<Base>;
-    return DenseArray<T, std::tuple<canonical_form_t<Dims>...>, std::decay_t<Base>>(
-        std::forward<Base>(base), dims...
-    );
-}
-
-template <lib::memory::Storage Base, detail::IsDim... Dims>
-auto make_dense_array(Base base, std::tuple<Dims...>&& dims) {
-    // The idea here is that we move-capture `base` into the lambda (need to mark the
-    // lambda as "mutable" because we're going to move the captured base out of the
-    // lambda and into the new DenseArray).
-    //
-    // We then use `std::apply` to splat the tuple into the lambda
-    auto fn = [inner = std::move(base)](auto... args) mutable {
-        return make_dense_array(std::move(inner), args...);
-    };
-    return std::apply(fn, std::forward<decltype(dims)>(dims));
-}
-// clang-format on
 
 /////
 ///// Type Aliases
@@ -496,10 +751,10 @@ template <typename T> using Vector = DenseArray<T, std::tuple<size_t>>;
 template <typename T> using Matrix = DenseArray<T, std::tuple<size_t, size_t>>;
 
 /// @brief Dynamically sized matrix view.
-template <typename T> using MatrixView = DenseArray<T, std::tuple<size_t, size_t>, T*>;
+template <typename T> using MatrixView = DenseArray<T, std::tuple<size_t, size_t>, View<T>>;
 
 /// @brief Dynamically sized constant matrix view.
 template <typename T>
-using ConstMatrixView = DenseArray<const T, std::tuple<size_t, size_t>, const T*>;
+using ConstMatrixView = DenseArray<const T, std::tuple<size_t, size_t>, View<const T>>;
 
 } // namespace svs

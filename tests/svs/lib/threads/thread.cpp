@@ -105,14 +105,15 @@ CATCH_TEST_CASE("Basics", "[core][threads]") {
 
     CATCH_SECTION("ThreadFunction") {
         std::vector<int> x{};
-        svs::threads::FunctionType fn = [&x](uint64_t val) { x.push_back(val); };
+        auto fn = [&x](uint64_t val) { x.push_back(val); };
+        auto ref = svs::threads::FunctionRef(fn);
 
-        svs::threads::ThreadFunctionRef fn_ref{&fn, 10};
+        svs::threads::ThreadFunctionRef fn_ref{ref, 10};
         fn_ref();
         CATCH_REQUIRE(x.size() == 1);
         CATCH_REQUIRE(x.at(0) == 10);
 
-        fn_ref = {&fn, 100};
+        fn_ref = {ref, 100};
         fn_ref();
         CATCH_REQUIRE(x.size() == 2);
         CATCH_REQUIRE(x.at(0) == 10);
@@ -131,8 +132,8 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
 
         // Get and set work.
         std::vector<int> x{};
-        svs::threads::FunctionType fn = [&x](uint64_t val) { x.push_back(val); };
-        svs::threads::ThreadFunctionRef fn_ref = {&fn, 10};
+        auto fn = [&x](uint64_t val) { x.push_back(val); };
+        svs::threads::ThreadFunctionRef fn_ref = {svs::threads::FunctionRef(fn), 10};
         block.unsafe_set_work(fn_ref);
         block.get_work()();
         CATCH_REQUIRE(x.size() == 1);
@@ -143,7 +144,8 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
         auto block =
             svs::threads::ThreadControlBlock<svs::threads::telemetry::ActionTelemetry>();
         std::vector<int> vector;
-        svs::threads::FunctionType fn = [&vector](uint64_t val) { vector.push_back(val); };
+        auto lambda = [&vector](uint64_t val) { vector.push_back(val); };
+        auto fn = svs::threads::FunctionRef(lambda);
 
         CATCH_SECTION("Working to Spinning") {
             auto f = [&block]() {
@@ -153,13 +155,14 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
 
             // When the initial value is `Working`, then we should wait until it changes
             // value.
-            svs::threads::ThreadFunctionRef fn{nullptr, 123};
+            svs::threads::ThreadFunctionRef fn{{}, 123};
             block.set_state(svs::threads::ThreadState::Working);
             {
                 auto thread = std::thread(f);
                 block.assign(fn);
                 auto fn_retrieved = block.get_work();
-                CATCH_REQUIRE(fn_retrieved.fn == nullptr);
+                CATCH_REQUIRE(fn_retrieved.fn.fn == nullptr);
+                CATCH_REQUIRE(fn_retrieved.fn.arg == nullptr);
                 CATCH_REQUIRE(fn_retrieved.thread_id == 123);
                 thread.join();
 
@@ -192,13 +195,13 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
 
                 // The threadstate variable should be set to `Sleeping`.
                 CATCH_REQUIRE(block.get_state() == svs::threads::ThreadState::Sleeping);
-                block.assign({&fn, 10});
+                block.assign({fn, 10});
 
                 thread.join();
                 CATCH_REQUIRE(block.get_state() == svs::threads::ThreadState::Working);
                 CATCH_REQUIRE(slept == true);
                 auto work = block.get_work();
-                CATCH_REQUIRE(work.fn == &fn);
+                CATCH_REQUIRE(work.fn == fn);
                 CATCH_REQUIRE(work.thread_id == 10);
 
                 auto telemetry = block.get_telemetry();
@@ -232,7 +235,7 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
                 CATCH_REQUIRE(block.get_state() == svs::threads::ThreadState::Spinning);
 
                 // Assign work and then let the spawned thread continue.
-                block.assign({&fn, 10});
+                block.assign({fn, 10});
                 wait.store(1);
                 thread.join();
                 CATCH_REQUIRE(block.get_state() == svs::threads::ThreadState::Working);
@@ -240,7 +243,7 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
                 // sleep.
                 CATCH_REQUIRE(slept == false);
                 auto work = block.get_work();
-                CATCH_REQUIRE(work.fn == &fn);
+                CATCH_REQUIRE(work.fn == fn);
                 CATCH_REQUIRE(work.thread_id == 10);
 
                 auto telemetry = block.get_telemetry();
@@ -277,7 +280,7 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
                 CATCH_REQUIRE(block.get_state() == svs::threads::ThreadState::Sleeping);
 
                 // Assign work and then let the spawned thread continue.
-                block.assign({&fn, 10});
+                block.assign({fn, 10});
                 thread.join();
                 CATCH_REQUIRE(block.get_state() == svs::threads::ThreadState::Working);
 
@@ -285,7 +288,7 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
                 // to sleep.
                 CATCH_REQUIRE(slept == true);
                 auto work = block.get_work();
-                CATCH_REQUIRE(work.fn == &fn);
+                CATCH_REQUIRE(work.fn == fn);
                 CATCH_REQUIRE(work.thread_id == 10);
 
                 auto telemetry = block.get_telemetry();
@@ -325,8 +328,6 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
         using namespace std::chrono_literals;
         auto block =
             svs::threads::ThreadControlBlock<svs::threads::telemetry::ActionTelemetry>();
-        std::vector<int> vector;
-        svs::threads::FunctionType fn = [&vector](uint64_t val) { vector.push_back(val); };
 
         CATCH_SECTION("Spinning") {
             block.set_state(svs::threads::ThreadState::Working);
@@ -483,14 +484,15 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     // Now that the worker is running, try assigning some jobs to it.
     {
         std::vector<size_t> test_vector{};
-        svs::threads::FunctionType f = [&test_vector](size_t i) {
+        auto lambda = [&test_vector](size_t i) {
             test_vector.push_back(i);
         };
+        auto f = svs::threads::FunctionRef(lambda);
 
         // Assign some jobs and wait until finished.
-        block.assign({&f, 10});
-        block.assign({&f, 20});
-        block.assign({&f, 30});
+        block.assign({f, 10});
+        block.assign({f, 20});
+        block.assign({f, 30});
         block.wait_while_busy();
 
         CATCH_REQUIRE(test_vector.size() == 3);
@@ -503,18 +505,20 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     {
         std::vector<size_t> test_vector_f{};
         std::vector<float> test_vector_g{};
-        svs::threads::FunctionType f = [&test_vector_f](size_t i) {
+        auto f_lambda = [&test_vector_f](size_t i) {
             test_vector_f.push_back(i);
         };
+        auto f = svs::threads::FunctionRef(f_lambda);
 
-        svs::threads::FunctionType g = [&test_vector_g](size_t i) {
+        auto g_lambda = [&test_vector_g](size_t i) {
             test_vector_g.push_back(i);
         };
+        auto g = svs::threads::FunctionRef(g_lambda);
 
-        block.assign({&f, 10});
-        block.assign({&g, 20});
-        block.assign({&f, 30});
-        block.assign({&g, 40});
+        block.assign({f, 10});
+        block.assign({g, 20});
+        block.assign({f, 30});
+        block.assign({g, 40});
         block.wait_while_busy();
 
         CATCH_REQUIRE(test_vector_f.size() == 2);
@@ -549,7 +553,8 @@ CATCH_TEST_CASE("Extented Test", "[core][threads]") {
     std::this_thread::sleep_for(1ms);
 
     auto vector = std::vector<size_t>{};
-    svs::threads::FunctionType f = [&vector](size_t i) { vector.push_back(i); };
+    auto lambda = [&vector](size_t i) { vector.push_back(i); };
+    auto f = svs::threads::FunctionRef(lambda);
 
     // Get a random number generator
     std::mt19937_64 eng{std::random_device{}()};
@@ -557,10 +562,10 @@ CATCH_TEST_CASE("Extented Test", "[core][threads]") {
     constexpr size_t trip_count = 200000;
     for (size_t i = 0; i < trip_count; ++i) {
         if ((i % 4) == 0) {
-            block.assign({&f, i});
+            block.assign({f, i});
         } else {
             std::this_thread::sleep_for(std::chrono::microseconds{dist(eng)});
-            block.assign({&f, i});
+            block.assign({f, i});
         }
     }
     block.wait_while_busy();
@@ -612,17 +617,20 @@ CATCH_TEST_CASE("Exception Handling", "[core][threads]") {
 
     // First, make sure we can submit successful jobs to the worker thread.
     size_t x = 0;
-    svs::threads::FunctionType fn_good = [&x](uint64_t new_val) { x = new_val; };
-    block->assign({&fn_good, 10});
+    auto fn_good_lambda = [&x](uint64_t new_val) { x = new_val; };
+    auto fn_good = svs::threads::FunctionRef(fn_good_lambda);
+    block->assign({fn_good, 10});
     block->wait_while_busy();
     CATCH_REQUIRE(x == 10);
 
     // Now, assign a job that throws an exception.
-    svs::threads::FunctionType fn_bad = [&x](uint64_t /*new_val*/) {
+    auto fn_bad_lambda = [&x](uint64_t /*new_val*/) {
         auto message = std::to_string(x);
         throw std::runtime_error("Something went wrong: " + message);
     };
-    block->assign({&fn_bad, 10});
+    auto fn_bad = svs::threads::FunctionRef(fn_bad_lambda);
+
+    block->assign({fn_bad, 10});
     block->wait_while_busy();
 
     // An error should now be visible.
@@ -650,7 +658,6 @@ CATCH_TEST_CASE("Exception Handling", "[core][threads]") {
 
 CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
     using namespace std::chrono_literals;
-    using FunctionType = svs::threads::FunctionType;
     CATCH_SECTION("Construction and Destruction") {
         auto thread = svs::threads::Thread();
         CATCH_REQUIRE(thread.is_okay());
@@ -660,8 +667,9 @@ CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
         auto thread = svs::threads::Thread();
         auto other = std::move(thread);
         int x = 0;
-        FunctionType f = [&x](uint64_t i) { x = i; };
-        other.assign({&f, 10});
+        auto lambda = [&x](uint64_t i) { x = i; };
+        auto f = svs::threads::FunctionRef(lambda);
+        other.assign({f, 10});
         other.wait();
         CATCH_REQUIRE(x == 10);
     }
@@ -676,8 +684,9 @@ CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
         CATCH_REQUIRE(thread.is_shutdown());
         thread = std::move(other);
         int x = 0;
-        FunctionType f = [&x](uint64_t i) { x = i; };
-        thread.assign({&f, 10});
+        auto lambda = [&x](uint64_t i) { x = i; };
+        auto f = svs::threads::FunctionRef(lambda);
+        thread.assign({f, 10});
         thread.wait();
         CATCH_REQUIRE(x == 10);
     }
@@ -694,20 +703,22 @@ CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
 
         // N.B.: The function `f` can throw if it receives an out-of-bounds
         // Index.
-        FunctionType f = [&words, &words_dest](uint64_t i) {
+        auto f_lambda = [&words, &words_dest](uint64_t i) {
             words_dest.push_back(words.at(i));
         };
+        auto f = svs::threads::FunctionRef(f_lambda);
 
-        FunctionType g = [&ints_dest](uint64_t i) { ints_dest.push_back(i); };
+        auto g_lambda = [&ints_dest](uint64_t i) { ints_dest.push_back(i); };
+        auto g = svs::threads::FunctionRef(g_lambda);
 
         // Assign jobs to the thread and wait for all to complete.
-        thread.assign({&f, 2});
-        thread.assign({&g, 1});
-        thread.assign({&g, 2});
-        thread.assign({&f, 1});
-        thread.assign({&f, 0});
-        thread.assign({&g, 10});
-        thread.assign({&g, 4});
+        thread.assign({f, 2});
+        thread.assign({g, 1});
+        thread.assign({g, 2});
+        thread.assign({f, 1});
+        thread.assign({f, 0});
+        thread.assign({g, 10});
+        thread.assign({g, 4});
         thread.wait();
 
         CATCH_REQUIRE(thread.is_running());
@@ -729,12 +740,13 @@ CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
 
     CATCH_SECTION("Exception Handling") {
         auto thread = svs::threads::Thread{};
-        FunctionType fn = [](uint64_t i) {
+        auto lambda = [](uint64_t i) {
             throw std::runtime_error("Hello world " + std::to_string(i));
         };
+        auto fn = svs::threads::FunctionRef(lambda);
         try {
-            thread.assign({&fn, 0});
-            thread.assign({&fn, 1});
+            thread.assign({fn, 0});
+            thread.assign({fn, 1});
         } catch (svs::threads::ThreadError& error) {
             CATCH_REQUIRE(
                 error.what() == svs::threads::ThreadError::make_message("Hello world 0")
@@ -746,10 +758,10 @@ CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
         thread.shutdown();
         thread = svs::threads::Thread{};
         try {
-            thread.assign({&fn, 10});
+            thread.assign({fn, 10});
             // Wait until the thread is asleep.
             std::this_thread::sleep_for(5ms);
-            thread.assign({&fn, 20});
+            thread.assign({fn, 20});
         } catch (svs::threads::ThreadError& error) {
             CATCH_REQUIRE(
                 error.what() == svs::threads::ThreadError::make_message("Hello world 10")

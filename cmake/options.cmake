@@ -3,10 +3,14 @@ if(svs_options_cmake_included)
 endif()
 set(svs_options_cmake_included true)
 
-option(SVS_CLANG_TIDY
-    "Run the clang-tidy static analyzer on utility and binding code."
-    OFF # disabled by default
-)
+# Default to Release build
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+#####
+##### Official Options
+#####
 
 option(SVS_BUILD_BINARIES
     "Build the utility binaries"
@@ -28,6 +32,11 @@ option(SVS_BUILD_EXAMPLES
     OFF # disabled by default
 )
 
+option(SVS_BUILD_BENCHMARK
+    "Build the benchmark executable."
+    OFF # disabled by default
+)
+
 option(SVS_TEST_EXAMPLES
     "Enable ctest for examples without requiring building the test suite."
     OFF # disabled by default
@@ -38,30 +47,29 @@ option(SVS_NO_AVX512
     OFF # disabled by default
 )
 
-option(SVS_CHECK_BOUNDS
-    "Enable bounds checking on many data accesses."
-    OFF # diabled by default
-)
-
-option(SVS_ENABLE_NUMA
-    "Enable NUMA aware data structures. (Experimental)"
-    OFF # disabled by default
-)
-
-option(SVS_ENABLE_QUANTIZATION
-    "Enable vector quantization. Requires a sufficiently advanced compiler"
-    ON # enabled by default
-)
-
 option(SVS_FORCE_INTEGRATION_TESTS
     "Run integration tests in debug mode (slow)"
     OFF #disabled by default
 )
 
-# Default to Release build
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
+#####
+##### Experimental
+#####
+
+option(SVS_EXPERIMENTAL_CLANG_TIDY
+    "Run the clang-tidy static analyzer on utility and binding code."
+    OFF # disabled by default
+)
+
+option(SVS_EXPERIMENTAL_CHECK_BOUNDS
+    "Enable bounds checking on many data accesses."
+    OFF # diabled by default
+)
+
+option(SVS_EXPERIMENTAL_ENABLE_NUMA
+    "Enable NUMA aware data structures. (Experimental)"
+    OFF # disabled by default
+)
 
 #####
 ##### Configuration
@@ -73,21 +81,13 @@ if (SVS_NO_AVX512)
     target_compile_options(${SVS_LIB} INTERFACE -mno-avx512f)
 endif()
 
-if (SVS_CHECK_BOUNDS)
+if (SVS_EXPERIMENTAL_CHECK_BOUNDS)
     target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS)
 endif()
 
-if (SVS_ENABLE_NUMA)
+if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_NUMA)
 endif()
-
-if (SVS_ENABLE_QUANTIZATION)
-    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_QUANTIZATION)
-endif()
-
-#####
-##### Necessary Compiler Flags
-#####
 
 #####
 ##### Helper target to apply relevant compiler optimizations.

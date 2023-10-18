@@ -32,41 +32,6 @@ template <typename T> T crunch(T scale, T value, T min, T max) {
     return std::clamp(std::round(scale * value), min, max);
 }
 
-///
-/// !!! NOTE: Data to be compressed is expected to be in the range `[-1.0, 1.0]`. Any
-///     values outside that range will be clamped to the encoding's minimum or maximum
-///     value respectively.
-///
-template <size_t Bits, size_t Extent> class Clamp : public CVStorage {
-  public:
-    using encoding_type = Encoding<Signed, Bits>;
-    using return_type = CompressedVector<Signed, Bits, Extent>;
-    static constexpr float min_s = encoding_type::min();
-    static constexpr float max_s = encoding_type::max();
-
-    // Constructor
-    Clamp(lib::MaybeStatic<Extent> size = {})
-        : CVStorage{}
-        , size_{size} {}
-
-    size_t size() const { return size_; }
-
-    // Compression Operator
-    return_type operator()(lib::AnySpanLike auto data) {
-        assert(data.size() == size());
-        auto cv = view<Signed, Bits, Extent>(size_);
-        float compressor = std::pow(2, Bits - 1);
-        for (size_t i = 0, imax = data.size(); i < imax; ++i) {
-            auto v = crunch(compressor, lib::narrow<float>(data[i]), min_s, max_s);
-            cv.set(v, i);
-        }
-        return cv;
-    }
-
-  private:
-    [[no_unique_address]] lib::MaybeStatic<Extent> size_;
-};
-
 template <size_t Bits, size_t Extent> class MinRange : public CVStorage {
   public:
     using encoding_type = Encoding<Unsigned, Bits>;

@@ -36,8 +36,8 @@ CATCH_TEST_CASE("Testing Read/Write", "[core][core_utils]") {
     // `ifstream`.
     auto stream = std::stringstream{};
     CATCH_SECTION("Native Types") {
-        svs::lib::write_binary(stream, int{10});
-        svs::lib::write_binary(stream, double{-100.452});
+        CATCH_REQUIRE(svs::lib::write_binary(stream, int{10}) == sizeof(int));
+        CATCH_REQUIRE(svs::lib::write_binary(stream, double{-100.452}) == sizeof(double));
 
         // Read the values back out.
         stream.seekg(0, std::stringstream::beg);
@@ -52,7 +52,7 @@ CATCH_TEST_CASE("Testing Read/Write", "[core][core_utils]") {
         header.a = 1234;
         header.b = -1000;
         header.c = -2304987;
-        svs::lib::write_binary(stream, header);
+        CATCH_REQUIRE(svs::lib::write_binary(stream, header) == sizeof(header));
         stream.seekg(0, std::stringstream::beg);
         auto read = svs::lib::read_binary<TestHeader>(stream);
         CATCH_REQUIRE(header.a == read.a);
@@ -63,13 +63,23 @@ CATCH_TEST_CASE("Testing Read/Write", "[core][core_utils]") {
         );
     }
 
-    CATCH_SECTION("Vectors") {
+    CATCH_SECTION("Vectors and Spans") {
         auto a = std::vector<size_t>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
-        auto aspan = std::span(a.data(), a.size());
-        svs::lib::write_binary(stream, aspan);
+        auto b = std::vector<size_t>(a.size());
+        // Write `a` directly.
+        CATCH_REQUIRE(svs::lib::write_binary(stream, a) == sizeof(size_t) * a.size());
 
         stream.seekg(0, std::stringstream::beg);
-        auto b = std::vector<size_t>(a.size());
+        svs::lib::read_binary(stream, b);
+        CATCH_REQUIRE(std::equal(a.begin(), a.end(), b.begin()));
+
+        // Write as a span
+        auto aspan = std::span(a.data(), a.size());
+        CATCH_REQUIRE(
+            svs::lib::write_binary(stream, aspan) == sizeof(size_t) * aspan.size()
+        );
+
+        stream.seekg(0, std::stringstream::beg);
         svs::lib::read_binary(stream, b);
         CATCH_REQUIRE(std::equal(a.begin(), a.end(), b.begin()));
     }
