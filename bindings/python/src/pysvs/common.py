@@ -18,6 +18,21 @@ import numpy as np
 from .loader import library
 lib = library()
 
+def read_npy(filename:str):
+    """
+    Read a file in the `npy` format and return a NumPy array with the results.
+
+    Args:
+        filename: The file to read.
+
+    Returns:
+        Numpy array with the results.
+    """
+
+    X = np.load(filename)
+    return np.ascontiguousarray(X)
+
+
 def read_vecs(filename: str):
     """
     Read a file in the `bvecs/fvecs/ivecs` format and return a NumPy array with the results.
