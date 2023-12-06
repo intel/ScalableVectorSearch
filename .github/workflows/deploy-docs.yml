@@ -45,8 +45,8 @@ jobs:
 
       - name: Build Wheel
         env:
-          CC: clang-14
-          CXX: clang++-14
+          CC: clang-15
+          CXX: clang++-15
         run: |
           cd ${GITHUB_WORKSPACE}/bindings/python
           python setup.py bdist_wheel --cmake-executable="cmake" --build-type=Debug -- -- -j2
