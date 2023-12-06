@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
@@ -45,8 +45,8 @@ jobs:
 
       - name: Build Wheel
         env:
-          CC: clang-13
-          CXX: clang++-13
+          CC: clang-14
+          CXX: clang++-14
         run: |
           cd ${GITHUB_WORKSPACE}/bindings/python
           python setup.py bdist_wheel --cmake-executable="cmake" --build-type=Debug -- -- -j2
