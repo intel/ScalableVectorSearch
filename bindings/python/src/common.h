@@ -105,17 +105,17 @@ svs::data::ConstSimpleDataView<Eltype> data_view(
     const pybind11::array_t<Eltype, pybind11::array::c_style>& data,
     AllowVectorsTag SVS_UNUSED(property)
 ) {
-    pybind11::buffer_info info = data.request();
+    size_t ndims = data.ndim();
     // If this is a vector, interpret is a batch of queries with size 1.
     // The type requirement `pybind11::array::c_style` means that the underlying data is
     // contiguous, so we can construct a view from its pointer.
-    if (info.ndim == 1) {
+    if (ndims == 1) {
         return svs::data::ConstSimpleDataView<Eltype>(
             data.template unchecked<1>().data(0), 1, data.shape(0)
         );
     }
 
-    if (info.ndim != 2) {
+    if (ndims != 2) {
         throw ANNEXCEPTION("This function can only accept numpy vectors or matrices.");
     }
 
