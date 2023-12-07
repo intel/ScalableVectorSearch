@@ -14,6 +14,8 @@ import unittest
 import os
 import warnings
 
+import numpy as np
+
 from tempfile import TemporaryDirectory
 
 import pysvs
@@ -79,12 +81,50 @@ class VamanaTester(unittest.TestCase):
             }),
         ]
 
+    # Ensure that passing 1-dimensional queries works and produces the same results as
+    # query batches.
+    def _test_single_query(
+            self,
+            vamana: pysvs.Vamana,
+            queries
+        ):
+
+        I_full, D_full = vamana.search(queries, 10);
+
+        I_single = []
+        D_single = []
+        for i in range(queries.shape[0]):
+            query = queries[i, :]
+            self.assertTrue(query.ndim == 1)
+            I, D = vamana.search(query, 10)
+
+            self.assertTrue(I.ndim == 2)
+            self.assertTrue(D.ndim == 2)
+            self.assertTrue(I.shape == (1, 10))
+            self.assertTrue(D.shape == (1, 10))
+
+            I_single.append(I)
+            D_single.append(D)
+
+        I_single_concat = np.concatenate(I_single, axis = 0)
+        D_single_concat = np.concatenate(D_single, axis = 0)
+        self.assertTrue(np.array_equal(I_full, I_single_concat))
+        self.assertTrue(np.array_equal(D_full, D_single_concat))
+
+        # Throw an error on 3-dimensional inputs.
+        queries_3d = queries[:, :, np.newaxis]
+        with self.assertRaises(Exception) as context:
+            vamana.search(queries_3d, 10)
+
+        self.assertTrue("only accept numpy vectors or matrices" in str(context.exception))
+
     def _test_basic_inner(
             self,
             vamana: pysvs.Vamana,
             recall_dict,
             num_threads: int,
             skip_thread_test: bool = False,
+            test_single_query: bool = False,
         ):
         # Make sure that the number of threads is propagated correctly.
         self.assertEqual(vamana.num_threads, num_threads)
@@ -129,6 +169,9 @@ class VamanaTester(unittest.TestCase):
                 if not DEBUG:
                     self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.0005))
 
+        if test_single_query:
+            self._test_single_query(vamana, queries)
+
         # Disable visited set.
         self.visited_set_enabled = False
 
@@ -158,6 +201,7 @@ class VamanaTester(unittest.TestCase):
         self._test_basic_inner(vamana, recall_dict, num_threads)
 
         # Test saving and reloading.
+        is_first = True
         with TemporaryDirectory() as tempdir:
             configdir = os.path.join(tempdir, "config")
             graphdir = os.path.join(tempdir, "graph")
@@ -179,8 +223,13 @@ class VamanaTester(unittest.TestCase):
 
             reloaded.num_threads = num_threads
             self._test_basic_inner(
-                reloaded, recall_dict, num_threads, skip_thread_test = True
+                reloaded,
+                recall_dict,
+                num_threads,
+                skip_thread_test = True,
+                test_single_query = is_first,
             )
+            is_first = False
 
     def test_basic(self):
         # Load the index from files.

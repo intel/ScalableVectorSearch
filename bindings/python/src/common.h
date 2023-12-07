@@ -71,6 +71,12 @@ template <typename T> std::span<const T> as_span(const py_contiguous_array_t<T>&
     return std::span<const T>(array.data(), array.size());
 }
 
+struct AllowVectorsTag {};
+
+/// A property to pass to ``data_view`` to interpret a numpy vector as a 2D array with
+/// the size of the first dimension equal to zero.
+inline constexpr AllowVectorsTag allow_vectors{};
+
 ///
 /// Create a read-only data view over a numpy array.
 ///
@@ -81,6 +87,38 @@ template <typename T> std::span<const T> as_span(const py_contiguous_array_t<T>&
 template <typename Eltype>
 svs::data::ConstSimpleDataView<Eltype>
 data_view(const pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
+    return svs::data::ConstSimpleDataView<Eltype>(
+        data.template unchecked<2>().data(0, 0), data.shape(0), data.shape(1)
+    );
+}
+
+///
+/// Create a read-only data view over a numpy matrix or vector.
+///
+/// @tparam Eltype The element type of the array.
+///
+/// @param data The numpy array to alias.
+/// @param property Indicate that it is okay to promote numpy vectors to matrices.
+///
+template <typename Eltype>
+svs::data::ConstSimpleDataView<Eltype> data_view(
+    const pybind11::array_t<Eltype, pybind11::array::c_style>& data,
+    AllowVectorsTag SVS_UNUSED(property)
+) {
+    size_t ndims = data.ndim();
+    // If this is a vector, interpret is a batch of queries with size 1.
+    // The type requirement `pybind11::array::c_style` means that the underlying data is
+    // contiguous, so we can construct a view from its pointer.
+    if (ndims == 1) {
+        return svs::data::ConstSimpleDataView<Eltype>(
+            data.template unchecked<1>().data(0), 1, data.shape(0)
+        );
+    }
+
+    if (ndims != 2) {
+        throw ANNEXCEPTION("This function can only accept numpy vectors or matrices.");
+    }
+
     return svs::data::ConstSimpleDataView<Eltype>(
         data.template unchecked<2>().data(0, 0), data.shape(0), data.shape(1)
     );

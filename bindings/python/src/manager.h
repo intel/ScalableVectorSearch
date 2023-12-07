@@ -30,8 +30,8 @@ pybind11::tuple py_search(
     pybind11::array_t<QueryType, pybind11::array::c_style> queries,
     size_t n_neighbors
 ) {
-    const size_t n_queries = queries.shape(0);
-    const auto query_data = data_view(queries);
+    const auto query_data = data_view(queries, allow_vectors);
+    size_t n_queries = query_data.size();
     auto result_idx = numpy_matrix<size_t>(n_queries, n_neighbors);
     auto result_dists = numpy_matrix<float>(n_queries, n_neighbors);
     svs::QueryResultView<size_t> q_result(
@@ -54,8 +54,12 @@ void add_search_specialization(pybind11::class_<Manager>& py_manager) {
 Perform a search to return the `n_neighbors` approximate nearest neighbors to the query.
 
 Args:
-    queries: Numpy Matrix representing the query batch. Individual queries are assumed to
-        the rows of the matrix. Returned results will have a position-wise correspondence
+    queries: Numpy Vector or Matrix representing the queries.
+
+        If the argument is a vector, it will be treated as a single query.
+
+        If the argument is a matrix, individual queries are assumed to the rows of the
+        matrix. Returned results will have a position-wise correspondence
         with the queries. That is, the `N`-th row of the returned IDs and distances will
         correspond to the `N`-th row in the query matrix.
 
@@ -64,6 +68,9 @@ Args:
 Returns:
     A tuple `(I, D)` where `I` contains the `n_neighbors` approximate (or exact) nearest
     neighbors to the queries and `D` contains the approximate distances.
+
+    Note: This form is returned regardless of whether the given query was a vector or a
+    matrix.
         )"
     );
 }
