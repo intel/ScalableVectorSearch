@@ -111,6 +111,13 @@ class VamanaTester(unittest.TestCase):
         self.assertTrue(np.array_equal(I_full, I_single_concat))
         self.assertTrue(np.array_equal(D_full, D_single_concat))
 
+        # Throw an error on 3-dimensional inputs.
+        queries_3d = queries[:, :, np.newaxis]
+        with self.assertRaises(Exception) as context:
+            vamana.search(queries_3d, 10)
+
+        self.assertTrue("only accept numpy vectors or matrices" in str(context.exception))
+
     def _test_basic_inner(
             self,
             vamana: pysvs.Vamana,
