@@ -35,7 +35,7 @@ jobs:
     - name: Install MKL
       run: |
        .github/scripts/setup_apt_repo_linux.sh
-       apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+       suto apt install intel-oneapi-mkl intel-oneapi-mkl-devel
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
