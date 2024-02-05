@@ -28,7 +28,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt install -y doxygen
+          .github/scripts/setup_apt_repo_linux.sh
+          sudo apt install -y doxygen intel-oneapi-mkl intel-oneapi-mkl-devel
           pip install \
             archspec \
             scikit-build \
