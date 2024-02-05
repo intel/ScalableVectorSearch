@@ -9,3 +9,7 @@ RUN yum --disablerepo=epel install -y \
     intel-oneapi-mkl \
     intel-oneapi-mkl-devel
 
+# Enable CMake to find the config files for MKL.
+COPY ./entry.sh .
+ENTRYPOINT ["./entry.sh"]
+

@@ -133,7 +133,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     /// @param num_neighbors The number of neighbors to retrieve when computing the base
     ///     ground truth.
     /// @param queries The query set that will be used.
-    /// @param rng_seet The seed to use for random number generator initialization.
+    /// @param rng_seed The seed to use for random number generator initialization.
     ///
     template <data::ImmutableMemoryDataset Queries>
     ReferenceDataset(

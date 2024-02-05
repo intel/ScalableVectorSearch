@@ -5,6 +5,8 @@ set(MKL_THREADING sequential)
 # This helps us find the custom shared-object building if needed.
 find_package(MKL CONFIG REQUIRED)
 
+message("MKL ROOT = ${MKL_DOOR}")
+
 # The custom MKL flow uses MKL's builder utility to create a small shared-library with
 # just the symbols used by SVS.
 #

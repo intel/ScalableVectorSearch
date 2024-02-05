@@ -215,7 +215,6 @@ void fuzz_test_impl(
     reference.check(buffer);
 
     auto eq = svs::NeighborEqual();
-    size_t j = 0;
     while (!reference.done()) {
         CATCH_REQUIRE(!buffer.done());
         CATCH_REQUIRE(eq(svs::Neighbor<uint32_t>{buffer.next()}, reference.next()));
@@ -225,7 +224,6 @@ void fuzz_test_impl(
             reference.insert(n.neighbor_, n.valid_);
         }
         reference.check(buffer);
-        ++j;
     }
     reference.check(buffer, true);
     CATCH_REQUIRE(buffer.done());
