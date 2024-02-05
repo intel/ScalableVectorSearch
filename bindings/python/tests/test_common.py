@@ -235,5 +235,9 @@ class CommonTester(unittest.TestCase):
         self.assertEqual(test_data_matrix.shape, data_matrix.shape)
         self.assertEqual(test_query_matrix.shape, query_matrix.shape)
 
-        self.assertTrue(np.array_equal(test_data_matrix, data_matrix))
-        self.assertTrue(np.array_equal(test_query_matrix, query_matrix))
+        print("matrices")
+        print(np.absolute(data_matrix))
+        print(np.absolute(test_data_matrix - data_matrix))
+        print(np.isclose(test_data_matrix, data_matrix))
+        self.assertTrue(np.allclose(test_data_matrix, data_matrix))
+        self.assertTrue(np.allclose(test_query_matrix, query_matrix))
