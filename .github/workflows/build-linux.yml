@@ -32,20 +32,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install MKL
+      run: |
+       .github/scripts/setup_apt_repo_linux.sh
+       apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+
     - name: Configure build
       working-directory: ${{ runner.temp }}
       env:
         CXX: ${{ matrix.cxx }}
         CC: ${{ matrix.cc }}
         TEMP_WORKSPACE: ${{ runner.temp }}
-        # Disable LeanVec for now in CI due to MKL.
       run: |
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=NO \
+              -DSVS_EXPERIMENTAL_LEANVEC=YES \
               -DSVS_NO_AVX512=NO
 
     - name: Build Tests and Utilities
