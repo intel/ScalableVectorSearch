@@ -4,6 +4,8 @@ include(FetchContent)
 # Reference: https://github.com/catchorg/Catch2/issues/1348
 set(CATCH_CONFIG_CONSOLE_WIDTH "100" CACHE STRING "" FORCE)
 set(CATCH_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(CATCH_CONFIG_ENABLE_BENCHMARKING OFF CACHE BOOL "" FORCE)
+set(CATCH_CONFIG_FAST_COMPILE OFF CACHE BOOL "" FORCE)
 
 # If we don't configure the prefix version of the Catch2 macros, then we get compiler
 # errors about repeated definitions of the macro `INFO`
