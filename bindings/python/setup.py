@@ -23,7 +23,7 @@ def target(arch):
 if os.environ.get("PYSVS_MULTIARCH", None) is not None:
     pysvs_microarchs = [
         "cascadelake",
-        # "skylake_avx512",
+        "x86_64_v3", # conservative base CPU for x86 CPUs.
     ]
 
     # Add the current host to the list of micro-architecture if it doesn't already exist.
