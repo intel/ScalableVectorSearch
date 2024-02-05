@@ -40,7 +40,7 @@ jobs:
        # Setup environment variables for building against MKL.
        # Persist the environment variables for use across multiple subsequent actions.
        source /opt/intel/oneapi/setvars.sh
-       printenv >> $GITTHUB_ENV
+       printenv >> $GITHUB_ENV
 
     - name: Configure build
       working-directory: ${{ runner.temp }}

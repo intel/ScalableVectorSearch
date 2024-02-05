@@ -14,13 +14,31 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
     set(SVS_MKL_CUSTOM_SO_NAME ${SVS_MKL_CUSTOM_LIBRARY_NAME}.so)
     set(SVS_MKL_CUSTOM_FULL_PATH ${CMAKE_CURRENT_BINARY_DIR}/${SVS_MKL_CUSTOM_SO_NAME})
 
+    # Find where the makefile is.
+    # It can exist in one of several paths.
+    #
+    # For 2023 MKL flavors, it is found at "MKL_ROOT/tools/builder"
+    # For 2024 MKL - it is a "MKL_ROOT/share/mkl/tool/builder"
+    #
+    # Don't seach CMake defaults - "makefile" is a common enough name that we might find
+    # an incorrect version if we include the default search paths.
+    find_path(
+        SVS_MKL_BUILDER
+        makefile
+        PATHS
+            "${MKL_ROOT}/tools/builder"
+            "${MKL_ROOT}/share/mkl/tool/builder"
+        NO_DEFAULT_PATH
+        REQUIRED
+    )
+
     # This command creates the custom shared-object that will be linked to.
     add_custom_command(
         OUTPUT ${SVS_MKL_CUSTOM_FULL_PATH}
         COMMAND
             "make"
             "-C"
-            "${MKL_ROOT}/tools/builder"
+            "${SVS_MKL_BUILDER}"
             "libintel64"
             "interface=ilp64"
             "threading=sequential"
