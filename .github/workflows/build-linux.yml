@@ -33,9 +33,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install MKL
+      timeout-minutes: 5
       run: |
        .github/scripts/setup_apt_repo_linux.sh
        sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+       # Setup environment variables for building against MKL.
+       # Persist the environment variables for use across multiple subsequent actions.
+       source /opt/intel/oneapi/setvars.sh
+       printenv >> $GITTHUB_ENV
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
