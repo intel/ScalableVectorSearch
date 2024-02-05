@@ -49,7 +49,9 @@ inline float float16_to_float_untyped_slow(const uint16_t x) {
     // without norm/denorm (it makes code slow)
     const uint32_t e = (x & 0x7C00) >> 10; // exponent
     const uint32_t m = (x & 0x03FF) << 13; // mantissa
-    return bitcast_uint32_to_float((x & 0x8000) << 16 | (e != 0) * ((e + 112) << 23 | m));
+    return bitcast_uint32_to_float(
+        (x & 0x8000) << 16 | static_cast<uint32_t>(e != 0) * ((e + 112) << 23 | m)
+    );
 }
 
 inline uint16_t float_to_float16_untyped_slow(const float x) {
@@ -57,9 +59,12 @@ inline uint16_t float_to_float16_untyped_slow(const float x) {
     const uint32_t b = bitcast_float_to_uint32(x) + 0x00001000;
     const uint32_t e = (b & 0x7F800000) >> 23; // exponent
     const uint32_t m = b & 0x007FFFFF;         // mantissa
-    return (b & 0x80000000) >> 16 | (e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) |
-           ((e < 113) & (e > 101)) * ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1) |
-           (e > 143) * 0x7FFF; // sign : normalized : denormalized : saturate
+    return (b & 0x80000000) >> 16 |
+           static_cast<uint32_t>(e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) |
+           static_cast<uint32_t>((e < 113) && (e > 101)) *
+               ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1) |
+           static_cast<uint32_t>(e > 143) *
+               0x7FFF; // sign : normalized : denormalized : saturate
 }
 
 // If the processor is new enough, we can use hardware intrinsics to perform the conversion

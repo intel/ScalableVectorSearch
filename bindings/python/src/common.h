@@ -20,6 +20,22 @@
 
 const size_t Dynamic = svs::Dynamic;
 
+// Exposed Allocators
+// N.B.: As more allocators get implemented, this can be switched to a ``std::variant`` of
+// allocators that will get propagated throughout the code.
+//
+// Support for this might not be fully in place but should be relatively straight-forward
+// to add.
+using Allocator = svs::HugepageAllocator<std::byte>;
+
+// Functor to wrap an allocator inside a blocked struct.
+inline constexpr auto as_blocked = [](const auto& allocator) {
+    return svs::data::Blocked<std::decay_t<decltype(allocator)>>{allocator};
+};
+
+template <typename T>
+using RebindAllocator = typename std::allocator_traits<Allocator>::rebind_alloc<T>;
+
 ///
 /// Ensure certain constexpr code-paths aren't reachable at compile time.
 /// Helps ensure "constexpr" if-else chains are exhaustive.
@@ -56,6 +72,12 @@ template <> struct npy_format_descriptor<svs::Float16> {
 template <typename T>
 using py_contiguous_array_t = pybind11::array_t<T, pybind11::array::c_style>;
 
+struct AllowVectorsTag {};
+
+/// A property to pass to ``data_view`` to interpret a numpy vector as a 2D array with
+/// the size of the first dimension equal to zero.
+inline constexpr AllowVectorsTag allow_vectors{};
+
 ///
 /// @brief Construct a span view over the numpy array.
 ///
@@ -69,27 +91,6 @@ template <typename T> std::span<const T> as_span(const py_contiguous_array_t<T>&
         );
     }
     return std::span<const T>(array.data(), array.size());
-}
-
-struct AllowVectorsTag {};
-
-/// A property to pass to ``data_view`` to interpret a numpy vector as a 2D array with
-/// the size of the first dimension equal to zero.
-inline constexpr AllowVectorsTag allow_vectors{};
-
-///
-/// Create a read-only data view over a numpy array.
-///
-/// @tparam Eltype The element type of the array.
-///
-/// @param data The numpy array to alias.
-///
-template <typename Eltype>
-svs::data::ConstSimpleDataView<Eltype>
-data_view(const pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
-    return svs::data::ConstSimpleDataView<Eltype>(
-        data.template unchecked<2>().data(0, 0), data.shape(0), data.shape(1)
-    );
 }
 
 ///
@@ -119,6 +120,21 @@ svs::data::ConstSimpleDataView<Eltype> data_view(
         throw ANNEXCEPTION("This function can only accept numpy vectors or matrices.");
     }
 
+    return svs::data::ConstSimpleDataView<Eltype>(
+        data.template unchecked<2>().data(0, 0), data.shape(0), data.shape(1)
+    );
+}
+
+///
+/// Create a read-only data view over a numpy array.
+///
+/// @tparam Eltype The element type of the array.
+///
+/// @param data The numpy array to alias.
+///
+template <typename Eltype>
+svs::data::ConstSimpleDataView<Eltype>
+data_view(const pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
     return svs::data::ConstSimpleDataView<Eltype>(
         data.template unchecked<2>().data(0, 0), data.shape(0), data.shape(1)
     );
@@ -157,68 +173,50 @@ pybind11::array_t<T, pybind11::array::c_style> numpy_matrix(size_t s0, size_t s1
     return pybind11::array_t<T, pybind11::array::c_style>{{s0, s1}};
 }
 
-namespace detail {
-template <typename T> struct NumpyMapping {
-    using type = T;
-    static constexpr type convert(T x) { return x; }
-};
-} // namespace detail
-
-template <typename T> using numpy_mapped_type = typename detail::NumpyMapping<T>::type;
-template <typename T> numpy_mapped_type<T> convert_numpy(T x) {
-    return detail::NumpyMapping<T>::convert(x);
-}
-
 ///
-/// Construct a `SimplePolymorphicData` objects from a numpy array.
+/// Construct a `SimpleData` objects from a numpy array.
 ///
-template <typename T>
-svs::data::
-    SimpleData<numpy_mapped_type<T>, Dynamic, svs::HugepageAllocator<numpy_mapped_type<T>>>
-    create_data(const pybind11::array_t<T, pybind11::array::c_style>& data) {
-    using MappedT = numpy_mapped_type<T>;
-    auto out = svs::data::SimpleData<MappedT, Dynamic, svs::HugepageAllocator<MappedT>>{
-        svs::lib::narrow<size_t>(data.shape(0)), svs::lib::narrow<size_t>(data.shape(1))};
-    std::transform(data.data(), data.data() + data.size(), out.data(), [](auto&& x) {
-        return convert_numpy(x);
-    });
-    return out;
+template <typename T, typename Alloc = RebindAllocator<T>>
+svs::data::SimpleData<T, Dynamic, Alloc>
+create_data(const pybind11::array_t<T, pybind11::array::c_style>& data) {
+    auto src = data_view(data);
+    auto dst = svs::data::SimpleData<T, Dynamic, Alloc>(src.size(), src.dimensions());
+    svs::data::copy(src, dst);
+    return dst;
 }
 
 template <typename T, size_t Extent = Dynamic>
-svs::data::BlockedData<T, Extent, svs::HugepageAllocator<T>>
+svs::data::BlockedData<T, Extent, RebindAllocator<T>>
 create_blocked_data(const pybind11::array_t<T, pybind11::array::c_style>& py_data) {
-    using MappedT = numpy_mapped_type<T>;
-    if (py_data.ndim() != 2) {
-        throw ANNEXCEPTION("Expected data to be a matrix!");
-    }
-
-    size_t count = py_data.shape(0);
-    size_t dims = py_data.shape(1);
-
+    auto src = data_view(py_data);
     if constexpr (Extent != Dynamic) {
-        if (Extent != dims) {
+        if (Extent != src.dimensions()) {
             throw ANNEXCEPTION(
-                "Trying to assign a numpy array with dynamic dimensionality (",
-                dims,
-                ") to a static blocked dataset with dimensionality ",
-                Extent,
-                '!'
+                "Trying to assign a numpy array with dynamic dimensionality ({}) to a "
+                "static blocked dataset with dimensionality {}!",
+                src.dimensions(),
+                Extent
             );
         }
     }
 
-    auto data = svs::data::BlockedData<MappedT, Extent, svs::HugepageAllocator<MappedT>>(
-        count, dims
-    );
-    auto direct_access = py_data.template unchecked<2>();
-    std::vector<MappedT> buffer(dims);
+    auto dst =
+        svs::data::BlockedData<T, Extent, RebindAllocator<T>>(src.size(), src.dimensions());
+    svs::data::copy(src, dst);
+    return dst;
+}
 
-    for (size_t i = 0; i < count; ++i) {
-        for (size_t j = 0; j < dims; ++j) {
-            buffer[j] = convert_numpy(direct_access(i, j));
-        }
-        data.set_datum(i, buffer);
+namespace detail {
+template <typename F, typename T>
+using and_then_return_t = std::remove_cvref_t<std::invoke_result_t<F, T>>;
+}
+
+// Stand-in for C++23 `std::optional` monads.
+template <typename F, typename T>
+std::optional<detail::and_then_return_t<F, const T&>>
+transform_optional(F&& f, const std::optional<T>& x) {
+    if (!x) {
+        return std::nullopt;
     }
-    return data;
+    return std::optional<detail::and_then_return_t<F, const T&>>(f(*x));
 }

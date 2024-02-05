@@ -6,31 +6,22 @@ In-Memory Representation of Data
 Vector data is at the core of the SVS similarity search library.
 Several specific classes are provided to implement in-memory vector datasets with different semantics.
 
-* :cpp:class:`svs::data::SimplePolymorphicData` - General dense representation of embedding vectors using type erasure for the backend allocator.
-  This allows multiple different allocators to be used without changing the type of this class.
-* :cpp:class:`svs::data::SimpleData` - Special version of :cpp:class:`svs::data::SimplePolymorphicData` where the allocator is propagated as a type parameter.
-  Is slightly more efficient than the polymorphic container but less flexible.
-* :cpp:class:`svs::data::SimpleDataView` - Non-owning view over a dense representation of embedding vectors.
-* :cpp:class:`svs::data::ConstSimpleDataView` - Constant version of :cpp:class:`svs::data::SimpleDataView`.
+* :cpp:class:`svs::data::SimpleData` - General allocator-aware dense representation of embedding vectors.
+* :cpp:type:`svs::data::SimpleDataView` - Non-owning view over a dense representation of embedding vectors.
+* :cpp:type:`svs::data::ConstSimpleDataView` - Constant version of :cpp:type:`svs::data::SimpleDataView`.
   Useful for crossing virtual function boundaries where templates can't be used.
 
 Detailed documentation for these classes is given below.
-
-.. doxygenclass:: svs::data::SimplePolymorphicData
-   :project: SVS
-   :members:
 
 .. doxygenclass:: svs::data::SimpleData
    :project: SVS
    :members:
 
-.. doxygenclass:: svs::data::SimpleDataView
+.. doxygentypedef:: svs::data::ConstSimpleDataView
    :project: SVS
-   :members:
 
-.. doxygenclass:: svs::data::ConstSimpleDataView
+.. doxygentypedef:: svs::data::SimpleDataView
    :project: SVS
-   :members:
 
 Data Loading
 ------------

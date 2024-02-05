@@ -31,6 +31,10 @@ std::filesystem::path test_schema_directory() {
 // Full filepath to the V1 file
 std::filesystem::path test_v1_file() { return test_schema_directory() / "test_v1.svs"; }
 
+std::filesystem::path test_database_file() {
+    return test_schema_directory() / "test_database.svs.db";
+}
+
 // Full filepath to the Vtest file
 std::filesystem::path test_vtest_file() {
     return test_schema_directory() / "test_vtest.svs";

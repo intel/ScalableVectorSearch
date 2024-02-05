@@ -10,3 +10,4 @@ Advanced Topics
    lowermem.rst
    build.rst
    static_dimensionality.rst
+   graph_search.rst

@@ -29,12 +29,12 @@ def run_test_float(index, queries, groundtruth):
             recall, expected[window_size], f"Standard Search Check ({window_size})"
         )
 
-def run_test_onelevel8(index, queries, groundtruth):
+def run_test_two_level4_8(index, queries, groundtruth):
     expected = {
-        10: 0.5676,
-        20: 0.7405,
-        30: 0.8266,
-        40: 0.8804,
+        10: 0.5473,
+        20: 0.7305,
+        30: 0.8225,
+        40: 0.8752,
     }
 
     for window_size in range(10, 50, 10):
@@ -45,12 +45,12 @@ def run_test_onelevel8(index, queries, groundtruth):
             recall, expected[window_size], f"Compressed Search Check ({window_size})"
         )
 
-def run_test_build_onelevel8(index, queries, groundtruth):
+def run_test_build_two_level4_8(index, queries, groundtruth):
     expected = {
-        10: 0.5703,
-        20: 0.7407,
-        30: 0.8278,
-        40: 0.8799,
+        10: 0.5489,
+        20: 0.7319,
+        30: 0.8223,
+        40: 0.875,
     }
 
     for window_size in range(10, 50, 10):
@@ -67,7 +67,7 @@ test_data_dir = None
 def run():
     # [generate-dataset]
     # Create a test dataset.
-    # This will create a directory "pysvs_example_data" and populate it with three
+    # This will create a directory "example_data_vamana" and populate it with three
     # entries:
     # - data.fvecs: The test dataset.
     # - queries.fvecs: The test queries.
@@ -208,14 +208,19 @@ def run():
 
     # [search-compressed-loader]
     data_loader = pysvs.VectorDataLoader(
-        os.path.join(test_data_dir, "example_data"),
+        os.path.join(test_data_dir, "example_data"),  # Uncompressed data
         pysvs.DataType.float32,
-        dims = 128    # Passing dim is NOT optional in this case
+        dims = 128    # Passing dimensionality is optional
     )
+    B1 = 4    # Number of bits for the first level LVQ quantization
+    B2 = 8    # Number of bits for the residuals quantization
     padding = 32
-    compressed_loader = pysvs.LVQ8(
-        data_loader,
-        padding        # Passing padding is optional.
+    strategy = pysvs.LVQStrategy.Turbo
+    compressed_loader = pysvs.LVQLoader(data_loader,
+        primary=B1,
+        residual=B2,
+        strategy=strategy, # Passing the strategy is optional.
+        padding=padding # Passing padding is optional.
     )
     # [search-compressed-loader]
 
@@ -234,11 +239,11 @@ def run():
     I, D = index.search(queries, 10)
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Compressed recall: {recall}")
-    assert(recall == 0.8266)
+    assert(recall == 0.8225)
     # [search-compressed]
 
     ##### Begin Test
-    run_test_onelevel8(index, queries, groundtruth)
+    run_test_two_level4_8(index, queries, groundtruth)
     ##### End Test
 
     # [build-index-compressed]
@@ -262,11 +267,11 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8278)
+    assert(recall == 0.8223)
     # [loading]
 
     ##### Begin Test
-    run_test_build_onelevel8(index, queries, groundtruth)
+    run_test_build_two_level4_8(index, queries, groundtruth)
     ##### End Test
 
 #####

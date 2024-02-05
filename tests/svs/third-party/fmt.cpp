@@ -26,11 +26,21 @@ template <> struct fmt::formatter<CustomPoint> : svs::format_empty {
     }
 };
 
-CATCH_TEST_CASE("Empty Parsing", "[fmt]") {
-    auto pt = CustomPoint{1, 2};
-    auto str = fmt::format("{}", pt);
-    CATCH_REQUIRE(str == "CustomPoint(1, 2)");
+CATCH_TEST_CASE("fmtlib", "[fmt]") {
+    CATCH_SECTION("Printing Macros") {
+        auto i = 10;
+        auto j_ = 20;
+        CATCH_REQUIRE(SVS_SHOW_STRING(i) == "i: 10");
+        CATCH_REQUIRE(SVS_SHOW_STRING_(j) == "j: 20");
+    }
 
-    // Use a runtime string to ensure that an error is thrown for a non-empty format string.
-    CATCH_REQUIRE_THROWS_AS(fmt::format(fmt::runtime("{:p}"), pt), fmt::format_error);
+    CATCH_SECTION("Empty Formatting") {
+        auto pt = CustomPoint{1, 2};
+        auto str = fmt::format("{}", pt);
+        CATCH_REQUIRE(str == "CustomPoint(1, 2)");
+
+        // Use a runtime string to ensure that an error is thrown for a non-empty format
+        // string.
+        CATCH_REQUIRE_THROWS_AS(fmt::format(fmt::runtime("{:p}"), pt), fmt::format_error);
+    }
 }

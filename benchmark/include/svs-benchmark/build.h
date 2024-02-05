@@ -1,5 +1,9 @@
+#pragma once
+
 // svs-benchmark
-#include "benchmark.h"
+#include "svs-benchmark/benchmark.h"
+#include "svs-benchmark/index_traits.h"
+#include "svs-benchmark/search.h"
 
 // svs
 #include "svs/concepts/data.h"
@@ -21,40 +25,6 @@ template <std::integral I> I div(I i, float fraction) {
     return svs::lib::narrow<I>(std::floor(svs::lib::narrow<float>(i) * fraction));
 }
 
-// Static
-struct SearchParameters {
-  public:
-    size_t num_neighbors_;
-    std::vector<double> target_recalls_;
-
-  public:
-    SearchParameters(size_t num_neighbors, std::vector<double> target_recalls)
-        : num_neighbors_{num_neighbors}
-        , target_recalls_{std::move(target_recalls)} {}
-
-    static SearchParameters example() { return SearchParameters(10, {0.80, 0.85, 0.90}); }
-
-    // Saving and Loading
-    static constexpr svs::lib::Version save_version{0, 0, 0};
-    svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable(
-            save_version, {SVS_LIST_SAVE_(num_neighbors), SVS_LIST_SAVE_(target_recalls)}
-        );
-    }
-
-    static SearchParameters
-    load(const toml::table& table, const svs::lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Mismatched Version!");
-        }
-
-        return SearchParameters(
-            SVS_LOAD_MEMBER_AT_(table, num_neighbors),
-            SVS_LOAD_MEMBER_AT_(table, target_recalls)
-        );
-    }
-};
-
 // Setup for the the Dynamic schedule.
 struct Schedule {
   public:
@@ -71,7 +41,7 @@ struct Schedule {
     // The seed for the pseudo-random number generator used.
     uint64_t rng_seed_;
     // The search parameters.
-    SearchParameters search_parameters_;
+    search::SearchParameters search_parameters_;
 
   public:
     Schedule(
@@ -81,7 +51,7 @@ struct Schedule {
         size_t total_iterations,
         size_t bucket_divisor,
         uint64_t rng_seed,
-        SearchParameters search_parameters
+        search::SearchParameters search_parameters
     )
         : initial_fraction_{initial_fraction}
         , modify_fraction_{modify_fraction}
@@ -92,7 +62,9 @@ struct Schedule {
         , search_parameters_{std::move(search_parameters)} {}
 
     static Schedule example() {
-        return Schedule(0.75, 0.01, 5, 20, 32, 0xc0ffee, SearchParameters::example());
+        return Schedule(
+            0.75, 0.01, 5, 20, 32, 0xc0ffee, search::SearchParameters::example()
+        );
     }
 
     ///// Saving and Loading.
@@ -134,54 +106,6 @@ struct Schedule {
     }
 };
 
-// Customize this data structure for the various data set implementations.
-template <typename Index> struct IndexTraits;
-
-template <typename Index> using config_type = typename IndexTraits<Index>::config_type;
-template <typename Index> using state_type = typename IndexTraits<Index>::state_type;
-
-template <typename Index> struct RunReport {
-  public:
-    config_type<Index> config_;
-    state_type<Index> state_;
-    double recall_;
-    size_t num_queries_;
-    size_t num_neighbors_;
-    std::vector<double> latencies_;
-
-  public:
-    RunReport(
-        const config_type<Index>& config,
-        state_type<Index> state,
-        double recall,
-        size_t num_queries,
-        size_t num_neighbors,
-        std::vector<double> latencies
-    )
-        : config_{config}
-        , state_{std::move(state)}
-        , recall_{recall}
-        , num_queries_{num_queries}
-        , num_neighbors_{num_neighbors}
-        , latencies_{std::move(latencies)} {}
-
-    // Saving
-    static constexpr svs::lib::Version save_version{0, 0, 0};
-    svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable(
-            save_version,
-            {
-                SVS_LIST_SAVE_(config),
-                SVS_LIST_SAVE_(state),
-                SVS_LIST_SAVE_(recall),
-                SVS_LIST_SAVE_(num_queries),
-                SVS_LIST_SAVE_(num_neighbors),
-                SVS_LIST_SAVE_(latencies),
-            }
-        );
-    }
-};
-
 enum class DynamicOpKind { Initial, Add, Delete, Consolidate };
 
 inline std::string_view name(DynamicOpKind op) {
@@ -219,8 +143,8 @@ template <typename Index> struct DynamicOperation {
     DynamicOpKind kind_ = DynamicOpKind::Initial;
     double time_ = 0;
     double groundtruth_time_ = 0;
-    std::vector<RunReport<Index>> iso_recall_{};
-    std::vector<RunReport<Index>> iso_config_{};
+    std::vector<search::RunReport<Index>> iso_recall_{};
+    std::vector<search::RunReport<Index>> iso_config_{};
 
   public:
     DynamicOperation() = default;
@@ -229,8 +153,8 @@ template <typename Index> struct DynamicOperation {
         DynamicOpKind kind,
         double time,
         double groundtruth_time,
-        std::vector<RunReport<Index>> iso_recall,
-        std::vector<RunReport<Index>> iso_config
+        std::vector<search::RunReport<Index>> iso_recall,
+        std::vector<search::RunReport<Index>> iso_config
     )
         : kind_{kind}
         , time_{time}
@@ -267,16 +191,16 @@ template <typename Job, typename Index> struct StaticReport {
     // A descriptive name for the index.
     std::string index_description_;
     // Results for pre-generated configurations.
-    std::vector<RunReport<Index>> target_configs_;
-    std::vector<RunReport<Index>> target_recalls_;
+    std::vector<search::RunReport<Index>> target_configs_;
+    std::vector<search::RunReport<Index>> target_recalls_;
 
   public:
     StaticReport(
         double build_time,
         const Job& job,
         std::string index_description,
-        std::vector<RunReport<Index>> target_configs,
-        std::vector<RunReport<Index>> target_recalls
+        std::vector<search::RunReport<Index>> target_configs,
+        std::vector<search::RunReport<Index>> target_recalls
     )
         : build_time_{build_time}
         , timestamp_{std::chrono::system_clock::now()}
@@ -386,102 +310,55 @@ Bundle<detail::deduce_index_type<Init, T>, T, Q, Distance> initialize_dynamic(
     return bundle;
 }
 
-template <typename Index, typename Queries, typename Groundtruth>
-RunReport<Index> search_with_config(
-    Index& index,
-    const config_type<Index>& config,
-    const Queries& queries,
-    const Groundtruth& groundtruth,
-    size_t num_neighbors
-) {
-    using Traits = IndexTraits<Index>;
-    auto latencies = std::vector<double>();
-
-    auto tic = svs::lib::now();
-    auto results = Traits::search(index, queries, num_neighbors, config);
-    latencies.push_back(svs::lib::time_difference(tic));
-
-    for (size_t i = 0; i < 5; ++i) {
-        tic = svs::lib::now();
-        results = Traits::search(index, queries, num_neighbors, config);
-        latencies.push_back(svs::lib::time_difference(tic));
-    }
-    double recall = svs::k_recall_at_n(groundtruth, results, num_neighbors, num_neighbors);
-    return RunReport<Index>(
-        config,
-        Traits::report_state(index),
-        recall,
-        queries.size(),
-        num_neighbors,
-        std::move(latencies)
-    );
-}
-
-template <typename Index, typename Queries, typename Groundtruth>
-std::vector<RunReport<Index>> search_with_config(
-    Index& index,
-    const std::vector<config_type<Index>>& configs,
-    const Queries& queries,
-    const Groundtruth& groundtruth,
-    size_t num_neighbors
-) {
-    auto reports = std::vector<RunReport<Index>>();
-    for (const auto& config : configs) {
-        reports.push_back(
-            search_with_config(index, config, queries, groundtruth, num_neighbors)
-        );
-    }
-    return reports;
-}
-
-template <typename Index, typename Queries, typename Groundtruth>
-std::vector<RunReport<Index>> tune_and_search(
-    Index& index,
-    const SearchParameters& parameters,
-    const Queries& queries,
-    const Groundtruth& groundtruth
-) {
-    auto reports = std::vector<RunReport<Index>>();
-    size_t num_neighbors = parameters.num_neighbors_;
-    for (auto target_recall : parameters.target_recalls_) {
-        auto config = IndexTraits<Index>::calibrate(
-            index, queries, groundtruth, num_neighbors, target_recall
-        );
-        reports.push_back(
-            search_with_config(index, config, queries, groundtruth, num_neighbors)
-        );
-    }
-    return reports;
-}
-
-template <typename Index, typename Reference, typename Queries>
+template <
+    typename Index,
+    typename Reference,
+    typename Queries,
+    typename Extra = svsbenchmark::Placeholder>
 DynamicOperation<Index> measure_state(
     Index& index,
     Reference& reference,
     const Queries& queries,
+    size_t queries_in_training_set,
     DynamicOpKind op_kind,
     double op_time,
-    const SearchParameters& parameters,
-    const std::vector<config_type<Index>>& configurations
+    const search::SearchParameters& parameters,
+    const std::vector<config_type<Index>>& configurations,
+    Extra&& extra = {}
 ) {
     auto tic = svs::lib::now();
-    auto gt = reference.groundtruth();
+    auto gt = svs::data::SimpleData{reference.groundtruth().indices()};
     double groundtruth_time = svs::lib::time_difference(tic);
 
     // Wait for groundtruth threads to go to sleep.
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
     size_t num_neighbors = parameters.num_neighbors_;
-    auto iso_config = search_with_config(index, configurations, queries, gt, num_neighbors);
-    auto iso_recall = tune_and_search(index, parameters, queries, gt);
+    auto iso_config =
+        search::search_with_config(index, configurations, queries, gt, num_neighbors);
+
+    auto query_set = search::QuerySet(queries, gt, queries_in_training_set);
+    auto iso_recall = search::tune_and_search_with_hint(
+        index,
+        parameters,
+        query_set,
+        CalibrateContext::TrainingSetTune,
+        configurations,
+        extra
+    );
     return DynamicOperation<Index>(
         op_kind, op_time, groundtruth_time, std::move(iso_recall), std::move(iso_config)
     );
 }
 
-template <typename Bundle, typename Job, typename DoCheckpoint>
-toml::table
-dynamic_test_loop(Bundle& bundle, const Job& job, const DoCheckpoint& do_checkpoint) {
+template <
+    typename Bundle,
+    typename Job,
+    typename DoCheckpoint,
+    typename Extra = svsbenchmark::Placeholder>
+toml::table dynamic_test_loop(
+    Bundle& bundle, const Job& job, const DoCheckpoint& do_checkpoint, Extra&& extra = {}
+) {
     using Index = typename Bundle::index_type;
     using Traits = IndexTraits<Index>;
 
@@ -499,10 +376,12 @@ dynamic_test_loop(Bundle& bundle, const Job& job, const DoCheckpoint& do_checkpo
             bundle.index,
             bundle.reference,
             bundle.queries,
+            job.queries_in_training_set(),
             op_kind,
             op_time,
             search_parameters,
-            configs
+            configs,
+            extra
         );
         results.push_back(std::move(op));
         do_checkpoint(svs::lib::save_to_table(results));
@@ -510,10 +389,17 @@ dynamic_test_loop(Bundle& bundle, const Job& job, const DoCheckpoint& do_checkpo
 
     // Calibrate initial configurations.
     {
-        auto gt = bundle.reference.groundtruth();
+        auto gt = svs::data::SimpleData{bundle.reference.groundtruth().indices()};
+        auto query_set = search::QuerySet(bundle.queries, gt, bundle.queries.size() / 2);
         for (auto target_recall : search_parameters.target_recalls_) {
             configs.push_back(Traits::calibrate(
-                bundle.index, bundle.queries, gt, num_neighbors, target_recall
+                bundle.index,
+                query_set.training_set_,
+                query_set.training_set_groundtruth_,
+                num_neighbors,
+                target_recall,
+                CalibrateContext::InitialTrainingSet,
+                extra
             ));
         }
 
@@ -551,40 +437,4 @@ dynamic_test_loop(Bundle& bundle, const Job& job, const DoCheckpoint& do_checkpo
     return svs::lib::save_to_table(results);
 }
 
-template <
-    typename Index,
-    typename Job,
-    typename Queries,
-    typename Groundtruth,
-    typename DoCheckpoint>
-toml::table static_test(
-    Index& index,
-    const Job& job,
-    const Queries& queries,
-    const Groundtruth& groundtruth,
-    double build_time,
-    const DoCheckpoint& do_checkpoint
-) {
-    const auto& search_parameters = job.get_search_parameters();
-    auto target_configs = search_with_config(
-        index,
-        job.get_search_configs(),
-        queries,
-        groundtruth,
-        search_parameters.num_neighbors_
-    );
-
-    auto target_recalls = tune_and_search(index, search_parameters, queries, groundtruth);
-    auto results = StaticReport<Job, Index>(
-        build_time,
-        job,
-        IndexTraits<Index>::name(),
-        std::move(target_configs),
-        std::move(target_recalls)
-    );
-
-    auto table = svs::lib::save(results);
-    do_checkpoint(table);
-    return table;
-}
 } // namespace svsbenchmark::build

@@ -30,10 +30,9 @@ int svs_main(std::vector<std::string> args) {
 
     if (file_type == 0) {
         std::cout << "Converting SVS data!" << std::endl;
-        auto reader =
-            svs::io::v1::NativeFile{filename_f32}.reader(svs::meta::Type<float>());
+        auto reader = svs::io::v1::NativeFile{filename_f32}.reader(svs::lib::Type<float>());
         auto writer = svs::io::NativeFile{filename_f16}.writer(
-            svs::meta::Type<svs::Float16>(), reader.ndims()
+            svs::lib::Type<svs::Float16>(), reader.ndims()
         );
 
         for (auto i : reader) {

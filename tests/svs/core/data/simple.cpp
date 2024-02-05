@@ -149,4 +149,34 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         CATCH_REQUIRE(is_sequential(y));
         CATCH_REQUIRE(y.get_datum(0).extent == 4);
     }
+
+    // Conversion to and from AnonymousData.
+    CATCH_SECTION("AnonymousData interop") {
+        auto x = svs::data::SimpleData<float, 10>(100, 10);
+        auto y = svs::AnonymousArray<2>(x);
+        CATCH_REQUIRE(get<float>(y) == x.data());
+        CATCH_REQUIRE(y.dims() == std::array<size_t, 2>{100, 10});
+
+        // Conversion to dynamically sizxed.
+        auto a = svs::data::ConstSimpleDataView<float>(y);
+        CATCH_REQUIRE(a.data() == x.data());
+        CATCH_REQUIRE(a.size() == x.size());
+        CATCH_REQUIRE(a.dimensions() == x.dimensions());
+
+        // Conversion to correct static size.
+        auto b = svs::data::ConstSimpleDataView<float, 10>(y);
+        CATCH_REQUIRE(b.data() == x.data());
+        CATCH_REQUIRE(b.size() == x.size());
+        CATCH_REQUIRE(b.dimensions() == x.dimensions());
+
+        // Incorrect static size should fail.
+        CATCH_REQUIRE_THROWS_AS(
+            (svs::data::ConstSimpleDataView<float, 20>(y)), svs::ANNException
+        );
+
+        // Incorrect type.
+        CATCH_REQUIRE_THROWS_AS(
+            svs::data::ConstSimpleDataView<double>(y), svs::ANNException
+        );
+    }
 }

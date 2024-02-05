@@ -13,6 +13,7 @@
 import unittest
 import os
 import warnings
+import toml
 
 import numpy as np
 
@@ -32,9 +33,16 @@ from .common import \
     test_groundtruth_l2, \
     test_groundtruth_mip, \
     test_groundtruth_cosine, \
+    test_vamana_reference, \
     test_number_of_vectors, \
     test_dimensions, \
-    timed
+    timed, \
+    get_test_set
+
+from .dataset import \
+    UncompressedMatcher, \
+    LVQMatcher, \
+    LeanVecMatcher
 
 DEBUG = False;
 
@@ -43,43 +51,168 @@ class VamanaTester(unittest.TestCase):
     Test index querying, building, and saving.
 
     NOTE: The structure of these tests closely follows the integration tests in the C++
-    library.
+    library. Configurations and recalls values are used from the common reference file created
+    using the benchmarking infrastructure
     """
     def setUp(self):
-        # Initialize expected recall tables.
-        # This should be kept in-sync with the C++ unit tests.
-        #
-        # Keys:
-        # - Both the search window size to use and the number of neighbors to return.
-        # Values:
-        # - The expected recall for the given search-window-size and number of neighbors.
-        self.recall_l2 = {
-            2: 0.4595,
-            3: 0.537333,
-            4: 0.60025,
-            5: 0.643,
-            10: 0.7585,
-            20: 0.86,
-            50: 0.94662,
-            100: 0.97724,
-        }
+        # Initialize expected results from the common reference file
+        with open(test_vamana_reference) as f:
+            self.reference_results = toml.load(f)
 
     def _setup(self, loader: pysvs.VectorDataLoader):
-        self.loader_and_recall = [
-            (loader, self.recall_l2),
-            (pysvs.LVQ8(loader, 0), {
-                2: 0.4575, 3: 0.53833, 4: 0.59974, 5: 0.6438, 10: 0.7584,
-            }),
-            (pysvs.LVQ4x4(loader, 0), {
-                2: 0.4225, 3: 0.498, 4: 0.55825, 5: 0.5966, 10: 0.7055,
-            }),
-            (pysvs.LVQ4x8(loader, 0), {
-                2: 0.4225, 3: 0.498, 4: 0.55825, 5: 0.5966, 10: 0.7055,
-            }),
-            (pysvs.LVQ8x8(loader, 0), {
-                2: 0.4575, 3: 0.538333, 4: 0.59975, 5: 0.6438, 10: 0.7584,
-            }),
+        sequential = pysvs.LVQStrategy.Sequential
+        turbo = pysvs.LVQStrategy.Turbo
+
+        # Generate LeanVec OOD matrices
+        data = pysvs.read_vecs(test_data_vecs)
+        queries = pysvs.read_vecs(test_queries)
+        data_matrix, query_matrix = pysvs.compute_leanvec_matrices(data, queries, 64);
+
+        self.loader_and_matcher = [
+            (loader, UncompressedMatcher("float32")),
+            # LVQ
+            (pysvs.LVQLoader(loader, primary = 8, padding = 0), LVQMatcher(8)),
+            (pysvs.LVQLoader(loader, primary = 4, padding = 0), LVQMatcher(4)),
+            (pysvs.LVQLoader(
+                loader, primary = 4, residual = 8, strategy = sequential, padding = 0),
+                LVQMatcher(4, 8)
+            ),
+            (pysvs.LVQLoader(
+                loader, primary = 4, residual = 8, strategy = turbo, padding = 0),
+                LVQMatcher(4, 8)
+            ),
+            (pysvs.LVQLoader(
+                loader, primary = 8, residual = 8, padding = 0),
+                LVQMatcher(8, 8)
+            ),
+
+            #LeanVec
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.float32,
+                    secondary_kind = pysvs.LeanVecKind.float32,
+                ),
+                LeanVecMatcher("float32", "float32", 64)
+            ),
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.lvq4,
+                    secondary_kind = pysvs.LeanVecKind.lvq4,
+                ),
+                LeanVecMatcher("lvq4", "lvq4", 64)
+            ),
+
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.lvq4,
+                    secondary_kind = pysvs.LeanVecKind.lvq8,
+                ),
+                LeanVecMatcher("lvq4", "lvq8", 64),
+            ),
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.lvq8,
+                    secondary_kind = pysvs.LeanVecKind.lvq4,
+                ),
+                LeanVecMatcher("lvq8", "lvq4", 64)
+            ),
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.lvq8,
+                    secondary_kind = pysvs.LeanVecKind.lvq8,
+                    alignment = 0
+                ),
+                LeanVecMatcher("lvq8", "lvq8", 64)
+            ),
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 96,
+                    primary_kind = pysvs.LeanVecKind.float32,
+                    secondary_kind = pysvs.LeanVecKind.float32,
+                    alignment = 0
+                ),
+                LeanVecMatcher("float32", "float32", 96)
+            ),
+
+            # LeanVec OOD
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.float32,
+                    secondary_kind = pysvs.LeanVecKind.float32,
+                    data_matrix = data_matrix,
+                    query_matrix = query_matrix,
+                    alignment = 0
+                ),
+                LeanVecMatcher("float32", "float32", 64, False)
+            ),
+            (
+                pysvs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = pysvs.LeanVecKind.lvq8,
+                    secondary_kind = pysvs.LeanVecKind.lvq8,
+                    data_matrix = data_matrix,
+                    query_matrix = query_matrix,
+                    alignment = 0
+                ),
+                LeanVecMatcher("lvq8", "lvq8", 64, False)
+            )
         ]
+
+    def _distance_map(self):
+        return {
+            pysvs.DistanceType.L2: "L2",
+            pysvs.DistanceType.MIP: "MIP",
+            pysvs.DistanceType.Cosine: "Cosine",
+        }
+
+    def _get_config_and_recall(self, test_type, distance, matcher):
+        r = []
+        for results in self.reference_results[test_type]:
+            if (results['distance'] == distance) and matcher.is_match(results['dataset']):
+                r.append(results['config_and_recall'])
+
+        assert len(r) == 1, "Should match one results entry!"
+        return r[0]
+
+    def _parse_config_and_recall(self, results):
+        params = results['search_parameters']
+        size = params['search_window_size']
+        capacity = params['search_buffer_capacity']
+        k = results['num_neighbors']
+        nq  = results['num_queries']
+        recall = results['recall']
+        return size, capacity, k, nq, recall
+
+    def _get_build_parameters(self, test_type, distance, matcher):
+        params = []
+        for results in self.reference_results[test_type]:
+            if (results['distance'] == distance) and matcher.is_match(results['dataset']):
+                params.append(results['build_parameters'])
+
+        assert len(params) == 1, "Should match one parameters entry!"
+        params = params[0]
+
+        return pysvs.VamanaBuildParameters(
+            alpha = params["alpha"],
+            graph_max_degree = params["graph_max_degree"],
+            prune_to = params["prune_to"],
+            window_size = params["window_size"],
+            max_candidate_pool_size = params["max_candidate_pool_size"]
+        )
 
     # Ensure that passing 1-dimensional queries works and produces the same results as
     # query batches.
@@ -121,14 +254,14 @@ class VamanaTester(unittest.TestCase):
     def _test_basic_inner(
             self,
             vamana: pysvs.Vamana,
-            recall_dict,
+            matcher,
             num_threads: int,
             skip_thread_test: bool = False,
+            first_iter: bool = False,
             test_single_query: bool = False,
         ):
         # Make sure that the number of threads is propagated correctly.
         self.assertEqual(vamana.num_threads, num_threads)
-        self.assertFalse(vamana.visited_set_enabled)
 
         # load the queries and groundtruth
         queries = pysvs.read_vecs(test_queries)
@@ -139,6 +272,9 @@ class VamanaTester(unittest.TestCase):
 
         # Data interface
         self.assertEqual(vamana.size, test_number_of_vectors)
+
+        # The dimensionality exposed by the index should always match the original
+        # dataset dimensionsj.
         self.assertEqual(vamana.dimensions, test_dimensions)
 
         # Test setting the window size.
@@ -148,23 +284,21 @@ class VamanaTester(unittest.TestCase):
         vamana.search_window_size = 10
         self.assertEqual(vamana.search_window_size, 10)
 
-        for (search_window_size, expected_recall) in recall_dict.items():
+        expected_results = self._get_config_and_recall('vamana_test_search', 'L2', matcher)
+        for expected in expected_results:
+            window_size, buffer_capacity, k, nq, expected_recall = \
+                self._parse_config_and_recall(expected)
+
             for visited_set_enabled in (True, False):
-                vamana.visited_set_enabled = visited_set_enabled
-                self.assertEqual(vamana.visited_set_enabled, visited_set_enabled)
-
-                # Set the search window size and verify that the change to the search window
-                # size variable is visible.
-                vamana.search_window_size = search_window_size
-                self.assertEqual(vamana.search_window_size, search_window_size)
-                results = vamana.search(queries, search_window_size)
-
-                recall = pysvs.k_recall_at(
-                    groundtruth,
-                    results[0],
-                    search_window_size,
-                    search_window_size
+                parameters = pysvs.VamanaSearchParameters(
+                    pysvs.SearchBufferConfig(window_size, buffer_capacity),
+                    visited_set_enabled
                 )
+                vamana.search_parameters = parameters
+                self.assertEqual(vamana.search_parameters, parameters)
+
+                results = vamana.search(get_test_set(queries, nq), k)
+                recall = pysvs.k_recall_at(get_test_set(groundtruth, nq), results[0], k, k)
                 print(f"Recall = {recall}, Expected = {expected_recall}")
                 if not DEBUG:
                     self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.0005))
@@ -172,23 +306,37 @@ class VamanaTester(unittest.TestCase):
         if test_single_query:
             self._test_single_query(vamana, queries)
 
-        # Disable visited set.
-        self.visited_set_enabled = False
-
-        if skip_thread_test:
+        # Test calibration if this is the first iteration.
+        if not first_iter:
             return
 
-        # # Makes sure that setting the number of threads works correctly.
-        # for (search_window_size, expected_recall) in self.recall_l2.items():
-        #     # Abort for larger search window sizes to keep overall runtime down.
-        #     if search_window_size > 40:
-        #         continue
+        # Perform calibration with the first result
+        window_size, buffer_capacity, k, nq, target_recall = \
+            self._parse_config_and_recall(expected_results[0])
 
-        #     vamana.search_window_size = search_window_size
-        #     test_threading(vamana, queries, search_window_size, iters = 10)
+        p = vamana.experimental_calibrate(
+            get_test_set(queries, nq), get_test_set(groundtruth, nq), k, target_recall
+        )
+        I, _ = vamana.search(get_test_set(queries, nq), k)
+        recall = pysvs.k_recall_at(get_test_set(groundtruth, nq), I, k, k)
+        self.assertTrue(recall >= target_recall)
 
+        # Ensure that disabling prefetch tuning does not mutate the result
+        p.prefetch_lookahead = 0
+        p.prefetch_step = 0
+        vamana.search_parameters = p
 
-    def _test_basic(self, loader, recall_dict):
+        calibration_parameters = pysvs.VamanaCalibrationParameters()
+        calibration_parameters.train_prefetchers = False
+        q = vamana.experimental_calibrate(
+            get_test_set(queries, nq), get_test_set(groundtruth, nq), \
+            k, target_recall, calibration_parameters
+        )
+        self.assertTrue(recall >= target_recall)
+        self.assertEqual(q.prefetch_lookahead, 0)
+        self.assertEqual(q.prefetch_step, 0)
+
+    def _test_basic(self, loader, matcher, first_iter: bool = False):
         num_threads = 2
         vamana = pysvs.Vamana(
             test_vamana_config,
@@ -198,10 +346,14 @@ class VamanaTester(unittest.TestCase):
             num_threads = num_threads
         )
 
-        self._test_basic_inner(vamana, recall_dict, num_threads)
+        print(f"Testing: {vamana.experimental_backend_string}")
+        self._test_basic_inner(vamana, matcher, num_threads,
+            skip_thread_test = False,
+            first_iter = first_iter,
+            test_single_query = first_iter,
+        )
 
         # Test saving and reloading.
-        is_first = True
         with TemporaryDirectory() as tempdir:
             configdir = os.path.join(tempdir, "config")
             graphdir = os.path.join(tempdir, "graph")
@@ -212,7 +364,7 @@ class VamanaTester(unittest.TestCase):
             if isinstance(loader, pysvs.VectorDataLoader):
                 reloader = type(loader)(datadir, pysvs.DataType.float32)
             else:
-                reloader = type(loader)(datadir, test_data_dims)
+                reloader = loader.reload_from(datadir)
 
             reloaded = pysvs.Vamana(
                 configdir,
@@ -224,22 +376,101 @@ class VamanaTester(unittest.TestCase):
             reloaded.num_threads = num_threads
             self._test_basic_inner(
                 reloaded,
-                recall_dict,
+                matcher,
                 num_threads,
                 skip_thread_test = True,
-                test_single_query = is_first,
+                first_iter = first_iter,
             )
-            is_first = False
 
     def test_basic(self):
         # Load the index from files.
-        self._setup(
-            pysvs.VectorDataLoader(
-                test_data_svs, pysvs.DataType.float32, dims = test_data_dims
-            )
+        default_loader = pysvs.VectorDataLoader(
+            test_data_svs, pysvs.DataType.float32, dims = test_data_dims
         )
-        for loader, recall_dict in self.loader_and_recall:
-            self._test_basic(loader, recall_dict)
+        self._setup(default_loader)
+
+        # Standard tests
+        first_iter = True
+        for loader, matcher in self.loader_and_matcher:
+            self._test_basic(loader, matcher, first_iter = first_iter)
+            first_iter = False
+
+    def test_lvq_reload(self):
+        # Test LVQ reloading with different alignemnts and strategies.
+        default_loader = pysvs.VectorDataLoader(
+            test_data_svs, pysvs.DataType.float32, dims = test_data_dims
+        )
+
+        lvq_loader = pysvs.LVQLoader(
+            default_loader,
+            primary = 4,
+            residual = 8,
+            strategy = pysvs.LVQStrategy.Sequential
+        );
+        matcher = LVQMatcher(4, 8)
+
+        num_threads = 2
+        vamana = pysvs.Vamana(
+            test_vamana_config,
+            pysvs.GraphLoader(test_graph),
+            lvq_loader,
+            pysvs.DistanceType.L2,
+            num_threads = num_threads
+        )
+
+        print(f"Testing: {vamana.experimental_backend_string}")
+        self._test_basic_inner(
+            vamana,
+            matcher,
+            num_threads,
+            skip_thread_test = False,
+            first_iter = False,
+        )
+
+        # Test saving and reloading.
+        with TemporaryDirectory() as tempdir:
+            configdir = os.path.join(tempdir, "config")
+            graphdir = os.path.join(tempdir, "graph")
+            datadir = os.path.join(tempdir, "data")
+            vamana.save(configdir, graphdir, datadir)
+
+            reloader = pysvs.LVQLoader(
+                datadir,
+                primary = 4,
+                residual = 8,
+                strategy = pysvs.LVQStrategy.Sequential,
+                padding = 32,
+            )
+
+            print("Reloading LVQ with padding")
+            self._test_basic_inner(
+                pysvs.Vamana(
+                    configdir, pysvs.GraphLoader(graphdir), reloader, num_threads = num_threads
+                ),
+                matcher,
+                num_threads,
+                skip_thread_test = False,
+                first_iter = False,
+            )
+
+            reloader = pysvs.LVQLoader(
+                datadir,
+                primary = 4,
+                residual = 8,
+                strategy = pysvs.LVQStrategy.Turbo,
+                padding = 32,
+            )
+
+            print("Reloading LVQ as Turbo")
+            self._test_basic_inner(
+                pysvs.Vamana(
+                    configdir, pysvs.GraphLoader(graphdir), reloader, num_threads = num_threads
+                ),
+                matcher,
+                num_threads,
+                skip_thread_test = False,
+                first_iter = False,
+            )
 
     def test_deprecation(self):
         with warnings.catch_warnings(record = True) as w:
@@ -248,13 +479,6 @@ class VamanaTester(unittest.TestCase):
             self.assertTrue(issubclass(w[0].category, DeprecationWarning))
             self.assertTrue("VamanaBuildParameters" in str(w[0].message))
 
-    def _alpha_map(self):
-        return {
-            pysvs.DistanceType.L2: 1.2,
-            pysvs.DistanceType.MIP: 1.0 / 1.2,
-            pysvs.DistanceType.Cosine: 1.0 / 1.2,
-        }
-
     def _groundtruth_map(self):
         return {
             pysvs.DistanceType.L2: test_groundtruth_l2,
@@ -262,165 +486,115 @@ class VamanaTester(unittest.TestCase):
             pysvs.DistanceType.Cosine: test_groundtruth_cosine,
         }
 
-    def _test_build(self, data, distance: pysvs.DistanceType):
-        # Map from the distance to the distance type to use
-        alpha_map = self._alpha_map()
-        groundtruth_map = self._groundtruth_map()
-
-        result_map = {
-            # Expected results for the L2 Distance
-            pysvs.DistanceType.L2 : {
-                2: 0.2185,
-                3: 0.264333,
-                4: 0.3045,
-                5: 0.3308,
-                10: 0.4383,
-                20: 0.5398,
-                50: 0.66378,
-                100: 0.74339,
-            },
-            # Expected results for the MIP Distance
-            pysvs.DistanceType.MIP : {
-                2: 0.09,
-                3: 0.11566667,
-                4: 0.143,
-                5: 0.1642,
-                10: 0.242,
-                20: 0.35485,
-                50: 0.53504,
-                100: 0.68658,
-            },
-            # Expected results for Cosine Distance
-            pysvs.DistanceType.Cosine : {
-                2: 0.0785,
-                3: 0.0976666667,
-                4: 0.1165,
-                5: 0.1392,
-                10: 0.2136,
-                20: 0.32545,
-                50: 0.51474,
-                100: 0.67853,
-            },
-        }
-
+    def _test_build(self, loader, distance: pysvs.DistanceType, matcher):
         num_threads = 2
-        parameters = pysvs.VamanaBuildParameters(
-            alpha = alpha_map[distance],
-            graph_max_degree = 30,
-            window_size = 40,
-            max_candidate_pool_size = 30,
-        )
-        vamana = pysvs.Vamana.build(parameters, data, distance, num_threads = num_threads)
+        distance_map = self._distance_map()
 
+        params = self._get_build_parameters(
+                'vamana_test_build', distance_map[distance], matcher
+        );
+
+        vamana = pysvs.Vamana.build(params, loader, distance, num_threads = num_threads)
+        print(f"Building: {vamana.experimental_backend_string}")
+
+        groundtruth_map = self._groundtruth_map()
         # Load the queries and groundtruth
         queries = pysvs.read_vecs(test_queries)
         print(f"Loading groundtruth for: {distance}")
         groundtruth = pysvs.read_vecs(groundtruth_map[distance])
 
         # Ensure the number of threads was propagated correctly.
-        self.assertEqual(vamana.num_threads, 2)
+        self.assertEqual(vamana.num_threads, num_threads)
 
-        # Run through the search window sizes and make sure we get similar results to the
-        # C++ tests.
-        for (search_window_size, expected_recall) in result_map[distance].items():
-            vamana.search_window_size = search_window_size
-            self.assertEqual(vamana.search_window_size, search_window_size)
-            results = vamana.search(queries, search_window_size)
-            recall = pysvs.k_recall_at(
-                groundtruth,
-                results[0],
-                search_window_size,
-                search_window_size
+        expected_results = self._get_config_and_recall(
+                'vamana_test_build', distance_map[distance], matcher
+        )
+        for expected in expected_results:
+            window_size, buffer_capacity, k, nq, expected_recall = \
+                self._parse_config_and_recall(expected)
+
+            parameters = pysvs.VamanaSearchParameters(
+                pysvs.SearchBufferConfig(window_size, buffer_capacity), False
             )
-            print(f"Search Window: {search_window_size}, Got recall {recall}. Expected {expected_recall}")
-            self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.001))
+            vamana.search_parameters = parameters
+            self.assertEqual(vamana.search_parameters, parameters)
+
+            results = vamana.search(get_test_set(queries, nq), k)
+            recall = pysvs.k_recall_at(get_test_set(groundtruth, nq), results[0], k, k)
+            print(f"Recall = {recall}, Expected = {expected_recall}")
+            if not DEBUG:
+                self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.005))
 
     def test_build(self):
         # Build directly from data
         data = pysvs.read_vecs(test_data_vecs)
-        self._test_build(data, pysvs.DistanceType.L2)
-        self._test_build(data, pysvs.DistanceType.MIP)
-        self._test_build(data, pysvs.DistanceType.Cosine)
+
+        # Generate LeanVec OOD matrices
+        queries = pysvs.read_vecs(test_queries)
+        data_matrix, query_matrix = pysvs.compute_leanvec_matrices(data, queries, 64);
+
+        matcher = UncompressedMatcher("float32")
+        self._test_build(data, pysvs.DistanceType.L2, matcher)
+        self._test_build(data, pysvs.DistanceType.MIP, matcher)
+        self._test_build(data, pysvs.DistanceType.Cosine, matcher)
 
         # Build using float16
         data_f16 = data.astype('float16')
-        self._test_build(data_f16, pysvs.DistanceType.L2)
-        self._test_build(data_f16, pysvs.DistanceType.MIP)
-        self._test_build(data_f16, pysvs.DistanceType.Cosine)
+        matcher = UncompressedMatcher("float16")
+        self._test_build(data_f16, pysvs.DistanceType.L2, matcher)
+        self._test_build(data_f16, pysvs.DistanceType.MIP, matcher)
+        self._test_build(data_f16, pysvs.DistanceType.Cosine, matcher)
 
         # Build from file loader
         loader = pysvs.VectorDataLoader(test_data_svs, pysvs.DataType.float32)
-        self._test_build(loader, pysvs.DistanceType.L2)
-        self._test_build(loader, pysvs.DistanceType.MIP)
-        self._test_build(loader, pysvs.DistanceType.Cosine)
+        matcher = UncompressedMatcher("float32")
+        self._test_build(loader, pysvs.DistanceType.L2, matcher)
+        self._test_build(loader, pysvs.DistanceType.MIP, matcher)
+        self._test_build(loader, pysvs.DistanceType.Cosine, matcher)
 
-    def _test_build_quantized(self, compressor, distance: pysvs.DistanceType):
-        alpha_map = self._alpha_map()
-        groundtruth_map = self._groundtruth_map()
+        data = pysvs.VectorDataLoader(test_data_svs, pysvs.DataType.float32, dims = 128)
 
-        result_map = {
-            # Expected results for the L2 Distance
-            pysvs.DistanceType.L2 : {
-                2: 0.213,
-                3: 0.2626667,
-                4: 0.30675,
-                5: 0.3312,
-                10: 0.4357,
-                20: 0.54075,
-                50: 0.66342,
-                100: 0.74416,
-            },
-            # Expected results for the MIP Distance
-            pysvs.DistanceType.MIP : {
-                2: 0.098,
-                3: 0.124,
-                4: 0.14725,
-                5: 0.1648,
-                10: 0.2512,
-                20: 0.3574,
-                50: 0.53772,
-                100: 0.68581,
-            },
-        }
+        # Build from LVQ
+        loader = pysvs.LVQ8(data)
+        matcher = LVQMatcher(8)
+        self._test_build(loader, pysvs.DistanceType.L2, matcher)
+        self._test_build(loader, pysvs.DistanceType.MIP, matcher)
 
-        num_threads = 2
-        parameters = pysvs.VamanaBuildParameters(
-            alpha = alpha_map[distance],
-            graph_max_degree = 30,
-            window_size = 40,
-            max_candidate_pool_size = 30,
+        loader = pysvs.LVQ4x8(data)
+        matcher = LVQMatcher(4, 8)
+        self._test_build(loader, pysvs.DistanceType.L2, matcher)
+        self._test_build(loader, pysvs.DistanceType.MIP, matcher)
+
+        # Build from LeanVec
+        loader = pysvs.LeanVecLoader(
+            data,
+            leanvec_dims = 64,
+            primary_kind = pysvs.LeanVecKind.float32,
+            secondary_kind = pysvs.LeanVecKind.float32
         )
-        vamana = pysvs.Vamana.build(
-            parameters, compressor, distance, num_threads = num_threads
+        matcher = LeanVecMatcher("float32", "float32", 64)
+        self._test_build(loader, pysvs.DistanceType.L2, matcher)
+        self._test_build(loader, pysvs.DistanceType.MIP, matcher)
+
+        loader = pysvs.LeanVecLoader(
+            data,
+            leanvec_dims = 64,
+            primary_kind = pysvs.LeanVecKind.lvq8,
+            secondary_kind = pysvs.LeanVecKind.lvq8
         )
+        matcher = LeanVecMatcher("lvq8", "lvq8", 64)
+        self._test_build(loader, pysvs.DistanceType.L2, matcher)
+        self._test_build(loader, pysvs.DistanceType.MIP, matcher)
 
-        # Load the queries and groundtruth
-        queries = pysvs.read_vecs(test_queries)
-        groundtruth = pysvs.read_vecs(groundtruth_map[distance])
-
-        # Ensure the number of threads was propagated correctly.
-        self.assertEqual(vamana.num_threads, 2)
-
-        # Run through the search window sizes and make sure we get similar results to the
-        # C++ tests.
-        print(f"Running tests for compressor {compressor}")
-        for (search_window_size, expected_recall) in result_map[distance].items():
-            vamana.search_window_size = search_window_size
-            self.assertEqual(vamana.search_window_size, search_window_size)
-            results = vamana.search(queries, search_window_size)
-            recall = pysvs.k_recall_at(
-                groundtruth,
-                results[0],
-                search_window_size,
-                search_window_size
-            )
-            print(f"Search Window: {search_window_size}, Got recall {recall}. Expected {expected_recall}")
-            self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.001))
-
-    def test_quantized_build(self):
-        # Build from file loader
-        loader = pysvs.VectorDataLoader(test_data_svs, pysvs.DataType.float32, dims = 128)
-        compressor = pysvs.LVQ8(loader)
-
-        self._test_build_quantized(compressor, pysvs.DistanceType.L2)
-        self._test_build_quantized(compressor, pysvs.DistanceType.MIP)
+        # Build from LeanVec OOD
+        loader = pysvs.LeanVecLoader(
+            data,
+            leanvec_dims = 64,
+            primary_kind = pysvs.LeanVecKind.lvq8,
+            secondary_kind = pysvs.LeanVecKind.lvq8,
+            data_matrix = data_matrix,
+            query_matrix = query_matrix
+        )
+        matcher = LeanVecMatcher("lvq8", "lvq8", 64, False)
+        self._test_build(loader, pysvs.DistanceType.L2, matcher)
+        self._test_build(loader, pysvs.DistanceType.MIP, matcher)

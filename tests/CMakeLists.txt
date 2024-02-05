@@ -11,13 +11,21 @@ set(CATCH_CONFIG_PREFIX_ALL ON CACHE BOOL "" FORCE)
 
 # Download the Catch2 unit testing suite.
 # Reference: https://github.com/catchorg/Catch2/blob/devel/docs/cmake-integration.md
+#
+# Catch2 compiles using the compiler default (something like C++14).
+# Unfortunately - this means we miss out on `std::string_view` for stringification.
+# Since Catch2 does not provide a mechanism for building with a specific C++ version,
+# we need to use this hack.
+set(PRESET_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+set(CMAKE_CXX_STANDARD 20)
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.3.2
+    GIT_TAG v3.4.0
 )
 
 FetchContent_MakeAvailable(Catch2)
+set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANRARD})
 
 # Add top level test executable and link with the unit test library.
 set(TEST_DIR ${CMAKE_CURRENT_LIST_DIR})
@@ -26,7 +34,11 @@ set(TEST_SOURCES
     ${TEST_DIR}/utils/utils.cpp
     ${TEST_DIR}/utils/benchmarks.cpp
     ${TEST_DIR}/utils/generators.cpp
+    ${TEST_DIR}/utils/inverted_reference.cpp
+    ${TEST_DIR}/utils/require_error.cpp
     ${TEST_DIR}/utils/schemas.cpp
+    ${TEST_DIR}/utils/test_dataset.cpp
+    ${TEST_DIR}/utils/vamana_reference.cpp
     # Lib
     ${TEST_DIR}/svs/lib/algorithms.cpp
     ${TEST_DIR}/svs/lib/array.cpp
@@ -37,11 +49,13 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/file.cpp
     ${TEST_DIR}/svs/lib/file_iterator.cpp
     ${TEST_DIR}/svs/lib/float16.cpp
+    ${TEST_DIR}/svs/lib/memory.cpp
     ${TEST_DIR}/svs/lib/meta.cpp
     ${TEST_DIR}/svs/lib/misc.cpp
     ${TEST_DIR}/svs/lib/narrow.cpp
     ${TEST_DIR}/svs/lib/neighbor.cpp
     # ${TEST_DIR}/svs/lib/numa.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
+    ${TEST_DIR}/svs/lib/prefetch.cpp
     ${TEST_DIR}/svs/lib/readwrite.cpp
     ${TEST_DIR}/svs/lib/saveload.cpp
     ${TEST_DIR}/svs/lib/spinlock.cpp
@@ -58,6 +72,8 @@ set(TEST_SOURCES
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp
     ${TEST_DIR}/svs/third-party/toml.cpp
+    # Benchmark
+    ${TEST_DIR}/benchmark/benchmark.cpp
     # Concepts
     ${TEST_DIR}/svs/concepts/distance.cpp
     # Core
@@ -66,6 +82,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data.cpp
     ${TEST_DIR}/svs/core/data/block.cpp
     ${TEST_DIR}/svs/core/data/simple.cpp
+    ${TEST_DIR}/svs/core/data/view.cpp
     ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
@@ -84,16 +101,23 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/flat/inserters.cpp
     ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
+    ${TEST_DIR}/svs/index/vamana/filter.cpp
     ${TEST_DIR}/svs/index/vamana/index.cpp
     ${TEST_DIR}/svs/index/vamana/prune.cpp
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
+    ${TEST_DIR}/svs/index/vamana/search_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
+    ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
+    # Inverted
+    ${TEST_DIR}/svs/index/inverted/clustering.cpp
+
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
     ${TEST_DIR}/svs/quantization/lvq/compressed.cpp
+    ${TEST_DIR}/svs/quantization/lvq/encoding.cpp
     ${TEST_DIR}/svs/quantization/lvq/datasets.cpp
     ${TEST_DIR}/svs/quantization/lvq/vectors.cpp
     ${TEST_DIR}/svs/quantization/lvq/global_bias.cpp
-    ${TEST_DIR}/svs/quantization/lvq/vector_top.cpp
+    ${TEST_DIR}/svs/quantization/lvq/turbo.cpp
     ${TEST_DIR}/svs/quantization/lvq/lvq.cpp
 )
 
@@ -103,15 +127,26 @@ set(TEST_SOURCES
 
 SET(INTEGRATION_TESTS
     ${TEST_DIR}/svs/index/vamana/dynamic_index_2.cpp
-    # # Higher level constructs
+    # Higher level constructs
     ${TEST_DIR}/svs/orchestrators/vamana.cpp
-    # # Integration Tests
+    # Integration Tests
     ${TEST_DIR}/integration/exhaustive.cpp
-    ${TEST_DIR}/integration/index_search.cpp
-    ${TEST_DIR}/integration/index_build.cpp
-    ${TEST_DIR}/integration/lvq_search.cpp
-    # # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
+    ${TEST_DIR}/integration/vamana/index_search.cpp
+    ${TEST_DIR}/integration/vamana/index_build.cpp
+    ${TEST_DIR}/integration/vamana/lvq_search.cpp
+    ${TEST_DIR}/integration/inverted/build.cpp
+    ${TEST_DIR}/integration/inverted/build_lvq.cpp
+    # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
 )
+
+# Option dependent LeanVec integration tests
+if (SVS_EXPERIMENTAL_LEANVEC)
+    message("Enabling LEANVEC Integration tests!")
+    list(APPEND INTEGRATION_TESTS
+        ${TEST_DIR}/integration/vamana/leanvec_search.cpp
+        ${TEST_DIR}/integration/vamana/leanvec_build.cpp
+    )
+endif()
 
 if ((NOT CMAKE_BUILD_TYPE STREQUAL "Debug") OR SVS_FORCE_INTEGRATION_TESTS)
     message("Enabling Integration Tests!")
@@ -137,6 +172,14 @@ endif()
 ##### Test Executable
 #####
 
+# Option dependent LeanVec tests
+if (SVS_EXPERIMENTAL_LEANVEC)
+    message("Enabling LeanVec tests!")
+    list(APPEND TEST_SOURCES
+    ${TEST_DIR}/svs/leanvec/leanvec.cpp
+    )
+endif()
+
 add_executable(tests ${TEST_SOURCES})
 
 # Path to the test dataset.
@@ -146,7 +189,9 @@ set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data")
 target_compile_definitions(tests PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
 
 target_link_libraries(tests PRIVATE ${SVS_LIB})
-target_link_libraries(tests PRIVATE svs_compile_options svs_native_options)
+target_link_libraries(
+    tests PRIVATE svs_compile_options svs_native_options svs_benchmark_library
+)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 
 target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR})

@@ -22,7 +22,9 @@ from .common import \
     test_data_vecs, \
     test_data_dims, \
     test_queries, \
-    test_groundtruth_l2
+    test_groundtruth_l2, \
+    test_leanvec_data_matrix, \
+    test_leanvec_query_matrix
 
 class CommonTester(unittest.TestCase):
     def __init__(self, *args, **kwargs):
@@ -46,7 +48,7 @@ class CommonTester(unittest.TestCase):
     #####
 
     def test_version(self):
-        self.assertEqual(pysvs.library_version(), "v0.0.1")
+        self.assertEqual(pysvs.library_version(), "v0.0.3")
 
     def test_random_dataset(self):
         for dtype in (np.float32, np.uint32, np.uint8):
@@ -213,3 +215,25 @@ class CommonTester(unittest.TestCase):
 
         self.assertLessEqual(expected_equal_lower, actually_equal)
 
+    def test_leanvec_matrices(self):
+        data = pysvs.read_vecs(test_data_vecs)
+        queries = pysvs.read_vecs(test_queries)
+        data_matrix, query_matrix = pysvs.compute_leanvec_matrices(data, queries, 64);
+
+        self.assertEqual(data_matrix.ndim, 2)
+        self.assertEqual(data_matrix.shape[0], data.shape[1])
+        self.assertEqual(data_matrix.shape[1], 64)
+        self.assertEqual(data_matrix.dtype, np.float32)
+
+        self.assertEqual(query_matrix.ndim, 2)
+        self.assertEqual(query_matrix.shape, data_matrix.shape)
+        self.assertEqual(query_matrix.dtype, data_matrix.dtype)
+
+        test_data_matrix = pysvs.read_vecs(test_leanvec_data_matrix);
+        test_query_matrix = pysvs.read_vecs(test_leanvec_query_matrix);
+
+        self.assertEqual(test_data_matrix.shape, data_matrix.shape)
+        self.assertEqual(test_query_matrix.shape, query_matrix.shape)
+
+        self.assertTrue(np.array_equal(test_data_matrix, data_matrix))
+        self.assertTrue(np.array_equal(test_query_matrix, query_matrix))

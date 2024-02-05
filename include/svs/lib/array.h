@@ -52,7 +52,7 @@ std::array<size_t, sizeof...(Ts)> default_strides(const std::tuple<Ts...>& dims)
     size_t index{sizeof...(Ts) - 1};
     lib::foreach_r(dims, [&s, &result, &index](auto&& i) {
         result[index] = s;
-        s *= meta::unwrap(i);
+        s *= lib::as_integral(i);
         --index;
     });
     return result;
@@ -61,21 +61,21 @@ std::array<size_t, sizeof...(Ts)> default_strides(const std::tuple<Ts...>& dims)
 // N.B.: Marking `offset` as inline is needed to at least convince GCC to actually
 // inline this function (which is something we definitely want).
 template <typename... Ts>
-inline SVS_FORCE_INLINE size_t
+SVS_FORCE_INLINE size_t
 offset(const std::tuple<Ts...>& dims, std::array<size_t, sizeof...(Ts)>&& inds) {
     size_t offset{0};
     size_t stride{1};
     size_t index{sizeof...(Ts) - 1};
     lib::foreach_r(dims, [&offset, stride, index, inds](auto&& i) mutable {
         offset += stride * inds[index];
-        stride *= meta::unwrap(i);
+        stride *= lib::as_integral(i);
         --index;
     });
     return offset;
 }
 
 template <size_t N>
-constexpr inline SVS_FORCE_INLINE size_t
+constexpr SVS_FORCE_INLINE size_t
 offset(const std::array<size_t, N>& dims, const std::array<size_t, N>& inds) {
     size_t offset = 0;
     size_t stride = 1;
@@ -96,12 +96,12 @@ offset(const std::array<size_t, N>& dims, const std::array<size_t, N>& inds) {
 template <typename T> struct canonical_form {
     using type = size_t;
 };
-template <size_t N> struct canonical_form<meta::Val<N>> {
-    using type = meta::Val<N>;
+template <size_t N> struct canonical_form<lib::Val<N>> {
+    using type = lib::Val<N>;
 };
 
 template <typename T>
-inline constexpr bool is_dim_v = meta::is_val_type_v<T> || std::is_convertible_v<T, size_t>;
+inline constexpr bool is_dim_v = lib::is_val_type_v<T> || std::is_convertible_v<T, size_t>;
 
 template <typename T>
 concept IsDim = is_dim_v<T>;
@@ -109,10 +109,10 @@ concept IsDim = is_dim_v<T>;
 // Compute the extent of a slice, depending on whether the fastest-changing dimension is
 // statically sized or not.
 template <typename T> inline constexpr size_t get_extent_impl = Dynamic;
-template <auto N> inline constexpr size_t get_extent_impl<meta::Val<N>> = N;
+template <auto N> inline constexpr size_t get_extent_impl<lib::Val<N>> = N;
 
 template <size_t N> struct DimTypeHelper {
-    using type = meta::Val<N>;
+    using type = lib::Val<N>;
 };
 
 template <> struct DimTypeHelper<Dynamic> {
@@ -163,39 +163,38 @@ template <typename Dims> [[nodiscard]] constexpr size_t ndims() {
 }
 
 template <typename Dims>
-[[nodiscard]] constexpr inline std::array<size_t, ndims<Dims>()>
-    SVS_FORCE_INLINE dims(const Dims& dims) {
+[[nodiscard]] constexpr SVS_FORCE_INLINE std::array<size_t, ndims<Dims>()>
+dims(const Dims& dims) {
     return std::apply(
         [](auto... args) {
-            return std::array<size_t, ndims<Dims>()>{meta::unwrap(args)...};
+            return std::array<size_t, ndims<Dims>()>{lib::as_integral(args)...};
         },
         dims
     );
 }
 
 template <typename Dims>
-[[nodiscard]] SVS_FORCE_INLINE inline constexpr size_t size(const Dims& dims) {
-    return std::apply([](auto... args) { return (meta::unwrap(args) * ...); }, dims);
+[[nodiscard]] SVS_FORCE_INLINE constexpr size_t size(const Dims& dims) {
+    return std::apply([](auto... args) { return (lib::as_integral(args) * ...); }, dims);
 }
 
 template <size_t i, typename Dims>
-[[nodiscard]] SVS_FORCE_INLINE inline constexpr size_t getsize(const Dims& dims) {
-    return meta::unwrap(std::get<i>(dims));
+[[nodiscard]] SVS_FORCE_INLINE constexpr size_t getsize(const Dims& dims) {
+    return lib::as_integral(std::get<i>(dims));
 }
 
 template <size_t i, typename Dims>
-[[nodiscard]] SVS_FORCE_INLINE inline constexpr size_t getextent() {
+[[nodiscard]] SVS_FORCE_INLINE constexpr size_t getextent() {
     return svs::detail::get_extent_impl<std::tuple_element_t<i, Dims>>;
 }
 
 template <typename Dims>
-[[nodiscard]] SVS_FORCE_INLINE inline std::array<size_t, ndims<Dims>()>
-strides(const Dims& dims) {
+[[nodiscard]] SVS_FORCE_INLINE std::array<size_t, ndims<Dims>()> strides(const Dims& dims) {
     return svs::detail::default_strides(dims);
 }
 
 template <typename Dims, typename... Is>
-[[nodiscard]] SVS_FORCE_INLINE inline size_t offset(const Dims& dims, Is&&... indices) {
+[[nodiscard]] SVS_FORCE_INLINE size_t offset(const Dims& dims, Is&&... indices) {
     static_assert(sizeof...(indices) == ndims<Dims>());
     return detail::offset(dims, detail::unchecked_make_array(SVS_FWD(indices)...));
 }
@@ -702,7 +701,7 @@ constexpr size_t getextent(const DenseArray<T, Dims, Alloc>& /*unused*/) {
 /// @class hidden_make_dense_array_dims
 /// The number of dimensions is inferred from the number of arguments.
 ///
-/// Each argument must be either convertible to ``size_t`` or a ``svs::lib::meta::Val`.
+/// Each argument must be either convertible to ``size_t`` or a ``svs::lib::Val`.
 /// In the latter case, the corresponding dimension of the result array will be static.
 ///
 

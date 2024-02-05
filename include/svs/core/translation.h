@@ -360,7 +360,7 @@ class IDTranslator {
         // the points.
         auto num_points = lib::load_at<size_t>(table, "num_points");
         auto translator = IDTranslator{};
-        auto resolved = ctx.get_directory() / lib::load_at<std::string>(table, "filename");
+        auto resolved = ctx.resolve(table, "filename");
         auto stream = lib::open_read(resolved);
         for (size_t i = 0; i < num_points; ++i) {
             auto external_id = lib::read_binary<external_id_type>(stream);

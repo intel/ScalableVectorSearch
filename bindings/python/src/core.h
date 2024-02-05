@@ -15,9 +15,14 @@
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
+#include "svs/leanvec/leanvec.h"
+#include "svs/lib/dispatcher.h"
 #include "svs/lib/meta.h"
 #include "svs/lib/misc.h"
 #include "svs/quantization/lvq/lvq.h"
+
+// pysvs
+#include "common.h"
 
 // pybind
 #include <pybind11/pybind11.h>
@@ -26,26 +31,50 @@
 #include <filesystem>
 
 // Type aliases
-template <typename T> using Type = svs::meta::Type<T>;
-template <size_t N> using Val = svs::meta::Val<N>;
+template <typename T> using Type = svs::lib::Type<T>;
+template <size_t N> using Val = svs::lib::Val<N>;
 template <auto V> using Const = svs::lib::Const<V>;
-using svs::meta::unwrap;
 
-// Exposed Allocators
-// N.B.: As more allocators get implemented, this can be switched to a ``std::variant`` of
-// allocators that will get propagated throughout the code.
-//
-// Support for this might not be fully in place but should be relatively straight-forward
-// to add.
-using Allocator = svs::HugepageAllocator<std::byte>;
+// Introduce a mechanism for transporting numpy arrays through the dispatcher interface.
+struct AnonymousVectorData {
+  public:
+    svs::AnonymousArray<2> array_;
 
-// Functor to wrap an allocator inside a blocked struct.
-inline constexpr auto as_blocked = [](const auto& allocator) {
-    return svs::data::Blocked<std::decay_t<decltype(allocator)>>{allocator};
+  public:
+    // Constructor
+    template <typename T>
+    AnonymousVectorData(const py_contiguous_array_t<T>& array)
+        : array_{
+              array.template unchecked<2>().data(0, 0),
+              svs::lib::narrow<size_t>(array.shape(0)),
+              svs::lib::narrow<size_t>(array.shape(1))} {}
+
+    // Interface.
+    svs::DataType type() const { return array_.type(); }
+    size_t size() const { return array_.size(0); }
+    size_t dimensions() const { return array_.size(1); }
+    svs::AnonymousArray<2> underlying() const { return array_; }
 };
 
-template <typename T>
-using RebindAllocator = typename std::allocator_traits<Allocator>::rebind_alloc<T>;
+template <typename T, size_t N>
+struct svs::lib::
+    DispatchConverter<AnonymousVectorData, svs::data::ConstSimpleDataView<T, N>> {
+    static int64_t match(const AnonymousVectorData& data) {
+        // Types *must* match in order to be compatible.
+        if (data.type() != svs::datatype_v<T>) {
+            return svs::lib::invalid_match;
+        }
+
+        // Use default extent-matching semantics.
+        return svs::lib::dispatch_match<svs::lib::ExtentArg, svs::lib::ExtentTag<N>>(
+            svs::lib::ExtentArg(data.dimensions())
+        );
+    }
+
+    static svs::data::ConstSimpleDataView<T, N> convert(AnonymousVectorData data) {
+        return svs::data::ConstSimpleDataView<T, N>(data.underlying());
+    }
+};
 
 // Standard loaders.
 using UnspecializedVectorDataLoader = svs::UnspecializedVectorDataLoader<Allocator>;
@@ -79,12 +108,15 @@ using DistanceIP = svs::distance::DistanceIP;
 
 // Compressors - online compression of existing data
 using LVQReloader = svs::quantization::lvq::Reload;
+using LVQ = svs::quantization::lvq::ProtoLVQLoader<Allocator>;
 
-using LVQ8 = svs::quantization::lvq::ProtoLVQLoader<8, 0, Allocator>;
-using LVQ4 = svs::quantization::lvq::ProtoLVQLoader<4, 0, Allocator>;
-using LVQ4x4 = svs::quantization::lvq::ProtoLVQLoader<4, 4, Allocator>;
-using LVQ4x8 = svs::quantization::lvq::ProtoLVQLoader<4, 8, Allocator>;
-using LVQ8x8 = svs::quantization::lvq::ProtoLVQLoader<8, 8, Allocator>;
+/////
+///// LeanVec
+/////
+
+// Dimensionality reduction using LeanVec
+using LeanVecReloader = svs::leanvec::Reload;
+using LeanVec = svs::leanvec::ProtoLeanVecLoader<Allocator>;
 
 namespace core {
 void wrap(pybind11::module& m);

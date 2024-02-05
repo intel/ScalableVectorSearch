@@ -15,6 +15,25 @@ In this section, we cover the API and usage of the Vamana graph-based index.
 
    .. automethod:: __init__
 
+.. autoclass:: pysvs.VamanaSearchParameters
+   :members:
+
+   .. automethod:: __init__
+
+.. autoclass:: pysvs.SearchBufferConfig
+   :members:
+
+   .. automethod:: __init__
+
+.. autoclass:: pysvs.VamanaCalibrationParameters
+   :members:
+
+   .. automethod:: __init__
+
+.. autoclass:: pysvs.VamanaSearchBufferOptimization
+   :members:
+
+.. _python_vamana_inline_example:
 
 Example
 -------

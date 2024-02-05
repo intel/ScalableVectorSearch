@@ -87,6 +87,7 @@ class DynamicVamana
     : public manager::IndexManager<DynamicVamanaInterface, DynamicVamanaImpl> {
   public:
     using base_type = manager::IndexManager<DynamicVamanaInterface, DynamicVamanaImpl>;
+    using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
     struct AssembleTag {};
 
@@ -102,12 +103,22 @@ class DynamicVamana
 
     template <typename QueryType, typename Impl>
     explicit DynamicVamana(
-        AssembleTag SVS_UNUSED(tag), lib::meta::Type<QueryType> SVS_UNUSED(type), Impl impl
+        AssembleTag SVS_UNUSED(tag), lib::Type<QueryType> SVS_UNUSED(type), Impl impl
     )
         : base_type{std::make_unique<DynamicVamanaImpl<QueryType, Impl>>(std::move(impl))} {
     }
 
     ///// Vamana Interface
+
+    VamanaSearchParameters get_search_parameters() const {
+        return impl_->get_search_parameters();
+    }
+    void set_search_parameters(const VamanaSearchParameters& parameters) {
+        impl_->set_search_parameters(parameters);
+    }
+    void experimental_reset_performance_parameters() {
+        impl_->reset_performance_parameters();
+    }
 
     ///
     /// @brief Set the search window size used to process queries.
@@ -115,18 +126,18 @@ class DynamicVamana
     /// @param search_window_size The new search window size.
     ///
     DynamicVamana& set_search_window_size(size_t search_window_size) {
-        impl_->set_search_window_size(search_window_size);
+        auto parameters = get_search_parameters();
+        parameters.buffer_config_ = {search_window_size};
+        set_search_parameters(parameters);
         return *this;
     }
 
     ///
     /// @brief The current search window size used to process queries.
     ///
-    size_t get_search_window_size() const { return impl_->get_search_window_size(); }
-
-    bool visited_set_enabled() const { return impl_->visited_set_enabled(); }
-    void enable_visited_set() { impl_->enable_visited_set(); }
-    void disable_visited_set() { impl_->disable_visited_set(); }
+    size_t get_search_window_size() const {
+        return get_search_parameters().buffer_config_.get_search_window_size();
+    }
 
     // Mutable Interface.
     DynamicVamana& consolidate() {
@@ -158,6 +169,11 @@ class DynamicVamana
     }
     void set_construction_window_size(size_t window_size) {
         impl_->set_construction_window_size(window_size);
+    }
+
+    // Backend String
+    std::string experimental_backend_string() const {
+        return impl_->experimental_backend_string();
     }
 
     // ID Inspection
@@ -199,7 +215,6 @@ class DynamicVamana
         Distance distance,
         size_t num_threads
     ) {
-        fmt::print("Entering build!\n");
         return make_dynamic_vamana<QueryType>(
             parameters, std::move(data), ids, std::move(distance), num_threads
         );
@@ -221,7 +236,7 @@ class DynamicVamana
     ) {
         return DynamicVamana(
             AssembleTag(),
-            lib::meta::Type<QueryType>(),
+            lib::Type<QueryType>(),
             index::vamana::auto_dynamic_assemble(
                 config_path,
                 graph_loader,
@@ -230,6 +245,47 @@ class DynamicVamana
                 num_threads,
                 debug_load_from_static
             )
+        );
+    }
+
+    ///// Experimental Calibration
+    template <
+        data::ImmutableMemoryDataset Queries,
+        data::ImmutableMemoryDataset GroundTruth>
+    VamanaSearchParameters experimental_calibrate(
+        const Queries& queries,
+        const GroundTruth& groundtruth,
+        size_t num_neighbors,
+        double target_recall,
+        const index::vamana::CalibrationParameters calibration_parameters = {}
+    ) {
+        return experimental_calibrate_impl(
+            queries.cview(),
+            groundtruth.cview(),
+            num_neighbors,
+            target_recall,
+            calibration_parameters
+        );
+    }
+
+    template <typename QueryType>
+    VamanaSearchParameters experimental_calibrate_impl(
+        data::ConstSimpleDataView<QueryType> queries,
+        data::ConstSimpleDataView<uint32_t> groundtruth,
+        size_t num_neighbors,
+        double target_recall,
+        const index::vamana::CalibrationParameters calibration_parameters
+    ) {
+        return impl_->experimental_calibrate(
+            ConstErasedPointer{queries.data()},
+            queries.size(),
+            queries.dimensions(),
+            ConstErasedPointer{groundtruth.data()},
+            groundtruth.size(),
+            groundtruth.dimensions(),
+            num_neighbors,
+            target_recall,
+            calibration_parameters
         );
     }
 };

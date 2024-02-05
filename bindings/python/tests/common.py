@@ -32,6 +32,9 @@ test_queries = str(TEST_DATASET_DIR.joinpath("queries_f32.fvecs"))
 test_groundtruth_l2 = str(TEST_DATASET_DIR.joinpath("groundtruth_euclidean.ivecs"))
 test_groundtruth_mip = str(TEST_DATASET_DIR.joinpath("groundtruth_mip.ivecs"))
 test_groundtruth_cosine = str(TEST_DATASET_DIR.joinpath("groundtruth_cosine.ivecs"))
+test_vamana_reference = str(TEST_DATASET_DIR.joinpath("reference/vamana_reference.toml"))
+test_leanvec_data_matrix = str(TEST_DATASET_DIR.joinpath("leanvec_data_matrix.fvecs"))
+test_leanvec_query_matrix = str(TEST_DATASET_DIR.joinpath("leanvec_query_matrix.fvecs"))
 
 test_number_of_vectors = 10000
 test_dimensions = 128
@@ -61,6 +64,16 @@ def timed(f, *args, iters = 10, ignore_first = False):
 
     toc = time.time()
     return (ret, toc - tic)
+
+def get_test_set(A, num_entries: int):
+    """
+    Return last 'num_entries' rows from the given two dimensional matrix A.
+    We use initial subset of queries for training and the remaining for testing.
+    This function is used to extract testing queries and groundtruths.
+    """
+    assert(A.ndim == 2)
+    assert(A.shape[0] >= num_entries)
+    return A[-num_entries:];
 
 def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     """

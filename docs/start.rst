@@ -2,9 +2,10 @@
 
 Getting Started
 ################
-This tutorial will show you how to install SVS and run your first search with it! Tutorials for more :ref:`advanced
-installation options <build>`, as well as :ref:`data indexing <graph-build-param-setting>`, :ref:`search options <search-window-size-setting>`
-and :ref:`using vector compression <compression-setting>` are also available.
+This tutorial will show you how to install SVS and run your first search with it! Tutorials for running
+:ref:`dynamic indexing <how_to_run_dynamic_indexing>`, setting :ref:`index <graph-build-param-setting>` and
+:ref:`search<search-window-size-setting>` parameters, :ref:`using vector compression <compression-setting>`, as well as
+more :ref:`advanced installation options <build>` are also available.
 
 .. contents::
    :local:
@@ -153,7 +154,7 @@ for details about the build function.
 
 .. note::
 
-   :py:class:`pysvs.Vamana.build` only supports building from Numpy arrays with dtypes float32, int8 and uint8.
+   :py:class:`pysvs.Vamana.build` supports building from Numpy arrays with dtypes float32, float16, int8 and uint8.
 
 
 **In C++**
@@ -313,28 +314,17 @@ the corresponding data type.
 Search using Vector Compression
 *******************************
 
-The library has experimental support for performing online :ref:`vector compression <vector_compression>`, which
-:ref:`needs to be enabled at compile time for each vector dimensionality <enabling_vector_compression>`.
+:ref:`Vector compression <vector_compression>` can be used to speed up the search. It can be done on the fly by loading
+the index with a :py:class:`LVQLoader <pysvs.LVQLoader>` (:ref:`details for Python <python_api_loaders>`, :ref:`details for C++ <cpp_quantization_lvq>`)
+or by :ref:`loading an index with a previously compressed dataset <loading_compressed_indices>`.
 
-Once enabled, vector compression can be used for search by choosing a compressed file loader
-(:ref:`details for Python <python_api_loaders>`, :ref:`details for C++ <cpp_quantization_lvq>`) when loading the graph.
-The loader will compress an uncompressed dataset on the fly. :ref:`Loading an index with a previously compressed dataset
-<loading_compressed_indices>` is also supported.
-
-Specifying the loader is all that is required to use vector compression. The loader takes as argument a ``VectorDataLoader``
-structure (:py:class:`pysvs.VectorDataLoader`, :ref:`VectorDataLoader for C++ <cpp_core_data>`) with the path to the file containing
-the uncompressed dataset (**only the** ``.svs`` **format is currently supported**) and its corresponding data type.
-Padding is an optional parameter that specifies the value (in bytes) to align the beginning of each compressed vector.
-Values of 32 or 64 (half or full cache lines alignment) may offer the best performance at the cost of a lower compression ratio.
-A value of 0 (default) implies no special alignment.
-
-See :ref:`compression-setting` for details on choosing the best compression loader.
-Performing queries is identical to before.
+See :ref:`compression-setting` for details on setting the compression parameters.
 
 **In Python**
 
-Specifying ``dims`` in :py:class:`pysvs.VectorDataLoader` is **not** optional when it will be used in combination with a
-vector compression loader as in this example
+First, specify the compression loader. Specifying ``dims`` in :py:class:`pysvs.VectorDataLoader` is optional and
+:ref:`can boost performance considerably <static-dim>` (:ref:`see <static-dim-for-lvq>` for details on how to enable
+this functionality).
 
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
@@ -342,13 +332,13 @@ vector compression loader as in this example
    :end-before: [search-compressed-loader]
    :dedent: 4
 
+Then load the index and run the search as usual.
+
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
    :start-after: [search-compressed]
    :end-before: [search-compressed]
    :dedent: 4
-
-To see which loaders are applicable to which methods, study the signature in :py:func:`pysvs.Vamana.__init__` carefully.
 
 **In C++**
 
@@ -370,10 +360,6 @@ To see which loaders are applicable to which methods, study the signature in :py
 
 |
 
-.. warning::
-
-   Remember to enable vector compression for the desired dimensionality following these :ref:`steps <enabling_vector_compression>`.
-
 .. note::
    Vector compression is usually accompanied by an accuracy loss for the same search window size and may require
    increasing the window size to compensate.
@@ -388,9 +374,6 @@ SVS has support to save and load indices with a previously compressed dataset.
 Just follow the same procedure for :ref:`saving <index_saving>` and :ref:`loading <index_loading>` indices with
 uncompressed vectors.
 
-.. note::
-
-    Saving padded datasets is not supported but it is planned for a near future release.
 
 Entire Example
 **************

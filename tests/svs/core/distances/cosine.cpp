@@ -100,6 +100,12 @@ CATCH_TEST_CASE("Testing CosineSimilarity", "[distance][cosinesimilarity_distanc
     auto ntests = NTESTS;
     constexpr size_t ndims = 128;
 
+    CATCH_SECTION("Must fix argument") {
+        CATCH_STATIC_REQUIRE(
+            svs::distance::fix_argument_mandated<svs::distance::DistanceCosineSimilarity>()
+        );
+    }
+
     CATCH_SECTION("Float-Float") { test_types<float, float, ndims>(-1, 1, ntests); }
     CATCH_SECTION("Float-Float16") {
         test_types<float, svs::Float16, ndims>(-1, 1, ntests);
@@ -131,7 +137,7 @@ CATCH_TEST_CASE("Testing CosineSimilarity", "[distance][cosinesimilarity_distanc
 namespace {
 
 template <size_t N> auto constexpr forward_extent(size_t /*unused*/) {
-    return svs::meta::Val<N>{};
+    return svs::lib::Val<N>{};
 }
 template <> auto constexpr forward_extent<0>(size_t x) { return x; }
 

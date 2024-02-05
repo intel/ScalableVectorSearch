@@ -108,7 +108,7 @@ void test_flat(Index& index, const Queries& queries, const GroundTruth& groundtr
 /////
 
 // Test the single-threaded implementation.
-CATCH_TEST_CASE("Flat Index", "[integration][exhaustive]") {
+CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive]") {
     auto queries = test_dataset::queries();
     auto data = svs::load_data<float>(test_dataset::data_svs_file());
 
@@ -158,7 +158,7 @@ CATCH_TEST_CASE("Flat Index", "[integration][exhaustive]") {
 ///// Flat
 /////
 
-CATCH_TEST_CASE("Top Level Searcher", "[integration][exhaustive]") {
+CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive]") {
     auto queries = test_dataset::queries();
 
     // Load data using both the file path method and from a direct file.

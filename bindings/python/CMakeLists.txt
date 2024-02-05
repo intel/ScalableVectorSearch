@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18) # keep in-sync with `pyproject.toml`
+cmake_minimum_required(VERSION 3.21) # keep in-sync with `pyproject.toml`
 project(pysvs)
 
 # Install pybind11 manually for version control.
@@ -76,10 +76,13 @@ message("Length of flags: ${OPT_FLAGS_LENGTH}")
 set(CPP_FILES
     src/allocator.cpp
     src/dynamic_vamana.cpp
+    src/conversion.cpp
     src/core.cpp
     src/flat.cpp
     src/python_bindings.cpp
     src/vamana.cpp
+    src/vamana_common.cpp
+    src/svs_mkl.cpp
 )
 
 # Generate a shared library for each target microarchitecture.
@@ -101,6 +104,17 @@ foreach(MICRO OPT_FLAGS IN ZIP_LISTS PYSVS_MICROARCHS OPTIMIZATION_FLAGS)
     # If scikit build is running the compilation process,
     if(DEFINED SKBUILD)
         install(TARGETS ${LIB_NAME} DESTINATION .)
+
+        # The extension module may need to load build or included libraries when loaded.
+
+        # Placing build depedencies in the package and using relative RPATHs that
+        # don't point outside of the package means that the built package is
+        # relocatable. This allows for safe binary redistribution.
+        set_target_properties(
+            ${LIB_NAME}
+            PROPERTIES
+                INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}"
+        )
     endif()
 endforeach()
 
@@ -111,32 +125,3 @@ if(DEFINED SKBUILD)
     install(FILES ${FLAGS_MANIFEST_JSON} DESTINATION .)
 endif()
 
-
-# # Copy the test dataset into a "test_data" directory in the python module source.
-# file(COPY "../../data/test_dataset" DESTINATION "${CMAKE_CURRENT_LIST_DIR}/src/pysvs")
-
-#####
-##### Python installation logic.
-#####
-
-if(DEFINED SKBUILD)
-    # Surpress Cmake `unused variable` warning.
-    set(surpress_unused "${SKBUILD}")
-
-    # TODO: If we ever become non-header-only, then we'll need to set up RPATHs correctly
-    # to get binary compatibility.
-    #
-    # See: https://github.com/scikit-build/scikit-build-sample-projects/blob/master/projects/hello-cmake-package/CMakeLists.txt
-
-    # # The extension module must load the hello library as a dependency when the
-    # # extension module is loaded. The easiest way to locate the hello library is
-    # # via RPATH. Absolute RPATHs are possible, but they make the resulting
-    # # binaries not redistributable to other Python installations (conda is broke,
-    # # wheel reuse is broke, and more!).
-    # #
-    # # Placing the hello library in the package and using relative RPATHs that
-    # # doesn't point outside of the package means that the built package is
-    # # relocatable. This allows for safe binary redistribution.
-    # set_target_properties(_pysvs PROPERTIES INSTALL_RPATH
-    #                                         "$ORIGIN/${CMAKE_INSTALL_LIBDIR}")
-endif()

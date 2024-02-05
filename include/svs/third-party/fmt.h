@@ -18,6 +18,20 @@
 
 namespace svs {
 
+#define SVS_SHOW_IMPL(f, suffix, show_name, var_name) f(#show_name ": {}" #suffix, var_name)
+
+// Expected transformation:
+// SVS_SHOW_STRING_(x) -> fmt::format("x: {}", x_);
+#define SVS_SHOW_STRING_(name) SVS_SHOW_IMPL(fmt::format, , name, name##_)
+
+// Expected transformation:
+// SVS_SHOW_STRING(x) -> fmt::format("x: {}", x);
+#define SVS_SHOW_STRING(name) SVS_SHOW_IMPL(fmt::format, , name, name)
+
+// Expected transformation:
+// SVS_SHOW(x) -> fmt::print("x: {}\n", x);
+#define SVS_SHOW(name) SVS_SHOW_IMPL(fmt::print, \n, name, name)
+
 ///
 /// Simple base class the formatters can derive from if they only wish to implement empty
 /// formatting.

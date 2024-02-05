@@ -7,6 +7,158 @@ How-Tos
    :local:
    :depth: 1
 
+.. _how_to_run_dynamic_indexing:
+
+How to Do Dynamic Indexing
+===========================
+This tutorial will show you how to create a dynamic index, add and remove vectors, search the index, save and reload it.
+
+Generating test data
+********************
+
+We generate a sample dataset using the :py:func:`pysvs.generate_test_dataset` generation function.
+This function generates a data file, a query file, and the ground truth. Note that this is randomly generated data,
+with no semantic meaning for the elements within it.
+
+We first load pysvs and other modules required for this example.
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [imports]
+   :end-before: [imports]
+
+Then proceed to generate the test dataset.
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [generate-dataset]
+   :end-before: [generate-dataset]
+   :dedent: 4
+
+Building the Dynamic Index
+**************************
+To construct the index we first need to define the hyper-parameters for the graph construction
+(see :ref:`graph-build-param-setting` for details).
+
+**In Python**
+
+This is done by creating an instance of :py:class:`pysvs.VamanaBuildParameters`.
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [build-parameters]
+   :end-before: [build-parameters]
+   :dedent: 4
+
+Now that we've established our hyper-parameters, it is time to construct the index. For this, we load the data and
+build the dynamic index with the first 9k vectors of the dataset.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [build-index]
+   :end-before: [build-index]
+   :dedent: 4
+
+Updating the index
+******************
+Once we've built the initial dynamic index, we can add and remove vectors.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [add-vectors]
+   :end-before: [add-vectors]
+   :dedent: 4
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [remove-vectors]
+   :end-before: [remove-vectors]
+   :dedent: 4
+
+Deletions are performed in a lazy fashion to avoid an excessive compute overhead. When a vector is deleted, it is added
+to a list of deleted elements but not immediately removed from the index. At search time, it is used during graph
+traversal but it is filtered out from the nearest neighbors result.
+Once a sufficient number of deletions is accumulated the ``consolidate()`` and ``compact()`` functions should be ran to
+effectively remove the vectors from the index.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [consolidate-index]
+   :end-before: [consolidate-index]
+   :dedent: 4
+
+Searching the Index
+********************
+
+First, we load the queries and the computed ground truth for our example dataset.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [load-aux]
+   :end-before: [load-aux]
+   :dedent: 4
+
+Then, run the search in the same fashion as for the static graph.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [perform-queries]
+   :end-before: [perform-queries]
+   :dedent: 4
+
+Saving the Index
+****************
+
+If you are satisfied with the performance of the generated index, you can save it to disk to avoid rebuilding it in the future.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [saving-results]
+   :end-before: [saving-results]
+   :dedent: 4
+
+.. note::
+
+    The save index function currently uses three folders for saving.
+    All three are needed to be able to reload the index.
+
+    * One folder for the graph.
+    * One folder for the data.
+    * One folder for metadata.
+
+    This is subject to change in the future.
+
+Reloading a Saved Index
+***********************
+
+To reload the index from file, use the corresponding constructor with the three folder names used to save the index.
+Performing queries is identical to before.
+
+**In Python**
+
+.. literalinclude:: ../examples/python/example_vamana_dynamic.py
+   :language: python
+   :start-after: [loading]
+   :end-before: [loading]
+   :dedent: 4
+
+Note that the second argument, the one corresponding to the file for the data, requires a :py:class:`pysvs.VectorDataLoader` and
+the corresponding data type.
+
+|
+
 .. _graph-build-param-setting:
 
 How to Choose Graph Building Hyper-parameters
@@ -70,20 +222,12 @@ the chosen accuracy level.
 
 How to Choose Compression Parameters
 =====================================
+
+Number of bits per level
+************************
 LVQ compression [ABHT23]_ comes in two flavors: one or two levels. One level LVQ, or LVQ-B, uses B bits to encode each vector
 component using a scalar quantization with per-vector scaling factors. Two level LVQ, or LVQ-B1xB2, uses LVQ-B1 to encode
-the vectors and a modification of LVQ to encode the residuals using B2 bits. The currently supported combinations are:
-
-* :py:class:`LVQ-8 <pysvs.LVQ8>`
-* :py:class:`LVQ-4 <pysvs.LVQ4>`
-* :py:class:`LVQ-4x4 <pysvs.LVQ4x4>`
-* :py:class:`LVQ-4x8 <pysvs.LVQ4x8>`
-* :py:class:`LVQ-8x8 <pysvs.LVQ8x8>`
-
-For an updated list see :ref:`python_api_compressed_loaders`. For details on which LVQ configurations are supported for each
-index type, study their respective signatures (:py:class:`pysvs.Vamana`, :py:class:`pysvs.Flat`).
-
-For details on the C++ implementation see :ref:`cpp_quantization_lvq`.
+the vectors and a modification of LVQ to encode the residuals using B2 bits.
 
 Whether using one or two levels, and the number of bits, depends on the dataset and the trade-off between performance and
 accuracy that needs to be achieved.
@@ -98,13 +242,26 @@ LVQ-4x4 depending on the desired accuracy.
 For **lower dimensional datasets** (<200 dimensions), **one-level** LVQ-8 is often a good choice. If higher recall is required, and a
 slightly larger memory footprint is allowed, then LVQ-8x4 or LVQ-8x8 should be used.
 
-LVQ-compressed vectors can be padded to a multiple of 32 or 64 bytes to be aligned with half or full cache lines.
-This improves search performance and has a low impact on the overall memory footprint cost (e.g., 5% and 12% larger
-footprint for `Deep <http://sites.skoltech.ru/compvision/noimi/>`_ with ``graph_max_degree`` = 128 and 32, respectively).
-A value of 0 (default) implies no special alignment.
-
 These are general guidelines, but the best option will depend on the dataset. If willing to optimize the search for a
 particular dataset and use case, we suggest trying different LVQ options. See :ref:`SVS + Vector compression (large scale
 datasets) <benchs-compression-evaluation>` and
 :ref:`SVS + Vector compression (small scale datasets) <benchs-compression-evaluation_small_scale>` for benchmarking results of
 the different LVQ settings in standard datasets.
+
+.. _lvq_strategy:
+
+LVQ implementation strategy
+***************************
+The ``strategy`` argument in the :py:class:`pysvs.LVQLoader` is of type :py:class:`pysvs.LVQStrategy`
+and defines the low level implementation strategy for LVQ, whether it is Turbo or Sequential. Turbo is an
+optimized implementation that brings further performance over the default (Sequential) implementation [AHBW24]_. Turbo can be used
+when using 4 bits for the primary LVQ level and it is enabled by default for that setting.
+
+Padding
+*******
+LVQ-compressed vectors can be padded to a multiple of 32 or 64 bytes to be aligned with half or full cache lines.
+This improves search performance and has a low impact on the overall memory footprint cost (e.g., 5% and 12% larger
+footprint for `Deep <http://sites.skoltech.ru/compvision/noimi/>`_ with ``graph_max_degree`` = 128 and 32, respectively).
+A value of 0 (default) implies no special alignment.
+
+For details on the C++ implementation see :ref:`cpp_quantization_lvq`.

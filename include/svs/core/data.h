@@ -11,9 +11,12 @@
 
 #pragma once
 
+#include "svs/concepts/data.h"
 #include "svs/core/data/io.h"
 #include "svs/core/data/simple.h"
+#include "svs/core/data/view.h"
 #include "svs/lib/datatype.h"
+#include "svs/lib/dispatcher.h"
 #include "svs/lib/saveload.h"
 
 #include "fmt/std.h"
@@ -31,9 +34,7 @@ template <typename T, size_t Dims, typename Alloc> class VectorDataLoader;
 
 template <typename Allocator = HugepageAllocator<std::byte>>
 struct UnspecializedVectorDataLoader {
-    template <typename T>
-    using rebind_alloc =
-        typename std::allocator_traits<Allocator>::template rebind_alloc<T>;
+    template <typename T> using rebind_alloc = lib::rebind_allocator_t<T, Allocator>;
 
     UnspecializedVectorDataLoader() = default;
     UnspecializedVectorDataLoader(
@@ -57,9 +58,8 @@ struct UnspecializedVectorDataLoader {
 
     // Refine into a fully specialized ``VectorDataLoader``.
     template <typename T, size_t Dims = Dynamic>
-    VectorDataLoader<T, Dims, rebind_alloc<T>> refine(
-        meta::Type<T> SVS_UNUSED(type), meta::Val<Dims> SVS_UNUSED(dims) = meta::Val<Dims>()
-    ) const {
+    VectorDataLoader<T, Dims, rebind_alloc<T>>
+    refine(lib::Type<T> SVS_UNUSED(type), lib::Val<Dims> SVS_UNUSED(dims) = {}) const {
         using Other = rebind_alloc<T>;
         return VectorDataLoader<T, Dims, Other>{*this};
     }
@@ -136,8 +136,51 @@ class VectorDataLoader {
     /// @brief Return the file path given when this class was constructed.
     const std::filesystem::path& get_path() const { return path_; }
 
-  private:
+  public:
     std::filesystem::path path_ = {};
     Allocator allocator_ = {};
 };
+
+// TODO: Further constrain allocator to be rebind-convertible
+template <typename T, size_t Extent, typename Alloc1, typename Alloc2>
+struct lib::DispatchConverter<
+    UnspecializedVectorDataLoader<Alloc1>,
+    VectorDataLoader<T, Extent, Alloc2>> {
+    static int64_t match(const UnspecializedVectorDataLoader<Alloc1>& loader) {
+        if (loader.type_ != datatype_v<T>) {
+            return lib::invalid_match;
+        }
+
+        auto dims = loader.dims_;
+        if (dims == Extent) {
+            return lib::perfect_match;
+        }
+
+        if constexpr (Extent == Dynamic) {
+            return lib::imperfect_match;
+        }
+        return lib::invalid_match;
+    }
+
+    static VectorDataLoader<T, Extent, Alloc2>
+    convert(const UnspecializedVectorDataLoader<Alloc1>& loader) {
+        return loader.template refine<T, Extent>(lib::Type<T>());
+    }
+
+    static std::string description() {
+        if constexpr (Extent == Dynamic) {
+            auto t = datatype_v<T>;
+            return fmt::format(
+                "VectorDataLoader with element type {} and any dimension", t
+            );
+        } else {
+            return fmt::format(
+                "VectorDataLoader with element type {} and {} dimensions",
+                datatype_v<T>,
+                Extent
+            );
+        }
+    }
+};
+
 } // namespace svs

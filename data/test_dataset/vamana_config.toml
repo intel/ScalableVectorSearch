@@ -1,12 +1,22 @@
 __version__ = 'v0.0.1'
 
 [object]
-__version__ = 'v0.0.0'
-alpha = 1.2000000476837158
-construction_window_size = 200
-default_search_window_size = 0
+__version__ = 'v0.0.3'
 entry_point = 9426
-max_candidates = 1000
-max_out_degree = 128
-name = 'vamana config parameters'
-visited_set = false
+name = 'vamana index parameters'
+
+    [object.build_parameters]
+    __version__ = 'v0.0.1'
+    alpha = 1.2000000476837158
+    graph_max_degree = 128
+    max_candidate_pool_size = 1000
+    name = 'vamana build parameters'
+    prune_to = 128
+    use_full_search_history = true
+    window_size = 200
+
+    [object.search_parameters]
+    __version__ = 'v0.0.0'
+    search_buffer_capacity = 0
+    search_buffer_visited_set = false
+    search_window_size = 0

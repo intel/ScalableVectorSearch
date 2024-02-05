@@ -25,27 +25,6 @@
 namespace svs::manager {
 
 ///
-/// Interfaces
-///
-
-// clang-format off
-template<typename T>
-concept ThreadingInterface = requires(T x, size_t i) {
-    /// Return `true` if searcher implementations of type `x` can dynamically change
-    /// the number of threads used at runtime.
-    { x.can_change_threads() } -> std::convertible_to<bool>;
-
-    /// Set the number of threads used to perform a search to `i`.
-    /// For implementations where `x.can_change_threads() == false`, this must still be
-    /// implemented but may do nothing.
-    x.set_num_threads(i);
-
-    /// Return the number of threads currently being used to conduct batch searchers.
-    { x.get_num_threads() } -> std::convertible_to<size_t>;
-};
-// clang-format on
-
-///
 /// Top level Manager
 ///
 
@@ -53,13 +32,8 @@ class ManagerInterface {
   public:
     ManagerInterface() = default;
 
-    virtual void search(
-        ConstErasedPointer data,
-        size_t dim0,
-        size_t dim1,
-        size_t nneighbors,
-        QueryResultView<size_t> result
-    ) = 0;
+    virtual void
+    search(AnonymousArray<2> data, size_t nneighbors, QueryResultView<size_t> result) = 0;
 
     // Data Interface
     virtual size_t size() const = 0;
@@ -83,10 +57,7 @@ class ManagerInterface {
 /// The base implementation for types meant to implement polymorphic Manager interface.
 /// The goal of this type is to wrap a concrete implementation of type `T` with the
 ///
-template <
-    typename QueryType,
-    ThreadingInterface Impl,
-    std::derived_from<ManagerInterface> IFace>
+template <typename QueryType, typename Impl, std::derived_from<ManagerInterface> IFace>
 class ManagerImpl : public IFace {
   public:
     explicit ManagerImpl(Impl implementation)
@@ -103,22 +74,15 @@ class ManagerImpl : public IFace {
         , implementation_{std::forward<Args>(args)...} {}
 
     // Search Interface
-    void search(
-        ConstErasedPointer data,
-        size_t dim0,
-        size_t dim1,
-        size_t nneighbors,
-        QueryResultView<size_t> result
-    ) override {
+    void search(AnonymousArray<2> data, size_t nneighbors, QueryResultView<size_t> result)
+        override {
         // TODO (Mark) For now - only allow implementations to support a single query
         // type.
         //
         // Generalizing this to multiple query types will require some metaprogramming
         // dances.
         if (data.type() == datatype_v<QueryType>) {
-            const auto view = data::ConstSimpleDataView<QueryType>(
-                data.template get_unchecked<QueryType>(), dim0, dim1
-            );
+            const auto view = data::ConstSimpleDataView<QueryType>(data);
             implementation_.search(view, nneighbors, result);
         } else {
             throw ANNEXCEPTION(
@@ -199,13 +163,7 @@ class IndexManager {
         size_t nneighbors,
         QueryResultView<size_t> result
     ) {
-        impl_->search(
-            ConstErasedPointer{queries.data()},
-            queries.size(),
-            queries.dimensions(),
-            nneighbors,
-            result
-        );
+        impl_->search(AnonymousArray<2>(queries), nneighbors, result);
     }
 
     ///// Data Interface

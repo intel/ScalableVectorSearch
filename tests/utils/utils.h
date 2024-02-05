@@ -23,6 +23,7 @@
 
 #include "svs/core/data/simple.h"
 #include "svs/core/query_result.h"
+#include "svs/lib/exception.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/misc.h"
 #include "svs/third-party/fmt.h"
@@ -31,6 +32,7 @@
 #include "svs/core/distance/euclidean.h"
 
 #include "catch2/catch_approx.hpp"
+#include "catch2/matchers/catch_matchers_templated.hpp"
 
 namespace svs_test {
 
@@ -54,6 +56,12 @@ inline bool make_temp_directory() {
 inline bool prepare_temp_directory() {
     cleanup_temp_directory();
     return make_temp_directory();
+}
+
+inline std::filesystem::path prepare_temp_directory_v2() {
+    cleanup_temp_directory();
+    make_temp_directory();
+    return temp_directory();
 }
 
 // Check if the contents of two files are identical.
@@ -171,4 +179,33 @@ template <> struct TypeName<double> {
 };
 
 template <typename T> std::string type_name() { return TypeName<T>::name(); }
+
+/////
+///// Matcher
+/////
+
+template <typename StringMatcher>
+struct ExceptionMatcher : Catch::Matchers::MatcherGenericBase {
+    // Type Aliases
+  public:
+    using matcher_type = StringMatcher;
+
+    // Members
+  public:
+    matcher_type matcher_;
+
+    // Methocs
+  public:
+    ExceptionMatcher(matcher_type&& matcher)
+        : matcher_{std::move(matcher)} {}
+
+    bool match(const svs::ANNException& exception) const {
+        return matcher_.match(exception.what());
+    }
+
+    std::string describe() const override {
+        return fmt::format("ANNException: {}", matcher_.describe());
+    }
+};
+
 } // namespace svs_test

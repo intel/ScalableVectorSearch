@@ -19,5 +19,13 @@ globals().update(
 )
 
 # Misc types and functions
-from .common import read_vecs, read_npy, write_vecs, read_svs, k_recall_at, generate_test_dataset
+from .common import read_npy, \
+    read_vecs, \
+    write_vecs, \
+    read_svs, \
+    k_recall_at, \
+    generate_test_dataset
+
+# LeanVec computation
+from .leanvec import compute_leanvec_matrices
 

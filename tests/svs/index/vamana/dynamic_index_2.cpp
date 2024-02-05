@@ -57,26 +57,31 @@ template <typename... Args> std::string stringify(Args&&... args) {
 /// @brief Compute the window size required to achieve the desired recall.
 ///
 template <typename MutableIndex, typename Groundtruth, typename Queries>
-size_t find_windowsize(
+auto find_windowsize(
     MutableIndex& index,
     const Groundtruth& groundtruth,
     const Queries& queries,
     double target_recall = TARGET_RECALL,
     size_t window_lower = NUM_NEIGHBORS,
     size_t window_upper = 1000
-) {
+) -> svs::index::vamana::VamanaSearchParameters {
     auto range = svs::threads::UnitRange<size_t>(window_lower, window_upper);
-    return *std::lower_bound(
+    auto parameters = svs::index::vamana::VamanaSearchParameters();
+    size_t window_size = *std::lower_bound(
         range.begin(),
         range.end(),
         target_recall,
         [&](size_t window_size, double recall) {
-            index.set_search_window_size(window_size);
+            parameters.buffer_config(window_size);
+            index.set_search_parameters(parameters);
             auto result = index.search(queries, NUM_NEIGHBORS);
             auto this_recall = svs::k_recall_at_n(groundtruth, result);
             return this_recall < recall;
         }
     );
+
+    parameters.buffer_config(window_size);
+    return parameters;
 }
 
 ///
@@ -148,8 +153,8 @@ void do_check(
     double groundtruth_time = svs::lib::time_difference(tic);
 
     if (calibrate) {
-        size_t window_size = find_windowsize(index, gt, queries);
-        index.set_search_window_size(window_size);
+        auto parameters = find_windowsize(index, gt, queries);
+        index.set_search_parameters(parameters);
     }
 
     // Run search
@@ -166,7 +171,9 @@ void do_check(
 
     // Report the calibrated search window size if we calibrated this round.
     if (calibrate) {
-        message += stringify(" - Calibrate window size: ", index.get_search_window_size());
+        auto search_window_size =
+            index.get_search_parameters().buffer_config_.get_search_window_size();
+        message += stringify(" - Calibrate window size: ", search_window_size);
     }
 
     std::cout

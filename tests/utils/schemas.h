@@ -32,6 +32,9 @@ std::filesystem::path test_v1_file();
 // Full filepath to the Vtest file
 std::filesystem::path test_vtest_file();
 
+// Full filepath to the Database Prototype file.
+std::filesystem::path test_database_file();
+
 // Expected UUID for vtest
 constexpr inline svs::lib::UUID vtest_uuid() {
     constexpr auto uuid = svs::lib::UUID("99ad8b56-4cd4-4335-a669-e4c7cc721e2d");
@@ -44,10 +47,21 @@ constexpr inline svs::lib::UUID v1_uuid() {
     return uuid;
 }
 
+// Expected UUID for database
+constexpr inline svs::lib::UUID database_uuid() {
+    constexpr auto uuid = svs::lib::UUID("1ece4578-b6ad-4813-a9cb-22413860d64d");
+    return uuid;
+}
+
 // Expected contents for vtest
 std::vector<std::vector<float>> vtest_contents();
 
 // Expected contents for v1
 std::vector<std::vector<float>> v1_contents();
+
+// Expected contents for database.
+constexpr uint64_t database_kind() { return 0xc2fcdee1f5093720; }
+
+constexpr svs::lib::Version database_version() { return svs::lib::Version(10, 20, 30); }
 
 } // namespace test_schemas

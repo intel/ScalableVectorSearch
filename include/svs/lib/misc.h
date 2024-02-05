@@ -12,6 +12,7 @@
 #pragma once
 
 #include <bit>
+#include <memory>
 #include <span>
 #include <tuple>
 #include <unordered_set>
@@ -30,6 +31,20 @@ namespace svs::lib {
 /// may be used to indicate that the corresponding memory for the object should be zeroed.
 ///
 struct ZeroInitializer {};
+
+/// @brief Get the full type of the allocator `Alloc` rebound to a value to `To`.
+template <typename To, typename Alloc>
+using rebind_allocator_t = typename std::allocator_traits<Alloc>::template rebind_alloc<To>;
+
+/// @brief Rebind an allocator to a new value type.
+template <typename To, typename Alloc>
+rebind_allocator_t<To, Alloc> rebind_allocator(const Alloc& allocator) {
+    return rebind_allocator_t<To, Alloc>{allocator};
+}
+
+/// @brief Return the value type for an allocator.
+template <typename Alloc>
+using allocator_value_type_t = typename std::allocator_traits<Alloc>::value_type;
 
 ///
 /// @brief Tag for priority dispatch.
@@ -201,14 +216,6 @@ struct donothing {
 template <auto V> struct Const {
     using type = decltype(V);
 };
-
-// Define `Unwrap` for `Const`.
-namespace meta {
-template <auto V> struct Unwrapper<Const<V>> {
-    using type = typename Const<V>::type;
-    static constexpr size_t unwrap(Const<V> /*unused*/ = Const<V>()) { return V; }
-};
-} // namespace meta
 
 ///
 /// Functor that returns its stored results from `operator()` regardless of the arguemnts
@@ -463,4 +470,57 @@ ScopeGuard<detail::deduce_scopeguard_parameter_t<F&&>> make_scope_guard(F&& f) {
 //     bool value_ = false;
 // };
 
+///
+/// Type representing percent.
+///
+struct Percent {
+  private:
+    static constexpr bool is_percent(double value) { return 0 <= value && value <= 1; }
+    static void not_percent_error(double value) {
+        throw ANNEXCEPTION("Value {} is not a percent!", value);
+    }
+
+    ///// Members
+  public:
+    double value_ = 0;
+
+    ///// Methods
+  public:
+    // Constructors
+    constexpr Percent() = default;
+    explicit constexpr Percent(double value)
+        : Percent() {
+        if (!is_percent(value)) {
+            not_percent_error(value);
+        }
+        value_ = value;
+    }
+
+    [[nodiscard]] constexpr double value() const { return value_; }
+    [[nodiscard]] constexpr friend bool
+    operator==(const Percent&, const Percent&) = default;
+};
+
+/////
+///// Bitmask
+/////
+
+/// @brief Return a bit-mask of type `T` with ones from `lo` to `hi` (inclusive).
+///
+/// Preconditions:
+/// * 0 <= lo, hi < 8 * sizeof(T)
+/// * lo <= hi
+template <std::integral T> constexpr T bitmask(T lo, T hi) {
+    assert(lo <= hi);
+    // Contract checking.
+    if constexpr (std::signed_integral<T>) {
+        assert(T(0) <= lo);
+        assert(T(0) <= hi);
+    }
+    assert(lo < T(8 * sizeof(T)));
+    assert(hi < T(8 * sizeof(T)));
+
+    T one{1};
+    return static_cast<T>(one << (hi + one)) - static_cast<T>(one << lo);
+}
 } // namespace svs::lib

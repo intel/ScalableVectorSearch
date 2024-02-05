@@ -25,12 +25,18 @@ namespace svs::quantization::lvq {
 // -- CompressedDataset<Sign, Bits, Extent, Allocator>
 // A compressed dataset storing only quantized data with no scaling or bias.
 //
-// -- ScaledBiasedDataset<Bits, Extent, Allocator>
+// -- ScaledBiasedDataset<Bits, Extent, Strategy, Allocator>
 // Each vector is encoded using two constants, a bias (the smallest value any dimension
 // can take) and a scaling parameter.
 //
 
+// Forward Declaration
+template <size_t Bits, size_t Extent, LVQPackingStrategy Strategy, typename Allocator>
+class ScaledBiasedDataset;
+
 namespace detail {
+// Trait to determine if an allocator is blocked or not.
+// Used to SFINAE away resizing methods if the allocator is not blocked.
 template <typename A> inline constexpr bool is_blocked = false;
 template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
 } // namespace detail
@@ -39,6 +45,9 @@ template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
 ///// Layout Helpers
 /////
 
+// LVQ constants.
+// Define as `packed` because the start byte is not necessarily aligned to the 2-byte
+// boundary usually required by float16.
 struct __attribute__((packed)) ScalarBundle {
     Float16 scale;
     Float16 bias;
@@ -51,11 +60,12 @@ static_assert(sizeof(ScalarBundle) == 2 * sizeof(Float16) + sizeof(selector_t));
 /// Layout for `ScaledBiasedVector` where the scaling constants are stored inline after the
 /// `CompressedVector` storing the data.
 ///
-template <size_t Bits, size_t Extent> class ScaledBiasedVectorLayout {
+template <size_t Bits, size_t Extent, typename Strategy = Sequential>
+class ScaledBiasedVectorLayout {
   public:
-    using cv_type = CompressedVector<Unsigned, Bits, Extent>;
+    using cv_type = CompressedVector<Unsigned, Bits, Extent, Strategy>;
 
-    using const_value_type = ScaledBiasedVector<Bits, Extent>;
+    using const_value_type = ScaledBiasedVector<Bits, Extent, Strategy>;
     using scalar_type = typename const_value_type::scalar_type;
 
     explicit ScaledBiasedVectorLayout(lib::MaybeStatic<Extent> dims)
@@ -70,10 +80,10 @@ template <size_t Bits, size_t Extent> class ScaledBiasedVectorLayout {
 
     template <typename T, size_t N>
         requires(std::is_same_v<std::remove_cv_t<T>, std::byte>)
-    CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>> vector(
+    CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>, Strategy> vector(
         std::span<T, N> raw_data
     ) const {
-        return CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>>(
+        return CompressedVectorBase<Unsigned, Bits, Extent, std::is_const_v<T>, Strategy>(
             AllowShrinkingTag(), dims_, raw_data
         );
     }
@@ -103,8 +113,10 @@ template <size_t Bits, size_t Extent> class ScaledBiasedVectorLayout {
         assert(raw_data.size() >= total_bytes());
         auto cv = vector(raw_data);
         cv.copy_from(src);
-        auto tof16 = [](float x) { return lib::narrow_cast<scalar_type>(x); };
-        auto bundle = ScalarBundle{tof16(scale), tof16(bias), selector};
+        auto bundle = ScalarBundle{
+            lib::relaxed_narrow<Float16>(scale),
+            lib::relaxed_narrow<Float16>(bias),
+            selector};
         auto* start = raw_data.data() + cv.size_bytes();
         memcpy(start, &bundle, sizeof(ScalarBundle));
     }
@@ -122,6 +134,170 @@ template <size_t Bits, size_t Extent> class ScaledBiasedVectorLayout {
   private:
     [[no_unique_address]] lib::MaybeStatic<Extent> dims_;
 };
+
+namespace detail {
+// Accessor for putting LVQ compressed data into a canonical ordering.
+// The canonical ordering consists of bit-packed, sequentially ordered data followed by
+// the constants in Float16 form.
+class Canonicalizer {
+  public:
+    Canonicalizer() = default;
+
+    template <size_t Bits, size_t Extent>
+    using canonical_layout_type = ScaledBiasedVectorLayout<Bits, Extent, Sequential>;
+
+    /// @brief Convert the given LVQ compressed vector to a canonical dense representation.
+    template <size_t Bits, size_t Extent, typename Strategy>
+    std::span<const std::byte>
+    to_canonical(const ScaledBiasedVector<Bits, Extent, Strategy>& v) {
+        auto dims = lib::MaybeStatic<Extent>(v.size());
+
+        // Determine the memory needed for canonical storage.
+        // Make sure the underlying buffer is the correct size.
+        auto canonical_layout = canonical_layout_type<Bits, Extent>(dims);
+        canonical_form_.resize(canonical_layout.total_bytes());
+
+        // Fast-path: If sequential is already used, we can use memcopy rather than
+        // element-wise assignment
+        if constexpr (std::is_same_v<Strategy, Sequential>) {
+            canonical_layout.set(lib::as_span(canonical_form_), v);
+        } else {
+            // Fall-back: Use element-wise assignment into the canonical form.
+            auto mut = compressed_buffer_
+                           .template view<lvq::Unsigned, Bits, Extent, lvq::Sequential>(dims
+
+                           );
+
+            // Delegate the job of bit unpacking to the strategy permutation.
+            for (size_t i = 0; i < dims; ++i) {
+                mut.set(v.data.get(i), i);
+            }
+
+            // Construct an intermediate ScaledBiasedVector to and use the layout to store
+            // the final result.
+            auto canonical = ScaledBiasedVector<Bits, Extent, lvq::Sequential>(
+                v.scale, v.bias, v.selector, mut
+            );
+
+            canonical_layout.set(lib::as_span(canonical_form_), canonical);
+        }
+        return lib::as_const_span(canonical_form_);
+    }
+
+    ///
+    /// @brief Convert the canonical representation into an intermediate representation.
+    ///
+    /// @param dispatch_tag Dispatch type containing the full type of the scaled vector
+    ///     being created.
+    /// @param raw_data The raw bytes containing the canonical layout LVQ data.
+    /// @param logical_dimensions The logical number of dimensions of the serialized LVQ
+    ///     vector.
+    ///
+    /// Notes: The returned `ScaledBiasedVector` may contain pointers into either the
+    /// `raw_data` argument or local data structures owned by the `Canonicalizer`,
+    /// depending on which method is most efficient.
+    ///
+    /// The resulting `ScaledBiasedVector` must be completely used before the storage
+    /// behind `raw_data` is changed and before further decoding methods are called on
+    /// the Canonicalizer.
+    ///
+    template <size_t Bits, size_t Extent, typename Strategy>
+    ScaledBiasedVector<Bits, Extent, Strategy> from_canonical(
+        lib::Type<ScaledBiasedVector<Bits, Extent, Strategy>> SVS_UNUSED(dispatch_tag),
+        std::span<const std::byte> raw_data,
+        lib::MaybeStatic<Extent> logical_dimensions
+    ) {
+        auto canonical_layout = canonical_layout_type<Bits, Extent>(logical_dimensions);
+        assert(raw_data.size() == canonical_layout.total_bytes());
+        auto canonical = canonical_layout.get(raw_data);
+
+        // If we are loading into a sequential layout, then we can return the interpreted
+        // raw data directly.
+        //
+        // Otherwise, we need to construct an intermediate layout with the same strategy
+        // as requested.
+        if constexpr (std::is_same_v<Strategy, Sequential>) {
+            return canonical;
+        } else {
+            // Resize storage for the permuted compressed-vector.
+            auto mut =
+                compressed_buffer_.template view<lvq::Unsigned, Bits, Extent, Strategy>(
+                    logical_dimensions
+                );
+
+            for (size_t i = 0; i < logical_dimensions; ++i) {
+                mut.set(canonical.data.get(i), i);
+            }
+
+            return ScaledBiasedVector<Bits, Extent, Strategy>{
+                canonical.scale, canonical.bias, canonical.selector, mut};
+        }
+    }
+
+  private:
+    // If the original dataset uses a Turbo-layout, we need an intermediate vector to
+    // store the sequential encodings.
+    CVStorage compressed_buffer_{};
+    // Allocated storage for the canonical layout.
+    std::vector<std::byte> canonical_form_{};
+};
+
+class CanonicalAccessor {
+  public:
+    CanonicalAccessor() = default;
+
+    // Read access
+    template <size_t Bits, size_t Extent, typename Strategy, typename Allocator>
+    std::span<const std::byte>
+    get(const ScaledBiasedDataset<Bits, Extent, Strategy, Allocator>& dataset, size_t i) {
+        return canonicalizer_.to_canonical(dataset.get_datum(i));
+    }
+
+    // IO Compatibility
+    // The raw number of bytes that will be written for this representation.
+    template <size_t Bits, size_t Extent, typename Strategy, typename Allocator>
+    size_t serialized_dimensions(
+        const ScaledBiasedDataset<Bits, Extent, Strategy, Allocator>& dataset
+    ) const {
+        return Canonicalizer::canonical_layout_type<Bits, Extent>(dataset.static_dims())
+            .total_bytes();
+    }
+
+    // Write access
+    template <size_t Bits, size_t Extent, typename Strategy, typename Allocator>
+    void
+    set(ScaledBiasedDataset<Bits, Extent, Strategy, Allocator>& dataset,
+        size_t i,
+        std::span<const std::byte> raw_data) {
+        using T = typename ScaledBiasedDataset<Bits, Extent, Strategy, Allocator>::
+            const_value_type;
+
+        dataset.set_datum(
+            i,
+            canonicalizer_.from_canonical(lib::Type<T>(), raw_data, dataset.static_dims())
+        );
+    }
+
+    // IO compatibility
+    // The raw serialization format is using bytes.
+    template <
+        size_t Bits,
+        size_t Extent,
+        LVQPackingStrategy Strategy,
+        typename Allocator,
+        typename File>
+    typename File::template reader_type<std::byte> reader(
+        const ScaledBiasedDataset<Bits, Extent, Strategy, Allocator>& SVS_UNUSED(dataset),
+        const File& file
+    ) const {
+        return file.reader(lib::Type<std::byte>());
+    }
+
+  private:
+    Canonicalizer canonicalizer_{};
+};
+
+} // namespace detail
 
 /////
 ///// Compressed Datasets
@@ -154,8 +330,8 @@ class CompressedDataset {
     static constexpr size_t encoding_bits = Bits;
 
     /// Dataset type aliases
-    using value_type = MutableCompressedVector<Sign, Bits, Extent>;
-    using const_value_type = CompressedVector<Sign, Bits, Extent>;
+    using value_type = MutableCompressedVector<Sign, Bits, Extent, Sequential>;
+    using const_value_type = CompressedVector<Sign, Bits, Extent, Sequential>;
 
     ///
     /// The compile-time dimensionality of the raw byte storage backing the compressed
@@ -279,14 +455,19 @@ class CompressedDataset {
 /// ScaledBiasedDataset
 ///
 
-template <size_t Bits, size_t Extent, typename Alloc = lib::Allocator<std::byte>>
+template <
+    size_t Bits,
+    size_t Extent,
+    LVQPackingStrategy Strategy,
+    typename Alloc = lib::Allocator<std::byte>>
 class ScaledBiasedDataset {
   public:
     static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
-    using helper_type = ScaledBiasedVectorLayout<Bits, Extent>;
+    using strategy = Strategy;
+    using helper_type = ScaledBiasedVectorLayout<Bits, Extent, Strategy>;
     using allocator_type = Alloc;
 
-    using compressed_vector_type = CompressedVector<Unsigned, Bits, Extent>;
+    using compressed_vector_type = CompressedVector<Unsigned, Bits, Extent, Strategy>;
     using Encoded_value_type = typename compressed_vector_type::value_type;
     // Pad data extent to be a multiple of half the underlying cache line size for better
     // bandwidth characteristics.
@@ -346,12 +527,13 @@ class ScaledBiasedDataset {
     }
 
     size_t get_alignment() const { return alignment_; }
+
     const allocator_type& get_allocator() const { return data_.get_allocator(); }
 
     ///// Dataset Inteface
     // N.B.: ScaledBiasedVector is immutable.
-    using value_type = ScaledBiasedVector<Bits, Extent>;
-    using const_value_type = ScaledBiasedVector<Bits, Extent>;
+    using value_type = ScaledBiasedVector<Bits, Extent, Strategy>;
+    using const_value_type = ScaledBiasedVector<Bits, Extent, Strategy>;
     using scalar_type = typename value_type::scalar_type;
 
     size_t size() const { return data_.size(); }
@@ -400,20 +582,31 @@ class ScaledBiasedDataset {
     // v0.0.2 - BREAKING
     //   - Removed centroids from being stored with the ScaledBiasedCompressedDataset.
     //     Centroids are now stored in the higher level LVQ dataset.
-    static constexpr lib::Version save_version = lib::Version(0, 0, 2);
+    // v0.0.3 - BREAKING
+    //   - Canonicalize the layout of serialized LVQ to be sequential with no padding.
+    //     This allows different packing strategies and paddings to be used upon reload.
+    static constexpr lib::Version save_version = lib::Version(0, 0, 3);
+    static constexpr std::string_view type_name{"lvq_with_scaling_constants"};
 
     lib::SaveTable save(const lib::SaveContext& ctx) const {
-        // TODO: Enable support for saving and reloading padded datasets.
-        size_t padding = data_.dimensions() - layout_helper_.total_bytes();
+        // Prepare for binary-file serialization.
+        // Use the serialization utilities in core but provide an accessor that lazily
+        // reorganizes the LVQ packing to the canonical form (if needed).
+        auto uuid = lib::UUID();
+        auto filename = ctx.generate_name("lvq_data");
+        {
+            auto canonical_accessor = detail::CanonicalAccessor{};
+            io::save(*this, canonical_accessor, io::NativeFile(filename), uuid);
+        }
+
         return lib::SaveTable(
             save_version,
-            {{"inner", lib::save(data_, ctx)},
-             {"kind", lib::save(kind)},
-             {"bits", lib::save(Bits)},
-             {"ndims", lib::save(dimensions())},
-             {"data_dims", lib::save(data_.dimensions())},
-             {"padding", lib::save(padding)},
-             {"num_points", lib::save(size())}}
+            {{"kind", lib::save(type_name)},
+             {"binary_file", lib::save(filename.filename())},
+             {"file_uuid", uuid.str()},
+             {"num_vectors", lib::save(size())},
+             {"logical_dimensions", lib::save(dimensions())},
+             {"bits", lib::save(Bits)}}
         );
     }
 
@@ -421,6 +614,7 @@ class ScaledBiasedDataset {
         const toml::table& table,
         const lib::LoadContext& ctx,
         const lib::Version& version,
+        size_t alignment = 0,
         const allocator_type& allocator = {}
     ) {
         if (version != save_version) {
@@ -428,19 +622,41 @@ class ScaledBiasedDataset {
         }
 
         // Parse and validate.
-        detail::assert_equal(lib::load_at<std::string>(table, "kind"), kind);
+        detail::assert_equal(lib::load_at<std::string>(table, "kind"), type_name);
         detail::assert_equal(lib::load_at<size_t>(table, "bits"), Bits);
-        auto ndims = lib::load_at<size_t>(table, "ndims");
+        auto ndims = lib::load_at<size_t>(table, "logical_dimensions");
         if constexpr (Extent != Dynamic) {
             detail::assert_equal(ndims, Extent);
         }
 
-        // Load the sub-table.
-        return ScaledBiasedDataset(
-            lib::load_at<dataset_type>(table, "inner", ctx, allocator),
-            lib::load_at<size_t>(table, "data_dims"),
-            lib::MaybeStatic<Extent>(ndims)
-        );
+        // Load the binary data.
+        auto uuid = lib::load_at<lib::UUID>(table, "file_uuid");
+        auto binary_file = io::find_uuid(ctx.get_directory(), uuid);
+        if (!binary_file.has_value()) {
+            throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
+        }
+
+        // Setup and execute the binary loading.
+        auto expected_size = lib::load_at<size_t>(table, "num_vectors");
+        auto lazy_constructor =
+            lib::Lazy([&](size_t size, size_t SVS_UNUSED(raw_dimensions)) {
+                if (size != expected_size) {
+                    throw ANNEXCEPTION(
+                        "Expected {} vectors in loaded file. Instead, got {}!",
+                        expected_size,
+                        size
+                    );
+                }
+
+                // Ignore the number of dimensions returned from the file deduction.
+                // The number of provided dimensions corresponds to the number of bytes in
+                // the canonical layout.
+                return ScaledBiasedDataset(
+                    size, lib::MaybeStatic<Extent>(ndims), alignment, allocator
+                );
+            });
+        auto write_accessor = detail::CanonicalAccessor();
+        return io::load_dataset(binary_file.value(), write_accessor, lazy_constructor);
     }
 
   private:

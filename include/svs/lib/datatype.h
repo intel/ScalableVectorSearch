@@ -109,9 +109,11 @@ inline constexpr std::string_view name(DataType type) {
 inline constexpr DataType parse_datatype_floating(std::string_view name) {
     if (name == "float16") {
         return DataType::float16;
-    } else if (name == "float32") {
+    }
+    if (name == "float32") {
         return DataType::float32;
-    } else if (name == "float64") {
+    }
+    if (name == "float64") {
         return DataType::float64;
     }
     return DataType::undef;
@@ -120,11 +122,14 @@ inline constexpr DataType parse_datatype_floating(std::string_view name) {
 inline constexpr DataType parse_datatype_unsigned(std::string_view name) {
     if (name == "uint8") {
         return DataType::uint8;
-    } else if (name == "uint16") {
+    }
+    if (name == "uint16") {
         return DataType::uint16;
-    } else if (name == "uint32") {
+    }
+    if (name == "uint32") {
         return DataType::uint32;
-    } else if (name == "uint64") {
+    }
+    if (name == "uint64") {
         return DataType::uint64;
     }
     return DataType::undef;
@@ -133,11 +138,14 @@ inline constexpr DataType parse_datatype_unsigned(std::string_view name) {
 inline constexpr DataType parse_datatype_signed(std::string_view name) {
     if (name == "int8") {
         return DataType::int8;
-    } else if (name == "int16") {
+    }
+    if (name == "int16") {
         return DataType::int16;
-    } else if (name == "int32") {
+    }
+    if (name == "int32") {
         return DataType::int32;
-    } else if (name == "int64") {
+    }
+    if (name == "int64") {
         return DataType::int64;
     }
     return DataType::undef;
@@ -275,8 +283,17 @@ inline constexpr bool has_datatype_v = (datatype_v<T> != DataType::undef);
 /// Erased Pointer
 ///
 
+struct AssertCorrectType {};
+inline constexpr AssertCorrectType assert_correct_type{};
+
 class ConstErasedPointer {
   public:
+    /// @brief Construct a null pointer with an undefined data type.
+    explicit ConstErasedPointer() = default;
+
+    /// @brief Construct a null pointer with an undefined data type.
+    ConstErasedPointer(std::nullptr_t) {}
+
     ///
     /// @brief Construct a type-tagged erased pointer.
     ///
@@ -286,9 +303,23 @@ class ConstErasedPointer {
         , type_{datatype_v<T>} {}
 
     ///
+    /// @brief Construct a type-tagged erased pointer.
+    ///
+    /// Providing the incorrect DataType is undefined behavior.
+    ///
+    ConstErasedPointer(
+        AssertCorrectType SVS_UNUSED(assertion), const void* data, DataType type
+    )
+        : data_{data}
+        , type_{type} {}
+
+    ///
     /// @brief Return the underlying type.
     ///
     DataType type() const { return type_; }
+
+    /// @brief Return whether the underlying pointer is null.
+    explicit operator bool() const { return data_ != nullptr; }
 
     ///
     /// @brief Safely extract the wrapped pointer.
@@ -321,9 +352,11 @@ class ConstErasedPointer {
         return static_cast<const T*>(data_);
     }
 
+    friend bool operator==(ConstErasedPointer, ConstErasedPointer) = default;
+
   private:
-    const void* data_;
-    DataType type_;
+    const void* data_{nullptr};
+    DataType type_{DataType::undef};
 };
 
 ///
@@ -331,6 +364,63 @@ class ConstErasedPointer {
 /// Throws `ANNException` if the converted type is incorrect.
 ///
 template <typename T> const T* get(ConstErasedPointer ptr) { return ptr.template get<T>(); }
+
+/// A container for N-dimensional dense arrays with a type-tagged base pointer.
+template <size_t N> class AnonymousArray {
+  private:
+    ConstErasedPointer data_;
+    std::array<size_t, N> dims_;
+
+  public:
+    explicit AnonymousArray() = default;
+
+    /// @brief Consruct an anonymous array around the pointer.
+    template <typename T, typename... Dims>
+        requires(sizeof...(Dims) == N)
+    explicit AnonymousArray(const T* data, Dims... dims)
+        : data_{data}
+        , dims_{dims...} {}
+
+    /// @brief Construct an anonymous array around the tagged pointer.
+    ///
+    /// Passing the incorrect data type is undefined behavior.
+    template <typename... Dims>
+        requires(sizeof...(Dims) == N)
+    AnonymousArray(
+        AssertCorrectType assertion, const void* data, DataType type, Dims... dims
+    )
+        : data_{assertion, data, type}
+        , dims_{dims...} {}
+
+    /// @brief Return the logical dimensions of the array.
+    std::array<size_t, N> dims() const { return dims_; }
+
+    /// @brief Return the type of each element in the array.
+    svs::DataType type() const { return data_.type(); }
+
+    /// @brief Return the base pointer.
+    ConstErasedPointer pointer() const { return data_; }
+
+    /// @brief Get the shape of the `i`th dimension.
+    size_t size(size_t i) const {
+        assert(i < N);
+        return dims_[i];
+    }
+
+    /// @brief Return the based pointer performing a checked cast.
+    template <typename T> const T* data() const { return get<T>(data_); }
+
+    /// @brief Return the based pointer performing a un-checked cast.
+    template <typename T> const T* data_unchecked() const {
+        return data_.template get_unchecked<T>();
+    }
+
+    friend bool operator==(AnonymousArray, AnonymousArray) = default;
+};
+
+template <typename T, size_t N> const T* get(AnonymousArray<N> array) {
+    return array.template data<T>();
+}
 
 } // namespace svs
 

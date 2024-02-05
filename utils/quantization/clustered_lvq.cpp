@@ -32,62 +32,6 @@ using Eltype = svs::Float16;
 using Distance = svs::distance::DistanceL2;
 using DistanceBiased = svs::quantization::lvq::EuclideanBiased;
 
-// using Distance = svs::distance::DistanceIP;
-// using DistanceBiased = svs::quantization::lvq::InnerProductBiased;
-
-// Meta-programming dance
-template <typename Primary, svs::data::ImmutableMemoryDataset Data>
-auto compress_residual(
-    const Primary& primary,
-    const svs::data::SimpleData<float>& centroids,
-    const Data& data,
-    svs::threads::NativeThreadPool& threadpool,
-    svs::lib::Timer& timer
-) {
-    if (primary.size() != data.size()) {
-        throw ANNEXCEPTION("Something went wrong!");
-    }
-    if constexpr (Residual == 0) {
-        return svs::index::vamana::NoPostOp();
-    } else {
-        auto handle = timer.push_back("compressing residual");
-        // Thread local decompression buffers.
-        auto compressed = svs::quantization::lvq::
-            CompressedDataset<svs::quantization::lvq::Signed, Residual, Dims>(
-                data.size(), svs::lib::MaybeStatic<Dims>(data.dimensions())
-            );
-
-        auto f = [&](auto indices, auto /*tid*/) {
-            // Local buffer to hold the full-precision residual.
-            auto buffer = std::vector<float>(data.dimensions());
-            auto residual_encoder = svs::quantization::lvq::ResidualEncoder<Residual>{};
-            for (auto i : indices) {
-                auto p = primary.get_datum(i);
-                auto d = data.get_datum(i);
-                auto centroid = centroids.get_datum(p.get_selector());
-
-                // Get the residual between the original data point and the centroid.
-                for (size_t j = 0, jmax = d.size(); j < jmax; ++j) {
-                    buffer[j] = d[j] - centroid[j];
-                }
-
-                // Compress the residual between the full-precision residual and the
-                // primary-compressed residual.
-                compressed.set_datum(
-                    i,
-                    residual_encoder(primary.get_datum(i), svs::lib::as_const_span(buffer))
-                );
-            }
-        };
-
-        svs::threads::run(
-            threadpool, svs::threads::DynamicPartition{data.eachindex(), 512}, f
-        );
-
-        return svs::index::vamana::ResidualReranker{std::move(compressed)};
-    }
-}
-
 // Main function.
 int svs_main(std::vector<std::string> args) {
     size_t i = 1;
@@ -110,6 +54,7 @@ int svs_main(std::vector<std::string> args) {
 
     auto compressed =
         svs::quantization::lvq::ScaledBiasedDataset<Primary, Dims>(data.size(), dims);
+    compressed.set_centroids(centroids.cview());
 
     auto compress_handle = timer.push_back("compress");
     auto threadpool = svs::threads::NativeThreadPool{num_threads};
@@ -137,16 +82,13 @@ int svs_main(std::vector<std::string> args) {
     compress_handle.finish();
     fmt::print("Done compressing!\n");
 
-    auto postop = compress_residual(compressed, centroids, data, threadpool, timer);
-
     // Construct the index.
     auto index_compressed = svs::index::vamana::VamanaIndex{
         svs::GraphLoader(graph_path).load(),
-        std::move(compressed),
+        svs::quantization::lvq::LVQDataset<Primary, 0, Dims>(std::move(compressed)),
         svs::lib::narrow<uint32_t>(medoid),
-        DistanceBiased{centroids.get_array()},
-        std::move(threadpool),
-        std::move(postop)};
+        Distance(),
+        std::move(threadpool)};
 
     auto index_native = svs::index::vamana::VamanaIndex{
         svs::GraphLoader(graph_path).load(),
@@ -185,6 +127,7 @@ int svs_main(std::vector<std::string> args) {
         }
     }
     timer.print();
+    index_compressed.save("config", "graph", "data");
     return 0;
 }
 

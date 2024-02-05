@@ -177,12 +177,14 @@ class VamanaBuilder {
         const Data& data,
         Dist distance_function,
         const VamanaBuildParameters& params,
-        Pool& threadpool
+        Pool& threadpool,
+        GreedySearchPrefetchParameters prefetch_hint = {}
     )
         : graph_{graph}
         , data_{data}
         , distance_function_{std::move(distance_function)}
         , params_{params}
+        , prefetch_hint_{prefetch_hint}
         , threadpool_{threadpool}
         , vertex_locks_(data.size())
         , backedge_buffer_{data.size(), 1000} {
@@ -300,7 +302,11 @@ class VamanaBuilder {
 
             // Scratch space.
             std::vector<Neighbor<Idx>> pool{};
-            search_buffer_type search_buffer{params_.window_size};
+            auto search_buffer = search_buffer_type{params_.window_size};
+
+            // Enable use of the visited filter of the search buffer.
+            // It seems to help in high-window-size scenarios.
+            search_buffer.enable_visited_set();
             set_type<Idx> visited{};
             auto tracker = OptionalTracker<Idx>(params_.use_full_search_history);
 
@@ -330,7 +336,8 @@ class VamanaBuilder {
                     search_buffer,
                     entry_points,
                     NeighborBuilder(),
-                    tracker
+                    tracker,
+                    prefetch_hint_
                 );
 
                 const auto& post_search_query = build_adaptor.modify_post_search_query(
@@ -530,6 +537,8 @@ class VamanaBuilder {
     Dist distance_function_;
     /// Parameters regarding index construction.
     VamanaBuildParameters params_;
+    /// Prefetch parameters to use during the graph search.
+    GreedySearchPrefetchParameters prefetch_hint_;
     /// Worker threadpool.
     Pool& threadpool_;
     /// Per-vertex locks.

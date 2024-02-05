@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        build_type: [Release]
+        build_type: [RelWithDebugInfo]
         cxx: [g++-11, g++-12, clang++-15]
         include:
           - cxx: g++-11
@@ -44,6 +44,7 @@ jobs:
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
+              -DSVS_EXPERIMENTAL_LEANVEC=NO \ # Disable LeanVec for now in CI due to MKL.
               -DSVS_NO_AVX512=NO
 
     - name: Build Tests and Utilities

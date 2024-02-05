@@ -46,7 +46,6 @@ namespace svs {
 const size_t Dynamic = std::dynamic_extent;
 
 namespace lib {
-namespace meta {
 
 ///
 /// @ingroup lib_public_types
@@ -79,8 +78,9 @@ template <typename... Ts> struct Types {
 /// @ingroup lib_public_types
 /// @brief Return whether the requested type is in the type list.
 ///
-template <typename T, typename... Ts> constexpr bool in(Types<Ts...> /*unused*/) {
-    return false || (std::is_same_v<T, Ts> || ...);
+template <typename T, typename... Ts>
+constexpr bool in(Types<Ts...> SVS_UNUSED(typelist) = {}) {
+    return (std::is_same_v<T, Ts> || ...);
 }
 
 ///
@@ -93,9 +93,9 @@ template <typename T, typename... Ts> constexpr bool in(Types<Ts...> /*unused*/)
 /// Requires that elements in the type list have a know corresponding data type.
 ///
 template <typename... Ts>
-constexpr bool in(DataType datatype, Types<Ts...> SVS_UNUSED(typelist)) {
-    static_assert(true && (has_datatype_v<Ts> && ...));
-    return false || ((datatype_v<Ts> == datatype) || ...);
+constexpr bool in(DataType datatype, Types<Ts...> SVS_UNUSED(typelist) = {}) {
+    static_assert((has_datatype_v<Ts> && ...));
+    return ((datatype_v<Ts> == datatype) || ...);
 }
 
 ///
@@ -119,59 +119,20 @@ std::vector<T> make_vec(Types<Ts...> types, F&& f) {
 }
 
 /////
-///// Unwrapping
-/////
-
-template <typename T> struct Unwrapper;
-
-// Specializations
-template <std::integral I> struct Unwrapper<I> {
-    using type = size_t;
-    static constexpr size_t unwrap(size_t x) { return x; }
-};
-
-template <typename T> using unwrapped_t = typename Unwrapper<std::remove_cvref_t<T>>::type;
-
-///
-/// Perform type-domain to runtime-value conversion.
-///
-template <typename T> unwrapped_t<std::remove_cvref_t<T>> constexpr unwrap(T&& x) {
-    return Unwrapper<std::remove_cvref_t<T>>::unwrap(std::forward<T>(x));
-}
-
-// Recursively define `Unwrapper` for tuples.
-template <typename... Ts> struct Unwrapper<std::tuple<Ts...>> {
-    using type = std::tuple<unwrapped_t<Ts>...>;
-    static constexpr type unwrap(const std::tuple<Ts...>& t) {
-        return map(t, [](auto&& x) { return meta::unwrap(x); });
-    }
-};
-
-// Map `Type`s to DataType values.
-template <typename T> struct Unwrapper<Type<T>> {
-    using type = DataType;
-    static constexpr type unwrap(Type<T> /*unused*/) { return datatype_v<T>; }
-};
-
-template <typename... Ts> constexpr std::tuple<unwrapped_t<Ts>...> make_key(Ts&&... ts) {
-    return std::tuple<unwrapped_t<Ts>...>(meta::unwrap(ts)...);
-}
-
-/////
 ///// Match
 /////
 
 template <typename F, typename T, typename... Ts>
-auto match(meta::Types<T, Ts...> /*unused*/, DataType type, F&& f) {
+auto match(lib::Types<T, Ts...> /*unused*/, DataType type, F&& f) {
     if (type == datatype_v<T>) {
-        return f(meta::Type<T>{});
+        return f(lib::Type<T>{});
     }
 
     // At the end of recursion, throw an exception.
     if constexpr (sizeof...(Ts) == 0) {
         throw ANNEXCEPTION("Type {} is not supported for this operation!", type);
     } else {
-        return match(meta::Types<Ts...>{}, type, std::forward<F>(f));
+        return match(lib::Types<Ts...>{}, type, std::forward<F>(f));
     }
 }
 
@@ -193,11 +154,6 @@ template <size_t N> class Val {
     constexpr Val() = default;
     /// Return the value parameter `N`.
     static constexpr size_t value = N;
-};
-
-template <size_t N> struct Unwrapper<Val<N>> {
-    using type = size_t;
-    static constexpr type unwrap(Val<N> /*unused*/) { return N; }
 };
 
 template <size_t N, size_t M>
@@ -238,9 +194,16 @@ template <size_t N> using forward_extent_t = decltype(forward_extent<Val<N>>(0))
 template <typename T> inline constexpr bool is_val_type_v = false;
 template <auto N> inline constexpr bool is_val_type_v<Val<N>> = true;
 
+template <typename T>
+concept ValType = is_val_type_v<T>;
+
 // Concept for accepting accepting either a `Val` or something convertible to an integer.
 template <typename T>
 concept IntegerLike = std::convertible_to<T, size_t> || is_val_type_v<T>;
+
+template <std::integral I> constexpr I as_integral(I x) { return x; }
+template <ValType T> constexpr size_t as_integral() { return T::value; }
+template <size_t N> constexpr size_t as_integral(Val<N> SVS_UNUSED(x) = {}) { return N; }
 
 // A template dance to determine whether or not the first type of a parameter pack is
 // a `LoadContext` or not.
@@ -253,10 +216,43 @@ template <typename T, typename... Args> inline constexpr bool first_is() {
     }
 }
 
-} // namespace meta
-} // namespace lib
+/////
+///// Typename
+/////
 
-// Namespace Alias.
-namespace meta = lib::meta;
+namespace detail {
+
+constexpr std::pair<size_t, size_t> typename_prefix_and_suffix() {
+#if defined(__clang__)
+    constexpr auto prefix =
+        std::string_view("auto svs::lib::generate_typename() [T = ").size();
+    constexpr auto suffix = std::string_view("]").size();
+#elif defined(__GNUC__)
+    constexpr auto prefix =
+        std::string_view("constexpr auto svs::lib::generate_typename() [with T = ").size();
+    constexpr auto suffix = std::string_view("]").size();
+#endif
+    return std::make_pair(prefix, suffix);
+}
+
+} // namespace detail
+
+template <typename T> constexpr auto generate_typename() {
+    constexpr auto pretty = std::string_view(__PRETTY_FUNCTION__);
+    constexpr auto prefix_and_suffix = detail::typename_prefix_and_suffix();
+    assert(pretty.size() > prefix_and_suffix.first + prefix_and_suffix.second);
+    auto pretty_mutable = pretty;
+
+    pretty_mutable.remove_prefix(prefix_and_suffix.first);
+    pretty_mutable.remove_suffix(prefix_and_suffix.second);
+    constexpr size_t size =
+        pretty.size() - prefix_and_suffix.first - prefix_and_suffix.second;
+    auto make = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        return std::array<const char, sizeof...(Is) + 1>{pretty_mutable[Is]...};
+    };
+    return make(std::make_index_sequence<size>());
+}
+
+} // namespace lib
 
 } // namespace svs

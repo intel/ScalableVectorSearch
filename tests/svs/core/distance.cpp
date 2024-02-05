@@ -49,19 +49,6 @@ struct DistanceChecker {
 } // namespace
 
 CATCH_TEST_CASE("Distance Utils", "[core][distance][distance_type]") {
-    CATCH_SECTION("Unwrapping") {
-        CATCH_REQUIRE(
-            svs::lib::meta::unwrap(svs::distance::DistanceL2()) == svs::DistanceType::L2
-        );
-        CATCH_REQUIRE(
-            svs::lib::meta::unwrap(svs::distance::DistanceIP()) == svs::DistanceType::MIP
-        );
-        CATCH_REQUIRE(
-            svs::lib::meta::unwrap(svs::distance::DistanceCosineSimilarity()) ==
-            svs::DistanceType::Cosine
-        );
-    }
-
     CATCH_SECTION("Saving and Loading") {
         // First, check that the expected test table parses correctly.
         CATCH_SECTION("Loading pre-saved table") {

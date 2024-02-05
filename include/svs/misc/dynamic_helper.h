@@ -133,6 +133,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     /// @param num_neighbors The number of neighbors to retrieve when computing the base
     ///     ground truth.
     /// @param queries The query set that will be used.
+    /// @param rng_seet The seed to use for random number generator initialization.
     ///
     template <data::ImmutableMemoryDataset Queries>
     ReferenceDataset(
@@ -162,7 +163,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
 
         auto timer = lib::Timer();
         size_t start = 0;
-        size_t datasize = data.size();
+        size_t datasize = data_.size();
         size_t num_queries = queries.size();
         while (start < datasize) {
             // Create a bucket of sequential IDs.

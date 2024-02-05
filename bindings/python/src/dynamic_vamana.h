@@ -19,18 +19,27 @@ namespace dynamic_vamana {
 
 // Specializations
 template <typename F> void for_standard_specializations(F&& f) {
-#define X(Q, T, Dist, N) f(Type<Q>(), Type<T>(), Dist(), Val<N>())
-    X(float, float, DistanceL2, svs::Dynamic);
-    X(float, float, DistanceIP, svs::Dynamic);
-    X(float, svs::Float16, DistanceL2, svs::Dynamic);
-    X(float, svs::Float16, DistanceIP, svs::Dynamic);
+#define X(Q, T, Dist, N) f.template operator()<Q, T, Dist, N>()
+    X(float, float, DistanceL2, Dynamic);
+    X(float, float, DistanceIP, Dynamic);
+    X(float, svs::Float16, DistanceL2, Dynamic);
+    X(float, svs::Float16, DistanceIP, Dynamic);
 #undef X
 }
 
 template <typename F> void for_compressed_specializations(F&& f) {
-#define X(Dist, N) f(Dist(), Val<N>())
-    X(DistanceL2, svs::Dynamic);
-    X(DistanceIP, svs::Dynamic);
+    using Sequential = svs::quantization::lvq::Sequential;
+#define X(Dist, Primary, Residual, Strategy, N) \
+    f.template operator()<Dist, Primary, Residual, Strategy, N>()
+    // Sequential
+    X(DistanceL2, 4, 8, Sequential, Dynamic);
+    X(DistanceIP, 4, 8, Sequential, Dynamic);
+    X(DistanceL2, 8, 0, Sequential, Dynamic);
+    X(DistanceIP, 8, 0, Sequential, Dynamic);
+
+    // Turbo
+    using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
+    X(DistanceIP, 4, 8, Turbo16x8, Dynamic);
 #undef X
 }
 

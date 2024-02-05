@@ -28,19 +28,6 @@ using DistanceIP = svs::distance::DistanceIP;
 
 namespace {
 
-// // A combination of reference data to put in an LVQ dataset and centroids that should be
-// // able to test centroid-selection logic.
-// struct ReferenceAndCentroids {
-//     svs::data::SimpleData<float> reference_;
-//     svs::data::SimpleData<float> centroids_;
-// };
-//
-// ReferenceAndCentroids generate_reference_data(
-//     size_t size, size_t dimensions, size_t primary_bits, size_t residual_bits
-// ) {
-//
-// }
-
 template <typename T, size_t N> void test_lvq_top() {
     // First, construct an online compression.
     auto lvq_dataset =

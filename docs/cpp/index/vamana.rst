@@ -16,6 +16,10 @@ Helper Classes
    :project: SVS
    :members:
 
+.. doxygenstruct:: svs::index::vamana::VamanaSearchParameters
+   :project: SVS
+   :members:
+
 Example
 -------
 

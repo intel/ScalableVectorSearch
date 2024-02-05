@@ -15,6 +15,7 @@
 #include "core.h"
 #include "manager.h"
 #include "vamana.h"
+#include "vamana_common.h"
 
 // svs
 #include "svs/extensions/vamana/lvq.h"
@@ -37,6 +38,8 @@ namespace py = pybind11;
 namespace dynamic_vamana {
 
 namespace {
+
+namespace lvq = svs::quantization::lvq;
 
 template <typename ElementType>
 svs::DynamicVamana build_from_array(
@@ -171,146 +174,105 @@ void save_index(
     index.save(config_path, graph_dir, data_dir);
 }
 
-// Assembly.
-struct StandardAssemble_ {
-    /// Keys:
-    /// (0) - The type of the elements of the query vectors.
-    /// (1) - The type of the elements of the data vectors.
-    /// (2) - The requested distance type.
-    /// (3) - Compile-time dimensionality
-    using key_type = std::tuple<svs::DataType, svs::DataType, svs::DistanceType, size_t>;
-    using mapped_type = std::function<svs::DynamicVamana(
-        const std::filesystem::path& /*config_path*/,
-        const UnspecializedGraphLoader& /*graph_loader*/,
-        const UnspecializedVectorDataLoader& /*data_loader*/,
-        size_t /*num_threads*/,
-        bool /*debug_load_from_static*/
-    )>;
+/////
+///// Assembly
+/////
 
-    template <typename Q, typename T, typename Dist, size_t N>
-    static std::pair<key_type, mapped_type>
-    specialize(Type<Q> query_type, Type<T> data_type, Dist distance, Val<N> ndims) {
-        key_type key = {
-            unwrap(query_type),
-            unwrap(data_type),
-            svs::distance_type_v<Dist>,
-            unwrap(ndims)};
-        mapped_type fn = [=](const std::filesystem::path& config_path,
-                             const UnspecializedGraphLoader& graph_loader,
-                             const UnspecializedVectorDataLoader& data,
-                             size_t num_threads,
-                             bool debug_load_from_static) {
-            auto load_graph = svs::lib::Lazy([&]() {
-                return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
-            });
+template <typename Q, typename T, typename Dist, size_t N>
+svs::DynamicVamana assemble_uncompressed(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    svs::VectorDataLoader<T, N, RebindAllocator<T>> datafile,
+    Dist distance,
+    size_t num_threads,
+    bool debug_load_from_static
+) {
+    auto load_graph = svs::lib::Lazy([&]() {
+        return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
+    });
 
-            auto load_data = svs::lib::Lazy([&]() {
-                // Forward the allocator we wish to use
-                using A = RebindAllocator<T>;
-                return svs::data::BlockedData<T, N, A>::load(
-                    data.path_, as_blocked(A(data.allocator_))
-                );
-            });
-
-            return svs::DynamicVamana::assemble<Q>(
-                config_path,
-                load_graph,
-                load_data,
-                distance,
-                num_threads,
-                debug_load_from_static
-            );
-        };
-        return std::make_pair(key, std::move(fn));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        for_standard_specializations(
-            [&f](auto query_type, auto data_type, auto distance, auto ndims) {
-                f(specialize(query_type, data_type, distance, ndims));
-            }
+    auto load_data = svs::lib::Lazy([&]() {
+        // Forward the allocator we wish to use
+        using A = RebindAllocator<T>;
+        return svs::data::BlockedData<T, N, A>::load(
+            datafile.path_, as_blocked(A(datafile.allocator_))
         );
-    }
-};
-using StandardAssembler = svs::lib::Dispatcher<StandardAssemble_>;
+    });
 
-template <typename Loader> struct LVQAssemble_ {
-    /// Keys:
-    /// (0) - The requested distance type.
-    /// (1) - Compile-time dimensionality
-    using key_type = std::tuple<svs::DistanceType, size_t>;
-    using mapped_type = std::function<svs::DynamicVamana(
-        const std::filesystem::path& /*config_path*/,
-        const UnspecializedGraphLoader& /*graph_loader*/,
-        const Loader& /*data_loader*/,
-        size_t /*num_threads*/,
-        bool /*debug_load_from_static*/
-    )>;
+    return svs::DynamicVamana::assemble<Q>(
+        config_path, load_graph, load_data, distance, num_threads, debug_load_from_static
+    );
+}
 
-    template <typename Dist, size_t N>
-    static std::pair<key_type, mapped_type> specialize(Dist distance, Val<N> ndims) {
-        key_type key = {svs::distance_type_v<Dist>, unwrap(ndims)};
-        mapped_type fn = [=](const std::filesystem::path& config_path,
-                             const UnspecializedGraphLoader& graph_loader,
-                             const Loader& data_loader,
-                             size_t num_threads,
-                             bool debug_load_from_static) {
-            auto load_graph = svs::lib::Lazy([&]() {
-                return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
-            });
+template <
+    typename Dist,
+    size_t Primary,
+    size_t Residual,
+    lvq::LVQPackingStrategy Strategy,
+    size_t N>
+svs::DynamicVamana assemble_lvq(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    svs::quantization::lvq::LVQLoader<Primary, Residual, N, Strategy, Allocator> loader,
+    Dist distance,
+    size_t num_threads,
+    bool debug_load_from_static
+) {
+    auto load_graph = svs::lib::Lazy([&]() {
+        return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
+    });
 
-            return svs::DynamicVamana::assemble<float>(
-                config_path,
-                load_graph,
-                data_loader.refine(ndims, as_blocked),
-                distance,
-                num_threads,
-                debug_load_from_static
-            );
-        };
-        return std::make_pair(key, std::move(fn));
-    }
+    return svs::DynamicVamana::assemble<float>(
+        config_path,
+        load_graph,
+        loader.rebind_alloc(as_blocked),
+        distance,
+        num_threads,
+        debug_load_from_static
+    );
+}
 
-    template <typename F> static void fill(F&& f) {
-        for_compressed_specializations([&f](auto distance, auto ndims) {
-            f(specialize(distance, ndims));
-        });
-    }
-};
-template <typename Loader> using LVQAssembler = svs::lib::Dispatcher<LVQAssemble_<Loader>>;
+template <typename Dispatcher> void register_assembly(Dispatcher& dispatcher) {
+    for_standard_specializations([&]<typename Q, typename T, typename D, size_t N>() {
+        dispatcher.register_target(&assemble_uncompressed<Q, T, D, N>);
+    });
 
-using DynamicVamanaAssembleTypes =
-    std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4x8>;
+    for_compressed_specializations(
+        [&]<typename D, size_t P, size_t R, lvq::LVQPackingStrategy S, size_t N>() {
+            dispatcher.register_target(&assemble_lvq<D, P, R, S, N>);
+        }
+    );
+}
+
+using DynamicVamanaAssembleTypes = std::variant<UnspecializedVectorDataLoader, LVQ>;
 
 svs::DynamicVamana assemble(
     const std::string& config_path,
     const UnspecializedGraphLoader& graph_loader,
-    const DynamicVamanaAssembleTypes& data_loader,
+    DynamicVamanaAssembleTypes data_loader,
     svs::DistanceType distance_type,
-    svs::DataType query_type,
-    bool enforce_dims,
+    svs::DataType SVS_UNUSED(query_type),
+    bool SVS_UNUSED(enforce_dims),
     size_t num_threads,
     bool debug_load_from_static
 ) {
-    return std::visit<svs::DynamicVamana>(
-        [&](auto&& loader) {
-            using T = std::decay_t<decltype(loader)>;
-            if constexpr (std::is_same_v<T, UnspecializedVectorDataLoader>) {
-                const auto& f = StandardAssembler::lookup(
-                    !enforce_dims, loader.dims_, query_type, loader.type_, distance_type
-                );
-                return f(
-                    config_path, graph_loader, loader, num_threads, debug_load_from_static
-                );
-            } else {
-                const auto& f =
-                    LVQAssembler<T>::lookup(!enforce_dims, loader.dims_, distance_type);
-                return f(
-                    config_path, graph_loader, loader, num_threads, debug_load_from_static
-                );
-            }
-        },
-        data_loader
+    auto dispatcher = svs::lib::Dispatcher<
+        svs::DynamicVamana,
+        const std::filesystem::path&,
+        const UnspecializedGraphLoader&,
+        DynamicVamanaAssembleTypes,
+        svs::DistanceType,
+        size_t,
+        bool>();
+
+    register_assembly(dispatcher);
+    return dispatcher.invoke(
+        config_path,
+        graph_loader,
+        std::move(data_loader),
+        distance_type,
+        num_threads,
+        debug_load_from_static
     );
 }
 

@@ -31,12 +31,15 @@ CATCH_TEST_CASE("Schemas", "[core][io][schema]") {
     CATCH_SECTION("Names") {
         CATCH_REQUIRE(svs::io::name<FileSchema::Vtest>() == "Vtest");
         CATCH_REQUIRE(svs::io::name<FileSchema::V1>() == "V1");
+        CATCH_REQUIRE(svs::io::name<FileSchema::Database>() == "Database");
 
         CATCH_REQUIRE(svs::io::name(FileSchema::Vtest) == "Vtest");
         CATCH_REQUIRE(svs::io::name(FileSchema::V1) == "V1");
+        CATCH_REQUIRE(svs::io::name(FileSchema::Database) == "Database");
 
         CATCH_REQUIRE(svs::io::parse_schema("Vtest") == FileSchema::Vtest);
         CATCH_REQUIRE(svs::io::parse_schema("V1") == FileSchema::V1);
+        CATCH_REQUIRE(svs::io::parse_schema("Database") == FileSchema::Database);
         CATCH_REQUIRE_THROWS_AS(svs::io::parse_schema("Vnone"), svs::ANNException);
     }
 
@@ -44,6 +47,9 @@ CATCH_TEST_CASE("Schemas", "[core][io][schema]") {
         namespace io = svs::io;
         CATCH_REQUIRE(io::from_magic_number(io::vtest::magic_number) == FileSchema::Vtest);
         CATCH_REQUIRE(io::from_magic_number(io::v1::magic_number) == FileSchema::V1);
+        CATCH_REQUIRE(
+            io::from_magic_number(io::database::magic_number) == FileSchema::Database
+        );
         CATCH_REQUIRE(!io::from_magic_number(0).has_value());
 
         CATCH_REQUIRE(
@@ -52,12 +58,19 @@ CATCH_TEST_CASE("Schemas", "[core][io][schema]") {
         CATCH_REQUIRE(
             io::get_magic_number(test_schemas::test_v1_file()) == io::v1::magic_number
         );
+        CATCH_REQUIRE(
+            io::get_magic_number(test_schemas::test_database_file()) ==
+            io::database::magic_number
+        );
     }
 
     CATCH_SECTION("Classification") {
         namespace io = svs::io;
         CATCH_REQUIRE(io::classify(test_schemas::test_vtest_file()) == FileSchema::Vtest);
         CATCH_REQUIRE(io::classify(test_schemas::test_v1_file()) == FileSchema::V1);
+        CATCH_REQUIRE(
+            io::classify(test_schemas::test_database_file()) == FileSchema::Database
+        );
     }
 }
 
@@ -74,7 +87,7 @@ CATCH_TEST_CASE("Testing Native Reader Iterator", "[core][io]") {
     CATCH_REQUIRE(reference_ndims != reference_nvectors);
 
     CATCH_SECTION("Loading") {
-        auto eltype = svs::lib::meta::Type<float>();
+        auto eltype = svs::lib::Type<float>();
         auto file = svs::io::v1::NativeFile{native_file};
         auto [nvectors, ndims] = file.get_dims();
         CATCH_REQUIRE(ndims == reference_ndims);
@@ -106,7 +119,7 @@ CATCH_TEST_CASE("Testing Native Reader Iterator", "[core][io]") {
     }
 
     CATCH_SECTION("Compare with Vecs") {
-        auto eltype = svs::lib::meta::Type<float>();
+        auto eltype = svs::lib::Type<float>();
         auto vecs_loader = svs::io::vecs::VecsFile<float>(vecs_file).reader(eltype);
         auto native_loader = svs::io::v1::NativeFile(native_file).reader(eltype);
 
@@ -125,7 +138,7 @@ CATCH_TEST_CASE("Testing Native Reader Iterator", "[core][io]") {
     }
 
     CATCH_SECTION("Writing") {
-        auto eltype = svs::lib::meta::Type<float>();
+        auto eltype = svs::lib::Type<float>();
         auto file = svs::io::v1::NativeFile(native_file);
         auto uuid = file.uuid();
         auto reader = file.reader(eltype);
@@ -157,7 +170,7 @@ CATCH_TEST_CASE("Testing Native Reader Graph IO", "[core][io]") {
     CATCH_REQUIRE(svs_test::prepare_temp_directory());
     auto graph_file = test_dataset::graph_file();
     CATCH_SECTION("Basic metadata info") {
-        auto eltype = svs::lib::meta::Type<uint32_t>();
+        auto eltype = svs::lib::Type<uint32_t>();
         auto file = svs::io::v1::NativeFile{graph_file};
         auto reader = file.reader(eltype);
         CATCH_REQUIRE(reader.ndims() == test_dataset::GRAPH_MAX_DEGREE + 1);
@@ -196,20 +209,43 @@ CATCH_TEST_CASE("File Detection", "[core][file_detection]") {
         CATCH_REQUIRE(std::is_same_v<
                       io::file_type_t<io::FileSchema::V1>,
                       svs::io::v1::NativeFile>);
+        CATCH_REQUIRE(std::is_same_v<
+                      io::file_type_t<io::FileSchema::Database>,
+                      svs::io::database::DatabaseProtoFile>);
     }
 
     CATCH_SECTION("Visit File Type") {
         auto path = std::filesystem::path("a path");
+        // Vtest
         io::visit_file_type(io::FileSchema::Vtest, path, [&](const auto& file) {
             using T = std::decay_t<decltype(file)>;
             CATCH_REQUIRE(std::is_same_v<T, svs::io::vtest::NativeFile>);
             CATCH_REQUIRE(file.get_path() == path);
         });
 
+        // V1
         io::visit_file_type(io::FileSchema::V1, path, [&](const auto& file) {
             using T = std::decay_t<decltype(file)>;
             CATCH_REQUIRE(std::is_same_v<T, svs::io::v1::NativeFile>);
             CATCH_REQUIRE(file.get_path() == path);
+        });
+
+        // Database
+        path = test_schemas::test_database_file();
+        io::visit_file_type(io::FileSchema::Database, path, [&](const auto& file) {
+            using T = std::decay_t<decltype(file)>;
+            constexpr bool is_database =
+                std::is_same_v<T, svs::io::database::DatabaseProtoFile>;
+
+            CATCH_REQUIRE(is_database);
+            CATCH_REQUIRE(file.get_path() == path);
+            if constexpr (is_database) {
+                auto header = file.get_header();
+                CATCH_REQUIRE(header.magic_ == svs::io::database::magic_number);
+                CATCH_REQUIRE(header.uuid_ == test_schemas::database_uuid());
+                CATCH_REQUIRE(header.kind_ == test_schemas::database_kind());
+                CATCH_REQUIRE(header.version_ == test_schemas::database_version());
+            }
         });
     }
 
@@ -223,6 +259,12 @@ CATCH_TEST_CASE("File Detection", "[core][file_detection]") {
         uuid = io::get_uuid(test_schemas::test_v1_file());
         CATCH_REQUIRE(uuid.has_value());
         CATCH_REQUIRE(uuid.value() == test_schemas::v1_uuid());
+        CATCH_REQUIRE(uuid.value() != test_schemas::vtest_uuid());
+
+        // Detection of Database.
+        uuid = io::get_uuid(test_schemas::test_database_file());
+        CATCH_REQUIRE(uuid.has_value());
+        CATCH_REQUIRE(uuid.value() == test_schemas::database_uuid());
         CATCH_REQUIRE(uuid.value() != test_schemas::vtest_uuid());
     }
 }

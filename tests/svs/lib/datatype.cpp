@@ -112,5 +112,88 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
 
         // Incorrect conversion throws an exception.
         CATCH_REQUIRE_THROWS_AS(svs::get<float>(ptr), svs::ANNException);
+
+        // Check constructors.
+        auto null = svs::ConstErasedPointer();
+        CATCH_REQUIRE(null.template get_unchecked<void>() == nullptr);
+        CATCH_REQUIRE(null.type() == svs::DataType::undef);
+
+        null = svs::ConstErasedPointer(nullptr);
+        CATCH_REQUIRE(null.template get_unchecked<void>() == nullptr);
+        CATCH_REQUIRE(null.type() == svs::DataType::undef);
+
+        CATCH_REQUIRE(svs::ConstErasedPointer() == nullptr);
+        CATCH_REQUIRE(svs::ConstErasedPointer(nullptr) == nullptr);
+
+        // Cast to bool.
+        CATCH_REQUIRE(static_cast<bool>(svs::ConstErasedPointer()) == false);
+        CATCH_REQUIRE(static_cast<bool>(svs::ConstErasedPointer(nullptr)) == false);
+        CATCH_REQUIRE(static_cast<bool>(ptr) == true);
+
+        auto other = svs::ConstErasedPointer(
+            svs::assert_correct_type, v.data(), svs::DataType::int32
+        );
+        CATCH_REQUIRE(other == ptr);
+    }
+
+    CATCH_SECTION("Anonymous Data") {
+        CATCH_SECTION("1D") {
+            // Two arrays with equal contents but un-equal addresses.
+            auto v = std::vector<int>({1, 2, 3});
+            auto u = std::vector<int>({1, 2, 3});
+
+            auto x = svs::AnonymousArray<1>(v.data(), v.size());
+            CATCH_REQUIRE(x.dims() == std::array<size_t, 1>{3});
+            CATCH_REQUIRE(x.type() == svs::datatype_v<int>);
+            CATCH_REQUIRE(x.pointer() == svs::ConstErasedPointer(v.data()));
+            CATCH_REQUIRE(x.size(0) == 3);
+            CATCH_REQUIRE(svs::get<int>(x) == v.data());
+            CATCH_REQUIRE_THROWS_AS(svs::get<float>(x), svs::ANNException);
+            CATCH_REQUIRE(x.template data_unchecked<int>() == v.data());
+            // Equality
+            CATCH_REQUIRE(x == svs::AnonymousArray<1>(v.data(), v.size()));
+            CATCH_REQUIRE(x != svs::AnonymousArray<1>(u.data(), u.size()));
+        }
+
+        CATCH_SECTION("2D") {
+            // Two arrays with equal contents but un-equal addresses.
+            auto v = std::vector<uint32_t>({1, 2, 3, 4, 5, 6});
+            auto u = std::vector<uint32_t>({1, 2, 3, 4, 5, 6});
+
+            auto x = svs::AnonymousArray<2>(v.data(), 3ull, 2ull);
+            CATCH_REQUIRE(x.dims() == std::array<size_t, 2>{3, 2});
+            CATCH_REQUIRE(x.type() == svs::datatype_v<uint32_t>);
+            CATCH_REQUIRE(x.pointer() == svs::ConstErasedPointer(v.data()));
+            CATCH_REQUIRE(x.size(0) == 3);
+            CATCH_REQUIRE(x.size(1) == 2);
+            CATCH_REQUIRE(svs::get<uint32_t>(x) == v.data());
+            CATCH_REQUIRE_THROWS_AS(svs::get<int>(x), svs::ANNException);
+            CATCH_REQUIRE(x.template data_unchecked<uint32_t>() == v.data());
+            // Equality
+            CATCH_REQUIRE(x == svs::AnonymousArray<2>(v.data(), 3ull, 2ull));
+            CATCH_REQUIRE(x != svs::AnonymousArray<2>(u.data(), 3ull, 2ull));
+        }
+
+        CATCH_SECTION("3D") {
+            // Two arrays with equal contents but un-equal addresses.
+            auto v = std::vector<uint32_t>({1, 2, 3, 4, 5, 6, 7, 8});
+            auto u = std::vector<uint32_t>({1, 2, 3, 4, 5, 6, 7, 8});
+
+            auto x = svs::AnonymousArray<3>(v.data(), 2ull, 2ull, 2ull);
+            CATCH_REQUIRE(x.dims() == std::array<size_t, 3>{2, 2, 2});
+            CATCH_REQUIRE(x.type() == svs::datatype_v<uint32_t>);
+            CATCH_REQUIRE(x.pointer() == svs::ConstErasedPointer(v.data()));
+            CATCH_REQUIRE(x.size(0) == 2);
+            CATCH_REQUIRE(x.size(1) == 2);
+            CATCH_REQUIRE(x.size(2) == 2);
+            CATCH_REQUIRE(svs::get<uint32_t>(x) == v.data());
+            CATCH_REQUIRE_THROWS_AS(svs::get<int>(x), svs::ANNException);
+            CATCH_REQUIRE(x.template data_unchecked<uint32_t>() == v.data());
+            // Equality
+            CATCH_REQUIRE(x == svs::AnonymousArray<3>(v.data(), 2ull, 2ull, 2ull));
+            CATCH_REQUIRE(x != svs::AnonymousArray<3>(u.data(), 2ull, 2ull, 2ull));
+            // Differing dimensions.
+            CATCH_REQUIRE(x != svs::AnonymousArray<3>(v.data(), 1ull, 1ull, 1ull));
+        }
     }
 }

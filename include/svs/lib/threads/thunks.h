@@ -24,7 +24,7 @@
 namespace svs {
 namespace threads {
 
-using FunctionType = void(*)(void*, size_t);
+using FunctionType = void (*)(void*, size_t);
 
 /// @brief A function pointer-like object that can point to capturing lambdas.
 struct FunctionRef {
@@ -37,8 +37,8 @@ struct FunctionRef {
 
     // N.B.: Need to constrain the argument to not be a `FunctionRef` (otherwise, this
     // seems to have higher precedence than the copy constructor).
-    template<typename F>
-        requires (!std::is_same_v<std::remove_const_t<F>, FunctionRef>)
+    template <typename F>
+        requires(!std::is_same_v<std::remove_const_t<F>, FunctionRef>)
     explicit FunctionRef(F& f)
         : fn{+[](void* arg, size_t tid) { static_cast<F*>(arg)->operator()(tid); }}
         , arg{static_cast<void*>(&f)} {}
@@ -49,13 +49,14 @@ struct FunctionRef {
 
 struct ThreadFunctionRef {
   public:
-    FunctionRef fn {};
+    FunctionRef fn{};
     size_t thread_id = 0;
 
   public:
     ThreadFunctionRef() = default;
     ThreadFunctionRef(FunctionRef fn_, size_t thread_id_)
-        : fn{fn_}, thread_id{thread_id_} {}
+        : fn{fn_}
+        , thread_id{thread_id_} {}
 
     void operator()() const { fn(thread_id); }
 };
@@ -69,9 +70,7 @@ namespace thunks {
 template <typename F, typename... Args> struct Thunk {};
 
 // No change to the underlying lambda.
-template <std::invocable<size_t> F>
-struct Thunk<F>
-{
+template <std::invocable<size_t> F> struct Thunk<F> {
     static auto wrap(ThreadCount /*unused*/, F& f) -> F& { return f; }
 };
 
@@ -100,8 +99,7 @@ template <typename F, typename I> struct Thunk<F, StaticPartition<I>> {
 
 // Dynamic partition
 template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
-    static auto
-    wrap(ThreadCount SVS_UNUSED(nthreads), F& f, DynamicPartition<I> space) {
+    static auto wrap(ThreadCount SVS_UNUSED(nthreads), F& f, DynamicPartition<I> space) {
         auto count = std::make_shared<std::atomic<uint64_t>>(0);
         return [&f, space, count](uint64_t tid) {
             size_t grainsize = space.grainsize;

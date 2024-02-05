@@ -95,7 +95,8 @@ class DefaultBuilder {
     Thread build(uint64_t /*tid*/) const { return Thread{spin_time_}; }
 };
 
-#if defined(SVS_ENABLE_NUMA)
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_NUMA);
+#if SVS_ENABLE_NUMA
 ///
 /// Construct main threads for each socket of a multi-socket system.
 /// This should be used to partition work across sockets with `IntraNUMABuilder`s used
@@ -205,7 +206,8 @@ using NativeThreadPool = NativeThreadPoolBase<DefaultBuilder>;
 // Ensure that we satisfy the requirements for a threadpool.
 static_assert(ResizeableThreadPool<NativeThreadPool>);
 
-#if defined(SVS_ENABLE_NUMA)
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_NUMA);
+#if SVS_ENABLE_NUMA
 /////
 ///// Numa Stuff
 /////

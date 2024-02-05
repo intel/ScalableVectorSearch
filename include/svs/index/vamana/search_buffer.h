@@ -11,8 +11,10 @@
 
 #pragma once
 
+#include "svs/index/vamana/filter.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/neighbor.h"
+#include "svs/lib/prefetch.h"
 #include "svs/lib/threads/threadlocal.h"
 
 #include <algorithm>
@@ -26,6 +28,57 @@
 
 namespace svs::index::vamana {
 
+// Forward declaration
+template <typename Idx, typename Cmp> class SearchBuffer;
+
+class SearchBufferConfig {
+    // Class Invariants:
+    // * search_window_size_ <= total_capacity_;
+  private:
+    size_t search_window_size_{0};
+    size_t total_capacity_{0};
+
+    // Tags to bypass invariant checks.
+    struct BypassInvariantCheckTag {};
+
+  public:
+    constexpr SearchBufferConfig() = default;
+
+    SearchBufferConfig(
+        BypassInvariantCheckTag, size_t search_window_size, size_t total_capacity
+    )
+        : search_window_size_{search_window_size}
+        , total_capacity_{total_capacity} {}
+
+    SearchBufferConfig(size_t search_window_size, size_t total_capacity)
+        : SearchBufferConfig(
+              BypassInvariantCheckTag(), search_window_size, total_capacity
+          ) {
+        check_invariants();
+    }
+    /*not explicit*/ SearchBufferConfig(size_t search_window_size)
+        : SearchBufferConfig(
+              BypassInvariantCheckTag(), search_window_size, search_window_size
+          ) {}
+
+    // Read-only accessors.
+    size_t get_search_window_size() const { return search_window_size_; }
+    size_t get_total_capacity() const { return total_capacity_; }
+
+    void check_invariants() const {
+        if (search_window_size_ > total_capacity_) {
+            throw ANNEXCEPTION(
+                "Improper configuration for search buffer! Effective size ({}) cannot be "
+                "less than capacity ({}).",
+                search_window_size_,
+                total_capacity_
+            );
+        }
+    }
+
+    friend bool operator==(SearchBufferConfig, SearchBufferConfig) = default;
+};
+
 ///
 /// @brief Class used to store search results for static greedy search.
 ///
@@ -38,12 +91,14 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     using value_type = SearchNeighbor<Idx>;
     using reference = value_type&;
     using const_reference = const value_type&;
+    using compare_type = Cmp;
 
     using vector_type = std::vector<value_type, threads::CacheAlignedAllocator<value_type>>;
     using iterator = typename vector_type::iterator;
     using const_iterator = typename vector_type::const_iterator;
 
-    using set_type = std::unordered_set<Idx>;
+    /// A visited filter with 65,535 entries with a memory footpring of 128 kiB.
+    using set_type = VisitedFilter<Idx, 16>;
 
     ///
     /// @brief Initialize a buffer with zero capacity.
@@ -56,19 +111,33 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     ///
     /// @brief Construct a search buffer with the target capacity and comparison function.
     ///
-    /// @param size The number of valid elements to return from a search operation.
+    /// @param config The configuration for split region of interest (ROI) size and total
+    ///     capacity.
     /// @param compare The functor used to compare two ``SearchNeighbor``s together.
     /// @param enable_visited Whether or not the visited set is enabled.
     ///
-    explicit SearchBuffer(size_t size, Cmp compare = Cmp{}, bool enable_visited = false)
+    explicit SearchBuffer(
+        SearchBufferConfig config, Cmp compare = {}, bool enable_visited = false
+    )
         : compare_{std::move(compare)}
-        , capacity_{size}
-        , candidates_{size + 1}
+        , search_window_size_{config.get_search_window_size()}
+        , capacity_{config.get_total_capacity()}
+        , candidates_{capacity_ + 1}
         , visited_{std::nullopt} {
         if (enable_visited) {
             enable_visited_set();
         }
     }
+
+    ///
+    /// @brief Construct a search buffer with the target capacity and comparison function.
+    ///
+    /// @param size The number of valid elements to return from a search operation.
+    /// @param compare The functor used to compare two ``SearchNeighbor``s together.
+    /// @param enable_visited Whether or not the visited set is enabled.
+    ///
+    explicit SearchBuffer(size_t size, Cmp compare = Cmp{}, bool enable_visited = false)
+        : SearchBuffer{SearchBufferConfig(size), std::move(compare), enable_visited} {}
 
     ///
     /// @brief Perform an efficient copy.
@@ -81,7 +150,13 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     SearchBuffer shallow_copy() const {
         // We care about the contents of the buffer - just its size.
         // Therefore, we can construct a new buffer from scratch.
-        return SearchBuffer{capacity(), compare_, visited_set_enabled()};
+        return SearchBuffer{config(), compare_, visited_set_enabled()};
+    }
+
+    // TODO: Allow this construction to be noexcept since the pre-conditions for the
+    // search buffer are already satisfied.
+    SearchBufferConfig config() const {
+        return SearchBufferConfig{search_window_size_, capacity_};
     }
 
     ///
@@ -89,9 +164,27 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     ///
     /// @param new_size The new number of elements to return.
     ///
+    /// Post conditions
+    /// - The capacity of the search buffer will be set to the new size.
+    /// - The actual size (number of valid elements) will be the minimum of the current
+    ///   size and the new size.
+    ///
     void change_maxsize(size_t new_size) {
+        search_window_size_ = new_size;
         capacity_ = new_size;
         candidates_.resize(new_size + 1);
+        size_ = std::min(size_, new_size);
+    }
+
+    ///
+    /// @brief Change the target number of elements to return after search.
+    ///
+    /// @param config The new configuration for the buffer.
+    ///
+    void change_maxsize(SearchBufferConfig config) {
+        search_window_size_ = config.get_search_window_size();
+        capacity_ = config.get_total_capacity();
+        candidates_.resize(capacity_ + 1);
     }
 
     ///
@@ -101,50 +194,35 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
         size_ = 0;
         best_unvisited_ = 0;
         if (visited_set_enabled()) {
-            visited_->clear();
+            visited_->reset();
         }
     }
 
-    ///
     /// @brief Return the current number of valid elements in the buffer.
-    ///
     size_t size() const { return size_; }
 
-    ///
     /// @brief Return the maximum number of neighbors that can be held by the buffer.
-    ///
     size_t capacity() const { return capacity_; }
 
+    /// @brief Return whether or not the buffer is full of valid elements.
     bool full() const { return size() == capacity(); }
 
-    ///
     /// @brief Access the neighbor at position `i`.
-    ///
     reference operator[](size_t i) { return candidates_[i]; }
 
-    ///
     /// @brief Access the neighbor at position `i`.
-    ///
     const_reference operator[](size_t i) const { return candidates_[i]; }
 
-    ///
     /// @brief Return the furtherst valid neighbor.
-    ///
     reference back() { return candidates_[size_ - 1]; }
 
-    ///
     /// @brief Return the furtherst valid neighbor.
-    ///
     const_reference back() const { return candidates_[size_ - 1]; }
 
-    ///
     /// @brief Return the position of the best unvisited neighbor.
-    ///
     size_t best_unvisited() const { return best_unvisited_; }
 
-    ///
     /// @brief Return a view of the backing data for this buffer.
-    ///
     std::span<const value_type> view() const {
         return std::span<const value_type>(candidates_.data(), size());
     }
@@ -155,7 +233,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     /// Note: If `done()` evaluates to `true`, do not try to extract further candidates
     /// from it using `next()`.
     ///
-    bool done() const { return best_unvisited_ == size_; }
+    bool done() const { return best_unvisited_ == std::min(size_, search_window_size_); }
 
     ///
     /// @brief Return the best unvisited neighbor in the buffer.
@@ -176,8 +254,8 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
 
         // Increment `best_unvisited_` until it's equal to the size OR until we encounter
         // an unvisited node.
-        while (++best_unvisited_ != size() && candidates_[best_unvisited_].visited()) {}
-        set_visited(node.id());
+        size_t upper = std::min(size(), search_window_size_);
+        while (++best_unvisited_ != upper && candidates_[best_unvisited_].visited()) {}
         return node;
     }
 
@@ -187,7 +265,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     /// Otherwise, do nothing.
     ///
     void push_back(value_type neighbor) {
-        if (size_ < capacity_) {
+        if (!full()) {
             *end() = neighbor;
             ++size_;
         }
@@ -275,7 +353,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
         // with the internal state of the buffer.
         size_t i = pos - start;
         unsafe_insert(neighbor, pos);
-        size_ = std::min(size_ + 1, capacity_);
+        size_ = std::min(size_ + 1, capacity());
         best_unvisited_ = std::min(best_unvisited_, i);
         return i;
     }
@@ -314,23 +392,37 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     }
 
     ///
-    /// @brief Return `true` if key `i` has been marked as visited. Otherwise ``false``.
+    /// @brief Return `true` if key `i` has definitely been marked as visited. Otherwise
+    /// ``false``.
     ///
-    /// This function will always return `false` if the visited set is disabled.
+    /// This function is allowed to spuriously return ``false``.
     ///
-    bool visited(Idx i) const {
-        // Short circuiting logic avoids the undefined access if the visited set is not
-        // enabled.
-        return visited_set_enabled() && visited_->contains(i);
+    bool is_visited(Idx i) const { return visited_set_enabled() && unsafe_is_visited(i); }
+
+    void prefetch_visited(Idx i) const {
+        if (visited_set_enabled()) {
+            unsafe_prefetch_visited(i);
+        }
     }
 
-    ///
-    /// @brief Mark the key `i` as visited if the visited set is enabled.
-    ///
-    void set_visited(Idx i) {
-        if (visited_set_enabled()) {
-            visited_->insert(i);
-        }
+    bool emplace_visited(Idx i) {
+        return visited_set_enabled() && unsafe_emplace_visited(i);
+    }
+
+    // Unsafe implementations.
+    bool unsafe_is_visited(Idx i) const {
+        assert(visited_);
+        return visited_->contains(i);
+    }
+
+    void unsafe_prefetch_visited(Idx i) const {
+        assert(visited_);
+        visited_->prefetch(i);
+    }
+
+    bool unsafe_emplace_visited(Idx i) {
+        assert(visited_);
+        return visited_->emplace(i);
     }
 
   private:
@@ -340,7 +432,9 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     size_t size_ = 0;
     // The index of the lowest (w.r.t ``compare_`) unvisited neighbor.
     size_t best_unvisited_ = 0;
-    // The maximum number of neighbors that can be stored.
+    // The size of region of interest (determines stopping conditions).
+    size_t search_window_size_ = 0;
+    // The maximum capacity of the buffer.
     size_t capacity_ = 0;
     // Storage for the neighbors.
     vector_type candidates_ = {};

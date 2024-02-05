@@ -293,4 +293,32 @@ CATCH_TEST_CASE("Misc", "[core][misc]") {
             CATCH_REQUIRE(call_count == 1);
         }
     }
+
+    CATCH_SECTION("Percent") {
+        auto x = svs::lib::Percent();
+        CATCH_REQUIRE(x.value() == 0);
+        // Construct an x for valid percent values.
+        for (double y = 0.0; y <= 1; y += 0.125) {
+            x = svs::lib::Percent(y);
+            CATCH_REQUIRE(x.value() == y);
+        }
+
+        // Make sure we get an error for out-of-bounds access.
+        CATCH_REQUIRE_THROWS_AS(svs::lib::Percent(-0.01), svs::lib::ANNException);
+        CATCH_REQUIRE_THROWS_AS(svs::lib::Percent(1.01), svs::lib::ANNException);
+    }
+
+    // Test bitmask generation.
+    CATCH_SECTION("Mask") {
+        // Setting single bits.
+        for (uint8_t i = 0; i < 7; ++i) {
+            auto m = svs::lib::bitmask(uint8_t{i}, uint8_t{i});
+            CATCH_REQUIRE(m == 1 << i);
+        }
+
+        // Several test patterns.
+        CATCH_REQUIRE(svs::lib::bitmask(uint8_t{0}, uint8_t{7}) == 0xff);
+        CATCH_REQUIRE(svs::lib::bitmask(uint8_t{0}, uint8_t{3}) == 0x0f);
+        CATCH_REQUIRE(svs::lib::bitmask(uint8_t{4}, uint8_t{7}) == 0xf0);
+    }
 }

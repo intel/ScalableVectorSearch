@@ -16,6 +16,7 @@
 #include "svs/core/distance.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
+#include "svs/index/vamana/greedy_search.h"
 #include "svs/lib/invoke.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/preprocessor.h"
@@ -60,6 +61,46 @@ size_t svs_invoke(
 ) {
     return utils::find_medioid(dataset, threadpool, predicate);
 }
+
+/////
+///// PERFORMANCE EXTENSIONS
+/////
+
+struct EstimatePrefetchParameters {
+    using This = EstimatePrefetchParameters;
+
+    template <data::ImmutableMemoryDataset Data>
+    vamana::GreedySearchPrefetchParameters operator()(const Data& data) const {
+        // If a specialization exists - call that.
+        // Otherwise, use a default approximation based on the size of the data.
+        if constexpr (svs::svs_invocable<This, const Data&>) {
+            return svs::svs_invoke(*this, data);
+        } else {
+            using T = typename Data::element_type;
+            auto dims = data.dimensions();
+            auto bytes_per_entry = sizeof(T) * dims;
+
+            if (bytes_per_entry >= 4096) {
+                // No-prefetching
+                return vamana::GreedySearchPrefetchParameters{0, 0};
+            } else if (bytes_per_entry >= 1024) {
+                // Conservative prefetching
+                return vamana::GreedySearchPrefetchParameters{1, 1};
+            } else if (bytes_per_entry >= 256) {
+                // More aggressive prefetching
+                return vamana::GreedySearchPrefetchParameters{4, 2};
+            } else if (bytes_per_entry > 128) {
+                // Aggressive prefetching
+                return vamana::GreedySearchPrefetchParameters{8, 1};
+            } else {
+                // Aggressive prefetching
+                return vamana::GreedySearchPrefetchParameters{16, 1};
+            }
+        }
+    }
+};
+
+inline constexpr EstimatePrefetchParameters estimate_prefetch_parameters{};
 
 /////
 ///// BUILDING EXTENSIONS
@@ -385,7 +426,7 @@ template <
     typename Distance,
     typename Query,
     typename Search>
-SVS_FORCE_INLINE inline void svs_invoke(
+SVS_FORCE_INLINE void svs_invoke(
     svs::tag_t<single_search>,
     const Data& SVS_UNUSED(dataset),
     SearchBuffer& search_buffer,
@@ -481,4 +522,21 @@ void svs_invoke(
         }
     }
 }
+
+/////
+///// Calibration Hooks
+/////
+
+template <typename Data> struct UsesReranking {
+    constexpr bool operator()() const {
+        if constexpr (svs::svs_invocable<UsesReranking>) {
+            return svs::svs_invoke(*this);
+        } else {
+            return false;
+        }
+    }
+};
+
+template <typename Data> inline constexpr UsesReranking<Data> calibration_uses_reranking{};
+
 } // namespace svs::index::vamana::extensions

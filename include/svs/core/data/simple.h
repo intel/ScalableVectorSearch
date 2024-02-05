@@ -44,7 +44,7 @@ template <size_t M, size_t N> bool check_dims(size_t m, size_t n) {
 
 namespace detail {
 inline bool is_likely_reload(const std::filesystem::path& path) {
-    return std::filesystem::is_directory(path) || maybe_config_file(path);
+    return std::filesystem::is_directory(path) || config_file_by_extension(path);
 }
 } // namespace detail
 
@@ -129,17 +129,22 @@ class SimpleData {
     /// The static dimensionality of the underlying data.
     static constexpr size_t extent = Extent;
 
-    /// The various instantiations of ``SimpleDataBase`` are expected to have dense layouts.
+    /// The various instantiations of ``SimpleData`` are expected to have dense layouts.
     /// Therefore, they are directly memory map compatible from appropriate files.
+    ///
+    /// However, some specializations (such as the blocked dataset) are not necessarily
+    /// memory map compatible.
     static constexpr bool is_memory_map_compatible = true;
+
+    /// Return whether or not this is a non-owning view of the underlying data.
     static constexpr bool is_view = is_view_type_v<Alloc>;
+    /// Return whether or not this class is allowed to mutate its backing data.
     static constexpr bool is_const = std::is_const_v<T>;
 
     using dim_type = std::tuple<size_t, dim_type_t<Extent>>;
     using array_type = DenseArray<T, dim_type, Alloc>;
 
-    // /// The allocator type used for this instance.
-    // using allocator_type = lib::memory::allocator_type_t<Base>;
+    /// The allocator type used for this instance.
     using allocator_type = Alloc;
     /// The data type used to encode each dimension of the stored vectors.
     using element_type = T;
@@ -162,7 +167,7 @@ class SimpleData {
 
     explicit SimpleData(size_t n_elements, size_t n_dimensions, const Alloc& allocator)
         : data_{
-              make_dims(n_elements, meta::forward_extent<Extent>(n_dimensions)),
+              make_dims(n_elements, lib::forward_extent<Extent>(n_dimensions)),
               allocator} {}
 
     explicit SimpleData(size_t n_elements, size_t n_dimensions)
@@ -172,6 +177,16 @@ class SimpleData {
     explicit SimpleData(T* ptr, size_t n_elements, size_t n_dimensions)
         requires(is_view)
         : SimpleData(n_elements, n_dimensions, View{ptr}) {}
+
+    /// Construct a view over the array using a checked cast.
+    explicit SimpleData(AnonymousArray<2> array)
+        requires(is_view && is_const)
+        : SimpleData(array.size(0), array.size(1), View{get<T>(array)}) {}
+
+    ///// Conversions
+    explicit operator AnonymousArray<2>() const {
+        return AnonymousArray<2>(data(), size(), dimensions());
+    }
 
     ///// Data Interface
 
@@ -330,13 +345,13 @@ class SimpleData {
     {
         if (detail::is_likely_reload(path)) {
             return lib::load_from_disk<SimpleData>(path, allocator);
-        } else {
-            return io::auto_load<T>(
-                path, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
-                    return SimpleData(n_elements, n_dimensions, allocator);
-                })
-            );
         }
+        // Try loading directly.
+        return io::auto_load<T>(
+            path, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
     }
 
   private:
@@ -485,7 +500,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     ///
     void add_block() {
         blocks_.emplace_back(
-            make_dims(blocksize().value(), meta::forward_extent<Extent>(dimensions())),
+            make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
             allocator_.get_allocator()
         );
     }
@@ -625,13 +640,13 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     load(const std::filesystem::path& path, const Blocked<Alloc>& allocator = {}) {
         if (detail::is_likely_reload(path)) {
             return lib::load_from_disk<SimpleData>(path, allocator);
-        } else {
-            return io::auto_load<T>(
-                path, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
-                    return SimpleData(n_elements, n_dimensions, allocator);
-                })
-            );
         }
+        // Try loading directly.
+        return io::auto_load<T>(
+            path, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
     }
 
   private:

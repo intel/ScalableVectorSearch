@@ -484,9 +484,7 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     // Now that the worker is running, try assigning some jobs to it.
     {
         std::vector<size_t> test_vector{};
-        auto lambda = [&test_vector](size_t i) {
-            test_vector.push_back(i);
-        };
+        auto lambda = [&test_vector](size_t i) { test_vector.push_back(i); };
         auto f = svs::threads::FunctionRef(lambda);
 
         // Assign some jobs and wait until finished.
@@ -505,14 +503,10 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     {
         std::vector<size_t> test_vector_f{};
         std::vector<float> test_vector_g{};
-        auto f_lambda = [&test_vector_f](size_t i) {
-            test_vector_f.push_back(i);
-        };
+        auto f_lambda = [&test_vector_f](size_t i) { test_vector_f.push_back(i); };
         auto f = svs::threads::FunctionRef(f_lambda);
 
-        auto g_lambda = [&test_vector_g](size_t i) {
-            test_vector_g.push_back(i);
-        };
+        auto g_lambda = [&test_vector_g](size_t i) { test_vector_g.push_back(i); };
         auto g = svs::threads::FunctionRef(g_lambda);
 
         block.assign({f, 10});

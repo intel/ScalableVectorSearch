@@ -12,9 +12,11 @@
 // Dependencies within the bindings directory.
 #include "allocator.h"
 #include "common.h"
+#include "conversion.h"
 #include "core.h"
 #include "dynamic_vamana.h"
 #include "flat.h"
+#include "svs_mkl.h"
 #include "vamana.h"
 
 // SVS dependencies
@@ -35,7 +37,7 @@
 
 // stl
 #include <filesystem>
-#include <map>
+#include <optional>
 
 // Get the expected name of the library
 // Make sure CMake stays up to date with defining this parameter.
@@ -70,12 +72,12 @@ void convert_vecs_to_svs_impl(const std::string& vecs_file, const std::string& s
 }
 
 const auto SUPPORTED_VECS_CONVERSION_TYPES =
-    svs::meta::Types<float, svs::Float16, uint32_t, uint8_t>();
+    svs::lib::Types<float, svs::Float16, uint32_t, uint8_t>();
 // Convert fvecs to svs - dynamic dispatch.
 void convert_vecs_to_svs(
     const std::string& vecs_file, const std::string& svs_file, svs::DataType dtype
 ) {
-    svs::meta::match(SUPPORTED_VECS_CONVERSION_TYPES, dtype, [&](auto type) {
+    svs::lib::match(SUPPORTED_VECS_CONVERSION_TYPES, dtype, [&](auto type) {
         using T = typename decltype(type)::type;
         convert_vecs_to_svs_impl<T>(vecs_file, svs_file);
     });
@@ -83,7 +85,7 @@ void convert_vecs_to_svs(
 
 void wrap_conversion(py::module& m) {
     auto supported_types = std::vector<svs::DataType>();
-    svs::meta::for_each_type(SUPPORTED_VECS_CONVERSION_TYPES, [&](auto type) {
+    svs::lib::for_each_type(SUPPORTED_VECS_CONVERSION_TYPES, [&](auto type) {
         supported_types.push_back(type);
     });
 
@@ -190,6 +192,17 @@ Args:
 
     // Core data types
     core::wrap(m);
+
+    // Dataset conversion.
+    conversion::wrap(m);
+
+    // mkl
+    m.def("have_mkl", &have_mkl, "Return whether or not pysvs is linked with MKL.");
+    m.def(
+        "mkl_num_threads",
+        &mkl_num_threads,
+        "Return the number of threads used by MKL, or None if pysvs is not linked with MKL."
+    );
 
     ///// Indexes
     // Flat

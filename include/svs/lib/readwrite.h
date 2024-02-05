@@ -31,15 +31,16 @@ template <typename Stream, typename T> struct BinaryReader {
     }
 };
 
-template <typename Stream, typename T> struct BinaryReader<Stream, std::vector<T>> {
-    static void call(Stream& stream, std::vector<T>& x) {
+template <typename Stream, typename T, typename Alloc>
+struct BinaryReader<Stream, std::vector<T, Alloc>> {
+    static void call(Stream& stream, std::vector<T, Alloc>& x) {
         static_assert(std::is_trivially_copyable_v<T>);
         using char_type = typename Stream::char_type;
         stream.read(reinterpret_cast<char_type*>(x.data()), sizeof(T) * x.size());
     }
 };
 
-/// @defgroup read_binary_group
+/// @defgroup read_binary_group Binary Readers
 
 ///
 /// @ingroup read_binary_group

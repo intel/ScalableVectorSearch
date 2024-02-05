@@ -142,29 +142,68 @@ SVS supports the following build-time options.
 .. table:: SVS CMake variables
     :width: 100
 
-    +--------------------+--------------------+-----------------------------------------------+
-    | CMake Option       | Supported Values   | Description                                   |
-    |                    | (defaults in bold) |                                               |
-    +====================+====================+===============================================+
-    | SVS_BUILD_BINARIES | ON, **OFF**        | Build utility binaries.                       |
-    +--------------------+--------------------+-----------------------------------------------+
-    | SVS_BUILD_TESTS    | ON, **OFF**        | Build the unit test suite.                    |
-    +--------------------+--------------------+-----------------------------------------------+
-    | SVS_BUILD_DOCS     | ON, **OFF**        | Build the documentation.                      |
-    +--------------------+--------------------+-----------------------------------------------+
-    | SVS_BUILD_EXAMPLES | ON, **OFF**        | Build the documentation examples.             |
-    +--------------------+--------------------+-----------------------------------------------+
-    | SVS_NO_AVX512      | ON, **OFF**        | Disable AVX512 instructions from being used.  |
-    |                    |                    | Helpful when running Valgrind as that tool    |
-    |                    |                    | does not support AVX512.                      |
-    |                    |                    |                                               |
-    |                    |                    | This option is not required when compiling on |
-    |                    |                    | non-AVX512 systems.                           |
-    |                    |                    |                                               |
-    |                    |                    | May be helpful on older systems that          |
-    |                    |                    | experience down-clocking when using AVX512    |
-    |                    |                    | instructions.                                 |
-    +--------------------+--------------------+-----------------------------------------------+
+    +---------------------+--------------------+-----------------------------------------------+
+    | CMake Option        | Supported Values   | Description                                   |
+    |                     | (defaults in bold) |                                               |
+    +=====================+====================+===============================================+
+    | SVS_BUILD_BINARIES  | ON, **OFF**        | Build utility binaries.                       |
+    +---------------------+--------------------+-----------------------------------------------+
+    | SVS_BUILD_TESTS     | ON, **OFF**        | Build the unit test suite.                    |
+    +---------------------+--------------------+-----------------------------------------------+
+    | SVS_BUILD_BENCHMARK | ON, **OFF**        | Build the regression benchmarking suite.      |
+    +---------------------+--------------------+-----------------------------------------------+
+    | SVS_BUILD_DOCS      | ON, **OFF**        | Build the documentation.                      |
+    +---------------------+--------------------+-----------------------------------------------+
+    | SVS_BUILD_EXAMPLES  | ON, **OFF**        | Build the documentation examples.             |
+    +---------------------+--------------------+-----------------------------------------------+
+    | SVS_NO_AVX512       | ON, **OFF**        | Disable AVX512 instructions from being used.  |
+    |                     |                    | Helpful when running Valgrind as that tool    |
+    |                     |                    | does not support AVX512.                      |
+    |                     |                    |                                               |
+    |                     |                    | This option is not required when compiling on |
+    |                     |                    | non-AVX512 systems.                           |
+    |                     |                    |                                               |
+    |                     |                    | May be helpful on older systems that          |
+    |                     |                    | experience down-clocking when using AVX512    |
+    |                     |                    | instructions.                                 |
+    +---------------------+--------------------+-----------------------------------------------+
+
+Occasionally, more control over the compiled binaries and executables is desired (to aid binary size and compilation time).
+These fine-grained variables are defined below.
+
+.. table:: Advanced SVS CMake Variables
+    :width: 100
+
+    +-------------------------------------+--------------------+-----------------------------------------------+
+    | CMake Option                        | Supported Values   | Description                                   |
+    |                                     | (defaults in bold) |                                               |
+    +=====================================+====================+===============================================+
+    | SVS_FORCE_INTEGRATION_TESTS         | ON, **OFF**        | By default, integration tests will not be     |
+    |                                     |                    | compiled when building in tests in debug mode |
+    |                                     |                    | because debug builds of SVS are extremely     |
+    |                                     |                    | slow.                                         |
+    |                                     |                    |                                               |
+    |                                     |                    | Setting this variable equal forces inclusion  |
+    |                                     |                    | of integration tests in the test binary.      |
+    |                                     |                    |                                               |
+    |                                     |                    | This variable has no effect if                |
+    |                                     |                    | ``SVS_BUILD_TESTS == OFF``.                   |
+    +-------------------------------------+--------------------+-----------------------------------------------+
+    | SVS_BUILD_BENCHMARK_TEST_GENERATORS | ON, **OFF**        | Build the routines that generate              |
+    |                                     |                    | :ref:`reference <testing>` results for        |
+    |                                     |                    | integration tests.                            |
+    |                                     |                    |                                               |
+    |                                     |                    | This is left off be default to reduce compile |
+    |                                     |                    | times for the benchmark suite.                |
+    +-------------------------------------+--------------------+-----------------------------------------------+
+    | SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL   | ON, **OFF**        | If the included modules have MKL has a        |
+    |                                     |                    | dependency, this option will create a custom  |
+    |                                     |                    | MKL shared-library using only the symbols     |
+    |                                     |                    | needed by SVS.                                |
+    |                                     |                    |                                               |
+    |                                     |                    | This allows for compiled SVS executables to   |
+    |                                     |                    | be portable.                                  |
+    +-------------------------------------+--------------------+-----------------------------------------------+
 
 The following variables can be found in CMake files but are intended for development and debug purposes.
 As such, they are subject to change without notice.
@@ -180,6 +219,9 @@ Please avoid using them.
 |                                 |                    |                                               |
 |                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be      |
 |                                 |                    | effective.                                    |
++---------------------------------+--------------------+-----------------------------------------------+
+| SVS_EXPERIMENTAL_LEANVEC        | ON, **OFF**        | Enable LeanVec for vector dimension reduction |
+|                                 |                    | Requires MKL library to implement SVD/GEMM    |
 +---------------------------------+--------------------+-----------------------------------------------+
 
 
@@ -253,3 +295,30 @@ Alternatively, if pysvs has been installed in a non-standard directory, the fina
 .. code-block:: sh
 
    PYTHONPATH="path/to/pysvs/dir" make
+
+(Advanced) MKL as a Dependency
+==============================
+
+Upcoming SVS features need to use functionality provided by MKL.
+SVS can link with MKL in a number of ways.
+
+First, if MKL is not needed, then compiled SVS artifacts should not try to link with MKL.
+Second, a system MKL can be used with the combination:
+
+.. code-block:: sh
+
+    -DSVS_EXPERIMENTAL_LEANVEC=YES
+    -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=NO
+
+Note that if this option is used, you *may* need to include appropriate environment variable
+for SVS to find MKL at run time.
+
+Finally, SVS can also build and link with a custom MKL shared library using the
+`custom shared object builder <https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2024-0/using-the-custom-shared-object-builder.html>`_ .
+To use this feature, provide the following variables to Cmake at configuration time:
+
+.. code-block:: sh
+
+    -DSVS_EXPERIMENTAL_LEANVEC=YES
+    -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=YES
+

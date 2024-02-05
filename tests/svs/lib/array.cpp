@@ -208,7 +208,7 @@ void check_equal(const TestAllocator<T, C, M, S>& alloc, const CheckType& values
 /// Test that 1-dimensional indexing works correctly for static and dynamic
 /// dimensions.
 ///
-/// The argument can either be an integer or a `svs::meta::Val` type.
+/// The argument can either be an integer or a `svs::lib::Val` type.
 ///
 template <typename T> void test_offset_1d(T bound1) {
     // The internal representation of dimensions is as a heterogeneous tuple.
@@ -216,7 +216,7 @@ template <typename T> void test_offset_1d(T bound1) {
     auto dims = std::make_tuple(bound1);
 
     // Convert the argument (whether it's an integer or a `Val`) to a `size_t`.
-    size_t b1 = svs::meta::unwrap(bound1);
+    size_t b1 = svs::lib::as_integral(bound1);
     size_t expected = 0;
     for (size_t i = 0; i < b1; ++i) {
         CATCH_REQUIRE(
@@ -229,8 +229,8 @@ template <typename T> void test_offset_1d(T bound1) {
 
 template <typename T, typename U> void test_offset_2d(T bound1, U bound2) {
     auto dims = std::make_tuple(bound1, bound2);
-    size_t b1 = svs::meta::unwrap(bound1);
-    size_t b2 = svs::meta::unwrap(bound2);
+    size_t b1 = svs::lib::as_integral(bound1);
+    size_t b2 = svs::lib::as_integral(bound2);
     size_t upper = b1 * b2;
 
     size_t expected = 0;
@@ -249,9 +249,9 @@ template <typename T, typename U> void test_offset_2d(T bound1, U bound2) {
 template <typename T, typename U, typename V>
 void test_offset_3d(T bound1, U bound2, V bound3) {
     auto dims = std::make_tuple(bound1, bound2, bound3);
-    size_t b1 = svs::meta::unwrap(bound1);
-    size_t b2 = svs::meta::unwrap(bound2);
-    size_t b3 = svs::meta::unwrap(bound3);
+    size_t b1 = svs::lib::as_integral(bound1);
+    size_t b2 = svs::lib::as_integral(bound2);
+    size_t b3 = svs::lib::as_integral(bound3);
     size_t upper = b1 * b2 * b3;
 
     size_t expected = 0;
@@ -291,20 +291,20 @@ CATCH_TEST_CASE("Array Utilities", "[core][array]") {
 
     CATCH_SECTION("Default Strides", "[core][array]") {
         namespace dt = svs::detail;
-        namespace meta = svs::meta;
+        namespace lib = svs::lib;
         // Dimension 1
         {
             auto a = std::tuple<size_t>(100);
-            auto b = std::make_tuple(meta::Val<1>{});
+            auto b = std::make_tuple(lib::Val<1>{});
             CATCH_REQUIRE(dt::default_strides(a) == std::to_array<size_t>({1}));
             CATCH_REQUIRE(dt::default_strides(b) == std::to_array<size_t>({1}));
         }
         // Dimension 2
         {
             auto a = std::make_tuple(size_t{10}, size_t{100});
-            auto b = std::make_tuple(meta::Val<10>{}, size_t{100});
-            auto c = std::make_tuple(size_t{10}, meta::Val<100>{});
-            auto d = std::make_tuple(meta::Val<10>{}, meta::Val<100>{});
+            auto b = std::make_tuple(lib::Val<10>{}, size_t{100});
+            auto c = std::make_tuple(size_t{10}, lib::Val<100>{});
+            auto d = std::make_tuple(lib::Val<10>{}, lib::Val<100>{});
 
             auto expected = std::to_array<size_t>({100, 1});
             CATCH_REQUIRE(dt::default_strides(a) == expected);
@@ -316,46 +316,46 @@ CATCH_TEST_CASE("Array Utilities", "[core][array]") {
 
     CATCH_SECTION("Offset", "[core][array]") {
         namespace dt = svs::detail;
-        namespace meta = svs::meta;
+        namespace lib = svs::lib;
         // Dimension 1
         {
             test_offset_1d(size_t{128});
-            test_offset_1d(meta::Val<128>{});
+            test_offset_1d(lib::Val<128>{});
         }
         // Dimension 2
         {
             test_offset_2d(size_t{128}, size_t{10});
-            test_offset_2d(meta::Val<128>{}, size_t{10});
-            test_offset_2d(meta::Val<128>{}, meta::Val<10>{});
+            test_offset_2d(lib::Val<128>{}, size_t{10});
+            test_offset_2d(lib::Val<128>{}, lib::Val<10>{});
         }
         // Dimension 3
         {
             test_offset_3d(size_t{5}, size_t{3}, size_t{4});
-            test_offset_3d(meta::Val<5>{}, size_t{3}, size_t{4});
-            test_offset_3d(size_t{5}, meta::Val<3>{}, size_t{4});
-            test_offset_3d(meta::Val<5>{}, meta::Val<3>{}, size_t{4});
-            test_offset_3d(size_t{5}, size_t{3}, meta::Val<4>{});
-            test_offset_3d(meta::Val<5>{}, size_t{3}, meta::Val<4>{});
-            test_offset_3d(size_t{5}, meta::Val<3>{}, meta::Val<4>{});
-            test_offset_3d(meta::Val<5>{}, meta::Val<3>{}, meta::Val<4>{});
+            test_offset_3d(lib::Val<5>{}, size_t{3}, size_t{4});
+            test_offset_3d(size_t{5}, lib::Val<3>{}, size_t{4});
+            test_offset_3d(lib::Val<5>{}, lib::Val<3>{}, size_t{4});
+            test_offset_3d(size_t{5}, size_t{3}, lib::Val<4>{});
+            test_offset_3d(lib::Val<5>{}, size_t{3}, lib::Val<4>{});
+            test_offset_3d(size_t{5}, lib::Val<3>{}, lib::Val<4>{});
+            test_offset_3d(lib::Val<5>{}, lib::Val<3>{}, lib::Val<4>{});
         }
     }
 
     CATCH_SECTION("Extent Propagation", "[core][array]") {
         namespace dt = svs::detail;
-        namespace meta = svs::meta;
+        namespace lib = svs::lib;
         CATCH_REQUIRE(dt::get_extent_impl<size_t> == svs::Dynamic);
-        CATCH_REQUIRE(dt::get_extent_impl<meta::Val<10>> == 10);
-        CATCH_REQUIRE(dt::get_extent_impl<meta::Val<128>> == 128);
+        CATCH_REQUIRE(dt::get_extent_impl<lib::Val<10>> == 10);
+        CATCH_REQUIRE(dt::get_extent_impl<lib::Val<128>> == 128);
 
         // 1D case
         CATCH_REQUIRE(dt::getextent<std::tuple<size_t>> == svs::Dynamic);
-        CATCH_REQUIRE(dt::getextent<std::tuple<meta::Val<23>>> == 23);
+        CATCH_REQUIRE(dt::getextent<std::tuple<lib::Val<23>>> == 23);
 
         // 2D case
         CATCH_REQUIRE(dt::getextent<std::tuple<size_t, size_t>> == svs::Dynamic);
-        CATCH_REQUIRE(dt::getextent<std::tuple<meta::Val<23>, size_t>> == svs::Dynamic);
-        CATCH_REQUIRE(dt::getextent<std::tuple<size_t, meta::Val<23>>> == 23);
+        CATCH_REQUIRE(dt::getextent<std::tuple<lib::Val<23>, size_t>> == svs::Dynamic);
+        CATCH_REQUIRE(dt::getextent<std::tuple<size_t, lib::Val<23>>> == 23);
     }
 }
 
@@ -668,7 +668,7 @@ CATCH_TEST_CASE("Array", "[core][array]") {
 
     CATCH_SECTION("Rectangular Mixed") {
         constexpr size_t extent = 4;
-        auto x = svs::make_dense_array<int>(25, svs::meta::Val<extent>{});
+        auto x = svs::make_dense_array<int>(25, svs::lib::Val<extent>{});
         std::copy(input.begin(), input.end(), x.begin());
 
         // Views

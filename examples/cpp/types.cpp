@@ -2,9 +2,9 @@
 /// @copybrief example_types_cpp
 /// > Annotated version: @ref example_types_cpp
 
-/// @page example_types_cpp An example of using ``svs::meta::Types``.
-/// In this example, we'll show usage of ``svs::meta::Types`` and
-/// ``svs::meta::for_each_type``.
+/// @page example_types_cpp An example of using ``svs::lib::Types``.
+/// In this example, we'll show usage of ``svs::lib::Types`` and
+/// ``svs::lib::for_each_type``.
 ///
 /// First, we include the appropriate headers:
 /// @snippet types.cpp Includes
@@ -18,9 +18,9 @@
 /// @snippet types.cpp Main
 ///
 /// We first construct the variable ``types`` as a type list with three parameters.
-/// Then, we invoke ``svs::meta::for_each_type`` on the resulting object.
+/// Then, we invoke ``svs::lib::for_each_type`` on the resulting object.
 /// To this function, we also pass a lambda accepting a single argument of type 8
-/// ``svs::meta::Type``.
+/// ``svs::lib::Type``.
 /// This lambda is called for each type in ``types``' parameter pack.
 /// The resulting output will be:
 /// @code
@@ -45,9 +45,9 @@
 
 //! [Main]
 int main() {
-    auto types = svs::meta::Types<int64_t, float, svs::Float16>();
+    auto types = svs::lib::Types<int64_t, float, svs::Float16>();
     // Print out the name of each type.
-    svs::meta::for_each_type(types, []<typename T>(svs::meta::Type<T> /*svs_type*/) {
+    svs::lib::for_each_type(types, []<typename T>(svs::lib::Type<T> /*svs_type*/) {
         // Print out the name of the data type.
         std::cout << svs::name<svs::datatype_v<T>>() << '\n';
     });

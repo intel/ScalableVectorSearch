@@ -24,9 +24,25 @@
 #include <vector>
 
 namespace svs::distance {
+
+// Usually, we detect when calls to `fix_argument` are required.
+// However, we would like to fail in cases where such a call *should* be made, but isn't due
+// to SFINAE silently dropping it.
+//
+// Defining ``static constexpr bool must_fix_argument = true`` will ensure that calls to
+// ``distance::maybe_fix_argument`` will always be made (and fail if an appropriate
+// overload cannot be found).
+template <typename T> constexpr bool fix_argument_mandated() { return false; }
+
+template <typename T>
+    requires requires { T::must_fix_argument; } && T::must_fix_argument
+constexpr bool fix_argument_mandated() {
+    return true;
+}
+
 // clang-format off
 template <typename F, typename A>
-concept ShouldFix = requires(F f, A a) {
+concept ShouldFix = fix_argument_mandated<F>() || requires(F f, A a) {
     // Has a member function that can fix arguments of type `const A&`.
     f.fix_argument(a);
 };
@@ -59,24 +75,18 @@ concept HasTwoArgCompute = requires(F& f, A a, B b) {
 /// `distance::maybe_fix_argument`.
 ///
 /// If distance functors do not define such a member function, then
-/// `distance::maybe_fix_argument` becomes a no-op.
+/// `distance::maybe_fix_argument` becomes a no-op unless ``f`` defines the static member
+/// variable
+/// @code{cpp}
+/// static constexpr bool must_fix_argument = true;
+/// @endcode
+/// in which case, missing overloads to ``f.fix_argument(A)`` become compiler errors.
 ///
-#if defined(__DOXYGEN__)
-template <typename F, typename A> void maybe_fix_argument(F& f, A a);
-#endif
-
-// -- maybe_fix_argument implementations
-// Argument should be fixed.
-template <typename F, typename A>
-    requires ShouldFix<F, A>
-void maybe_fix_argument(F& f, A a) {
-    f.fix_argument(a);
+template <typename F, typename A> void maybe_fix_argument(F& f, A a) {
+    if constexpr (ShouldFix<F, A>) {
+        f.fix_argument(a);
+    }
 }
-
-// no-op
-template <typename F, typename A>
-    requires(!ShouldFix<F, A>)
-void maybe_fix_argument(F& /*f*/, A /*a*/) {}
 
 ///
 /// @ingroup distance_public

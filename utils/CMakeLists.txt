@@ -27,7 +27,7 @@ create_utility(graph_stat graph_stat.cpp)
 # Legacy conversion routines.
 create_utility(convert_legacy convert_legacy.cpp)
 create_utility(assemble_vamana assemble_vamana.cpp)
-create_utility(generate_vamana_config generate_vamana_config.cpp)
+create_utility(upgrade_vamana_index_parameters upgrade_vamana_index_parameters.cpp)
 
 create_utility(build_index build_index.cpp)
 create_utility(compute_recall compute_recall.cpp)
@@ -36,10 +36,14 @@ create_utility(search_index search_index.cpp)
 create_utility(consolidate characterization/consolidate.cpp)
 # create_utility(mutable characterization/mutable.cpp)
 
-# # Quantization
+# Quantization
 # create_utility(build_quantized quantization/build_quantized.cpp)
-# create_utility(dynamic_lvq quantization/dynamic_lvq.cpp)
+create_utility(dynamic_lvq quantization/dynamic_lvq.cpp)
 # create_utility(clustered_lvq quantization/clustered_lvq.cpp)
 
 # # Benchmark
 # create_utility(benchmark_index_build benchmarks/index_build.cpp)
+
+### Codegen File
+add_library(codegen SHARED codegen.cpp)
+target_link_libraries(codegen PUBLIC ${SVS_LIB} svs_compile_options svs_native_options)

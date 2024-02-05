@@ -16,17 +16,43 @@
 
 // stl
 #include <functional>
+#include <span>
 #include <type_traits>
+#include <vector>
 
 namespace svs::data {
 
 namespace detail {
 
-template <typename Data, typename I>
-void check_indices(const Data& data, const threads::UnitRange<I>& indices) {
-    if (indices.front() < 0 || lib::narrow<size_t>(indices.back()) > data.size()) {
-        throw ANNEXCEPTION("Invalid indices");
+template <typename I>
+void check_indices(const threads::UnitRange<I>& indices, size_t size) {
+    if (indices.front() < 0 || lib::narrow<size_t>(indices.back()) >= size) {
+        throw ANNEXCEPTION(
+            "Invalid indices [{}, {}) for a range of size {}.",
+            indices.front(),
+            indices.back() + 1,
+            size
+        );
     }
+}
+
+template <std::integral I, size_t N>
+void check_indices(std::span<const I, N> indices, size_t size) {
+    for (auto i : indices) {
+        bool okay = true;
+        if constexpr (std::is_signed_v<I>) {
+            okay &= (i >= 0);
+        }
+        okay &= (i < size);
+        if (!okay) {
+            throw ANNEXCEPTION("Trying to index range [0, {}) with an index {}", size, i);
+        }
+    }
+}
+
+template <std::integral I, typename Alloc>
+void check_indices(const std::vector<I, Alloc>& indices, size_t size) {
+    check_indices(lib::as_const_span(indices), size);
 }
 
 template <typename Data, typename Indices> class DataViewImpl {
@@ -42,13 +68,13 @@ template <typename Data, typename Indices> class DataViewImpl {
     DataViewImpl(raw_reference data, const Indices& indices)
         : data_{data}
         , indices_{indices} {
-        check_indices(data, indices_);
+        check_indices(indices_, data.size());
     }
 
     DataViewImpl(raw_reference data, Indices&& indices)
         : data_{data}
         , indices_{std::move(indices)} {
-        check_indices(data, indices_);
+        check_indices(indices_, data.size());
     }
 
     ///// Data interface
@@ -78,6 +104,9 @@ template <typename Data, typename Indices> class DataViewImpl {
 
     /// @brief Return the parent dataset.
     raw_const_reference& parent() const { return data_; }
+
+    /// @brief Return the parent dataset.
+    raw_reference& parent() { return data_; }
 
     /// @brief Return the container of the parent indices.
     const Indices& parent_indices() const { return indices_; }

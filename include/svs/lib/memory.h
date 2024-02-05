@@ -44,6 +44,10 @@ template <typename T> struct Allocator {
     // Constructor
     constexpr Allocator() = default;
 
+    // Construct from another value type allocator.
+    template <typename Other>
+    explicit constexpr Allocator(const Allocator<Other>& SVS_UNUSED(other)) {}
+
     // Allocation and Deallocation.
     [[nodiscard]] constexpr value_type* allocate(std::size_t n) {
         return static_cast<value_type*>(

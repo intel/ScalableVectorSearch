@@ -43,6 +43,13 @@ template <typename Idx, typename Meta = void> struct Neighbor : public Meta {
         , id_{id}
         , distance_{distance} {}
 
+    // Provide an explicit conversion path from base neighbors.
+    template <typename... Args>
+    explicit constexpr Neighbor(Neighbor<Idx, void> other, Args&&... parent_args)
+        : Meta{std::forward<Args>(parent_args)...}
+        , id_{other.id()}
+        , distance_{other.distance()} {}
+
     constexpr float distance() const { return distance_; }
     constexpr void set_distance(float new_distance) { distance_ = new_distance; }
     constexpr Idx id() const { return id_; }
@@ -60,9 +67,7 @@ template <typename Idx> struct Neighbor<Idx, void> {
         : id_{id}
         , distance_{distance} {}
 
-    ///
     /// Convert a Neighbor with metadata to a Neighbor without any metadata.
-    ///
     template <typename OtherIdx, typename OtherMeta>
     constexpr Neighbor(const Neighbor<OtherIdx, OtherMeta>& other)
         : Neighbor(lib::narrow<Idx>(other.id()), other.distance()) {}
@@ -125,7 +130,7 @@ struct NeighborEqual {
 
 template <typename Cmp> class TotalOrder {
   private:
-    [[no_unique_address]] Cmp cmp_;
+    [[no_unique_address]] Cmp cmp_{};
 
   public:
     TotalOrder(const Cmp& cmp)
