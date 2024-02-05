@@ -27,7 +27,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
         makefile
         PATHS
             "${MKL_ROOT}/tools/builder"
-            "${MKL_ROOT}/share/mkl/tool/builder"
+            "${MKL_ROOT}/share/mkl/tools/builder"
         NO_DEFAULT_PATH
         REQUIRED
     )
