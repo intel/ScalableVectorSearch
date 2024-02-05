@@ -38,13 +38,14 @@ jobs:
         CXX: ${{ matrix.cxx }}
         CC: ${{ matrix.cc }}
         TEMP_WORKSPACE: ${{ runner.temp }}
+        # Disable LeanVec for now in CI due to MKL.
       run: |
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=NO \ # Disable LeanVec for now in CI due to MKL.
+              -DSVS_EXPERIMENTAL_LEANVEC=NO \
               -DSVS_NO_AVX512=NO
 
     - name: Build Tests and Utilities
