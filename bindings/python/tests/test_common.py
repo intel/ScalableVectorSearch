@@ -238,6 +238,7 @@ class CommonTester(unittest.TestCase):
         print("matrices")
         print(np.absolute(data_matrix))
         print(np.absolute(test_data_matrix - data_matrix))
+        print(np.max(np.absolute(test_data_matrix - data_matrix)/np.absolute(data_matrix)))
         print(np.isclose(test_data_matrix, data_matrix))
         self.assertTrue(np.allclose(test_data_matrix, data_matrix))
         self.assertTrue(np.allclose(test_query_matrix, query_matrix))
