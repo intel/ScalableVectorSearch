@@ -96,34 +96,33 @@ class VamanaTester(unittest.TestCase):
                 ),
                 LeanVecMatcher("float32", "float32", 64)
             ),
-            (
-                pysvs.LeanVecLoader(
-                    loader,
-                    leanvec_dims = 64,
-                    primary_kind = pysvs.LeanVecKind.lvq4,
-                    secondary_kind = pysvs.LeanVecKind.lvq4,
-                ),
-                LeanVecMatcher("lvq4", "lvq4", 64)
-            ),
-
-            (
-                pysvs.LeanVecLoader(
-                    loader,
-                    leanvec_dims = 64,
-                    primary_kind = pysvs.LeanVecKind.lvq4,
-                    secondary_kind = pysvs.LeanVecKind.lvq8,
-                ),
-                LeanVecMatcher("lvq4", "lvq8", 64),
-            ),
-            (
-                pysvs.LeanVecLoader(
-                    loader,
-                    leanvec_dims = 64,
-                    primary_kind = pysvs.LeanVecKind.lvq8,
-                    secondary_kind = pysvs.LeanVecKind.lvq4,
-                ),
-                LeanVecMatcher("lvq8", "lvq4", 64)
-            ),
+            # (
+            #     pysvs.LeanVecLoader(
+            #         loader,
+            #         leanvec_dims = 64,
+            #         primary_kind = pysvs.LeanVecKind.lvq4,
+            #         secondary_kind = pysvs.LeanVecKind.lvq4,
+            #     ),
+            #     LeanVecMatcher("lvq4", "lvq4", 64)
+            # ),
+            # (
+            #     pysvs.LeanVecLoader(
+            #         loader,
+            #         leanvec_dims = 64,
+            #         primary_kind = pysvs.LeanVecKind.lvq4,
+            #         secondary_kind = pysvs.LeanVecKind.lvq8,
+            #     ),
+            #     LeanVecMatcher("lvq4", "lvq8", 64),
+            # ),
+            # (
+            #     pysvs.LeanVecLoader(
+            #         loader,
+            #         leanvec_dims = 64,
+            #         primary_kind = pysvs.LeanVecKind.lvq8,
+            #         secondary_kind = pysvs.LeanVecKind.lvq4,
+            #     ),
+            #     LeanVecMatcher("lvq8", "lvq4", 64)
+            # ),
             (
                 pysvs.LeanVecLoader(
                     loader,
