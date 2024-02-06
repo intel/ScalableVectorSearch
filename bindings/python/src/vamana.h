@@ -70,7 +70,7 @@ template <typename F> void for_standard_specializations(F&& f) {
     // XN(float,   svs::Float16, 25);  // Glove25 - F16
     X (float,   svs::Float16, Dynamic, EnableBuild::FromFileAndArray);
 
-    XN(uint8_t, uint8_t,      128); // BigANN 1B
+    // XN(uint8_t, uint8_t,      128); // BigANN 1B
     X (uint8_t, uint8_t,      Dynamic, EnableBuild::FromFileAndArray);
 
     // XN(int8_t,  int8_t,       100); // MSSpace 1B
@@ -88,13 +88,14 @@ template <typename F> void lvq_specialize_4x0(const F& f) {
     using Sequential = svs::quantization::lvq::Sequential;
     X(DistanceL2, 4, 0, Dynamic, Sequential, true);
     X(DistanceIP, 4, 0, Dynamic, Sequential, true);
-    X(DistanceIP, 4, 0, 768, Sequential, true);
+    // X(DistanceIP, 4, 0, 768, Sequential, true);
 }
 
-template <typename F> void lvq_specialize_4x4(const F& f) {
-    using Sequential = svs::quantization::lvq::Sequential;
-    X(DistanceL2, 4, 4, Dynamic, Sequential, true);
-    X(DistanceIP, 4, 4, Dynamic, Sequential, true);
+// Specializations disabled by default.
+template <typename F> void lvq_specialize_4x4(const F& SVS_UNUSED(f)) {
+    // using Sequential = svs::quantization::lvq::Sequential;
+    // X(DistanceL2, 4, 4, Dynamic, Sequential, true);
+    // X(DistanceIP, 4, 4, Dynamic, Sequential, true);
 }
 
 template <typename F> void lvq_specialize_4x8(const F& f) {
@@ -111,9 +112,9 @@ template <typename F> void lvq_specialize_4x8(const F& f) {
 
 template <typename F> void lvq_specialize_8x0(const F& f) {
     using Sequential = svs::quantization::lvq::Sequential;
-    // Deep-1B
-    X(DistanceL2, 8, 0, 96, Sequential, false);
-    X(DistanceIP, 8, 0, 96, Sequential, false);
+    // // Deep-1B
+    // X(DistanceL2, 8, 0, 96, Sequential, false);
+    // X(DistanceIP, 8, 0, 96, Sequential, false);
     // Fallback
     X(DistanceL2, 8, 0, Dynamic, Sequential, true);
     X(DistanceIP, 8, 0, Dynamic, Sequential, true);
@@ -147,22 +148,19 @@ template <typename F> void leanvec_specialize_unc_unc(const F& f) {
 }
 
 template <typename F> void leanvec_specialize_lvq_unc(const F& f) {
-    X(svs::leanvec::UsingLVQ<8>, float, Dynamic, Dynamic, DistanceL2);
-    X(svs::leanvec::UsingLVQ<8>, float, Dynamic, Dynamic, DistanceIP);
+    // X(svs::leanvec::UsingLVQ<8>, float, Dynamic, Dynamic, DistanceL2);
+    // X(svs::leanvec::UsingLVQ<8>, float, Dynamic, Dynamic, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::Float16, Dynamic, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<8>, svs::Float16, Dynamic, Dynamic, DistanceIP);
-
-    // X(svs::leanvec::UsingLVQ<8>, svs::Float16, 768, 160, DistanceIP);
 }
 
 template <typename F> void leanvec_specialize_lvq_lvq(const F& f) {
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceIP);
 
-    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic, DistanceL2);
-    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic, DistanceL2);
-    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
-
+    // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic, DistanceL2);
+    // X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic, DistanceL2);
+    // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceIP);
 }
 
