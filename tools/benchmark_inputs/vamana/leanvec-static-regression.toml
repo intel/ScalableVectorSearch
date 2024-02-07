@@ -1,10 +1,10 @@
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'dpr-1m'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
 distance = 'MIP'
@@ -26,14 +26,26 @@ search_window_sizes = []
     __version__ = 'v0.0.0'
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
+
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'leanvec'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.1'
+        primary = "float16"
+        secondary = "float16"
+        leanvec_dims = 160
+        data_matrix = ''
+        query_matrix = ''
 
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'lvq8'
+__version__ = 'v0.0.3'
 description = 'dpr-1m'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
 distance = 'MIP'
@@ -55,14 +67,26 @@ search_window_sizes = []
     __version__ = 'v0.0.0'
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
+
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'leanvec'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.1'
+        primary = "lvq8"
+        secondary = "float16"
+        leanvec_dims = 160
+        data_matrix = ''
+        query_matrix = ''
 
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'lvq4x8'
+__version__ = 'v0.0.3'
 description = 'dpr-1m'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
 distance = 'MIP'
@@ -84,14 +108,26 @@ search_window_sizes = []
     __version__ = 'v0.0.0'
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
+
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'leanvec'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.1'
+        primary = "lvq8"
+        secondary = "lvq8"
+        leanvec_dims = 160
+        data_matrix = ''
+        query_matrix = ''
 
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'lvq8x8'
+__version__ = 'v0.0.3'
 description = 'dpr-1m'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
 distance = 'MIP'
@@ -114,3 +150,14 @@ search_window_sizes = []
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'leanvec'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.1'
+        primary = "lvq8"
+        secondary = "lvq8"
+        leanvec_dims = 160
+        data_matrix = 'dpr/leanvec/data_matrix_160.fvecs'
+        query_matrix = 'dpr/leanvec/query_matrix_160.fvecs'
