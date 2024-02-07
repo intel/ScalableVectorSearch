@@ -1,10 +1,11 @@
 [[vamana_dynamic_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 data = 'bigann/bigann_10m_u8.bvecs'
 data_type = 'uint8'
+dynamic_optimization = 'minimal'
 queries = 'bigann/bigann_queries.bvecs'
 query_type = 'uint8'
+queries_in_training_set = 5000
 description = 'bigann-10m'
 distance = 'L2'
 ndims = 128
@@ -46,12 +47,21 @@ target_recalls = [ 0.8, 0.90, 0.95 ]
         num_neighbors = 10
         target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_dynamic_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'uint8'
+
 [[vamana_dynamic_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 data = 'deep/deep_10m_f16.fvecs'
 data_type = 'float16'
+dynamic_optimization = 'minimal'
 queries = 'deep/deep_queries.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 description = 'deep-10m'
 distance = 'L2'
@@ -94,12 +104,21 @@ target_recalls = [ 0.8, 0.90, 0.95 ]
         num_neighbors = 10
         target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_dynamic_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
 [[vamana_dynamic_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
+dynamic_optimization = 'minimal'
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 description = 'dpr-1m'
 distance = 'MIP'
@@ -142,12 +161,21 @@ target_recalls = [ 0.8, 0.90, 0.95 ]
         num_neighbors = 10
         target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_dynamic_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
 [[vamana_dynamic_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 data = 'msturing/msturing_10m_f16.fvecs'
 data_type = 'float16'
+dynamic_optimization = 'minimal'
 queries = 'msturing/msturing_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 description = 'msturing-10m'
 distance = 'L2'
@@ -190,12 +218,21 @@ target_recalls = [ 0.8, 0.90, 0.95 ]
         num_neighbors = 10
         target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_dynamic_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
 [[vamana_dynamic_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 data = 'spacev/spacev_10m_i8.bvecs'
 data_type = 'int8'
+dynamic_optimization = 'minimal'
 queries = 'spacev/spacev_queries_i8.bvecs'
+queries_in_training_set = 5000
 query_type = 'int8'
 description = 'spacev-10m'
 distance = 'L2'
@@ -238,12 +275,21 @@ target_recalls = [ 0.8, 0.90, 0.95 ]
         num_neighbors = 10
         target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_dynamic_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'int8'
+
 [[vamana_dynamic_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 data = 'text2image/text2image_10m_f16.fvecs'
 data_type = 'float16'
+dynamic_optimization = 'minimal'
 queries = 'text2image/text2image_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 description = 'text2image-10m'
 distance = 'MIP'
@@ -285,3 +331,11 @@ target_recalls = [ 0.8, 0.90, 0.95 ]
         __version__ = 'v0.0.0'
         num_neighbors = 10
         target_recalls = [ 0.8, 0.85, 0.9 ]
+
+    [vamana_dynamic_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'

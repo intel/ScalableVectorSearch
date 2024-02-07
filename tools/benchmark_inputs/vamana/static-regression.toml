@@ -1,10 +1,10 @@
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'bigann-10m'
 data = 'bigann/bigann_10m_u8.bvecs'
 data_type = 'uint8'
 queries = 'bigann/bigann_queries.bvecs'
+queries_in_training_set = 5000
 query_type = 'uint8'
 distance = 'L2'
 groundtruth = 'bigann/bigann_10m_groundtruth.ivecs'
@@ -27,13 +27,21 @@ search_window_sizes = []
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'uint8'
+
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'deep-10m'
 data = 'deep/deep_10m_f16.fvecs'
 data_type = 'float16'
 queries = 'deep/deep_queries.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'deep/deep_10m_groundtruth.ivecs'
 distance = 'L2'
@@ -56,13 +64,21 @@ search_window_sizes = []
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'dpr-1m'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
 distance = 'MIP'
@@ -85,13 +101,21 @@ search_window_sizes = []
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'msturing-10m'
 data = 'msturing/msturing_10m_f16.fvecs'
 data_type = 'float16'
 queries = 'msturing/msturing_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'msturing/msturing_10m_groundtruth_10k.ivecs'
 distance = 'L2'
@@ -114,13 +138,21 @@ search_window_sizes = []
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'spacev-10m'
 data = 'spacev/spacev_10m_i8.bvecs'
 data_type = 'int8'
 queries = 'spacev/spacev_queries_i8.bvecs'
+queries_in_training_set = 5000
 query_type = 'int8'
 groundtruth = 'spacev/spacev_10m_groundtruth_10k.ivecs'
 distance = 'L2'
@@ -143,13 +175,21 @@ search_window_sizes = []
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
 
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'int8'
+
 [[vamana_static_build]]
-__version__ = 'v0.0.1'
-build_type = 'uncompressed'
+__version__ = 'v0.0.3'
 description = 'text2image-10m'
 data = 'text2image/text2image_10m_f16.fvecs'
 data_type = 'float16'
 queries = 'text2image/text2image_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
 query_type = 'float32'
 groundtruth = 'text2image/text2image_10m_10k_groundtruth.ivecs'
 distance = 'MIP'
@@ -171,3 +211,11 @@ search_window_sizes = []
     __version__ = 'v0.0.0'
     num_neighbors = 10
     target_recalls = [ 0.8, 0.85, 0.9 ]
+
+    [vamana_static_build.dataset]
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_static_build.dataset.dataset]
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
