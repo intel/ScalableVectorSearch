@@ -6,11 +6,7 @@ Locally-Adaptive Vector Quantization
 Data Loaders and Compressors
 ----------------------------
 
-.. doxygenclass:: svs::quantization::lvq::OneLevelWithBias
-   :project: SVS
-   :members:
-
-.. doxygenclass:: svs::quantization::lvq::TwoLevelWithBias
+.. doxygenclass:: svs::quantization::lvq::LVQDataset
    :project: SVS
    :members:
 

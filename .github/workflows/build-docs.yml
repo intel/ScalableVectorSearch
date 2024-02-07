@@ -28,7 +28,11 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt install -y doxygen
+          .github/scripts/setup_apt_repo_linux.sh
+          sudo apt install -y doxygen intel-oneapi-mkl intel-oneapi-mkl-devel
+          # See notes in `build_linux.yml` about persisting MKL environment variables.
+          source /opt/intel/oneapi/setvars.sh
+          printenv >> $GITHUB_ENV
           pip install \
             archspec \
             scikit-build \

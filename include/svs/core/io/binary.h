@@ -103,6 +103,7 @@ template <typename T> class BinaryReader {
 class BinaryFile {
   public:
     static constexpr bool is_memory_map_compatible = false;
+    template <typename T> using reader_type = BinaryReader<T>;
 
     BinaryFile() = default;
 
@@ -110,9 +111,8 @@ class BinaryFile {
         : path_{std::move(path)} {}
 
     template <typename T>
-    BinaryReader<T> reader(
-        lib::meta::Type<T> SVS_UNUSED(type), size_t max_lines = MAX_LINES_DEFAULT
-    ) const {
+    BinaryReader<T>
+    reader(lib::Type<T> SVS_UNUSED(type), size_t max_lines = MAX_LINES_DEFAULT) const {
         return BinaryReader<T>(path_, max_lines);
     }
 

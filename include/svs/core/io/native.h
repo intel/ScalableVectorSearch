@@ -16,6 +16,7 @@
 #include "svs/lib/file.h"
 #include "svs/lib/file_iterator.h"
 #include "svs/lib/uuid.h"
+#include "svs/lib/version.h"
 
 // Support the the SVS "native" format.
 #include <array>
@@ -35,8 +36,13 @@ namespace io {
 /// @brief SVS implements an open-ended file encoding schema.
 ///
 /// This allows for future backwards-compatible expansion of file formats.
+/// - Vtest: Schema used for testing dispatching infrastructure.
+/// - V1: Version 1 of the native file format for storing 2D vector data.
+/// - Database: Schema associated with a database.
+///     Note: Internally, Database schemas have a secondary version that further
+///     disambiguates the format.
 ///
-enum class FileSchema : uint32_t { Vtest, V1 };
+enum class FileSchema : uint32_t { Vtest, V1, Database };
 
 ///
 /// @brief The default file schema to use for new allocations.
@@ -48,23 +54,30 @@ static constexpr FileSchema DefaultSchema = FileSchema::V1;
 ///
 /// This provide a method for obtaining the schema from a string.
 ///
-template <FileSchema Schema> std::string name();
+template <FileSchema Schema> std::string_view name();
 
-template <> inline std::string name<FileSchema::Vtest>() { return "Vtest"; }
-template <> inline std::string name<FileSchema::V1>() { return "V1"; }
+template <> inline constexpr std::string_view name<FileSchema::Vtest>() { return "Vtest"; }
+template <> inline constexpr std::string_view name<FileSchema::V1>() { return "V1"; }
+template <> inline constexpr std::string_view name<FileSchema::Database>() {
+    return "Database";
+}
 
 ///
 /// @brief Convert a FileSchema into a unique name.
 ///
 /// @sa parse_schema
 ///
-inline std::string name(FileSchema schema) {
+inline constexpr std::string_view name(FileSchema schema) {
     switch (schema) {
-        case FileSchema::Vtest: {
-            return name<FileSchema::Vtest>();
+        using enum FileSchema;
+        case Vtest: {
+            return name<Vtest>();
         }
-        case FileSchema::V1: {
-            return name<FileSchema::V1>();
+        case V1: {
+            return name<V1>();
+        }
+        case Database: {
+            return name<Database>();
         }
     }
     throw ANNEXCEPTION("Unreachable!");
@@ -81,20 +94,23 @@ inline std::ostream& operator<<(std::ostream& stream, FileSchema schema) {
 ///
 /// @sa name(FileSchema)
 ///
-inline FileSchema parse_schema(const std::string& repr) {
-    auto map = std::unordered_map<std::string, FileSchema>{
-        {name<FileSchema::Vtest>(), FileSchema::Vtest},
-        {name<FileSchema::V1>(), FileSchema::V1}};
-
-    auto itr = map.find(repr);
-    if (itr == map.end()) {
-        throw ANNEXCEPTION("Unknown schema \"{}\"!", repr);
+inline FileSchema parse_schema(std::string_view repr) {
+    using enum FileSchema;
+    // Put the most common cases first.
+    if (constexpr auto str = name<V1>(); str == repr) {
+        return V1;
     }
-    return itr->second;
+    if (constexpr auto str = name<Database>(); str == repr) {
+        return Database;
+    }
+    if (constexpr auto str = name<Vtest>(); str == repr) {
+        return Vtest;
+    }
+    throw ANNEXCEPTION("Unknown schema \"{}\"!", repr);
 }
 
 namespace detail {
-/// Read the given header from a file.
+/// @brief Read a binary header of type ``T`` from the given file.
 template <typename T> inline T read_header(const std::filesystem::path& path) {
     auto stream = lib::open_read(path, std::ifstream::in | std::ifstream::binary);
     return lib::read_binary<T>(stream);
@@ -252,6 +268,7 @@ class NativeFile {
     // Type Aliases
     using metadata = Header;
     template <typename T> using pointer = HeaderMappedPtr<T, Header>;
+    template <typename T> using reader_type = Reader<T>;
 
     // Methods
     Header header() const { return detail::read_header<Header>(path_); }
@@ -259,8 +276,7 @@ class NativeFile {
     lib::UUID uuid() const { return detail::read_header<Header>(path_).uuid_; }
 
     template <typename T>
-    Reader<T>
-    reader(lib::meta::Type<T> SVS_UNUSED(type), size_t max_lines = Dynamic) const {
+    Reader<T> reader(lib::Type<T> SVS_UNUSED(type), size_t max_lines = Dynamic) const {
         std::ifstream stream = lib::open_read(path_);
         auto dims = detail::get_dims<Header>(stream);
         auto nvectors = std::min(dims.first, max_lines);
@@ -270,7 +286,7 @@ class NativeFile {
 
     template <typename T>
     pointer<T> mmap(
-        lib::meta::Type<T> SVS_UNUSED(type), lib::Bytes bytes, const MemoryMapper& mapper
+        lib::Type<T> SVS_UNUSED(type), lib::Bytes bytes, const MemoryMapper& mapper
     ) const {
         return pointer<T>{MMapPtr<T>{mapper.mmap(path_, bytes + sizeof(Header))}};
     }
@@ -407,6 +423,7 @@ class NativeFile {
     // Type aliases
     using metadata = Header;
     template <typename T> using pointer = HeaderMappedPtr<T, Header>;
+    template <typename T> using reader_type = Reader<T>;
 
     // Constructors
     explicit NativeFile(std::filesystem::path path)
@@ -418,8 +435,7 @@ class NativeFile {
     lib::UUID uuid() const { return detail::read_header<Header>(path_).uuid_; }
 
     template <typename T>
-    Reader<T>
-    reader(lib::meta::Type<T> SVS_UNUSED(type), size_t max_lines = Dynamic) const {
+    Reader<T> reader(lib::Type<T> SVS_UNUSED(type), size_t max_lines = Dynamic) const {
         std::ifstream stream = lib::open_read(path_);
         auto dims = detail::get_dims<Header>(stream);
         auto nvectors = std::min(dims.first, max_lines);
@@ -429,15 +445,13 @@ class NativeFile {
 
     template <typename T>
     Writer<T> writer(
-        lib::meta::Type<T> SVS_UNUSED(type),
-        size_t dimension,
-        lib::UUID uuid = lib::ZeroUUID
+        lib::Type<T> SVS_UNUSED(type), size_t dimension, lib::UUID uuid = lib::ZeroUUID
     ) const {
         return Writer<T>(path_, dimension, uuid);
     }
 
     Writer<> writer(size_t dimensions, lib::UUID uuid = lib::ZeroUUID) const {
-        return writer(lib::meta::Type<void>(), dimensions, uuid);
+        return writer(lib::Type<void>(), dimensions, uuid);
     }
 
     std::pair<size_t, size_t> get_dims() const { return detail::get_dims<Header>(path_); }
@@ -445,7 +459,7 @@ class NativeFile {
     // Memory Map
     template <typename T>
     pointer<T> mmap(
-        lib::meta::Type<T> SVS_UNUSED(type), lib::Bytes bytes, const MemoryMapper& mapper
+        lib::Type<T> SVS_UNUSED(type), lib::Bytes bytes, const MemoryMapper& mapper
     ) const {
         return pointer<T>{MMapPtr<T>{mapper.mmap(path_, bytes + sizeof(Header))}};
     }
@@ -458,11 +472,74 @@ class NativeFile {
 };
 } // namespace v1
 
-/// @brief Variant of metadata for all memory-mappable files.
-using FileMetadata = std::variant<vtest::Header, v1::Header>;
+/////
+///// Database Prototype
+/////
 
-const static std::unordered_map<uint64_t, FileSchema> MAGIC_TO_SCHEMA{
-    {vtest::magic_number, FileSchema::Vtest}, {v1::magic_number, FileSchema::V1}};
+namespace database {
+
+// The header defined here is simply a proto-header consisting of a magic number,
+// UUID, a kind magic number, and version.
+//
+// The version number will be used to further refine the layout of the file.
+// That is implemented elsewhere.
+
+static constexpr size_t HEADER_SIZE = 64;
+static constexpr size_t HEADER_PADDING =
+    HEADER_SIZE - 2 * sizeof(uint64_t) - sizeof(lib::UUID) - sizeof(lib::Version);
+
+static constexpr uint64_t magic_number = 0x26b0644ab838c3a3;
+
+struct Header {
+  public:
+    Header() = default;
+    Header(lib::UUID uuid, uint64_t kind, lib::Version version)
+        : uuid_{uuid}
+        , kind_{kind}
+        , version_{version} {}
+
+  public:
+    uint64_t magic_{magic_number};
+    lib::UUID uuid_{};
+    uint64_t kind_{};
+    lib::Version version_{0, 0, 0};
+    std::array<std::byte, HEADER_PADDING> padding{};
+};
+
+static_assert(sizeof(Header) == HEADER_SIZE, "Mismatch in header sizes!");
+static_assert(std::is_trivially_copyable_v<Header>, "Header must be trivially copyable!");
+
+class DatabaseProtoFile {
+  public:
+    DatabaseProtoFile(Header header, std::filesystem::path path)
+        : header_{header}
+        , path_{std::move(path)} {}
+
+    DatabaseProtoFile(std::filesystem::path path)
+        : DatabaseProtoFile(detail::read_header<Header>(path), path) {
+        // Validate that we opened the correct thing.
+        if (header_.magic_ != magic_number) {
+            throw ANNEXCEPTION(
+                "Expected database file to have magic number {}. Instead, got {}\n",
+                magic_number,
+                header_.magic_
+            );
+        }
+    }
+
+    lib::UUID uuid() const noexcept { return header_.uuid_; }
+    Header get_header() const { return header_; }
+    const std::filesystem::path& get_path() const noexcept { return path_; }
+
+  private:
+    Header header_;
+    std::filesystem::path path_;
+};
+
+} // namespace database
+
+/// @brief Variant of metadata for all memory-mappable files.
+using FileMetadata = std::variant<vtest::Header, v1::Header, database::Header>;
 
 ///
 /// @brief Get the 64-bit magic number from an opened ``std::ifstream``.
@@ -497,11 +574,18 @@ inline uint64_t get_magic_number(const std::filesystem::path& path) {
 ///          empty optional.
 ///
 inline std::optional<FileSchema> from_magic_number(uint64_t magic) {
-    auto itr = MAGIC_TO_SCHEMA.find(magic);
-    if (itr == MAGIC_TO_SCHEMA.end()) {
-        return std::optional<FileSchema>();
+    switch (magic) {
+        case vtest::magic_number: {
+            return FileSchema::Vtest;
+        }
+        case v1::magic_number: {
+            return FileSchema::V1;
+        }
+        case database::magic_number: {
+            return FileSchema::Database;
+        }
     }
-    return std::optional<FileSchema>(itr->second);
+    return std::nullopt;
 }
 
 ///
@@ -522,22 +606,52 @@ template <> struct FileType<FileSchema::Vtest> {
 template <> struct FileType<FileSchema::V1> {
     using type = io::v1::NativeFile;
 };
+template <> struct FileType<FileSchema::Database> {
+    using type = io::database::DatabaseProtoFile;
+};
 } // namespace detail
 
 /// @brief Convert a schema enum to a file type class.
 template <FileSchema Schema> using file_type_t = typename detail::FileType<Schema>::type;
 
-template <typename F>
-auto visit_file_type(FileSchema schema, const std::filesystem::path& path, F&& f) {
+template <typename F, typename... Ts>
+auto visit_file_type(
+    lib::Types<Ts...> SVS_UNUSED(types),
+    FileSchema schema,
+    const std::filesystem::path& path,
+    F&& f
+) {
+    constexpr bool allow_all = sizeof...(Ts) == 0;
     switch (schema) {
-        case FileSchema::Vtest: {
-            return f(file_type_t<FileSchema::Vtest>{path});
+        using enum FileSchema;
+        case Vtest: {
+            using T = file_type_t<Vtest>;
+            if constexpr (allow_all || lib::in<T, Ts...>()) {
+                return f(T{path});
+            }
+            break;
         }
-        case FileSchema::V1: {
-            return f(file_type_t<FileSchema::V1>{path});
+        case V1: {
+            using T = file_type_t<V1>;
+            if constexpr (allow_all || lib::in<T, Ts...>()) {
+                return f(T{path});
+            }
+            break;
+        }
+        case Database: {
+            using T = file_type_t<Database>;
+            if constexpr (allow_all || lib::in<T, Ts...>()) {
+                return f(T{path});
+            }
+            break;
         }
     }
-    throw ANNException("Unreachable!");
+    throw ANNEXCEPTION("Unhandled case!");
+}
+
+template <typename F>
+auto visit_file_type(FileSchema schema, const std::filesystem::path& path, F&& f) {
+    return visit_file_type(lib::Types<>(), schema, path, SVS_FWD(f));
 }
 
 ///
@@ -594,6 +708,8 @@ find_uuid(const std::filesystem::path& dir, const lib::UUID& uuid) {
 ///
 class NativeFile {
   public:
+    using compatible_file_types = lib::Types<vtest::NativeFile, v1::NativeFile>;
+
     template <typename T> using Writer = v1::Writer<T>;
 
     explicit NativeFile(std::filesystem::path path)
@@ -605,7 +721,9 @@ class NativeFile {
             throw ANNEXCEPTION("Could not resolve {} for native file loading!", path_);
         }
 
-        return visit_file_type(schema.value(), path_, std::forward<F>(f));
+        return visit_file_type(
+            compatible_file_types{}, schema.value(), path_, std::forward<F>(f)
+        );
     }
 
     ///
@@ -619,14 +737,13 @@ class NativeFile {
     /// @brief Generate a default writer for native files.
     ///
     template <typename T>
-    Writer<T> writer(
-        lib::meta::Type<T> type, size_t dimensions, lib::UUID uuid = lib::ZeroUUID
-    ) const {
+    Writer<T>
+    writer(lib::Type<T> type, size_t dimensions, lib::UUID uuid = lib::ZeroUUID) const {
         return v1::NativeFile(path_).writer(type, dimensions, uuid);
     }
 
     Writer<void> writer(size_t dimensions, lib::UUID uuid = lib::ZeroUUID) const {
-        return writer(lib::meta::Type<void>(), dimensions, uuid);
+        return writer(lib::Type<void>(), dimensions, uuid);
     }
 
   private:

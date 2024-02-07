@@ -37,6 +37,13 @@ option(SVS_BUILD_BENCHMARK
     OFF # disabled by default
 )
 
+# The test generation routines controlled by a separate parameter because they add a
+# non-negligible overhead to the compilation time and binary size of the benchmark library.
+option(SVS_BUILD_BENCHMARK_TEST_GENERATORS
+    "Build the reference generators in the benchmark suite."
+    OFF #disabled by default
+)
+
 option(SVS_TEST_EXAMPLES
     "Enable ctest for examples without requiring building the test suite."
     OFF # disabled by default
@@ -71,6 +78,24 @@ option(SVS_EXPERIMENTAL_ENABLE_NUMA
     OFF # disabled by default
 )
 
+option(SVS_EXPERIMENTAL_LEANVEC
+    "Enable LeanVec for vector dimensionality reduction. Requires MKL support"
+    OFF # disabled by default
+)
+
+option(SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL
+    "Build a custom MKL shared-library for redistributable binaries. (Experimental)"
+    OFF # disabled by default
+)
+
+#####
+##### Checking
+#####
+
+if (NOT SVS_EXPERIMENTAL_LEANVEC AND SVS_EXPERIMENAL_BUILD_CUSTOM_MKL)
+    message(FATAL_ERROR "Cannot build custom MKL if MKL/LEANVEC is not enabled! Terminating CMake.")
+endif()
+
 #####
 ##### Configuration
 #####
@@ -82,11 +107,15 @@ if (SVS_NO_AVX512)
 endif()
 
 if (SVS_EXPERIMENTAL_CHECK_BOUNDS)
-    target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS)
+    target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS=1)
+else()
+    target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS=0)
 endif()
 
 if (SVS_EXPERIMENTAL_ENABLE_NUMA)
-    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_NUMA)
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_NUMA=1)
+else()
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_NUMA=0)
 endif()
 
 #####
@@ -123,7 +152,7 @@ endif()
 #####
 
 # Fix Clang complaining about the sized delete operator.
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
     target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation)
 endif()
 

@@ -32,10 +32,11 @@ template <typename T> T crunch(T scale, T value, T min, T max) {
     return std::clamp(std::round(scale * value), min, max);
 }
 
-template <size_t Bits, size_t Extent> class MinRange : public CVStorage {
+template <size_t Bits, size_t Extent, LVQPackingStrategy Strategy = Sequential>
+class MinRange : public CVStorage {
   public:
     using encoding_type = Encoding<Unsigned, Bits>;
-    using return_type = ScaledBiasedVector<Bits, Extent>;
+    using return_type = ScaledBiasedVector<Bits, Extent, Strategy>;
     static constexpr float min_s = encoding_type::min();
     static constexpr float max_s = encoding_type::max();
 
@@ -83,18 +84,29 @@ template <size_t Bits, size_t Extent> class MinRange : public CVStorage {
         float bias = min;
         float decompressor = 1;
         float compressor = 1;
-        if (max != min) {
-            decompressor = (max - min) / max_s;
-            compressor = max_s / (max - min);
+
+        // Only compress if the division won't cause catastrophic overflow.
+        float range = max - min;
+
+        // Explanation: The minimum positive number representable as a non-subnormal float16
+        // is 2^−14 ~= 6.10e-5. We chose an epsilon for "almost constant" vectors such that
+        // the decompressor constant is not flushed to zero when converted to float16
+        // for storage.
+        constexpr float epsilon = 7e-5f * max_s;
+        if (range > epsilon) {
+            decompressor = range / max_s;
+            compressor = max_s / range;
         }
 
-        auto cv = view<Unsigned, Bits, Extent>(size_);
+        auto cv = view<Unsigned, Bits, Extent, Strategy>(size_);
         for (size_t i = 0; i < data.size(); ++i) {
             auto v = lib::narrow<float>(data[i]);
             auto compressed = crunch(compressor, v - bias, min_s, max_s);
             cv.set(compressed, i);
         }
 
+        // Make sure we aren't truncating the decompressor to 0 after conversion to float16.
+        assert(Float16(decompressor) != 0.0f);
         return return_type{decompressor, bias, selector, cv};
     }
 
@@ -115,16 +127,15 @@ template <size_t Residual> class ResidualEncoder : public CVStorage {
         : CVStorage{} {}
 
     // Compression Operator.
-    template <typename Primary>
-        requires is_onelevel_compression_v<Primary>
-    CompressedVector<Signed, Residual, Primary::extent>
+    template <LVQCompressedVector Primary>
+    CompressedVector<Signed, Residual, Primary::extent, Sequential>
     operator()(const Primary& primary, lib::AnySpanLike auto data) {
         // Compute the scaling factor for the residual.
-        float decompressor = get_scale(primary) / (std::pow(2, Residual));
+        float decompressor = primary.get_scale() / (std::pow(2, Residual));
         float compressor = 1.0f / decompressor;
 
         // Round the difference between the primary compression and the
-        auto cv = view<Signed, Residual, Primary::extent>(
+        auto cv = view<Signed, Residual, Primary::extent, Sequential>(
             lib::MaybeStatic<Primary::extent>(primary.size())
         );
         for (size_t i = 0; i < primary.size(); ++i) {

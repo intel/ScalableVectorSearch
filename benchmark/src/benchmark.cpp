@@ -53,19 +53,54 @@ std::filesystem::path extract_filename(
     const std::optional<std::filesystem::path>& root
 ) {
     auto filename = svs::lib::load_at<std::filesystem::path>(table, key);
-    bool hasroot = root.has_value();
-    if (hasroot) {
+    bool prepend_root = root && filename.is_relative();
+    if (prepend_root) {
         filename = *root / filename;
     }
     if (!std::filesystem::exists(filename)) {
         throw ANNEXCEPTION(
             "Could not find {}file {} (parsed from {})!",
-            hasroot ? "qualified " : "",
+            prepend_root ? "qualified " : "",
             filename,
             fmt::streamed(table[key].node()->source())
         );
     }
     return filename;
+}
+
+/////
+///// SaveDirectoryChecker
+/////
+
+std::optional<std::filesystem::path>
+SaveDirectoryChecker::extract(const toml::table& table, std::string_view key) {
+    const auto& node = svs::toml_helper::get_as<toml::node>(table, key);
+    auto path = svs::lib::load<std::filesystem::path>(node);
+    if (path.empty()) {
+        return std::nullopt;
+    }
+
+    // Check for uniqueness.
+    auto itr = directories_.find(path);
+    if (itr != directories_.end()) {
+        throw ANNEXCEPTION(
+            "Save directory {} found multiple times ({}).",
+            path,
+            fmt::streamed(node.source())
+        );
+    }
+
+    // Check if all directories up to the last exist.
+    auto parent = path.parent_path();
+    if (!std::filesystem::is_directory(parent)) {
+        throw ANNEXCEPTION(
+            "Parent for save directory {} does not exist! ({})",
+            path,
+            fmt::streamed(node.source())
+        );
+    }
+    directories_.insert(itr, path);
+    return std::optional<std::filesystem::path>(std::move(path));
 }
 
 } // namespace svsbenchmark

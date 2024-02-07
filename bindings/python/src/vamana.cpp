@@ -14,10 +14,12 @@
 #include "common.h"
 #include "core.h"
 #include "manager.h"
+#include "vamana_common.h"
 
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
+#include "svs/extensions/vamana/leanvec.h"
 #include "svs/extensions/vamana/lvq.h"
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
@@ -43,268 +45,317 @@
 
 namespace py = pybind11;
 namespace lvq = svs::quantization::lvq;
+namespace leanvec = svs::leanvec;
 using namespace vamana_specializations;
 
 namespace vamana {
 namespace detail {
 
-/// Assemble an uncompressed index.
-struct StandardAssemble_ {
-    /// Keys:
-    /// (0) - The type of the elements of the query vectors.
-    /// (1) - The type of the elements of the data vectors.
-    /// (2) - The compile-time dimensionality (or Dynamic).
-    using key_type = std::tuple<svs::DataType, svs::DataType, size_t>;
-    using mapped_type = std::function<svs::Vamana(
-        const std::filesystem::path& /*config_path*/,
-        const UnspecializedGraphLoader& /*graph_loader*/,
-        const UnspecializedVectorDataLoader& /*data_loader*/,
-        svs::DistanceType /*distance_type*/,
-        size_t /*num_threads*/
-    )>;
+namespace lvq = svs::quantization::lvq;
 
-    // Specialize index assembling based on run-time values for:
-    //
-    // * Query Type: The element types of each component of the query vectors.
-    // * Data Type: The element types for each component of the data base vectors.
-    // * Data Dimensionality: The number of elements in each vector.
-    template <typename Q, typename T, size_t N>
-    static std::pair<key_type, mapped_type>
-    specialize(Type<Q> query_type, Type<T> data_type, Val<N> ndims) {
-        key_type key = {unwrap(query_type), unwrap(data_type), unwrap(ndims)};
-        mapped_type fn = [=](const std::filesystem::path& config_path,
-                             const UnspecializedGraphLoader& graph_loader,
-                             const UnspecializedVectorDataLoader& data,
-                             svs::DistanceType distance_type,
-                             size_t num_threads) {
-            return svs::Vamana::assemble<Q>(
-                config_path,
-                graph_loader,
-                data.refine(data_type, ndims),
-                distance_type,
-                num_threads
-            );
-        };
-        return std::make_pair(key, std::move(fn));
-    }
+/////
+///// Assembly
+/////
 
-    // Generate all requested specializations.
-    template <typename F> static void fill(F&& f) {
-        for_standard_specializations(
-            [&f]<EnableBuild B>(
-                auto query_type, auto data_type, auto ndims, Const<B> /*unused*/
-            ) { f(specialize(query_type, data_type, ndims)); }
-        );
-    }
-};
-using StandardAssembler = svs::lib::Dispatcher<StandardAssemble_>;
-
-/// Build an uncompressed index.
-struct StandardBuild_ {
-    // Keys: Data element type, Dimensionality.
-    using key_type = std::tuple<svs::DataType, size_t>;
-    using mapped_type = std::function<svs::Vamana(
-        const svs::index::vamana::VamanaBuildParameters&,
-        const UnspecializedVectorDataLoader&,
-        svs::DistanceType,
-        size_t
-    )>;
-
-    // Specialize index building based on run-time values for:
-    //
-    // * Query Type: The element types of each component of the query vectors.
-    // * Data Type: The element types for each component of the data base vectors.
-    // * Data Dimensionality: The number of elements in each vector.
-    template <typename Q, typename T, size_t N>
-    static std::pair<key_type, mapped_type>
-    specialize(Type<Q> /*query_type*/, Type<T> data_type, Val<N> ndims) {
-        auto key = key_type{unwrap(data_type), unwrap(ndims)};
-        mapped_type fn = [=](const svs::index::vamana::VamanaBuildParameters& parameters,
-                             const UnspecializedVectorDataLoader& data,
-                             svs::DistanceType distance_type,
-                             size_t num_threads) {
-            return svs::Vamana::build<Q>(
-                parameters, data.refine(data_type, ndims), distance_type, num_threads
-            );
-        };
-        return std::make_pair(key, std::move(fn));
-    }
-
-    // Generate all requested specializations.
-    template <typename F> static void fill(F&& f) {
-        for_standard_specializations(
-            [&f]<EnableBuild B>(
-                auto query_type, auto data_type, auto ndims, Const<B> /*unused*/
-            ) {
-                // Only instantiate a specialization if building is explicitly enabled
-                // for this combination of types/values.
-                if constexpr (enable_build_from_file<B>) {
-                    f(specialize(query_type, data_type, ndims));
-                }
-            }
-        );
-    }
-};
-using StandardBuilder = svs::lib::Dispatcher<StandardBuild_>;
-
-///
-/// Load a compressed dataset from files, optionally compressing on the fly.
-///
-template <typename Kind> struct CompressedAssemble_ {
-    using key_type = std::tuple<svs::DistanceType, size_t>;
-    using mapped_type = std::function<svs::Vamana(
-        const std::filesystem::path& /*config_path*/,
-        const UnspecializedGraphLoader& /*graph_loader*/,
-        const Kind& /*data_loader*/,
-        size_t /*n_threads*/
-    )>;
-
-    // Specializd index assembling based on run-time values.
-    template <typename Distance, size_t N>
-    static std::pair<key_type, mapped_type> specialize(Distance distance, Val<N> dims) {
-        key_type key = {svs::distance_type_v<Distance>, unwrap(dims)};
-        mapped_type fn = [=](const std::filesystem::path& config_path,
-                             const UnspecializedGraphLoader& graph_loader,
-                             const Kind& loader,
-                             size_t num_threads) {
-            return svs::Vamana::assemble<float>(
-                config_path, graph_loader, loader.refine(dims), distance, num_threads
-            );
-        };
-        return std::make_pair(key, std::move(fn));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        compressed_specializations([&f](auto distance, auto dims, auto /*enable_build*/) {
-            f(specialize(distance, dims));
-        });
-    }
-};
-
-template <typename Kind>
-using CompressedAssembler = svs::lib::Dispatcher<CompressedAssemble_<Kind>>;
-
-/// Perform index construction using a compressed dataset.
-template <typename Kind> struct CompressedBuild_ {
-    // Type Aliases
-    using key_type = std::tuple<svs::DistanceType, size_t>;
-    using mapped_type = std::function<svs::Vamana(
-        const svs::index::vamana::VamanaBuildParameters& /*build_parameters*/,
-        const Kind& /*data_loader*/,
-        size_t /*num_threads*/
-    )>;
-
-    template <typename Distance, size_t N>
-    static std::pair<key_type, mapped_type> specialize(Distance distance, Val<N> dims) {
-        key_type key = {svs::distance_type_v<Distance>, unwrap(dims)};
-        mapped_type fn = [=](const svs::index::vamana::VamanaBuildParameters& parameters,
-                             const Kind& loader,
-                             size_t num_threads) {
-            return svs::Vamana::build<float>(
-                parameters, loader.refine(dims), distance, num_threads
-            );
-        };
-        return std::make_pair(key, std::move(fn));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        compressed_specializations(
-            [&f]<
-                bool EnableBuild>(auto distance, auto dims, Const<EnableBuild> /*unused*/) {
-                if constexpr (EnableBuild) {
-                    f(specialize(distance, dims));
-                }
-            }
-        );
-    }
-};
-template <typename Kind>
-using CompressedBuild = svs::lib::Dispatcher<CompressedBuild_<Kind>>;
-
-// Dataset Load Dispatch Logic.
-
-/// @brief Types used for index assembly.
-using VamanaAssembleTypes =
-    std::variant<UnspecializedVectorDataLoader, LVQ4, LVQ8, LVQ4x4, LVQ4x8, LVQ8x8>;
-
-/// @brief Types used for index construction.
-using VamanaBuildSourceTypes =
-    std::variant<UnspecializedVectorDataLoader, LVQ8, LVQ4, LVQ4x4>;
-
-svs::Vamana assemble(
-    const std::string& config_path,
-    const UnspecializedGraphLoader& graph_file,
-    const VamanaAssembleTypes& data_kind,
+// TODO: Go straight to the static function?
+template <typename Q, typename T, size_t N>
+svs::Vamana assemble_uncompressed(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    svs::VectorDataLoader<T, N, RebindAllocator<T>> data,
     svs::DistanceType distance_type,
-    svs::DataType query_type,
-    bool enforce_dims,
     size_t num_threads
 ) {
-    return std::visit<svs::Vamana>(
-        [&](auto&& loader) {
-            using T = std::decay_t<decltype(loader)>;
-            if constexpr (std::is_same_v<T, UnspecializedVectorDataLoader>) {
-                // Get the pre-dispatched dataset loader.
-                // If `force_specialization == false`, then try the generic fallback in
-                // dimensionality for the given types.
-                const auto& f = StandardAssembler::lookup(
-                    !enforce_dims, loader.dims_, query_type, loader.type_
-                );
-
-                return f(config_path, graph_file, loader, distance_type, num_threads);
-            } else {
-                const auto& f = CompressedAssembler<T>::lookup(
-                    !enforce_dims, loader.dims_, distance_type
-                );
-
-                return f(config_path, graph_file, loader, num_threads);
-            }
-        },
-        data_kind
+    return svs::Vamana::assemble<Q>(
+        config_path, graph_loader, std::move(data), distance_type, num_threads
     );
 }
 
-template <typename QueryType, typename ElementType>
-svs::Vamana build_from_array(
+template <typename Dispatcher>
+void register_uncompressed_vamana_assemble(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N, EnableBuild B>() {
+            auto method = &assemble_uncompressed<Q, T, N>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
+
+template <
+    size_t Primary,
+    size_t Residual,
+    size_t N,
+    lvq::LVQPackingStrategy Strategy,
+    typename D>
+svs::Vamana assemble_lvq(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    lvq::LVQLoader<Primary, Residual, N, Strategy, Allocator> data,
+    D distance,
+    size_t num_threads
+) {
+    return svs::Vamana::assemble<float>(
+        config_path, graph_loader, std::move(data), std::move(distance), num_threads
+    );
+}
+
+template <typename Dispatcher> void register_lvq_vamana_assemble(Dispatcher& dispatcher) {
+    compressed_specializations(
+        [&dispatcher]<typename D, size_t P, size_t R, size_t N, typename S, bool B>() {
+            auto method = &assemble_lvq<P, R, N, S, D>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
+
+template <typename Primary, typename Secondary, size_t L, size_t N, typename D>
+svs::Vamana assemble_leanvec(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    leanvec::LeanVecLoader<Primary, Secondary, L, N, Allocator> data,
+    D distance,
+    size_t num_threads
+) {
+    return svs::Vamana::assemble<float>(
+        config_path, graph_loader, std::move(data), std::move(distance), num_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_leanvec_vamana_assemble(Dispatcher& dispatcher) {
+    leanvec_specializations(
+        [&dispatcher]<typename P, typename S, size_t L, size_t N, typename D>() {
+            auto method = &assemble_leanvec<P, S, L, N, D>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
+
+template <typename Dispatcher> void register_vamana_assembly(Dispatcher& dispatcher) {
+    register_uncompressed_vamana_assemble(dispatcher);
+    register_lvq_vamana_assemble(dispatcher);
+    register_leanvec_vamana_assemble(dispatcher);
+}
+
+using VamanaAssembleTypes = std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec>;
+
+/////
+///// Build From File
+/////
+
+template <typename Q, typename T, size_t N>
+svs::Vamana build_uncompressed(
     const svs::index::vamana::VamanaBuildParameters& parameters,
-    py_contiguous_array_t<ElementType> py_data,
+    svs::VectorDataLoader<T, N, RebindAllocator<T>> data,
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
-    return svs::Vamana::build<QueryType>(
-        parameters, create_data(py_data), distance_type, num_threads
+    return svs::Vamana::build<Q>(parameters, std::move(data), distance_type, num_threads);
+}
+
+template <typename Dispatcher>
+void register_uncompressed_vamana_build_from_file(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N, EnableBuild B>() {
+            if constexpr (enable_build_from_file<B>) {
+                auto method = &build_uncompressed<Q, T, N>;
+                dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+            }
+        }
     );
+}
+
+template <size_t Primary, size_t Residual, size_t N, lvq::LVQPackingStrategy S, typename D>
+svs::Vamana build_lvq_from_file(
+    const svs::index::vamana::VamanaBuildParameters& parameters,
+    lvq::LVQLoader<Primary, Residual, N, S, Allocator> data,
+    D distance,
+    size_t num_threads
+) {
+    return svs::Vamana::build<float>(
+        parameters, std::move(data), std::move(distance), num_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_lvq_vamana_build_from_file(Dispatcher& dispatcher) {
+    compressed_specializations(
+        [&dispatcher]<typename D, size_t P, size_t R, size_t N, typename S, bool B>() {
+            if constexpr (B /* build-enabled*/) {
+                auto method = &build_lvq_from_file<P, R, N, S, D>;
+                dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+            }
+        }
+    );
+}
+
+template <typename Primary, typename Secondary, size_t L, size_t N, typename D>
+svs::Vamana build_leanvec_from_file(
+    const svs::index::vamana::VamanaBuildParameters& parameters,
+    leanvec::LeanVecLoader<Primary, Secondary, L, N, Allocator> data,
+    D distance,
+    size_t num_threads
+) {
+    return svs::Vamana::build<float>(
+        parameters, std::move(data), std::move(distance), num_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_leanvec_vamana_build_from_file(Dispatcher& dispatcher) {
+    leanvec_specializations(
+        [&dispatcher]<typename P, typename S, size_t L, size_t N, typename D>() {
+            auto method = &build_leanvec_from_file<P, S, L, N, D>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
+
+template <typename Dispatcher>
+void register_vamana_build_from_file(Dispatcher& dispatcher) {
+    register_uncompressed_vamana_build_from_file(dispatcher);
+    register_lvq_vamana_build_from_file(dispatcher);
+    register_leanvec_vamana_build_from_file(dispatcher);
+}
+
+using VamanaBuildTypes = std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec>;
+
+/////
+///// Build from Array
+/////
+
+template <typename Q, typename T, size_t N>
+svs::Vamana uncompressed_build_from_array(
+    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::data::ConstSimpleDataView<T, N> view,
+    svs::DistanceType distance_type,
+    size_t num_threads
+) {
+    auto data =
+        svs::data::SimpleData<T, N, RebindAllocator<T>>(view.size(), view.dimensions());
+    svs::data::copy(view, data);
+    return svs::Vamana::build<Q>(parameters, std::move(data), distance_type, num_threads);
+}
+
+template <typename Dispatcher>
+void register_vamana_build_from_array(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N, EnableBuild B>() {
+            if constexpr (enable_build_from_array<B>) {
+                auto method = &uncompressed_build_from_array<Q, T, N>;
+                dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+            }
+        }
+    );
+}
+
+/////
+///// Dispatch Invocation
+/////
+
+using AssemblyDispatcher = svs::lib::Dispatcher<
+    svs::Vamana,
+    const std::filesystem::path&,
+    const UnspecializedGraphLoader&,
+    VamanaAssembleTypes,
+    svs::DistanceType,
+    size_t>;
+
+AssemblyDispatcher assembly_dispatcher() {
+    auto dispatcher = AssemblyDispatcher{};
+
+    // Register available backend methods.
+    register_vamana_assembly(dispatcher);
+    return dispatcher;
+}
+
+// Assemble
+svs::Vamana assemble(
+    const std::string& config_path,
+    const UnspecializedGraphLoader& graph_file,
+    VamanaAssembleTypes data_kind,
+    svs::DistanceType distance_type,
+    svs::DataType SVS_UNUSED(query_type),
+    bool SVS_UNUSED(enforce_dims),
+    size_t num_threads
+) {
+    return assembly_dispatcher().invoke(
+        config_path, graph_file, std::move(data_kind), distance_type, num_threads
+    );
+}
+
+// Build from file
+using BuildFromFileDispatcher = svs::lib::Dispatcher<
+    svs::Vamana,
+    const svs::index::vamana::VamanaBuildParameters&,
+    VamanaBuildTypes,
+    svs::DistanceType,
+    size_t>;
+
+BuildFromFileDispatcher build_from_file_dispatcher() {
+    auto dispatcher = BuildFromFileDispatcher{};
+    register_vamana_build_from_file(dispatcher);
+    return dispatcher;
 }
 
 svs::Vamana build_from_file(
     const svs::index::vamana::VamanaBuildParameters& parameters,
-    const VamanaBuildSourceTypes& data_source,
+    VamanaBuildTypes data_source,
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
-    return std::visit<svs::Vamana>(
-        [&](auto&& data_loader) {
-            using T = std::decay_t<decltype(data_loader)>;
-            // Loading a standard dataset.
-            if constexpr (std::is_same_v<T, UnspecializedVectorDataLoader>) {
-                const auto& f =
-                    StandardBuilder::lookup(true, data_loader.dims_, data_loader.type_);
-                return f(parameters, data_loader, distance_type, num_threads);
-            } else {
-                const auto& f =
-                    CompressedBuild<T>::lookup(true, data_loader.dims_, distance_type);
-                return f(parameters, data_loader, num_threads);
-            }
-        },
-        data_source
+    return build_from_file_dispatcher().invoke(
+        parameters, std::move(data_source), distance_type, num_threads
     );
 }
 
-template <typename QueryType, typename ElementType>
+// Build from array.
+//
+// We go through a dance of accepting a numpy-array, using type-erasure on the pointer
+// obtained from the array, and then feeding that `AnonymousVectorData` object into our
+// own internal dispatching infrastructures.
+//
+// This is largely because we can't communicate directly to Python which types are accepted
+// by the backend - so we need to do it ourselves.
+using BuildFromArrayDispatcher = svs::lib::Dispatcher<
+    svs::Vamana,
+    const svs::index::vamana::VamanaBuildParameters&,
+    AnonymousVectorData,
+    svs::DistanceType,
+    size_t>;
+
+BuildFromArrayDispatcher build_from_array_dispatcher() {
+    auto dispatcher = BuildFromArrayDispatcher{};
+    register_vamana_build_from_array(dispatcher);
+    return dispatcher;
+}
+
+svs::Vamana build_from_array(
+    const svs::index::vamana::VamanaBuildParameters& parameters,
+    AnonymousVectorData py_data,
+    svs::DistanceType distance_type,
+    size_t num_threads
+) {
+    return build_from_array_dispatcher().invoke(
+        parameters, py_data, distance_type, num_threads
+    );
+}
+
+// Templatize at the top level
+// Immediately tag the type of the incoming pointer, apply type erasure, and jump into
+// internal dispatching.
+template <typename ElementType>
 void add_build_specialization(py::class_<svs::Vamana>& vamana) {
     vamana.def_static(
         "build",
-        &build_from_array<QueryType, ElementType>,
+        [](const svs::index::vamana::VamanaBuildParameters& parameters,
+           py_contiguous_array_t<ElementType> py_data,
+           svs::DistanceType distance_type,
+           size_t num_threads) {
+            return build_from_array(
+                parameters, AnonymousVectorData(py_data), distance_type, num_threads
+            );
+        },
         py::arg("parameters"),
         py::arg("py_data"),
         py::arg("distance_type"),
@@ -315,11 +366,11 @@ Construct a Vamana index over the given data, returning a searchable index.
 Args:
     parameters: Parameters controlling graph construction.
         See the documentation of this class.
-    py_data: The dataset to index. **NOTE**: PySVS will maintain an internal copy of the
-        dataset. This may change in future releases.
+    py_data: The dataset to index. *NOTE*: PySVS will maintain an internal copy
+        of the dataset. This may change in future releases.
     distance_type: The distance type to use for this dataset.
     num_threads: The number of threads to use for index construction. Default: 1.
-        )"
+)"
     );
 }
 
@@ -331,15 +382,134 @@ void save_index(
 ) {
     index.save(config_path, graph_dir, data_dir);
 }
+
+constexpr std::string_view ASSEMBLE_DOCSTRING_PROTO = R"(
+Load a Vamana style index from disk.
+
+Args:
+    config_path: Path to the directory where the index configuration file was generated.
+    graph_loader: The loader class for the graph.
+    data_loader: The loader for the dataset. See comment below for accepted types.
+    distance: The distance function to use.
+    query_type: The data type of the queries.
+    enforce_dims: Require that the compiled dimensionality of the returned index matches
+        the dimensionality provided in the ``data_loader`` argument. If a match is not
+        found, an exception is thrown.
+
+        This is meant to ensure that specialized dimensionality is provided without falling
+        back to generic implementations. Leaving the ``dims`` out when constructing the
+        ``data_loader`` will with `enable_dims = True` will always attempt to use a generic
+        implementation.
+    num_threads: The number of threads to use for queries (can be changed after loading).
+
+The top level type is an abstract type backed by various specialized backends that will
+be instantiated based on their applicability to the particular problem instance.
+
+The arguments upon which specialization is conducted are:
+
+* `data_loader`: Both kind (type of loader) and inner aspects of the loader like data type,
+  quantization type, and number of dimensions.
+* `distance`: The distance measure being used.
+
+Specializations compiled into the binary are listed below.
+
+{}
+)";
+
+void wrap_assemble(py::class_<svs::Vamana>& vamana) {
+    auto dispatcher = assembly_dispatcher();
+    // Procedurally generate the dispatch string.
+    auto dynamic = std::string{};
+    for (size_t i = 0; i < dispatcher.size(); ++i) {
+        fmt::format_to(
+            std::back_inserter(dynamic),
+            R"(
+Method {}:
+    - data_loader: {}
+    - distance: {}
+)",
+            i,
+            dispatcher.description(i, 2),
+            dispatcher.description(i, 3)
+        );
+    }
+
+    vamana.def(
+        py::init(&detail::assemble),
+        py::arg("config_path"),
+        py::arg("graph_loader"),
+        py::arg("data_loader"),
+        py::arg("distance") = svs::L2,
+        py::arg("query_type") = svs::DataType::float32,
+        py::arg("enforce_dims") = false,
+        py::arg("num_threads") = 1,
+        fmt::format(ASSEMBLE_DOCSTRING_PROTO, dynamic).c_str()
+    );
+}
+
+void wrap_build_from_file(py::class_<svs::Vamana>& vamana) {
+    constexpr std::string_view docstring_proto = R"(
+Construct a Vamana index over the given data file, returning a searchable index.
+
+Args:
+    build_parameters (:py:class:`pysvs.VamanaBuildParameters`): Hyper-parameters
+        controlling index build.
+    data_loader: The source of the data on-disk. Can either be
+        :py:class:`pysvs.DataFile` to represent a standard uncompressed dataset, or a
+        compressed loader.
+    distance_type: The similarity-function to use for this index.
+    num_threads: The number of threads to use for index construction. Default: 1.
+
+The top level type is an abstract type backed by various specialized backends that will
+be instantiated based on their applicability to the particular problem instance.
+
+The arguments upon which specialization is conducted are:
+
+* `data_loader`: Both kind (type of loader) and inner aspects of the loader like data type,
+  quantization type, and number of dimensions.
+* `distance`: The distance measure being used.
+
+Specializations compiled into the binary are listed below.
+
+{}
+)";
+
+    auto dispatcher = build_from_file_dispatcher();
+    // Procedurally generate the dispatch string.
+    auto dynamic = std::string{};
+    for (size_t i = 0; i < dispatcher.size(); ++i) {
+        fmt::format_to(
+            std::back_inserter(dynamic),
+            R"(
+Method {}:
+    - data_loader: {}
+    - distance: {}
+)",
+            i,
+            dispatcher.description(i, 1),
+            dispatcher.description(i, 2)
+        );
+    }
+
+    vamana.def_static(
+        "build",
+        &detail::build_from_file,
+        py::arg("build_parameters"),
+        py::arg("data_loader"),
+        py::arg("distance_type"),
+        py::arg("num_threads") = 1,
+        fmt::format(docstring_proto, dynamic).c_str()
+    );
+}
+
 } // namespace detail
 
 void wrap(py::module& m) {
-    ///
+    wrap_common(m);
+
     /// Build Parameters
-    ///
-    std::string build_name = "VamanaBuildParameters";
     py::class_<svs::index::vamana::VamanaBuildParameters> parameters(
-        m, build_name.c_str(), "Build parameters for Vamana index construction."
+        m, "VamanaBuildParameters", "Build parameters for Vamana index construction."
     );
 
     parameters
@@ -384,24 +554,25 @@ void wrap(py::module& m) {
             py::arg("prune_to") = std::numeric_limits<size_t>::max(),
             py::arg("num_threads") = std::numeric_limits<size_t>::max(),
             R"(
-Construct a new instance from keyword arguments.
+            Construct a new instance from keyword arguments.
 
-Args:
-    alpha: Prune threshold degree for graph construction.
-        For distance types favoring minimization, set this to a number greater than 1.0
-        (typically, 1.2 is sufficient). For distance types preferring maximization, set to a
-        value less than 1.0 (such as 0.95).
-    graph_max_degree: The maximum out-degree in the final graph. Graphs with a higher
-        degree tend to yield better accuracy and performance at the cost of a larger memory
-        footprint.
-    window_size: Parameter controlling the quality of graph construction. A larger window
-        size will yield a higher-quality index at the cost of longer construction time. Should
-        be larger than `graph_max_degree`.
-    max_candidate_pool_size: Limit on the number of candidates to consider for neighbor
-        updates. Should be larger than `window_size`.
-    prune_to: Amount candidate lists will be pruned to when exceeding the target max
-        degree. In general, setting this to slightly less than `graph_max_degree` will
-        yield faster index building times. Default: `graph_max_degree`.
+            Args:
+                alpha: Prune threshold degree for graph construction.
+                    For distance types favoring minimization, set this to a number
+                    greater than 1.0 (typically, 1.2 is sufficient). For distance types
+                    preferring maximization, set to a value less than 1.0 (such as 0.95).
+                graph_max_degree: The maximum out-degree in the final graph. Graphs with
+                    a higher degree tend to yield better accuracy and performance at the cost
+                    of a larger memory footprint.
+                window_size: Parameter controlling the quality of graph construction. A
+                    larger window size will yield a higher-quality index at the cost of
+                    longer construction time. Should be larger than `graph_max_degree`.
+                max_candidate_pool_size: Limit on the number of candidates to consider
+                    for neighbor updates. Should be larger than `window_size`.
+                prune_to: Amount candidate lists will be pruned to when exceeding the
+                    target max degree. In general, setting this to slightly less than
+                    `graph_max_degree` will yield faster index building times. Default:
+                    `graph_max_degree`.
             )"
         )
         .def_readwrite("alpha", &svs::index::vamana::VamanaBuildParameters::alpha)
@@ -424,42 +595,7 @@ Args:
         m, name.c_str(), "Top level class for the Vamana graph index."
     );
 
-    vamana.def(
-        py::init(&detail::assemble),
-        py::arg("config_path"),
-        py::arg("graph_loader"),
-        py::arg("data_loader"),
-        py::arg("distance") = svs::L2,
-        py::arg("query_type") = svs::DataType::float32,
-        py::arg("enforce_dims") = false,
-        py::arg("num_threads") = 1,
-        R"(
-Load a Vamana style index from disk.
-
-Args:
-    config_path: Path to the directory where the index configuration file was generated.
-    graph_loader: The loader class for the graph.
-    data_loader: The loader for the dataset. See comment below for accepted types.
-    distance: The distance function to use.
-    query_type: The data type of the queries.
-    enforce_dims: Require that the compiled dimensionality of the returned index matches
-        the dimensionality provided in the ``data_loader`` argument. If a match is not
-        found, an exception is thrown.
-
-        This is meant to ensure that specialized dimensionality is provided without falling
-        back to generic implementations. Leaving the ``dims`` out when constructing the
-        ``data_loader`` will with `enable_dims = True` will always attempt to use a generic
-        implementation.
-    num_threads: The number of threads to use for queries (can be changed after loading).
-
-Data types supported by the loader are the following:
-
-    * ``pysvs.DataType.float32``
-    * ``pysvs.DataType.float16``
-    * ``pysvs.DataType.int8``
-    * ``pysvs.DataType.uint8``
-        )"
-    );
+    detail::wrap_assemble(vamana);
 
     // Make the Vamana type searchable.
     add_search_specialization<float>(vamana);
@@ -477,31 +613,13 @@ Data types supported by the loader are the following:
 
     ///// Index building
     // Build from Numpy array.
-    detail::add_build_specialization<float, svs::Float16>(vamana);
-    detail::add_build_specialization<float, float>(vamana);
-    detail::add_build_specialization<uint8_t, uint8_t>(vamana);
-    detail::add_build_specialization<int8_t, int8_t>(vamana);
+    detail::add_build_specialization<svs::Float16>(vamana);
+    detail::add_build_specialization<float>(vamana);
+    detail::add_build_specialization<uint8_t>(vamana);
+    detail::add_build_specialization<int8_t>(vamana);
 
     // Build from datasets on file.
-    vamana.def_static(
-        "build",
-        &detail::build_from_file,
-        py::arg("build_parameters"),
-        py::arg("data_loader"),
-        py::arg("distance_type"),
-        py::arg("num_threads") = 1,
-        R"(
-Construct a Vamana index over the given data file, returning a searchable index.
-
-Args:
-    build_parameters (:py:class:`pysvs.VamanaBuildParameters`): Hyper-parameters controlling
-        index build.
-    data_loader: The source of the data on-disk. Can either be :py:class:`pysvs.DataFile` to
-        represent a standard uncompressed dataset, or a compressed loader.
-    distance_type: The similarity-function to use for this index.
-    num_threads: The number of threads to use for index construction. Default: 1.
-        )"
-    );
+    detail::wrap_build_from_file(vamana);
 
     ///// Index Saving.
     vamana.def(

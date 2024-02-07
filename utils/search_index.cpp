@@ -63,7 +63,11 @@ void search_index(
         n_threads
     );
 
-    index.set_search_window_size(search_window_size);
+    auto search_parameters =
+        index.get_search_parameters().buffer_config({search_window_size});
+
+    index.set_search_parameters(search_parameters);
+
     const auto query_data = svs::load_data<E_query>(query_filename);
     std::vector<float> latencies(query_data.size());
 

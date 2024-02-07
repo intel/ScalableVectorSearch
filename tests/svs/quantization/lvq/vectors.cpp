@@ -45,7 +45,8 @@ template <> struct ReferenceDistance<svs::distance::DistanceIP> {
 template <typename T>
 using reference_distance_t = typename detail::ReferenceDistance<T>::type;
 
-// Extract the contents of a compressed vector variant into a vector of floats.
+// Extract the contents of a compressed vector variant into a vector of floats using scalar
+// indexing.
 template <typename T> std::vector<float> slurp(const T& x) {
     const size_t sz = x.size();
     auto v = std::vector<float>(sz);
@@ -70,7 +71,7 @@ template <typename Sign, size_t Bits>
 using compressed_generator_t = decltype(test_q::create_generator<Sign, Bits>());
 
 namespace test_fixtures {
-template <size_t Bits, size_t Extent> struct ScaledBiased {
+template <size_t Bits, size_t Extent, typename Strategy> struct ScaledBiased {
   private:
     [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
     compressed_generator_t<lvq::Unsigned, Bits> generator_;
@@ -79,7 +80,7 @@ template <size_t Bits, size_t Extent> struct ScaledBiased {
     std::vector<float> reference_{};
 
   public:
-    using vector_type = lvq::ScaledBiasedVector<Bits, Extent>;
+    using vector_type = lvq::ScaledBiasedVector<Bits, Extent, Strategy>;
     static constexpr float float_min = -3;
     static constexpr float float_max = 3;
 
@@ -100,7 +101,8 @@ template <size_t Bits, size_t Extent> struct ScaledBiased {
         // values are the same.
         float scale = through_float16(svs_test::generate(float_));
         float bias = through_float16(svs_test::generate(float_));
-        auto cv = compressed_.template view<lvq::Unsigned, Bits, Extent>(static_size());
+        auto cv =
+            compressed_.template view<lvq::Unsigned, Bits, Extent, Strategy>(static_size());
         CATCH_REQUIRE((cv.size() == reference_.size()));
         CATCH_REQUIRE((cv.size() == size()));
         for (size_t i = 0, imax = cv.size(); i < imax; ++i) {
@@ -117,7 +119,8 @@ template <size_t Bits, size_t Extent> struct ScaledBiased {
     ScaledBiased copy() const { return ScaledBiased(static_size()); }
 };
 
-template <size_t Primary, size_t Residual, size_t Extent> struct ScaledBiasedWithResidual {
+template <size_t Primary, size_t Residual, size_t Extent, typename Strategy>
+struct ScaledBiasedWithResidual {
   private:
     [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
     compressed_generator_t<lvq::Unsigned, Primary> primary_generator_;
@@ -128,7 +131,7 @@ template <size_t Primary, size_t Residual, size_t Extent> struct ScaledBiasedWit
     std::vector<float> reference_{};
 
   public:
-    using vector_type = lvq::ScaledBiasedWithResidual<Primary, Residual, Extent>;
+    using vector_type = lvq::ScaledBiasedWithResidual<Primary, Residual, Extent, Strategy>;
     static constexpr float float_min = -3;
     static constexpr float float_max = 3;
 
@@ -154,9 +157,11 @@ template <size_t Primary, size_t Residual, size_t Extent> struct ScaledBiasedWit
         float bias = through_float16(svs_test::generate(float_));
 
         auto primary =
-            primary_.template view<lvq::Unsigned, Primary, Extent>(static_size());
+            primary_.template view<lvq::Unsigned, Primary, Extent, Strategy>(static_size());
         auto residual =
-            residual_.template view<lvq::Signed, Residual, Extent>(static_size());
+            residual_.template view<lvq::Signed, Residual, Extent, lvq::Sequential>(
+                static_size()
+            );
         CATCH_REQUIRE((primary.size() == reference_.size()));
         CATCH_REQUIRE((primary.size() == size()));
         CATCH_REQUIRE((residual.size() == reference_.size()));
@@ -311,21 +316,28 @@ void test_biased_self_distance(
 }
 
 // reduce visual clutter
-template <size_t N> using Val = svs::meta::Val<N>;
+template <size_t N> using Val = svs::lib::Val<N>;
 
 } // namespace
 
-CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
+CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq][distances]") {
     using DistanceL2 = svs::distance::DistanceL2;
     using DistanceIP = svs::distance::DistanceIP;
 
+    // const size_t TEST_DIM = 37;
     const size_t TEST_DIM = 37;
     auto bits = std::make_tuple(Val<8>(), Val<7>(), Val<6>(), Val<5>(), Val<4>(), Val<3>());
 
-    CATCH_SECTION("ScaledBiasedVector") {
+    CATCH_SECTION("Must fix argument") {
+        CATCH_STATIC_REQUIRE(svs::distance::fix_argument_mandated<lvq::InnerProductBiased>()
+        );
+        CATCH_STATIC_REQUIRE(svs::distance::fix_argument_mandated<lvq::EuclideanBiased>());
+    }
+
+    CATCH_SECTION("ScaledBiasedVector - Sequential") {
         // Statically Sized
         svs::lib::foreach (bits, []<size_t N>(Val<N> /*unused*/) {
-            auto generator = test_fixtures::ScaledBiased<N, TEST_DIM>();
+            auto generator = test_fixtures::ScaledBiased<N, TEST_DIM, lvq::Sequential>();
             test_distance(generator, DistanceL2());
             test_distance(generator, DistanceIP());
             test_biased_distance(generator, DistanceL2());
@@ -336,9 +348,9 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
 
         // Dynamically Sized
         svs::lib::foreach (bits, []<size_t N>(Val<N> /*unused*/) {
-            auto generator =
-                test_fixtures::ScaledBiased<N, svs::Dynamic>(svs::lib::MaybeStatic(TEST_DIM)
-                );
+            auto generator = test_fixtures::ScaledBiased<N, svs::Dynamic, lvq::Sequential>(
+                svs::lib::MaybeStatic(TEST_DIM)
+            );
             test_distance(generator, DistanceL2());
             test_distance(generator, DistanceIP());
             test_biased_distance(generator, DistanceL2());
@@ -348,6 +360,31 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
         });
     }
 
+    CATCH_SECTION("ScaledBiasedVector - Turbo") {
+        CATCH_SECTION("Static Dimensions") {
+            auto generator = test_fixtures::ScaledBiased<4, TEST_DIM, lvq::Turbo<16, 8>>();
+            test_distance(generator, DistanceL2());
+            test_distance(generator, DistanceIP());
+            test_biased_distance(generator, DistanceL2());
+            test_biased_distance(generator, DistanceIP());
+            test_biased_self_distance(generator, DistanceL2());
+            test_biased_self_distance(generator, DistanceIP());
+        }
+
+        CATCH_SECTION("Dynamic Dimensions") {
+            auto generator =
+                test_fixtures::ScaledBiased<4, svs::Dynamic, lvq::Turbo<16, 8>>(
+                    svs::lib::MaybeStatic(TEST_DIM)
+                );
+            test_distance(generator, DistanceL2());
+            test_distance(generator, DistanceIP());
+            test_biased_distance(generator, DistanceL2());
+            test_biased_distance(generator, DistanceIP());
+            test_biased_self_distance(generator, DistanceL2());
+            test_biased_self_distance(generator, DistanceIP());
+        }
+    }
+
     CATCH_SECTION("ScaledBiasedWithResidual") {
         auto residuals = std::make_tuple(Val<4>(), Val<3>());
         auto timer = svs::lib::Timer();
@@ -355,7 +392,8 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
         auto static_case = timer.push_back("static residul computation");
         svs::lib::foreach (bits, [&residuals]<size_t N>(Val<N> /*unused*/) {
             svs::lib::foreach (residuals, []<size_t M>(Val<M> /*unused*/) {
-                auto generator = test_fixtures::ScaledBiasedWithResidual<N, M, TEST_DIM>();
+                auto generator = test_fixtures::
+                    ScaledBiasedWithResidual<N, M, TEST_DIM, lvq::Sequential>();
                 test_distance(generator, DistanceL2());
                 test_distance(generator, DistanceIP());
                 test_biased_distance(generator, DistanceL2());
@@ -370,8 +408,8 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
         auto dynamic_case = timer.push_back("dynamic residual computation");
         svs::lib::foreach (bits, [&residuals]<size_t N>(Val<N> /*unused*/) {
             svs::lib::foreach (residuals, []<size_t M>(Val<M> /*unused*/) {
-                auto generator =
-                    test_fixtures::ScaledBiasedWithResidual<N, M, svs::Dynamic>(
+                auto generator = test_fixtures::
+                    ScaledBiasedWithResidual<N, M, svs::Dynamic, lvq::Sequential>(
                         svs::lib::MaybeStatic(TEST_DIM)
                     );
                 test_distance(generator, DistanceL2());
@@ -383,6 +421,39 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq]") {
             });
         });
         dynamic_case.finish();
+
+        // Turbo - Static
+        auto turbo_static_case = timer.push_back("static turbo residual computation");
+        {
+            auto generator =
+                test_fixtures::ScaledBiasedWithResidual<4, 8, TEST_DIM, lvq::Turbo<16, 8>>(
+                );
+            test_distance(generator, DistanceL2());
+            test_distance(generator, DistanceIP());
+            test_biased_distance(generator, DistanceL2());
+            test_biased_distance(generator, DistanceIP());
+            test_biased_self_distance(generator, DistanceL2());
+            test_biased_self_distance(generator, DistanceIP());
+        }
+        turbo_static_case.finish();
+
+        // Turbo - Dynamic
+        auto turbo_dynamic_case = timer.push_back("dynamic turbo residual computation");
+        {
+            auto generator = test_fixtures::
+                ScaledBiasedWithResidual<4, 8, svs::Dynamic, lvq::Turbo<16, 8>>(
+                    svs::lib::MaybeStatic(TEST_DIM)
+                );
+            test_distance(generator, DistanceL2());
+            test_distance(generator, DistanceIP());
+            test_biased_distance(generator, DistanceL2());
+            test_biased_distance(generator, DistanceIP());
+            test_biased_self_distance(generator, DistanceL2());
+            test_biased_self_distance(generator, DistanceIP());
+        }
+        turbo_dynamic_case.finish();
+
+        // Print timing.
         timer.print();
     }
 }

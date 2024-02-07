@@ -30,6 +30,25 @@ size_t svs_invoke(
     return utils::find_medioid(data, threadpool, SVS_FWD(predicate), data.decompressor());
 }
 
+template <IsLVQDataset Data>
+svs::index::vamana::GreedySearchPrefetchParameters svs_invoke(
+    svs::tag_t<svs::index::vamana::extensions::estimate_prefetch_parameters>,
+    const Data& SVS_UNUSED(data)
+) {
+    using Strategy = typename Data::strategy;
+    if constexpr (TurboLike<Strategy>) {
+        if constexpr (Data::primary_bits == 4) {
+            return svs::index::vamana::GreedySearchPrefetchParameters{3, 1};
+        }
+    } else if constexpr (std::is_same_v<Strategy, Sequential>) {
+        if constexpr (Data::primary_bits == 4) {
+            return svs::index::vamana::GreedySearchPrefetchParameters{2, 1};
+        }
+    }
+    // Conservative prefetching.
+    return svs::index::vamana::GreedySearchPrefetchParameters{1, 1};
+}
+
 /////
 ///// Vamana Build
 /////
@@ -157,4 +176,14 @@ void svs_invoke(
     }
     search_buffer.sort();
 }
+
+/////
+///// Calibration
+/////
+
+template <IsTwoLevelDataset Dataset>
+constexpr bool svs_invoke(svs::index::vamana::extensions::UsesReranking<Dataset>) {
+    return true;
+}
+
 } // namespace svs::quantization::lvq

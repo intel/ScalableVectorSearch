@@ -2,9 +2,10 @@
 requires = [
     "setuptools>=42",
     "scikit-build",
-    "cmake>=3.18",      # Keep in-sync with `CMakeLists.txt`
+    "cmake>=3.21",      # Keep in-sync with `CMakeLists.txt`
     "numpy>=1.10.0",    # Keep in-sync with `setup.py`
     "archspec>=0.2.0",  # Keep in-sync with `setup.py`
+    "toml>=0.10.2",     # Keep in-sync with `setup.py` required for the tests
     #"pybind11",        # Installed in CMakeLists.txt
 ]
 
@@ -22,13 +23,15 @@ config-settings = {}
 dependency-versions = "pinned"
 environment.CC = "/opt/rh/devtoolset-11/root/usr/bin/cc"
 environment.CXX = "/opt/rh/devtoolset-11/root/usr/bin/c++"
-# Compile multiple versions for differenct microarchitectures
+# Compile multiple versions for difference microarchitectures
 environment.PYSVS_MULTIARCH = "YES"
 environment-pass = []
 build-verbosity = "3"
 
-before-all = "yum --disablerepo=epel install -y devtoolset-11-gcc devtoolset-11-gcc-c++"
+# Run inside the container because the version of pip used depends on the python version
+# we're building for.
 before-build = "pip install ninja"
+before-all = "yum --disablerepo=epel install -y devtoolset-11-gcc devtoolset-11-gcc-c++"
 repair-wheel-command = ""
 
 test-command = ""
@@ -38,8 +41,10 @@ test-extras = []
 
 container-engine = "docker"
 
-manylinux-x86_64-image = "manylinux2014"
-manylinux-pypy_x86_64-image = "manylinux2014"
+# Requires creation of the `svs-manylinux2014` container image.
+# Execute the build script  SVS_ROOT/docker/x86_64/manylinux2014/build.sh
+manylinux-x86_64-image = "svs-manylinux2014"
+manylinux-pypy_x86_64-image = "svs-manylinux2014"
 
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"

@@ -52,6 +52,25 @@ constexpr prune_strategy_t<T> prune_strategy(const T& SVS_UNUSED(dist)) {
     return prune_strategy<T>();
 }
 
+namespace detail {
+
+template <typename I>
+concept IntegerOrNeighbor = std::integral<I> || svs::NeighborLike<I>;
+
+template <std::integral As, svs::NeighborLike N>
+As construct_as(lib::Type<As>, const N& n) {
+    return n.id();
+}
+
+template <svs::NeighborLike As, svs::NeighborLike N>
+As construct_as(lib::Type<As>, const N& n) {
+    // N.B.: Be sure to use the copy constructor for `As` to preserve any metadata
+    // attached to `n`.
+    return As(n);
+}
+
+} // namespace detail
+
 /////
 ///// Iterative Prune Strategy
 /////
@@ -70,7 +89,7 @@ inline bool excluded(PruneState state) { return state != PruneState::Available; 
 /// @tparam Data The full type of the given dataset.
 /// @tparam Dist The distance functor use when comparing vectors.
 /// @tparam Neighbors The full neighbor-type of the candidate pool.
-/// @tparam I The type of the reusting index for each neighbor.
+/// @tparam I The type of the resulting index for each neighbor.
 /// @tparam Alloc Allocator for the result vector.
 ///
 template <
@@ -78,7 +97,7 @@ template <
     data::AccessorFor<Data> Accessor,
     distance::Distance<data::const_value_type_t<Data>, data::const_value_type_t<Data>> Dist,
     NeighborLike Neighbors,
-    typename I,
+    detail::IntegerOrNeighbor I,
     typename Alloc>
 void heuristic_prune_neighbors(
     IterativePruneStrategy SVS_UNUSED(dispatch),
@@ -120,7 +139,7 @@ void heuristic_prune_neighbors(
             // the corresponding data and perform preprocessing.
             const auto& query = accessor(dataset, id);
             distance::maybe_fix_argument(distance_function, query);
-            result.push_back(id);
+            result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
             for (size_t t = start + 1; t < poolsize; ++t) {
                 if (excluded(pruned[t])) {
                     continue;
@@ -154,7 +173,7 @@ template <
     data::AccessorFor<Data> Accessor,
     distance::Distance<data::const_value_type_t<Data>, data::const_value_type_t<Data>> Dist,
     NeighborLike Neighbors,
-    typename I,
+    detail::IntegerOrNeighbor I,
     typename Alloc>
 void heuristic_prune_neighbors(
     ProgressivePruneStrategy SVS_UNUSED(dispatch),
@@ -193,7 +212,7 @@ void heuristic_prune_neighbors(
             // the corresponding data and perform preprocessing.
             const auto& query = accessor(dataset, id);
             distance::maybe_fix_argument(distance_function, query);
-            result.push_back(id);
+            result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
             for (size_t t = start + 1; t < poolsize; ++t) {
                 if (cmp(current_alpha, pruned[t])) {
                     continue;
@@ -228,7 +247,7 @@ template <
     data::AccessorFor<Data> Accessor,
     distance::Distance<data::const_value_type_t<Data>, data::const_value_type_t<Data>> Dist,
     NeighborLike Neighbors,
-    typename I,
+    detail::IntegerOrNeighbor I,
     typename Alloc>
 void heuristic_prune_neighbors(
     LegacyPruneStrategy SVS_UNUSED(dispatch),
@@ -265,7 +284,7 @@ void heuristic_prune_neighbors(
         // the corresponding data and perform preprocessing.
         const auto& query = accessor(dataset, id);
         distance::maybe_fix_argument(distance_function, query);
-        result.push_back(id);
+        result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
         for (size_t t = start + 1; t < poolsize; ++t) {
             if (pruned[t]) {
                 continue;

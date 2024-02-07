@@ -54,9 +54,8 @@ template <typename T, typename U> constexpr T narrow_cast(U&& u) noexcept {
     return static_cast<T>(std::forward<U>(u));
 }
 
-// narrow() : a checked version of narrow_cast() that throws if the cast changed the value
-//
-// Use the `CLANG_NDEBUG_NOINLINE` attribute to avoid inlining this function if building
+namespace detail {
+// Use the `SVS_CLANG_NOINLINE` attribute to avoid inlining this function if building
 // with clang in a non-debug context.
 //
 // This is because clang will detect undefined behavior at compile time for invalid
@@ -64,21 +63,30 @@ template <typename T, typename U> constexpr T narrow_cast(U&& u) noexcept {
 // and optimize out the throwing branch, leading to a silent failure.
 //
 // Using the `[[gnu::noinline]]` attribute prevents compile-time constant propagation.
+//
+// Put this on an internal function to avoid pessimizing the case where the type being
+// converted to is the same as the original type.
+template <class T, class U>
+SVS_CLANG_NOINLINE constexpr T narrow_impl(U u) noexcept(false) {
+    static_assert(!std::is_same_v<T, std::remove_cv_t<U>>);
+    constexpr bool is_different_signedness = (svs::is_signed_v<T> != svs::is_signed_v<U>);
+    const T t = narrow_cast<T>(u);
+
+    if (static_cast<U>(t) != u || (is_different_signedness && ((t < T{}) != (u < U{})))) {
+        throw narrowing_error{};
+    }
+    return t;
+}
+} // namespace detail
+
+// narrow() : a checked version of narrow_cast() that throws if the cast changed the value
 template <class T, class U>
     requires svs::is_arithmetic_v<T>
-CLANG_NDEBUG_NOINLINE constexpr T narrow(U u) noexcept(false) {
+constexpr T narrow(U u) noexcept(false) {
     if constexpr (std::is_same_v<T, U>) {
         return u;
     } else {
-        constexpr bool is_different_signedness =
-            (svs::is_signed_v<T> != svs::is_signed_v<U>);
-        const T t = narrow_cast<T>(u);
-
-        if (static_cast<U>(t) != u ||
-            (is_different_signedness && ((t < T{}) != (u < U{})))) {
-            throw narrowing_error{};
-        }
-        return t;
+        return detail::narrow_impl<T>(u);
     }
 }
 

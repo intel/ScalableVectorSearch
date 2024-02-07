@@ -33,16 +33,6 @@ def _override_backend():
     """
     return os.environ.get("PYSVS_OVERRIDE_BACKEND", None)
 
-def _debug_override_cpu():
-    """
-    Set the current CPU microarchitecture.
-    Unlike `_override_backend()`, the loader will still perform backend-selection based
-    on this architecture.
-
-    If no override is set, return `None`.
-    """
-    return os.environ.get("PYSVS_DEBUG_OVERRIDE_CPU", None)
-
 
 # The name of the manifest file.
 FLAGS_MANIFEST = "flags_manifest.json" # Keep in-sync with CMakeLists.txt
@@ -132,14 +122,7 @@ def _find_library():
 
     # Get the current CPU and the manifest of compiled libraries that ship with this
     # library.
-    #
-    # For debug purposes, allow the CPU to be set externally rather than using archspec's
-    # CPU detection.
     host = cpu.host()
-    debug_override = _debug_override_cpu()
-    if debug_override is not None:
-        host = debug_override
-
     manifest = _load_manifest()
 
     # Respect override requests.

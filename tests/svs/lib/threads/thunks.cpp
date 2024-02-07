@@ -139,8 +139,7 @@ CATCH_TEST_CASE("Thread Thunks", "[core][threads]") {
             }
         };
 
-        auto thunk =
-            threads::thunks::wrap(threads::ThreadCount{4}, f, partition);
+        auto thunk = threads::thunks::wrap(threads::ThreadCount{4}, f, partition);
         auto wrapped = threads::FunctionRef(thunk);
 
         CATCH_REQUIRE(v.empty());

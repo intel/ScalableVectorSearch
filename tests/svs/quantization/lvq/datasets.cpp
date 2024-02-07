@@ -67,52 +67,12 @@ template <typename T> std::vector<T> get_last(const std::vector<T>& original, si
 ///// Layout Helpers
 /////
 
-// ///
-// /// Test CompressedVector (CV) layout.
-// ///
-// template <typename Sign, size_t Bits, size_t Extent>
-// void test_cv_layout(MaybeStatic<Extent> dims = {}) {
-//     using Layout = lvq::CompressedVectorLayout<Sign, Bits, Extent>;
-//     using T = typename Layout::encoding_type;
-//     auto layout = Layout{dims};
-//     size_t N = layout.total_bytes();
-//
-//     // Use a reference that is larger than the
-//     auto reference = std::vector<T>(dims);
-//
-//     // Backing buffers for vector views.
-//     // Make "b" slightly larget to make sure we automatically truncate spans correctly.
-//     auto a = std::vector<std::byte>(N);
-//     auto b = std::vector<std::byte>(N + 3);
-//     auto generator = test_q::create_generator<Sign, Bits>();
-//
-//     for (size_t i = 0; i < NTESTS; ++i) {
-//         svs_test::populate(reference, generator);
-//         layout.set(svs::lib::as_span(a), reference);
-//         compare(reference, layout.get(svs::lib::as_const_span(a)));
-//
-//         // Test assignment of the direct data type.
-//         // Test both the "const" and "non-const" paths.
-//         layout.set(svs::lib::as_span(b), layout.get(svs::lib::as_const_span(a)));
-//         auto const_value = layout.get(svs::lib::as_const_span(b));
-//         static_assert(decltype(const_value)::is_const);
-//         CATCH_REQUIRE(const_value.size() == dims);
-//         CATCH_REQUIRE(const_value.size_bytes() == lvq::compute_storage(Bits, dims));
-//         compare(reference, const_value);
-//
-//         auto mut_value = layout.get(svs::lib::as_span(b));
-//         static_assert(!decltype(mut_value)::is_const);
-//         CATCH_REQUIRE(mut_value.size() == dims);
-//         CATCH_REQUIRE(mut_value.size_bytes() == lvq::compute_storage(Bits, dims));
-//         compare(reference, mut_value);
-//     }
-// }
-
 ///
 /// Test ScaledBiasedVector (SBV) layout.
 ///
-template <size_t Bits, size_t Extent> void test_sbv_layout(MaybeStatic<Extent> dims = {}) {
-    auto layout = lvq::ScaledBiasedVectorLayout<Bits, Extent>{dims};
+template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy = lvq::Sequential>
+void test_sbv_layout(MaybeStatic<Extent> dims = {}) {
+    auto layout = lvq::ScaledBiasedVectorLayout<Bits, Extent, Strategy>{dims};
     size_t N = layout.total_bytes();
 
     auto reference = std::vector<uint8_t>(dims);
@@ -147,6 +107,74 @@ template <size_t Bits, size_t Extent> void test_sbv_layout(MaybeStatic<Extent> d
 }
 
 /////
+///// Canonicalizer
+/////
+
+// Test canonicalization with both static and dynamic extents with the given source
+template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy>
+void test_canonicalizer() {
+    // Storage for the source buffer.
+    auto source_buffer = std::vector<std::byte>();
+    auto source_codes = std::vector<uint8_t>(Extent);
+    auto to_canonical = lvq::detail::Canonicalizer();
+    auto from_canonical = lvq::detail::Canonicalizer();
+
+    auto rng = test_q::create_generator<lvq::Unsigned, Bits>();
+    auto float_rng = svs_test::make_generator<float>(0, 100);
+
+    // Inner lambda to test combinations of static and dynamic dimensions.
+    auto do_test = [&]<size_t N1>(svs::lib::MaybeStatic<N1> dims) {
+        // Create the source object.
+        auto layout = lvq::ScaledBiasedVectorLayout<Bits, N1, Strategy>(dims);
+        source_buffer.resize(layout.total_bytes());
+
+        svs_test::populate(source_codes, rng);
+        layout.set(
+            svs::lib::as_span(source_buffer),
+            svs_test::generate(float_rng),
+            svs_test::generate(float_rng),
+            0,
+            source_codes
+        );
+
+        ///// Convert to the canonical form.
+        auto source = layout.get(svs::lib::as_const_span(source_buffer));
+        std::span<const std::byte> canonical = to_canonical.to_canonical(source);
+
+        // Ensure that when we interpret the canonical layout as a ScaledBiasedVector, we
+        // get something that is logically equivalent to the original vector.
+        auto canonical_layout =
+            lvq::ScaledBiasedVectorLayout<Bits, svs::Dynamic, lvq::Sequential>(
+                svs::lib::MaybeStatic(dims.size())
+            );
+        CATCH_REQUIRE(canonical.size() == canonical_layout.total_bytes());
+        auto canonical_vector = canonical_layout.get(canonical);
+        CATCH_REQUIRE(canonical_vector.scale == source.scale);
+        CATCH_REQUIRE(canonical_vector.bias == source.bias);
+        CATCH_REQUIRE(canonical_vector.selector == source.selector);
+        CATCH_REQUIRE(lvq::logically_equal(canonical_vector.data, source.data));
+
+        ///// Convert from canonical form.
+        auto reconstructed = from_canonical.from_canonical(
+            svs::lib::Type<lvq::ScaledBiasedVector<Bits, N1, Strategy>>(), canonical, dims
+        );
+
+        // Reconstructed type should match exactly.
+        CATCH_STATIC_REQUIRE(std::is_same_v<decltype(reconstructed), decltype(source)>);
+
+        // Here - we require both
+        CATCH_REQUIRE(reconstructed.scale == source.scale);
+        CATCH_REQUIRE(reconstructed.bias == source.bias);
+        CATCH_REQUIRE(reconstructed.selector == source.selector);
+        CATCH_REQUIRE(lvq::logically_equal(reconstructed.data, source.data));
+    };
+
+    // Test static and dynamic combinations.
+    do_test(svs::lib::MaybeStatic<Extent>());
+    do_test(svs::lib::MaybeStatic<svs::Dynamic>(Extent));
+}
+
+/////
 ///// Dataset Helpers
 /////
 
@@ -170,10 +198,10 @@ make_copy(lvq::CompressedDataset<Sign, Bits, Extent, Alloc>& data) {
     return other;
 }
 
-template <size_t Bits, size_t Extent, typename Alloc>
-lvq::ScaledBiasedDataset<Bits, Extent, Alloc>
-make_copy(lvq::ScaledBiasedDataset<Bits, Extent, Alloc>& data) {
-    auto other = lvq::ScaledBiasedDataset<Bits, Extent, Alloc>(
+template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy, typename Alloc>
+lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>
+make_copy(lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>& data) {
+    auto other = lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>(
         data.size(), data.static_dims(), data.get_alignment(), data.get_allocator()
     );
     for (size_t i = 0, imax = data.size(); i < imax; ++i) {
@@ -311,6 +339,13 @@ class ScaledBiasedReference {
     std::vector<svs::Float16> scales_;
     std::vector<svs::Float16> biases_;
 
+    // Book Keeping values.
+    // We keep track of these variables to ensure we hit all branches of a rather large
+    // if-constexpr chain for saving and loading.
+    size_t reload_static_as_dynamic_ = 0;
+    size_t reload_sequential_as_turbo_ = 0;
+    size_t reload_turbo_as_sequential_ = 0;
+
   public:
     ScaledBiasedReference() = default;
     ScaledBiasedReference(
@@ -338,8 +373,9 @@ class ScaledBiasedReference {
         scales_.resize(new_size);
     }
 
-    template <size_t Bits, size_t Extent, typename Alloc>
-    void assign(lvq::ScaledBiasedDataset<Bits, Extent, Alloc>& data, size_t start) {
+    template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy, typename Alloc>
+    void
+    assign(lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>& data, size_t start) {
         // Make sure we're filling to the end.
         CATCH_REQUIRE(data.size() == start + size());
         for (size_t i = 0, imax = size(); i < imax; ++i) {
@@ -347,7 +383,7 @@ class ScaledBiasedReference {
         }
     }
 
-    template <size_t Bits, size_t Extent, typename Alloc>
+    template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy, typename Alloc>
     void populate(
         size_t size,
         MaybeStatic<Extent> dims = {},
@@ -355,7 +391,7 @@ class ScaledBiasedReference {
         const Alloc& allocator = {}
     ) {
         configure(dims, size);
-        using Dataset = lvq::ScaledBiasedDataset<Bits, Extent, Alloc>;
+        using Dataset = lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>;
         auto generator = test_q::create_generator<lvq::Unsigned, Bits>();
         auto float_generator = svs_test::make_generator<float>(0, 100);
 
@@ -382,17 +418,74 @@ class ScaledBiasedReference {
         // Make sure saving and loading works correctly.
         svs_test::prepare_temp_directory();
         auto dir = svs_test::temp_directory();
-        svs::lib::save_to_disk(dataset, dir);
-        auto other = svs::lib::load_from_disk<Dataset>(dir, dataset.get_allocator());
-        test_comparison(*this, other);
-        static_assert(std::is_same_v<decltype(dataset), decltype(other)>);
+
+        test_save_load(dataset, dir);
+
         if constexpr (Dataset::is_resizeable) {
             test_dynamic(*this, make_copy(dataset));
         }
     }
 
-    template <size_t Bits, size_t Extent>
-    bool compare(size_t i, lvq::ScaledBiasedVector<Bits, Extent> v) const {
+    template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy, typename Alloc>
+    void test_save_load(
+        const lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>& dataset,
+        const std::filesystem::path& dir
+    ) {
+        svs::lib::save_to_disk(dataset, dir);
+
+        // Copy the original container's allocator to inherit any stateful properties.
+        //
+        // This is mostly needed when running in debug mode with the blocked allocator as
+        // the default blocking parameter is quite high.
+        //
+        // Trivial constructors and destructors are not elided in debug mode which results
+        // in run-time bloat.
+        Alloc allocator = dataset.get_allocator();
+
+        ///// Same Stratetgy
+        // Load with different paddings.
+        {
+            using T = lvq::ScaledBiasedDataset<Bits, Extent, Strategy, Alloc>;
+            auto other = svs::lib::load_from_disk<T>(dir, 0, allocator);
+            test_comparison(*this, other);
+            other = svs::lib::load_from_disk<T>(dir, 32, allocator);
+            test_comparison(*this, other);
+        }
+
+        // Load with dynamic extent.
+        if constexpr (Extent != svs::Dynamic) {
+            using T = lvq::ScaledBiasedDataset<Bits, svs::Dynamic, Strategy, Alloc>;
+            auto other = svs::lib::load_from_disk<T>(dir, 0, allocator);
+            test_comparison(*this, other);
+            other = svs::lib::load_from_disk<T>(dir, 32, allocator);
+            test_comparison(*this, other);
+            ++reload_static_as_dynamic_;
+        }
+
+        ///// Reload as turbo.
+        if constexpr (Bits == 4 && std::is_same_v<Strategy, lvq::Sequential>) {
+            using T =
+                lvq::ScaledBiasedDataset<Bits, svs::Dynamic, lvq::Turbo<16, 8>, Alloc>;
+            auto other = svs::lib::load_from_disk<T>(dir, 0, allocator);
+            test_comparison(*this, other);
+            other = svs::lib::load_from_disk<T>(dir, 32, allocator);
+            test_comparison(*this, other);
+            ++reload_sequential_as_turbo_;
+        }
+
+        ///// Reload as sequential.
+        if constexpr (lvq::TurboLike<Strategy>) {
+            using T = lvq::ScaledBiasedDataset<Bits, svs::Dynamic, lvq::Sequential, Alloc>;
+            auto other = svs::lib::load_from_disk<T>(dir, 0, allocator);
+            test_comparison(*this, other);
+            other = svs::lib::load_from_disk<T>(dir, 32, allocator);
+            test_comparison(*this, other);
+            ++reload_turbo_as_sequential_;
+        }
+    }
+
+    template <size_t Bits, size_t Extent, lvq::LVQPackingStrategy Strategy>
+    bool compare(size_t i, lvq::ScaledBiasedVector<Bits, Extent, Strategy> v) const {
         // Compare scale and bias.
         CATCH_REQUIRE((v.scale == scales_.at(i)));
         CATCH_REQUIRE((v.bias == biases_.at(i)));
@@ -427,10 +520,17 @@ class ScaledBiasedReference {
             compact_vector(biases_, indices)
         );
     }
+
+    // Make sure code-paths we care about were hit.
+    void check_code_paths() const {
+        CATCH_REQUIRE(reload_static_as_dynamic_ > 0);
+        CATCH_REQUIRE(reload_sequential_as_turbo_ > 0);
+        CATCH_REQUIRE(reload_turbo_as_sequential_ > 0);
+    }
 };
 
 // Alias to reduce visual clutter.
-template <size_t N> using Val = svs::meta::Val<N>;
+template <size_t N> using Val = svs::lib::Val<N>;
 
 } // namespace
 
@@ -441,20 +541,29 @@ CATCH_TEST_CASE("Compressed Dataset", "[quantization][lvq][lvq_datasets]") {
     const size_t dataset_size = 100;
     auto bits = std::make_tuple(Val<8>(), Val<7>(), Val<6>(), Val<5>(), Val<4>(), Val<3>());
     CATCH_SECTION("Layout Helpers") {
-        svs::lib::foreach (bits, []<size_t N>(Val<N> /*unused*/) {
-            // test_cv_layout<lvq::Signed, N, TEST_DIM>();
-            // test_cv_layout<lvq::Unsigned, N, TEST_DIM>();
-            // test_cv_layout<lvq::Signed, N,
-            // svs::Dynamic>(MaybeStatic<svs::Dynamic>(TEST_DIM)
-            // );
-            // test_cv_layout<lvq::Unsigned, N, svs::Dynamic>(
-            //     MaybeStatic<svs::Dynamic>(TEST_DIM)
-            // );
-
-            // test_sv_layout<N, TEST_DIM>();
+        auto d = MaybeStatic<svs::Dynamic>(TEST_DIM);
+        svs::lib::foreach (bits, [d]<size_t N>(Val<N> /*unused*/) {
             test_sbv_layout<N, TEST_DIM>();
-            test_sbv_layout<N, svs::Dynamic>(MaybeStatic<svs::Dynamic>(TEST_DIM));
+            test_sbv_layout<N, svs::Dynamic>(d);
         });
+
+        // Special case Turbo Strategies.
+        test_sbv_layout<4, TEST_DIM, lvq::Turbo<16, 8>>();
+        test_sbv_layout<4, svs::Dynamic, lvq::Turbo<16, 8>>(d);
+    }
+
+    CATCH_SECTION("Canonicalizer") {
+        constexpr size_t CANONICAL_TEST_DIM = 133;
+        // Sequential
+        test_canonicalizer<8, CANONICAL_TEST_DIM, lvq::Sequential>();
+        test_canonicalizer<7, CANONICAL_TEST_DIM, lvq::Sequential>();
+        test_canonicalizer<6, CANONICAL_TEST_DIM, lvq::Sequential>();
+        test_canonicalizer<5, CANONICAL_TEST_DIM, lvq::Sequential>();
+        test_canonicalizer<4, CANONICAL_TEST_DIM, lvq::Sequential>();
+        test_canonicalizer<3, CANONICAL_TEST_DIM, lvq::Sequential>();
+
+        // Turbo
+        test_canonicalizer<4, CANONICAL_TEST_DIM, lvq::Turbo<16, 8>>();
     }
 
     CATCH_SECTION("Compressed Dataset") {
@@ -499,21 +608,35 @@ CATCH_TEST_CASE("Compressed Dataset", "[quantization][lvq][lvq_datasets]") {
             svs::data::BlockingParameters{.blocksize_bytes = svs::lib::PowerOfTwo(12)};
         auto blocked = svs::data::Blocked{blocking_parameters, allocator};
 
-        svs::lib::foreach (bits, [&]<size_t N>(Val<N> /*unused*/) {
+        auto test_strategies = [&]<size_t N, lvq::LVQPackingStrategy Strategy>() {
             for (size_t alignment : {0, 32}) {
-                tester.template populate<N, TEST_DIM>(
-                    dataset_size, MaybeStatic<TEST_DIM>(), alignment, allocator
+                auto s = MaybeStatic<TEST_DIM>();
+                auto d = MaybeStatic<svs::Dynamic>(TEST_DIM);
+                tester.template populate<N, TEST_DIM, Strategy>(
+                    dataset_size, s, alignment, allocator
                 );
-                tester.template populate<N, TEST_DIM>(
-                    dataset_size, MaybeStatic<TEST_DIM>(), alignment, blocked
+                tester.template populate<N, TEST_DIM, Strategy>(
+                    dataset_size, s, alignment, blocked
                 );
-                tester.template populate<N, svs::Dynamic>(
-                    dataset_size, MaybeStatic<svs::Dynamic>(TEST_DIM), alignment, allocator
+                tester.template populate<N, svs::Dynamic, Strategy>(
+                    dataset_size, d, alignment, allocator
                 );
-                tester.template populate<N, svs::Dynamic>(
-                    dataset_size, MaybeStatic<svs::Dynamic>(TEST_DIM), alignment, blocked
+                tester.template populate<N, svs::Dynamic, Strategy>(
+                    dataset_size, d, alignment, blocked
                 );
             }
-        });
+        };
+
+        // clang-13 doesn't like it if we try to use another lambda to apply the number
+        // of bits using `svs::lib::foreach` - so manually unroll.
+        test_strategies.template operator()<3, lvq::Sequential>();
+        test_strategies.template operator()<4, lvq::Sequential>();
+        test_strategies.template operator()<5, lvq::Sequential>();
+        test_strategies.template operator()<6, lvq::Sequential>();
+        test_strategies.template operator()<7, lvq::Sequential>();
+        test_strategies.template operator()<8, lvq::Sequential>();
+
+        // Turbo Strategies
+        test_strategies.template operator()<4, lvq::Turbo<16, 8>>();
     }
 }

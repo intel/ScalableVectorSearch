@@ -36,7 +36,10 @@ namespace vecs {
 using length_t = uint32_t;
 
 namespace detail {
-inline std::pair<size_t, size_t> get_dims(std::ifstream& stream, size_t elsize) {
+inline std::pair<size_t, size_t>
+get_dims(std::ifstream& stream, size_t elsize, std::string_view source = {}) {
+    using namespace std::literals; // for string_view literal
+
     stream.seekg(0, std::ifstream::beg);
     size_t dimensions_per_vector = lib::read_binary<length_t>(stream);
 
@@ -50,9 +53,9 @@ inline std::pair<size_t, size_t> get_dims(std::ifstream& stream, size_t elsize) 
     size_t remainder = filesize % total_line_size;
     if (remainder != 0) {
         throw ANNEXCEPTION(
-            "Vecs file is the incorrect length! Expected {}, got {}.",
-            total_line_size,
-            filesize
+            "Cannot read elements of size {} from Vecs file {}.",
+            elsize,
+            source.empty() ? "(unknown)"sv : source
         );
     }
     return std::make_pair(vectors_in_file, dimensions_per_vector);
@@ -61,7 +64,7 @@ inline std::pair<size_t, size_t> get_dims(std::ifstream& stream, size_t elsize) 
 inline std::pair<size_t, size_t>
 get_dims(const std::filesystem::path& path, size_t elsize) {
     auto stream = lib::open_read(path, std::ifstream::in | std::ifstream::binary);
-    return get_dims(stream, elsize);
+    return get_dims(stream, elsize, std::string_view(path.native()));
 }
 } // namespace detail
 
@@ -70,8 +73,9 @@ std::pair<size_t, size_t> get_dims(const std::filesystem::path& path) {
     return detail::get_dims(path, sizeof(T));
 }
 
-template <typename T> std::pair<size_t, size_t> get_dims(std::ifstream& stream) {
-    return detail::get_dims(stream, sizeof(T));
+template <typename T>
+std::pair<size_t, size_t> get_dims(std::ifstream& stream, std::string_view source = {}) {
+    return detail::get_dims(stream, sizeof(T), source);
 }
 
 /////
@@ -85,7 +89,7 @@ template <typename T> class VecsReader {
         : stream_{lib::open_read(filename, std::ifstream::in | std::ifstream::binary)}
         , max_lines_{0}
         , vectors_in_file_{0} {
-        auto dims = get_dims<T>(stream_);
+        auto dims = get_dims<T>(stream_, std::string_view(filename));
         vectors_in_file_ = dims.first;
         dimensions_per_vector_ = dims.second;
         max_lines_ = std::min(max_lines, vectors_in_file_);
@@ -173,6 +177,10 @@ template <typename T = void> class VecsFile {
   public:
     static constexpr bool is_memory_map_compatible = false;
 
+    template <typename U>
+        requires(std::is_same_v<U, T>)
+    using reader_type = VecsReader<T>;
+
     VecsFile() = default;
 
     /// Construct a file reference for the given path.
@@ -182,8 +190,7 @@ template <typename T = void> class VecsFile {
     ///
     /// @brief Open the file for reading and return an interactive reader for the file.
     ///
-    VecsReader<T>
-    reader(lib::meta::Type<T> SVS_UNUSED(type), size_t max_lines = Dynamic) const
+    VecsReader<T> reader(lib::Type<T> SVS_UNUSED(type), size_t max_lines = Dynamic) const
         requires(!std::is_same_v<T, void>)
     {
         return VecsReader<T>(path_, max_lines);

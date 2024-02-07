@@ -21,6 +21,8 @@ namespace svs::index::vamana {
 
 /// @brief Parameters controlling graph construction for the Vamana graph index.
 struct VamanaBuildParameters {
+    VamanaBuildParameters() = default;
+
     VamanaBuildParameters(
         float alpha_,
         size_t graph_max_degree_,

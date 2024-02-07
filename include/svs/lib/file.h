@@ -20,10 +20,34 @@
 
 namespace svs::lib {
 
+inline bool directory_safe_to_create_or_write(const std::filesystem::path& dir) {
+    namespace fs = std::filesystem;
+
+    // If this directory is a top level directory - we can't use it.
+    if (!dir.has_parent_path()) {
+        return false;
+    }
+
+    // Check that the parent exists.
+    auto parent = dir.parent_path();
+    if (!fs::is_directory(parent)) {
+        return false;
+    }
+
+    // Make sure that the given directory is either already a directory, or doesn't exist.
+    if (!fs::is_directory(dir) && fs::exists(dir)) {
+        return false;
+    }
+
+    // TODO: File permissions ...
+    return true;
+}
+
 inline bool check_file(const std::filesystem::path& path, std::ios_base::openmode mode) {
     namespace fs = std::filesystem;
-    // If we're reading and the file doesn't exist, thrown an exception
-    if (mode & std::ios_base::in) {
+
+    // If we are opening a file for only reading and it does not exist - throw an error.
+    if ((mode & std::ios_base::in) && !(mode & std::ios_base::out)) {
         auto status = fs::status(path);
         bool exists = fs::exists(path);
         if (!exists || !fs::status_known(status) || fs::is_directory(status)) {

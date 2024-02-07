@@ -37,9 +37,10 @@ concept GreedySearchTracker =
     };
 
 struct GreedySearchPrefetchParameters {
-    // How far from the start of the neighbor list to begin prefetching.
-    size_t offset{0};
-    // The number of neighbors to prefetch at a time.
+  public:
+    /// The number of iterations to prefetch ahead.
+    size_t lookahead{4};
+    /// The number of neighbors to prefetch at a time until `lookahead` is reached.
     size_t step{2};
 };
 
@@ -100,7 +101,6 @@ void greedy_search(
 
     // Main search routine.
     search_buffer.sort();
-    const size_t prefetch_step = prefetch_parameters.step;
     while (!search_buffer.done()) {
         // Get the next unvisited vertex.
         const auto& node = search_buffer.next();
@@ -108,22 +108,41 @@ void greedy_search(
 
         // Get the adjacency list for this vertex and prepare prefetching logic.
         auto neighbors = graph.get_node(node_id);
-        auto prefetch_start = prefetch_parameters.offset;
+        const size_t num_neighbors = neighbors.size();
         search_tracker.visited(Neighbor<I>{node}, neighbors.size());
+
+        auto prefetcher = lib::make_prefetcher(
+            lib::PrefetchParameters{
+                prefetch_parameters.lookahead, prefetch_parameters.step},
+            num_neighbors,
+            [&](size_t i) { accessor.prefetch(dataset, neighbors[i]); },
+            [&](size_t i) {
+                // Perform the visited set enabled check just once.
+                if (search_buffer.visited_set_enabled()) {
+                    // Prefetch next bucket so it's (hopefully) in the cache when we next
+                    // consult the visited filter.
+                    if (i + 1 < num_neighbors) {
+                        search_buffer.unsafe_prefetch_visited(neighbors[i + 1]);
+                    }
+                    return !search_buffer.unsafe_is_visited(neighbors[i]);
+                }
+
+                // Otherwise, always prefetch the next data item.
+                return true;
+            }
+        );
+
+        ///// Neighbor expansion.
+        prefetcher();
         for (auto id : neighbors) {
-            if (search_buffer.visited(id)) {
+            if (search_buffer.emplace_visited(id)) {
                 continue;
             }
 
-            // Prefetch loop.
-            if (prefetch_start < neighbors.size()) {
-                size_t upper = std::min(neighbors.size(), prefetch_start + prefetch_step);
-                for (size_t i = prefetch_start; i < upper; ++i) {
-                    accessor.prefetch(dataset, neighbors[i]);
-                }
-                prefetch_start += prefetch_step;
-            }
+            // Run the prefetcher.
+            prefetcher();
 
+            // Compute distance and update search buffer.
             auto dist = distance::compute(distance_function, query, accessor(dataset, id));
             search_buffer.insert(builder(id, dist));
         }

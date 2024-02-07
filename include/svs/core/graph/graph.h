@@ -36,10 +36,6 @@ namespace svs::graphs {
 //
 // Note that the the length variable `Len` is the same type as the adjacency list entries.
 //
-// Valid adjacency list members should follow the invariant:
-//
-// N0 < N1 < ... < NLen
-//
 // In general, C++'s support for type-punning, even for trivially constructible and
 // copyable types leaves quite a bit of head-scratching.
 //
@@ -115,13 +111,12 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///
     /// @brief Return whether or not the adjacency list has an edge from ``src`` to ``dst``.
     ///
-    /// Complexity: Logarithmic in the max degree.
+    /// Complexity: Linear in the maximum degree.
     ///
     bool has_edge(Idx src, Idx dst) const {
         const auto& list = get_node(src);
         auto begin = list.begin();
         auto end = list.end();
-        // TODO: Ensure legacy loaded graphs have sorted adjacency lists.
         return (std::find(begin, end, dst) != end);
     }
 

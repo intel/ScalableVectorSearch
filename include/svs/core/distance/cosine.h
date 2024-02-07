@@ -67,6 +67,9 @@ struct DistanceCosineSimilarity {
     /// Vectors are more similar if their similarity is greater.
     using compare = std::greater<>;
 
+    /// Fix-argument is required.
+    static constexpr bool must_fix_argument = true;
+
     ///
     /// This functor uses ``fix_argument`` to compute the norm of the left-hand argument.
     /// As such, it is stateful and not implicitly broadcastable.

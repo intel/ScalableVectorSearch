@@ -136,7 +136,7 @@ class GenericHugepageAllocator {
         return ptr;
     }
 
-    void deallocate(void* ptr) {
+    static void deallocate(void* ptr) {
         std::lock_guard lock{mutex_};
         auto itr = ptr_to_size_.find(ptr);
         if (itr == ptr_to_size_.end()) {
@@ -203,7 +203,9 @@ template <typename T> class HugepageAllocator {
     HugepageAllocator(const HugepageAllocator<U>& other)
         : force_{other.force_} {}
 
-    template <typename U> bool operator==(const HugepageAllocator<U>&) { return true; }
+    template <typename U> bool operator==(const HugepageAllocator<U>& SVS_UNUSED(other)) {
+        return true;
+    }
 
     [[nodiscard]] T* allocate(size_t n) {
         return static_cast<T*>(
@@ -212,7 +214,7 @@ template <typename T> class HugepageAllocator {
     }
 
     void deallocate(void* ptr, size_t SVS_UNUSED(n)) {
-        detail::GenericHugepageAllocator().deallocate(ptr);
+        detail::GenericHugepageAllocator::deallocate(ptr);
     }
 
     // Perform default initialization.
@@ -434,7 +436,8 @@ class MemoryMapper {
                 "exists!",
                 filename
             );
-        } else if (policy_ == MustUseExisting && !exists) {
+        }
+        if (policy_ == MustUseExisting && !exists) {
             throw ANNEXCEPTION(
                 "Memory Map Allocator is configured to use an existing file ({}) that does "
                 "not exist!",

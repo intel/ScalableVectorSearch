@@ -14,6 +14,7 @@
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
+#include "svs/lib/dispatcher.h"
 #include "svs/lib/meta.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
@@ -88,6 +89,23 @@ template <typename Distance>
 inline constexpr DistanceType distance_type_v =
     detail::DistanceTypeEnumMap<Distance>::value;
 
+template <typename Dist> struct DistanceConverter {
+    static constexpr bool match(DistanceType x) { return x == distance_type_v<Dist>; }
+    static constexpr Dist convert([[maybe_unused]] DistanceType x) {
+        assert(match(x));
+        return Dist();
+    }
+    static std::string_view description() { return name(distance_type_v<Dist>); }
+};
+
+template <>
+struct lib::DispatchConverter<DistanceType, DistanceL2> : DistanceConverter<DistanceL2> {};
+template <>
+struct lib::DispatchConverter<DistanceType, DistanceIP> : DistanceConverter<DistanceIP> {};
+template <>
+struct lib::DispatchConverter<DistanceType, DistanceCosineSimilarity>
+    : DistanceConverter<DistanceCosineSimilarity> {};
+
 // Saving and Loading.
 namespace lib {
 template <> struct Saver<svs::DistanceType> {
@@ -102,31 +120,6 @@ template <> struct Loader<svs::DistanceType> {
     }
 };
 } // namespace lib
-
-// Specialize the unwrapper for the built-in distance types.
-namespace lib::meta {
-template <> struct Unwrapper<distance::DistanceL2> {
-    using type = DistanceType;
-    static constexpr DistanceType unwrap(distance::DistanceL2 SVS_UNUSED(f)) {
-        return DistanceType::L2;
-    }
-};
-
-template <> struct Unwrapper<distance::DistanceIP> {
-    using type = DistanceType;
-    static constexpr DistanceType unwrap(distance::DistanceIP SVS_UNUSED(f)) {
-        return DistanceType::MIP;
-    }
-};
-
-template <> struct Unwrapper<distance::DistanceCosineSimilarity> {
-    using type = DistanceType;
-    static constexpr DistanceType unwrap(distance::DistanceCosineSimilarity SVS_UNUSED(f)) {
-        return DistanceType::Cosine;
-    }
-};
-
-} // namespace lib::meta
 
 ///
 /// @brief Dynamically dispatch from an distance enum to a distance functor.

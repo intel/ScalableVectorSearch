@@ -32,8 +32,8 @@ int svs_main(std::vector<std::string> args) {
     size_t num_threads = 10;
 
     // Load the data we're going to compress.
-    auto queries = svs::VectorDataLoader<float>(query_path).load();
-    auto base_data = svs::VectorDataLoader<float>(path).load();
+    auto queries = svs::data::SimpleData<float>::load(query_path);
+    auto base_data = svs::data::SimpleData<float>::load(path);
     auto num_points = base_data.size();
 
     auto reference = svs::misc::
@@ -43,13 +43,17 @@ int svs_main(std::vector<std::string> args) {
             num_threads,
             div(num_points, 0.015625 * modify_fraction),
             10,
-            queries};
+            queries,
+            0x98af};
 
     // Allocate the dataset.
-    // auto compressor = lvq::OneLevelWithBias<8>(lvq::Reload(""));
-    auto compressor = lvq::TwoLevelWithBias<8, 8>(lvq::Reload(""));
     auto [data, ids] = reference.generate(10'000);
-    auto lvq_dataset = compressor.compress(data, svs::data::BlockedBuilder());
+    auto lvq_dataset = lvq::LVQDataset<
+        8,
+        8,
+        svs::Dynamic,
+        lvq::Sequential,
+        svs::data::Blocked<svs::lib::Allocator<std::byte>>>::compress(data);
 
     size_t max_degree = 32;
     auto parameters = svs::index::vamana::VamanaBuildParameters{

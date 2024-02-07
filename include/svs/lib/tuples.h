@@ -40,20 +40,20 @@ namespace lib {
 // * If something is returned by reference, keep it as a reference.
 // * If something is returned by const reference, keep it as const reference.
 // The solution is variadic universal references!
-template <typename... Ts> constexpr inline auto SVS_FORCE_INLINE astuple(Ts&&... xs) {
+template <typename... Ts> constexpr auto SVS_FORCE_INLINE astuple(Ts&&... xs) {
     return std::tuple<Ts...>(SVS_FORWARD(Ts, xs)...);
 }
 
 namespace detail {
 template <typename F, typename... Ts, size_t... Is>
-constexpr inline auto SVS_FORCE_INLINE
+constexpr auto SVS_FORCE_INLINE
 map_impl(F&& f, std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused*/) {
     SVS_SIZE_CHECK(Ts, Is);
     return astuple(f(std::get<Is>(xs))...);
 }
 
 template <typename F, typename... Ts, size_t... Is>
-constexpr inline auto SVS_FORCE_INLINE map_impl(
+constexpr auto SVS_FORCE_INLINE map_impl(
     F&& f, const std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused*/
 ) {
     SVS_SIZE_CHECK(Ts, Is);
@@ -65,21 +65,21 @@ constexpr inline auto SVS_FORCE_INLINE map_impl(
 //
 // Does not aggregate and return the results of each call.
 template <typename F, typename... Ts, size_t... Is>
-constexpr inline void SVS_FORCE_INLINE
+constexpr void SVS_FORCE_INLINE
 foreach_impl(F&& f, std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused*/) {
     SVS_SIZE_CHECK(Ts, Is);
     (f(std::get<Is>(xs)), ...);
 }
 
 template <typename F, typename... Ts, size_t... Is>
-constexpr inline void SVS_FORCE_INLINE
+constexpr void SVS_FORCE_INLINE
 foreach_impl(F&& f, const std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused*/) {
     SVS_SIZE_CHECK(Ts, Is);
     (f(std::get<Is>(xs)), ...);
 }
 
 template <typename F, typename... Ts, size_t... Is>
-constexpr inline void SVS_FORCE_INLINE
+constexpr void SVS_FORCE_INLINE
 foreach_r_impl(F&& f, std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused*/) {
     SVS_SIZE_CHECK(Ts, Is);
     constexpr size_t N = sizeof...(Ts) - 1;
@@ -87,7 +87,7 @@ foreach_r_impl(F&& f, std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused
 }
 
 template <typename F, typename... Ts, size_t... Is>
-constexpr inline void SVS_FORCE_INLINE
+constexpr void SVS_FORCE_INLINE
 foreach_r_impl(F&& f, const std::tuple<Ts...>& xs, std::index_sequence<Is...> /*unused*/) {
     SVS_SIZE_CHECK(Ts, Is);
     constexpr size_t N = sizeof...(Ts) - 1;

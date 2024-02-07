@@ -12,6 +12,9 @@
 // svs
 #include "svs/concepts/distance.h"
 
+// svs-test
+#include "tests/utils/require_error.h"
+
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
@@ -44,9 +47,26 @@ struct NotImplicitBroadcast_Field {
 
 struct NotImplicitBroadcast_NoField {};
 
+// Mandating fix argument.
+struct FixNotRequired {};
+struct FixRequiredButNotImplemented {
+    static constexpr bool must_fix_argument = true;
+};
+
 } // namespace
 
 CATCH_TEST_CASE("Distance Concepts", "[core][distance]") {
+    // Static checks
+    CATCH_SECTION("Static Checks") {
+        CATCH_STATIC_REQUIRE(
+            svs::distance::fix_argument_mandated<FixRequiredButNotImplemented>()
+        );
+
+        CATCH_STATIC_REQUIRE_FALSE(svs::distance::fix_argument_mandated<FixNotRequired>());
+        CATCH_STATIC_REQUIRE(svs::distance::ShouldFix<FixRequiredButNotImplemented, int>);
+        CATCH_STATIC_REQUIRE_FALSE(svs::distance::ShouldFix<FixNotRequired, int>);
+    }
+
     CATCH_SECTION("Comparator") {
         static_assert(svs::distance::detail::HasComparator<HasComparator>);
         HasComparator a{};

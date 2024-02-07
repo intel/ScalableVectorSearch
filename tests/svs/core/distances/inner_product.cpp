@@ -140,7 +140,7 @@ CATCH_TEST_CASE("Testing InnerProduct Distance", "[distance][innerproduct_distan
 namespace {
 
 template <size_t N> auto constexpr forward_extent(size_t /*unused*/) {
-    return svs::meta::Val<N>{};
+    return svs::lib::Val<N>{};
 }
 template <> auto constexpr forward_extent<0>(size_t x) { return x; }
 

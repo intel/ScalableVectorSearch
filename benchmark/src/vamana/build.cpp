@@ -1,15 +1,13 @@
-// svs-benchmar
+// svs-benchmark
 #include "svs-benchmark/vamana/build.h"
 #include "svs-benchmark/benchmark.h"
+#include "svs-benchmark/vamana/leanvec.h"
+#include "svs-benchmark/vamana/lvq.h"
+#include "svs-benchmark/vamana/uncompressed.h"
 
 // svs
-#include "svs/core/recall.h"
-#include "svs/extensions/vamana/lvq.h"
-#include "svs/lib/dispatcher.h"
 #include "svs/lib/saveload.h"
-#include "svs/misc/dynamic_helper.h"
-#include "svs/orchestrators/dynamic_vamana.h"
-#include "svs/orchestrators/vamana.h"
+#include "svs/third-party/toml.h"
 
 // third-party
 #include "fmt/core.h"
@@ -19,342 +17,100 @@
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <optional>
 
 namespace svsbenchmark::vamana {
 namespace {
 
-template <typename F> void standard_specializations(F&& f) {
-#define X(Q, T, D, N) \
-    f(svs::meta::Type<Q>(), svs::meta::Type<T>(), D(), svs::meta::Val<N>())
-    if constexpr (!is_minimal) {
-        X(uint8_t, uint8_t, svs::distance::DistanceL2, 128);    // bigann
-        X(float, svs::Float16, svs::distance::DistanceL2, 96);  // deep
-        X(float, svs::Float16, svs::distance::DistanceL2, 100); // msturing
-        X(int8_t, int8_t, svs::distance::DistanceL2, 100);      // spacev
-        X(float, svs::Float16, svs::distance::DistanceIP, 200); // text2image
-        X(float, svs::Float16, svs::distance::DistanceIP, 768); // dpr
-        // X(float, svs::Float16, svs::distance::DistanceIP, 768); // dpr
-        // Generic fallbacks
-        X(float, float, svs::distance::DistanceL2, svs::Dynamic);
-        X(float, svs::Float16, svs::distance::DistanceL2, svs::Dynamic);
-    }
-#undef X
+template <typename BenchmarkType> struct BuildDispatcher;
+
+template <typename BenchmarkType> auto get_dispatcher() {
+    return BuildDispatcher<BenchmarkType>::dispatcher();
 }
 
-template <typename F> void lvq_specializations(F&& f) {
-#define X(Q, T, D, N) \
-    f(svs::meta::Type<Q>(), svs::meta::Type<T>(), D(), svs::meta::Val<N>())
-    if constexpr (!is_minimal) {
-        // X(float, svs::Float16, svs::distance::DistanceL2, 96);
-        X(float, svs::Float16, svs::distance::DistanceIP, 768);
-    }
-#undef X
+/////
+///// Static Builds
+/////
+
+auto static_dispatcher() {
+    auto dispatcher = vamana::StaticBuildDispatcher{};
+    vamana::register_uncompressed_static_build(dispatcher);
+    vamana::register_lvq_static_build(dispatcher);
+    vamana::register_leanvec_static_build(dispatcher);
+    return dispatcher;
 }
 
-template <typename BenchmarkType, typename T> struct BuildDispatcher;
+/////
+///// Dynamic Builds
+/////
 
-template <typename BenchmarkType, typename T>
-using build_dispatch_t = typename BuildDispatcher<BenchmarkType, T>::type;
-
-struct StaticUncompressed {
-    // Dispatch Parameters:
-    // (1) Query Type.
-    // (2) Uncompressed Dataset Element Type.
-    // (3) Distance Type.
-    // (4) Dimensionality (svs::Dynamic if dynamic)
-    using key_type = std::tuple<svs::DataType, svs::DataType, svs::DistanceType, size_t>;
-    using mapped_type = std::function<toml::table(const BuildJob&, const Checkpoint&)>;
-
-    // Specialize index building for run-time values.
-    // * Query Type: The element types of each component of the query vectors.
-    // * Data Type: The element types of each component of the query vectors.
-    // * Distance Type: The distance functor to use.
-    // * Data Dimensionality: The number of elements in each vector.
-    template <typename Q, typename T, typename D, size_t N>
-    static std::pair<key_type, mapped_type> specialize(
-        svs::meta::Type<Q> query_type,
-        svs::meta::Type<T> data_type,
-        D distance,
-        svs::meta::Val<N> ndims
-    ) {
-        key_type key = svs::lib::meta::make_key(query_type, data_type, distance, ndims);
-        mapped_type value = [=](const BuildJob& job, const Checkpoint& checkpointer) {
-            auto tic = svs::lib::now();
-            auto index = svs::Vamana::build<Q>(
-                job.build_parameters_,
-                svs::data::SimpleData<T, N, svs::HugepageAllocator<T>>::load(job.data_),
-                distance,
-                job.num_threads_,
-                svs::HugepageAllocator<uint32_t>()
-            );
-
-            double build_time = svs::lib::time_difference(tic);
-            auto queries = svs::data::SimpleData<Q>::load(job.queries_);
-            auto groundtruth = svs::data::SimpleData<uint32_t>::load(job.groundtruth_);
-            return svsbenchmark::build::static_test(
-                index,
-                job,
-                queries,
-                groundtruth,
-                build_time,
-                [&](const toml::table& data) {
-                    checkpointer.checkpoint(data, benchmark_name(StaticBenchmark()));
-                }
-            );
-        };
-        return std::make_pair(key, std::move(value));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        standard_specializations([&](auto... xs) {
-            f(StaticUncompressed::specialize(xs...));
-        });
-    }
-};
-
-struct DynamicUncompressed {
-    // Dispatch Parameters:
-    // (1) Query Type.
-    // (2) Uncompressed Dataset Element Type.
-    // (3) Distance Type.
-    // (4) Dimensionality (svs::Dynamic if dynamic)
-    using key_type = std::tuple<svs::DataType, svs::DataType, svs::DistanceType, size_t>;
-    using mapped_type =
-        std::function<toml::table(const DynamicBuildJob&, const Checkpoint&)>;
-
-    // Specialize index building for run-time values.
-    // * Query Type: The element types of each component of the query vectors.
-    // * Data Type: The element types of each component of the query vectors.
-    // * Distance Type: The distance functor to use.
-    // * Data Dimensionality: The number of elements in each vector.
-    template <typename Q, typename T, typename D, size_t N>
-    static std::pair<key_type, mapped_type> specialize(
-        svs::meta::Type<Q> query_type,
-        svs::meta::Type<T> data_type,
-        D distance,
-        svs::meta::Val<N> ndims
-    ) {
-        key_type key = svs::lib::meta::make_key(query_type, data_type, distance, ndims);
-        mapped_type value = [=](const DynamicBuildJob& job,
-                                const Checkpoint& checkpointer) {
-            auto bundle = svsbenchmark::build::initialize_dynamic<T, Q>(
-                job.data_,
-                job.queries_,
-                distance,
-                job.get_dynamic_schedule(),
-                job.num_threads_,
-                [&](const auto& points, const auto& ids) {
-                    using A = svs::HugepageAllocator<T>;
-                    auto data_mutable =
-                        svs::data::BlockedData<T, N, A>(points.size(), points.dimensions());
-                    svs::data::copy(points, data_mutable);
-                    return svs::index::vamana::MutableVamanaIndex(
-                        job.build_parameters_,
-                        std::move(data_mutable),
-                        ids,
-                        distance,
-                        job.num_threads_
-                    );
-                }
-            );
-
-            return svsbenchmark::build::dynamic_test_loop(
-                bundle,
-                job,
-                [&](const toml::table& table) {
-                    checkpointer.checkpoint(table, benchmark_name(DynamicBenchmark()));
-                }
-            );
-        };
-        return std::make_pair(key, std::move(value));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        standard_specializations([&](auto... xs) {
-            f(DynamicUncompressed::specialize(xs...));
-        });
-    }
-};
-
-template <size_t Primary, size_t Residual> struct StaticLVQ {
-    // Dispatch Parameters:
-    // (1) Query Type.
-    // (2) Uncompressed Dataset Element Type.
-    // (3) Distance Type.
-    // (4) Dimensionality (svs::Dynamic if dynamic)
-    using key_type = std::tuple<svs::DataType, svs::DataType, svs::DistanceType, size_t>;
-    using mapped_type = std::function<toml::table(const BuildJob& job, const Checkpoint&)>;
-
-    // Specialize index building for run-time values.
-    // * Query Type: The element types of each component of the query vectors.
-    // * Data Type: The element types of each component of the query vectors.
-    // * Distance Type: The distance functor to use.
-    // * Data Dimensionality: The number of elements in each vector.
-    template <typename Q, typename T, typename D, size_t N>
-    static std::pair<key_type, mapped_type> specialize(
-        svs::meta::Type<Q> query_type,
-        svs::meta::Type<T> data_type,
-        D distance,
-        svs::meta::Val<N> ndims
-    ) {
-        key_type key = svs::lib::meta::make_key(query_type, data_type, distance, ndims);
-        mapped_type value = [=](const BuildJob& job, const Checkpoint& checkpointer) {
-            namespace lvq = svs::quantization::lvq;
-            using A = svs::HugepageAllocator<std::byte>;
-            using LVQType = lvq::LVQDataset<Primary, Residual, N, A>;
-
-            auto tic = svs::lib::now();
-            auto lazy = svs::lib::Lazy([&](svs::threads::ThreadPool auto& threadpool) {
-                auto data = svs::data::SimpleData<T, N>::load(job.data_);
-                return LVQType::compress(data, threadpool, 32);
-            });
-
-            auto index = svs::Vamana::build<Q>(
-                job.build_parameters_, lazy, distance, job.num_threads_
-            );
-            double build_time = svs::lib::time_difference(tic);
-            auto queries = svs::data::SimpleData<Q>::load(job.queries_);
-            auto groundtruth = svs::data::SimpleData<uint32_t>::load(job.groundtruth_);
-            return svsbenchmark::build::static_test(
-                index,
-                job,
-                queries,
-                groundtruth,
-                build_time,
-                [&](const toml::table& data) {
-                    checkpointer.checkpoint(data, benchmark_name(StaticBenchmark()));
-                }
-            );
-        };
-        return std::make_pair(key, std::move(value));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        lvq_specializations([&](auto... xs) { f(StaticLVQ::specialize(xs...)); });
-    }
-};
-
-template <size_t Primary, size_t Residual> struct DynamicLVQ {
-    // Dispatch Parameters:
-    // (1) Query Type.
-    // (2) Uncompressed Dataset Element Type.
-    // (3) Distance Type.
-    // (4) Dimensionality (svs::Dynamic if dynamic)
-    using key_type = std::tuple<svs::DataType, svs::DataType, svs::DistanceType, size_t>;
-    using mapped_type =
-        std::function<toml::table(const DynamicBuildJob&, const Checkpoint&)>;
-
-    // Specialize index building for run-time values.
-    // * Query Type: The element types of each component of the query vectors.
-    // * Data Type: The element types of each component of the query vectors.
-    // * Distance Type: The distance functor to use.
-    // * Data Dimensionality: The number of elements in each vector.
-    template <typename Q, typename T, typename D, size_t N>
-    static std::pair<key_type, mapped_type> specialize(
-        svs::meta::Type<Q> query_type,
-        svs::meta::Type<T> data_type,
-        D distance,
-        svs::meta::Val<N> ndims
-    ) {
-        key_type key = svs::lib::meta::make_key(query_type, data_type, distance, ndims);
-        mapped_type value = [=](const DynamicBuildJob& job,
-                                const Checkpoint& checkpointer) {
-            namespace lvq = svs::quantization::lvq;
-            using A = svs::data::Blocked<svs::HugepageAllocator<std::byte>>;
-            using LVQType = lvq::LVQDataset<Primary, Residual, N, A>;
-
-            auto bundle = svsbenchmark::build::initialize_dynamic<T, Q>(
-                job.data_,
-                job.queries_,
-                distance,
-                job.get_dynamic_schedule(),
-                job.num_threads_,
-                [&](const auto& points, const auto& ids) {
-                    return svs::index::vamana::MutableVamanaIndex(
-                        job.build_parameters_,
-                        LVQType::compress(points, job.num_threads_, 32),
-                        ids,
-                        distance,
-                        job.num_threads_
-                    );
-                }
-            );
-
-            return svsbenchmark::build::dynamic_test_loop(
-                bundle,
-                job,
-                [&](const toml::table& table) {
-                    checkpointer.checkpoint(table, benchmark_name(DynamicBenchmark()));
-                }
-            );
-        };
-        return std::make_pair(key, std::move(value));
-    }
-
-    template <typename F> static void fill(F&& f) {
-        lvq_specializations([&](auto... xs) { f(DynamicLVQ::specialize(xs...)); });
-    }
-};
+auto dynamic_dispatcher() {
+    auto dispatcher = vamana::DynamicBuildDispatcher{};
+    vamana::register_uncompressed_dynamic_build(dispatcher);
+    vamana::register_lvq_dynamic_build(dispatcher);
+    return dispatcher;
+}
 
 // Dispatcher for Uncompressed Data.
-template <> struct BuildDispatcher<StaticBenchmark, Uncompressed> {
-    using type = svs::lib::Dispatcher<StaticUncompressed>;
+template <> struct BuildDispatcher<StaticBenchmark> {
+    static auto dispatcher() { return static_dispatcher(); }
 };
 
-template <> struct BuildDispatcher<DynamicBenchmark, Uncompressed> {
-    using type = svs::lib::Dispatcher<DynamicUncompressed>;
+template <> struct BuildDispatcher<DynamicBenchmark> {
+    static auto dispatcher() { return dynamic_dispatcher(); }
 };
 
-template <size_t Primary, size_t Residual>
-struct BuildDispatcher<StaticBenchmark, LVQ<Primary, Residual>> {
-    using type = svs::lib::Dispatcher<StaticLVQ<Primary, Residual>>;
-};
-
-template <size_t Primary, size_t Residual>
-struct BuildDispatcher<DynamicBenchmark, LVQ<Primary, Residual>> {
-    using type = svs::lib::Dispatcher<DynamicLVQ<Primary, Residual>>;
-};
-
-// Types used for dispatch purposes.
-template <typename BenchmarkType> struct BuildTypes;
-
-template <> struct BuildTypes<StaticBenchmark> {
-    static constexpr auto types =
-        svs::lib::meta::Types<Uncompressed, LVQ<8>, LVQ<4, 8>, LVQ<8, 8>>();
-};
-
-template <> struct BuildTypes<DynamicBenchmark> {
-    static constexpr auto types =
-        svs::lib::meta::Types<Uncompressed, LVQ<8>, LVQ<4, 8>, LVQ<8, 8>>();
-};
-
-template <typename T> inline constexpr auto build_types = BuildTypes<T>::types;
-
-template <typename BenchmarkType>
-bool check_job(BenchmarkType, const associated_job_t<BenchmarkType>& job) {
-    return parse_dispatch(build_types<BenchmarkType>, job.build_type_, [&](auto&& tag) {
-        using tag_type = std::decay_t<decltype(tag)>;
-        using Dispatcher = build_dispatch_t<BenchmarkType, tag_type>;
-        return Dispatcher::contains(
-            false, job.ndims_, job.query_type_, job.data_type_, job.distance_
-        );
-    });
+bool check_job(
+    StaticBenchmark SVS_UNUSED(overload_tag), const associated_job_t<StaticBenchmark>& job
+) {
+    auto dispatcher = get_dispatcher<StaticBenchmark>();
+    return dispatcher.has_match(
+        job.dataset_, job.query_type_, job.data_type_, job.distance_, job.ndims_, job
+    );
 }
 
-template <typename BenchmarkType>
 toml::table run_job(
-    BenchmarkType,
-    const associated_job_t<BenchmarkType>& job,
+    StaticBenchmark SVS_UNUSED(overload_tag),
+    const associated_job_t<StaticBenchmark>& job,
+    const Checkpoint& SVS_UNUSED(checkpointer)
+) {
+    auto dispatcher = get_dispatcher<StaticBenchmark>();
+    return dispatcher.invoke(
+        job.dataset_, job.query_type_, job.data_type_, job.distance_, job.ndims_, job
+    );
+}
+
+bool check_job(
+    DynamicBenchmark SVS_UNUSED(overload_tag), const associated_job_t<DynamicBenchmark>& job
+) {
+    auto dispatcher = get_dispatcher<DynamicBenchmark>();
+    return dispatcher.has_match(
+        job.dataset_,
+        job.query_type_,
+        job.data_type_,
+        job.distance_,
+        job.ndims_,
+        job,
+        svsbenchmark::Checkpoint()
+    );
+}
+
+toml::table run_job(
+    DynamicBenchmark SVS_UNUSED(overload_tag),
+    const associated_job_t<DynamicBenchmark>& job,
     const Checkpoint& checkpointer
 ) {
-    return parse_dispatch(build_types<BenchmarkType>, job.build_type_, [&](auto&& tag) {
-        using Dispatcher = build_dispatch_t<BenchmarkType, std::decay_t<decltype(tag)>>;
-        const auto& f = Dispatcher::lookup(
-            false, job.ndims_, job.query_type_, job.data_type_, job.distance_
-        );
-        return f(job, checkpointer);
-    });
+    auto dispatcher = get_dispatcher<DynamicBenchmark>();
+    return dispatcher.invoke(
+        job.dataset_,
+        job.query_type_,
+        job.data_type_,
+        job.distance_,
+        job.ndims_,
+        job,
+        checkpointer
+    );
 }
 
 // Parse the jobs to run.
@@ -371,23 +127,65 @@ std::vector<associated_job_t<BenchmarkType>> parse_jobs(
     );
 }
 
+constexpr std::string_view HELP_TEMPLATE = R"(
+Run a {} benchmark for the Vamana index.
+
+Usage:
+    (1) src-file.toml output-file.toml [basename]
+    (2) --help
+    (3) --example
+
+1. Run all the benchmarks in the global `{}` array in `src-file.toml`.
+   All elements in the array must be parseable as a `{}`.
+
+   Results will be saved to `output-file.toml`.
+
+   Optional third argument `basename` will be used as the root for all file paths parsed.
+
+2. Print this help message.
+
+3. Display an example input TOML file to `stdout`.
+
+Backend specializations are dispatched on the following fields of the input TOML file:
+* build_type: The dataset type to use.
+* query_type: The element type of the query dataset.
+* data_type: The input type of the source dataset.
+* distance: The distance function to use.
+* ndims: The compile-time dimensionality.
+
+Compiled specializations are listed below:
+{{ build_type, query_type, data_type, distance, ndims }}
+)";
+
 template <typename BenchmarkType> void print_help() {
-    bool first = true;
-    svs::lib::meta::for_each_type(
-        build_types<BenchmarkType>,
-        [&]<typename T>(svs::lib::meta::Type<T>) {
-            auto keys = build_dispatch_t<BenchmarkType, T>::keys();
-            if (!first) {
-                fmt::print("\n");
-            }
-            first = false;
-            fmt::print("Compiled specializations for {} data:\n", T::name());
-            fmt::print("{{ query_type, data_type, distance, dimensionality }}\n");
-            for (const auto& key : keys) {
-                fmt::print("{{ {} }}\n", fmt::join(key, ", "));
-            }
-        }
-    );
+    if constexpr (std::is_same_v<BenchmarkType, StaticBenchmark>) {
+        fmt::print(
+            HELP_TEMPLATE,
+            "static build and search",
+            benchmark_name(BenchmarkType()),
+            "svsbenchmark::Vamana::BuildJob"
+        );
+    } else if constexpr (std::is_same_v<BenchmarkType, DynamicBenchmark>) {
+        fmt::print(
+            HELP_TEMPLATE,
+            "dynamic build, modification, and search",
+            benchmark_name(BenchmarkType()),
+            "svsbenchmark::Vamana::DynamicBuildJob"
+        );
+    } else {
+        throw ANNEXCEPTION("Unreachable");
+    }
+    auto dispatcher = get_dispatcher<BenchmarkType>();
+    for (size_t i = 0; i < dispatcher.size(); ++i) {
+        auto dispatch_strings = std::array<std::string, 5>{
+            dispatcher.description(i, 0),
+            dispatcher.description(i, 1),
+            dispatcher.description(i, 2),
+            dispatcher.description(i, 3),
+            dispatcher.description(i, 4),
+        };
+        fmt::print("{{ {} }}\n", fmt::join(dispatch_strings, ", "));
+    }
 }
 
 template <typename BenchmarkType> void print_example() {
@@ -433,6 +231,7 @@ int run_build_benchmark(
             run_job(BenchmarkType(), job, Checkpoint(results, destination_path)),
             benchmark_name(BenchmarkType())
         );
+        atomic_save(results, destination_path);
     }
     // Save a copy before post-processing just in case.
     results.emplace("stop_time", svs::date_time());
@@ -456,7 +255,8 @@ int run_build_benchmark(std::span<const std::string_view> args) {
     if (first_arg == "help" || first_arg == "--help") {
         print_help<BenchmarkType>();
         return 0;
-    } else if (first_arg == "--example") {
+    }
+    if (first_arg == "--example") {
         print_example<BenchmarkType>();
         return 0;
     }

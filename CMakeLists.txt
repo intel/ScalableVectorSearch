@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
@@ -9,7 +9,7 @@ project(svs
     # - /bindings/python/tests/test_common.py
     # Manually keep in-sync with:
     # - /bindings/python/setup.py
-    VERSION 0.0.1
+    VERSION 0.0.3
 )
 
 set(SVS_LIB svs_devel)
@@ -57,6 +57,14 @@ include("cmake/robin-map.cmake")
 include("cmake/fmt.cmake")
 include("cmake/toml.cmake")
 
+# LeanVec requires MKL support
+if(SVS_EXPERIMENTAL_LEANVEC)
+    include("cmake/mkl.cmake")
+    target_compile_options(${SVS_LIB} INTERFACE "-DSVS_HAVE_MKL=1")
+else()
+    target_compile_options(${SVS_LIB} INTERFACE "-DSVS_HAVE_MKL=0")
+endif()
+
 #####
 ##### Build Objects
 #####
@@ -82,7 +90,7 @@ endif()
 #
 # If only the unit tests are enabled, then the benchmark will be built as a minimal
 # component to avoid excessive compilation time.
-if(SVS_BUILD_BENCHMARK OR SVS_BUILD_TESTS)
+if(SVS_BUILD_BENCHMARK OR SVS_BUILD_TESTS OR SVS_BUILD_BENCHMARK_TEST_GENERATORS)
     add_subdirectory(benchmark)
 endif()
 

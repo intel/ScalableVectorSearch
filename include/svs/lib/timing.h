@@ -29,7 +29,7 @@ using default_time_point = std::chrono::time_point<default_clock>;
 ///
 /// Return a time-stamp for the current time.
 ///
-inline default_time_point now() { return default_clock::now(); }
+inline default_time_point now() noexcept { return default_clock::now(); }
 
 ///
 /// Return the raw difference between two time points.

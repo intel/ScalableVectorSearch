@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        build_type: [Release]
+        build_type: [RelWithDebugInfo]
         cxx: [g++-11, g++-12, clang++-15]
         include:
           - cxx: g++-11
@@ -32,6 +32,16 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install MKL
+      timeout-minutes: 5
+      run: |
+       .github/scripts/setup_apt_repo_linux.sh
+       sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+       # Setup environment variables for building against MKL.
+       # Persist the environment variables for use across multiple subsequent actions.
+       source /opt/intel/oneapi/setvars.sh
+       printenv >> $GITHUB_ENV
+
     - name: Configure build
       working-directory: ${{ runner.temp }}
       env:
@@ -44,6 +54,7 @@ jobs:
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
+              -DSVS_EXPERIMENTAL_LEANVEC=YES \
               -DSVS_NO_AVX512=NO
 
     - name: Build Tests and Utilities

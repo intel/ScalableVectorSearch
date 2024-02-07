@@ -29,6 +29,7 @@ Welcome to Scalable Vector Search's documentation!
    python/loaders.rst
    python/flat.rst
    python/vamana.rst
+   python/dynamic.rst
    python/backend.rst
 
 .. toctree::
@@ -41,12 +42,13 @@ Welcome to Scalable Vector Search's documentation!
    cpp/quantization/index.rst
    cpp/concepts/index.rst
    cpp/internal/index.rst
+   cpp/testing.rst
 
 .. toctree::
    :maxdepth: 1
    :caption: Experimental Python Library
 
-   python/experimental/dynamic_vamana.rst
+   python/experimental/leanvec.rst
 
 
 Indices and tables

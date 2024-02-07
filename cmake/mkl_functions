@@ -1,0 +1,4 @@
+cblas_sgemm
+mkl_dimatcopy
+LAPACKE_dgesvd
+mkl_get_max_threads

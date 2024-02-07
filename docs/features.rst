@@ -13,73 +13,36 @@ Here we present the main library features, including the supported index types, 
 
 .. _index_constructors:
 
-Indexes
-==================
-SVS supports two index types: the Vamana graph (:ref:`in Python <vamana_api>`, :ref:`in C++ <vamana>`), to run fast
-:ref:`graph-based <graph-search>` similarity search with high accuracy, and the flat index
-(:ref:`in Python <flat_api>`, :ref:`in C++ <flat>`), to run exhaustive search (e.g., useful to efficiently compute
-the ground-truth nearest neighbors for a dataset).
+Index Types
+===========
+SVS supports the following index types:
 
-.. _graph-search:
+* :ref:`Graphs for static datasets <static_graph_index>`
+* :ref:`Graphs for streaming data <dynamic_graph_index>`
+* :ref:`Flat index <flat_index>`
 
-Graph-based similarity search
--------------------------------
-Graph-based methods use proximity graphs, where nodes represent data vectors and two nodes are connected if they fulfill
-a defined property or neighborhood criterion, building on the structure inherent in the data. Search involves starting
-at a designated entry point and traversing the graph to get closer and closer to the nearest neighbor with each hop. We
-follow the Vamana [SDSK19]_ algorithm for graph building and search.
+.. _static_graph_index:
 
-.. _graph-search-details:
+Graphs for static datasets
+---------------------------
+The Vamana graph (:ref:`in Python <vamana_api>`, :ref:`in C++ <vamana>`) enables fast in-memory
+:ref:`graph-based <graph-search>` similarity search with high accuracy for static databases, where the database
+is fixed and never updated.
 
-How does the graph search work?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The simplest way to traverse the graph to find 1 approximate nearest neighbor is to do a **greedy search**. At each hop,
-the distances from the query to all the neighbors of the current node (i.e., vectors in the current node's adjacency
-list) are computed and the closest point is chosen as the next point to be explored. The search ends when the distance to
-the query cannot be further reduced by jumping to any of the neighbors of the current node.
+.. _dynamic_graph_index:
 
-**How do we find k neighbors?** To improve the search accuracy and be able to find k nearest neighbors, this greedy search is combined with a **priority
-queue**. While traversing the graph, we keep track of the distance from the query to the ``search_window_size``
-closest points seen so far (where ``search_window_size`` is the length of the priority queue). At each hop, we choose to
-explore next the closest point in the priority queue that has not been visited yet. The search ends when all the
-neighbors of the current node are further from the query than the furthest point in the priority queue. This prevents
-the search path to diverge too far from the query. A larger ``search_window_size`` implies exploring a larger volume,
-improving the accuracy at the cost of a longer search path.
+Graphs for streaming data
+-------------------------
+The DynamicVamana graph (:ref:`in Python <dynamic_vamana_api>`) enables fast in-memory
+:ref:`graph-based <graph-search>` similarity search with high accuracy for streaming data, where the database is built
+dynamically by adding and removing vectors.
 
-.. _graph-building-details:
+.. _flat_index:
 
-How does graph building work?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-First, we :ref:`set the hyper-parameters <graph-build-param-setting>` required to build the graph: ``alpha``,
-``graph_max_degree``, ``window_size``, ``max_candidate_pool_size`` (see :py:class:`pysvs.VamanaBuildParameters` and
-:cpp:class:`svs::index::vamana::VamanaBuildParameters` for more details).
-
-.. _graph-building-pseudocode:
-
-Then, the graph is built following the Vamana indexing algorithm [SDSK19]_ as follows:
-
-#. Start from an uninitialized graph **G**.
-#. Iterate through all nodes in a random order.
-
-   a. Run the search for node **x** on the current **G**, with the search window size set to ``window_size``, and save the list of visited nodes **C**.
-   b. Update **G** by :ref:`pruning <graph-pruning>` **C** to determine the new set of **x**'s neighbors.
-   c. Add backward edges (**x**, **x***) for all **x*** in **x**'s out neighbors and prune **x***' edges.
-
-#. Make two passes over the dataset, the first one with the pruning parameter `alpha` =1 and the second one with `alpha` = ``alpha``.
-#. Return graph **G** to be used by the search algorithm.
-
-The **pruning rule** limits **x**'s out-neighbors **N** to a maximum of ``graph_max_degree`` as follows:
-
-.. _graph-pruning:
-
-#. Set the list of neighbors candidates **C** = **C** U **N** \\ { **x** }
-#. Sort **C** in ascending distance from **x**, and limit **C** to the closest ``max_candidate_pool_size`` neighbors.
-#. Initialize **N** to null
-#. While **C** is not empty do:
-
-   a. Find **x*** the closest point to **x** in **C**.
-   b. Add **x*** to **x**'s out-neighbors list **N**.
-   c. If *length* ( **N** ) > ``graph_max_degree`` then break; else remove all points from **C** that are closer to **x*** than **x** by a factor `alpha`.
+Flat Index
+----------
+The flat index (:ref:`in Python <flat_api>`, :ref:`in C++ <flat>`) can be used to run exhaustive search, e.g., useful to compute
+the ground-truth nearest neighbors for a dataset.
 
 .. _supported_distance_functions:
 
@@ -136,32 +99,9 @@ Vector compression
 ==================
 The memory footprint can be reduced and the search performance improved by combining the graph-search with the
 Locally-adaptive Vector Quantization (LVQ) [ABHT23]_ approach.
-The library has experimental support for performing online vector compression with LVQ.
-See :ref:`compression-setting` for more details about LVQ and how to set LVQ parameters.
-
-.. _enabling_vector_compression:
-
-Enabling Vector Compression Support
------------------------------------
-
-Vector compression support needs to be enabled at compile time for each vector dimensionality.
-To add support to the pysvs module for LVQ compression for the :ref:`Vamana graph index <vamana_api>`:
-
-1. Define the desired dimensionality specialization in the vamana.h_ file by adding the corresponding line to the ``compressed_specializations`` template
-   indicating the desired distance type (Euclidean distance and inner product are currently supported), dimensionality
-   and whether graph building with compressed vectors wants to be
-   enabled for that setting.
-
-   For example, to add LVQ support for the 96-dimensional dataset `Deep <http://sites.skoltech.ru/compvision/noimi/>`_,
-   for Euclidean distance, with graph building enabled, add the following line:
-
-.. code-block:: cpp
-
-   X(DistanceL2, 96, true);
-
-2. :ref:`Install pysvs <install_pysvs>`.
-
-For the :ref:`Flat index <flat_api>` follow the same procedure with the flat.cpp_ file.
+The library has support for :ref:`performing online vector compression with LVQ <search_with_compression>` or
+for :ref:`loading an index with a previously compressed dataset <loading_compressed_indices>`.
+See :ref:`compression-setting` for more details about LVQ and how to set its parameters.
 
 Search with compressed vectors
 ------------------------------
@@ -247,6 +187,7 @@ and finally call the build function with the chosen compression loader
 
 .. [SDSK19] Subramanya, S.J.; Devvrit, F.; Simhadri, H.V.; Krishnawamy, R.; Kadekodi, R..:Diskann: Fast accurate billion-point nearest neighbor search on a single node. In: Advances in Neural Information Processing Systems 32 (2019).
 .. [ABHT23] Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T..:Similarity search in the blink of an eye with compressed indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)
+.. [AHBW24] Aguerrebere, C.; Hildebrand M.; Bhati I.; Willke T.; Tepper M..:Locally-adaptive Quantization for Streaming Vector Search. In: arxiv.
 .. [MaYa18] Malkov, Y. A. and Yashunin, D. A..: Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs. In: IEEE transactions on pattern analysis and machine intelligence 42, 4 (2018), 824–836.
 .. [JoDJ19] Johnson, J.; Douze, M.; Jégou, H..: Billion-scale similarity search with GPUs. In: IEEE Transactions on Big Data 7, 3 (2019), 535–547.
 .. [GSLG20] Guo, R.; Sun, P.; Lindgren, E.; Geng, Q.; Simcha, D.; Chern, F.; Kumar, S..: Accelerating large-scale inference with anisotropic vector quantization. In International Conference on Machine Learning. PMLR, 3887-3896 (2020)

@@ -11,6 +11,7 @@
 
 // svs
 #include "svs/core/io.h"
+#include "svs/lib/dispatcher.h"
 #include "svs/lib/file.h"
 #include "svs/lib/file_iterator.h"
 #include "svs/lib/timing.h"
@@ -72,7 +73,9 @@ void convert_graph(const std::vector<std::string>& args) {
 
 template <typename T>
 void convert_data_impl(
-    const std::filesystem::path& src_path, const std::filesystem::path& dst_path
+    svs::lib::Type<T> SVS_UNUSED(dispatch),
+    const std::filesystem::path& src_path,
+    const std::filesystem::path& dst_path
 ) {
     auto src = svs::lib::open_read(src_path);
     auto num_vectors = svs::lib::read_binary<size_t>(src);
@@ -98,28 +101,25 @@ void convert_data_impl(
     fmt::print("Conversion took {} seconds\n", svs::lib::time_difference(tic));
 }
 
-using KeyType = std::string;
-using ValueType =
-    std::function<void(const std::filesystem::path&, const std::filesystem::path&)>;
+using Dispatcher = svs::lib::Dispatcher<
+    void,
+    svs::DataType,
+    const std::filesystem::path&,
+    const std::filesystem::path&>;
 
 void convert_data(const std::vector<std::string>& args) {
-    const auto& eltype = args.at(2);
+    const auto& eltype = svs::parse_datatype(args.at(2));
     const auto& src_path = args.at(3);
     const auto& dst_path = args.at(4);
 
     // Build a dispatch table.
-    auto dispatch = std::unordered_map<KeyType, ValueType>{};
-    constexpr auto types = svs::meta::Types<float, svs::Float16, uint8_t, int8_t>();
-    svs::meta::for_each_type(types, [&]<typename T>(svs::meta::Type<T> type) {
-        dispatch.emplace(svs::name<svs::meta::unwrap(type)>(), convert_data_impl<T>);
+    auto dispatch = Dispatcher();
+    constexpr auto types = svs::lib::Types<float, svs::Float16, uint8_t, int8_t>();
+    svs::lib::for_each_type(types, [&]<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+        dispatch.register_target(&convert_data_impl<T>);
     });
 
-    auto itr = dispatch.find(eltype);
-    if (itr != dispatch.end()) {
-        itr->second(src_path, dst_path);
-        return;
-    }
-    throw ANNEXCEPTION("Could not find method for eltype {}.", eltype);
+    dispatch.invoke(eltype, src_path, dst_path);
 }
 
 /////

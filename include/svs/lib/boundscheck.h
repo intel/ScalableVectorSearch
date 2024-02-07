@@ -11,13 +11,16 @@
 
 #pragma once
 
+#include "svs/lib/preprocessor.h"
+#include "tsl/robin_map.h"
+
 #include <unordered_map>
 #include <vector>
 
-#include "tsl/robin_map.h"
-
 namespace svs {
-#if defined(SVS_CHECK_BOUNDS)
+
+SVS_VALIDATE_BOOL_ENV(SVS_CHECK_BOUNDS);
+#if SVS_CHECK_BOUNDS
 static constexpr bool checkbounds_v = true;
 #else
 static constexpr bool checkbounds_v = false;

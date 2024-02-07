@@ -35,10 +35,6 @@ namespace svs {
 
 class VamanaInterface : public manager::ManagerInterface {
   public:
-    // Window size adjustment.
-    virtual void set_search_window_size(size_t search_window_size) = 0;
-    virtual size_t get_search_window_size() const = 0;
-
     virtual void set_alpha(float alpha) = 0;
     virtual float get_alpha() const = 0;
 
@@ -48,10 +44,13 @@ class VamanaInterface : public manager::ManagerInterface {
     virtual void set_max_candidates(size_t max_candidates) = 0;
     virtual size_t get_max_candidates() const = 0;
 
-    // Visited set adjustement.
-    virtual bool visited_set_enabled() const = 0;
-    virtual void enable_visited_set() = 0;
-    virtual void disable_visited_set() = 0;
+    ///// Parameter Interface
+    virtual index::vamana::VamanaSearchParameters get_search_parameters() const = 0;
+    virtual void
+    set_search_parameters(const index::vamana::VamanaSearchParameters& parameters) = 0;
+
+    ///// Backend Information Interface
+    virtual std::string experimental_backend_string() const = 0;
 
     // Saving
     virtual void save(
@@ -59,13 +58,33 @@ class VamanaInterface : public manager::ManagerInterface {
         const std::filesystem::path& graph_dir,
         const std::filesystem::path& data_dir
     ) = 0;
+
+    ///// Calibrations
+    virtual index::vamana::VamanaSearchParameters experimental_calibrate(
+        ConstErasedPointer queries,
+        size_t query_size_0,
+        size_t query_size_1,
+        ConstErasedPointer groundtruth,
+        size_t groundtruth_size_0,
+        size_t groundtruth_size_1,
+        size_t num_neighbors,
+        double target_recall,
+        const index::vamana::CalibrationParameters& calibration_parameters
+    ) = 0;
+    virtual void reset_performance_parameters() = 0;
 };
 
 template <typename QueryType, typename Impl, typename IFace = VamanaInterface>
 class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
+  private:
+    // Null-terimated array of characters.
+    static constexpr auto typename_impl = lib::generate_typename<Impl>();
+
   public:
+    // type aliases
     using base_type = manager::ManagerImpl<QueryType, Impl, IFace>;
     using base_type::impl;
+    using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
     explicit VamanaImpl(Impl impl)
         : base_type{std::move(impl)} {}
@@ -74,13 +93,11 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
     explicit VamanaImpl(Args&&... args)
         : base_type{std::forward<Args>(args)...} {}
 
-    // Window size management
-    void set_search_window_size(size_t search_window_size) override {
-        impl().set_search_window_size(search_window_size);
+    VamanaSearchParameters get_search_parameters() const override {
+        return impl().get_search_parameters();
     }
-
-    size_t get_search_window_size() const override {
-        return impl().get_search_window_size();
+    void set_search_parameters(const VamanaSearchParameters& parameters) override {
+        impl().set_search_parameters(parameters);
     }
 
     void set_alpha(float alpha) override { impl().set_alpha(alpha); }
@@ -98,10 +115,10 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
     }
     size_t get_max_candidates() const override { return impl().get_max_candidates(); }
 
-    // Visited Set Management.
-    bool visited_set_enabled() const override { return impl().visited_set_enabled(); }
-    void enable_visited_set() override { impl().enable_visited_set(); }
-    void disable_visited_set() override { impl().disable_visited_set(); }
+    ///// Backend Information Interface
+    std::string experimental_backend_string() const override {
+        return std::string{typename_impl.begin(), typename_impl.end() - 1};
+    }
 
     // Saving.
     void save(
@@ -123,6 +140,50 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
             throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
         }
     }
+
+    ///// Calibration
+
+    VamanaSearchParameters experimental_calibrate(
+        ConstErasedPointer queries,
+        size_t query_size_0,
+        size_t query_size_1,
+        ConstErasedPointer groundtruth,
+        size_t groundtruth_size_0,
+        size_t groundtruth_size_1,
+        size_t num_neighbors,
+        double target_recall,
+        const index::vamana::CalibrationParameters& calibration_parameters
+    ) override {
+        if (queries.type() != datatype_v<QueryType>) {
+            throw ANNEXCEPTION(
+                "Unsupported query type! Got {}, expected {}.",
+                queries.type(),
+                (datatype_v<QueryType>)
+            );
+        }
+        if (groundtruth.type() != DataType::uint32) {
+            throw ANNEXCEPTION(
+                "Unsupported groundtruth type! Got {}, expected {}.",
+                groundtruth.type(),
+                DataType::uint32
+            );
+        }
+
+        // Reassemble and call the real implementation.
+        return impl().calibrate(
+            data::ConstSimpleDataView<QueryType>(
+                get<QueryType>(queries), query_size_0, query_size_1
+            ),
+            data::ConstSimpleDataView<uint32_t>(
+                get<uint32_t>(groundtruth), groundtruth_size_0, groundtruth_size_1
+            ),
+            num_neighbors,
+            target_recall,
+            calibration_parameters
+        );
+    }
+
+    void reset_performance_parameters() override { impl().reset_performance_parameters(); }
 };
 
 // Forward declarations
@@ -140,24 +201,40 @@ template <typename QueryType, typename... Args> Vamana make_vamana(Args&&... arg
 class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
   public:
     using base_type = manager::IndexManager<VamanaInterface, VamanaImpl>;
+    using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
+    /// @private
     struct BuildTag {};
+    /// @private
     struct AssembleTag {};
 
     template <typename Impl>
     explicit Vamana(std::unique_ptr<Impl> impl)
         : base_type{std::move(impl)} {}
 
+    VamanaSearchParameters get_search_parameters() const {
+        return impl_->get_search_parameters();
+    }
+    void set_search_parameters(const VamanaSearchParameters& parameters) {
+        impl_->set_search_parameters(parameters);
+    }
+
+    void experimental_reset_performance_parameters() {
+        impl_->reset_performance_parameters();
+    }
+
     ///// Vamana Interface.
 
-    /// @copydoc svs::index::vamana::VamanaIndex::set_search_window_size
     Vamana& set_search_window_size(size_t search_window_size) {
-        impl_->set_search_window_size(search_window_size);
+        auto parameters = get_search_parameters();
+        parameters.buffer_config_ = index::vamana::SearchBufferConfig{search_window_size};
+        set_search_parameters(parameters);
         return *this;
     }
 
-    /// @copydoc svs::index::vamana::VamanaIndex::get_search_window_size
-    size_t get_search_window_size() const { return impl_->get_search_window_size(); }
+    size_t get_search_window_size() const {
+        return get_search_parameters().buffer_config_.get_search_window_size();
+    }
 
     /// @copydoc svs::index::vamana::VamanaIndex::get_alpha
     float get_alpha() const { return impl_->get_alpha(); }
@@ -177,9 +254,23 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
         impl_->set_max_candidates(max_candidates);
     }
 
-    bool visited_set_enabled() const { return impl_->visited_set_enabled(); }
-    void enable_visited_set() { impl_->enable_visited_set(); }
-    void disable_visited_set() { impl_->disable_visited_set(); }
+    bool visited_set_enabled() const {
+        return get_search_parameters().search_buffer_visited_set_;
+    }
+    void enable_visited_set() {
+        auto parameters = get_search_parameters();
+        parameters.search_buffer_visited_set_ = true;
+        set_search_parameters(parameters);
+    }
+    void disable_visited_set() {
+        auto parameters = get_search_parameters();
+        parameters.search_buffer_visited_set_ = false;
+        set_search_parameters(parameters);
+    }
+
+    std::string experimental_backend_string() const {
+        return impl_->experimental_backend_string();
+    }
 
     ///
     /// @copydoc svs::index::vamana::VamanaIndex::save
@@ -212,7 +303,12 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
     /// @param num_threads The number of threads to use to process queries.
     ///     May be changed at run-time.
     ///
-    /// @copydoc hidden_vamana_auto_assemble_doc
+    /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
+    /// returning a Vamana compatible dataset. Concrete examples include:
+    ///
+    /// * An instance of ``VectorDataLoader``.
+    /// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
+    /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
     /// @sa save, build
     ///
@@ -270,7 +366,12 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
     ///     changed after class construction).
     /// @param graph_allocator The allocator to use for the backing graph.
     ///
-    /// @copydoc hidden_vamana_auto_build_doc
+    /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
+    /// returning a Vamana compatible dataset. Concrete examples include:
+    ///
+    /// * An instance of ``VectorDataLoader``.
+    /// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
+    /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
     /// @sa assemble, save
     ///
@@ -308,6 +409,47 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
                 graph_allocator
             );
         }
+    }
+
+    ///// Experimental Calibration
+    template <
+        data::ImmutableMemoryDataset Queries,
+        data::ImmutableMemoryDataset GroundTruth>
+    VamanaSearchParameters experimental_calibrate(
+        const Queries& queries,
+        const GroundTruth& groundtruth,
+        size_t num_neighbors,
+        double target_recall,
+        const index::vamana::CalibrationParameters calibration_parameters = {}
+    ) {
+        return experimental_calibrate_impl(
+            queries.cview(),
+            groundtruth.cview(),
+            num_neighbors,
+            target_recall,
+            calibration_parameters
+        );
+    }
+
+    template <typename QueryType>
+    VamanaSearchParameters experimental_calibrate_impl(
+        data::ConstSimpleDataView<QueryType> queries,
+        data::ConstSimpleDataView<uint32_t> groundtruth,
+        size_t num_neighbors,
+        double target_recall,
+        const index::vamana::CalibrationParameters calibration_parameters
+    ) {
+        return impl_->experimental_calibrate(
+            ConstErasedPointer{queries.data()},
+            queries.size(),
+            queries.dimensions(),
+            ConstErasedPointer{groundtruth.data()},
+            groundtruth.size(),
+            groundtruth.dimensions(),
+            num_neighbors,
+            target_recall,
+            calibration_parameters
+        );
     }
 };
 

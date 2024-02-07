@@ -11,18 +11,18 @@
 
 #pragma once
 
-// Include the flat index to spin-up exhaustive searches on demand.
-#include "svs/index/flat/flat.h"
-
 // svs
 #include "svs/core/data.h"
 #include "svs/core/graph.h"
 #include "svs/core/loading.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
+#include "svs/core/recall.h"
+#include "svs/index/vamana/calibrate.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/index/vamana/search_buffer.h"
+#include "svs/index/vamana/search_params.h"
 #include "svs/index/vamana/vamana_build.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/saveload.h"
@@ -42,47 +42,69 @@
 
 namespace svs::index::vamana {
 
-struct VamanaConfigParameters {
-    static constexpr std::string_view name = "vamana config parameters";
+struct VamanaIndexParameters {
+    // Members
+  public:
+    // Computed Parameters
+    size_t entry_point;
+    // Construction Parameters
+    VamanaBuildParameters build_parameters;
+    // Search Parameters
+    VamanaSearchParameters search_parameters;
+
+  public:
+    VamanaIndexParameters(
+        size_t entry_point_,
+        const VamanaBuildParameters& build_parameters_,
+        const VamanaSearchParameters& search_parameters_
+    )
+        : entry_point{entry_point_}
+        , build_parameters{build_parameters_}
+        , search_parameters{search_parameters_} {}
+
+    static constexpr std::string_view legacy_name = "vamana config parameters";
+    static constexpr std::string_view name = "vamana index parameters";
     /// Change notes:
     ///
     /// v0.0.1 - Added the "use_full_search_history" option.
     ///     Loading from older versions default this to "true"
     /// v0.0.2 - Added the "prune_to" parameter option.
     ///     Loading from older versions default this to "graph_max_degree"
-    static constexpr lib::Version save_version = lib::Version(0, 0, 2);
+    /// v0.0.3 - Refactored to split out build parameters and search parameters into their
+    ///     own pieces.
+    ///
+    ///     Compatible with all previous versions.
+    static constexpr lib::Version save_version = lib::Version(0, 0, 3);
 
     // Save and Reload.
     lib::SaveTable save() const {
         return lib::SaveTable(
             save_version,
-            {
-                SVS_LIST_SAVE(name),
-                {"max_out_degree", lib::save(graph_max_degree)},
-                SVS_LIST_SAVE(entry_point),
-                SVS_LIST_SAVE(alpha),
-                SVS_LIST_SAVE(max_candidates),
-                SVS_LIST_SAVE(construction_window_size),
-                SVS_LIST_SAVE(prune_to),
-                {"default_search_window_size", lib::save(search_window_size)},
-                SVS_LIST_SAVE(visited_set),
-                SVS_LIST_SAVE(use_full_search_history),
-            }
+            {SVS_LIST_SAVE(name),
+             SVS_LIST_SAVE(entry_point),
+             SVS_LIST_SAVE(build_parameters),
+             SVS_LIST_SAVE(search_parameters)}
         );
     }
 
-    static VamanaConfigParameters
-    load(const toml::table& table, const lib::Version& version) {
-        if (version > lib::Version(0, 0, 2)) {
-            throw ANNEXCEPTION("Version mismatch!");
+    static VamanaIndexParameters
+    load_legacy(const toml::table& table, const lib::Version& version) {
+        fmt::print("Loading a legacy IndexParameters class. Please consider resaving this "
+                   "index to update the save version and prevent future breaking!\n");
+
+        if (version > lib::Version{0, 0, 2}) {
+            throw ANNEXCEPTION("Incompatible legacy version!");
         }
 
         auto this_name = lib::load_at<std::string>(table, "name");
-        if (this_name != name) {
-            throw ANNEXCEPTION("Name mismatch! Got {}, expected {}!", this_name, name);
+        if (this_name != legacy_name) {
+            throw ANNEXCEPTION(
+                "Name mismatch! Got {}, expected {}!", this_name, legacy_name
+            );
         }
 
-        // Default "use_full_search_history" to "true" because v0.0.0 did not implement it.
+        // Default "use_full_search_history" to "true" because v0.0.0 did not implement
+        // it.
         bool use_full_search_history = true;
         if (table.contains("use_full_search_history")) {
             use_full_search_history = SVS_LOAD_MEMBER_AT(table, use_full_search_history);
@@ -94,35 +116,48 @@ struct VamanaConfigParameters {
             prune_to = lib::load_at<size_t>(table, "prune_to");
         }
 
-        return VamanaConfigParameters{
-            graph_max_degree,
+        return VamanaIndexParameters{
+            lib::load_at<size_t>(table, "entry_point"),
+            VamanaBuildParameters{
+                lib::load_at<float>(table, "alpha"),
+                graph_max_degree,
+                lib::load_at<size_t>(table, "construction_window_size"),
+                lib::load_at<size_t>(table, "max_candidates"),
+                prune_to,
+                use_full_search_history},
+            VamanaSearchParameters{
+                SearchBufferConfig{
+                    lib::load_at<size_t>(table, "default_search_window_size")},
+                lib::load_at<bool>(table, "visited_set"),
+                4,
+                1}};
+    }
+
+    static VamanaIndexParameters
+    load(const toml::table& table, const lib::Version& version) {
+        // Legacy load path.
+        if (version <= lib::Version(0, 0, 2)) {
+            return load_legacy(table, version);
+        }
+
+        if (version != lib::Version(0, 0, 3)) {
+            throw ANNEXCEPTION("Incompatible version for VamanaIndexParameters!");
+        }
+
+        auto this_name = lib::load_at<std::string>(table, "name");
+        if (this_name != name) {
+            throw ANNEXCEPTION("Name mismatch! Got {}, expected {}!", this_name, name);
+        }
+
+        return VamanaIndexParameters{
             SVS_LOAD_MEMBER_AT(table, entry_point),
-            SVS_LOAD_MEMBER_AT(table, alpha),
-            SVS_LOAD_MEMBER_AT(table, max_candidates),
-            SVS_LOAD_MEMBER_AT(table, construction_window_size),
-            prune_to,
-            use_full_search_history,
-            lib::load_at<size_t>(table, "default_search_window_size"),
-            SVS_LOAD_MEMBER_AT(table, visited_set)};
+            SVS_LOAD_MEMBER_AT(table, build_parameters),
+            SVS_LOAD_MEMBER_AT(table, search_parameters),
+        };
     }
 
     friend bool
-    operator==(const VamanaConfigParameters&, const VamanaConfigParameters&) = default;
-
-    // Members
-  public:
-    // general parameters
-    size_t graph_max_degree;
-    size_t entry_point;
-    // construction parameters
-    float alpha;
-    size_t max_candidates;
-    size_t construction_window_size;
-    size_t prune_to;
-    bool use_full_search_history;
-    // runtime parameters
-    size_t search_window_size;
-    bool visited_set;
+    operator==(const VamanaIndexParameters&, const VamanaIndexParameters&) = default;
 };
 
 ///
@@ -142,7 +177,6 @@ struct VamanaConfigParameters {
 ///   deleted.
 ///
 template <typename Buffer, typename Scratch> struct SearchScratchspace {
-  public:
   public:
     // Members
     Buffer buffer;
@@ -208,6 +242,7 @@ class VamanaIndex {
     graph_type graph_;
     data_type data_;
     entry_point_type entry_point_;
+    GreedySearchPrefetchParameters prefetch_parameters_ = {};
 
     // Base distance type.
     distance_type distance_;
@@ -218,11 +253,7 @@ class VamanaIndex {
     threads::NativeThreadPool threadpool_;
 
     // Construction parameters
-    float alpha_ = 0.0;
-    size_t max_candidates_ = 1'000;
-    size_t construction_window_size_ = 0;
-    size_t prune_to_ = 0;
-    bool use_full_search_history_ = true;
+    VamanaBuildParameters build_parameters_{};
 
     // Methods
   public:
@@ -230,6 +261,9 @@ class VamanaIndex {
     using inner_scratch_type =
         svs::tag_t<extensions::single_search_setup>::result_t<Data, Dist>;
     using scratchspace_type = SearchScratchspace<search_buffer_type, inner_scratch_type>;
+
+    /// @brief Return a copy of the primary distance functor used by the index.
+    distance_type get_distance() const { return distance_; }
 
     ///
     /// @brief Construct a VamanaIndex from constituent parts.
@@ -249,8 +283,7 @@ class VamanaIndex {
     /// **Preconditions:**
     ///
     /// * `graph.n_nodes() == data.size()`: Graph and data should have the same number
-    /// of
-    ///     entries.
+    /// of entries.
     ///
     /// @sa auto_assemble
     ///
@@ -264,6 +297,7 @@ class VamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
+        , prefetch_parameters_{extensions::estimate_prefetch_parameters(data_)}
         , distance_{std::move(distance_function)}
         , search_buffer_prototype_{}
         , threadpool_{std::move(threadpool)} {}
@@ -274,6 +308,7 @@ class VamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
+        , prefetch_parameters_{extensions::estimate_prefetch_parameters(data_)}
         , distance_{std::move(distance_function)}
         , search_buffer_prototype_{}
         , threadpool_{num_threads} {}
@@ -283,8 +318,7 @@ class VamanaIndex {
     ///
     /// @param parameters The build parameters used to construct the graph.
     /// @param graph An unpopulated graph with the same size as ``data``. This graph
-    /// will
-    ///     BE POPULATED AS PART OF THE CONSTRUCTOR OPERATIon.
+    ///     will be populated as part of the constructor operation.
     /// @param data The dataset to be indexed indexed.
     /// @param entry_point The entry-point into the graph to begin searches.
     /// @param distance_function The distance function used to compare queries and
@@ -297,8 +331,7 @@ class VamanaIndex {
     ///
     /// **Preconditions:**
     ///
-    /// * `graph.n_nodes() == data.size()`: Graph and data should have the same number
-    /// of
+    /// * `graph.n_nodes() == data.size()`: Graph and data should have the same number of
     ///     entries.
     ///
     /// @sa auto_build
@@ -321,29 +354,21 @@ class VamanaIndex {
             throw ANNEXCEPTION("Wrong sizes!");
         }
 
-        alpha_ = parameters.alpha;
-        max_candidates_ = parameters.max_candidate_pool_size;
-        construction_window_size_ = parameters.window_size;
-        use_full_search_history_ = parameters.use_full_search_history;
-        prune_to_ = parameters.prune_to;
-
-        auto builder = VamanaBuilder(graph_, data_, distance_, parameters, threadpool_);
+        build_parameters_ = parameters;
+        auto builder = VamanaBuilder(
+            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters_
+        );
         builder.construct(1.0F, entry_point_[0]);
         builder.construct(parameters.alpha, entry_point_[0]);
     }
 
     /// @brief Apply the given configuration parameters to the index.
-    void apply(const VamanaConfigParameters& parameters) {
+    void apply(const VamanaIndexParameters& parameters) {
         entry_point_.clear();
         entry_point_.push_back(parameters.entry_point);
 
-        set_alpha(parameters.alpha);
-        set_max_candidates(parameters.max_candidates);
-        set_construction_window_size(parameters.construction_window_size);
-        set_search_window_size(parameters.search_window_size);
-        prune_to_ = parameters.prune_to;
-        set_full_search_history(parameters.use_full_search_history);
-        parameters.visited_set ? enable_visited_set() : disable_visited_set();
+        build_parameters_ = parameters.build_parameters;
+        set_search_parameters(parameters.search_parameters);
     }
 
     /// @brief Return scratch space resources for external threading.
@@ -356,7 +381,17 @@ class VamanaIndex {
 
     auto greedy_search_closure() const {
         return [&](const auto& query, const auto& accessor, auto& distance, auto& buffer) {
-            greedy_search(graph_, data_, accessor, query, distance, buffer, entry_point_);
+            greedy_search(
+                graph_,
+                data_,
+                accessor,
+                query,
+                distance,
+                buffer,
+                entry_point_,
+                NeighborBuilder(),
+                prefetch_parameters_
+            );
         };
     }
 
@@ -444,7 +479,7 @@ class VamanaIndex {
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 auto search_buffer = threads::shallow_copy(search_buffer_prototype_);
                 if (search_buffer.capacity() < num_neighbors) {
-                    search_buffer.change_maxsize(num_neighbors);
+                    search_buffer.change_maxsize(SearchBufferConfig{num_neighbors});
                 }
 
                 // Pre-allocate scratch space needed by the dataset implementation.
@@ -472,7 +507,7 @@ class VamanaIndex {
     /// @brief Return the number of vectors in the index.
     size_t size() const { return data_.size(); }
 
-    /// @brief Return the logical number of dimensions of the indexed vectors.
+    /// @brief Return the logical number aLf dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
 
     ///// Threading Interface
@@ -501,62 +536,84 @@ class VamanaIndex {
         threadpool_.resize(num_threads);
     }
 
-    ///// Window Interface
+    ///
+    /// @brief Obtain the underlying threadpool.
+    ///
+    /// N.B.: Jobs may be run on the thread pool but it may not be resized safely.
+    ///
+    threads::NativeThreadPool& borrow_threadpool() { return threadpool_; }
+
+    ///// Search Parameter Setting
 
     ///
-    /// @brief Set the search window size used during graph search.
+    /// @brief Return the current search parameters stored by the index.
     ///
-    /// @param search_window_size The new search window size to use.
+    /// These parameters include
     ///
-    /// The window size provides a parameter by which accuracy can be traded for
-    /// performance. Setting the search window higher will generally yield more accurate
-    /// results but the search will take longer.
-    ///
-    /// @sa get_search_window_size
-    ///
-    void set_search_window_size(size_t search_window_size) {
-        search_buffer_prototype_.change_maxsize(search_window_size);
+    VamanaSearchParameters get_search_parameters() const {
+        return VamanaSearchParameters(
+            search_buffer_prototype_.config(),
+            search_buffer_prototype_.visited_set_enabled(),
+            prefetch_parameters_.lookahead,
+            prefetch_parameters_.step
+        );
+    }
+
+    void populate_search_parameters(VamanaSearchParameters& parameters) const {
+        parameters = get_search_parameters();
+    }
+
+    void set_search_parameters(const VamanaSearchParameters& parameters) {
+        search_buffer_prototype_.change_maxsize(parameters.buffer_config_);
+        if (parameters.search_buffer_visited_set_) {
+            search_buffer_prototype_.enable_visited_set();
+        } else {
+            search_buffer_prototype_.disable_visited_set();
+        }
+        prefetch_parameters_ = {parameters.prefetch_lookahead_, parameters.prefetch_step_};
     }
 
     ///
-    /// @brief Return the current search window size
+    /// @brief Reset performance parameters to their default values for this index.
     ///
-    /// @sa set_search_window_size
+    /// Parameters affected are only those that modify throughput on a given architecture.
+    /// Accuracy results should not change as a side-effect of calling this function.
     ///
-    size_t get_search_window_size() const { return search_buffer_prototype_.capacity(); }
-
-    ///// Visited Set Interface
-    void enable_visited_set() { search_buffer_prototype_.enable_visited_set(); }
-    void disable_visited_set() { search_buffer_prototype_.disable_visited_set(); }
-    bool visited_set_enabled() const {
-        return search_buffer_prototype_.visited_set_enabled();
+    void reset_performance_parameters() {
+        prefetch_parameters_ = extensions::estimate_prefetch_parameters(data_);
     }
 
     ///// Parameter manipulation.
 
     /// @brief Return the value of ``alpha`` used during graph construction.
-    float get_alpha() const { return alpha_; }
-    void set_alpha(float alpha) { alpha_ = alpha; }
+    float get_alpha() const { return build_parameters_.alpha; }
+    void set_alpha(float alpha) { build_parameters_.alpha = alpha; }
 
     /// @brief Return the max candidate pool size that was used for graph construction.
-    size_t get_max_candidates() const { return max_candidates_; }
-    void set_max_candidates(size_t max_candidates) { max_candidates_ = max_candidates; }
+    size_t get_max_candidates() const { return build_parameters_.max_candidate_pool_size; }
+    void set_max_candidates(size_t max_candidates) {
+        build_parameters_.max_candidate_pool_size = max_candidates;
+    }
 
     /// @brief Return the search window size that was used for graph construction.
-    size_t get_construction_window_size() const { return construction_window_size_; }
+    size_t get_construction_window_size() const { return build_parameters_.window_size; }
     void set_construction_window_size(size_t construction_window_size) {
-        construction_window_size_ = construction_window_size;
+        build_parameters_.window_size = construction_window_size;
     }
 
     ///
     /// @brief Enable using the full search history for candidate generation while
     /// building.
     ///
-    void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
+    void set_full_search_history(bool enable) {
+        build_parameters_.use_full_search_history = enable;
+    }
 
     /// @brief Return whether the full search history is being used for index
     /// construction.
-    bool get_full_search_history() const { return use_full_search_history_; }
+    bool get_full_search_history() const {
+        return build_parameters_.use_full_search_history;
+    }
 
     ///// Saving
 
@@ -589,16 +646,9 @@ class VamanaIndex {
         const std::filesystem::path& data_directory
     ) const {
         // Construct and save runtime parameters.
-        auto parameters = VamanaConfigParameters{
-            graph_.max_degree(),
-            entry_point_.front(),
-            alpha_,
-            get_max_candidates(),
-            get_construction_window_size(),
-            prune_to_,
-            get_full_search_history(),
-            get_search_window_size(),
-            visited_set_enabled()};
+        auto parameters = VamanaIndexParameters{
+            entry_point_.front(), build_parameters_, get_search_parameters()};
+
         // Config
         lib::save_to_disk(parameters, config_directory);
         // Data
@@ -606,36 +656,54 @@ class VamanaIndex {
         // Graph
         lib::save_to_disk(graph_, graph_directory);
     }
+
+    ///// Calibration
+
+    // Return the maximum degree of the graph.
+    size_t max_degree() const { return graph_.max_degree(); }
+
+    // Experimental algorithm.
+    //
+    // Optimize search_window_size and capacity.
+    // See calibrate.h for more details.
+    template <
+        data::ImmutableMemoryDataset Queries,
+        data::ImmutableMemoryDataset GroundTruth>
+    VamanaSearchParameters calibrate(
+        const Queries& queries,
+        const GroundTruth& groundtruth,
+        size_t num_neighbors,
+        double target_recall,
+        const CalibrationParameters& calibration_parameters = {}
+    ) {
+        auto p = vamana::calibrate(
+            calibration_parameters,
+            *this,
+            num_neighbors,
+            target_recall,
+            [&]() {
+                auto results = this->search(queries, num_neighbors);
+                return k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
+            },
+            [&]() { this->search(queries, num_neighbors); }
+        );
+        set_search_parameters(p);
+        return p;
+    }
 };
 
 // Shared documentation for assembly methods.
 
 ///
-/// @class hidden_vamana_auto_doc
-///
-/// data_loader
-/// ===========
-///
-/// The data loader should be any object loadable via ``svs::detail::dispatch_load``
-/// returning a Vamana compatible dataset. Concrete examples include:
-///
-/// * An instance of ``VectorDataLoader``.
-/// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
-/// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
-///
-
-///
 /// @brief Entry point for loading a Vamana graph-index from disk.
 ///
 /// @param parameters The parameters to use for graph construction.
-/// @param data_proto Data prototype. See expanded notes.
+/// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///     the dataset.
 /// @param threadpool_proto Precursor for the thread pool to use. Can either be a
 ///     threadpool instance of an integer specifying the number of threads to use.
 /// @param graph_allocator The allocator to use for the graph data structure.
-///
-/// @copydoc hidden_vamana_auto_doc
 ///
 template <
     typename DataProto,
@@ -647,9 +715,9 @@ auto auto_build(
     DataProto data_proto,
     Distance distance,
     ThreadpoolProto threadpool_proto,
-    const Allocator& graph_allocator
+    const Allocator& graph_allocator = {}
 ) {
-    auto threadpool = threads::as_threadpool(threadpool_proto);
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
     auto entry_point = extensions::compute_entry_point(data, threadpool);
 
@@ -670,7 +738,7 @@ auto auto_build(
 ///
 /// @param config_path The directory where the index configuration file resides.
 /// @param graph_loader A ``svs::GraphLoader`` for loading the graph.
-/// @param data_proto Data prototype. See expanded notes.
+/// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///        the dataset.
 /// @param threadpool_proto Precursor for the thread pool to use. Can either be a
@@ -679,8 +747,6 @@ auto auto_build(
 /// This method provides much of the heavy lifting for instantiating a Vamana index from
 /// a collection of files on disk (or perhaps a mix-and-match of existing data in-memory
 /// and on disk).
-///
-/// @copydoc hidden_vamana_auto_doc
 ///
 /// Refer to the examples for use of this interface.
 ///
@@ -705,7 +771,7 @@ auto auto_assemble(
     auto index = VamanaIndex{
         std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool)};
 
-    auto config = lib::load_from_disk<VamanaConfigParameters>(config_path);
+    auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;
 }

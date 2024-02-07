@@ -32,56 +32,35 @@
 #include <span>
 #include <type_traits>
 
+// Implementation Notes
+//
+// SVS_GCC_NOINLINE: GCC (<=13) struggles with optimizing the body of distance computation
+// functions after they have been inlined into non-trivial call-sites.
+//
+// In particular, it failed to pre-load LVQ shifts and masks into registers and instead
+// reloads them on every iteration.
+//
+// Strategically applying `SVS_GCC_NOINLINE` keeps the complexity of the distance
+// computations to a point where GCC can correctly optimize the implementation.
+
 namespace svs {
 namespace quantization::lvq {
 
-///
-/// Trait for one-level compression to facilitate SIMD accelerated distance computations.
-/// Expected Interface
-/// ```
-/// struct /*impl*/ {
-///     // Unpacked auxiliary type used reconstruct the original data vector in either a
-///     // scalar or vectorized fashion.
-///     //
-///     // Examples include `Scale` and `ScaleBias`.
-///     using auxiliary_type = /* user defined */
-///
-///     // Compatible SIMD width to use when performing vectorized operations over the
-///     // compressed data.
-///     static constexpr size_t simd_width = /* user defined */
-///
-///     // The vectorized unpacker type for the preferred SIMD width.
-///     using unpacker_type = /* user defined */
-///
-///     // Return the number of packed elements.
-///     size_t size() const;
-///
-///     // Construct the auxiliary distance-computation data structure.
-///     auxiliary_type prepare_aux() const;
-///
-///     // Construct an Unpacker over the compressed data.
-///     // The optional simd width parameter can be used to override the default choice
-///     // in instances where multiple such vectors are being combined.
-///     template <size_t VecWidth = simd_width>
-///     Unpacker<VecWidth, ...>
-///     unpacker(meta::Val<VecWidth> = meta::Val<simd_width>()) const;
-/// };
-/// ```
-///
-template <typename T> inline constexpr bool is_onelevel_compression_v = false;
+///// Static dispatch traits.
+namespace detail {
+// Extendable trait to overload common entry-points for LVQ vectors.
+template <typename T> inline constexpr bool lvq_compressed_vector_v = false;
+} // namespace detail
 
-///
-/// Trait for two-level compression.
-///
-template <typename T> inline constexpr bool is_twolevel_compression_v = false;
+// Dispatch concept for LVQCompressedVectors
+template <typename T>
+concept LVQCompressedVector = detail::lvq_compressed_vector_v<T>;
 
-// The "ScaleBias" struct is
-template <size_t N = 0> struct ScaleBias {
+// Auxiliary struct to help with distance computations.
+struct ScaleBias {
     float scale;
     float bias;
 };
-
-ScaleBias(float, float)->ScaleBias<0>;
 
 /////
 ///// Compressed Vector Implementations.
@@ -91,16 +70,16 @@ ScaleBias(float, float)->ScaleBias<0>;
 /// A compressed vector two helper constants.
 /// A bias and a scalar.
 ///
-template <size_t Bits, size_t Extent> struct ScaledBiasedVector {
+template <size_t Bits, size_t Extent, typename Strategy = DefaultStrategy>
+struct ScaledBiasedVector {
   public:
+    using strategy = Strategy;
     using scalar_type = Float16;
-    using auxiliary_type = ScaleBias<0>;
-    using vector_type = CompressedVector<Unsigned, Bits, Extent>;
-    using mutable_vector_type = MutableCompressedVector<Unsigned, Bits, Extent>;
+    using auxiliary_type = ScaleBias;
+    using vector_type = CompressedVector<Unsigned, Bits, Extent, Strategy>;
+    using mutable_vector_type = MutableCompressedVector<Unsigned, Bits, Extent, Strategy>;
 
     static constexpr size_t extent = Extent;
-    static constexpr size_t simd_width = pick_simd_width<vector_type>();
-    using unpacker_type = Unpacker<simd_width, Unsigned, Bits, Extent>;
 
     // Construct from constant `CompressedVector`.
     template <Arithmetic T>
@@ -121,6 +100,8 @@ template <size_t Bits, size_t Extent> struct ScaledBiasedVector {
     float get(size_t i) const { return static_cast<float>(scale) * data.get(i) + bias; }
     size_t size() const { return data.size(); }
     selector_t get_selector() const { return selector; }
+    float get_scale() const { return scale; }
+    vector_type vector() const { return data; }
 
     const std::byte* pointer() const { return data.data(); }
     constexpr size_t size_bytes() const { return data.size_bytes(); }
@@ -128,12 +109,6 @@ template <size_t Bits, size_t Extent> struct ScaledBiasedVector {
     // Distance computation helprs.
     auxiliary_type prepare_aux() const {
         return ScaleBias{static_cast<float>(scale), static_cast<float>(bias)};
-    }
-
-    template <size_t VecWidth = simd_width>
-    Unpacker<VecWidth, Unsigned, Bits, Extent>
-    unpacker(meta::Val<VecWidth> v = meta::Val<simd_width>()) const {
-        return Unpacker(v, data);
     }
 
     ///// Members
@@ -147,101 +122,80 @@ template <size_t Bits, size_t Extent> struct ScaledBiasedVector {
     selector_t selector;
 };
 
-template <size_t Bits, size_t Extent>
-float get_scale(const ScaledBiasedVector<Bits, Extent>& v) {
-    return v.scale;
+namespace detail {
+template <size_t Bits, size_t Extent, typename Strategy>
+inline constexpr bool
+    lvq_compressed_vector_v<lvq::ScaledBiasedVector<Bits, Extent, Strategy>> = true;
 }
 
-template <size_t Bits, size_t Extent>
-inline constexpr bool is_onelevel_compression_v<ScaledBiasedVector<Bits, Extent>> = true;
+template <size_t Primary, size_t Residual, size_t N, typename Strategy = DefaultStrategy>
+struct ScaledBiasedWithResidual {
+  public:
+    using strategy = Strategy;
+    using auxiliary_type = ScaleBias;
+    using strategy_type = Strategy;
 
-template <size_t Primary, size_t Residual, size_t N> struct ScaledBiasedWithResidual {
-    using auxiliary_type = ScaleBias<Residual>;
-    static constexpr size_t simd_width = pick_simd_width<Primary, Residual>();
-    using primary_unpacker_type = Unpacker<simd_width, Unsigned, Primary, N>;
-    using residual_unpacker_type = Unpacker<simd_width, Signed, Residual, N>;
-
-    ///
     /// Return the decoded value at index `i` using both the primary and residual encodings.
-    ///
     float get(size_t i) const {
         float primary = primary_.get(i);
-        float residual_step = get_scale(primary_) / std::pow(2, Residual);
+        float residual_step = primary_.get_scale() / std::pow(2, Residual);
         float residual = residual_.get(i) * residual_step;
         return primary + residual;
     }
 
-    ///
     /// Return the number of elements in the vector.
-    ///
     size_t size() const { return primary_.size(); }
 
-    ///
     /// Return the centroid selector.
-    ///
     selector_t get_selector() const { return primary_.get_selector(); }
 
-    ///
     /// Prepare for distance computations.
-    ///
     auxiliary_type prepare_aux() const {
         auto aux = primary_.prepare_aux();
         float rescale{aux.scale / static_cast<float>(std::pow(2, Residual))};
         return auxiliary_type{rescale, aux.bias};
     }
 
-    primary_unpacker_type primary_unpacker() const {
-        return primary_.unpacker(meta::Val<simd_width>());
-    }
-
-    residual_unpacker_type residual_unpacker() const {
-        return residual_unpacker_type{meta::Val<simd_width>(), residual_};
+    Combined<Primary, Residual, N, Strategy> vector() const {
+        return Combined<Primary, Residual, N, Strategy>{primary_.vector(), residual_};
     }
 
     ///// Members
-    ScaledBiasedVector<Primary, N> primary_;
-    CompressedVector<Signed, Residual, N> residual_;
+  public:
+    // For now - only the primary vector is allowed to have variable strategy.
+    // The residual is always kept as sequential due to implementation challenges and
+    // somewhat dubious ROI.
+    ScaledBiasedVector<Primary, N, Strategy> primary_;
+    CompressedVector<Signed, Residual, N, Sequential> residual_;
 };
 
-template <size_t Primary, size_t Residual, size_t N>
+namespace detail {
+template <size_t Primary, size_t Residual, size_t N, typename Strategy>
 inline constexpr bool
-    is_twolevel_compression_v<ScaledBiasedWithResidual<Primary, Residual, N>> = true;
-
-// clang-format off
-template <size_t Primary, size_t Residual, size_t N>
-ScaledBiasedWithResidual(
-    const ScaledBiasedVector<Primary, N>&,
-    const CompressedVector<Signed, Residual, N>&
-) -> ScaledBiasedWithResidual<Primary, Residual, N>;
-// clang-format on
+    lvq_compressed_vector_v<ScaledBiasedWithResidual<Primary, Residual, N, Strategy>> =
+        true;
+}
 
 // Combine primary and residuals.
-template <size_t Primary, size_t Residual, size_t N>
-ScaledBiasedWithResidual<Primary, Residual, N> combine(
-    const ScaledBiasedVector<Primary, N>& primary,
-    const CompressedVector<Signed, Residual, N>& residual
+template <size_t Primary, size_t Residual, size_t N, typename Strategy>
+ScaledBiasedWithResidual<Primary, Residual, N, Strategy> combine(
+    const ScaledBiasedVector<Primary, N, Strategy>& primary,
+    const CompressedVector<Signed, Residual, N, Sequential>& residual
 ) {
-    return ScaledBiasedWithResidual{primary, residual};
+    return ScaledBiasedWithResidual<Primary, Residual, N, Strategy>{primary, residual};
 }
 
 /////
 ///// Distances
 /////
 
-// Optimized inner product for LVQ datasets
-// <q, (scale * x + bias)> => scale * <q, x> + <q, bias>
-// Since, scale and bias are per LVQ vector scalar constants
-// <q, bias> = bias * sum(q). sum(q) is precomputed for a query. Therefore,
-// first calculate only <q,x> and finally multiply add the constants
-struct DistanceFastIP {
-    float query_sum; // preprocessed query sum
-};
-
+// Reference Implementations: fallback to using scalar indexing for each component of
+// the compressed vectors.
 struct EuclideanReference {
     using compare = std::less<>;
     static constexpr bool implicit_broadcast = true;
 
-    template <typename T> float compute(std::span<const float> x, const T& y) {
+    template <LVQCompressedVector T> float compute(std::span<const float> x, const T& y) {
         float sum{0};
         for (size_t i = 0; i < y.size(); ++i) {
             auto z = x[i] - y.get(i);
@@ -255,7 +209,7 @@ struct InnerProductReference {
     using compare = std::greater<>;
     static constexpr bool implicit_broadcast = true;
 
-    template <typename T> float compute(std::span<const float> x, const T& y) {
+    template <LVQCompressedVector T> float compute(std::span<const float> x, const T& y) {
         float sum{0};
         for (size_t i = 0; i < y.size(); ++i) {
             sum += x[i] * y.get(i);
@@ -264,55 +218,35 @@ struct InnerProductReference {
     }
 };
 
-/////
-///// Distance Helpers
-/////
-
-// The role of a `DistanceHelper` is:
-//
-// 1. Perform any necessary pre-computation required for distance computation.
-//    For example, this could include conversion of `Float16` scalars to `float`.
-//
-// 2. Determine the SIMD width to use for distance computations.
-//    This will depend on the type of the Vector. For example, 8- or 4-bit vectors can use
-//    a SIMD width of 16 efficiently while 5, 6, and 7-bit vectors need to use 8-wide SIMD
-//    because we need full 64-bit integers in the decoding process.
-//
-//    Further compilcations arise when performing distance computations with residuals.
-//    For example, a 5-bit primary with a 4-bit residual is limited to 8-wide SIMD by the
-//    5-bit primary encoding, even through the 4-bit residual could feasibly use 16-wide
-//    SIMD.
-//
-//    To that end, we require unpacking algorithms that work for wider vector widths to also
-//    work efficiently for narrow SIMD widths (e.g., 4-bit is compatible with both 8 and
-//    16-wide SIMD).
-//
-// 3. Perform an optionally predicated unpacking and application of a step in the distance
-//    function.
-//
-// 4. Apply any post-op reductions to the SIMD accumulation register.
-template <typename Distance, typename Vector> struct DistanceHelper;
+// Optimized inner product for LVQ datasets
+// <q, (scale * x + bias)> => scale * <q, x> + <q, bias>
+// Since, scale and bias are per LVQ vector scalar constants
+// <q, bias> = bias * sum(q). sum(q) is precomputed for a query. Therefore,
+// first calculate only <q,x> and finally multiply add the constants
+struct DistanceFastIP {
+    float query_sum; // preprocessed query sum
+};
 
 // Decompressing *with* a component-wise add-in.
-template <typename T, int64_t N, size_t S, typename P>
+template <typename T, int64_t N, typename P>
 wide_<float, N>
-decompress_step(wide_<T, N> x, ScaleBias<S> aux, size_t i, const float* centroid, P pred) {
+decompress_step(wide_<T, N> x, ScaleBias aux, size_t i, const float* centroid, P pred) {
     auto mask = pred.else_(0);
 
-    // Load the corresponding centroid to be added component-wise to the resconstructed
+    // Load the corresponding centroid to be added component-wise to the reconstructed
     // vector fragment.
     auto centroid_chunk = eve::load[mask](&centroid[N * i], eve::as<wide_<float, N>>());
     return centroid_chunk +
            eve::add[mask](aux.scale * eve::convert(x, eve::as<float>()), aux.bias);
 }
 
-template <typename T, int64_t N, size_t S, typename P>
+template <typename T, int64_t N, typename P>
 wide_<float, N> apply_step(
     distance::DistanceL2 /*unused*/,
     wide_<float, N> accum,
     wide_<float, N> x,
     wide_<T, N> y,
-    ScaleBias<S> aux,
+    ScaleBias aux,
     size_t /*i*/,
     P pred
 ) {
@@ -325,13 +259,13 @@ wide_<float, N> apply_step(
     return accum + temp * temp;
 }
 
-template <typename T, int64_t N, typename P, size_t S>
+template <typename T, int64_t N, typename P>
 wide_<float, N> apply_step(
     distance::DistanceIP /*unused*/,
     wide_<float, N> accum,
     wide_<float, N> x,
     wide_<T, N> y,
-    ScaleBias<S> aux,
+    ScaleBias aux,
     size_t /*i*/,
     P /*unused*/
 ) {
@@ -341,13 +275,13 @@ wide_<float, N> apply_step(
     return accum + x * converted;
 }
 
-template <typename T, int64_t N, typename P, size_t S>
+template <typename T, int64_t N, typename P>
 wide_<float, N> apply_step(
     DistanceFastIP /*unused*/,
     wide_<float, N> accum,
     wide_<float, N> x,
     wide_<T, N> y,
-    ScaleBias<S> /*aux*/,
+    ScaleBias /*aux*/,
     size_t /*i*/,
     P /*unused*/
 ) {
@@ -355,176 +289,39 @@ wide_<float, N> apply_step(
     return accum + x * eve::convert(y, eve::as<float>());
 }
 
-template <int64_t N, size_t S>
+template <int64_t N>
 float finish_step(
-    distance::DistanceL2 /*unused*/, wide_<float, N> accum, ScaleBias<S> /*aux*/
+    distance::DistanceL2 /*unused*/, wide_<float, N> accum, ScaleBias /*aux*/
 ) {
     return eve::reduce(accum, eve::plus);
 }
 
-template <int64_t N, size_t S>
+template <int64_t N>
 float finish_step(
-    distance::DistanceIP /*unused*/, wide_<float, N> accum, ScaleBias<S> /*aux*/
+    distance::DistanceIP /*unused*/, wide_<float, N> accum, ScaleBias /*aux*/
 ) {
     // As part of the application step, we mix in the scaling parameter.
     // Therefore, there's nothing really to be done in this step.
     return eve::reduce(accum, eve::plus);
 }
 
-template <int64_t N, size_t S>
-float finish_step(DistanceFastIP distance, wide_<float, N> accum, ScaleBias<S> aux) {
+template <int64_t N>
+float finish_step(DistanceFastIP distance, wide_<float, N> accum, ScaleBias aux) {
     // Scale and add bias*query_sum only once in the final step
     return aux.scale * eve::reduce(accum, eve::plus) + aux.bias * distance.query_sum;
 }
 
-struct NoDistance {};
-template <typename Distance, typename T>
-    requires is_onelevel_compression_v<T>
-struct DistanceHelper<Distance, T> {
-    // Helpers
-    using unpacker_type = typename T::unpacker_type;
-    static const size_t simd_width = unpacker_type::simd_width;
-    using accumulator_type = typename unpacker_type::accum_type;
-    using integer_wide_type = typename unpacker_type::int_wide_type;
-    using auxiliary_type = typename T::auxiliary_type;
-
-    ///
-    /// Construct a distance computer from a ScaledVector.
-    ///
-    DistanceHelper(Distance distance, const T& v)
-        : unpacker_{v.unpacker()}
-        , aux_{v.prepare_aux()}
-        , distance_{distance} {}
-
-    ///
-    /// Create a zeroed accumulator.
-    ///
-    accumulator_type accumulator() { return accumulator_type(0); }
-
-    ///
-    /// Decompress one vector bundle.
-    ///
-    template <typename P = eve::ignore_none_>
-    accumulator_type
-    decompress(size_t i, const float* centroid, P pred = eve::ignore_none_()) {
-        assert(i <= lib::div_round_up(unpacker_.size(), simd_width));
-        integer_wide_type unpacked = unpacker_.get(i, pred);
-        return decompress_step(unpacked, aux_, i, centroid, pred);
-    }
-
-    ///
-    /// Distance computation step.
-    ///
-    template <typename P = eve::ignore_none_>
-    accumulator_type apply(
-        accumulator_type current,
-        accumulator_type left,
-        size_t i,
-        P pred = eve::ignore_none_()
-    ) {
-        integer_wide_type unpacked = unpacker_.get(i, pred);
-        return apply_step(distance_, current, left, unpacked, aux_, i, pred);
-    }
-
-    ///
-    /// Perform the final reduction.
-    ///
-    float finish(accumulator_type sum) { return finish_step(distance_, sum, aux_); }
-
-    ///// Members
-    unpacker_type unpacker_;
-    auxiliary_type aux_;
-    [[no_unique_address]] Distance distance_;
-};
-
-// Two level helpers
-template <typename T, typename U, int64_t N, size_t S>
-wide_<detail::biggest_int_t<T, U>, N> combine(
-    wide_<T, N> primary, wide_<U, N> residual, ScaleBias<S> /*unused*/
-) {
-    using Common = detail::biggest_int_t<T, U>;
-    return eve::convert((primary << S), eve::as<Common>()) +
-           eve::convert(residual, eve::as<Common>());
-}
-
-template <typename Distance, typename T>
-    requires is_twolevel_compression_v<T>
-struct DistanceHelper<Distance, T> {
-    using primary_unpacker_type = typename T::primary_unpacker_type;
-    using residual_unpacker_type = typename T::residual_unpacker_type;
-    using auxiliary_type = typename T::auxiliary_type;
-    static const size_t simd_width = T::simd_width;
-
-    using accumulator_type = typename primary_unpacker_type::accum_type;
-
-    ///
-    /// Construct a distance computer from a ScaledVector.
-    ///
-    DistanceHelper(Distance distance, const T& v)
-        : primary_unpacker_{v.primary_unpacker()}
-        , residual_unpacker_{v.residual_unpacker()}
-        , aux_{v.prepare_aux()}
-        , distance_{distance} {}
-
-    ///
-    /// Create a zeroed accumulator.
-    ///
-    accumulator_type accumulator() { return accumulator_type(0); }
-
-    ///
-    /// Decompress one vector bundle.
-    ///
-    template <typename P = eve::ignore_none_>
-    accumulator_type
-    decompress(size_t i, const float* centroid, P pred = eve::ignore_none_()) {
-        assert(i <= lib::div_round_up(primary_unpacker_.size(), simd_width));
-        assert(i <= lib::div_round_up(residual_unpacker_.size(), simd_width));
-        auto p = primary_unpacker_.get(i, pred);
-        auto r = residual_unpacker_.get(i, pred);
-        return decompress_step(combine(p, r, aux_), aux_, i, centroid, pred);
-    }
-
-    ///
-    /// Distance computation step.
-    ///
-    template <typename P = eve::ignore_none_>
-    accumulator_type apply(
-        accumulator_type current,
-        accumulator_type left,
-        size_t i,
-        P pred = eve::ignore_none_()
-    ) {
-        auto p = primary_unpacker_.get(i, pred);
-        auto r = residual_unpacker_.get(i, pred);
-
-        // Combine the primary and residual then apply the distance computation.
-        return apply_step(distance_, current, left, combine(p, r, aux_), aux_, i, pred);
-    }
-
-    ///
-    /// Perform the final reduction.
-    ///
-    float finish(accumulator_type sum) { return finish_step(distance_, sum, aux_); }
-
-    ///// Members
-    primary_unpacker_type primary_unpacker_;
-    residual_unpacker_type residual_unpacker_;
-    auxiliary_type aux_;
-    [[no_unique_address]] Distance distance_;
-};
-
-template <typename Distance, typename T>
-DistanceHelper(Distance, const T&) -> DistanceHelper<Distance, T>;
-
-/////
-///// Optimized AVX implementations.
-/////
-
-template <typename T, size_t N>
+///// AVX implementations.
+template <LVQCompressedVector T, size_t N>
+    requires UsesSequential<T>
 void decompress(std::span<float, N> dst, const T& src, const float* centroid) {
     assert(dst.size() == src.size());
-    auto helper = DistanceHelper(NoDistance(), src);
-    constexpr size_t simd_width = decltype(helper)::simd_width;
+    auto aux = src.prepare_aux();
+    auto v = src.vector();
+    auto helper = prepare_unpack(v);
+
+    const size_t simd_width = 16;
+    using int_wide_t = wide_<int32_t, simd_width>;
 
     size_t iterations = src.size() / simd_width;
     size_t remaining = src.size() % simd_width;
@@ -532,23 +329,51 @@ void decompress(std::span<float, N> dst, const T& src, const float* centroid) {
     // Main unrolled loop.
     float* base = dst.data();
     for (size_t i = 0; i < iterations; ++i) {
-        eve::store(helper.decompress(i, centroid), base);
+        auto unpacked = unpack_as(v, i, eve::as<int_wide_t>(), helper, eve::ignore_none);
+        eve::store(decompress_step(unpacked, aux, i, centroid, eve::ignore_none), base);
         base += simd_width;
     }
 
     // Handle tail elements.
     if (remaining != 0) {
         auto predicate = eve::keep_first(lib::narrow_cast<int64_t>(remaining));
-        eve::store[predicate](helper.decompress(iterations, centroid, predicate), base);
+        auto unpacked = unpack_as(v, iterations, eve::as<int_wide_t>(), helper, predicate);
+        eve::store[predicate](
+            decompress_step(unpacked, aux, iterations, centroid, predicate), base
+        );
     }
 }
 
-template <typename T>
+template <LVQCompressedVector T, size_t N>
+    requires UsesTurbo<T>
+void decompress(std::span<float, N> dst, const T& src, const float* centroid) {
+    auto aux = src.prepare_aux();
+    auto v = src.vector();
+    const size_t simd_width = 16;
+    auto* ptr = dst.data();
+
+    auto op = [ptr, aux, centroid](
+                  detail::Empty, size_t lane, wide_<int32_t, simd_width> unpacked, auto pred
+              ) {
+        eve::store[pred](
+            decompress_step(unpacked, aux, lane, centroid, pred), ptr + simd_width * lane
+        );
+        return detail::Empty();
+    };
+
+    for_each_slice(
+        v, op, []() { return detail::Empty(); }, [](detail::Empty) {}
+    );
+}
+
+template <LVQCompressedVector T>
 void decompress(std::vector<float>& dst, const T& src, const float* centroid) {
     dst.resize(src.size());
     decompress(lib::as_span(dst), src, centroid);
 }
 
+// Compression aid for LVQ - provides RAII management for the decompressed data and
+// maintains a reference to the centroid-group for the compressed vector.
 class Decompressor {
   public:
     Decompressor() = delete;
@@ -556,7 +381,8 @@ class Decompressor {
         : centroids_{std::move(centroids)}
         , buffer_(centroids_->dimensions()) {}
 
-    template <typename T> std::span<const float> operator()(const T& compressed) {
+    template <LVQCompressedVector T>
+    std::span<const float> operator()(const T& compressed) {
         decompress(
             buffer_, compressed, centroids_->get_datum(compressed.get_selector()).data()
         );
@@ -568,73 +394,91 @@ class Decompressor {
     std::vector<float> buffer_ = {};
 };
 
-// Trait for dispatching on compressed vector types.
-template <typename T>
-inline constexpr bool is_compressed_vector =
-    is_onelevel_compression_v<T> || is_twolevel_compression_v<T>;
-
 // Trait describing distances that have optimized implementations.
 template <typename T> inline constexpr bool fast_quantized = false;
 template <> inline constexpr bool fast_quantized<distance::DistanceL2> = true;
 template <> inline constexpr bool fast_quantized<distance::DistanceIP> = true;
 template <> inline constexpr bool fast_quantized<DistanceFastIP> = true;
 
-template <typename Distance, typename T>
-    requires fast_quantized<Distance> && is_compressed_vector<T>
-float compute_quantized(Distance distance, std::span<const float> x, const T& y) {
-    // Construct the distance helper.
-    //
-    // All necessary setup tasks (e.g., conversion of Float16 scalars to Float32) are
-    // performed in the constructor.
-    //
-    // The `DistanceHelper` also defines the SIMD width to use, which is determined by
-    // multiple factors within the quantized data structure.
-    auto helper = DistanceHelper(distance, y);
-    using accumulator_t = typename decltype(helper)::accumulator_type;
-    constexpr size_t simd_width = decltype(helper)::simd_width;
+///// Sequantial LVQ
+template <typename Distance, LVQCompressedVector T>
+    requires UsesSequential<T>
+SVS_GCC_NOINLINE float
+compute_quantized(Distance distance, std::span<const float> x, const T& y) {
+    auto aux = y.prepare_aux();
+    auto v = y.vector();
+    const auto helper = prepare_unpack(v);
 
-    // Compute the number of main iterations and the remaining number of elements to be
-    // handle in the trailing loop.
+    const size_t simd_width = 16;
+
     size_t iterations = y.size() / simd_width;
-    size_t tail_elements = y.size() % simd_width;
+    size_t remaining = y.size() % simd_width;
 
-    // Main Computation Loop.
-    //
-    // N.B.: At the moment, our dimensionality is static (i.e., known at compile time).
-    // As such, manually unrolling the loop is unnecessary as the compiler completely
-    // unrolls it.
-    //
-    // In the future if we choose to support run-time dimensionality, we may need to
-    // manually unroll the loop several times.
-    accumulator_t accum = helper.accumulator();
+    using accumulator_t = wide_<float, simd_width>;
+    using int_wide_t = wide_<int32_t, simd_width>;
+
+    auto accum = accumulator_t(0);
     for (size_t i = 0; i < iterations; ++i) {
-        accumulator_t left{&x[simd_width * i]};
-        accum = helper.apply(accum, left, i);
+        auto lhs = accumulator_t{&x[simd_width * i]};
+        auto unpacked = unpack_as(v, i, eve::as<int_wide_t>(), helper, eve::ignore_none);
+        accum = apply_step(distance, accum, lhs, unpacked, aux, i, eve::ignore_none);
     }
 
     // Handle tail elements.
     //
-    // The responsiblity at this level is to perform a masked load of the query vector.
+    // The responsibility at this level is to perform a masked load of the query vector.
     // After that, it's up to the distance helper to correctly apply the predicate for
     // both loading the compressed data as well as applying the distance computation to the
     // partial accumulated values.
-    if (tail_elements != 0) {
-        size_t j = simd_width * iterations;
-        auto predicate = eve::keep_first(lib::narrow_cast<int64_t>(tail_elements));
-        accumulator_t left = eve::load[predicate.else_(0)](&x[j], eve::as<accumulator_t>());
-        accum = helper.apply(accum, left, iterations, predicate);
+    if (remaining != 0) {
+        size_t i = iterations;
+        auto predicate = eve::keep_first(lib::narrow_cast<int64_t>(remaining));
+        auto lhs =
+            eve::load[predicate.else_(0)](&x[simd_width * i], eve::as<accumulator_t>());
+        auto unpacked = unpack_as(v, i, eve::as<int_wide_t>(), helper, predicate);
+        accum = apply_step(distance, accum, lhs, unpacked, aux, i, predicate);
     }
-    return helper.finish(accum);
+    return finish_step(distance, accum, aux);
 }
+
+// Turbo-based distance computation.
+template <typename Distance, LVQCompressedVector T>
+    requires UsesTurbo<T>
+SVS_GCC_NOINLINE float
+compute_quantized(Distance distance, std::span<const float> x, const T& y) {
+    // static_assert(y uses turbo strategy)
+    auto aux = y.prepare_aux();
+    auto v = y.vector();
+
+    const size_t simd_width = 16;
+    const auto* ptr = x.data();
+    auto op = [distance, ptr, aux](
+                  wide_<float, simd_width> accum,
+                  size_t lane,
+                  wide_<int32_t, simd_width> unpacked,
+                  auto pred
+              ) {
+        auto left =
+            eve::load[pred.else_(0)](ptr + simd_width * lane, eve::as<wide_<float, 16>>());
+        return apply_step(distance, accum, left, unpacked, aux, lane, pred);
+    };
+
+    return for_each_slice(
+        v,
+        op,
+        []() { return wide_<float, simd_width>(0); },
+        [distance, aux](wide_<float, simd_width> accum) {
+            return finish_step(distance, accum, aux);
+        }
+    );
+}
+
 } // namespace quantization::lvq
 
-//
-// Overload `distance::compute` for the distances and compression techniques defined above.
-//
+/// Overload `distance::compute` for the distances and compression techniques defined above.
 namespace distance {
-template <typename Distance, typename T>
-    requires quantization::lvq::fast_quantized<Distance> &&
-             quantization::lvq::is_compressed_vector<T>
+template <typename Distance, quantization::lvq::LVQCompressedVector T>
+    requires quantization::lvq::fast_quantized<Distance>
 float compute(Distance distance, std::span<const float> x, const T& y) {
     return quantization::lvq::compute_quantized(distance, x, y);
 }
@@ -642,15 +486,14 @@ float compute(Distance distance, std::span<const float> x, const T& y) {
 
 namespace quantization::lvq {
 
-///
 /// Distance computations supporting a global vector bias.
-///
 class EuclideanBiased {
   public:
     using compare = std::less<>;
     // Biased versions are not implicitly broadcastable because they must maintain per-query
     // state.
     static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
 
     // Constructors
     EuclideanBiased(const std::shared_ptr<const data::SimpleData<float>>& centroids)
@@ -707,10 +550,7 @@ class EuclideanBiased {
     /// Compute the Euclidean difference between a quantized vector `y` and a cached
     /// shifted query.
     ///
-    template <typename T>
-    float compute(const T& y) const
-        requires(!lib::is_spanlike_v<T>)
-    {
+    template <LVQCompressedVector T> float compute(const T& y) const {
         // If the argument `y` is a `std::span`, it's not a compressed vector so fall-back
         // to doing normal distance computations.
         distance::DistanceL2 inner{};
@@ -734,24 +574,7 @@ class EuclideanBiased {
 };
 
 inline bool operator==(const EuclideanBiased& x, const EuclideanBiased& y) {
-    const auto& xbias = x.view_bias();
-    const auto& ybias = y.view_bias();
-    auto xsize = xbias.size();
-    auto xdims = xbias.dimensions();
-
-    auto ysize = ybias.size();
-    auto ydims = ybias.dimensions();
-    if (xsize != ysize || xdims != ydims) {
-        return false;
-    }
-    for (size_t i = 0; i < xsize; ++i) {
-        auto xdatum = xbias.get_datum(i);
-        auto ydatum = ybias.get_datum(i);
-        if (!std::equal(xdatum.begin(), xdatum.end(), ydatum.begin())) {
-            return false;
-        }
-    }
-    return true;
+    return x.view_bias() == y.view_bias();
 }
 
 class InnerProductBiased {
@@ -760,6 +583,7 @@ class InnerProductBiased {
     // Biased versions are not implicitly broadcastable because they must maintain per-query
     // state.
     static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
 
     // Constructor
     InnerProductBiased(const std::shared_ptr<const data::SimpleData<float>>& centroids)
@@ -817,10 +641,8 @@ class InnerProductBiased {
         return distance::compute(inner, query, y) + processed_query_[selector];
     }
 
-    template <typename T>
-    float compute(const std::span<const float>& query, const T& y) const
-        requires(!lib::is_spanlike_v<T>)
-    {
+    template <LVQCompressedVector T>
+    float compute(const std::span<const float>& query, const T& y) const {
         // Defaults to optimized inner product calculation
         DistanceFastIP inner{query_sum_};
         return distance::compute(inner, query, y) + processed_query_[y.get_selector()];
@@ -842,42 +664,23 @@ class InnerProductBiased {
 };
 
 inline bool operator==(const InnerProductBiased& x, const InnerProductBiased& y) {
-    const auto& xbias = x.view_bias();
-    const auto& ybias = y.view_bias();
-    if (xbias.size() != ybias.size() || xbias.dimensions() != ybias.dimensions()) {
-        return false;
-    }
-    for (size_t i = 0, imax = xbias.size(); i < imax; ++i) {
-        const auto& xdatum = xbias.get_datum(i);
-        const auto& ydatum = ybias.get_datum(i);
-        if (!std::equal(xdatum.begin(), xdatum.end(), ydatum.begin())) {
-            return false;
-        }
-    }
-    return true;
+    return x.view_bias() == y.view_bias();
 }
 
 namespace detail {
 
+// Map from baseline distance functors to the local versions.
 template <typename T> struct BiasedDistance;
-template <typename T> struct HasBiased : std::false_type {};
 
 template <> struct BiasedDistance<distance::DistanceL2> {
     using type = EuclideanBiased;
 };
-template <> struct HasBiased<distance::DistanceL2> : std::true_type {};
 
 template <> struct BiasedDistance<distance::DistanceIP> {
     using type = InnerProductBiased;
 };
-template <> struct HasBiased<distance::DistanceIP> : std::true_type {};
 
 } // namespace detail
-
-///
-/// Determine if the distance type `T` has a pre-biased implementation.
-///
-template <typename T> inline constexpr bool has_biased_v = detail::HasBiased<T>::value;
 
 ///
 /// Compute the correct biased distance function to operate on compressed data given the
@@ -888,24 +691,6 @@ template <typename T> using biased_distance_t = typename detail::BiasedDistance<
 /////
 ///// Support for index building.
 /////
-
-// When performing index building, there are two situations to consider.
-// (1) No medioid removal.
-// (2) With medioid removal.
-//
-// In the first case, there is a relatively straight-forward way of dealing with distance
-// computations between two compressed vectors.
-//
-// We introduce a `DecompressionAdaptor` which turns the LHS query from its compressed
-// form to floats. At this point, we can simply opt-in to the the standard distance
-// computation pipeline.
-//
-// The second case (when the entire dataset has had the per-component means removed)
-// requires a bit more care. When we're using the Euclidean distance, we can skip any kind
-// of medioid restoration.
-//
-// However, in the case of inner product, we need to first restore the removed medioid from
-// the uncompressed LHS before proceeding with normal bias-based distance computations.
 
 ///
 /// Adaptor to adjust a distance function with type `Distance` to enable index building
@@ -919,6 +704,7 @@ template <typename Distance> class DecompressionAdaptor {
     using distance_type = Distance;
     using compare = distance::compare_t<distance_type>;
     static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
 
     DecompressionAdaptor(const distance_type& inner, size_t size_hint = 0)
         : inner_{inner}
@@ -949,12 +735,12 @@ template <typename Distance> class DecompressionAdaptor {
     }
 
     // Distance API.
-    template <typename Left> void fix_argument(Left left) {
+    template <LVQCompressedVector Left> void fix_argument(Left left) {
         decompress(decompressed_, left, inner_.get_centroid(left.get_selector()).data());
         inner_.fix_argument(view());
     }
 
-    template <typename Right> float compute(const Right& right) const {
+    template <LVQCompressedVector Right> float compute(const Right& right) const {
         return distance::compute(inner_, view(), right);
     }
 

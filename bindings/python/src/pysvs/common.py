@@ -21,7 +21,6 @@ lib = library()
 def read_npy(filename:str):
     """
     Read a file in the `npy` format and return a NumPy array with the results.
-
     Args:
         filename: The file to read.
 
@@ -31,7 +30,6 @@ def read_npy(filename:str):
 
     X = np.load(filename)
     return np.ascontiguousarray(X)
-
 
 def read_vecs(filename: str):
     """

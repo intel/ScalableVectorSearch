@@ -154,6 +154,13 @@ inline constexpr bool operator<(const Version& x, const Version& y) {
 
 inline constexpr bool operator>(const Version& x, const Version& y) { return y < x; }
 
+inline constexpr bool operator<=(const Version& x, const Version& y) {
+    return x == y || x < y;
+}
+inline constexpr bool operator>=(const Version& x, const Version& y) {
+    return x == y || x > y;
+}
+
 ///
 /// Global Library Version
 /// Macro-defines are established in the top level CMakeLists.txt.

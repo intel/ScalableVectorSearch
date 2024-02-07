@@ -33,8 +33,10 @@
 ///// Conversion
 /////
 
-template <typename Distance, typename T>
+template <typename T, typename Distance>
 void convert(
+    svs::lib::Type<T> SVS_UNUSED(dispatch),
+    Distance distance,
     const std::filesystem::path& dst,
     const std::filesystem::path& data_path,
     const std::filesystem::path& graph_path,
@@ -52,7 +54,7 @@ void convert(
         std::move(graph),
         std::move(data),
         svs::lib::narrow<uint32_t>(entry_point),
-        Distance(),
+        distance,
         1};
 
     index.set_alpha(alpha);
@@ -64,49 +66,25 @@ void convert(
     fmt::print("Saved index in {} seconds\n", svs::lib::time_difference(tic));
 }
 
-using KeyType = std::tuple<std::string, std::string>;
-using ValueType = std::function<void(
+using Dispatcher = svs::lib::Dispatcher<
+    void,
+    svs::DataType,
+    svs::DistanceType,
     const std::filesystem::path&,
     const std::filesystem::path&,
     const std::filesystem::path&,
     float,
     size_t,
     size_t,
-    size_t
-)>;
+    size_t>;
 
-using Hash = svs::lib::TupleHash;
-
-const auto distances =
-    svs::meta::Types<svs::distance::DistanceL2, svs::distance::DistanceIP>();
-const auto types = svs::meta::Types<float, svs::Float16, uint8_t, int8_t>();
-
-std::string distance_names() {
-    auto names = svs::meta::make_vec<std::string>(
-        distances,
-        []<typename T>(svs::meta::Type<T> /*type*/) { return std::string{T::name}; }
-    );
-    return fmt::format("{}", fmt::join(names, ", "));
-}
-
-std::string eltype_names() {
-    auto datatypes = svs::meta::make_vec<svs::DataType>(types, [](auto type) {
-        return svs::meta::unwrap(type);
+Dispatcher get_dispatch() {
+    auto dispatch = Dispatcher();
+    const auto types = svs::lib::Types<float, svs::Float16, uint8_t, int8_t>();
+    svs::lib::for_each_type(types, [&]<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+        dispatch.register_target(&convert<T, svs::DistanceL2>);
+        dispatch.register_target(&convert<T, svs::DistanceIP>);
     });
-    return svs::lib::format(datatypes);
-}
-
-std::unordered_map<KeyType, ValueType, Hash> get_dispatch() {
-    auto dispatch = std::unordered_map<KeyType, ValueType, Hash>{};
-    svs::meta::for_each_type(
-        distances,
-        [&]<typename Dist>(svs::meta::Type<Dist> /*unused*/) {
-            svs::meta::for_each_type(types, [&]<typename T>(svs::meta::Type<T> type) {
-                auto key = KeyType(Dist::name, svs::name<svs::meta::unwrap(type)>());
-                dispatch.emplace(key, convert<Dist, T>);
-            });
-        }
-    );
     return dispatch;
 }
 
@@ -136,7 +114,7 @@ construction will actually take place.
 These parameters exist to bootstrap the conversion process from older indices.
 )";
 
-void print_help() { fmt::print(help, eltype_names(), distance_names()); }
+void print_help() { fmt::print(help, "temp", "temp"); }
 
 int svs_main(std::vector<std::string> args) {
     auto nargs = args.size();
@@ -148,25 +126,25 @@ int svs_main(std::vector<std::string> args) {
     const auto& dst = args.at(1);
     const auto& data = args.at(2);
     const auto& graph = args.at(3);
-    const auto& eltype = args.at(4);
-    const auto& distance = args.at(5);
+    const auto& eltype = svs::parse_datatype(args.at(4));
+    const auto& distance = svs::parse_distance_type(args.at(5));
 
     auto alpha = std::stof(args.at(6));
     auto construction_window_size = std::stoull(args.at(7));
     auto max_candidates = std::stoull(args.at(8));
 
     auto num_threads = std::stoull(args.at(9));
-
-    auto dispatcher = get_dispatch();
-    auto key = KeyType(distance, eltype);
-    auto itr = dispatcher.find(key);
-    if (itr == dispatcher.end()) {
-        fmt::print("Could not find combination ({}, {})", distance, eltype);
-        return 1;
-    }
-
-    const auto& f = itr->second;
-    f(dst, data, graph, alpha, construction_window_size, max_candidates, num_threads);
+    get_dispatch().invoke(
+        eltype,
+        distance,
+        dst,
+        data,
+        graph,
+        alpha,
+        construction_window_size,
+        max_candidates,
+        num_threads
+    );
     return 0;
 }
 

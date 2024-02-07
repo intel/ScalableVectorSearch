@@ -24,6 +24,7 @@
 #include "svs/core/loading.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
+#include "svs/core/recall.h"
 #include "svs/core/translation.h"
 #include "svs/index/vamana/consolidate.h"
 #include "svs/index/vamana/dynamic_search_buffer.h"
@@ -121,6 +122,7 @@ class MutableVamanaIndex {
     graph_type graph_;
     data_type data_;
     entry_point_type entry_point_;
+    GreedySearchPrefetchParameters prefetch_parameters_;
     std::vector<SlotMetadata> status_;
     IDTranslator translator_;
 
@@ -151,6 +153,7 @@ class MutableVamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
+        , prefetch_parameters_{extensions::estimate_prefetch_parameters(data)}
         , status_(data_.size(), SlotMetadata::Valid)
         , translator_()
         , distance_{std::move(distance_function)}
@@ -192,6 +195,7 @@ class MutableVamanaIndex {
         : graph_(Graph{parameters.graph_max_degree, data.size()})
         , data_(std::move(data))
         , entry_point_{}
+        , prefetch_parameters_{extensions::estimate_prefetch_parameters(data_)}
         , status_(data_.size(), SlotMetadata::Valid)
         , translator_()
         , distance_(std::move(distance_function))
@@ -209,7 +213,9 @@ class MutableVamanaIndex {
         entry_point_.push_back(extensions::compute_entry_point(data_, threadpool_));
 
         // Perform graph construction.
-        auto builder = VamanaBuilder(graph_, data_, distance_, parameters, threadpool_);
+        auto builder = VamanaBuilder(
+            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters_
+        );
         builder.construct(1.0f, entry_point_[0]);
         builder.construct(parameters.alpha, entry_point_[0]);
     }
@@ -224,7 +230,7 @@ class MutableVamanaIndex {
     ///   consolidated and compacted prior to saving.
     /// * The span of internal ID's in translator covers exactly ``[0, data.size())``.
     MutableVamanaIndex(
-        const VamanaConfigParameters& config,
+        const VamanaIndexParameters& config,
         data_type data,
         graph_type graph,
         const Dist& distance_function,
@@ -234,16 +240,20 @@ class MutableVamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{lib::narrow<Idx>(config.entry_point)}
+        , prefetch_parameters_{
+            config.search_parameters.prefetch_lookahead_,
+            config.search_parameters.prefetch_step_
+        }
         , status_{data_.size(), SlotMetadata::Valid}
         , translator_{std::move(translator)}
         , distance_{distance_function}
-        , search_buffer_prototype_{config.search_window_size}
+        , search_buffer_prototype_{config.search_parameters.buffer_config_}
         , threadpool_{std::move(threadpool)}
-        , construction_window_size_{config.construction_window_size}
-        , max_candidates_{config.max_candidates}
-        , prune_to_{config.prune_to}
-        , alpha_{config.alpha}
-        , use_full_search_history_{config.use_full_search_history} {}
+        , construction_window_size_{config.build_parameters.window_size}
+        , max_candidates_{config.build_parameters.max_candidate_pool_size}
+        , prune_to_{config.build_parameters.prune_to}
+        , alpha_{config.build_parameters.alpha}
+        , use_full_search_history_{config.build_parameters.use_full_search_history} {}
 
     ///// Accessors
 
@@ -399,7 +409,8 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 entry_point_,
-                SkipBuilder{status_}
+                SkipBuilder{status_},
+                prefetch_parameters_
             );
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
@@ -422,12 +433,8 @@ class MutableVamanaIndex {
         return result;
     }
 
-    template <typename QueryType, typename I>
-    void search(
-        data::ConstSimpleDataView<QueryType> queries,
-        size_t num_neighbors,
-        QueryResultView<I> result
-    ) {
+    template <data::ImmutableMemoryDataset Queries, typename I>
+    void search(const Queries& queries, size_t num_neighbors, QueryResultView<I> result) {
         SkipBuilder builder{status_};
         threads::run(
             threadpool_,
@@ -591,7 +598,8 @@ class MutableVamanaIndex {
             prune_to_,
             use_full_search_history_};
 
-        VamanaBuilder builder{graph_, data_, distance_, parameters, threadpool_};
+        VamanaBuilder builder{
+            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters_};
         builder.construct(alpha_, entry_point(), slots, false);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
@@ -774,12 +782,41 @@ class MutableVamanaIndex {
     }
 
     ///// Window Interface
-    void set_search_window_size(size_t search_window_size) {
-        search_buffer_prototype_.change_maxsize(search_window_size);
+    VamanaSearchParameters get_search_parameters() const {
+        return VamanaSearchParameters(
+            search_buffer_prototype_.config(),
+            search_buffer_prototype_.visited_set_enabled(),
+            prefetch_parameters_.lookahead,
+            prefetch_parameters_.step
+        );
     }
 
-    size_t get_search_window_size() const { return search_buffer_prototype_.target(); }
+    void populate_search_parameters(VamanaSearchParameters& parameters) const {
+        parameters = get_search_parameters();
+    }
 
+    void set_search_parameters(const VamanaSearchParameters& parameters) {
+        search_buffer_prototype_.change_maxsize(parameters.buffer_config_);
+        // Warn if the visited set is enabled.
+        if (parameters.search_buffer_visited_set_) {
+            search_buffer_prototype_.enable_visited_set();
+        } else {
+            search_buffer_prototype_.disable_visited_set();
+        }
+        prefetch_parameters_ = {parameters.prefetch_lookahead_, parameters.prefetch_step_};
+    }
+
+    ///
+    /// @brief Reset performance parameters to their default values for this index.
+    ///
+    /// Parameters affected are only those that modify throughput on a given architecture.
+    /// Accuracy results should not change as a side-effect of calling this function.
+    ///
+    void reset_performance_parameters() {
+        prefetch_parameters_ = extensions::estimate_prefetch_parameters(data_);
+    }
+
+    ///// Mutation
     void consolidate() {
         auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
         auto valid = [&](size_t i) { return !(this->is_deleted(i)); };
@@ -817,12 +854,6 @@ class MutableVamanaIndex {
         }
     }
 
-    ///// Visited Set Interface
-    // TODO: Enable?
-    void enable_visited_set() {}
-    void disable_visited_set() {}
-    bool visited_set_enabled() const { return false; }
-
     ///// Saving
 
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
@@ -840,16 +871,15 @@ class MutableVamanaIndex {
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
                 // Save the construction parameters.
-                auto parameters = VamanaConfigParameters{
-                    graph_.max_degree(),
+                auto parameters = VamanaIndexParameters{
                     entry_point_.front(),
-                    alpha_,
-                    get_max_candidates(),
-                    get_construction_window_size(),
-                    prune_to_,
-                    get_full_search_history(),
-                    get_search_window_size(),
-                    visited_set_enabled()};
+                    {alpha_,
+                     graph_.max_degree(),
+                     get_construction_window_size(),
+                     get_max_candidates(),
+                     prune_to_,
+                     get_full_search_history()},
+                    get_search_parameters()};
 
                 return lib::SaveTable(
                     save_version,
@@ -867,6 +897,42 @@ class MutableVamanaIndex {
         lib::save_to_disk(data_, data_directory);
         // Save the graph.
         lib::save_to_disk(graph_, graph_directory);
+    }
+
+    /////
+    ///// Calibrate
+    /////
+
+    // Return the maximum degree of the graph.
+    size_t max_degree() const { return graph_.max_degree(); }
+
+    // Experimental algorithm.
+    //
+    // Optimize search_window_size and capacity.
+    // See calibrate.h for more details.
+    template <
+        data::ImmutableMemoryDataset Queries,
+        data::ImmutableMemoryDataset GroundTruth>
+    VamanaSearchParameters calibrate(
+        const Queries& queries,
+        const GroundTruth& groundtruth,
+        size_t num_neighbors,
+        double target_recall,
+        const CalibrationParameters& calibration_parameters = {}
+    ) {
+        auto p = vamana::calibrate(
+            calibration_parameters,
+            *this,
+            num_neighbors,
+            target_recall,
+            [&]() {
+                auto results = this->search(queries, num_neighbors);
+                return k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
+            },
+            [&]() { this->search(queries, num_neighbors); }
+        );
+        set_search_parameters(p);
+        return p;
     }
 
     /////
@@ -1012,12 +1078,12 @@ auto auto_dynamic_assemble(
         // since the internal and external IDs for the static index are the samen.
         if (debug_load_from_static) {
             return std::make_tuple(
-                lib::load<VamanaConfigParameters>(table, ctx),
+                lib::load<VamanaIndexParameters>(table, ctx),
                 IDTranslator(IDTranslator::Identity(datasize))
             );
         } else {
             return std::make_tuple(
-                lib::load_at<VamanaConfigParameters>(table, "parameters", ctx),
+                lib::load_at<VamanaIndexParameters>(table, "parameters", ctx),
                 lib::load_at<IDTranslator>(table, "translation", ctx)
             );
         }

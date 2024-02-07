@@ -392,8 +392,20 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         auto y = svs::lib::load_from_disk<SaveableContextFree>(temp_dir);
         CATCH_REQUIRE(x == y);
 
+        // go directly through files.
+        auto temp_file = temp_dir / "my_file.toml";
+        svs::lib::save_to_file(x, temp_file);
+        y = svs::lib::load_from_file<SaveableContextFree>(temp_file);
+        CATCH_REQUIRE(x == y);
+
         // Test argument forwarding.
         y = svs::lib::load_from_disk<SaveableContextFree>(temp_dir, true);
+        CATCH_REQUIRE(x != y);
+        CATCH_REQUIRE(x.val_ == y.val_);
+        CATCH_REQUIRE(y.extra_arg_);
+
+        // Argument forwarding through files.
+        y = svs::lib::load_from_file<SaveableContextFree>(temp_file, true);
         CATCH_REQUIRE(x != y);
         CATCH_REQUIRE(x.val_ == y.val_);
         CATCH_REQUIRE(y.extra_arg_);
@@ -589,6 +601,25 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         );
         CATCH_REQUIRE(u.at(0).extra_arg_ == true);
         CATCH_REQUIRE(u.at(1).extra_arg_ == true);
+
+        // Save and load through file.
+        auto tempfile = tempdir / "temp_file.toml";
+        svs::lib::save_to_file(v, tempfile);
+        u = svs::lib::load_from_file<std::vector<SaveableContextFree>>(tempfile);
+        CATCH_REQUIRE(v == u);
+
+        u = svs::lib::load_from_file<std::vector<SaveableContextFree>>(tempfile, allocator);
+        CATCH_REQUIRE(v == u);
+
+        u = svs::lib::load_from_file<std::vector<SaveableContextFree>>(tempfile, true);
+        CATCH_REQUIRE(u.at(0).extra_arg_ == true);
+        CATCH_REQUIRE(u.at(1).extra_arg_ == true);
+
+        u = svs::lib::load_from_file<std::vector<SaveableContextFree>>(
+            tempfile, allocator, true
+        );
+        CATCH_REQUIRE(u.at(0).extra_arg_ == true);
+        CATCH_REQUIRE(u.at(1).extra_arg_ == true);
     }
 
     CATCH_SECTION("Vector - contextual") {
@@ -625,5 +656,34 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
             uint64_t u = svs::lib::load<svs::lib::FullUnsigned>(tmp);
             CATCH_REQUIRE(u == x);
         }
+    }
+
+    CATCH_SECTION("Percent") {
+        auto temp_dir = setup();
+        auto temp_file = temp_dir / "temp.toml";
+        auto x = svs::lib::Percent(0.125);
+        svs::lib::save_to_file(x, temp_file);
+        auto y = svs::lib::load_from_file<svs::lib::Percent>(temp_file);
+        CATCH_REQUIRE(x == y);
+    }
+
+    CATCH_SECTION("Binary Blob") {
+        auto temp_dir = setup();
+        auto v = std::vector<int>{1, 2, 3, 4, 5};
+        svs::lib::save_to_disk(svs::lib::BinaryBlobSaver(v), temp_dir);
+
+        // Reload.
+        std::vector<int> u =
+            svs::lib::load_from_disk<svs::lib::BinaryBlobLoader<int>>(temp_dir);
+        CATCH_REQUIRE(u == v);
+
+        // Reload with a different allocator.
+        std::vector<int, svs::lib::Allocator<int>> w = svs::lib::load_from_disk<
+            svs::lib::BinaryBlobLoader<int, svs::lib::Allocator<int>>>(
+            temp_dir, svs::lib::Allocator<int>()
+        );
+
+        CATCH_REQUIRE(w.size() == v.size());
+        CATCH_REQUIRE(std::equal(w.begin(), w.end(), v.begin()));
     }
 }

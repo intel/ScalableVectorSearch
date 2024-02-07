@@ -9,16 +9,21 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
+// Header under test
+#include "svs/core/io/vecs.h"
+
+// svs_test
+#include "tests/utils/test_dataset.h"
+#include "tests/utils/utils.h"
+
+// catch2
+#include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
+
+// stl
 #include <iostream>
 #include <numeric>
 #include <vector>
-
-#include "svs/core/io/vecs.h"
-
-#include "catch2/catch_test_macros.hpp"
-
-#include "tests/utils/test_dataset.h"
-#include "tests/utils/utils.h"
 
 CATCH_TEST_CASE("Testing Vecs Reader Iterator", "[core][io]") {
     auto reference = test_dataset::reference_file_contents();
@@ -69,5 +74,28 @@ CATCH_TEST_CASE("Testing Vecs Reader Iterator", "[core][io]") {
             }
         }
         CATCH_REQUIRE(svs_test::compare_files(vecs_file, output_file) == true);
+    }
+
+    CATCH_SECTION("Error on Incorrect File") {
+        auto incorrect_vecs_file = test_dataset::reference_svs_file();
+        CATCH_REQUIRE_THROWS_MATCHES(
+            svs::io::vecs::VecsReader<float>(incorrect_vecs_file),
+            svs::ANNException,
+            svs_test::ExceptionMatcher(
+                Catch::Matchers::ContainsSubstring(incorrect_vecs_file) &&
+                Catch::Matchers::ContainsSubstring(fmt::format("{}", sizeof(float)))
+            )
+        );
+
+        // We should also get an error if we supply an incorrectly sized type.
+        auto vecs_file = test_dataset::reference_vecs_file();
+        CATCH_REQUIRE_THROWS_MATCHES(
+            svs::io::vecs::VecsReader<svs::Float16>(incorrect_vecs_file),
+            svs::ANNException,
+            svs_test::ExceptionMatcher(
+                Catch::Matchers::ContainsSubstring(incorrect_vecs_file) &&
+                Catch::Matchers::ContainsSubstring(fmt::format("{}", sizeof(svs::Float16)))
+            )
+        );
     }
 }

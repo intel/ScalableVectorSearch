@@ -99,6 +99,11 @@ Once those are installed, follow these steps:
 2. From the root directory of the source run
 
 ```
+# Build the manylinux-based container needed by SVS
+cd ./docker/x86_64/manylinux2014/
+./build.sh
+# Return the the root directory and run `cibuildwheel`
+cd ../../..
 cibuildwheel --only $(python tools/pybuild.py) bindings/python
 ```
 

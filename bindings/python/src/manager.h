@@ -55,9 +55,7 @@ Perform a search to return the `n_neighbors` approximate nearest neighbors to th
 
 Args:
     queries: Numpy Vector or Matrix representing the queries.
-
         If the argument is a vector, it will be treated as a single query.
-
         If the argument is a matrix, individual queries are assumed to the rows of the
         matrix. Returned results will have a position-wise correspondence
         with the queries. That is, the `N`-th row of the returned IDs and distances will

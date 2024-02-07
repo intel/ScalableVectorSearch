@@ -11,7 +11,8 @@
 
 #pragma once
 
-#if defined(SVS_ENABLE_NUMA)
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_NUMA);
+#if SVS_ENABLE_NUMA
 
 // stdlib
 #include <algorithm>

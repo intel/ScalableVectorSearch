@@ -1,6 +1,12 @@
 // svs-benchmark
 #include "svs-benchmark/benchmark.h"
+#include "svs-benchmark/datasets.h"
+// vamana
 #include "svs-benchmark/vamana/build.h"
+#include "svs-benchmark/vamana/search.h"
+#include "svs-benchmark/vamana/test.h"
+// inverted
+#include "svs-benchmark/inverted/inverted.h"
 
 // stl
 #include <memory>
@@ -10,67 +16,20 @@
 #include <vector>
 
 namespace {
-
-class ExecutableDispatcher {
-  public:
-    ///// Type aliases
-    using map_type =
-        std::unordered_map<std::string, std::unique_ptr<svsbenchmark::Benchmark>>;
-
-  private:
-    ///// Members
-    map_type executables_ = {};
-
-  public:
-    ///// Constructor
-    ExecutableDispatcher() = default;
-
-    ///// API
-    void register_executable(std::unique_ptr<svsbenchmark::Benchmark> exe) {
-        auto name = exe->name();
-
-        // Check if this executable is already registered.
-        if (lookup(name) != nullptr) {
-            throw ANNEXCEPTION(
-                "An executable with the name ", name, " is already registered!"
-            );
-        }
-        executables_[std::move(name)] = std::move(exe);
-    }
-
-    std::vector<std::string> executables() const {
-        auto names = std::vector<std::string>();
-        for (const auto& kv : executables_) {
-            names.push_back(kv.first);
-        }
-        std::sort(names.begin(), names.end());
-        return names;
-    }
-
-    bool call(const std::string& name, std::span<const std::string_view> args) const {
-        auto* f = lookup(name);
-        if (f) {
-            f->run(args);
-            return true;
-        }
-        return false;
-    }
-
-  private:
-    svsbenchmark::Benchmark* lookup(const std::string& name) const {
-        if (auto itr = executables_.find(name); itr != executables_.end()) {
-            return itr->second.get();
-        }
-        return nullptr;
-    }
-};
-
-ExecutableDispatcher build_dispatcher() {
-    auto dispatcher = ExecutableDispatcher();
+svsbenchmark::ExecutableDispatcher build_dispatcher() {
+    auto dispatcher = svsbenchmark::ExecutableDispatcher();
+    // vamana
+    dispatcher.register_executable(svsbenchmark::vamana::search_static_workflow());
     dispatcher.register_executable(svsbenchmark::vamana::static_workflow());
     dispatcher.register_executable(svsbenchmark::vamana::dynamic_workflow());
+    dispatcher.register_executable(svsbenchmark::vamana::test_generator());
+    // inverted
+    svsbenchmark::inverted::register_executables(dispatcher);
+    // documentation
+    svsbenchmark::register_dataset_documentation(dispatcher);
     return dispatcher;
 }
+
 } // namespace
 
 std::span<const std::string_view>
@@ -80,10 +39,21 @@ get_executable_arguments(const std::vector<std::string_view>& arguments) {
     return {begin, end};
 }
 
-void print_help(const ExecutableDispatcher& dispatcher, std::string_view prefix = "") {
+void print_help(
+    const svsbenchmark::ExecutableDispatcher& dispatcher, std::string_view prefix = ""
+) {
+    // Set up the print-outs so `True` means we are compiling more things into the
+    // final binary.
+    //
+    // Less difficult to visually parse this way.
+    fmt::print("SVS Benchmarking Executable\n");
+    fmt::print("        Benchmarks Built: {}\n", !svsbenchmark::is_minimal);
+    fmt::print("   Test Generators Built: {}\n\n", svsbenchmark::build_test_generators);
+
     if (!prefix.empty()) {
         fmt::print("{}\n", prefix);
     }
+
     fmt::print("The following executables are registered with the benchmarking program:\n");
     auto names = dispatcher.executables();
     for (const auto& name : names) {
@@ -106,6 +76,11 @@ int main_bootstrapped(const std::vector<std::string_view>& arguments) {
         return 1;
     }
 
+    // Warn if the library was compiled in minimal mode and we're calling an actual
+    // executable.
+    if constexpr (svsbenchmark::is_minimal) {
+        fmt::print("WARNING! The benchmark executable was compiled in minimal mode!\n");
+    }
     bool success = dispatcher.call(exe, get_executable_arguments(arguments));
     if (!success) {
         print_help(dispatcher, fmt::format("Could not find executable \"{}\".", exe));
@@ -115,10 +90,6 @@ int main_bootstrapped(const std::vector<std::string_view>& arguments) {
 }
 
 int main(int argc, char* argv[]) {
-    if constexpr (svsbenchmark::is_minimal) {
-        fmt::print("WARNING! The benchmark executable was compiled in minimal mode!\n");
-    }
-
     // The very first thing we do is get the arguments into a more useful form.
     auto arguments = std::vector<std::string_view>();
     for (auto* i : std::span(argv, argc)) {

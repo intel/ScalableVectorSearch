@@ -17,6 +17,7 @@
 #include "svs/lib/exception.h"
 #include "svs/lib/file.h"
 #include "svs/lib/misc.h"
+#include "svs/lib/readwrite.h"
 #include "svs/lib/uuid.h"
 #include "svs/lib/version.h"
 
@@ -35,7 +36,7 @@
 
 namespace svs {
 
-inline bool maybe_config_file(const std::filesystem::path& path) {
+inline bool config_file_by_extension(const std::filesystem::path& path) {
     return path.extension() == ".toml";
 }
 
@@ -128,6 +129,14 @@ class LoadContext {
     /// @brief Return the current directory where intermediate files will be saved.
     const std::filesystem::path& get_directory() const { return directory_; }
 
+    /// @brief Return the given relative path as a full path in the loading directory.
+    std::filesystem::path resolve(const std::filesystem::path& relative) const {
+        return get_directory() / relative;
+    }
+
+    /// @brief Return the relative path in `table` at position `key` as a full path.
+    std::filesystem::path resolve(const toml::table& table, std::string_view key) const;
+
     ///
     /// @brief Return the current global loading version scheme.
     ///
@@ -164,7 +173,7 @@ struct SaveNode {
 ///
 class SaveTable {
   private:
-    toml::table table_;
+    toml::table table_{};
 
     void insert_version(const Version& version) {
         table_.insert(config_version_key, version.str());
@@ -172,10 +181,7 @@ class SaveTable {
 
   public:
     /// @brief Construct an empty table with the given version.
-    explicit SaveTable(const Version& version)
-        : table_{} {
-        insert_version(version);
-    }
+    explicit SaveTable(const Version& version) { insert_version(version); }
 
     ///
     /// @brief Construct a table using an initializer list of key-value pairs.
@@ -344,7 +350,7 @@ inline std::unique_ptr<toml::node> exit_hook(SaveNode val) { return std::move(va
 
 } // namespace detail
 
-/// @defgroup save_group
+/// @defgroup save_group Object Saving
 
 ///
 /// @ingroup save_group
@@ -397,7 +403,7 @@ namespace detail {
 
 // Context free loading
 template <typename Loader, typename... Args>
-    requires(!meta::first_is<LoadContext, Args...>())
+    requires(!lib::first_is<LoadContext, Args...>())
 auto load_impl(const Loader& loader, const toml::node& node, Args&&... args) {
     using To = typename Loader::toml_type;
     const To& converted = toml_helper::get_as<To>(node);
@@ -437,7 +443,7 @@ auto load_impl(
 }
 } // namespace detail
 
-/// @defgroup load_group
+/// @defgroup load_group Object Loading
 
 ///
 /// @ingroup load_group
@@ -572,6 +578,21 @@ template <typename F> class SaveOverride {
     F f_;
 };
 
+namespace detail {
+template <typename Nodelike>
+void save_node_to_file(
+    Nodelike&& node,
+    const std::filesystem::path& path,
+    const lib::Version& version = CURRENT_SAVE_VERSION
+) {
+    auto top_table = toml::table(
+        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(node)}}
+    );
+    auto file = lib::open_write(path, std::ios_base::out);
+    file << top_table << "\n";
+}
+} // namespace detail
+
 ///
 /// @brief Save the object into the given directory.
 ///
@@ -586,6 +607,8 @@ template <typename F> class SaveOverride {
 /// *outside* of this directory, that should be considered a bug. Please report such
 /// instances to the project maintainer.
 ///
+/// @see svs::lib::save_to_file
+///
 template <typename T> void save_to_disk(const T& x, const std::filesystem::path& dir) {
     // Create the directory.
     // Per the documented API, if `dir` already exists, then there is no error.
@@ -594,11 +617,24 @@ template <typename T> void save_to_disk(const T& x, const std::filesystem::path&
 
     // Assume the saving context is in the same directory as the path.
     auto ctx = SaveContext(dir);
-    auto top_table = toml::table(
-        {{config_version_key, ctx.version().str()}, {config_object_key, lib::save(x, ctx)}}
-    );
-    auto file = open_write(dir / config_file_name, std::ios_base::out);
-    file << top_table;
+    detail::save_node_to_file(lib::save(x, ctx), dir / config_file_name, ctx.version());
+}
+
+///
+/// @brief Save the object into the given file.
+///
+/// @param x The object to save to disk.
+/// @param path The file where the object will be saved.
+///
+/// This method requires that the class `x` implements context-free saving. That is, the
+/// serialized representation of `x` does not need auxiliary files. If `x` does not
+/// implement context-free saving, a compile-time error will ge emitted.
+///
+/// @see svs::lib::save_to_disk
+///
+template <typename T> void save_to_file(const T& x, const std::filesystem::path& path) {
+    static_assert(SaveableContextFree<T>, "save_to_file requires context-free saving!");
+    detail::save_node_to_file(lib::save(x), path);
 }
 
 /// @brief Class to enable a lambda to be used for ad-hoc loading.
@@ -629,7 +665,7 @@ template <typename F> class LoadOverride {
     F f_;
 };
 
-/// @defgroup load_from_disk_group
+/// @defgroup load_from_disk_group Loading from Disk
 
 ///
 /// @ingroup load_from_disk_group
@@ -678,6 +714,40 @@ auto load_from_disk(const Loader& loader, std::filesystem::path path, Args&&... 
 template <typename T, typename... Args>
 auto load_from_disk(const std::filesystem::path& path, Args&&... args) {
     return lib::load_from_disk(Loader<T>(), path, std::forward<Args>(args)...);
+}
+
+///
+/// @ingroup load_from_disk_group
+/// @brief Load an object from a previously saved object file.
+///
+/// Path must point to a config TOML file and the loader *must* implement context-free
+/// loading.
+///
+/// @param loader The loader object with a ``load`` method.
+/// @param path The path to the object serialization file.
+/// @param args Any arguments to forward to the final load method.
+///
+template <typename Loader, typename... Args>
+auto load_from_file(const Loader& loader, std::filesystem::path path, Args&&... args) {
+    auto table = toml::parse_file(path.c_str());
+    return lib::load_at(loader, table, config_object_key, std::forward<Args>(args)...);
+}
+
+///
+/// @ingroup load_from_disk_group
+/// @brief Load an object from a previously saved object file.
+///
+/// Path must point to a config TOML file and the loader *must* implement context-free
+/// loading.
+///
+/// @tparam The class to be loaded using a static ``load`` method.
+///
+/// @param path The path to the object serialization file.
+/// @param args Any arguments to forward to the final load method.
+///
+template <typename T, typename... Args>
+auto load_from_file(const std::filesystem::path& path, Args&&... args) {
+    return lib::load_from_file(Loader<T>(), path, std::forward<Args>(args)...);
 }
 
 template <typename T> bool test_self_save_load(T& x, const std::filesystem::path& dir) {
@@ -757,6 +827,12 @@ template <> struct Loader<std::filesystem::path> {
     static std::filesystem::path load(const toml_type& value) { return value.get(); }
 };
 
+///// Now - we can finally implement this member function.
+inline std::filesystem::path
+LoadContext::resolve(const toml::table& table, std::string_view key) const {
+    return this->resolve(load_at<std::filesystem::path>(table, key));
+}
+
 // Timepoint.
 template <> struct Saver<std::chrono::time_point<std::chrono::system_clock>> {
     static SaveNode save(std::chrono::time_point<std::chrono::system_clock> x) {
@@ -811,9 +887,7 @@ template <typename T, typename Alloc> struct Loader<std::vector<T, Alloc>> {
 
     // Context free path without an explicit allocator argument.
     template <typename... Args>
-        requires(
-            !meta::first_is<LoadContext, Args...>() && !meta::first_is<Alloc, Args...>()
-        )
+        requires(!lib::first_is<LoadContext, Args...>() && !lib::first_is<Alloc, Args...>())
     static std::vector<T, Alloc> load(const toml_type& array, Args&&... args) {
         auto v = std::vector<T, Alloc>();
         do_load(v, array, std::forward<Args>(args)...);
@@ -831,7 +905,7 @@ template <typename T, typename Alloc> struct Loader<std::vector<T, Alloc>> {
 
     // Contextual path without an explicit allocator argument.
     template <typename... Args>
-        requires(!meta::first_is<Alloc, Args...>())
+        requires(!lib::first_is<Alloc, Args...>())
     static std::vector<T, Alloc> load(
         const toml_type& array, const LoadContext& ctx, Args&&... args
     ) {
@@ -881,6 +955,20 @@ template <> struct Loader<UUID> {
 };
 
 /////
+///// Percent
+/////
+
+template <> struct Saver<Percent> {
+    static SaveNode save(Percent x) { return SaveNode(x.value()); }
+};
+
+template <> struct Loader<Percent> {
+    using toml_type = double;
+    static constexpr bool is_version_free = true;
+    static Percent load(toml_type value) { return Percent(value); }
+};
+
+/////
 ///// Save a full 64-bit unsigned integer
 /////
 
@@ -907,6 +995,105 @@ template <> struct Loader<FullUnsigned> {
     static FullUnsigned load(toml_type value) {
         return FullUnsigned(std::bit_cast<uint64_t>(value));
     }
+};
+
+/////
+///// BinaryBlob
+/////
+
+struct BinaryBlobSerializer {
+    static constexpr lib::Version save_version{0, 0, 0};
+};
+
+template <typename T>
+    requires(std::is_trivially_copyable_v<T>)
+class BinaryBlobSaver : private BinaryBlobSerializer {
+  public:
+    explicit BinaryBlobSaver(std::span<const T> data)
+        : BinaryBlobSerializer()
+        , data_{data} {}
+
+    template <typename Alloc>
+    explicit BinaryBlobSaver(const std::vector<T, Alloc>& data)
+        : BinaryBlobSaver(lib::as_const_span(data)) {}
+
+    SaveTable save(const SaveContext& ctx) const {
+        auto path = ctx.generate_name("binary_blob", "bin");
+        size_t bytes_written = 0;
+        {
+            auto ostream = lib::open_write(path);
+            bytes_written += lib::write_binary(ostream, data_);
+        }
+
+        return SaveTable(
+            BinaryBlobSerializer::save_version,
+            {{"filename", lib::save(path.filename())},
+             {"element_size", lib::save(sizeof(T))},
+             {"element_type", lib::save(datatype_v<T>)},
+             {"num_elements", lib::save(data_.size())}}
+        );
+    }
+
+  private:
+    std::span<const T> data_;
+};
+
+template <typename T, typename Alloc = std::allocator<T>>
+    requires(std::is_trivially_copyable_v<T>)
+class BinaryBlobLoader : private BinaryBlobSerializer {
+  public:
+    explicit BinaryBlobLoader(size_t num_elements, const Alloc& allocator)
+        : BinaryBlobSerializer()
+        , data_(num_elements, allocator) {}
+
+    // Implicit conversion to `std::vector`
+    operator std::vector<T, Alloc>() && { return std::move(data_); }
+
+    static BinaryBlobLoader load(
+        const toml::table& table,
+        const lib::LoadContext& ctx,
+        const lib::Version& version,
+        const Alloc& allocator = {}
+    ) {
+        if (version != BinaryBlobSerializer::save_version) {
+            throw ANNEXCEPTION("Version mismatch!");
+        }
+
+        auto element_type = lib::load_at<DataType>(table, "element_type");
+        constexpr auto expected_element_type = datatype_v<T>;
+        if (element_type != expected_element_type) {
+            throw ANNEXCEPTION(
+                "Element type mismatch! Expected {}, got {}.",
+                element_type,
+                expected_element_type
+            );
+        }
+
+        // If this is an unknown data type - the best we can try to do is verify that the
+        // element sizes are correct.
+        if (element_type == DataType::undef) {
+            auto element_size = lib::load_at<size_t>(table, "element_size");
+            if (element_size != sizeof(T)) {
+                throw ANNEXCEPTION(
+                    "Size mismatch for unknown element types. Expected {}, got {}.",
+                    element_size,
+                    sizeof(T)
+                );
+            }
+        }
+
+        auto num_elements = lib::load_at<size_t>(table, "num_elements");
+        auto filename = ctx.resolve(table, "filename");
+        auto loader = BinaryBlobLoader(num_elements, allocator);
+        {
+            auto istream = lib::open_read(filename);
+            lib::read_binary(istream, loader.data_);
+        }
+        return loader;
+    }
+
+  private:
+    std::vector<T, Alloc> data_{};
 };
 
 /////

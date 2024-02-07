@@ -25,57 +25,94 @@ namespace svs::io {
 
 // Dispatch tags to control the loading and saving pipeline.
 constexpr lib::PriorityTag<2> default_populate_tag = lib::PriorityTag<2>();
-constexpr lib::PriorityTag<2> default_save_tag = lib::PriorityTag<2>();
 
-// Generic dataset population.
+// Some specialized datasets (namely LVQ) may need to perform aritrary computation
+// or rearrangement of the saved data prior to committing it to the dataset.
+//
+// These datasets are expected to provide their own custom accessor in this case.
+//
+// The class defined below is meant for the case when we are loading simple, uncompressed
+// data.
+struct DefaultWriteAccessor {
+    template <data::MemoryDataset Data, typename File>
+    typename File::template reader_type<typename Data::element_type>
+    reader(const Data& SVS_UNUSED(data), const File& file) const {
+        using T = typename Data::element_type;
+        return file.reader(lib::Type<T>());
+    }
+
+    template <data::MemoryDataset Data, lib::AnySpanLike Span>
+    void set(Data& data, size_t i, Span span) const {
+        data.set_datum(i, span);
+    }
+};
+
+// Similar to writing TO a dataset, when reading FROM a dataset, we also provide an option
+// for injecting an arbitrary accessor to transform data.
+struct DefaultReadAccessor {
+    template <data::ImmutableMemoryDataset Data>
+    size_t serialized_dimensions(const Data& data) const {
+        return data.dimensions();
+    }
+
+    template <data::ImmutableMemoryDataset Data>
+    typename Data::const_value_type get(const Data& data, size_t i) const {
+        return data.get_datum(i);
+    }
+};
+
 // TODO (long term): Constrain this to vector-based datasets?
-template <data::MemoryDataset Data, typename File>
-void populate_impl(Data& data, const File& file, lib::PriorityTag<0> /*tag*/) {
-    using T = typename Data::element_type;
-    auto reader = file.reader(lib::meta::Type<T>());
+template <data::MemoryDataset Data, typename WriteAccessor, typename File>
+void populate_impl(
+    Data& data, WriteAccessor& accessor, const File& file, lib::PriorityTag<0> /*tag*/
+) {
+    auto reader = accessor.reader(data, file);
     size_t i = 0;
     for (auto v : reader) {
-        data.set_datum(i, v);
+        accessor.set(data, i, v);
         ++i;
     }
 }
 
 // Intercept the native file to perform dispatch on the actual file type.
-template <data::MemoryDataset Data>
-void populate_impl(Data& data, const NativeFile& file, lib::PriorityTag<1> tag) {
+template <data::MemoryDataset Data, typename WriteAccessor>
+void populate_impl(
+    Data& data, WriteAccessor& accessor, const NativeFile& file, lib::PriorityTag<1> tag
+) {
     file.resolve([&](const auto& resolved_file) {
-        populate_impl(data, resolved_file, tag.next());
+        populate_impl(data, accessor, resolved_file, decltype(tag)::next());
     });
 }
 
 ///
 /// @brief Populate the entries of `data` with the contents of `file`.
 ///
-template <data::MemoryDataset Data, typename File>
-void populate(Data& data, const File& file) {
-    populate_impl(data, file, default_populate_tag);
+template <data::MemoryDataset Data, typename WriteAccessor, typename File>
+void populate(Data& data, WriteAccessor& accessor, const File& file) {
+    populate_impl(data, accessor, file, default_populate_tag);
 }
 
 /////
 ///// Saving
 /////
 
-template <data::ImmutableMemoryDataset Dataset, typename File>
-void save_impl(
+template <data::ImmutableMemoryDataset Dataset, typename ReadAccessor, typename File>
+void save(
     const Dataset& data,
+    ReadAccessor& accessor,
     const File& file,
-    const lib::UUID& uuid = lib::ZeroUUID,
-    lib::PriorityTag<0> SVS_UNUSED(tag) = lib::PriorityTag<0>()
+    const lib::UUID& uuid = lib::ZeroUUID
 ) {
-    auto writer = file.writer(data.dimensions(), uuid);
+    auto writer = file.writer(accessor.serialized_dimensions(data), uuid);
     for (size_t i = 0; i < data.size(); ++i) {
-        writer << data.get_datum(i);
+        writer << accessor.get(data, i);
     }
 }
 
 template <data::ImmutableMemoryDataset Dataset, typename File>
 void save(const Dataset& data, const File& file, const lib::UUID& uuid = lib::ZeroUUID) {
-    save_impl(data, file, uuid, default_save_tag);
+    auto accessor = DefaultReadAccessor();
+    return save(data, accessor, file, uuid);
 }
 
 ///
@@ -98,11 +135,12 @@ void save_vecs(const Dataset& data, const std::filesystem::path& path) {
 /////
 
 // Generic dataset loading.
-template <typename File, lib::LazyInvocable<size_t, size_t> F>
-lib::lazy_result_t<F, size_t, size_t> load_impl(const File& file, const F& lazy) {
+template <typename File, typename WriteAccessor, lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t>
+load_impl(const File& file, WriteAccessor& accessor, const F& lazy) {
     auto [vectors_to_read, ndims] = file.get_dims();
     auto data = lazy(vectors_to_read, ndims);
-    populate(data, file);
+    populate(data, accessor, file);
     return data;
 }
 
@@ -114,9 +152,16 @@ inline NativeFile to_native(const std::string_view& x) { return to_native(std::s
 inline NativeFile to_native(const std::filesystem::path& x) { return NativeFile(x); }
 } // namespace detail
 
+template <typename File, typename WriteAccessor, lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t>
+load_dataset(const File& file, WriteAccessor& accessor, const F& lazy) {
+    return load_impl(detail::to_native(file), accessor, lazy);
+}
+
 template <typename File, lib::LazyInvocable<size_t, size_t> F>
 lib::lazy_result_t<F, size_t, size_t> load_dataset(const File& file, const F& lazy) {
-    return load_impl(detail::to_native(file), lazy);
+    auto default_accessor = DefaultWriteAccessor();
+    return load_impl(detail::to_native(file), default_accessor, lazy);
 }
 
 ///
@@ -142,13 +187,14 @@ lib::lazy_result_t<F, size_t, size_t>
 auto_load(const std::string& filename, const F& construct) {
     if (filename.ends_with("svs")) {
         return load_dataset(io::NativeFile(filename), construct);
-    } else if (filename.ends_with("vecs")) {
-        return load_dataset(io::vecs::VecsFile<T>(filename), construct);
-    } else if (filename.ends_with("bin")) {
-        return load_dataset(io::binary::BinaryFile(filename), construct);
-    } else {
-        throw ANNEXCEPTION("Unknown file extension for input file: {}.", filename);
     }
+    if (filename.ends_with("vecs")) {
+        return load_dataset(io::vecs::VecsFile<T>(filename), construct);
+    }
+    if (filename.ends_with("bin")) {
+        return load_dataset(io::binary::BinaryFile(filename), construct);
+    }
+    throw ANNEXCEPTION("Unknown file extension for input file: {}.", filename);
 }
 
 } // namespace svs::io

@@ -69,6 +69,7 @@ class DynamicVamanaTester(unittest.TestCase):
             self.assertEqual(index.alpha, reloaded.alpha)
             self.assertEqual(index.construction_window_size, reloaded.construction_window_size)
 
+            ### Get recall with the saved search-window-size and other search parameters.
             I, D = reloaded.search(reference.queries, num_neighbors)
             reloaded_recall = pysvs.k_recall_at(gt, I, num_neighbors, num_neighbors)
 
@@ -77,6 +78,11 @@ class DynamicVamanaTester(unittest.TestCase):
             print(f"    Reloaded Recall: {reloaded_recall}")
             self.assertTrue(reloaded_recall < expected_recall + recall_delta)
             self.assertTrue(reloaded_recall > expected_recall - recall_delta)
+
+            # Make sure that search still works even when we set the search parameters
+            # to default values.
+            reloaded.search_parameters = pysvs.VamanaSearchParameters()
+            I, D = reloaded.search(reference.queries, num_neighbors)
 
     def test_loop(self):
         num_threads = 2
@@ -97,7 +103,6 @@ class DynamicVamanaTester(unittest.TestCase):
         parameters = pysvs.VamanaBuildParameters(
             graph_max_degree = 64,
             window_size = 128,
-            num_threads = num_threads,
             alpha = 1.2,
         )
 
@@ -106,8 +111,10 @@ class DynamicVamanaTester(unittest.TestCase):
             data,
             ids,
             pysvs.DistanceType.L2,
-            num_threads,
+            num_threads = num_threads,
         )
+
+        print(f"Testing {index.experimental_backend_string}")
 
         index.search_window_size = 10
         self.assertEqual(index.search_window_size, 10)

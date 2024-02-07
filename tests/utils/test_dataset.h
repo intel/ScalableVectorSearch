@@ -16,134 +16,102 @@
 #include <vector>
 
 #include "svs/core/data.h"
+#include "svs/core/distance.h"
 #include "svs/core/graph.h"
 
 #include "tests/utils/utils.h"
 
 namespace test_dataset {
 
-///// Summary
-//
-// -- Paths --
-// reference_vecs_file() -> std::filesystem::path
-// reference_svs_file() -> std::filesystem::path
-// dataset_directory() -> std::filesystem::path
-// data_svs_file() -> std::filesystem::path
-// graph_file() -> std::filesystem::path
-// metadata_file() -> std::filesystem::path
-// query_file() -> std::filesystem::path
-// groundtruth_euclidean_file() -> std::filesystem::path
-// groundtruth_mip_file() -> std::filesystem::path
-// groundtruth_cosine_file() -> std::filesystem::path
-//
-// -- Reference Contents --
-// reference_file_contents() -> std::vector<std::vector<float>>
-//
-// -- Loading --
-// queries() -> svs::QueryData<float>
-// groundtruth_euclidean() -> svs::QueryData<uint32_t>
-// groundtruth_mip() -> svs::QueryData<uint32_t>
-// groundtruth_cosine() -> svs::QueryData<uint32_t>
-// data_f32()
-// graph()
-//
-// -- Graph Stats --
-// expected_out_neighbors() -> std::vector<uint32_t>
-// const size_t GRAPH_MAX_DEGREE
-//
-// -- Data Stats --
-// const size_t NUM_DIMENSIONS
-// const size_t VECTORS_IN_DATA_SET
-// const float SUM_OF_FIRST_VECTOR
-// const float SUM_OF_SECOND_VECTOR
-// const float SUM_OF_FIRST_TWO_VECTORS
-// const double SUM_OF_ALL_VECTORS
-
 ///// Paths
-inline std::filesystem::path dataset_directory() {
-    return svs_test::data_directory() / "test_dataset";
-}
-
+// The directory containing the reference dataset.
+std::filesystem::path dataset_directory();
+// The directory containint test reference results.
+std::filesystem::path reference_directory();
 // A fvecs file with known contents.
-inline std::filesystem::path reference_vecs_file() {
-    return dataset_directory() / "known_f32.fvecs";
-}
-
-inline std::filesystem::path reference_svs_file() {
-    return dataset_directory() / "known_f32.svs";
-}
-
-inline std::vector<std::vector<float>> reference_file_contents() {
-    return std::vector<std::vector<float>>{{
-        {-0.5297755, -0.46527258, -0.35637274, -0.08176492, 1.5503496, -0.7668221},
-        {-2.4953504, 0.69067955, 1.4129586, 0.96996725, -1.0216018, 0.8098934},
-        {-0.7779222, -1.1489166, 1.8277988, -0.3818305, -0.014146144, -1.0575522},
-        {-0.07507572, 0.6534284, -1.1132482, 0.4399589, 0.20736118, -0.70264465},
-        {1.0966406, -0.7609801, -1.2466722, 0.82666475, 0.12550473, 1.760032},
-    }};
-}
+std::filesystem::path reference_vecs_file();
+// The same file as the "vecs" file but encoded in the SVS format.
+std::filesystem::path reference_svs_file();
+// The expected contents of the reference file.
+std::vector<std::vector<float>> reference_file_contents();
 
 // The test data encoded in the "svs" format.
-inline std::filesystem::path data_svs_file() {
-    return dataset_directory() / "data_f32.svs";
-}
-
+std::filesystem::path data_svs_file();
 // Test graph in the "svs" format.
-inline std::filesystem::path graph_file() { return dataset_directory() / "graph_128.svs"; }
-
+std::filesystem::path graph_file();
 // Index metadata file.
-inline std::filesystem::path vamana_config_file() {
-    return dataset_directory() / "vamana_config.toml";
-}
+std::filesystem::path vamana_config_file();
 
-inline std::filesystem::path metadata_file() {
-    return dataset_directory() / "metadata.svs";
-}
+std::filesystem::path metadata_file();
 
 // Test query data in the "fvecs" format.
-inline std::filesystem::path query_file() {
-    return dataset_directory() / "queries_f32.fvecs";
-}
-
+std::filesystem::path query_file();
 // Groundtruth of for the queries with respect to the dataset using the euclidean distance.
-inline std::filesystem::path groundtruth_euclidean_file() {
-    return dataset_directory() / "groundtruth_euclidean.ivecs";
-}
-
+std::filesystem::path groundtruth_euclidean_file();
 // Groundtruth of for the queries with respect to the dataset using the MIP distance.
-inline std::filesystem::path groundtruth_mip_file() {
-    return dataset_directory() / "groundtruth_mip.ivecs";
-}
-
+std::filesystem::path groundtruth_mip_file();
 // Groundtruth of for the queries with respect to the dataset using cosine similarity.
-inline std::filesystem::path groundtruth_cosine_file() {
-    return dataset_directory() / "groundtruth_cosine.ivecs";
-}
+std::filesystem::path groundtruth_cosine_file();
+
+// LeanVec data and query matrices in "fvecs" format.
+std::filesystem::path leanvec_data_matrix_file();
+std::filesystem::path leanvec_query_matrix_file();
 
 ///// Helper Functions
-inline auto queries() { return svs::load_data<float>(query_file()); }
-inline auto groundtruth_euclidean() {
-    return svs::load_data<uint32_t>(groundtruth_euclidean_file());
+svs::data::SimpleData<float> queries();
+svs::data::SimpleData<uint32_t> groundtruth_euclidean();
+svs::data::SimpleData<uint32_t> groundtruth_mip();
+svs::data::SimpleData<uint32_t> groundtruth_cosine();
+svs::data::SimpleData<float> data_f32();
+
+svs::data::BlockedData<float> data_blocked_f32();
+
+svs::graphs::SimpleGraph<uint32_t> graph();
+svs::graphs::SimpleBlockedGraph<uint32_t> graph_blocked();
+
+/// Helper to load the ground-truth for a given file.
+svs::data::SimpleData<uint32_t> load_groundtruth(svs::DistanceType distance);
+
+/// Helpers to load LeanVec OOD matrices
+template <size_t D = svs::Dynamic> svs::data::SimpleData<float, D> leanvec_data_matrix() {
+    return svs::load_data<float, D>(leanvec_data_matrix_file());
 }
-inline auto groundtruth_mip() { return svs::load_data<uint32_t>(groundtruth_mip_file()); }
-inline auto groundtruth_cosine() {
-    return svs::load_data<uint32_t>(groundtruth_cosine_file());
+template <size_t D = svs::Dynamic> svs::data::SimpleData<float, D> leanvec_query_matrix() {
+    return svs::load_data<float, D>(leanvec_query_matrix_file());
 }
-inline auto data_f32() { return svs::load_data<float, svs::Dynamic>(data_svs_file()); }
-inline auto data_blocked_f32() {
-    return svs::data::BlockedData<float>::load(data_svs_file());
-}
-inline auto graph() { return svs::graphs::SimpleGraph<uint32_t>::load(graph_file()); }
-inline auto graph_blocked() {
-    return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_file());
+
+///
+/// @brief Return a reference to the last `queries_in_test_set` entries in `queries`.
+///
+/// **NOTE**: The returned item is a view into the orignal queries. As such, is `queries`'s
+/// destructor runs, then the returned view will be left danglinc.
+///
+template <typename T, size_t N, typename Allocator>
+svs::data::ConstSimpleDataView<T, N> get_test_set(
+    const svs::data::SimpleData<T, N, Allocator>& queries, size_t queries_in_test_set
+) {
+    const size_t n_queries = queries.size();
+    if (queries_in_test_set > n_queries) {
+        throw ANNEXCEPTION(
+            "Requested number of queries in test set ({}) exceeds the actual number of "
+            "queries ({})!",
+            queries_in_test_set,
+            n_queries
+        );
+    }
+    if (queries.dimensions() == 0) {
+        throw ANNEXCEPTION("Cannot extract test set from queries with 0 dimensions!");
+    }
+
+    const auto* ptr = &queries.get_datum(n_queries - queries_in_test_set).front();
+    return svs::data::ConstSimpleDataView<T, N>(
+        ptr, queries_in_test_set, queries.dimensions()
+    );
 }
 
 ///// Graph Stats
 // The expected out degrees of the first few entries in the graph.
-inline std::vector<uint32_t> expected_out_neighbors() {
-    return std::vector<uint32_t>{
-        64, 103, 118, 45, 34, 31, 64, 121, 128, 128, 128, 128, 46, 71, 115, 112};
-}
+std::vector<uint32_t> expected_out_neighbors();
 const size_t GRAPH_MAX_DEGREE = 128;
 
 // Data Stats
