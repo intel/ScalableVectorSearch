@@ -1,5 +1,6 @@
 # Scalable Vector Search
 
+
 **Scalable Vector Search (SVS)** is a performance library for vector [similarity search](https://en.wikipedia.org/wiki/Similarity_search).
 Thanks to the use of Locally-adaptive Vector Quantization [[ABHT23]](#1) and its highly optimized indexing and search algorithms,
 SVS provides vector similarity search:
