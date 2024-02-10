@@ -112,7 +112,7 @@ cibuildwheel --only $(python tools/pybuild.py) bindings/python
 3. Then simply run
 
 ```
-    pip install ./wheelhouse/pysvs*.whl
+pip install ./wheelhouse/pysvs*.whl
 ```
 
 For more advanced building options see [Advanced Library Building](https://intellabs.github.io/ScalableVectorSearch/advanced/build.html).
