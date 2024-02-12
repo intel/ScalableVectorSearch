@@ -483,15 +483,15 @@ template <typename Ret, typename... Args> class DispatchTarget {
     /// Furthermore, dispatch conversion must be defined between each dispatch argument
     /// and its corresponding argument in ``f``.
     template <typename Callable>
-    DispatchTarget(NoDocsTag SVS_UNUSED(tag), Callable&& f)
+    DispatchTarget(NoDocsTag SVS_UNUSED(tag), Callable f)
         : match_{detail::make_matcher(
               arg_signature_type{}, detail::make_arg_signature<Callable>()
           )}
-        , call_{detail::make_converter(signature_type{}, SVS_FWD(f))} {}
+        , call_{detail::make_converter(signature_type{}, std::move(f))} {}
 
     template <typename Callable>
-    DispatchTarget(BuildDocsTag SVS_UNUSED(tag), Callable&& f)
-        : DispatchTarget(dispatcher_no_docs, SVS_FWD(f)) {
+    DispatchTarget(BuildDocsTag SVS_UNUSED(tag), Callable f)
+        : DispatchTarget(dispatcher_no_docs, std::move(f)) {
         documentation_ = detail::make_descriptors(
             arg_signature_type{}, detail::make_arg_signature<Callable>()
         );
@@ -547,13 +547,13 @@ template <typename Ret, typename... Args> class Dispatcher {
     size_t size() const { return candidates_.size(); }
 
     /// Target Registration.
-    template <typename F> void register_target(F&& f) {
-        candidates_.emplace_back(dispatcher_no_docs, SVS_FWD(f));
+    template <typename F> void register_target(F f) {
+        candidates_.emplace_back(dispatcher_no_docs, std::move(f));
     }
 
     // Documented Target Registration.
-    template <typename F> void register_target(BuildDocsTag build_docs, F&& f) {
-        candidates_.emplace_back(build_docs, SVS_FWD(f));
+    template <typename F> void register_target(BuildDocsTag build_docs, F f) {
+        candidates_.emplace_back(build_docs, std::move(f));
     }
 
     /// Get the index and the rank of the best match.
