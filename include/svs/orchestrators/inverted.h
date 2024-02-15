@@ -77,16 +77,14 @@ class InvertedImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
 ///// InvertedManager
 /////
 
-class Inverted : public manager::IndexManager<InvertedInterface, InvertedImpl> {
+class Inverted : public manager::IndexManager<InvertedInterface> {
     // Type Alises
   public:
-    using base_type = manager::IndexManager<InvertedInterface, InvertedImpl>;
+    using base_type = manager::IndexManager<InvertedInterface>;
     using search_parameters_type = typename InvertedInterface::search_parameters_type;
 
     // Constructors
-  public:
-    template <typename Impl>
-    Inverted(std::unique_ptr<Impl> impl)
+    Inverted(std::unique_ptr<InvertedInterface> impl)
         : base_type{std::move(impl)} {}
 
     template <typename QueryType, typename Impl>

@@ -198,9 +198,9 @@ template <typename QueryType, typename... Args> Vamana make_vamana(Args&&... arg
 /// @ingroup orchestrator_vamana_entry
 /// @brief Type erased container for the Vamana index.
 ///
-class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
+class Vamana : public manager::IndexManager<VamanaInterface> {
   public:
-    using base_type = manager::IndexManager<VamanaInterface, VamanaImpl>;
+    using base_type = manager::IndexManager<VamanaInterface>;
     using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
     /// @private
@@ -208,8 +208,7 @@ class Vamana : public manager::IndexManager<VamanaInterface, VamanaImpl> {
     /// @private
     struct AssembleTag {};
 
-    template <typename Impl>
-    explicit Vamana(std::unique_ptr<Impl> impl)
+    explicit Vamana(std::unique_ptr<VamanaInterface> impl)
         : base_type{std::move(impl)} {}
 
     VamanaSearchParameters get_search_parameters() const {
