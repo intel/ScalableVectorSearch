@@ -83,10 +83,9 @@ DynamicVamana make_dynamic_vamana(Args&&... args);
 ///
 /// DynamicVamana
 ///
-class DynamicVamana
-    : public manager::IndexManager<DynamicVamanaInterface, DynamicVamanaImpl> {
+class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
   public:
-    using base_type = manager::IndexManager<DynamicVamanaInterface, DynamicVamanaImpl>;
+    using base_type = manager::IndexManager<DynamicVamanaInterface>;
     using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
     struct AssembleTag {};
@@ -97,8 +96,7 @@ class DynamicVamana
     /// @param impl A pointer to a concrete implementation of the full
     ///     DynamicVamanaInteface.
     ///
-    template <typename Impl>
-    explicit DynamicVamana(std::unique_ptr<Impl> impl)
+    explicit DynamicVamana(std::unique_ptr<DynamicVamanaInterface> impl)
         : base_type{std::move(impl)} {}
 
     template <typename QueryType, typename Impl>
