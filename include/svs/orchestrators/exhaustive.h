@@ -79,14 +79,13 @@ class Flat;
 template <typename QueryType, typename... Args> Flat make_flat(Args&&... args);
 
 /// @brief Type erased container for the Flat index.
-class Flat : public manager::IndexManager<FlatInterface, FlatImpl> {
+class Flat : public manager::IndexManager<FlatInterface> {
   public:
     /// Internal dispatch tag.
     struct AssembleTag {};
-    using base_type = manager::IndexManager<FlatInterface, FlatImpl>;
+    using base_type = manager::IndexManager<FlatInterface>;
 
-    template <typename Impl>
-    explicit Flat(std::unique_ptr<Impl> impl)
+    explicit Flat(std::unique_ptr<FlatInterface> impl)
         : base_type{std::move(impl)} {}
 
     ///// Flat interface

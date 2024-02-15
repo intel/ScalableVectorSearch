@@ -117,12 +117,11 @@ class ManagerImpl : public IFace {
 ///
 /// @brief Do I need to document this also?
 ///
-template <std::derived_from<ManagerInterface> IFace, template <typename...> typename Impl>
-class IndexManager {
+template <std::derived_from<ManagerInterface> IFace> class IndexManager {
   public:
-    template <typename... Ps>
-        requires std::is_base_of_v<IFace, Impl<Ps...>>
-    explicit IndexManager(std::unique_ptr<Impl<Ps...>> impl)
+    template <typename Impl>
+        requires std::is_base_of_v<IFace, Impl>
+    explicit IndexManager(std::unique_ptr<Impl> impl)
         : impl_{std::move(impl)} {}
 
     ///
