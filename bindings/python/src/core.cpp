@@ -237,19 +237,7 @@ void wrap_lvq(py::module& m) {
             R"(
 Create a copy of the argument loader configured to reload a previously saved LVQ dataset
 from the given directory.)"
-        )
-        .def_readonly(
-            "primary_bits",
-            &LVQ::primary_,
-            "The number of bits used for the primary encoding."
-        )
-        .def_readonly(
-            "residual_bits",
-            &LVQ::residual_,
-            "The number of bits used for the residual encoding."
-        )
-        .def_readonly("strategy", &LVQ::strategy_, "The packing strategy to use.")
-        .def_readonly("dims", &LVQ::dims_, "The number of dimensions.");
+        );
 
     // Compression Sources
     wrap_lvq_alias<4, 0>(
@@ -372,23 +360,6 @@ void wrap_leanvec(py::module& m) {
             R"(
 Create a copy of the argument loader configured to reload a previously saved LeanVec dataset
 from the given directory.)"
-        )
-        .def_readonly(
-            "leanvec_dims", &LeanVec::leanvec_dims_, "The reduced dimensionality."
-        )
-        .def_readonly("dims", &LeanVec::dims_, "The full-dimensionality.")
-        .def_readonly(
-            "primary_kind",
-            &LeanVec::primary_kind_,
-            "The encoding of the reduced dimensional dataset."
-        )
-        .def_readonly(
-            "secondary_kind",
-            &LeanVec::secondary_kind_,
-            "The encoding of the full-dimensional dataset."
-        )
-        .def_readwrite(
-            "alignment", &LeanVec::alignment_, "The alignment to use for LVQ encoded data."
         );
 }
 
