@@ -1,15 +1,18 @@
 [inverted_test_generator]
+__schema__ = 'benchmark_inverted_memory_test'
 __version__ = 'v0.0.0'
 data_f32 = 'data_f32.fvecs'
 queries_f32 = 'queries_f32.fvecs'
 queries_in_training_set = 100
 
     [[inverted_test_generator.groundtruths]]
+    __schema__ = 'benchmark_distance_and_groundtruth'
     __version__ = 'v0.0.0'
     distance = 'L2'
     path = 'groundtruth_euclidean.ivecs'
 
     [[inverted_test_generator.groundtruths]]
+    __schema__ = 'benchmark_distance_and_groundtruth'
     __version__ = 'v0.0.0'
     distance = 'MIP'
     path = 'groundtruth_mip.ivecs'

@@ -19,8 +19,12 @@
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/saveload.h"
 
+// third-party
 #include "fmt/std.h"
+
+// stl
 #include <filesystem>
+#include <optional>
 
 namespace svs {
 
@@ -38,23 +42,27 @@ struct UnspecializedVectorDataLoader {
 
     UnspecializedVectorDataLoader() = default;
     UnspecializedVectorDataLoader(
-        const std::filesystem::path& path, DataType type, size_t dims = Dynamic
-    )
-
-        : path_{path}
-        , type_{type}
-        , dims_{dims} {}
-
-    UnspecializedVectorDataLoader(
         const std::filesystem::path& path,
-        DataType type,
-        Allocator allocator,
-        size_t dims = Dynamic
+        std::optional<DataType> type = std::nullopt,
+        std::optional<size_t> dims = std::nullopt,
+        const Allocator& allocator = {}
     )
         : path_{path}
-        , type_{type}
-        , dims_{dims}
-        , allocator_{std::move(allocator)} {}
+        , allocator_{allocator} {
+        // If deduction is not needed, then just copy over the provided values.
+        if (type && dims) {
+            type_ = type.value();
+            dims_ = dims.value();
+            return;
+        }
+
+        // Otherwise, we need to perform deduction.
+        auto matcher = lib::load_from_disk<data::Matcher>(
+            path_, type.value_or(svs::DataType::undef), dims.value_or(Dynamic)
+        );
+        type_ = type.value_or(matcher.eltype);
+        dims_ = dims.value_or(matcher.dims);
+    }
 
     // Refine into a fully specialized ``VectorDataLoader``.
     template <typename T, size_t Dims = Dynamic>
@@ -65,10 +73,11 @@ struct UnspecializedVectorDataLoader {
     }
 
     ///// Members
-  public:
+    // The path to the source file.
     std::filesystem::path path_;
-    DataType type_;
-    size_t dims_;
+    // The uncompressed data type.
+    DataType type_ = DataType::undef;
+    size_t dims_ = Dynamic;
     Allocator allocator_ = {};
 };
 
@@ -85,10 +94,6 @@ struct UnspecializedVectorDataLoader {
 template <typename T, size_t Extent = Dynamic, typename Allocator = HugepageAllocator<T>>
 class VectorDataLoader {
   public:
-    // Hook into the loading framework.
-    using toml_type = toml::table;
-    static constexpr bool is_version_free = false;
-
     /// @brief The full type of the loaded dataset.
     using return_type = data::SimpleData<T, Extent, Allocator>;
 
@@ -111,7 +116,7 @@ class VectorDataLoader {
         : path_{path}
         , allocator_{allocator} {}
 
-    VectorDataLoader(const std::filesystem::path& path)
+    explicit VectorDataLoader(const std::filesystem::path& path)
         : path_{path} {}
 
     template <typename Other>
@@ -136,10 +141,32 @@ class VectorDataLoader {
     /// @brief Return the file path given when this class was constructed.
     const std::filesystem::path& get_path() const { return path_; }
 
-  public:
+    ///// Members
     std::filesystem::path path_ = {};
     Allocator allocator_ = {};
 };
+
+// Matching rule for uncompressed data.
+namespace data::detail {
+template <typename T, size_t Extent> int64_t check_match(svs::DataType type, size_t dims) {
+    // If the types don't match - then there is no match.
+    if (type != svs::datatype_v<T>) {
+        return lib::invalid_match;
+    }
+
+    // This handles both the case where ``Extent`` is static and dims match, or ``Extent``
+    // is Dynamic and the requested dims are dynamic.
+    if (dims == Extent) {
+        return lib::perfect_match;
+    }
+
+    // Otherwise, if there is a static mismatch in dimensions, we can't match.
+    if constexpr (Extent == Dynamic) {
+        return lib::imperfect_match;
+    }
+    return lib::invalid_match;
+}
+} // namespace data::detail
 
 // TODO: Further constrain allocator to be rebind-convertible
 template <typename T, size_t Extent, typename Alloc1, typename Alloc2>
@@ -147,19 +174,7 @@ struct lib::DispatchConverter<
     UnspecializedVectorDataLoader<Alloc1>,
     VectorDataLoader<T, Extent, Alloc2>> {
     static int64_t match(const UnspecializedVectorDataLoader<Alloc1>& loader) {
-        if (loader.type_ != datatype_v<T>) {
-            return lib::invalid_match;
-        }
-
-        auto dims = loader.dims_;
-        if (dims == Extent) {
-            return lib::perfect_match;
-        }
-
-        if constexpr (Extent == Dynamic) {
-            return lib::imperfect_match;
-        }
-        return lib::invalid_match;
+        return data::detail::check_match<T, Extent>(loader.type_, loader.dims_);
     }
 
     static VectorDataLoader<T, Extent, Alloc2>

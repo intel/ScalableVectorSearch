@@ -312,6 +312,82 @@ template <typename T, typename U> void assert_equal(T&& x, U&& y) {
 } // namespace detail
 
 ///
+/// Support for deduction.
+///
+enum class DatasetSchema { Compressed, ScaledBiased };
+inline constexpr std::string_view get_schema(DatasetSchema kind) {
+    switch (kind) {
+        using enum DatasetSchema;
+        case Compressed: {
+            return "lvq_compressed_dataset";
+        }
+        case ScaledBiased: {
+            return "lvq_with_scaling_constants";
+        }
+    }
+    throw ANNEXCEPTION("Invalid schema!");
+}
+
+inline constexpr lib::Version get_current_version(DatasetSchema kind) {
+    switch (kind) {
+        using enum DatasetSchema;
+        case Compressed: {
+            return lib::Version(0, 0, 0);
+        }
+        case ScaledBiased: {
+            return lib::Version(0, 0, 3);
+        }
+    }
+    throw ANNEXCEPTION("Invalid schema!");
+}
+
+struct DatasetSummary {
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        using enum DatasetSchema;
+        if (schema == get_schema(Compressed) &&
+            version == get_current_version(Compressed)) {
+            return true;
+        }
+        if (schema == get_schema(ScaledBiased) &&
+            version == get_current_version(ScaledBiased)) {
+            return true;
+        }
+        return false;
+    }
+
+    static DatasetSummary load(const lib::ContextFreeLoadTable& table) {
+        using enum DatasetSchema;
+        auto schema = table.schema();
+        if (schema == get_schema(Compressed)) {
+            return DatasetSummary{
+                .kind = Compressed,
+                .is_signed =
+                    (lib::load_at<std::string>(table, "sign") == lvq::Signed::name),
+                .dims = lib::load_at<size_t>(table, "ndims"),
+                .bits = lib::load_at<size_t>(table, "bits")};
+        }
+        if (schema == get_schema(ScaledBiased)) {
+            return DatasetSummary{
+                .kind = ScaledBiased,
+                .is_signed = false, // ScaledBiased always uses unsigned codes.
+                .dims = lib::load_at<size_t>(table, "logical_dimensions"),
+                .bits = lib::load_at<size_t>(table, "bits")};
+        }
+        throw ANNEXCEPTION("Invalid table schema {}!", schema);
+    }
+
+    ///// Members
+    // The kind of the leaf dataset.
+    DatasetSchema kind;
+    // Whether each LVQ element is signed.
+    bool is_signed;
+    // The logical number of dimensions in the dataset.
+    size_t dims;
+    // The number of bits used for compression.
+    size_t bits;
+};
+
+///
 /// Compressed Dataset
 ///
 template <
@@ -405,9 +481,14 @@ class CompressedDataset {
     /////
 
     static constexpr std::string_view kind = "compressed dataset";
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    static constexpr std::string_view serialization_schema =
+        get_schema(DatasetSchema::Compressed);
+    static constexpr lib::Version save_version =
+        get_current_version(DatasetSchema::Compressed);
+
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {
                 {"inner", lib::save(data_, ctx)},
@@ -421,16 +502,8 @@ class CompressedDataset {
         );
     }
 
-    static CompressedDataset load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
-        const allocator_type& allocator = {}
-    ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
+    static CompressedDataset
+    load(const lib::LoadTable& table, const allocator_type& allocator = {}) {
         // Parse and validate.
         detail::assert_equal(lib::load_at<std::string>(table, "kind"), kind);
         detail::assert_equal(lib::load_at<std::string>(table, "sign"), Sign::name);
@@ -441,7 +514,7 @@ class CompressedDataset {
         }
         // Load the sub-table.
         return CompressedDataset(
-            lib::load_at<dataset_type>(table, "inner", ctx, allocator),
+            lib::load_at<dataset_type>(table, "inner", allocator),
             lib::MaybeStatic<Extent>(ndims)
         );
     }
@@ -585,8 +658,10 @@ class ScaledBiasedDataset {
     // v0.0.3 - BREAKING
     //   - Canonicalize the layout of serialized LVQ to be sequential with no padding.
     //     This allows different packing strategies and paddings to be used upon reload.
-    static constexpr lib::Version save_version = lib::Version(0, 0, 3);
-    static constexpr std::string_view type_name{"lvq_with_scaling_constants"};
+    static constexpr lib::Version save_version =
+        get_current_version(DatasetSchema::ScaledBiased);
+    static constexpr std::string_view serialization_schema =
+        get_schema(DatasetSchema::ScaledBiased);
 
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         // Prepare for binary-file serialization.
@@ -600,8 +675,9 @@ class ScaledBiasedDataset {
         }
 
         return lib::SaveTable(
+            serialization_schema,
             save_version,
-            {{"kind", lib::save(type_name)},
+            {{"kind", lib::save(serialization_schema)},
              {"binary_file", lib::save(filename.filename())},
              {"file_uuid", uuid.str()},
              {"num_vectors", lib::save(size())},
@@ -611,18 +687,14 @@ class ScaledBiasedDataset {
     }
 
     static ScaledBiasedDataset load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
+        const lib::LoadTable& table,
         size_t alignment = 0,
         const allocator_type& allocator = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
         // Parse and validate.
-        detail::assert_equal(lib::load_at<std::string>(table, "kind"), type_name);
+        detail::assert_equal(
+            lib::load_at<std::string>(table, "kind"), serialization_schema
+        );
         detail::assert_equal(lib::load_at<size_t>(table, "bits"), Bits);
         auto ndims = lib::load_at<size_t>(table, "logical_dimensions");
         if constexpr (Extent != Dynamic) {
@@ -631,7 +703,7 @@ class ScaledBiasedDataset {
 
         // Load the binary data.
         auto uuid = lib::load_at<lib::UUID>(table, "file_uuid");
-        auto binary_file = io::find_uuid(ctx.get_directory(), uuid);
+        auto binary_file = io::find_uuid(table.context().get_directory(), uuid);
         if (!binary_file.has_value()) {
             throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
         }

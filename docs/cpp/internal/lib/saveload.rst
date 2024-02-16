@@ -3,6 +3,9 @@
 Data Structure Saving and Loading
 =================================
 
+.. ATTENTION::
+   This section is out-dated and needs to be rewritten!
+
 This section describes the data structure saving and loading support and infrastructure.
 We use the `toml++ <https://https://github.com/marzer/tomlplusplus>` library to assist with object saving and reloading.
 Objects opt into this infrastructure by providing a special `save()` and `static load()` member functions.
@@ -21,12 +24,14 @@ The example below demonstrates a simple class implementing context free loading 
    :end-before: [context-free]
 
 There are several things to note.
-First, each class is expected to supply version (in the form of an ``svs::lib::Version``) information along with its serialization form.
-The version is supplied upon reloading.
+First, each class is expected to supply a named schema and version (in the form of an ``svs::lib::Version``) information along with its serialization form.
 This enables classes to evolve while maintaining backwards compatibility with previously saved versions.
+Furthermore, the combination of schema and version enables reasoning about reloaded ``toml::table`` files, providing mechanisms like auto-loading and object detection.
 
 .. NOTE::
-   It is expected that object saving will **not** make backwards incompatible changes to their saved format without incrementing the major version of the library!
+   Once SVS matures, it is expected that object saving will **not** make backwards
+   incompatible changes to their saved format without incrementing the major version
+   of the library!
 
    Making a breaking change to a class' saved format will also break all classes that
    transitively use this class.
@@ -40,7 +45,7 @@ Library facilities will take care of storing the version information.
    Keys beginning with two underscores "__" are reserved by the SVS saving infrastructure.
    Outside of that, classes are free to use whatever names they like.
 
-Finally, loading is expected to take a ``toml::table`` and version and return a reconstructed object.
+Finally, loading is expected to take a ``svs::lib::LoadTable`` - also a thin wrapper around a ``toml::table``.
 The table given to ``load`` will match that given by ``save``, potentially with the addition of some reserved names (see the note above).
 
 Implementing Save and Load
@@ -71,9 +76,13 @@ Loading is also straightforward.
    :start-after: [context-free-loading]
    :end-before: [context-free-loading]
 
-A version check is performed (this is where backwards compatibility may be implemented) and the relevant fields are recovered from the TOML table.
+
 The ``svs::lib::load_at`` method is used to extract the element from the table at a specific key.
 Alternatively, the macro ``SVS_LOAD_MEMBER_AT_`` can be used to automatically determine the type of the object to load.
+
+While we did not perform an explicit version check, one happens behind the scenes.
+To expand, if a class does not define a static method ``bool check_load_compatibility(std::string_view schema, svs::lib::Version version)``, the loading infrastructure will check the loaded schema and version against ``ContextFreeSaveable::serialization_schema`` and ``ContextFreeSaveable::save_version`` respectively.
+Later, we will show how to customize this compatibility check.
 
 Using Save and Load
 ^^^^^^^^^^^^^^^^^^^
@@ -121,6 +130,9 @@ The :cpp:class:`svs::lib::SaveContext` class provides a way of obtaining the sav
 The :cpp:class:`svs::lib::LoadContext` provides the working directory when loading.
 Together, these classes facilitate the generation of saved objects in a relocatable manner.
 
+Additionally, this example shows the definition of a ``check_load_compatibility`` method.
+This provides a way for the class to declare its compatibility with older serialization versions and will be called if provided.
+
 Implementing Contextual Saving and Loading
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -151,6 +163,7 @@ Reloading is similar.
 
 Here we see the directory obtained from the load context combined with the file name stored in the TOML table to recreate the full filepath for the saved binary data.
 The function :cpp:func:`svs::lib::load` is used to load the saveable subobject.
+
 End to end saving is shown below.
 
 .. literalinclude:: ../../../../examples/cpp/saveload.cpp
@@ -185,6 +198,8 @@ The list of built-in types is:
    | Type Class                                 | Notes                                                                                                             |
    +--------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
    | Integers                                   | Will error if the conversion from TOML's ``int64_t`` type is lossy.                                               |
+   +--------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
+   | Booleans                                   |                                                                                                                   |
    +--------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
    | ``float``, ``double``                      | Lossy conversion allowed for ``float`` to support literals like "1.2".                                            |
    +--------------------------------------------+-------------------------------------------------------------------------------------------------------------------+
@@ -254,28 +269,4 @@ Saving Related Methods
 
 .. doxygenfunction:: svs::lib::save_to_disk
    :project: SVS
-
-Loading Related Methods
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. doxygengroup:: load_group
-   :project: SVS
-   :members:
-   :content-only:
-
-.. doxygengroup:: load_from_disk_group
-   :project: SVS
-   :members:
-   :content-only:
-
-Save and Load Overrides
-^^^^^^^^^^^^^^^^^^^^^^^
-
-.. doxygenclass:: svs::lib::SaveOverride
-   :project: SVS
-   :members:
-
-.. doxygenclass:: svs::lib::LoadOverride
-   :project: SVS
-   :members:
 

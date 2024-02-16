@@ -39,19 +39,16 @@ struct InvertedBuildParameters {
 
     // Saving
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "inverted_build_parameters";
     lib::SaveTable save() const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(clustering_parameters), SVS_LIST_SAVE_(primary_parameters)}
         );
     }
 
-    static InvertedBuildParameters
-    load(const toml::table& table, const lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
+    static InvertedBuildParameters load(const lib::ContextFreeLoadTable& table) {
         return InvertedBuildParameters(
             SVS_LOAD_MEMBER_AT_(table, clustering_parameters),
             SVS_LOAD_MEMBER_AT_(table, primary_parameters)

@@ -19,6 +19,7 @@
 // pybind
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl/filesystem.h>
 
 // stl
 #include <optional>
@@ -116,7 +117,29 @@ template <size_t Primary, size_t Residual> struct LegacyLVQLoader {
         : loader_{std::move(loader), Primary, Residual, padding} {}
 
     LegacyLVQLoader(std::string path, size_t dims, size_t padding)
-        : loader_{LVQReloader{std::move(path)}, Primary, Residual, dims, padding} {}
+        : loader_{LVQReloader{std::move(path)}, padding} {
+        auto throw_err = [&](std::string_view kind, size_t has, size_t expected) {
+            throw ANNEXCEPTION(
+                "Reloaded dataset has {} {} but was expected to have {}!",
+                kind,
+                has,
+                expected
+            );
+        };
+
+        // Make sure the deduced results are correct.
+        if (loader_.primary_ != Primary) {
+            throw_err("primary bits", loader_.primary_, Primary);
+        }
+
+        if (loader_.residual_ != Residual) {
+            throw_err("residual bits", loader_.residual_, Residual);
+        }
+
+        if (dims != Dynamic && dims != loader_.dims_) {
+            throw_err("dimensions", loader_.dims_, dims);
+        }
+    }
 
     // Implicitly convert to generic LVQ.
     operator LVQ() const { return loader_; }
@@ -194,17 +217,11 @@ void wrap_lvq(py::module& m) {
         )
         .def(
             py::init([](const std::string& path,
-                        size_t primary,
-                        size_t residual,
-                        size_t dims,
                         size_t padding,
                         svs::quantization::lvq::LVQStrategyDispatch strategy) {
-                return LVQ{LVQReloader(path), primary, residual, dims, padding, strategy};
+                return LVQ{LVQReloader(path), padding, strategy};
             }),
             py::arg("directory"),
-            py::arg("primary"),
-            py::arg("residual") = 0,
-            py::arg("dims") = svs::Dynamic,
             py::arg("padding") = 0,
             py::arg("strategy") = Auto,
             std::string(reload_constructor_proto).c_str()
@@ -216,7 +233,6 @@ void wrap_lvq(py::module& m) {
                 copy.source_ = LVQReloader{dir};
                 return copy;
             },
-            // py::arg("lvq_loader"),
             py::arg("directory"),
             R"(
 Create a copy of the argument loader configured to reload a previously saved LVQ dataset
@@ -326,25 +342,10 @@ void wrap_leanvec(py::module& m) {
             std::string(leanvec_online_proto).c_str()
         )
         .def(
-            py::init([](const std::string& path,
-                        size_t leanvec_dims,
-                        size_t dims,
-                        svs::leanvec::LeanVecKind primary_kind,
-                        svs::leanvec::LeanVecKind secondary_kind,
-                        size_t alignment) {
-                return LeanVec{
-                    LeanVecReloader(path),
-                    leanvec_dims,
-                    dims,
-                    primary_kind,
-                    secondary_kind,
-                    alignment};
+            py::init([](const std::string& path, size_t alignment) {
+                return LeanVec{LeanVecReloader(path), alignment};
             }),
             py::arg("directory"),
-            py::arg("leanvec_dims") = svs::Dynamic,
-            py::arg("dims") = svs::Dynamic,
-            py::arg("primary_kind") = lvq8,
-            py::arg("secondary_kind") = lvq8,
             py::arg("alignment") = 32,
             std::string(leanvec_reload_proto).c_str()
         )
@@ -372,10 +373,10 @@ void wrap(py::module& m) {
     );
     loader
         .def(
-            py::init<std::string, svs::DataType, size_t>(),
+            py::init<std::string, std::optional<svs::DataType>, std::optional<size_t>>(),
             py::arg("path"),
-            py::arg("data_type"),
-            py::arg("dims") = svs::Dynamic,
+            py::arg("data_type") = py::none(),
+            py::arg("dims") = py::none(),
             R"(
 Construct a new ``pysvs.VectorDataLoader``.
 
@@ -423,10 +424,32 @@ Args:
         )"
     );
 
+    // Enable implicit conversion from `std::filesystem::path` to a GraphLoader, since
+    // that's the only context we use the `GraphLoader` for anyways.
+    py::implicitly_convertible<std::filesystem::path, UnspecializedGraphLoader>();
+
+    //// SerializedObject
+    // Allow implicit conversion from `std::filesystem::path`, to transitively enable
+    // implicit construction from Python `PathLike` objects.
+    py::class_<svs::lib::SerializedObject> serialized(
+        m, "SerializedObject", "A handle to a SVS serialized object"
+    );
+    serialized.def(py::init([](const std::filesystem::path& path) {
+        return svs::lib::begin_deserialization(path);
+    }));
+    py::implicitly_convertible<std::filesystem::path, svs::lib::SerializedObject>();
+
     ///// LVQ
     wrap_lvq(m);
 
     ///// LeanVec
     wrap_leanvec(m);
+
+    ///// TOML Reconstructions
+    m.def("__reformat_toml", [](const std::filesystem::path& path) {
+        toml::table t = toml::parse_file(path.c_str());
+        auto file = svs::lib::open_write(path, std::ios_base::out);
+        file << t << "\n";
+    });
 }
 } // namespace core

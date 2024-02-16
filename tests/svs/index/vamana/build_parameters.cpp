@@ -25,6 +25,7 @@ namespace {
 // Legacy serialization formats.
 std::string_view v0_0_0 = R"(
 __version__ = 'v0.0.0'
+__schema__ = 'vamana_build_parameters'
 alpha = 1.2
 graph_max_degree = 128
 max_candidate_pool_size = 750
@@ -63,7 +64,9 @@ CATCH_TEST_CASE("VamanaBuildParameters", "[index][vamana]") {
     CATCH_SECTION("Loading Legacy Objects") {
         CATCH_SECTION("v0.0.0") {
             auto table = toml::parse(v0_0_0);
-            auto p = svs::lib::load<svs::index::vamana::VamanaBuildParameters>(table);
+            auto p = svs::lib::load<svs::index::vamana::VamanaBuildParameters>(
+                svs::lib::node_view(table)
+            );
             CATCH_REQUIRE(p.alpha == 1.2f);
             CATCH_REQUIRE(p.graph_max_degree == 128);
             CATCH_REQUIRE(p.max_candidate_pool_size == 750);

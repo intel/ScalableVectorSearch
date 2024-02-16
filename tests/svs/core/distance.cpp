@@ -18,6 +18,7 @@
 namespace {
 
 std::string_view test_table = R"(
+__schema__ = 'distance_checker'
 __version__ = 'v1.2.3'
 euclidean = 'L2'
 inner_product = "MIP"
@@ -25,6 +26,8 @@ cosine = "Cosine"
 )";
 
 std::string_view invalid_table = R"(
+__schema__ = 'distance_checker'
+__version__ = 'v1.2.3'
 euclidean = 'L22'
 )";
 
@@ -34,10 +37,15 @@ struct DistanceChecker {
     svs::DistanceType inner_product;
     svs::DistanceType cosine;
 
-  public:
-    static DistanceChecker
-    load(const toml::table& table, const svs::lib::Version& version) {
-        CATCH_REQUIRE(version == svs::lib::Version{1, 2, 3});
+    static bool
+    check_load_compatibility(std::string_view schema, svs::lib::Version version) {
+        return schema == "distance_checker" && version == svs::lib::Version{1, 2, 3};
+    }
+
+    static DistanceChecker load(const svs::lib::ContextFreeLoadTable& table) {
+        CATCH_REQUIRE(table.version() == svs::lib::Version{1, 2, 3});
+        CATCH_REQUIRE(table.schema() == "distance_checker");
+
         return DistanceChecker{
             .euclidean = SVS_LOAD_MEMBER_AT(table, euclidean),
             .inner_product = SVS_LOAD_MEMBER_AT(table, inner_product),
@@ -52,7 +60,9 @@ CATCH_TEST_CASE("Distance Utils", "[core][distance][distance_type]") {
     CATCH_SECTION("Saving and Loading") {
         // First, check that the expected test table parses correctly.
         CATCH_SECTION("Loading pre-saved table") {
-            auto checker = svs::lib::load<DistanceChecker>(toml::parse(test_table));
+            auto table = toml::parse(test_table);
+            auto checker =
+                svs::lib::load<DistanceChecker>(svs::lib::ContextFreeLoadTable(table));
             CATCH_REQUIRE(checker.euclidean == svs::DistanceType::L2);
             CATCH_REQUIRE(checker.inner_product == svs::DistanceType::MIP);
             CATCH_REQUIRE(checker.cosine == svs::DistanceType::Cosine);
@@ -61,7 +71,7 @@ CATCH_TEST_CASE("Distance Utils", "[core][distance][distance_type]") {
         CATCH_SECTION("Testing Round-trip") {
             auto f = [](svs::DistanceType t) {
                 auto saved = svs::lib::save(t);
-                auto loaded = svs::lib::load<svs::DistanceType>(saved);
+                auto loaded = svs::lib::load<svs::DistanceType>(svs::lib::node_view(saved));
                 CATCH_REQUIRE(loaded == t);
             };
             f(svs::DistanceType::L2);
@@ -71,8 +81,10 @@ CATCH_TEST_CASE("Distance Utils", "[core][distance][distance_type]") {
 
         CATCH_SECTION("Invalid Checking") {
             auto table = toml::parse(invalid_table);
+            auto node_view = svs::lib::node_view(table);
             CATCH_REQUIRE_THROWS_AS(
-                svs::lib::load_at<svs::DistanceType>(table, "euclidean"), svs::ANNException
+                svs::lib::load_at<svs::DistanceType>(node_view, "euclidean"),
+                svs::ANNException
             );
         }
     }

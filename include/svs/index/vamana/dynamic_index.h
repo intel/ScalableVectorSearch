@@ -882,6 +882,7 @@ class MutableVamanaIndex {
                     get_search_parameters()};
 
                 return lib::SaveTable(
+                    "vamana_dynamic_auxiliary_parameters",
                     save_version,
                     {
                         {"name", lib::save(name())},
@@ -1036,6 +1037,40 @@ template <typename Data, typename Dist, typename ExternalIds>
 MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, size_t)
     -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+namespace detail {
+
+struct VamanaStateLoader {
+    ///// Loading
+    static bool
+    check_load_compatibility(std::string_view schema, const lib::Version& version) {
+        // We provide the option to load from a static index.
+        return VamanaIndexParameters::check_load_compatibility(schema, version) ||
+               (schema == "vamana_dynamic_auxiliary_parameters" &&
+                version == lib::Version(0, 0, 0));
+    }
+
+    // Provide a compatibility path for loading static datasets.
+    static VamanaStateLoader
+    load(const lib::LoadTable& table, bool debug_load_from_static, size_t assume_datasize) {
+        if (debug_load_from_static) {
+            return VamanaStateLoader{
+                lib::load<VamanaIndexParameters>(table),
+                IDTranslator::Identity(assume_datasize)};
+        }
+
+        return VamanaStateLoader{
+            SVS_LOAD_MEMBER_AT_(table, parameters),
+            svs::lib::load_at<IDTranslator>(table, "translation"),
+        };
+    }
+
+    ///// Members
+    VamanaIndexParameters parameters_;
+    IDTranslator translator_;
+};
+
+} // namespace detail
+
 // Assembly
 template <lib::LazyInvocable<> GraphLoader, typename DataLoader, typename Distance>
 auto auto_dynamic_assemble(
@@ -1067,28 +1102,31 @@ auto auto_dynamic_assemble(
         );
     }
 
-    // Unload the ID translator and config parameters.
-    auto reloader = lib::LoadOverride{[&](const toml::table& table,
-                                          const lib::LoadContext& ctx,
-                                          const lib::Version& SVS_UNUSED(version)) {
-        // If loading from the static index, then the table we recieve is itself the
-        // parameters table.
-        //
-        // There will also be no index translation, so we use the identity translation
-        // since the internal and external IDs for the static index are the samen.
-        if (debug_load_from_static) {
-            return std::make_tuple(
-                lib::load<VamanaIndexParameters>(table, ctx),
-                IDTranslator(IDTranslator::Identity(datasize))
-            );
-        } else {
-            return std::make_tuple(
-                lib::load_at<VamanaIndexParameters>(table, "parameters", ctx),
-                lib::load_at<IDTranslator>(table, "translation", ctx)
-            );
-        }
-    }};
-    auto [parameters, translator] = lib::load_from_disk(reloader, config_path);
+    // // Unload the ID translator and config parameters.
+    // auto reloader = lib::LoadOverride{[&](const lib::LoadTable& table) {
+    //     // If loading from the static index, then the table we recieve is itself the
+    //     // parameters table.
+    //     //
+    //     // There will also be no index translation, so we use the identity translation
+    //     // since the internal and external IDs for the static index are the samen.
+    //     if (debug_load_from_static) {
+    //         return std::make_tuple(
+    //             // TODO: Provide a better method of loading directly from a load-table
+    //             // and correctly handling contexts.
+    //             lib::load<VamanaIndexParameters>(table.unwrap(), ctx),
+    //             IDTranslator(IDTranslator::Identity(datasize))
+    //         );
+    //     } else {
+    //         return std::make_tuple(
+    //             lib::load_at<VamanaIndexParameters>(table, "parameters", ctx),
+    //             lib::load_at<IDTranslator>(table, "translation", ctx)
+    //         );
+    //     }
+    // }};
+    // auto [parameters, translator] = lib::load_from_disk(reloader, config_path);
+    auto [parameters, translator] = lib::load_from_disk<detail::VamanaStateLoader>(
+        config_path, debug_load_from_static, datasize
+    );
 
     // Make sure that the translator covers all the IDs in the graph and data.
     auto translator_size = translator.size();

@@ -30,9 +30,8 @@ template <svsbenchmark::ValidDatasetSource T>
 std::vector<svsbenchmark::inverted::memory::ExpectedResult>
 expected_results(std::string_view key, svs::DistanceType distance, const T& dataset) {
     const auto& table = parse_expected();
-    auto v = svs::lib::load_at<std::vector<svsbenchmark::inverted::memory::ExpectedResult>>(
-        table, key, std::nullopt
-    );
+    using To = std::vector<svsbenchmark::inverted::memory::ExpectedResult>;
+    auto v = svs::lib::load<To>(svs::lib::node_view_at(table, key), std::nullopt);
     auto output = std::vector<svsbenchmark::inverted::memory::ExpectedResult>();
     for (const auto& i : v) {
         if ((i.distance_ == distance) && i.dataset_.match(dataset)) {

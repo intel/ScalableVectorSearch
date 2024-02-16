@@ -122,8 +122,8 @@ std::vector<associated_job_t<BenchmarkType>> parse_jobs(
     using job_type = associated_job_t<BenchmarkType>;
     // Parse the configuration file.
     toml::table configuration = toml::parse_file(std::string(config_path));
-    return svs::lib::load_at<std::vector<job_type>>(
-        configuration, benchmark_name(BenchmarkType()), data_root
+    return svs::lib::load<std::vector<job_type>>(
+        svs::lib::node_view_at(configuration, benchmark_name(BenchmarkType())), data_root
     );
 }
 

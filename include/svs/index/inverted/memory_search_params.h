@@ -37,19 +37,16 @@ struct InvertedSearchParameters {
 
     ///// Saving and Loading.
     static constexpr lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "inverted_search_parameters";
     lib::SaveTable save() const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(primary_parameters), SVS_LIST_SAVE_(refinement_epsilon)}
         );
     }
 
-    static InvertedSearchParameters
-    load(const toml::table& table, const lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Invalid InvertedSearchParameters version!");
-        }
-
+    static InvertedSearchParameters load(const lib::ContextFreeLoadTable& table) {
         return InvertedSearchParameters{
             SVS_LOAD_MEMBER_AT_(table, primary_parameters),
             SVS_LOAD_MEMBER_AT_(table, refinement_epsilon)};

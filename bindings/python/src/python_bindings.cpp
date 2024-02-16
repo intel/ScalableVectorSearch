@@ -25,6 +25,7 @@
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/float16.h"
+#include "svs/third-party/toml.h"
 
 // fmt
 #include <fmt/core.h>

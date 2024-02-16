@@ -359,18 +359,16 @@ class VamanaTester(unittest.TestCase):
             datadir = os.path.join(tempdir, "data")
             vamana.save(configdir, graphdir, datadir);
 
-            # Figure out how to reload the index.
-            if isinstance(loader, pysvs.VectorDataLoader):
-                reloader = type(loader)(datadir, pysvs.DataType.float32)
-            else:
-                reloader = loader.reload_from(datadir)
+            # Reload from raw-files.
+            reloaded = pysvs.Vamana(configdir, graphdir, datadir, pysvs.DistanceType.L2)
 
-            reloaded = pysvs.Vamana(
-                configdir,
-                pysvs.GraphLoader(graphdir),
-                reloader,
-                pysvs.DistanceType.L2,
-            )
+            # Backend strings should match unless this is LVQ loader with a Turbo backend
+            # TODO: Allow for more introspection in the LVQLoader fields.
+            if not isinstance(loader, pysvs.LVQLoader):
+                self.assertTrue(
+                    vamana.experimental_backend_string ==
+                    reloaded.experimental_backend_string
+                )
 
             reloaded.num_threads = num_threads
             self._test_basic_inner(
@@ -435,17 +433,13 @@ class VamanaTester(unittest.TestCase):
 
             reloader = pysvs.LVQLoader(
                 datadir,
-                primary = 4,
-                residual = 8,
                 strategy = pysvs.LVQStrategy.Sequential,
                 padding = 32,
             )
 
             print("Reloading LVQ with padding")
             self._test_basic_inner(
-                pysvs.Vamana(
-                    configdir, pysvs.GraphLoader(graphdir), reloader, num_threads = num_threads
-                ),
+                pysvs.Vamana(configdir, graphdir, reloader, num_threads = num_threads),
                 matcher,
                 num_threads,
                 skip_thread_test = False,
@@ -453,18 +447,12 @@ class VamanaTester(unittest.TestCase):
             )
 
             reloader = pysvs.LVQLoader(
-                datadir,
-                primary = 4,
-                residual = 8,
-                strategy = pysvs.LVQStrategy.Turbo,
-                padding = 32,
+                datadir, strategy = pysvs.LVQStrategy.Turbo, padding = 32,
             )
 
             print("Reloading LVQ as Turbo")
             self._test_basic_inner(
-                pysvs.Vamana(
-                    configdir, pysvs.GraphLoader(graphdir), reloader, num_threads = num_threads
-                ),
+                pysvs.Vamana(configdir, graphdir, reloader, num_threads = num_threads),
                 matcher,
                 num_threads,
                 skip_thread_test = False,

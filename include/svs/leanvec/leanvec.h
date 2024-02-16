@@ -382,28 +382,24 @@ As create_container(
 template <typename T, size_t Extent, typename Alloc>
 svs::data::SimpleData<T, Extent, Alloc> load_container(
     lib::Type<svs::data::SimpleData<T, Extent, Alloc>> SVS_UNUSED(type),
-    const toml::table& table,
+    const lib::LoadTable& table,
     std::string_view key,
-    const lib::LoadContext& ctx,
     size_t SVS_UNUSED(alignment),
     const Alloc& allocator
 ) {
-    return lib::load_at<svs::data::SimpleData<T, Extent, Alloc>>(
-        table, key, ctx, allocator
-    );
+    return lib::load_at<svs::data::SimpleData<T, Extent, Alloc>>(table, key, allocator);
 }
 
 // Respect alignment for LVQ data.
 template <quantization::lvq::IsLVQDataset As>
 As load_container(
     lib::Type<As> SVS_UNUSED(type),
-    const toml::table& table,
+    const lib::LoadTable& table,
     std::string_view key,
-    const lib::LoadContext& ctx,
     size_t alignment,
     const typename As::allocator_type& allocator
 ) {
-    return lib::load_at<As>(table, key, ctx, alignment, allocator);
+    return lib::load_at<As>(table, key, alignment, allocator);
 }
 
 ///// Distance adaptors
@@ -501,34 +497,29 @@ template <size_t Extent> struct LeanVecMatrices {
 
     ///// IO
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    static constexpr std::string_view serialization_schema = "leanvec_matrices";
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(data_matrix, ctx), SVS_LIST_SAVE_(query_matrix, ctx)}
         );
     }
 
-    static LeanVecMatrices load(
-        const toml::table& table, const lib::LoadContext& ctx, const lib::Version& version
-    ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION(
-                "LeanVec matrices were saved using version {}, which is incompatible with "
-                "the "
-                "current version ({}).",
-                version,
-                save_version
-            );
-        }
+    static LeanVecMatrices load(const lib::LoadTable& table) {
         return LeanVecMatrices{
-            SVS_LOAD_MEMBER_AT_(table, data_matrix, ctx),
-            SVS_LOAD_MEMBER_AT_(table, query_matrix, ctx)};
+            SVS_LOAD_MEMBER_AT_(table, data_matrix),
+            SVS_LOAD_MEMBER_AT_(table, query_matrix)};
     }
 
   private:
     leanvec_matrix_type data_matrix_;
     leanvec_matrix_type query_matrix_;
 };
+
+// Hoist out schemas for reuse while auto-loading.
+inline constexpr std::string_view lean_dataset_schema = "leanvec_dataset";
+inline constexpr lib::Version lean_dataset_save_version = lib::Version(0, 0, 0);
 
 // LeanVec Dataset
 template <
@@ -792,9 +783,11 @@ class LeanDataset {
     }
 
     ///// IO
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    static constexpr lib::Version save_version = lean_dataset_save_version;
+    static constexpr std::string_view serialization_schema = lean_dataset_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(primary, ctx),
              SVS_LIST_SAVE_(secondary, ctx),
@@ -805,22 +798,10 @@ class LeanDataset {
     }
 
     static LeanDataset load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
+        const lib::LoadTable& table,
         size_t alignment = 0,
         const allocator_type& allocator = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION(
-                "LeanVec Dataset was saved using version {}, which is incompatible with "
-                "the "
-                "current version ({}).",
-                version,
-                save_version
-            );
-        }
-
         auto type_primary = lib::Type<primary_type>();
         auto type_secondary = lib::Type<secondary_type>();
         auto primary_allocator = primary_allocator_type{allocator};
@@ -828,12 +809,12 @@ class LeanDataset {
 
         return LeanDataset{
             detail::load_container(
-                type_primary, table, "primary", ctx, alignment, primary_allocator
+                type_primary, table, "primary", alignment, primary_allocator
             ),
             detail::load_container(
-                type_secondary, table, "secondary", ctx, alignment, secondary_allocator
+                type_secondary, table, "secondary", alignment, secondary_allocator
             ),
-            SVS_LOAD_MEMBER_AT_(table, matrices, ctx),
+            SVS_LOAD_MEMBER_AT_(table, matrices),
             SVS_LOAD_MEMBER_AT_(table, means),
             SVS_LOAD_MEMBER_AT_(table, is_pca)};
     }
@@ -867,7 +848,6 @@ inline constexpr lib::Types<float, Float16> LeanVecSourceTypes{};
 
 // LeanVec based loaders can either perform LeanVec conversion online, or reload a
 // previously saved LeanVec dataset.
-
 struct OnlineLeanVec {
   public:
     explicit OnlineLeanVec(const std::filesystem::path& path, DataType type)
@@ -923,8 +903,169 @@ template <> struct LeanVecPicker<UsingLVQ<4>> {
 template <typename T>
 inline constexpr LeanVecKind leanvec_kind_v = detail::LeanVecPicker<T>::value;
 
+// LeanDataset Matcher
+struct Matcher {
+  private:
+    struct DatasetLayout {
+        size_t dims;
+        LeanVecKind kind;
+    };
+
+    static lib::TryLoadResult<DatasetLayout>
+    detect_data(const lib::ContextFreeNodeView<toml::node>& node) {
+        // Is it an uncompressed dataset?
+        auto maybe_uncompressed = lib::try_load<svs::data::Matcher>(node);
+        auto failure = lib::Unexpected{lib::TryLoadFailureReason::Other};
+
+        // On success - determine if this one of the recognized types.
+        if (maybe_uncompressed) {
+            const auto& matcher = maybe_uncompressed.value();
+            size_t dims = matcher.dims;
+            switch (matcher.eltype) {
+                case DataType::float16: {
+                    return DatasetLayout{dims, LeanVecKind::float16};
+                }
+                case DataType::float32: {
+                    return DatasetLayout{dims, LeanVecKind::float32};
+                }
+                default: {
+                    return failure;
+                }
+            }
+        }
+
+        // Failed to match the uncompressed layout. Try LVQ.
+        auto maybe_lvq = lib::try_load<svs::quantization::lvq::Matcher>(node);
+        if (maybe_lvq) {
+            const auto& matcher = maybe_lvq.value();
+            size_t dims = matcher.dims;
+            size_t primary = matcher.primary;
+            switch (primary) {
+                case 4: {
+                    return DatasetLayout{dims, LeanVecKind::lvq4};
+                }
+                case 8: {
+                    return DatasetLayout{dims, LeanVecKind::lvq8};
+                }
+                default: {
+                    return failure;
+                }
+            }
+        }
+        return lib::Unexpected(lib::TryLoadFailureReason::InvalidSchema);
+    }
+
+  public:
+    ///// Loading.
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return schema == lean_dataset_schema && version == lean_dataset_save_version;
+    }
+
+    static lib::TryLoadResult<Matcher> try_load(const lib::ContextFreeLoadTable& table) {
+        // For each of the primary and secondary, use the combinations of expected expected
+        // types until we have a successful match.
+        auto primary_expected = detect_data(table.at("primary"));
+        if (!primary_expected) {
+            return lib::Unexpected(primary_expected.error());
+        }
+
+        auto secondary_expected = detect_data(table.at("secondary"));
+        if (!secondary_expected) {
+            return lib::Unexpected(secondary_expected.error());
+        }
+
+        const auto& primary = primary_expected.value();
+        const auto& secondary = secondary_expected.value();
+
+        return Matcher{
+            .leanvec_dims = primary.dims,
+            .total_dims = secondary.dims,
+            .primary_kind = primary.kind,
+            .secondary_kind = secondary.kind};
+    }
+
+    static Matcher load(const lib::ContextFreeLoadTable& table) {
+        // For each of the primary and secondary, use the combinations of expected expected
+        // types until we have a successful match.
+        auto primary_expected = detect_data(table.at("primary"));
+        if (!primary_expected) {
+            throw ANNEXCEPTION("Could not match the primary dataset!");
+        }
+
+        auto secondary_expected = detect_data(table.at("secondary"));
+        if (!secondary_expected) {
+            throw ANNEXCEPTION("Could not match the secondary dataset!");
+        }
+
+        const auto& primary = primary_expected.value();
+        const auto& secondary = secondary_expected.value();
+
+        return Matcher{
+            .leanvec_dims = primary.dims,
+            .total_dims = secondary.dims,
+            .primary_kind = primary.kind,
+            .secondary_kind = secondary.kind};
+    }
+
+    constexpr bool friend operator==(const Matcher&, const Matcher&) = default;
+
+    ///// Members
+    size_t leanvec_dims;
+    size_t total_dims;
+    LeanVecKind primary_kind;
+    LeanVecKind secondary_kind;
+};
+
+// Overload Matching Rules
+template <LeanCompatible T1, LeanCompatible T2, size_t LeanVecDims, size_t Extent>
+int64_t overload_score(
+    LeanVecKind primary, size_t primary_dims, LeanVecKind secondary, size_t secondary_dims
+) {
+    // Check primary kind
+    if (primary != leanvec::leanvec_kind_v<T1>) {
+        return lib::invalid_match;
+    }
+
+    // Check secondary kind
+    if (secondary != leanvec::leanvec_kind_v<T2>) {
+        return lib::invalid_match;
+    }
+
+    // Check extent-tags.
+    auto extent_match = lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<Extent>>(
+        lib::ExtentArg{secondary_dims}
+    );
+
+    // If extents don't match, then we abort immediately.
+    if (extent_match < 0) {
+        return lib::invalid_match;
+    }
+
+    // Check leanvec_dims-tags.
+    auto leanvec_dims_match =
+        lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<LeanVecDims>>(lib::ExtentArg{
+            primary_dims});
+
+    // If leanvec_dims don't match, then we abort immediately.
+    if (leanvec_dims_match < 0) {
+        return lib::invalid_match;
+    }
+
+    return extent_match + leanvec_dims_match;
+}
+
+template <LeanCompatible T1, LeanCompatible T2, size_t LeanVecDims, size_t Extent>
+int64_t overload_score(const Matcher& matcher) {
+    return overload_score<T1, T2, LeanVecDims, Extent>(
+        matcher.primary_kind,
+        matcher.leanvec_dims,
+        matcher.secondary_kind,
+        matcher.total_dims
+    );
+}
+
 // Forward Declaration.
-template <typename T1, typename T2, size_t Extent, size_t LeanVecDims, typename Alloc>
+template <typename T1, typename T2, size_t LeanVecDims, size_t Extent, typename Alloc>
 struct LeanVecLoader;
 
 template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLeanVecLoader {
@@ -949,21 +1090,24 @@ template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLeanVecLoader 
 
     explicit ProtoLeanVecLoader(
         Reload reloader,
-        size_t leanvec_dims,
-        size_t dims,
-        LeanVecKind primary_kind,
-        LeanVecKind secondary_kind,
+        // size_t leanvec_dims,
+        // size_t dims,
+        // LeanVecKind primary_kind,
+        // LeanVecKind secondary_kind,
         size_t alignment = 0,
         const Alloc& allocator = {}
     )
         : source_{std::move(reloader)}
-        , leanvec_dims_{leanvec_dims}
-        , dims_{dims}
-        , primary_kind_{primary_kind}
-        , secondary_kind_{secondary_kind}
         , matrices_{std::nullopt}
         , alignment_{alignment}
-        , allocator_{allocator} {}
+        , allocator_{allocator} {
+        // Produce a hard error if we cannot load and match the dataset.
+        auto matcher = lib::load_from_disk<Matcher>(std::get<Reload>(source_).directory);
+        primary_kind_ = matcher.primary_kind;
+        secondary_kind_ = matcher.secondary_kind;
+        leanvec_dims_ = matcher.leanvec_dims;
+        dims_ = matcher.total_dims;
+    }
 
     template <
         typename T1,
@@ -1110,37 +1254,38 @@ struct lib::DispatchConverter<
     leanvec::ProtoLeanVecLoader<Alloc>,
     leanvec::LeanVecLoader<Primary, Secondary, LeanVecDims, Extent, Alloc>> {
     static int64_t match(const leanvec::ProtoLeanVecLoader<Alloc>& loader) {
-        // Check primary kind
-        if (loader.primary_kind_ != leanvec::leanvec_kind_v<Primary>) {
-            return lib::invalid_match;
-        }
-
-        // Check secondary kind
-        if (loader.secondary_kind_ != leanvec::leanvec_kind_v<Secondary>) {
-            return lib::invalid_match;
-        }
-
-        // Check extent-tags.
-        auto extent_match = lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<Extent>>(
-            lib::ExtentArg{loader.dims_}
+        return overload_score<Primary, Secondary, LeanVecDims, Extent>(
+            loader.primary_kind_, loader.leanvec_dims_, loader.secondary_kind_, loader.dims_
         );
+        // if (loader.primary_kind_ != leanvec::leanvec_kind_v<Primary>) {
+        //     return lib::invalid_match;
+        // }
 
-        // If extents don't match, then we abort immediately.
-        if (extent_match < 0) {
-            return lib::invalid_match;
-        }
+        // // Check secondary kind
+        // if (loader.secondary_kind_ != leanvec::leanvec_kind_v<Secondary>) {
+        //     return lib::invalid_match;
+        // }
 
-        // Check leanvec_dims-tags.
-        auto leanvec_dims_match =
-            lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<LeanVecDims>>(lib::ExtentArg{
-                loader.leanvec_dims_});
+        // // Check extent-tags.
+        // auto extent_match = lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<Extent>>(
+        //     lib::ExtentArg{loader.dims_}
+        // );
 
-        // If leanvec_dims don't match, then we abort immediately.
-        if (leanvec_dims_match < 0) {
-            return lib::invalid_match;
-        }
+        // // If extents don't match, then we abort immediately.
+        // if (extent_match < 0) {
+        //     return lib::invalid_match;
+        // }
 
-        return extent_match + leanvec_dims_match;
+        // // Check leanvec_dims-tags.
+        // auto leanvec_dims_match =
+        //     lib::dispatch_match<lib::ExtentArg,
+        //     lib::ExtentTag<LeanVecDims>>(lib::ExtentArg{ loader.leanvec_dims_});
+        // // If leanvec_dims don't match, then we abort immediately.
+        // if (leanvec_dims_match < 0) {
+        //     return lib::invalid_match;
+        // }
+
+        // return extent_match + leanvec_dims_match;
     }
 
     static leanvec::LeanVecLoader<Primary, Secondary, LeanVecDims, Extent, Alloc>

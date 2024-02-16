@@ -21,6 +21,7 @@
 namespace {
 
 const std::string_view vamana_config_parameters_v0_0_0 = R"(
+__schema__ = 'vamana_index_parameters'
 __version__ = 'v0.0.0'
 alpha = 1.2
 construction_window_size = 200
@@ -33,6 +34,7 @@ visited_set = false
 )";
 
 const std::string_view vamana_config_parameters_v0_0_1 = R"(
+__schema__ = 'vamana_index_parameters'
 __version__ = 'v0.0.1'
 alpha = 1.2
 construction_window_size = 200
@@ -46,6 +48,7 @@ visited_set = false
 )";
 
 const std::string_view vamana_config_parameters_v0_0_2 = R"(
+__schema__ = 'vamana_index_parameters'
 __version__ = 'v0.0.2'
 alpha = 1.2
 construction_window_size = 200
@@ -64,9 +67,8 @@ visited_set = false
 CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
     using VamanaIndexParameters = svs::index::vamana::VamanaIndexParameters;
     CATCH_SECTION("Loading v0.0.0") {
-        auto p = svs::lib::load<VamanaIndexParameters>(
-            toml::parse(vamana_config_parameters_v0_0_0)
-        );
+        auto table = toml::parse(vamana_config_parameters_v0_0_0);
+        auto p = svs::lib::load<VamanaIndexParameters>(svs::lib::node_view(table));
         auto expected = VamanaIndexParameters(
             9426, {1.2f, 128, 200, 1000, 128, true}, {{0, 0}, false, 4, 1}
         );
@@ -74,9 +76,8 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
     }
 
     CATCH_SECTION("Loading v0.0.1") {
-        auto p = svs::lib::load<VamanaIndexParameters>(
-            toml::parse(vamana_config_parameters_v0_0_1)
-        );
+        auto table = toml::parse(vamana_config_parameters_v0_0_1);
+        auto p = svs::lib::load<VamanaIndexParameters>(svs::lib::node_view(table));
 
         auto expected = VamanaIndexParameters(
             9426, {1.2f, 128, 200, 1000, 128, false}, {{0, 0}, false, 4, 1}
@@ -86,9 +87,8 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
     }
 
     CATCH_SECTION("Loading v0.0.2") {
-        auto p = svs::lib::load<VamanaIndexParameters>(
-            toml::parse(vamana_config_parameters_v0_0_2)
-        );
+        auto table = toml::parse(vamana_config_parameters_v0_0_2);
+        auto p = svs::lib::load<VamanaIndexParameters>(svs::lib::node_view(table));
 
         auto expected = VamanaIndexParameters(
             9426, {1.2f, 128, 200, 1000, 100, false}, {{0, 0}, false, 4, 1}

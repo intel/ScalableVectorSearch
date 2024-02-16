@@ -23,6 +23,7 @@
 #include "svs/core/distance.h"
 
 #include <pybind11/pybind11.h>
+#include <pybind11/stl/filesystem.h>
 
 namespace vamana_specializations {
 
@@ -156,11 +157,13 @@ template <typename F> void leanvec_specialize_lvq_unc(const F& f) {
 
 template <typename F> void leanvec_specialize_lvq_lvq(const F& f) {
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 64, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceIP);
 
-    // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic, DistanceL2);
-    // X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic, DistanceL2);
-    // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
+    // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic,
+    // DistanceL2); X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<4>, Dynamic,
+    // Dynamic, DistanceL2); X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>,
+    // Dynamic, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceIP);
 }
 

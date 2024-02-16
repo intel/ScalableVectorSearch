@@ -114,7 +114,6 @@ template <> struct Saver<svs::DistanceType> {
 
 template <> struct Loader<svs::DistanceType> {
     using toml_type = toml::value<std::string>;
-    static constexpr bool is_version_free = true;
     static svs::DistanceType load(const toml_type& val) {
         return svs::parse_distance_type(val.get());
     }

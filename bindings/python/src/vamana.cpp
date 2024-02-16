@@ -13,6 +13,7 @@
 #include "vamana.h"
 #include "common.h"
 #include "core.h"
+#include "dispatch.h"
 #include "manager.h"
 #include "vamana_common.h"
 
@@ -46,6 +47,7 @@
 namespace py = pybind11;
 namespace lvq = svs::quantization::lvq;
 namespace leanvec = svs::leanvec;
+
 using namespace vamana_specializations;
 
 namespace vamana {
@@ -137,7 +139,8 @@ template <typename Dispatcher> void register_vamana_assembly(Dispatcher& dispatc
     register_leanvec_vamana_assemble(dispatcher);
 }
 
-using VamanaAssembleTypes = std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec>;
+using VamanaAssembleTypes =
+    std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec, svs::lib::SerializedObject>;
 
 /////
 ///// Build From File

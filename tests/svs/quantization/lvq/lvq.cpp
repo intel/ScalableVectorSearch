@@ -39,6 +39,25 @@ template <typename T, size_t N> void test_lvq_top() {
     svs::lib::save_to_disk(lvq_dataset, temp_dir);
     auto reloaded_lvq_dataset = svs::lib::load_from_disk<T>(temp_dir);
     static_assert(std::is_same_v<decltype(lvq_dataset), decltype(reloaded_lvq_dataset)>);
+
+    // Check matchers.
+    auto m = svs::lib::load_from_disk<lvq::Matcher>(temp_dir);
+    CATCH_REQUIRE(m.primary == T::primary_bits);
+    CATCH_REQUIRE(m.residual == T::residual_bits);
+    CATCH_REQUIRE(m.dims == lvq_dataset.dimensions());
+
+    // Try-load should yield the same result.
+    auto ex = svs::lib::try_load_from_disk<lvq::Matcher>(temp_dir);
+    CATCH_REQUIRE(ex);
+    CATCH_REQUIRE(ex.value() == m);
+
+    // Change the underlying schema to ensure schema mismatches are handled.
+    auto src = temp_dir / svs::lib::config_file_name;
+    auto dst = temp_dir / "modified.toml";
+    svs_test::mutate_table(src, dst, {{{"object", "__schema__"}, "invalid_schema"}});
+    ex = svs::lib::try_load_from_disk<lvq::Matcher>(dst);
+    CATCH_REQUIRE(!ex);
+    CATCH_REQUIRE(ex.error() == svs::lib::TryLoadFailureReason::InvalidSchema);
 }
 
 } // namespace

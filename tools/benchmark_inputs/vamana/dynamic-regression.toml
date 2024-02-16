@@ -1,341 +1,371 @@
 [[vamana_dynamic_build]]
+__schema__ = 'benchmark_vamana_dynamic_build_job'
 __version__ = 'v0.0.3'
 data = 'bigann/bigann_10m_u8.bvecs'
 data_type = 'uint8'
-dynamic_optimization = 'minimal'
-queries = 'bigann/bigann_queries.bvecs'
-query_type = 'uint8'
-queries_in_training_set = 5000
 description = 'bigann-10m'
 distance = 'L2'
+dynamic_optimization = 'minimal'
 ndims = 128
-num_neighbors = 10
 num_threads = 72
-target_recalls = [ 0.8, 0.90, 0.95 ]
+queries = 'bigann/bigann_queries.bvecs'
+queries_in_training_set = 5000
+query_type = 'uint8'
 
     [vamana_dynamic_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_dynamic_build.dynamic_parameters]
-    __version__ = 'v0.0.1'
-    alpha = 1.2
-    graph_max_degree = 128
-    prune_to = 124
-    max_candidate_pool_size = 750
-    name = 'vamana build parameters'
-    use_full_search_history = false
-    window_size = 200
-
-    [vamana_dynamic_build.schedule]
-    __version__ = 'v0.0.1'
-    bucket_divisor = 32
-    cycles_before_cleanup = 5
-    initial_fraction = 0.75
-    modify_fraction = 0.01
-    total_iterations = 20
-    rng_seed = 0xc0ffee
-
-        [vamana_dynamic_build.schedule.search_parameters]
-        __version__ = 'v0.0.0'
-        num_neighbors = 10
-        target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_dynamic_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_dynamic_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'uint8'
 
+    [vamana_dynamic_build.dynamic_parameters]
+    __schema__ = 'vamana_build_parameters'
+    __version__ = 'v0.0.1'
+    alpha = 1.2
+    graph_max_degree = 128
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    prune_to = 124
+    use_full_search_history = false
+    window_size = 200
+
+    [vamana_dynamic_build.schedule]
+    __schema__ = 'benchmark_dynamic_schedule'
+    __version__ = 'v0.0.1'
+    bucket_divisor = 32
+    cycles_before_cleanup = 5
+    initial_fraction = 0.75
+    modify_fraction = 0.01
+    rng_seed = 12648430
+    total_iterations = 20
+
+        [vamana_dynamic_build.schedule.search_parameters]
+        __schema__ = 'benchmark_search_parameters'
+        __version__ = 'v0.0.0'
+        num_neighbors = 10
+        target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
 [[vamana_dynamic_build]]
+__schema__ = 'benchmark_vamana_dynamic_build_job'
 __version__ = 'v0.0.3'
 data = 'deep/deep_10m_f16.fvecs'
 data_type = 'float16'
+description = 'deep-10m'
+distance = 'L2'
 dynamic_optimization = 'minimal'
+ndims = 96
+num_threads = 72
 queries = 'deep/deep_queries.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-description = 'deep-10m'
-distance = 'L2'
-ndims = 96
-num_neighbors = 10
-num_threads = 72
-target_recalls = [ 0.8, 0.90, 0.95 ]
 
     [vamana_dynamic_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
+    [vamana_dynamic_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
     [vamana_dynamic_build.dynamic_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = false
     window_size = 200
 
     [vamana_dynamic_build.schedule]
+    __schema__ = 'benchmark_dynamic_schedule'
     __version__ = 'v0.0.1'
     bucket_divisor = 32
     cycles_before_cleanup = 5
     initial_fraction = 0.75
     modify_fraction = 0.01
+    rng_seed = 12648430
     total_iterations = 20
-    rng_seed = 0xc0ffee
 
         [vamana_dynamic_build.schedule.search_parameters]
+        __schema__ = 'benchmark_search_parameters'
         __version__ = 'v0.0.0'
         num_neighbors = 10
-        target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [vamana_dynamic_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [vamana_dynamic_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'float16'
+        target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[vamana_dynamic_build]]
+__schema__ = 'benchmark_vamana_dynamic_build_job'
 __version__ = 'v0.0.3'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
+description = 'dpr-1m'
+distance = 'MIP'
 dynamic_optimization = 'minimal'
+ndims = 768
+num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-description = 'dpr-1m'
-distance = 'MIP'
-ndims = 768
-num_neighbors = 10
-num_threads = 72
-target_recalls = [ 0.8, 0.90, 0.95 ]
 
     [vamana_dynamic_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
-    alpha = 0.95
+    alpha = 0.94999999999999996
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
+    [vamana_dynamic_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
     [vamana_dynamic_build.dynamic_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
-    alpha = 0.95
+    alpha = 0.94999999999999996
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = false
     window_size = 200
 
     [vamana_dynamic_build.schedule]
+    __schema__ = 'benchmark_dynamic_schedule'
     __version__ = 'v0.0.1'
     bucket_divisor = 32
     cycles_before_cleanup = 5
     initial_fraction = 0.75
     modify_fraction = 0.01
+    rng_seed = 12648430
     total_iterations = 20
-    rng_seed = 0xc0ffee
 
         [vamana_dynamic_build.schedule.search_parameters]
+        __schema__ = 'benchmark_search_parameters'
         __version__ = 'v0.0.0'
         num_neighbors = 10
-        target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [vamana_dynamic_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [vamana_dynamic_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'float16'
+        target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[vamana_dynamic_build]]
+__schema__ = 'benchmark_vamana_dynamic_build_job'
 __version__ = 'v0.0.3'
 data = 'msturing/msturing_10m_f16.fvecs'
 data_type = 'float16'
+description = 'msturing-10m'
+distance = 'L2'
 dynamic_optimization = 'minimal'
+ndims = 100
+num_threads = 72
 queries = 'msturing/msturing_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-description = 'msturing-10m'
-distance = 'L2'
-ndims = 100
-num_neighbors = 10
-num_threads = 72
-target_recalls = [ 0.8, 0.90, 0.95 ]
 
     [vamana_dynamic_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
+    [vamana_dynamic_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_dynamic_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
     [vamana_dynamic_build.dynamic_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = false
     window_size = 200
 
     [vamana_dynamic_build.schedule]
+    __schema__ = 'benchmark_dynamic_schedule'
     __version__ = 'v0.0.1'
     bucket_divisor = 32
     cycles_before_cleanup = 5
     initial_fraction = 0.75
     modify_fraction = 0.01
+    rng_seed = 12648430
     total_iterations = 20
-    rng_seed = 0xc0ffee
 
         [vamana_dynamic_build.schedule.search_parameters]
+        __schema__ = 'benchmark_search_parameters'
         __version__ = 'v0.0.0'
         num_neighbors = 10
-        target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [vamana_dynamic_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [vamana_dynamic_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'float16'
+        target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[vamana_dynamic_build]]
+__schema__ = 'benchmark_vamana_dynamic_build_job'
 __version__ = 'v0.0.3'
 data = 'spacev/spacev_10m_i8.bvecs'
 data_type = 'int8'
+description = 'spacev-10m'
+distance = 'L2'
 dynamic_optimization = 'minimal'
+ndims = 100
+num_threads = 72
 queries = 'spacev/spacev_queries_i8.bvecs'
 queries_in_training_set = 5000
 query_type = 'int8'
-description = 'spacev-10m'
-distance = 'L2'
-ndims = 100
-num_neighbors = 10
-num_threads = 72
-target_recalls = [ 0.8, 0.90, 0.95 ]
 
     [vamana_dynamic_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_dynamic_build.dynamic_parameters]
-    __version__ = 'v0.0.1'
-    alpha = 1.2
-    graph_max_degree = 128
-    prune_to = 124
-    max_candidate_pool_size = 750
-    name = 'vamana build parameters'
-    use_full_search_history = false
-    window_size = 200
-
-    [vamana_dynamic_build.schedule]
-    __version__ = 'v0.0.1'
-    bucket_divisor = 32
-    cycles_before_cleanup = 5
-    initial_fraction = 0.75
-    modify_fraction = 0.01
-    total_iterations = 20
-    rng_seed = 0xc0ffee
-
-        [vamana_dynamic_build.schedule.search_parameters]
-        __version__ = 'v0.0.0'
-        num_neighbors = 10
-        target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_dynamic_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_dynamic_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'int8'
 
-[[vamana_dynamic_build]]
-__version__ = 'v0.0.3'
-data = 'text2image/text2image_10m_f16.fvecs'
-data_type = 'float16'
-dynamic_optimization = 'minimal'
-queries = 'text2image/text2image_queries_10k_f32.fvecs'
-queries_in_training_set = 5000
-query_type = 'float32'
-description = 'text2image-10m'
-distance = 'MIP'
-ndims = 200
-num_neighbors = 10
-num_threads = 72
-target_recalls = [ 0.8, 0.90, 0.95 ]
-
-    [vamana_dynamic_build.build_parameters]
-    __version__ = 'v0.0.1'
-    alpha = 0.95
-    graph_max_degree = 128
-    prune_to = 124
-    max_candidate_pool_size = 750
-    name = 'vamana build parameters'
-    use_full_search_history = true
-    window_size = 200
-
     [vamana_dynamic_build.dynamic_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
-    alpha = 0.95
+    alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = false
     window_size = 200
 
     [vamana_dynamic_build.schedule]
+    __schema__ = 'benchmark_dynamic_schedule'
     __version__ = 'v0.0.1'
     bucket_divisor = 32
     cycles_before_cleanup = 5
     initial_fraction = 0.75
     modify_fraction = 0.01
+    rng_seed = 12648430
     total_iterations = 20
-    rng_seed = 0xc0ffee
 
         [vamana_dynamic_build.schedule.search_parameters]
+        __schema__ = 'benchmark_search_parameters'
         __version__ = 'v0.0.0'
         num_neighbors = 10
-        target_recalls = [ 0.8, 0.85, 0.9 ]
+        target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
+[[vamana_dynamic_build]]
+__schema__ = 'benchmark_vamana_dynamic_build_job'
+__version__ = 'v0.0.3'
+data = 'text2image/text2image_10m_f16.fvecs'
+data_type = 'float16'
+description = 'text2image-10m'
+distance = 'MIP'
+dynamic_optimization = 'minimal'
+ndims = 200
+num_threads = 72
+queries = 'text2image/text2image_queries_10k_f32.fvecs'
+queries_in_training_set = 5000
+query_type = 'float32'
+
+    [vamana_dynamic_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
+    __version__ = 'v0.0.1'
+    alpha = 0.94999999999999996
+    graph_max_degree = 128
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    prune_to = 124
+    use_full_search_history = true
+    window_size = 200
 
     [vamana_dynamic_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_dynamic_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'float16'
+
+    [vamana_dynamic_build.dynamic_parameters]
+    __schema__ = 'vamana_build_parameters'
+    __version__ = 'v0.0.1'
+    alpha = 0.94999999999999996
+    graph_max_degree = 128
+    max_candidate_pool_size = 750
+    name = 'vamana build parameters'
+    prune_to = 124
+    use_full_search_history = false
+    window_size = 200
+
+    [vamana_dynamic_build.schedule]
+    __schema__ = 'benchmark_dynamic_schedule'
+    __version__ = 'v0.0.1'
+    bucket_divisor = 32
+    cycles_before_cleanup = 5
+    initial_fraction = 0.75
+    modify_fraction = 0.01
+    rng_seed = 12648430
+    total_iterations = 20
+
+        [vamana_dynamic_build.schedule.search_parameters]
+        __schema__ = 'benchmark_search_parameters'
+        __version__ = 'v0.0.0'
+        num_neighbors = 10
+        target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]

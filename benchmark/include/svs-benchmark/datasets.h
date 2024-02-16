@@ -57,14 +57,15 @@ struct Uncompressed {
 
     // Saving and Loading
     constexpr static svs::lib::Version save_version{0, 0, 0};
+    constexpr static std::string_view serialization_schema =
+        "benchmark_dataset_uncompressed";
     svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable(save_version, {SVS_LIST_SAVE_(data_type)});
+        return svs::lib::SaveTable(
+            serialization_schema, save_version, {SVS_LIST_SAVE_(data_type)}
+        );
     }
 
-    static Uncompressed load(const toml::table& table, const svs::lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
+    static Uncompressed load(const svs::lib::ContextFreeLoadTable& table) {
         return Uncompressed{SVS_LOAD_MEMBER_AT_(table, data_type)};
     }
 
@@ -123,9 +124,8 @@ template <> struct svs::lib::Saver<svsbenchmark::LVQPackingStrategy> {
 
 template <> struct svs::lib::Loader<svsbenchmark::LVQPackingStrategy> {
     using T = svsbenchmark::LVQPackingStrategy;
-    using toml_type = std::string;
-    static constexpr bool is_version_free = true;
-    static T load(const toml_type& v) { return svsbenchmark::Parser<T>::parse(v); }
+    using toml_type = toml::value<std::string>;
+    static T load(const toml_type& v) { return svsbenchmark::Parser<T>::parse(v.get()); }
 };
 
 namespace svsbenchmark {
@@ -155,17 +155,16 @@ struct LVQ {
 
     // saving and loading
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_dataset_lvq";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(primary), SVS_LIST_SAVE_(residual), SVS_LIST_SAVE_(strategy)}
         );
     }
 
-    static LVQ load(const toml::table& table, const svs::lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
+    static LVQ load(const svs::lib::ContextFreeLoadTable& table) {
         return LVQ(
             SVS_LOAD_MEMBER_AT_(table, primary),
             SVS_LOAD_MEMBER_AT_(table, residual),
@@ -226,9 +225,8 @@ template <> struct svs::lib::Saver<svsbenchmark::LeanVecKind> {
 
 template <> struct svs::lib::Loader<svsbenchmark::LeanVecKind> {
     using T = svsbenchmark::LeanVecKind;
-    using toml_type = std::string;
-    static constexpr bool is_version_free = true;
-    static T load(const toml_type& v) { return svsbenchmark::Parser<T>::parse(v); }
+    using toml_type = toml::value<std::string>;
+    static T load(const toml_type& v) { return svsbenchmark::Parser<T>::parse(v.get()); }
 };
 
 namespace svsbenchmark {
@@ -283,10 +281,12 @@ struct LeanVec {
     //
     //   Empty paths denote no such external matrix is desired.
     static constexpr svs::lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema = "benchmark_dataset_leanvec";
     svs::lib::SaveTable save() const {
         auto data_matrix = data_matrix_.value_or("");
         auto query_matrix = query_matrix_.value_or("");
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(primary),
              SVS_LIST_SAVE_(secondary),
@@ -297,14 +297,9 @@ struct LeanVec {
     }
 
     static LeanVec load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
         // Processing pipeline for file-paths extracted from the TOML file.
         using optional_type = std::optional<std::filesystem::path>;
         auto process = [&root](std::filesystem::path path) -> optional_type {
@@ -370,25 +365,23 @@ struct Dataset {
 
     // Saving and Loading.
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_dataset_abstract";
     svs::lib::SaveTable save() const {
         auto node = std::visit([&](auto y) { return svs::lib::save(y); }, kinds_);
         std::string_view kind =
             std::visit<std::string_view>([&](auto y) { return decltype(y)::name; }, kinds_);
 
         return svs::lib::SaveTable(
-            save_version, {{"kind", svs::lib::save(kind)}, {"dataset", std::move(node)}}
+            serialization_schema,
+            save_version,
+            {{"kind", svs::lib::save(kind)}, {"dataset", std::move(node)}}
         );
     }
 
     static Dataset load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path> root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Incompatible version!");
-        }
-
         auto kind = svs::lib::load_at<std::string>(table, "kind");
 
         // TODO: It would be nicer for variants to have first-class support in the saving

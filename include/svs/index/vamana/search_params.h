@@ -72,8 +72,10 @@ struct VamanaSearchParameters {
     //      size_t prefetch_lookahead = 4
     //      size_t prefetch_lookstep = 1
     static constexpr lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema = "vamana_search_parameters";
     lib::SaveTable save() const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {{"search_window_size", lib::save(buffer_config_.get_search_window_size())},
              {"search_buffer_capacity", lib::save(buffer_config_.get_total_capacity())},
@@ -83,11 +85,12 @@ struct VamanaSearchParameters {
         );
     }
 
-    static VamanaSearchParameters
-    load_legacy(const toml::table& table, const lib::Version& version) {
-        if (version != lib::Version{0, 0, 0}) {
-            throw ANNEXCEPTION("Something went wrong when loading VamanaSearchParameters!");
-        }
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return schema == serialization_schema && version <= save_version;
+    }
+
+    static VamanaSearchParameters load_legacy(const lib::ContextFreeLoadTable& table) {
+        assert(table.version() == lib::Version(0, 0, 0));
         // Version 0.0.0 lacked the `prefetch_lookahead` and `prefetch_step` fields.
         // Try to use somewhat reasonable defaults.
         return VamanaSearchParameters{
@@ -100,10 +103,9 @@ struct VamanaSearchParameters {
             1};
     }
 
-    static VamanaSearchParameters
-    load(const toml::table& table, const lib::Version& version) {
-        if (version < save_version) {
-            return load_legacy(table, version);
+    static VamanaSearchParameters load(const lib::ContextFreeLoadTable& table) {
+        if (table.version() < save_version) {
+            return load_legacy(table);
         }
 
         return VamanaSearchParameters{

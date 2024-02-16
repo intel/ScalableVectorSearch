@@ -27,6 +27,7 @@
 #include "svs/lib/float16.h"
 #include "svs/lib/misc.h"
 #include "svs/third-party/fmt.h"
+#include "svs/third-party/toml.h"
 
 #include "svs/concepts/distance.h"
 #include "svs/core/distance/euclidean.h"
@@ -187,15 +188,12 @@ template <typename T> std::string type_name() { return TypeName<T>::name(); }
 template <typename StringMatcher>
 struct ExceptionMatcher : Catch::Matchers::MatcherGenericBase {
     // Type Aliases
-  public:
     using matcher_type = StringMatcher;
 
     // Members
-  public:
     matcher_type matcher_;
 
     // Methocs
-  public:
     ExceptionMatcher(matcher_type&& matcher)
         : matcher_{std::move(matcher)} {}
 
@@ -207,5 +205,39 @@ struct ExceptionMatcher : Catch::Matchers::MatcherGenericBase {
         return fmt::format("ANNException: {}", matcher_.describe());
     }
 };
+
+/////
+///// TOML Lens
+/////
+
+// A utility for modifying TOML files to test loading failure.
+struct Lens {
+    ///// Members
+    std::vector<std::string> key_chain_;
+    std::unique_ptr<toml::node> value_;
+
+    ///// Constructor
+    template <typename T>
+    Lens(std::initializer_list<std::string> key_chain, T&& value)
+        : key_chain_(key_chain)
+        , value_{toml::impl::make_node(SVS_FWD(value))} {
+        if (key_chain_.empty()) {
+            throw ANNEXCEPTION("Cannot create an empty keychain!");
+        }
+    }
+
+    void apply(toml::table& table, bool expect_exists = true) const {
+        return apply(&table, expect_exists);
+    }
+
+  private:
+    void apply(toml::table* table, bool expect_exists = true) const;
+};
+
+void mutate_table(
+    const std::filesystem::path& src,
+    const std::filesystem::path& dst,
+    std::initializer_list<Lens> lenses
+);
 
 } // namespace svs_test

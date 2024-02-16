@@ -46,10 +46,8 @@ template <> struct Saver<svsbenchmark::inverted::memory::ClusterStrategy> {
 
 template <> struct Loader<svsbenchmark::inverted::memory::ClusterStrategy> {
     using toml_type = toml::value<std::string>;
-    static constexpr bool is_version_free = true;
     svsbenchmark::inverted::memory::ClusterStrategy load(const toml_type& v) const {
-        auto str = v.get();
-        return svsbenchmark::inverted::memory::parse_strategy(str);
+        return svsbenchmark::inverted::memory::parse_strategy(v.get());
     }
 };
 } // namespace svs::lib

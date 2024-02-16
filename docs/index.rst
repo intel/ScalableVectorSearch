@@ -31,6 +31,8 @@ Welcome to Scalable Vector Search's documentation!
    python/vamana.rst
    python/dynamic.rst
    python/backend.rst
+   python/upgrader.rst
+   python/examples/index.rst
 
 .. toctree::
    :maxdepth: 1

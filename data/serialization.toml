@@ -1,0 +1,378 @@
+# The version of the global schema file.
+schema_version = "v0.0.0"
+
+# Schemas expected by SVS.
+[[schemas]]
+    __schema__ = "binary_blob"
+    __version__ = "v0.0.0"
+    filename = "str"
+    element_size = "int"
+    element_type = "str"
+    num_elements = "int"
+
+[[schemas]]
+    __schema__ = "lvq_compressed_dataset"
+    __version__ = "v0.0.0"
+    inner = "table"
+    kind = "str"
+    sign = "str"
+    bits = "int"
+    ndims = "int"
+    data_dims = "int"
+    num_points = "int"
+
+[[schemas]]
+    __schema__ = "lvq_with_scaling_constants"
+    __version__ = "v0.0.3"
+    kind = "str"
+    binary_file = "str"
+    file_uuid = "str"
+    num_vectors = "int"
+    logical_dimensions = "int"
+    bits = "int"
+
+[[schemas]]
+    __schema__ = "two_level_lvq_dataset"
+    __version__ = "v0.0.2"
+    primary = "table"
+    residual = "table"
+    centroids = "table"
+
+[[schemas]]
+    __schema__ = "one_level_lvq_dataset"
+    __version__ = "v0.0.2"
+    primary = "table"
+    centroids = "table"
+
+[[schemas]]
+    __schema__ = "external_to_internal_translation"
+    __version__ = "v0.0.0"
+    kind = "str"
+    num_points = "int"
+    external_id_type = "str"
+    internal_id_type = "str"
+    filename = "str"
+
+[[schemas]]
+    __schema__ = "default_graph"
+    __version__ = "v0.0.0"
+    name = "str"
+    binary_file = "str"
+    max_degree = "int"
+    num_vertices = "int"
+    uuid = "str"
+    eltype = "str"
+
+[[schemas]]
+    __schema__ = "uncompressed_data"
+    __version__ = "v0.0.0"
+    name = "str"
+    binary_file = "str"
+    dims = "int"
+    num_vectors = "int"
+    uuid = "str"
+    eltype = "str"
+
+[[schemas]]
+    __schema__ = "builtin_distance_function"
+    __version__ = "v0.0.0"
+    name = "str"
+
+[[schemas]]
+    __schema__ = "inverted_search_parameters"
+    __version__ = "v0.0.0"
+    primary_parameters = "table"
+    refinement_epsilon = "float"
+
+[[schemas]]
+    __schema__ = "clustering_parameters"
+    __version__ = "v0.0.0"
+    percent_centroids = "float"
+    epsilon = "float"
+    max_replicas = "int"
+    max_cluster_size = "int"
+    seed = "int"
+    batchsize = "int"
+    search_window_size = "int"
+    num_intermediate_results = "int"
+    refinement_alpha = "float"
+
+[[schemas]]
+    __schema__ = "clustering"
+    __version__ = "v0.0.0"
+    filepath = "str"
+    filesize = "int"
+    integer_type = "str"
+    num_clusters = "int"
+
+[[schemas]]
+    __schema__ = "inverted_build_parameters"
+    __version__ = "v0.0.0"
+    clustering_parameters = "table"
+    primary_parameters = "table"
+
+[[schemas]]
+    __schema__ = "vamana_dynamic_auxiliary_parameters"
+    __version__ = "v0.0.0"
+    name = "str"
+    parameters = "table"
+    translation = "table"
+
+[[schemas]]
+    __schema__ = "vamana_build_parameters"
+    __version__ = "v0.0.1"
+    alpha = "float"
+    graph_max_degree = "int"
+    window_size = "int"
+    max_candidate_pool_size = "int"
+    prune_to = "int"
+    use_full_search_history = "bool"
+    name = "str"
+
+[[schemas]]
+    __schema__ = "vamana_search_parameters"
+    __version__ = "v0.0.1"
+    search_window_size = "int"
+    search_buffer_capacity = "int"
+    search_buffer_visited_set = "bool"
+    prefetch_lookahead = "int"
+    prefetch_step = "int"
+
+[[schemas]]
+    __schema__ = "vamana_index_parameters"
+    __version__ = "v0.0.3"
+    name = "str"
+    entry_point = "int"
+    build_parameters = "table"
+    search_parameters = "table"
+
+[[schemas]]
+    __schema__ = "vamana_index_parameters"
+    __version__ = "v0.0.2"
+    alpha = "float"
+    construction_window_size = "int"
+    default_search_window_size = "int"
+    entry_point = "int"
+    max_candidates = "int"
+    max_out_degree = "int"
+    name = "str"
+    visited_set = "bool"
+    use_full_search_history = "bool"
+    prune_to = "int"
+
+[[schemas]]
+    __schema__ = "vamana_index_parameters"
+    __version__ = "v0.0.1"
+    alpha = "float"
+    construction_window_size = "int"
+    default_search_window_size = "int"
+    entry_point = "int"
+    max_candidates = "int"
+    max_out_degree = "int"
+    name = "str"
+    visited_set = "bool"
+    use_full_search_history = "bool"
+
+[[schemas]]
+    __schema__ = "vamana_index_parameters"
+    __version__ = "v0.0.0"
+    alpha = "float"
+    construction_window_size = "int"
+    default_search_window_size = "int"
+    entry_point = "int"
+    max_candidates = "int"
+    max_out_degree = "int"
+    name = "str"
+    visited_set = "bool"
+
+# LeanVec
+[[schemas]]
+    __schema__ = "leanvec_matrices"
+    __version__ = "v0.0.0"
+    data_matrix = "table"
+    query_matrix = "table"
+
+[[schemas]]
+    __schema__ = "leanvec_dataset"
+    __version__ = "v0.0.0"
+    primary = "table"
+    secondary = "table"
+    matrices = "table"
+    means = "array"
+    is_pca = "bool"
+
+##### SVS Benchmark
+[[schemas]]
+    __schema__ = "benchmark_dynamic_schedule"
+    __version__ = "v0.0.1"
+    initial_fraction = "float"
+    modify_fraction = "float"
+    cycles_before_cleanup = "int"
+    total_iterations = "int"
+    bucket_divisor = "int"
+    rng_seed = "int"
+    search_parameters = "table"
+
+[[schemas]]
+    __schema__ = "benchmark_dataset_uncompressed"
+    __version__ = "v0.0.0"
+    data_type = "str"
+
+[[schemas]]
+    __schema__ = "benchmark_dataset_lvq"
+    __version__ = "v0.0.0"
+    primary = "int"
+    residual = "int"
+    strategy = "str"
+
+[[schemas]]
+    __schema__ = "benchmark_dataset_leanvec"
+    __version__ = "v0.0.1"
+    primary = "str"
+    secondary = "str"
+    leanvec_dims = "int"
+    data_matrix = "str"
+    query_matrix = "str"
+
+[[schemas]]
+    __schema__ = "benchmark_dataset_abstract"
+    __version__ = "v0.0.0"
+    kind = "str"
+    dataset = "table"
+
+[[schemas]]
+    __schema__ = "benchmark_search_parameters"
+    __version__ = "v0.0.0"
+    num_neighbors = "int"
+    target_recalls = "array"
+
+[[schemas]]
+    __schema__ = "benchmark_inverted_memory_build_job"
+    __version__ = "v0.0.1"
+    description = "str"
+    dataset = "table"
+    data = "str"
+    queries = "str"
+    groundtruth = "str"
+    data_type = "str"
+    query_type = "str"
+    distance = "str"
+    ndims = ["str", "int"]
+    primary_build_parameters = "table"
+    clustering_parameters = "table"
+    centroids_directory = "str"
+    num_build_threads = "int"
+    strategy = "str"
+    save_directory = "str"
+    search_configs = "array"
+    search_parameters = "table"
+
+[[schemas]]
+    __schema__ = "benchmark_inverted_memory_piecewise_assembly"
+    __version__ = "v0.0.1"
+    dataset = "table"
+    query_type = "str"
+    data_type = "str"
+    ndims = ["str", "int"]
+    distance = "str"
+    clustering = "str"
+    primary_index_config = "str"
+    primary_index_graph = "str"
+
+[[schemas]]
+    __schema__ = "benchmark_inverted_memory_search_job"
+    __version__ = "v0.0.0"
+    assembly = "table"
+    num_threads = "int"
+    search_configs = "array"
+    search_targets = "table"
+    original_data = "str"
+    queries = "str"
+    groundtruth = "str"
+
+[[schemas]]
+    __schema__ = "benchmark_inverted_memory_test"
+    __version__ = "v0.0.0"
+    groundtruths = "array"
+    data_f32 = "str"
+    queries_f32 = "str"
+    queries_in_training_set = "int"
+
+[[schemas]]
+    __schema__ = "benchmark_distance_and_groundtruth"
+    __version__ = "v0.0.0"
+    distance = "str"
+    path = "str"
+
+[[schemas]]
+    __schema__ = "benchmark_config_and_result"
+    __version__ = "v0.0.0"
+    search_parameters = "table"
+    num_neighbors = "int"
+    recall_k = "int"
+    num_queries = "int"
+    recall = "float"
+
+[[schemas]]
+    __schema__ = "benchmark_expected_result"
+    __version__ = "v0.0.0"
+    dataset = "table"
+    distance = "str"
+    config_and_recall = "array"
+
+    [schemas.build_parameters]
+    type = "table"
+    optional = true
+
+[[schemas]]
+    __schema__ = "benchmark_vamana_build_job"
+    __version__ = "v0.0.3"
+    # Shared
+    description = "str"
+    dataset = "table"
+    data = "str"
+    queries = "str"
+    queries_in_training_set = "int"
+    data_type = "str"
+    query_type = "str"
+    distance = "str"
+    ndims = ["int", "str"]
+    build_parameters = "table"
+    num_threads = "int"
+    # Unique
+    groundtruth = "str"
+    search_window_sizes = "array"
+    search_parameters = "table"
+
+[[schemas]]
+    __schema__ = "benchmark_vamana_dynamic_build_job"
+    __version__ = "v0.0.3"
+    # Shared
+    description = "str"
+    dataset = "table"
+    data = "str"
+    queries = "str"
+    queries_in_training_set = "int"
+    data_type = "str"
+    query_type = "str"
+    distance = "str"
+    ndims = ["int", "str"]
+    build_parameters = "table"
+    num_threads = "int"
+    # Unique
+    schedule = "table"
+    dynamic_optimization = "str"
+    dynamic_parameters = "table"
+
+[[schemas]]
+    __schema__ = "benchmark_vamana_test"
+    __version__ = "v0.0.1"
+    groundtruths = "array"
+    data_f32 = "str"
+    index_config = "str"
+    graph = "str"
+    queries_f32 = "str"
+    queries_in_training_set = "int"
+    leanvec_data_matrix = "str"
+    leanvec_query_matrix = "str"
+

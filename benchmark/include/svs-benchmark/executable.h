@@ -184,8 +184,9 @@ class JobBasedExecutable : private Implementation, public Benchmark {
         auto jobs = Implementation::parse_args_and_invoke(
             [&](auto&&... args) {
                 auto configuration = toml::parse_file(std::string(config_file));
-                return svs::lib::load_at<std::vector<job_type>>(
-                    configuration, Implementation::name(), SVS_FWD(args)...
+                return svs::lib::load<std::vector<job_type>>(
+                    svs::lib::node_view_at(configuration, Implementation::name()),
+                    SVS_FWD(args)...
                 );
             },
             args.last(nargs - 2)
@@ -295,6 +296,7 @@ class TestBasedExecutable : private Implementation, public Benchmark {
             Implementation::print_help();
             return 0;
         }
+
         if (std::any_of(args.begin(), args.end(), detail::is_example)) {
             print_example();
             return 0;
@@ -316,8 +318,9 @@ class TestBasedExecutable : private Implementation, public Benchmark {
         auto job = Implementation::parse_args_and_invoke(
             [&](auto&&... args) {
                 auto configuration = toml::parse_file(std::string(config_file));
-                return svs::lib::load_at<job_type>(
-                    configuration, Implementation::name(), SVS_FWD(args)...
+                return svs::lib::load<job_type>(
+                    svs::lib::node_view_at(configuration, Implementation::name()),
+                    SVS_FWD(args)...
                 );
             },
             args.last(nargs - 2)

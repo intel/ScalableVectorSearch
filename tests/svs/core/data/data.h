@@ -51,4 +51,26 @@ class MockDataset {
     std::vector<int64_t> data_;
 };
 
+template <typename T> void set_sequential(T& x) {
+    size_t count = 0;
+    for (size_t i = 0; i < x.size(); ++i) {
+        for (auto& j : x.get_datum(i)) {
+            j = count;
+            ++count;
+        }
+    }
+}
+
+template <typename T> bool is_sequential(const T& x) {
+    size_t count = 0;
+    for (size_t i = 0; i < x.size(); ++i) {
+        for (auto& j : x.get_datum(i)) {
+            if (j != count) {
+                return false;
+            }
+            ++count;
+        }
+    }
+    return true;
+}
 } // namespace svstest::data

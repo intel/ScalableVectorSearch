@@ -54,8 +54,8 @@ std::vector<vamana::SearchJob> parse_jobs(
 
     // Parse the configuration file.
     toml::table configuration = toml::parse_file(std::string(config_path));
-    return svs::lib::load_at<std::vector<job_type>>(
-        configuration, search_benchmark_name(), data_root
+    return svs::lib::load<std::vector<job_type>>(
+        svs::lib::node_view_at(configuration, search_benchmark_name()), data_root
     );
 }
 

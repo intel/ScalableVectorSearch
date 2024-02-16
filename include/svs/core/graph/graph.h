@@ -266,11 +266,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     ///// Saving
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    static constexpr std::string_view serialization_schema = "default_graph";
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         auto uuid = lib::UUID{};
         auto filename = ctx.generate_name("graph");
         io::save(data_, io::NativeFile(filename), uuid);
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {{"name", "graph"},
              {"binary_file", lib::save(filename.filename())},
@@ -283,17 +285,8 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
   protected:
     template <lib::LazyInvocable<data_type> F, typename... Args>
-    static lib::lazy_result_t<F, data_type> load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
-        const F& lazy,
-        Args&&... args
-    ) {
-        if (version != lib::Version(0, 0, 0)) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
+    static lib::lazy_result_t<F, data_type>
+    load(const lib::LoadTable& table, const F& lazy, Args&&... args) {
         // Perform a sanity check on the element type.
         // Make sure we're loading the correct kind.
         auto eltype = lib::load_at<DataType>(table, "eltype");
@@ -308,7 +301,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
         // Now that this is out of the way, resolve the file and load the data.
         auto uuid = lib::load_at<lib::UUID>(table, "uuid");
-        auto binaryfile = io::find_uuid(ctx.get_directory(), uuid);
+        auto binaryfile = io::find_uuid(table.context().get_directory(), uuid);
         if (!binaryfile.has_value()) {
             throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
         }
@@ -358,14 +351,10 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         : parent_type(std::move(parent)) {}
 
     ///// Loading
-    static constexpr SimpleGraph load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
-        const Alloc& allocator = {}
-    ) {
+    static constexpr SimpleGraph
+    load(const lib::LoadTable& table, const Alloc& allocator = {}) {
         auto lazy = lib::Lazy([](data_type data) { return SimpleGraph(std::move(data)); });
-        return parent_type::load(table, ctx, version, lazy, allocator);
+        return parent_type::load(table, lazy, allocator);
     }
 
     static constexpr SimpleGraph
@@ -406,12 +395,10 @@ class SimpleBlockedGraph
     void add_node() { unsafe_resize(parent_type::n_nodes() + 1); }
 
     ///// Loading
-    static constexpr SimpleBlockedGraph load(
-        const toml::table& table, const lib::LoadContext& ctx, const lib::Version& version
-    ) {
+    static constexpr SimpleBlockedGraph load(const lib::LoadTable& table) {
         auto lazy =
             lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
-        return parent_type::load(table, ctx, version, lazy);
+        return parent_type::load(table, lazy);
     }
 
     static constexpr SimpleBlockedGraph load(const std::filesystem::path& path) {

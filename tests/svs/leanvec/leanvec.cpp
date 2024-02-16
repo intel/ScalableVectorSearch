@@ -77,7 +77,7 @@ template <leanvec::IsLeanDataset A, leanvec::IsLeanDataset B>
     return true;
 }
 
-template <leanvec::IsLeanDataset T>
+template <leanvec::IsLeanDataset T, bool HasMatcher = true>
 void test_leanvec_top(bool use_pca, size_t leanvec_dims = T::leanvec_extent) {
     constexpr size_t L = T::leanvec_extent;
     constexpr size_t N = T::extent;
@@ -131,6 +131,44 @@ void test_leanvec_top(bool use_pca, size_t leanvec_dims = T::leanvec_extent) {
     CATCH_REQUIRE(
         compare(leanvec_dataset.get_secondary(10), leanvec_dataset.get_secondary(100))
     );
+
+    // Matcher
+    if constexpr (HasMatcher) {
+        auto m = svs::lib::load_from_disk<leanvec::Matcher>(temp_dir);
+        CATCH_REQUIRE(m.primary_kind == leanvec::leanvec_kind_v<typename T::primary_data_type>);
+        CATCH_REQUIRE(m.secondary_kind == leanvec::leanvec_kind_v<typename T::secondary_data_type>);
+        CATCH_REQUIRE(m.leanvec_dims == leanvec_dataset.inner_dimensions());
+        CATCH_REQUIRE(m.total_dims == leanvec_dataset.dimensions());
+
+        // Invalidate the schemas of the various inner datasets.
+        auto src = temp_dir / svs::lib::config_file_name;
+        auto dst = temp_dir / "modified.toml";
+        svs_test::mutate_table(
+            src, dst, {{{"object", "primary", "__schema__"}, "invalid_schema"}}
+        );
+        auto ex = svs::lib::try_load_from_disk<leanvec::Matcher>(dst);
+        CATCH_REQUIRE(!ex);
+        CATCH_REQUIRE(ex.error() == svs::lib::TryLoadFailureReason::InvalidSchema);
+
+        svs_test::mutate_table(
+            src, dst, {{{"object", "secondary", "__schema__"}, "invalid_schema"}}
+        );
+        ex = svs::lib::try_load_from_disk<leanvec::Matcher>(dst);
+        CATCH_REQUIRE(!ex);
+        CATCH_REQUIRE(ex.error() == svs::lib::TryLoadFailureReason::InvalidSchema);
+
+        // Modify the tables to values not supported by the matcher.
+        if constexpr (leanvec::detail::is_using_lvq_tag_v<typename T::primary_data_type>) {
+            svs_test::mutate_table(
+                src, dst, {{{"object", "primary", "primary", "bits"}, 2}}
+            );
+        } else {
+            svs_test::mutate_table(src, dst, {{{"object", "primary", "eltype"}, "uint8"}});
+        }
+        ex = svs::lib::try_load_from_disk<leanvec::Matcher>(dst);
+        CATCH_REQUIRE(!ex);
+        CATCH_REQUIRE(ex.error() == svs::lib::TryLoadFailureReason::Other);
+    }
 }
 
 } // namespace

@@ -12,6 +12,7 @@
 #pragma once
 
 // svs
+#include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/simd_utils.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
@@ -69,23 +70,16 @@ struct DistanceIP {
 
     // IO
     static constexpr std::string_view name = "inner_product";
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
-    lib::SaveTable save() const {
-        return lib::SaveTable(save_version, {SVS_LIST_SAVE(name)});
+    static bool
+    check_load_compatibility(std::string_view schema, svs::lib::Version version) {
+        return DistanceSerialization::check_load_compatibility(schema, version);
     }
 
-    DistanceIP static load(const toml::table& table, const lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
-        auto retrieved = lib::load_at<std::string>(table, "name");
-        if (retrieved != name) {
-            throw ANNEXCEPTION(
-                "Loading error. Expected name {}. Instead, got {}.", name, retrieved
-            );
-        }
+    lib::SaveTable save() const { return DistanceSerialization::save(name); }
+    DistanceIP static load(const lib::ContextFreeLoadTable& table) {
+        // Throws if retrieved name is incorrect.
+        DistanceSerialization::check_load(table, name);
         return DistanceIP();
     }
 };

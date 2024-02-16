@@ -47,6 +47,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/datatype.cpp
     ${TEST_DIR}/svs/lib/dispatcher.cpp
     ${TEST_DIR}/svs/lib/exception.cpp
+    ${TEST_DIR}/svs/lib/expected.cpp
     ${TEST_DIR}/svs/lib/invoke.cpp
     ${TEST_DIR}/svs/lib/file.cpp
     ${TEST_DIR}/svs/lib/file_iterator.cpp
@@ -60,6 +61,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/prefetch.cpp
     ${TEST_DIR}/svs/lib/readwrite.cpp
     ${TEST_DIR}/svs/lib/saveload.cpp
+    ${TEST_DIR}/svs/lib/saveload/load.cpp
     ${TEST_DIR}/svs/lib/spinlock.cpp
     ${TEST_DIR}/svs/lib/static.cpp
     ${TEST_DIR}/svs/lib/timing.cpp
@@ -84,6 +86,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/data.cpp
     ${TEST_DIR}/svs/core/data/block.cpp
     ${TEST_DIR}/svs/core/data/simple.cpp
+    ${TEST_DIR}/svs/core/data/serialization.cpp
     ${TEST_DIR}/svs/core/data/view.cpp
     ${TEST_DIR}/svs/core/distance.cpp
     ${TEST_DIR}/svs/core/distances/simd_utils.cpp

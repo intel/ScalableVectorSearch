@@ -1,11 +1,13 @@
-__version__ = 'v0.0.1'
+__version__ = 'v0.0.2'
 
 [object]
+__schema__ = 'vamana_index_parameters'
 __version__ = 'v0.0.3'
 entry_point = 9426
 name = 'vamana index parameters'
 
     [object.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2000000476837158
     graph_max_degree = 128
@@ -16,7 +18,10 @@ name = 'vamana index parameters'
     window_size = 200
 
     [object.search_parameters]
-    __version__ = 'v0.0.0'
+    __schema__ = 'vamana_search_parameters'
+    __version__ = 'v0.0.1'
+    prefetch_lookahead = 0
+    prefetch_step = 0
     search_buffer_capacity = 0
     search_buffer_visited_set = false
     search_window_size = 0

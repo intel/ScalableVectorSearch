@@ -59,6 +59,12 @@ inline bool is_likely_reload(const std::filesystem::path& path) {
 class GenericSerializer {
   public:
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    static constexpr std::string_view serialization_schema = "uncompressed_data";
+
+    static constexpr bool
+    check_compatibility(std::string_view schema, lib::Version version) {
+        return schema == serialization_schema && version == save_version;
+    }
 
     template <data::ImmutableMemoryDataset Data>
     static lib::SaveTable save(const Data& data, const lib::SaveContext& ctx) {
@@ -68,6 +74,7 @@ class GenericSerializer {
         auto filename = ctx.generate_name("data");
         io::save(data, io::NativeFile(filename), uuid);
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {
                 {"name", "uncompressed"},
@@ -81,16 +88,8 @@ class GenericSerializer {
     }
 
     template <typename T, lib::LazyInvocable<size_t, size_t> F>
-    static lib::lazy_result_t<F, size_t, size_t> load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
-        const F& lazy
-    ) {
-        if (version != save_version) {
-            throw ANNException("Version mismatch!");
-        }
-
+    static lib::lazy_result_t<F, size_t, size_t>
+    load(const lib::LoadTable& table, const F& lazy) {
         auto datatype = lib::load_at<DataType>(table, "eltype");
         if (datatype != datatype_v<T>) {
             throw ANNEXCEPTION(
@@ -103,12 +102,98 @@ class GenericSerializer {
 
         // Now that this is out of the way, resolve the file and load the data.
         auto uuid = lib::load_at<lib::UUID>(table, "uuid");
-        auto binaryfile = io::find_uuid(ctx.get_directory(), uuid);
+        auto binaryfile = io::find_uuid(table.context().get_directory(), uuid);
         if (!binaryfile.has_value()) {
             throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
         }
         return io::load_dataset(binaryfile.value(), lazy);
     }
+};
+
+struct Matcher {
+    // Compatibility check is routed through the GenericSerializer.
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return GenericSerializer::check_compatibility(schema, version);
+    }
+
+    // Support direct loading for the common filetypes.
+    static bool can_load_direct(
+        const std::filesystem::path& path,
+        svs::DataType SVS_UNUSED(type_hint) = svs::DataType::undef,
+        size_t SVS_UNUSED(dims_hint) = Dynamic
+    ) {
+        return svs::io::special_by_file_extension(std::string_view(path.native()));
+    }
+
+    ///// try_load and friends
+    static Matcher load_direct(
+        const std::filesystem::path& path,
+        svs::DataType type_hint = svs::DataType::undef,
+        size_t dims_hint = Dynamic
+    ) {
+        if (type_hint == svs::DataType::undef) {
+            throw ANNEXCEPTION("Cannot deduce the element type of raw file {}.", path);
+        }
+
+        size_t dims = io::deduce_dimensions(path, svs::element_size(type_hint));
+        if (dims_hint != Dynamic && dims != dims_hint) {
+            throw ANNEXCEPTION(
+                "Dims hint {} does not match deduced dimensions of {}!", dims_hint, dims
+            );
+        }
+        return Matcher{.eltype = type_hint, .dims = dims};
+    }
+
+    // Don't support deduction on the try-load path.
+    // Deduction throws too many exceptions to handle corectly right now.
+    static lib::TryLoadResult<Matcher> try_load_direct(
+        const std::filesystem::path& SVS_UNUSED(path),
+        svs::DataType SVS_UNUSED(type_hint) = svs::DataType::undef,
+        size_t SVS_UNUSED(dims_hint) = Dynamic
+    ) {
+        return lib::Unexpected(lib::TryLoadFailureReason::Other);
+    }
+
+    ///// load and friends
+    static Matcher load(
+        const lib::ContextFreeLoadTable& table,
+        svs::DataType type_hint = svs::DataType::undef,
+        size_t dims_hint = Dynamic
+    ) {
+        auto matcher = Matcher{
+            .eltype = SVS_LOAD_MEMBER_AT(table, eltype),
+            .dims = SVS_LOAD_MEMBER_AT(table, dims)};
+
+        // Perform a sanity check on the arguments.
+        if (type_hint != DataType::undef && type_hint != matcher.eltype) {
+            throw ANNEXCEPTION(
+                "A dataset type hint of {} was given but the discovered type is {}!",
+                type_hint,
+                matcher.eltype
+            );
+        }
+
+        if (dims_hint != Dynamic && dims_hint != matcher.dims) {
+            throw ANNEXCEPTION(
+                "Dataset dimensionality hint {} does not match discovered value {}!",
+                dims_hint,
+                matcher.dims
+            );
+        }
+        return matcher;
+    }
+
+    /// @brief Try to load a ``Check`` from a ``table``.
+    static lib::TryLoadResult<Matcher> try_load(const lib::ContextFreeLoadTable& table) {
+        // Compatibility check performed implicitly by saving/loading infrastructure.
+        return load(table);
+    }
+
+  public:
+    /// The type of each element of each vector.
+    DataType eltype;
+    /// The number of dimensions in each vector.
+    size_t dims;
 };
 
 // Forward Declaration
@@ -300,12 +385,15 @@ class SimpleData {
         return GenericSerializer::save(*this, ctx);
     }
 
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return GenericSerializer::check_compatibility(schema, version);
+    }
+
     ///
     /// @brief Reload a previously saved dataset.
     ///
     /// @param table The table containing saved hyper parameters.
     /// @param ctx The current load context.
-    /// @param version The version number used when saving the dataset.
     /// @param allocator Allocator instance to use upon reloading.
     ///
     /// This method is implicitly called when using
@@ -313,16 +401,12 @@ class SimpleData {
     /// svs::lib::load_from_disk<svs::data::SimpleData<T, Extent>>("directory");
     /// @endcode
     ///
-    static SimpleData load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
-        const allocator_type& allocator = {}
-    )
+    static SimpleData
+    load(const lib::LoadTable& table, const allocator_type& allocator = {})
         requires(!is_view)
     {
         return GenericSerializer::load<T>(
-            table, ctx, version, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+            table, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
@@ -353,6 +437,11 @@ class SimpleData {
             })
         );
     }
+
+    // // Delegate autoloading to the Matcher.
+    // static lib::autoload::Match match_load(const lib::LoadTable& table) {
+    //     return Matcher::template match_load<T, Extent>(table);
+    // }
 
   private:
     array_type data_;
@@ -620,17 +709,14 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
         return GenericSerializer::save(*this, ctx);
     }
 
-    static SimpleData load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
-        const Blocked<Alloc>& allocator = {}
-    ) {
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return GenericSerializer::check_compatibility(schema, version);
+    }
+
+    static SimpleData
+    load(const lib::LoadTable& table, const Blocked<Alloc>& allocator = {}) {
         return GenericSerializer::load<T>(
-            table,
-            ctx,
-            version,
-            lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
+            table, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );

@@ -29,3 +29,6 @@ from .common import read_npy, \
 # LeanVec computation
 from .leanvec import compute_leanvec_matrices
 
+# Make the upgrader available without explicit import.
+from . import upgrader
+

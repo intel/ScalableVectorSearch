@@ -32,8 +32,8 @@ template <svsbenchmark::ValidDatasetSource T>
 std::vector<svsbenchmark::vamana::ExpectedResult>
 expected_results(std::string_view key, svs::DistanceType distance, const T& dataset) {
     const auto& table = parse_expected();
-    auto v = svs::lib::load_at<std::vector<svsbenchmark::vamana::ExpectedResult>>(
-        table, key, std::nullopt
+    auto v = svs::lib::load<std::vector<svsbenchmark::vamana::ExpectedResult>>(
+        svs::lib::node_view_at(table, key), std::nullopt
     );
     auto output = std::vector<svsbenchmark::vamana::ExpectedResult>();
     for (const auto& i : v) {

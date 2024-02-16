@@ -118,10 +118,25 @@ foreach(MICRO OPT_FLAGS IN ZIP_LISTS PYSVS_MICROARCHS OPTIMIZATION_FLAGS)
     endif()
 endforeach()
 
-# Install the manifest JSON file.
-# This is kind of a hack to avoid the needing to explicitly move JSON file into the source
-# folder of the python library.
 if(DEFINED SKBUILD)
+    # Install the manifest JSON file.
+    # This is kind of a hack to avoid the needing to explicitly move JSON file into the
+    # source folder of the python library.
     install(FILES ${FLAGS_MANIFEST_JSON} DESTINATION .)
+
+    # Installation for serialized objects upgrading.
+    # Upgrading SVS objects from global serialization version ``v0.0.1`` to ``v0.0.2``
+    # requires the application of a ``__schema__`` keyword to each canonically serialized
+    # object.
+    #
+    # To facilitate this, an input schema file is provided which can be matched against
+    # serialized SVS objects to automatically apply apply this field.
+    #
+    # Upgrading is done by ``pysvs.upgrader.upgrade``, which uses a default path to this
+    # matching schema file.
+    #
+    # The logic here is what installs that file from the SVS repository into the Python
+    # wheel.
+    install(FILES "${CMAKE_CURRENT_LIST_DIR}/../../data/serialization.toml" DESTINATION .)
 endif()
 

@@ -76,8 +76,10 @@ struct Schedule {
     //      Breaking to avoid legacy config entries from accidentally using a differenent
     //      seed.
     static constexpr svs::lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema = "benchmark_dynamic_schedule";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(initial_fraction),
              SVS_LIST_SAVE_(modify_fraction),
@@ -89,11 +91,7 @@ struct Schedule {
         );
     }
 
-    static Schedule load(const toml::table& table, const svs::lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch when loading Schedule!");
-        }
-
+    static Schedule load(const svs::lib::ContextFreeLoadTable& table) {
         return Schedule(
             SVS_LOAD_MEMBER_AT_(table, initial_fraction),
             SVS_LOAD_MEMBER_AT_(table, modify_fraction),
@@ -164,8 +162,10 @@ template <typename Index> struct DynamicOperation {
 
     // Saving
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_dynamic_operation";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {
                 SVS_LIST_SAVE_(kind),
@@ -211,8 +211,10 @@ template <typename Job, typename Index> struct StaticReport {
 
     // Saving.
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_static_report";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(build_time),
              SVS_LIST_SAVE_(timestamp),
@@ -243,8 +245,10 @@ template <typename Job, typename Index> struct DynamicReport {
 
     // Saving
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_dynamic_report";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(timestamp),
              SVS_LIST_SAVE_(job),

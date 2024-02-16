@@ -47,6 +47,44 @@ bool svs_test::compare_files(const std::string& a, const std::string& b) {
     );
 }
 
+void svs_test::Lens::apply(toml::table* table, bool expect_exists) const {
+    // Recurse until we get to the last key.
+    size_t num_keys = key_chain_.size();
+    for (size_t i = 0, imax = num_keys - 1; i < imax; ++i) {
+        auto v = table->operator[](key_chain_[i]);
+        if (!v) {
+            throw ANNEXCEPTION(
+                "Error accessing key {} of {}!", i, fmt::join(key_chain_, ", ")
+            );
+        }
+        table = v.as<toml::table>();
+        if (table == nullptr) {
+            throw ANNEXCEPTION(
+                "Cannot interpret key {} of {} as a table!", i, fmt::join(key_chain_, ", ")
+            );
+        }
+    }
+
+    const auto& last_key = key_chain_.back();
+    auto [_, inserted] = table->insert_or_assign(last_key, *value_);
+    if (inserted && expect_exists) {
+        throw ANNEXCEPTION("Expected the last key {} to exist!", last_key);
+    }
+}
+
+void svs_test::mutate_table(
+    const std::filesystem::path& src,
+    const std::filesystem::path& dst,
+    std::initializer_list<svs_test::Lens> lenses
+) {
+    auto table = toml::parse_file(src.native());
+    for (const auto& lens : lenses) {
+        lens.apply(std::ref(table));
+    }
+    auto io = svs::lib::open_write(dst);
+    io << table << "\n";
+}
+
 CATCH_TEST_CASE("Testing type_name", "[testing_utilities]") {
     // type_name
     CATCH_REQUIRE(svs_test::type_name<uint8_t>() == "uint8");
