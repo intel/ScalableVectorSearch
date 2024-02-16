@@ -36,7 +36,9 @@ template <typename CPP, svs::DataType SVS> void test(std::string_view name) {
     CATCH_REQUIRE(svs::parse_datatype(constexpr_name) == SVS);
 
     // saving and loading.
-    CATCH_REQUIRE(svs::lib::load<svs::DataType>(svs::lib::save(SVS)) == SVS);
+    auto saved = svs::lib::save(SVS);
+    auto node = svs::lib::ContextFreeNodeView<toml::node>(*saved);
+    CATCH_REQUIRE(svs::lib::load<svs::DataType>(node) == SVS);
 }
 
 CATCH_TEST_CASE("Data Type", "[core][datatype]") {

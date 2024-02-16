@@ -315,6 +315,8 @@ class IDTranslator {
 
     ///// Saving and Loading
     static constexpr std::string_view kind = "external to internal id translation";
+    static constexpr std::string_view serialization_schema =
+        "external_to_internal_translation";
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
     lib::SaveTable save(const lib::SaveContext& ctx) const {
@@ -327,6 +329,7 @@ class IDTranslator {
             lib::write_binary(stream, i->second);
         }
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {{"kind", kind},
              {"num_points", lib::save(size())},
@@ -336,15 +339,9 @@ class IDTranslator {
         );
     }
 
-    static IDTranslator load(
-        const toml::table& table, const lib::LoadContext& ctx, const lib::Version& version
-    ) {
+    static IDTranslator load(const lib::LoadTable& table) {
         if (kind != lib::load_at<std::string>(table, "kind")) {
             throw ANNEXCEPTION("Mismatched kind!");
-        }
-
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
         }
 
         constexpr std::string_view external_id_name = name<datatype_v<external_id_type>>();
@@ -360,7 +357,7 @@ class IDTranslator {
         // the points.
         auto num_points = lib::load_at<size_t>(table, "num_points");
         auto translator = IDTranslator{};
-        auto resolved = ctx.resolve(table, "filename");
+        auto resolved = table.resolve_at("filename");
         auto stream = lib::open_read(resolved);
         for (size_t i = 0; i < num_points; ++i) {
             auto external_id = lib::read_binary<external_id_type>(stream);

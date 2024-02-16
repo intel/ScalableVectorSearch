@@ -1,6 +1,7 @@
 [[inverted_static_memory_build]]
+__schema__ = 'benchmark_inverted_memory_build_job'
 __version__ = 'v0.0.1'
-centroids_directory = ""
+centroids_directory = ''
 data = 'bigann/bigann_10m_u8.bvecs'
 data_type = 'uint8'
 description = 'bigann-10m'
@@ -15,6 +16,7 @@ search_configs = []
 strategy = 'sparse'
 
     [inverted_static_memory_build.clustering_parameters]
+    __schema__ = 'clustering_parameters'
     __version__ = 'v0.0.0'
     batchsize = 100000
     epsilon = 1.0
@@ -26,7 +28,18 @@ strategy = 'sparse'
     search_window_size = 50
     seed = 12648430
 
+    [inverted_static_memory_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [inverted_static_memory_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'uint8'
+
     [inverted_static_memory_build.primary_build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 64
@@ -37,21 +50,15 @@ strategy = 'sparse'
     window_size = 200
 
     [inverted_static_memory_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
     __version__ = 'v0.0.0'
     num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [inverted_static_memory_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [inverted_static_memory_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'uint8'
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[inverted_static_memory_build]]
+__schema__ = 'benchmark_inverted_memory_build_job'
 __version__ = 'v0.0.1'
-centroids_directory = ""
+centroids_directory = ''
 data = 'deep/deep_10m_f16.fvecs'
 data_type = 'float16'
 description = 'deep-10m'
@@ -66,6 +73,7 @@ search_configs = []
 strategy = 'sparse'
 
     [inverted_static_memory_build.clustering_parameters]
+    __schema__ = 'clustering_parameters'
     __version__ = 'v0.0.0'
     batchsize = 100000
     epsilon = 1.0
@@ -77,7 +85,18 @@ strategy = 'sparse'
     search_window_size = 50
     seed = 12648430
 
+    [inverted_static_memory_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [inverted_static_memory_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
     [inverted_static_memory_build.primary_build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 64
@@ -88,21 +107,15 @@ strategy = 'sparse'
     window_size = 200
 
     [inverted_static_memory_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
     __version__ = 'v0.0.0'
     num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [inverted_static_memory_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [inverted_static_memory_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'float16'
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[inverted_static_memory_build]]
+__schema__ = 'benchmark_inverted_memory_build_job'
 __version__ = 'v0.0.1'
-centroids_directory = ""
+centroids_directory = ''
 data = 'msturing/msturing_10m_f16.fvecs'
 data_type = 'float16'
 description = 'msturing-10m'
@@ -117,6 +130,7 @@ search_configs = []
 strategy = 'sparse'
 
     [inverted_static_memory_build.clustering_parameters]
+    __schema__ = 'clustering_parameters'
     __version__ = 'v0.0.0'
     batchsize = 100000
     epsilon = 1.0
@@ -128,7 +142,18 @@ strategy = 'sparse'
     search_window_size = 50
     seed = 12648430
 
+    [inverted_static_memory_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [inverted_static_memory_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
     [inverted_static_memory_build.primary_build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 64
@@ -139,21 +164,15 @@ strategy = 'sparse'
     window_size = 200
 
     [inverted_static_memory_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
     __version__ = 'v0.0.0'
     num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [inverted_static_memory_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [inverted_static_memory_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'float16'
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[inverted_static_memory_build]]
+__schema__ = 'benchmark_inverted_memory_build_job'
 __version__ = 'v0.0.1'
-centroids_directory = ""
+centroids_directory = ''
 data = 'spacev/spacev_10m_i8.bvecs'
 data_type = 'int8'
 description = 'spacev-10m'
@@ -168,6 +187,7 @@ search_configs = []
 strategy = 'sparse'
 
     [inverted_static_memory_build.clustering_parameters]
+    __schema__ = 'clustering_parameters'
     __version__ = 'v0.0.0'
     batchsize = 100000
     epsilon = 1.0
@@ -179,7 +199,18 @@ strategy = 'sparse'
     search_window_size = 50
     seed = 12648430
 
+    [inverted_static_memory_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [inverted_static_memory_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'int8'
+
     [inverted_static_memory_build.primary_build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 64
@@ -190,22 +221,15 @@ strategy = 'sparse'
     window_size = 200
 
     [inverted_static_memory_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
     __version__ = 'v0.0.0'
     num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [inverted_static_memory_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [inverted_static_memory_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'int8'
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
 
 [[inverted_static_memory_build]]
+__schema__ = 'benchmark_inverted_memory_build_job'
 __version__ = 'v0.0.1'
-build_type = 'uncompressed'
-centroids_directory = ""
+centroids_directory = ''
 data = 'text2image/text2image_10m_f16.fvecs'
 data_type = 'float16'
 description = 'text2image-10m'
@@ -220,6 +244,7 @@ search_configs = []
 strategy = 'sparse'
 
     [inverted_static_memory_build.clustering_parameters]
+    __schema__ = 'clustering_parameters'
     __version__ = 'v0.0.0'
     batchsize = 100000
     epsilon = 1.0
@@ -227,13 +252,24 @@ strategy = 'sparse'
     max_replicas = 7
     num_intermediate_results = 64
     percent_centroids = 0.12
-    refinement_alpha = 0.95
+    refinement_alpha = 0.94999999999999996
     search_window_size = 50
     seed = 12648430
 
+    [inverted_static_memory_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [inverted_static_memory_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
     [inverted_static_memory_build.primary_build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
-    alpha = 0.95
+    alpha = 0.94999999999999996
     graph_max_degree = 64
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
@@ -242,14 +278,7 @@ strategy = 'sparse'
     window_size = 200
 
     [inverted_static_memory_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
     __version__ = 'v0.0.0'
     num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
-    [inverted_static_memory_build.dataset]
-    __version__ = 'v0.0.0'
-    kind = 'uncompressed'
-
-        [inverted_static_memory_build.dataset.dataset]
-        __version__ = 'v0.0.0'
-        data_type = 'float16'
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]

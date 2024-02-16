@@ -33,18 +33,16 @@ struct SearchParameters {
 
     // Saving and Loading
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_search_parameters";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
-            save_version, {SVS_LIST_SAVE_(num_neighbors), SVS_LIST_SAVE_(target_recalls)}
+            serialization_schema,
+            save_version,
+            {SVS_LIST_SAVE_(num_neighbors), SVS_LIST_SAVE_(target_recalls)}
         );
     }
 
-    static SearchParameters
-    load(const toml::table& table, const svs::lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Mismatched Version!");
-        }
-
+    static SearchParameters load(const svs::lib::ContextFreeLoadTable& table) {
         return SearchParameters(
             SVS_LOAD_MEMBER_AT_(table, num_neighbors),
             SVS_LOAD_MEMBER_AT_(table, target_recalls)
@@ -83,8 +81,10 @@ template <typename Index> struct RunReport {
 
     // Saving
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_search_run_report";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {
                 SVS_LIST_SAVE_(config),
@@ -369,8 +369,10 @@ template <typename Job, typename Index, typename Mixin> struct SearchReport {
     //   Reason: Form of the class was general enough to be reused by both static build and
     //   pure search. Replacing this field is a better match for this new use case.
     static constexpr svs::lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema = "benchamrk_search_report";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(additional),
              SVS_LIST_SAVE_(timestamp),

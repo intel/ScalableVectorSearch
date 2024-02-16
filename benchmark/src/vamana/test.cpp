@@ -81,8 +81,9 @@ int run_benchmark(
     const std::optional<std::filesystem::path>& data_root,
     size_t num_threads
 ) {
-    auto job = svs::lib::load_at<vamana::VamanaTest>(
-        toml::parse_file(config_path.native()), test_benchmark_name(), data_root
+    auto table = toml::parse_file(config_path.native());
+    auto job = svs::lib::load<vamana::VamanaTest>(
+        svs::lib::node_view_at(table, test_benchmark_name()), data_root
     );
     auto generators = get_generators();
 

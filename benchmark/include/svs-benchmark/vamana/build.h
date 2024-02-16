@@ -96,7 +96,6 @@ template <> struct svs::lib::Saver<svsbenchmark::vamana::DynamicOptimizationLeve
 
 template <> struct svs::lib::Loader<svsbenchmark::vamana::DynamicOptimizationLevel> {
     using toml_type = toml::value<std::string>;
-    static constexpr bool is_version_free = true;
     static svsbenchmark::vamana::DynamicOptimizationLevel load(const toml_type& val) {
         return svsbenchmark::vamana::parse_opt_level(val.get());
     }
@@ -180,8 +179,10 @@ struct BuildJobBase {
         );
     }
 
-    svs::lib::SaveTable to_toml(const svs::lib::Version& version) const {
+    svs::lib::SaveTable
+    to_toml(std::string_view schema, const svs::lib::Version& version) const {
         return svs::lib::SaveTable(
+            schema,
             version,
             {SVS_LIST_SAVE_(description),
              SVS_LIST_SAVE_(dataset),
@@ -197,8 +198,10 @@ struct BuildJobBase {
         );
     }
 
-    static BuildJobBase
-    from_toml(const toml::table& table, const std::optional<std::filesystem::path>& root) {
+    static BuildJobBase from_toml(
+        const svs::lib::ContextFreeLoadTable& table,
+        const std::optional<std::filesystem::path>& root
+    ) {
         namespace lib = svs::lib;
         return BuildJobBase(
             SVS_LOAD_MEMBER_AT_(table, description),
@@ -268,11 +271,12 @@ struct BuildJob : public BuildJobBase {
     // v0.0.3: Changed `build_type` to `dataset`, which is one of the variants defined by
     //  the `Datasets` class.
     static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 3);
+    static constexpr std::string_view serialization_schema = "benchmark_vamana_build_job";
 
     // Save the BuildJob to a TOML table.
     svs::lib::SaveTable save() const {
         // Get a base table.
-        auto table = BuildJobBase::to_toml(save_version);
+        auto table = BuildJobBase::to_toml(serialization_schema, save_version);
 
         // Append the extra information needed by the static BuildJob.
         SVS_INSERT_SAVE_(table, groundtruth);
@@ -283,14 +287,9 @@ struct BuildJob : public BuildJobBase {
 
     // Load a BuildJob from a TOML table.
     static BuildJob load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return BuildJob{
             svsbenchmark::extract_filename(table, "groundtruth", root),
             SVS_LOAD_MEMBER_AT_(table, search_window_sizes),
@@ -343,8 +342,10 @@ struct DynamicBuildJob : public BuildJobBase {
     //    refine the search window size on the testing set.
     // v0.0.3: Switched to datasets as types rather than by string-matching.
     static constexpr svs::lib::Version save_version{0, 0, 3};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_vamana_dynamic_build_job";
     svs::lib::SaveTable save() const {
-        auto table = BuildJobBase::to_toml(save_version);
+        auto table = BuildJobBase::to_toml(serialization_schema, save_version);
         SVS_INSERT_SAVE_(table, schedule);
         SVS_INSERT_SAVE_(table, dynamic_optimization);
         SVS_INSERT_SAVE_(table, dynamic_parameters);
@@ -352,14 +353,9 @@ struct DynamicBuildJob : public BuildJobBase {
     }
 
     static DynamicBuildJob load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return DynamicBuildJob(
             SVS_LOAD_MEMBER_AT_(table, schedule),
             SVS_LOAD_MEMBER_AT_(table, dynamic_optimization),

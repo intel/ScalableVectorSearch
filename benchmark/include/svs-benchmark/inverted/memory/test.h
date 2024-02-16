@@ -66,8 +66,11 @@ struct InvertedTest {
 
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_inverted_memory_test";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(groundtruths),
              SVS_LIST_SAVE_(data_f32),
@@ -80,15 +83,10 @@ struct InvertedTest {
     // Require `num_threads` to be provided on a load.
     // This helps keep use of this class portable to machines with fewer threads.
     static InvertedTest load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         size_t num_threads,
         const std::optional<std::filesystem::path>& root = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return InvertedTest{
             SVS_LOAD_MEMBER_AT_(table, groundtruths, root),
             svsbenchmark::extract_filename(table, "data_f32", root),

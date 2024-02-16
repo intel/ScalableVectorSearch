@@ -1,221 +1,251 @@
 [[vamana_static_build]]
+__schema__ = 'benchmark_vamana_build_job'
 __version__ = 'v0.0.3'
-description = 'bigann-10m'
 data = 'bigann/bigann_10m_u8.bvecs'
 data_type = 'uint8'
-queries = 'bigann/bigann_queries.bvecs'
-queries_in_training_set = 5000
-query_type = 'uint8'
+description = 'bigann-10m'
 distance = 'L2'
 groundtruth = 'bigann/bigann_10m_groundtruth.ivecs'
 ndims = 128
 num_threads = 72
+queries = 'bigann/bigann_queries.bvecs'
+queries_in_training_set = 5000
+query_type = 'uint8'
 search_window_sizes = []
 
     [vamana_static_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_static_build.search_parameters]
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_static_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_static_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'uint8'
 
+    [vamana_static_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
 [[vamana_static_build]]
+__schema__ = 'benchmark_vamana_build_job'
 __version__ = 'v0.0.3'
-description = 'deep-10m'
 data = 'deep/deep_10m_f16.fvecs'
 data_type = 'float16'
+description = 'deep-10m'
+distance = 'L2'
+groundtruth = 'deep/deep_10m_groundtruth.ivecs'
+ndims = 96
+num_threads = 72
 queries = 'deep/deep_queries.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-groundtruth = 'deep/deep_10m_groundtruth.ivecs'
-distance = 'L2'
-ndims = 96
-num_threads = 72
 search_window_sizes = []
 
     [vamana_static_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_static_build.search_parameters]
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_static_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_static_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'float16'
 
+    [vamana_static_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
 [[vamana_static_build]]
+__schema__ = 'benchmark_vamana_build_job'
 __version__ = 'v0.0.3'
-description = 'dpr-1m'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
+description = 'dpr-1m'
+distance = 'MIP'
+groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
+ndims = 768
+num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-groundtruth = 'dpr/dpr_1m_groundtruth_ip_10k.ivecs'
-distance = 'MIP'
-ndims = 768
-num_threads = 72
 search_window_sizes = []
 
     [vamana_static_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
-    alpha = 0.95
+    alpha = 0.94999999999999996
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_static_build.search_parameters]
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_static_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_static_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'float16'
 
+    [vamana_static_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
 [[vamana_static_build]]
+__schema__ = 'benchmark_vamana_build_job'
 __version__ = 'v0.0.3'
-description = 'msturing-10m'
 data = 'msturing/msturing_10m_f16.fvecs'
 data_type = 'float16'
+description = 'msturing-10m'
+distance = 'L2'
+groundtruth = 'msturing/msturing_10m_groundtruth_10k.ivecs'
+ndims = 100
+num_threads = 72
 queries = 'msturing/msturing_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-groundtruth = 'msturing/msturing_10m_groundtruth_10k.ivecs'
-distance = 'L2'
-ndims = 100
-num_threads = 72
 search_window_sizes = []
 
     [vamana_static_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_static_build.search_parameters]
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_static_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_static_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'float16'
 
+    [vamana_static_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
 [[vamana_static_build]]
+__schema__ = 'benchmark_vamana_build_job'
 __version__ = 'v0.0.3'
-description = 'spacev-10m'
 data = 'spacev/spacev_10m_i8.bvecs'
 data_type = 'int8'
+description = 'spacev-10m'
+distance = 'L2'
+groundtruth = 'spacev/spacev_10m_groundtruth_10k.ivecs'
+ndims = 100
+num_threads = 72
 queries = 'spacev/spacev_queries_i8.bvecs'
 queries_in_training_set = 5000
 query_type = 'int8'
-groundtruth = 'spacev/spacev_10m_groundtruth_10k.ivecs'
-distance = 'L2'
-ndims = 100
-num_threads = 72
 search_window_sizes = []
 
     [vamana_static_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
     alpha = 1.2
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_static_build.search_parameters]
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_static_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_static_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'int8'
 
+    [vamana_static_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]
+
 [[vamana_static_build]]
+__schema__ = 'benchmark_vamana_build_job'
 __version__ = 'v0.0.3'
-description = 'text2image-10m'
 data = 'text2image/text2image_10m_f16.fvecs'
 data_type = 'float16'
+description = 'text2image-10m'
+distance = 'MIP'
+groundtruth = 'text2image/text2image_10m_10k_groundtruth.ivecs'
+ndims = 200
+num_threads = 72
 queries = 'text2image/text2image_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-groundtruth = 'text2image/text2image_10m_10k_groundtruth.ivecs'
-distance = 'MIP'
-ndims = 200
-num_threads = 72
 search_window_sizes = []
 
     [vamana_static_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
     __version__ = 'v0.0.1'
-    alpha = 0.95
+    alpha = 0.94999999999999996
     graph_max_degree = 128
-    prune_to = 124
     max_candidate_pool_size = 750
     name = 'vamana build parameters'
+    prune_to = 124
     use_full_search_history = true
     window_size = 200
 
-    [vamana_static_build.search_parameters]
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    target_recalls = [ 0.8, 0.85, 0.9 ]
-
     [vamana_static_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
     __version__ = 'v0.0.0'
     kind = 'uncompressed'
 
         [vamana_static_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
         __version__ = 'v0.0.0'
         data_type = 'float16'
+
+    [vamana_static_build.search_parameters]
+    __schema__ = 'benchmark_search_parameters'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    target_recalls = [ 0.80000000000000004, 0.84999999999999998, 0.90000000000000002 ]

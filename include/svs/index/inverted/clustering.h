@@ -105,8 +105,10 @@ struct ClusteringParameters {
 
     // Saving
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "clustering_parameters";
     lib::SaveTable save() const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {
                 SVS_LIST_SAVE_(percent_centroids),
@@ -122,12 +124,7 @@ struct ClusteringParameters {
         );
     }
 
-    static ClusteringParameters
-    load(const toml::table& table, const lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
+    static ClusteringParameters load(const lib::ContextFreeLoadTable& table) {
         return ClusteringParameters(
             SVS_LOAD_MEMBER_AT_(table, percent_centroids),
             SVS_LOAD_MEMBER_AT_(table, epsilon),
@@ -286,21 +283,21 @@ struct ClusteringStats {
         std_size_ = std::sqrt(accum / static_cast<double>(num_clusters_));
     }
 
-    static constexpr lib::Version save_version{0, 0, 0};
-    lib::SaveTable save() const {
-        return lib::SaveTable(
-            save_version,
-            {
-                SVS_LIST_SAVE_(min_size),
-                SVS_LIST_SAVE_(max_size),
-                SVS_LIST_SAVE_(empty_clusters),
-                SVS_LIST_SAVE_(num_clusters),
-                SVS_LIST_SAVE_(num_leaves),
-                SVS_LIST_SAVE_(mean_size),
-                SVS_LIST_SAVE_(std_size),
-            }
-        );
-    }
+    // static constexpr lib::Version save_version{0, 0, 0};
+    // lib::SaveTable save() const {
+    //     return lib::SaveTable(
+    //         save_version,
+    //         {
+    //             SVS_LIST_SAVE_(min_size),
+    //             SVS_LIST_SAVE_(max_size),
+    //             SVS_LIST_SAVE_(empty_clusters),
+    //             SVS_LIST_SAVE_(num_clusters),
+    //             SVS_LIST_SAVE_(num_leaves),
+    //             SVS_LIST_SAVE_(mean_size),
+    //             SVS_LIST_SAVE_(std_size),
+    //         }
+    //     );
+    // }
 
     std::vector<std::string> prepare_report() const {
         return std::vector<std::string>({
@@ -566,6 +563,7 @@ template <std::integral I> class Clustering {
 
     // Saving and Loading.
     static constexpr lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "clustering";
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         // Serialize all clusters into an auxiliary file.
         auto fullpath = ctx.generate_name("clustering", "bin");
@@ -578,6 +576,7 @@ template <std::integral I> class Clustering {
         }
 
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {{"filepath", lib::save(fullpath.filename())},
              SVS_LIST_SAVE(filesize),
@@ -586,13 +585,7 @@ template <std::integral I> class Clustering {
         );
     }
 
-    static Clustering<I> load(
-        const toml::table& table, const lib::LoadContext& ctx, const lib::Version& version
-    ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
+    static Clustering<I> load(const lib::LoadTable& table) {
         // Ensure we have the correct integer type when decoding.
         auto saved_integer_type = lib::load_at<DataType>(table, "integer_type");
         if (saved_integer_type != datatype_v<I>) {
@@ -608,8 +601,7 @@ template <std::integral I> class Clustering {
         auto expected_filesize = lib::load_at<size_t>(table, "filesize");
         auto clustering = Clustering<I>();
         {
-            auto file = ctx.get_directory();
-            file /= lib::load_at<std::filesystem::path>(table, "filepath");
+            auto file = table.resolve_at("filepath");
             size_t actual_filesize = std::filesystem::file_size(file);
             if (actual_filesize != expected_filesize) {
                 auto msg = fmt::format(

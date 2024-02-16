@@ -61,7 +61,7 @@ void append_or_create(toml::table& table, const toml::table& data, std::string_v
 // If the filepath is not a relative path, the optional root is not prepended but the
 // existence of the file is still checked.
 std::filesystem::path extract_filename(
-    const toml::table& table,
+    const svs::lib::ContextFreeLoadTable& table,
     std::string_view key,
     const std::optional<std::filesystem::path>& root
 );
@@ -262,8 +262,11 @@ struct BuildTime {
 
   public:
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_build_time";
     svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable(save_version, {SVS_LIST_SAVE_(build_time)});
+        return svs::lib::SaveTable(
+            serialization_schema, save_version, {SVS_LIST_SAVE_(build_time)}
+        );
     }
 };
 
@@ -274,8 +277,11 @@ struct LoadTime {
 
   public:
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_load_time";
     svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable(save_version, {SVS_LIST_SAVE_(load_time)});
+        return svs::lib::SaveTable(
+            serialization_schema, save_version, {SVS_LIST_SAVE_(load_time)}
+        );
     }
 };
 
@@ -339,9 +345,9 @@ template <> struct svs::lib::Saver<svsbenchmark::Extent> {
 
 template <> struct svs::lib::Loader<svsbenchmark::Extent> {
     using toml_type = toml::node;
-    static constexpr bool is_version_free = true;
-    static svsbenchmark::Extent load(const toml_type& node) {
-        if (auto* v = node.as<std::string>(); v != nullptr) {
+    static svsbenchmark::Extent load(svs::lib::ContextFreeNodeView<toml_type> view) {
+        const auto& node = view.unwrap();
+        if (const auto* v = node.as<std::string>(); v != nullptr) {
             const std::string& str = v->get();
             if (str == "dynamic") {
                 return svsbenchmark::Extent(Dynamic);

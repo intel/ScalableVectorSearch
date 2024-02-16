@@ -64,6 +64,9 @@ template <> struct IsTomlType<toml::date_time> {
 
 template <typename T> struct TypeMapping;
 
+template <typename T> inline constexpr bool is_toml_value_v = false;
+template <typename T> inline constexpr bool is_toml_value_v<toml::value<T>> = true;
+
 // Built-in type mapping.
 template <std::integral I> struct TypeMapping<I> {
     using type = int64_t;
@@ -89,7 +92,7 @@ template <> struct NameMap<double> {
     static constexpr std::string_view name() { return "float64"; }
 };
 template <> struct NameMap<std::string> {
-    static constexpr std::string_view name() { return "float64"; }
+    static constexpr std::string_view name() { return "string"; }
 };
 
 template <> struct NameMap<toml::table> {
@@ -108,6 +111,9 @@ template <typename T> inline constexpr bool is_toml_type_v = detail::IsTomlType<
 
 template <typename T>
 concept TomlType = is_toml_type_v<T>;
+
+template <typename T>
+concept TomlValue = detail::is_toml_value_v<T>;
 
 template <typename T> using type_mapping_t = typename detail::TypeMapping<T>::type;
 

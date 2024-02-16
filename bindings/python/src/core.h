@@ -35,6 +35,11 @@ template <typename T> using Type = svs::lib::Type<T>;
 template <size_t N> using Val = svs::lib::Val<N>;
 template <auto V> using Const = svs::lib::Const<V>;
 
+// Tagged type to enable dispatch conversion.
+struct ReloadFile {
+    std::filesystem::path path_;
+};
+
 // Introduce a mechanism for transporting numpy arrays through the dispatcher interface.
 struct AnonymousVectorData {
   public:

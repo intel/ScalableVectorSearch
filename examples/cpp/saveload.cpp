@@ -13,6 +13,7 @@
 // stl
 #include <filesystem>
 #include <numeric>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -37,10 +38,17 @@ class ContextFreeSaveable {
     // backwards compatible way.
     static constexpr svs::lib::Version save_version = svs::lib::Version{0, 0, 1};
 
+    // Serialized objects need a schema as well, which is essentially a unique name
+    // associated with the serialized TOML table.
+    //
+    // The combination of schema and name allow speculative loading code some guarentee
+    // as to the expected contents and types of a table.
+    static constexpr std::string_view serialization_schema = "example_context_free";
+
     // Save the object.
     svs::lib::SaveTable save() const;
     // Load the object.
-    static ContextFreeSaveable load(const toml::table&, const svs::lib::Version&);
+    static ContextFreeSaveable load(const svs::lib::ContextFreeLoadTable&);
 };
 //! [context-free]
 
@@ -49,7 +57,7 @@ class ContextFreeSaveable {
 // number.
 svs::lib::SaveTable ContextFreeSaveable::save() const {
     return svs::lib::SaveTable(
-        save_version, {{"a", svs::lib::save(a_)}, SVS_LIST_SAVE_(b)}
+        serialization_schema, save_version, {{"a", svs::lib::save(a_)}, SVS_LIST_SAVE_(b)}
     );
 }
 //! [context-free-saving]
@@ -57,11 +65,13 @@ svs::lib::SaveTable ContextFreeSaveable::save() const {
 //! [context-free-loading]
 // Loading takes the items produced by `save()` and should yield an instance of the
 // associated class.
-ContextFreeSaveable
-ContextFreeSaveable::load(const toml::table& table, const svs::lib::Version& version) {
+ContextFreeSaveable ContextFreeSaveable::load(const svs::lib::ContextFreeLoadTable& table) {
     // Perform a version check.
     // This class is only compatible with one version.
-    if (version != save_version) {
+    //
+    // This check is also not needed as it is performed automatically by the loading
+    // infrastructure.
+    if (table.version() != save_version) {
         throw std::runtime_error("Version Mismatch!");
     }
 
@@ -89,15 +99,19 @@ class Saveable {
     friend bool operator==(const Saveable&, const Saveable&) = default;
 
     static constexpr svs::lib::Version save_version = svs::lib::Version{0, 0, 1};
+    static constexpr std::string_view serialization_schema = "example_saveable";
+
+    // Customized compatibility check.
+    static bool
+    check_load_compatibility(std::string_view schema, svs::lib::Version version) {
+        // Backwards compatible with version `v0.0.0`.
+        return schema == serialization_schema && version <= save_version;
+    }
 
     // Contextual saving.
     svs::lib::SaveTable save(const svs::lib::SaveContext& ctx) const;
     // Contextual loading.
-    static Saveable load(
-        const toml::table& table,
-        const svs::lib::LoadContext& ctx,
-        const svs::lib::Version& version
-    );
+    static Saveable load(const svs::lib::LoadTable& table);
 };
 //! [contextual-loading]
 
@@ -117,7 +131,7 @@ svs::lib::SaveTable Saveable::save(const svs::lib::SaveContext& ctx) const {
     }
 
     // Generate a table to save the object.
-    auto table = svs::lib::SaveTable(save_version);
+    auto table = svs::lib::SaveTable(serialization_schema, save_version);
 
     // Use `save` to save the sub-object into a sub-table.
     // Even though `ContextFreeSaveable` is context free, we can still pass the
@@ -128,13 +142,13 @@ svs::lib::SaveTable Saveable::save(const svs::lib::SaveContext& ctx) const {
 
     // Also store the size of the vector we're going to save.
     // Since integers of type `size_t` are not natively saveable in a
-    // `toml::table`, we use the overload set `svs::prepare` to safely convert it.
+    // `toml::table`, we use the overload set `svs::save` to safely convert it.
     table.insert("data_size", svs::lib::save(data_.size()));
 
     // Store only the relative portion of the path to make the saved object
     // relocatable.
     //
-    // Again, we need to use `svs::prepare` to convert `std::filesystem::path`
+    // Again, we need to use `svs::save` to convert `std::filesystem::path`
     // to a string-like type for the `toml::table`.
     table.insert("data_file", svs::lib::save(fullpath.filename()));
     return table;
@@ -142,20 +156,18 @@ svs::lib::SaveTable Saveable::save(const svs::lib::SaveContext& ctx) const {
 //! [contextual-saving-impl]
 
 //! [contextual-loading-impl]
-Saveable Saveable::load(
-    const toml::table& table,
-    const svs::lib::LoadContext& ctx,
-    const svs::lib::Version& version
-) {
-    // Check that the version matches.
-    if (version != save_version) {
-        throw std::runtime_error("Version Mismatch!");
-    }
-
+Saveable Saveable::load(const svs::lib::LoadTable& table) {
     // Obtain the file path and the size of the stored vector.
-    auto relative_path = svs::lib::load_at<std::string>(table, "data_file");
-    auto full_path = ctx.get_directory() / relative_path;
-    auto data_size = svs::lib::load_at<size_t>(table, "data_size");
+    auto full_path = table.resolve_at("data_file");
+
+    // Provide compatibility with older methods where `old_data_size` was used instead
+    // of `data_sizze`.
+    size_t data_size = 0;
+    if (table.version() == svs::lib::Version(0, 0, 0)) {
+        data_size = svs::lib::load_at<size_t>(table, "old_data_size");
+    } else {
+        data_size = svs::lib::load_at<size_t>(table, "data_size");
+    }
 
     // Allocate a sufficiently sized vector and
     auto data = std::vector<float>(data_size);
@@ -173,8 +185,9 @@ void demonstrate_context_free(const std::filesystem::path& dir) {
     //! [saving-and-reloading-context-free]
     // Construct an object, save it to disk, and reload it.
     auto context_free = ContextFreeSaveable(10, 20);
+    auto saved = svs::lib::save(context_free);
     auto context_free_reloaded =
-        svs::lib::load<ContextFreeSaveable>(svs::lib::save(context_free));
+        svs::lib::load<ContextFreeSaveable>(svs::lib::node_view(saved));
 
     // Check that saving and reloading was successful
     if (context_free != context_free_reloaded) {
@@ -196,7 +209,8 @@ void demonstrate_context_free_to_table() {
     // Construct an object, save it to a table and reload.
     auto context_free = ContextFreeSaveable(10, 20);
     auto table = svs::lib::save_to_table(context_free);
-    auto context_free_reloaded = svs::lib::load<ContextFreeSaveable>(table);
+    auto context_free_reloaded =
+        svs::lib::load<ContextFreeSaveable>(svs::lib::node_view(table));
 
     if (context_free != context_free_reloaded) {
         throw ANNEXCEPTION("Context free reloading failed!");
@@ -260,7 +274,7 @@ int svs_main(std::vector<std::string> args) {
     }
 
     if (directory_is_not_empty(dir)) {
-        throw ANNEXCEPTION("Directory ", dir, " is not empty!");
+        throw ANNEXCEPTION("Directory {} is not empty!", dir);
     }
 
     demonstrate_context_free(dir);

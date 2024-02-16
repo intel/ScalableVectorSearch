@@ -75,10 +75,12 @@ struct VamanaIndexParameters {
     ///
     ///     Compatible with all previous versions.
     static constexpr lib::Version save_version = lib::Version(0, 0, 3);
+    static constexpr std::string_view serialization_schema = "vamana_index_parameters";
 
     // Save and Reload.
     lib::SaveTable save() const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE(name),
              SVS_LIST_SAVE(entry_point),
@@ -87,12 +89,15 @@ struct VamanaIndexParameters {
         );
     }
 
-    static VamanaIndexParameters
-    load_legacy(const toml::table& table, const lib::Version& version) {
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return schema == serialization_schema && version <= save_version;
+    }
+
+    static VamanaIndexParameters load_legacy(const lib::ContextFreeLoadTable& table) {
         fmt::print("Loading a legacy IndexParameters class. Please consider resaving this "
                    "index to update the save version and prevent future breaking!\n");
 
-        if (version > lib::Version{0, 0, 2}) {
+        if (table.version() > lib::Version{0, 0, 2}) {
             throw ANNEXCEPTION("Incompatible legacy version!");
         }
 
@@ -133,15 +138,11 @@ struct VamanaIndexParameters {
                 1}};
     }
 
-    static VamanaIndexParameters
-    load(const toml::table& table, const lib::Version& version) {
+    static VamanaIndexParameters load(const lib::ContextFreeLoadTable& table) {
         // Legacy load path.
+        auto version = table.version();
         if (version <= lib::Version(0, 0, 2)) {
-            return load_legacy(table, version);
-        }
-
-        if (version != lib::Version(0, 0, 3)) {
-            throw ANNEXCEPTION("Incompatible version for VamanaIndexParameters!");
+            return load_legacy(table);
         }
 
         auto this_name = lib::load_at<std::string>(table, "name");

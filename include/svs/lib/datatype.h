@@ -101,9 +101,34 @@ inline constexpr std::string_view name(DataType type) {
 
         case DataType::byte: { return name<DataType::byte>(); }
 
-        default: { return name<DataType::undef>(); }
+        case DataType::undef: { return name<DataType::undef>(); }
     }
     // clang-format on
+    throw ANNEXCEPTION("Unhandled type!");
+}
+
+inline constexpr size_t element_size(DataType type) {
+    // clang-format off
+    switch (type) {
+        case DataType::uint8: { return sizeof(uint8_t); }
+        case DataType::uint16: { return sizeof(uint16_t); }
+        case DataType::uint32: { return sizeof(uint32_t); }
+        case DataType::uint64: { return sizeof(uint64_t); }
+
+        case DataType::int8: { return sizeof(int8_t); }
+        case DataType::int16: { return sizeof(int16_t); }
+        case DataType::int32: { return sizeof(int32_t); }
+        case DataType::int64: { return sizeof(int64_t); }
+
+        case DataType::float16: { return sizeof(svs::Float16); }
+        case DataType::float32: { return sizeof(float); }
+        case DataType::float64: { return sizeof(double); }
+
+        case DataType::byte: { return sizeof(std::byte); }
+        case DataType::undef: { return 0; }
+    }
+    // clang-format on
+    throw ANNEXCEPTION("Unhandled type!");
 }
 
 inline constexpr DataType parse_datatype_floating(std::string_view name) {

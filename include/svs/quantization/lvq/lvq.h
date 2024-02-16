@@ -105,6 +105,14 @@ void generic_compress_residual(
     );
 }
 
+// Schemas are independent of most type parameters.
+// Hoist them as stand-alone variables to they are accessible to the auto load matchers
+// as well.
+inline constexpr std::string_view one_level_serialization_schema = "one_level_lvq_dataset";
+inline constexpr lib::Version one_level_save_version = lib::Version(0, 0, 2);
+inline constexpr std::string_view two_level_serialization_schema = "two_level_lvq_dataset";
+inline constexpr lib::Version two_level_save_version = lib::Version(0, 0, 2);
+
 // Multi-level Dataset
 template <
     size_t Primary,
@@ -350,9 +358,11 @@ class LVQDataset {
     //     strategies and alignments.
     //
     //   - Added an alignment argument to `load`.
-    static constexpr lib::Version save_version = lib::Version(0, 0, 2);
+    static constexpr lib::Version save_version = two_level_save_version;
+    static constexpr std::string_view serialization_schema = two_level_serialization_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(primary, ctx),
              SVS_LIST_SAVE_(residual, ctx),
@@ -361,24 +371,14 @@ class LVQDataset {
     }
 
     static LVQDataset load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
+        const lib::LoadTable& table,
         size_t alignment = 0,
         const allocator_type& allocator = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION(
-                "LVQ Dataset was saved using version {}, which is incompatible with the "
-                "current version ({}).",
-                version,
-                save_version
-            );
-        }
         return LVQDataset{
-            SVS_LOAD_MEMBER_AT_(table, primary, ctx, alignment, allocator),
-            SVS_LOAD_MEMBER_AT_(table, residual, ctx, allocator),
-            lib::load_at<centroid_type>(table, "centroids", ctx)};
+            SVS_LOAD_MEMBER_AT_(table, primary, alignment, allocator),
+            SVS_LOAD_MEMBER_AT_(table, residual, allocator),
+            lib::load_at<centroid_type>(table, "centroids")};
     }
 };
 
@@ -588,33 +588,24 @@ class LVQDataset<Primary, 0, Extent, Strategy, Alloc> {
     //     strategies and alignments.
     //
     //   - Added an alignment argument to `load`.
-    static constexpr lib::Version save_version = lib::Version(0, 0, 2);
+    static constexpr lib::Version save_version = one_level_save_version;
+    static constexpr std::string_view serialization_schema = one_level_serialization_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(primary, ctx), {"centroids", lib::save(*centroids_, ctx)}}
         );
     }
 
     static LVQDataset load(
-        const toml::table& table,
-        const lib::LoadContext& ctx,
-        const lib::Version& version,
+        const lib::LoadTable& table,
         size_t alignment = 0,
         const allocator_type& allocator = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION(
-                "LVQ Dataset was saved using version {}, which is incompatible with the "
-                "current version ({}).",
-                version,
-                save_version
-            );
-        }
-
         return LVQDataset{
-            SVS_LOAD_MEMBER_AT_(table, primary, ctx, alignment, allocator),
-            lib::load_at<centroid_type>(table, "centroids", ctx)};
+            SVS_LOAD_MEMBER_AT_(table, primary, alignment, allocator),
+            lib::load_at<centroid_type>(table, "centroids")};
     }
 };
 
@@ -707,8 +698,7 @@ struct OnlineCompression {
         }
     }
 
-    // Members
-  public:
+    ///// Members
     std::filesystem::path path;
     DataType type;
 };
@@ -733,8 +723,7 @@ struct Reload {
     explicit Reload(const std::filesystem::path& directory)
         : directory{directory} {}
 
-    // Members
-  public:
+    ///// Members
     std::filesystem::path directory;
 };
 
@@ -776,6 +765,122 @@ constexpr bool is_compatible(LVQStrategyDispatch strategy) {
 
 } // namespace detail
 
+struct Matcher {
+    // Load a matcher for either one or two level datasets.
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        if (schema == one_level_serialization_schema && version == one_level_save_version) {
+            return true;
+        }
+        if (schema == two_level_serialization_schema && version == two_level_save_version) {
+            return true;
+        }
+        return false;
+    }
+
+    static Matcher load(const lib::ContextFreeLoadTable& table) {
+        auto schema = table.schema();
+        auto primary_summary = lib::load_at<lvq::DatasetSummary>(table, "primary");
+        if (schema == one_level_serialization_schema) {
+            return Matcher{
+                .primary = primary_summary.bits,
+                .residual = 0,
+                .dims = primary_summary.dims};
+        }
+        if (schema == two_level_serialization_schema) {
+            auto residual_summary = lib::load_at<lvq::DatasetSummary>(table, "residual");
+            return Matcher{
+                .primary = primary_summary.bits,
+                .residual = residual_summary.bits,
+                .dims = primary_summary.dims};
+        }
+        throw ANNEXCEPTION(
+            "Unreachable reached with schema and version ({}, {})!",
+            table.schema(),
+            table.version()
+        );
+    }
+
+    static lib::TryLoadResult<Matcher> try_load(const lib::ContextFreeLoadTable& table) {
+        // The saving and loading framework will check schema compatibility before
+        // calling try-load.
+        //
+        // In that case, the logic behind `try_load` and `load` are the same.
+        // Note that `load` will throw if sub-keys do not match, but that is okay because
+        // mismatching sub-keys means we have an invalid schema.
+        return load(table);
+    }
+
+    constexpr bool friend operator==(const Matcher&, const Matcher&) = default;
+
+    ///// Members
+    size_t primary;
+    size_t residual;
+    size_t dims;
+};
+
+template <LVQPackingStrategy Strategy>
+int64_t overload_match_strategy(LVQStrategyDispatch strategy) {
+    constexpr bool is_sequential = std::is_same_v<Strategy, lvq::Sequential>;
+    constexpr bool is_turbo = lvq::TurboLike<Strategy>;
+
+    switch (strategy) {
+        // If sequential is requested - we can only match sequential.
+        case LVQStrategyDispatch::Sequential: {
+            return is_sequential ? lib::perfect_match : lib::invalid_match;
+        }
+        // If turbo is requested - we can only match turbo.
+        case LVQStrategyDispatch::Turbo: {
+            return is_turbo ? lib::perfect_match : lib::invalid_match;
+        }
+        case LVQStrategyDispatch::Auto: {
+            // Preference:
+            // (1) Turbo
+            // (2) Sequential
+            return is_turbo ? 0 : 1;
+        }
+    }
+    throw ANNEXCEPTION("Unreachable!");
+}
+
+// Compatibility ranking for LVQ
+template <size_t Primary, size_t Residual, size_t Extent, LVQPackingStrategy Strategy>
+int64_t overload_score(size_t p, size_t r, size_t e, LVQStrategyDispatch strategy) {
+    // Reject easy matches.
+    if (p != Primary || r != Residual) {
+        return lib::invalid_match;
+    }
+
+    // Check static dimensionality.
+    auto extent_match =
+        lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<Extent>>(lib::ExtentArg{e});
+
+    // If the extent match fails - abort immediately.
+    if (extent_match < 0) {
+        return lib::invalid_match;
+    }
+
+    // We know dimensionality matches, now we have to try to match strategy.
+    auto strategy_match = overload_match_strategy<Strategy>(strategy);
+    if (strategy_match < 0) {
+        return lib::invalid_match;
+    }
+
+    // Prioritize matching dimensionality over better strategies.
+    // Dispatch matching prefers lower return values over larger return values.
+    //
+    // By multiplying the `extent_match`, we enter a regime where better extent matches
+    // always have precedence over strategy matches.
+    constexpr size_t extent_multiplier = 1000;
+    return strategy_match + extent_multiplier * extent_match;
+}
+
+template <size_t Primary, size_t Residual, size_t Extent, LVQPackingStrategy Strategy>
+int64_t overload_score(Matcher matcher, LVQStrategyDispatch strategy) {
+    return overload_score<Primary, Residual, Extent, Strategy>(
+        matcher.primary, matcher.residual, matcher.dims, strategy
+    );
+}
+
 template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLVQLoader {
   public:
     // Constructors
@@ -799,32 +904,32 @@ template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLVQLoader {
 
     explicit ProtoLVQLoader(
         Reload reloader,
-        size_t primary,
-        size_t residual,
-        size_t dims,
         size_t alignment,
-        LVQStrategyDispatch strategy,
-        const Alloc& allocator
+        LVQStrategyDispatch strategy = LVQStrategyDispatch::Auto,
+        const Alloc& allocator = {}
     )
         : source_{std::move(reloader)}
-        , primary_{primary}
-        , residual_{residual}
-        , dims_{dims}
+        , primary_{0}
+        , residual_{0}
+        , dims_{0}
         , alignment_{alignment}
         , strategy_{strategy}
-        , allocator_{allocator} {}
-
-    explicit ProtoLVQLoader(
-        Reload reloader,
-        size_t primary,
-        size_t residual,
-        size_t dims,
-        size_t alignment,
-        LVQStrategyDispatch strategy = LVQStrategyDispatch::Auto
-    )
-        : ProtoLVQLoader(
-              std::move(reloader), primary, residual, dims, alignment, strategy, Alloc()
-          ) {}
+        , allocator_{allocator} {
+        const auto& directory = std::get<Reload>(source_).directory;
+        auto result = lib::try_load_from_disk<Matcher>(directory);
+        if (!result) {
+            throw ANNEXCEPTION(
+                "Cannot determine primary, residual, and dimensions from data source {}. "
+                "Code {}!",
+                directory,
+                static_cast<int64_t>(result.error())
+            );
+        }
+        const auto& match = result.value();
+        primary_ = match.primary;
+        residual_ = match.residual;
+        dims_ = match.dims;
+    }
 
     template <
         size_t Primary,
@@ -952,56 +1057,9 @@ struct lib::DispatchConverter<
     quantization::lvq::ProtoLVQLoader<Alloc>,
     quantization::lvq::LVQLoader<Primary, Residual, Extent, Strategy, Alloc>> {
     static int64_t match(const quantization::lvq::ProtoLVQLoader<Alloc>& loader) {
-        // Reject easy mismatches.
-        if (loader.primary_ != Primary || loader.residual_ != Residual) {
-            return lib::invalid_match;
-        }
-
-        // Check extent-tags.
-        auto extent_match = lib::dispatch_match<lib::ExtentArg, lib::ExtentTag<Extent>>(
-            lib::ExtentArg{loader.dims_}
+        return quantization::lvq::overload_score<Primary, Residual, Extent, Strategy>(
+            loader.primary_, loader.residual_, loader.dims_, loader.strategy_
         );
-
-        // If extents don't match, then we abort immediately.
-        if (extent_match < 0) {
-            return lib::invalid_match;
-        }
-
-        // At this point - we know dimensionality matches, now we have to try to match
-        // strategy.
-        auto strategy_match = match_strategy(loader.strategy_);
-        if (strategy_match < 0) {
-            return lib::invalid_match;
-        }
-
-        // Prioritize matching dimensionality over better strategies.
-        // Dispatch matching prefers lower return values over larger return values.
-        //
-        // By multiplying the `extent_match`, we enter a regime where better extent matches
-        // always have precedence over strategy matches.
-        constexpr size_t extent_multiplier = 1000;
-        return strategy_match + extent_multiplier * extent_match;
-    }
-
-    static int64_t match_strategy(quantization::lvq::LVQStrategyDispatch strategy) {
-        namespace lvq = quantization::lvq;
-        constexpr bool is_sequential = std::is_same_v<Strategy, lvq::Sequential>;
-        constexpr bool is_turbo = lvq::TurboLike<Strategy>;
-
-        // First - reject outright mismatches.
-        if (strategy == lvq::LVQStrategyDispatch::Sequential) {
-            return is_sequential ? lib::perfect_match : lib::invalid_match;
-        } else if (strategy == lvq::LVQStrategyDispatch::Turbo) {
-            return is_turbo ? lib::perfect_match : lib::invalid_match;
-        }
-
-        // Sanity check.
-        assert(strategy == lvq::LVQStrategyDispatch::Auto);
-
-        // Preference:
-        // (1) Turbo
-        // (2) Sequential
-        return is_turbo ? 0 : 1;
     }
 
     static quantization::lvq::LVQLoader<Primary, Residual, Extent, Strategy, Alloc>

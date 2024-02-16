@@ -298,7 +298,14 @@ class CompressedReference {
         auto other = svs::lib::load_from_disk<Dataset>(dir, dataset.get_allocator());
         test_comparison(*this, other);
 
-        static_assert(std::is_same_v<decltype(dataset), decltype(other)>);
+        // Test DatasetSummary
+        auto summary = svs::lib::load_from_disk<lvq::DatasetSummary>(dir);
+        CATCH_REQUIRE(summary.kind == lvq::DatasetSchema::Compressed);
+        CATCH_REQUIRE(summary.is_signed == std::is_same_v<Sign, lvq::Signed>);
+        CATCH_REQUIRE(summary.dims == dims);
+        CATCH_REQUIRE(summary.bits == Bits);
+
+        // Dynamic resizing.
         if constexpr (Dataset::is_resizeable) {
             test_dynamic(*this, make_copy(dataset));
         }
@@ -421,6 +428,14 @@ class ScaledBiasedReference {
 
         test_save_load(dataset, dir);
 
+        // Dataset Summary
+        auto summary = svs::lib::load_from_disk<lvq::DatasetSummary>(dir);
+        CATCH_REQUIRE(summary.kind == lvq::DatasetSchema::ScaledBiased);
+        CATCH_REQUIRE(summary.is_signed == false);
+        CATCH_REQUIRE(summary.dims == dims);
+        CATCH_REQUIRE(summary.bits == Bits);
+
+        // Resizing
         if constexpr (Dataset::is_resizeable) {
             test_dynamic(*this, make_copy(dataset));
         }

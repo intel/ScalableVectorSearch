@@ -186,8 +186,11 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
     void reset_performance_parameters() override { impl().reset_performance_parameters(); }
 };
 
-// Forward declarations
+///// Forward declarations
+
+// Type-erased wrapper around the VamanaIndex
 class Vamana;
+// Deducing constructor.
 template <typename QueryType, typename... Args> Vamana make_vamana(Args&&... args);
 
 ///
@@ -497,4 +500,5 @@ Vamana make_vamana(Vamana::AssembleTag SVS_UNUSED(tag), Args&&... args) {
     return make_vamana<QueryType>(index::vamana::auto_assemble(std::forward<Args>(args)...)
     );
 }
+
 } // namespace svs

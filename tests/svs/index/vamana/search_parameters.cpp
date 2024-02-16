@@ -24,6 +24,7 @@
 namespace {
 // Legacy serialization formats.
 std::string_view v0_0_0 = R"(
+__schema__ = 'vamana_search_parameters'
 __version__ = 'v0.0.0'
 search_buffer_capacity = 100
 search_buffer_visited_set = true
@@ -69,7 +70,9 @@ CATCH_TEST_CASE("VamanaSearcmParameters", "[index][vamana]") {
     CATCH_SECTION("Loading Legacy Objects") {
         CATCH_SECTION("v0.0.0") {
             auto table = toml::parse(v0_0_0);
-            auto p = svs::lib::load<VamanaSearchParameters>(table);
+            auto p =
+                svs::lib::load<VamanaSearchParameters>(svs::lib::ContextFreeLoadTable(table)
+                );
             CATCH_REQUIRE(
                 p.buffer_config_ == svs::index::vamana::SearchBufferConfig{50, 100}
             );

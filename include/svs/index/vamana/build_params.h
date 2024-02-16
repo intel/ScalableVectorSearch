@@ -80,9 +80,11 @@ struct VamanaBuildParameters {
     // v0.0.1 - Add the "prune_to" parameter.
     //   * Behavior if loading from v0.0.0: Set "prune_to = graph_max_degree"
     static constexpr lib::Version save_version = lib::Version(0, 0, 1);
+    static constexpr std::string_view serialization_schema = "vamana_build_parameters";
 
     lib::SaveTable save() const {
         return lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE(alpha),
              SVS_LIST_SAVE(graph_max_degree),
@@ -94,22 +96,11 @@ struct VamanaBuildParameters {
         );
     }
 
-    static VamanaBuildParameters
-    load(const toml::table& table, const lib::Version& version) {
-        // Perform a name check.
-        if (auto this_name = lib::load_at<std::string>(table, "name"); this_name != name) {
-            throw ANNEXCEPTION(
-                "Error deserializing VamanaConfigParameters. Expected name {}, got {}!",
-                name,
-                this_name
-            );
-        }
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return schema == serialization_schema && version <= save_version;
+    }
 
-        // Version check
-        if (version > lib::Version(0, 0, 1)) {
-            throw ANNEXCEPTION("Incompatible version!");
-        }
-
+    static VamanaBuildParameters load(const lib::ContextFreeLoadTable& table) {
         // Okay - by this point we're satistifed that we're probably deserializing the
         // correct object.
         //
@@ -119,7 +110,7 @@ struct VamanaBuildParameters {
         // Require the presence of the "prune_to" field if the version number is greater
         // than v0.0.0.
         auto prune_to = graph_max_degree;
-        if (version > lib::Version(0, 0, 0)) {
+        if (table.version() > lib::Version(0, 0, 0)) {
             prune_to = lib::load_at<size_t>(table, "prune_to");
         }
 

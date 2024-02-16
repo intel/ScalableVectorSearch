@@ -49,7 +49,11 @@ struct TurboPermutation {
         , elements_per_lane_{elements_per_lane}
         , perm_{std::move(perm)} {}
 
-    static TurboPermutation load(const toml::table& table, const svs::lib::Version&) {
+    // Checked by the deserialization framework.
+    static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 0);
+    static constexpr std::string_view serialization_schema = "turbo_permutations";
+
+    static TurboPermutation load(const svs::lib::ContextFreeLoadTable& table) {
         return TurboPermutation{
             SVS_LOAD_MEMBER_AT_(table, lanes),
             SVS_LOAD_MEMBER_AT_(table, elements_per_lane),
@@ -61,7 +65,8 @@ struct TurboPermutation {
 std::vector<TurboPermutation> get_permutations() {
     auto permutations = svs_test::data_directory() / "lvq" / "turbo_permutations.toml";
     auto table = toml::parse_file(permutations.string());
-    return svs::lib::load_at<std::vector<TurboPermutation>>(table, "turbo_permutations");
+    auto parse_node = svs::lib::node_view_at(table, "turbo_permutations");
+    return svs::lib::load<std::vector<TurboPermutation>>(parse_node);
 }
 
 /////

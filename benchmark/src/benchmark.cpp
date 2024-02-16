@@ -48,7 +48,7 @@ void append_or_create(toml::table& table, const toml::table& data, std::string_v
 }
 
 std::filesystem::path extract_filename(
-    const toml::table& table,
+    const svs::lib::ContextFreeLoadTable& table,
     std::string_view key,
     const std::optional<std::filesystem::path>& root
 ) {
@@ -62,7 +62,7 @@ std::filesystem::path extract_filename(
             "Could not find {}file {} (parsed from {})!",
             prepend_root ? "qualified " : "",
             filename,
-            fmt::streamed(table[key].node()->source())
+            fmt::streamed(table.source_for(key))
         );
     }
     return filename;
@@ -75,7 +75,7 @@ std::filesystem::path extract_filename(
 std::optional<std::filesystem::path>
 SaveDirectoryChecker::extract(const toml::table& table, std::string_view key) {
     const auto& node = svs::toml_helper::get_as<toml::node>(table, key);
-    auto path = svs::lib::load<std::filesystem::path>(node);
+    auto path = svs::lib::load<std::filesystem::path>(svs::lib::node_view(node));
     if (path.empty()) {
         return std::nullopt;
     }

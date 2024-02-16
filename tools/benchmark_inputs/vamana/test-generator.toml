@@ -1,24 +1,28 @@
 [vamana_test_generator]
+__schema__ = 'benchmark_vamana_test'
 __version__ = 'v0.0.1'
 data_f32 = 'data_f32.fvecs'
 graph = 'graph_128.svs'
 index_config = 'vamana_config.toml'
-queries_f32 = 'queries_f32.fvecs'
 leanvec_data_matrix = 'leanvec_data_matrix.fvecs'
 leanvec_query_matrix = 'leanvec_query_matrix.fvecs'
+queries_f32 = 'queries_f32.fvecs'
 queries_in_training_set = 100
 
     [[vamana_test_generator.groundtruths]]
+    __schema__ = 'benchmark_distance_and_groundtruth'
     __version__ = 'v0.0.0'
     distance = 'L2'
     path = 'groundtruth_euclidean.ivecs'
 
     [[vamana_test_generator.groundtruths]]
+    __schema__ = 'benchmark_distance_and_groundtruth'
     __version__ = 'v0.0.0'
     distance = 'MIP'
     path = 'groundtruth_mip.ivecs'
 
     [[vamana_test_generator.groundtruths]]
+    __schema__ = 'benchmark_distance_and_groundtruth'
     __version__ = 'v0.0.0'
     distance = 'Cosine'
     path = 'groundtruth_cosine.ivecs'

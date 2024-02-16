@@ -43,9 +43,13 @@ struct MemoryInvertedState {
 
     // Saving.
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_inverted_memory_state";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
-            save_version, {SVS_LIST_SAVE_(search_parameters), SVS_LIST_SAVE_(num_threads)}
+            serialization_schema,
+            save_version,
+            {SVS_LIST_SAVE_(search_parameters), SVS_LIST_SAVE_(num_threads)}
         );
     }
 };
@@ -180,10 +184,13 @@ struct MemoryBuildJob {
     /// Version History
     /// - v0.0.1: Added support for datasets rather than build_type
     static constexpr svs::lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_inverted_memory_build_job";
     svs::lib::SaveTable save() const {
         auto centroids_directory = centroids_directory_.value_or("");
         auto save_directory = save_directory_.value_or("");
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(description),
              SVS_LIST_SAVE_(dataset),
@@ -215,15 +222,10 @@ struct MemoryBuildJob {
     }
 
     static MemoryBuildJob load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root,
         svsbenchmark::SaveDirectoryChecker& checker
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Unhandled version!");
-        }
-
         auto centroids_directory_file =
             svs::lib::load_at<std::filesystem::path>(table, "centroids_directory");
         auto centroids_directory = std::optional<std::filesystem::path>();
@@ -246,7 +248,7 @@ struct MemoryBuildJob {
             std::move(centroids_directory),
             SVS_LOAD_MEMBER_AT_(table, num_build_threads),
             SVS_LOAD_MEMBER_AT_(table, strategy),
-            checker.extract(table, "save_directory"),
+            checker.extract(table.unwrap(), "save_directory"),
             SVS_LOAD_MEMBER_AT_(table, search_configs),
             SVS_LOAD_MEMBER_AT_(table, search_parameters)
         );

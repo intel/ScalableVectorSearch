@@ -212,6 +212,13 @@ template <typename T = void> class VecsFile {
     ///
     std::pair<size_t, size_t> get_dims() const { return vecs::get_dims<T>(path_); }
 
+    ///
+    /// @brief Return the dimensions of the vecs encoded dataset.
+    ///
+    std::pair<size_t, size_t> get_dims(size_t elsize) const {
+        return vecs::detail::get_dims(path_, elsize);
+    }
+
   private:
     std::filesystem::path path_;
 };

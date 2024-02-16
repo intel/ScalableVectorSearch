@@ -71,8 +71,11 @@ struct PiecewiseAssembly {
     /// Version History
     /// - v0.0.1: Added support datasets instead of build_type.
     static constexpr svs::lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_inverted_memory_piecewise_assembly";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(dataset),
              SVS_LIST_SAVE_(query_type),
@@ -87,14 +90,9 @@ struct PiecewiseAssembly {
     }
 
     static PiecewiseAssembly load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return PiecewiseAssembly{
             SVS_LOAD_MEMBER_AT_(table, dataset, root),
             SVS_LOAD_MEMBER_AT_(table, query_type),
@@ -173,8 +171,11 @@ struct MemorySearchJob {
 
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_inverted_memory_search_job";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(assembly),
              SVS_LIST_SAVE_(num_threads),
@@ -187,14 +188,9 @@ struct MemorySearchJob {
     }
 
     static MemorySearchJob load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& data_root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return MemorySearchJob{
             SVS_LOAD_MEMBER_AT_(table, assembly, data_root),
             SVS_LOAD_MEMBER_AT_(table, num_threads),

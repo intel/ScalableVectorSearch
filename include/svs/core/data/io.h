@@ -164,6 +164,11 @@ lib::lazy_result_t<F, size_t, size_t> load_dataset(const File& file, const F& la
     return load_impl(detail::to_native(file), default_accessor, lazy);
 }
 
+// Return whether or not a file is directly loadable via file-extension.
+inline bool special_by_file_extension(std::string_view path) {
+    return (path.ends_with("svs") || path.ends_with("vecs") || path.ends_with("bin"));
+}
+
 ///
 /// @brief Load a dataset from file. Automcatically detect the file type based on extension.
 ///
@@ -184,17 +189,33 @@ lib::lazy_result_t<F, size_t, size_t> load_dataset(const File& file, const F& la
 ///
 template <typename T, lib::LazyInvocable<size_t, size_t> F>
 lib::lazy_result_t<F, size_t, size_t>
-auto_load(const std::string& filename, const F& construct) {
-    if (filename.ends_with("svs")) {
+auto_load(const std::filesystem::path& filename, const F& construct) {
+    auto sv = std::string_view{filename.native()};
+    if (sv.ends_with("svs")) {
         return load_dataset(io::NativeFile(filename), construct);
     }
-    if (filename.ends_with("vecs")) {
+    if (sv.ends_with("vecs")) {
         return load_dataset(io::vecs::VecsFile<T>(filename), construct);
     }
-    if (filename.ends_with("bin")) {
+    if (sv.ends_with("bin")) {
         return load_dataset(io::binary::BinaryFile(filename), construct);
     }
     throw ANNEXCEPTION("Unknown file extension for input file: {}.", filename);
+}
+
+inline size_t deduce_dimensions(const std::filesystem::path& filename, size_t elsize) {
+    auto sv = std::string_view(filename.native());
+    assert(special_by_file_extension(sv));
+    if (sv.ends_with("svs")) {
+        return io::NativeFile{filename}.get_dims().second;
+    }
+    if (sv.ends_with("vecs")) {
+        return io::vecs::VecsFile{filename}.get_dims(elsize).second;
+    }
+    if (sv.ends_with("bin")) {
+        return io::binary::BinaryFile{filename}.get_dims().second;
+    }
+    throw ANNEXCEPTION("Unknown extension for input file: {}.", filename);
 }
 
 } // namespace svs::io

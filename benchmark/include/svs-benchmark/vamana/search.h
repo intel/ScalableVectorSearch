@@ -48,9 +48,12 @@ struct VamanaState {
     //   svs::index::vamana::VamanaSearchParameters search_parameters_
     //   size_t num_threads_
     static constexpr svs::lib::Version save_version{0, 0, 1};
+    static constexpr std::string_view serialization_schema = "benchmark_vamana_state";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
-            save_version, {SVS_LIST_SAVE_(search_parameters), SVS_LIST_SAVE_(num_threads)}
+            serialization_schema,
+            save_version,
+            {SVS_LIST_SAVE_(search_parameters), SVS_LIST_SAVE_(num_threads)}
         );
     }
 };
@@ -144,8 +147,10 @@ struct SearchJob {
 
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_vamana_search_job";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(description),
              SVS_LIST_SAVE_(dataset),
@@ -166,14 +171,9 @@ struct SearchJob {
     }
 
     static SearchJob load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return SearchJob{
             SVS_LOAD_MEMBER_AT_(table, description),
             SVS_LOAD_MEMBER_AT_(table, dataset, root),

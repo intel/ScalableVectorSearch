@@ -37,21 +37,20 @@ struct DistanceAndGroundtruth {
 
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema =
+        "benchmark_distance_and_groundtruth";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
-            save_version, {SVS_LIST_SAVE_(distance), SVS_LIST_SAVE_(path)}
+            serialization_schema,
+            save_version,
+            {SVS_LIST_SAVE_(distance), SVS_LIST_SAVE_(path)}
         );
     }
 
     static DistanceAndGroundtruth load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root = {}
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
         return DistanceAndGroundtruth{
             SVS_LOAD_MEMBER_AT_(table, distance),
             svsbenchmark::extract_filename(table, "path", root)};
@@ -99,8 +98,10 @@ template <typename SearchParameters> struct ConfigAndResultPrototype {
 
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_config_and_result";
     svs::lib::SaveTable save() const {
         return svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(search_parameters),
              SVS_LIST_SAVE_(num_neighbors),
@@ -110,12 +111,7 @@ template <typename SearchParameters> struct ConfigAndResultPrototype {
         );
     }
 
-    static ConfigAndResultPrototype
-    load(const toml::table& table, const svs::lib::Version& version) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
-        }
-
+    static ConfigAndResultPrototype load(const svs::lib::ContextFreeLoadTable& table) {
         return ConfigAndResultPrototype{
             SVS_LOAD_MEMBER_AT_(table, search_parameters),
             SVS_LOAD_MEMBER_AT_(table, num_neighbors),
@@ -172,8 +168,10 @@ struct ExpectedResultPrototype {
 
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "benchmark_expected_result";
     svs::lib::SaveTable save() const {
         auto table = svs::lib::SaveTable(
+            serialization_schema,
             save_version,
             {SVS_LIST_SAVE_(dataset),
              SVS_LIST_SAVE_(distance),
@@ -186,18 +184,20 @@ struct ExpectedResultPrototype {
     }
 
     static ExpectedResultPrototype load(
-        const toml::table& table,
-        const svs::lib::Version& version,
+        const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root
     ) {
-        if (version != save_version) {
-            throw ANNEXCEPTION("Version mismatch!");
+        auto build_parameters = std::optional<BuildParameters>{std::nullopt};
+        if (table.contains("build_parameters")) {
+            build_parameters.emplace(
+                svs::lib::load_at<BuildParameters>(table, "build_parameters")
+            );
         }
 
         return ExpectedResultPrototype{
             SVS_LOAD_MEMBER_AT_(table, dataset, root),
             SVS_LOAD_MEMBER_AT_(table, distance),
-            svs::lib::try_load_at<BuildParameters>(table, "build_parameters"),
+            std::move(build_parameters),
             SVS_LOAD_MEMBER_AT_(table, config_and_recall)};
     }
 };

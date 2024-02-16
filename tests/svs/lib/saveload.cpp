@@ -20,6 +20,7 @@
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
 
 // stl
 #include <filesystem>
@@ -49,6 +50,7 @@ struct Saveable {
 
     // Static members
     static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 1);
+    static constexpr std::string_view serialization_schema = "svstest_saveable";
 
     // Methods
     svs::lib::SaveTable save(const svs::lib::SaveContext& ctx) const {
@@ -56,22 +58,18 @@ struct Saveable {
         auto stream = svs::lib::open_write(my_path);
         svs::lib::write_binary(stream, val_);
         return svs::lib::SaveTable(
-            save_version, {SVS_LIST_SAVE_(val), SVS_LIST_SAVE_(file)}
+            serialization_schema, save_version, {SVS_LIST_SAVE_(val), SVS_LIST_SAVE_(file)}
         );
     }
 
-    static Saveable load(
-        const toml::table& table,
-        const svs::lib::LoadContext& ctx,
-        const svs::lib::Version& version,
-        bool extra_arg = false
-    ) {
-        CATCH_REQUIRE(version == save_version);
+    static Saveable load(const svs::lib::LoadTable& table, bool extra_arg = false) {
+        CATCH_REQUIRE(table.version() == save_version);
+        CATCH_REQUIRE(table.schema() == serialization_schema);
         auto val_from_table = SVS_LOAD_MEMBER_AT_(table, val);
         auto file = SVS_LOAD_MEMBER_AT_(table, file);
 
         // Make sure any side-effects were saved correctly.
-        auto path = ctx.get_directory() / file;
+        auto path = table.resolve(file);
         auto stream = svs::lib::open_read(path);
         auto val_from_file = svs::lib::read_binary<int64_t>(stream);
         CATCH_REQUIRE(val_from_table == val_from_file);
@@ -86,6 +84,8 @@ struct SaveableContextFree {
     // Members
     int32_t val_;
     bool extra_arg_ = false;
+    bool old_version_ = false;
+    bool old_schema_ = false;
 
   public:
     SaveableContextFree(int32_t val, bool extra_arg)
@@ -94,23 +94,61 @@ struct SaveableContextFree {
     SaveableContextFree(int32_t val)
         : val_{val} {}
 
+    // Provide the expected overloads for default compatibility checking but *also* define
+    // a manual compatibility check.
+    static constexpr std::string_view serialization_schema =
+        "svstest_saveable_context_free";
+    static constexpr std::string_view backup_schema = "svstest_backup";
+    static constexpr svs::lib::Version save_version{1, 2, 3};
+
     svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable(svs::lib::Version(1, 2, 3), {SVS_LIST_SAVE_(val)});
+        return svs::lib::SaveTable(
+            "svstest_saveable_context_free",
+            svs::lib::Version(1, 2, 3),
+            {SVS_LIST_SAVE_(val)}
+        );
     }
 
-    static SaveableContextFree load(
-        const toml::table& table, const svs::lib::Version& version, bool extra_arg = false
+    static bool
+    check_load_compatibility(std::string_view schema, svs::lib::Version version) {
+        bool schema_matches = schema == serialization_schema || schema == backup_schema;
+        return schema_matches && version <= save_version;
+    }
+
+    static SaveableContextFree
+    load(const svs::lib::ContextFreeLoadTable& table, bool extra_arg = false) {
+        auto val = SaveableContextFree(SVS_LOAD_MEMBER_AT_(table, val), extra_arg);
+        if (table.version() < save_version) {
+            val.old_version_ = true;
+        }
+        if (table.schema() == backup_schema) {
+            val.old_schema_ = true;
+        }
+        return val;
+    }
+
+    static svs::lib::TryLoadResult<SaveableContextFree> try_load(
+        const svs::lib::ContextFreeLoadTable& table,
+        bool extra_arg = false,
+        bool auto_fail = false
     ) {
-        CATCH_REQUIRE(version == svs::lib::Version(1, 2, 3));
-        return SaveableContextFree(SVS_LOAD_MEMBER_AT_(table, val), extra_arg);
+        if (auto_fail) {
+            return svs::lib::Unexpected(svs::lib::TryLoadFailureReason::Other);
+        }
+        return load(table, extra_arg);
     }
 
     friend bool
     operator==(const SaveableContextFree&, const SaveableContextFree&) = default;
 };
-static_assert(svs::lib::StaticLoadable<SaveableContextFree, const svs::lib::Version&>);
-static_assert(svs::lib::
-                  StaticLoadable<SaveableContextFree, const svs::lib::Version&, bool>);
+
+void change_reserved_field(
+    toml::table& table, std::string_view key, std::string_view value
+) {
+    CATCH_REQUIRE(table.contains(key));
+    CATCH_REQUIRE(table.erase(key) == 1);
+    table.insert(key, value);
+}
 
 struct SaveableHasBoth {
   public:
@@ -124,27 +162,26 @@ struct SaveableHasBoth {
     SaveableHasBoth() = default;
 
     static constexpr svs::lib::Version save_version = svs::lib::Version(10, 20, 30);
+    static constexpr std::string_view serialization_schema = "svstest_saveable_has_both";
 
     // Implement the context-free version and the contextual version.
     // Just return an empty table for both.
     svs::lib::SaveTable save() const {
         context_free_calls_ += 1;
-        return svs::lib::SaveTable(save_version);
+        return svs::lib::SaveTable(serialization_schema, save_version);
     }
 
     // Contextual version
     svs::lib::SaveTable save(const svs::lib::SaveContext& SVS_UNUSED(ctx)) const {
         contextual_calls_ += 1;
-        return svs::lib::SaveTable(save_version);
+        return svs::lib::SaveTable(serialization_schema, save_version);
     }
 
     // Context free load
-    static SaveableHasBoth load(
-        const toml::table& SVS_UNUSED(table),
-        const svs::lib::Version& version,
-        bool extra_arg = false
-    ) {
-        CATCH_REQUIRE(version == save_version);
+    static SaveableHasBoth
+    load(const svs::lib::ContextFreeLoadTable& table, bool extra_arg = false) {
+        CATCH_REQUIRE(table.version() == save_version);
+        CATCH_REQUIRE(table.schema() == serialization_schema);
         auto x = SaveableHasBoth();
         x.constructed_context_free_ = true;
         x.extra_arg_ = extra_arg;
@@ -152,12 +189,8 @@ struct SaveableHasBoth {
     }
 
     // Contextual load
-    static SaveableHasBoth load(
-        const toml::table& SVS_UNUSED(table),
-        svs::lib::LoadContext& SVS_UNUSED(ctx),
-        const svs::lib::Version& version
-    ) {
-        CATCH_REQUIRE(version == save_version);
+    static SaveableHasBoth load(const svs::lib::LoadTable& table) {
+        CATCH_REQUIRE(table.version() == save_version);
         auto x = SaveableHasBoth();
         x.constructed_with_context_ = true;
         return x;
@@ -183,28 +216,47 @@ struct Aggregate {
 
     svs::lib::SaveTable save(const svs::lib::SaveContext& ctx) const {
         auto table = svs::lib::SaveTable(
+            "svstest_aggregate",
             svs::lib::Version(0, 0, 0),
-            {
-                SVS_LIST_SAVE_(a, ctx),
-                SVS_LIST_SAVE_(b, ctx),
-            }
+            {SVS_LIST_SAVE_(a, ctx), SVS_LIST_SAVE_(b, ctx)}
         );
         // Test emplacement as well.
         SVS_INSERT_SAVE_(table, c, ctx);
         return table;
     }
 
-    static Aggregate load(
-        const toml::table& table,
-        const svs::lib::LoadContext& ctx,
-        const svs::lib::Version& version,
-        bool extra_arg = false
-    ) {
-        CATCH_REQUIRE(version == svs::lib::Version(0, 0, 0));
+    static bool
+    check_load_compatibility(std::string_view schema, svs::lib::Version version) {
+        return schema == "svstest_aggregate" && version == svs::lib::Version(0, 0, 0);
+    }
+
+    static Aggregate load(const svs::lib::LoadTable& table, bool extra_arg = false) {
+        CATCH_REQUIRE(table.version() == svs::lib::Version(0, 0, 0));
+        CATCH_REQUIRE(table.schema() == "svstest_aggregate");
+
         return Aggregate(
-            SVS_LOAD_MEMBER_AT_(table, a, ctx),
-            SVS_LOAD_MEMBER_AT_(table, b, ctx, extra_arg),
-            SVS_LOAD_MEMBER_AT_(table, c, ctx)
+            SVS_LOAD_MEMBER_AT_(table, a),
+            SVS_LOAD_MEMBER_AT_(table, b, extra_arg),
+            SVS_LOAD_MEMBER_AT_(table, c)
+        );
+    }
+
+    static svs::lib::TryLoadResult<Aggregate> try_load(
+        const svs::lib::LoadTable& table, bool extra_arg = false, bool auto_fail_b = false
+    ) {
+        CATCH_REQUIRE(table.version() == svs::lib::Version(0, 0, 0));
+        CATCH_REQUIRE(table.schema() == "svstest_aggregate");
+
+        // Load a sub-member that can fail.
+        auto ex =
+            svs::lib::try_load_at<SaveableContextFree>(table, "b", extra_arg, auto_fail_b);
+        if (!ex) {
+            return svs::lib::Unexpected(ex.error());
+        }
+        return Aggregate(
+            SVS_LOAD_MEMBER_AT_(table, a),
+            std::move(ex).value(),
+            SVS_LOAD_MEMBER_AT_(table, c)
         );
     }
 
@@ -281,10 +333,14 @@ struct BuiltIn {
     // Comparison
     friend inline bool operator==(const BuiltIn&, const BuiltIn&) = default;
 
+    static constexpr std::string_view serialization_schema = "svstest_buildin";
+    static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 0);
+
     // Saving and Loading
     svs::lib::SaveTable save() const {
         auto table = svs::lib::SaveTable(
-            svs::lib::Version(0, 0, 0),
+            serialization_schema,
+            save_version,
             {SVS_LIST_SAVE_(u8),
              SVS_LIST_SAVE_(u16),
              SVS_LIST_SAVE_(u32),
@@ -301,8 +357,8 @@ struct BuiltIn {
         return table;
     }
 
-    static BuiltIn load(const toml::table& table, const svs::lib::Version& version) {
-        CATCH_REQUIRE(version == svs::lib::Version(0, 0, 0));
+    static BuiltIn load(const svs::lib::ContextFreeLoadTable& table) {
+        CATCH_REQUIRE(table.version() == svs::lib::Version(0, 0, 0));
         return BuiltIn{
             SVS_LOAD_MEMBER_AT_(table, u8),
             SVS_LOAD_MEMBER_AT_(table, u16),
@@ -316,6 +372,15 @@ struct BuiltIn {
             SVS_LOAD_MEMBER_AT_(table, str),
             SVS_LOAD_MEMBER_AT_(table, path),
             SVS_LOAD_MEMBER_AT_(table, v)};
+    }
+
+    static svs::lib::TryLoadResult<BuiltIn>
+    try_load(const svs::lib::ContextFreeLoadTable& table, bool auto_fail = false) {
+        // Schema check performed by the saving and loading infrastructure.
+        if (auto_fail) {
+            return svs::lib::Unexpected(svs::lib::TryLoadFailureReason::Other);
+        }
+        return load(table);
     }
 };
 
@@ -338,11 +403,15 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         CATCH_REQUIRE(std::filesystem::exists(config_path));
 
         // Read the generated config file.
-        auto table = toml::parse_file(config_path.c_str());
-        auto subtable = svs::toml_helper::get_as<toml::table>(table, "object");
-        CATCH_REQUIRE(svs::lib::load_at<int64_t>(subtable, "val") == 10);
+        auto table =
+            svs::lib::ContextFreeSerializedObject(toml::parse_file(config_path.c_str()));
+        auto object = table.object().template cast<toml::table>();
+
+        // auto subtable =
+        //     svs::lib::LoadTable(svs::toml_helper::get_as<toml::table>(table, "object"));
+        CATCH_REQUIRE(svs::lib::load_at<int64_t>(object, "val") == 10);
         auto expected = std::string("my_file.bin");
-        CATCH_REQUIRE(svs::lib::load_at<std::string>(subtable, "file") == expected);
+        CATCH_REQUIRE(svs::lib::load_at<std::string>(object, "file") == expected);
 
         // Loading
         auto y = svs::lib::load_from_disk<Saveable>(temp_dir);
@@ -381,6 +450,53 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         CATCH_REQUIRE(z != x);
         CATCH_REQUIRE(z.val_ == x.val_);
         CATCH_REQUIRE(z.extra_arg_ == true);
+
+        // Make sure we get an error if we reload with incorrect values.
+        {
+            svs::lib::save_to_disk(x, temp_dir);
+            auto file = temp_dir / svs::lib::config_file_name;
+            auto t = toml::parse_file(file.c_str());
+            change_reserved_field(*t["object"].as_table(), "__version__", "v500.500.500");
+            {
+                auto io = svs::lib::open_write(file);
+                io << t << '\n';
+            }
+
+            CATCH_REQUIRE_THROWS_MATCHES(
+                svs::lib::load_from_disk<Saveable>(temp_dir),
+                svs::ANNException,
+                svs_test::ExceptionMatcher(
+                    Catch::Matchers::ContainsSubstring(
+                        "Trying to deserialize incompatible object"
+                    ) &&
+                    Catch::Matchers::ContainsSubstring("v500.500.500")
+
+                )
+            );
+        }
+
+        {
+            svs::lib::save_to_disk(x, temp_dir);
+            auto file = temp_dir / svs::lib::config_file_name;
+            auto t = toml::parse_file(file.c_str());
+            change_reserved_field(*t["object"].as_table(), "__schema__", "bad_schema");
+            {
+                auto io = svs::lib::open_write(file);
+                io << t << '\n';
+            }
+
+            CATCH_REQUIRE_THROWS_MATCHES(
+                svs::lib::load_from_disk<Saveable>(temp_dir),
+                svs::ANNException,
+                svs_test::ExceptionMatcher(
+                    Catch::Matchers::ContainsSubstring(
+                        "Trying to deserialize incompatible object"
+                    ) &&
+                    Catch::Matchers::ContainsSubstring("bad_schema")
+
+                )
+            );
+        }
     }
 
     CATCH_SECTION("Saving and Loading. Context - Free") {
@@ -412,14 +528,112 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
 
         // Test now that we can round-trip through a TOML table correctly.
         auto table = svs::lib::save_to_table(x);
-        y = svs::lib::load<SaveableContextFree>(table);
+        y = svs::lib::load<SaveableContextFree>(svs::lib::node_view(table));
         CATCH_REQUIRE(x == y);
 
         // Argument forwarding
-        y = svs::lib::load<SaveableContextFree>(table, true);
+        y = svs::lib::load<SaveableContextFree>(svs::lib::node_view(table), true);
         CATCH_REQUIRE(x != y);
         CATCH_REQUIRE(x.val_ == y.val_);
         CATCH_REQUIRE(y.extra_arg_);
+
+        // Test compatibility checks.
+        {
+            auto t = svs::lib::save_to_table(x);
+            change_reserved_field(t, "__version__", "v0.0.0");
+
+            auto z = svs::lib::load<SaveableContextFree>(svs::lib::node_view(t));
+            CATCH_REQUIRE(z.old_version_);
+            CATCH_REQUIRE(!z.old_schema_);
+        }
+
+        {
+            auto t = svs::lib::save_to_table(x);
+            change_reserved_field(t, "__schema__", SaveableContextFree::backup_schema);
+            auto z = svs::lib::load<SaveableContextFree>(svs::lib::node_view(t));
+            CATCH_REQUIRE(!z.old_version_);
+            CATCH_REQUIRE(z.old_schema_);
+        }
+
+        // Make sure we get an error if we reload with incorrect values.
+        {
+            auto t = svs::lib::save_to_table(x);
+            change_reserved_field(t, "__version__", "v500.500.500");
+            CATCH_REQUIRE_THROWS_MATCHES(
+                svs::lib::load<SaveableContextFree>(svs::lib::node_view(t)),
+                svs::ANNException,
+                svs_test::ExceptionMatcher(
+                    Catch::Matchers::ContainsSubstring(
+                        "Trying to deserialize incompatible object"
+                    ) &&
+                    Catch::Matchers::ContainsSubstring("v500.500.500")
+
+                )
+            );
+        }
+
+        {
+            auto t = svs::lib::save_to_table(x);
+            change_reserved_field(t, "__schema__", "bad_schema");
+            CATCH_REQUIRE_THROWS_MATCHES(
+                svs::lib::load<SaveableContextFree>(svs::lib::node_view(t)),
+                svs::ANNException,
+                svs_test::ExceptionMatcher(
+                    Catch::Matchers::ContainsSubstring(
+                        "Trying to deserialize incompatible object"
+                    ) &&
+                    Catch::Matchers::ContainsSubstring("bad_schema")
+
+                )
+            );
+        }
+
+        // try-load
+        {
+            auto z = svs::lib::try_load_from_disk<SaveableContextFree>(temp_dir);
+            CATCH_REQUIRE(z);
+            CATCH_REQUIRE(z.value() == x);
+
+            // argument forwarding.
+            z = svs::lib::try_load_from_disk<SaveableContextFree>(temp_dir, true);
+            CATCH_REQUIRE(z);
+            CATCH_REQUIRE(z.value() != x);
+            CATCH_REQUIRE(z.value().val_ == x.val_);
+            CATCH_REQUIRE(z.value().extra_arg_);
+
+            // auto-failure.
+            z = svs::lib::try_load_from_disk<SaveableContextFree>(temp_dir, true, true);
+            CATCH_REQUIRE(!z);
+
+            // Change serialized schema - ensure that the compatibility check fails.
+            auto src = temp_dir / svs::lib::config_file_name;
+            auto dst = temp_dir / "modified_config.toml";
+            svs_test::mutate_table(
+                src, dst, {{{"object", "__schema__"}, "invalid_schema"}}
+            );
+
+            // Make sure loading directly from the source file works.
+            z = svs::lib::try_load_from_disk<SaveableContextFree>(src);
+            CATCH_REQUIRE(z);
+            CATCH_REQUIRE(z.value() == x);
+
+            // Loading from the modified file should fail due to invalid schema.
+            z = svs::lib::try_load_from_disk<SaveableContextFree>(dst);
+            CATCH_REQUIRE(!z);
+            CATCH_REQUIRE(z.error() == svs::lib::TryLoadFailureReason::InvalidSchema);
+
+            // now - mutate the version instead of the schema.
+            svs_test::mutate_table(src, dst, {{{"object", "__version__"}, "v20.1.2"}});
+            z = svs::lib::try_load_from_disk<SaveableContextFree>(dst);
+            CATCH_REQUIRE(!z);
+            CATCH_REQUIRE(z.error() == svs::lib::TryLoadFailureReason::InvalidSchema);
+
+            // Modify the underlying value just to double check.
+            svs_test::mutate_table(src, dst, {{{"object", "val"}, 20}});
+            z = svs::lib::try_load_from_disk<SaveableContextFree>(dst);
+            CATCH_REQUIRE(z);
+            CATCH_REQUIRE(z.value().val_ == 20);
+        }
     }
 
     CATCH_SECTION("Saving and Loading. Style priority.") {
@@ -441,29 +655,30 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         CATCH_REQUIRE(x.context_free_calls_ == 1);
         CATCH_REQUIRE(x.contextual_calls_ == 0);
 
-        // Loading should go through the context-free path.
+        // Loading should go through the contextual path.
         auto y = svs::lib::load_from_disk<SaveableHasBoth>(temp_dir);
-        CATCH_REQUIRE(y.constructed_context_free_ == true);
+        CATCH_REQUIRE(y.constructed_context_free_ == false);
         CATCH_REQUIRE(y.extra_arg_ == false);
 
-        // Argument forwarding.
+        // Argument forwarding - overload should pick the method that takes an additional
+        // argument.
         y = svs::lib::load_from_disk<SaveableHasBoth>(temp_dir, true);
         CATCH_REQUIRE(y.constructed_context_free_ == true);
         CATCH_REQUIRE(y.extra_arg_ == true);
 
-        // Serialization directly through a table.
+        // Serialization directly through a table - should take the context-free path.
         auto table = svs::lib::save_to_table(x);
-        y = svs::lib::load<SaveableHasBoth>(table);
+        y = svs::lib::load<SaveableHasBoth>(svs::lib::node_view(table));
         CATCH_REQUIRE(y.constructed_context_free_ == true);
         CATCH_REQUIRE(y.extra_arg_ == false);
 
-        y = svs::lib::load<SaveableHasBoth>(table, true);
+        y = svs::lib::load<SaveableHasBoth>(svs::lib::node_view(table), true);
         CATCH_REQUIRE(y.constructed_context_free_ == true);
         CATCH_REQUIRE(y.extra_arg_ == true);
 
         // Make sure we *can* load through the contextual path if we try hard enough.
         auto load_context = svs::lib::LoadContext(temp_dir, svs::lib::Version(0, 0, 0));
-        y = SaveableHasBoth::load(table, load_context, SaveableHasBoth::save_version);
+        y = SaveableHasBoth::load(svs::lib::node_view(table, load_context));
         CATCH_REQUIRE(y.constructed_context_free_ == false);
         CATCH_REQUIRE(y.constructed_with_context_ == true);
     }
@@ -472,86 +687,50 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         auto temp_dir = setup();
         auto x = Aggregate(10, "hello_world.bin", 32);
         svs::lib::save_to_disk(x, temp_dir);
-        auto y = svs::lib::load_from_disk<Aggregate>(temp_dir);
-        CATCH_REQUIRE(x == y);
-        // Make sure the "SaveableHasBoth" member was saved correctly.
-        CATCH_REQUIRE(x.c_.context_free_calls_ == 1);
-        CATCH_REQUIRE(x.c_.contextual_calls_ == 0);
-        CATCH_REQUIRE(y.c_.constructed_context_free_ == true);
-        CATCH_REQUIRE(y.c_.constructed_with_context_ == false);
-    }
+        CATCH_SECTION("Standard Loading") {
+            auto y = svs::lib::load_from_disk<Aggregate>(temp_dir);
+            CATCH_REQUIRE(x == y);
+            // Make sure the "SaveableHasBoth" member was saved correctly.
+            CATCH_REQUIRE(x.c_.context_free_calls_ == 1);
+            CATCH_REQUIRE(x.c_.contextual_calls_ == 0);
+            CATCH_REQUIRE(y.c_.constructed_context_free_ == false);
+            CATCH_REQUIRE(y.c_.constructed_with_context_ == true);
+        }
+        CATCH_SECTION("Try Loading") {
+            auto y = svs::lib::try_load_from_disk<Aggregate>(temp_dir);
+            CATCH_REQUIRE(y);
+            CATCH_REQUIRE(x == y.value());
 
-    CATCH_SECTION("Save and Load Override. Context Free.") {
-        size_t a = 10;
-        size_t b = 20;
-        auto version = svs::lib::Version(3, 6, 9);
+            auto src = temp_dir / svs::lib::config_file_name;
+            auto dst = temp_dir / "modified.toml";
 
-        auto temp_dir = setup();
-        svs::lib::save_to_disk(
-            svs::lib::SaveOverride([&]() {
-                return svs::lib::SaveTable(version, {SVS_LIST_SAVE(a), SVS_LIST_SAVE(b)});
-            }),
-            temp_dir
-        );
+            // Modify the schema of a deep object - should result in a failed try-load.
+            svs_test::mutate_table(
+                src, dst, {{{"object", "b", "__schema__"}, "invalid_schema"}}
+            );
+            y = svs::lib::try_load_from_disk<Aggregate>(dst);
+            CATCH_REQUIRE(!y);
+            CATCH_REQUIRE(y.error() == svs::lib::TryLoadFailureReason::InvalidSchema);
 
-        auto [a2, b2] = svs::lib::load_from_disk(
-            svs::lib::LoadOverride([&](const toml::table& table,
-                                       const svs::lib::Version& reloaded_version) {
-                CATCH_REQUIRE(reloaded_version == version);
-                auto a2 = svs::lib::load_at<size_t>(table, "a");
-                auto b2 = svs::lib::load_at<size_t>(table, "b");
-                return std::make_pair(a2, b2);
-            }),
-            temp_dir
-        );
-        CATCH_REQUIRE(a2 == a);
-        CATCH_REQUIRE(b2 == b);
-    }
-
-    CATCH_SECTION("Save and Load Override. Contextual.") {
-        size_t a = 10;
-        size_t b = 20;
-        auto version = svs::lib::Version(3, 6, 9);
-
-        auto temp_dir = setup();
-        svs::lib::save_to_disk(
-            svs::lib::SaveOverride([&](const svs::lib::SaveContext& ctx) {
-                auto file = ctx.generate_name("file", "bin");
-                auto ostream = svs::lib::open_write(file);
-                svs::lib::write_binary(ostream, a);
-                return svs::lib::SaveTable(
-                    version, {SVS_LIST_SAVE(b), {"file", svs::lib::save(file.filename())}}
-                );
-            }),
-            temp_dir
-        );
-
-        auto [a2, b2] = svs::lib::load_from_disk(
-            svs::lib::LoadOverride([&](const toml::table& table,
-                                       const svs::lib::LoadContext& ctx,
-                                       const svs::lib::Version& reloaded_version) {
-                CATCH_REQUIRE(reloaded_version == version);
-
-                const auto& filename =
-                    svs::lib::load_at<std::filesystem::path>(table, "file");
-                auto istream = svs::lib::open_read(ctx.get_directory() / filename);
-                auto a2 = svs::lib::read_binary<size_t>(istream);
-                // Test the non-underscore-appending macro.
-                auto b2 = SVS_LOAD_MEMBER_AT(table, b);
-                return std::make_pair(a2, b2);
-            }),
-            temp_dir
-        );
-        CATCH_REQUIRE(a2 == a);
-        CATCH_REQUIRE(b2 == b);
+            // Error via argument forwarding.
+            y = svs::lib::try_load_from_disk<Aggregate>(temp_dir, true, true);
+            CATCH_REQUIRE(!y);
+            CATCH_REQUIRE(y.error() == svs::lib::TryLoadFailureReason::Other);
+        }
     }
 
     CATCH_SECTION("Built-in Types") {
         auto test_true = BuiltIn{true};
         auto test_false = BuiltIn{false};
         CATCH_REQUIRE(test_true != test_false);
-        CATCH_REQUIRE(test_true == svs::lib::load<BuiltIn>(svs::lib::save(test_true)));
-        CATCH_REQUIRE(test_false == svs::lib::load<BuiltIn>(svs::lib::save(test_false)));
+        CATCH_REQUIRE(
+            test_true ==
+            svs::lib::load<BuiltIn>(svs::lib::node_view(svs::lib::save(test_true)))
+        );
+        CATCH_REQUIRE(
+            test_false ==
+            svs::lib::load<BuiltIn>(svs::lib::node_view(svs::lib::save(test_false)))
+        );
 
         auto temp_dir = setup();
         svs::lib::save_to_disk(test_true, temp_dir);
@@ -569,18 +748,24 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         auto allocator = typename T::allocator_type();
 
         // Save and load through a table.
-        auto u = svs::lib::load<std::vector<SaveableContextFree>>(tmp);
+        auto u = svs::lib::load<std::vector<SaveableContextFree>>(svs::lib::node_view(tmp));
         CATCH_REQUIRE(u == v);
 
-        u = svs::lib::load<std::vector<SaveableContextFree>>(tmp, allocator);
+        u = svs::lib::load<std::vector<SaveableContextFree>>(
+            svs::lib::node_view(tmp), allocator
+        );
         CATCH_REQUIRE(u == v);
 
         // Load through a table, giving an extra argument.
-        u = svs::lib::load<std::vector<SaveableContextFree>>(tmp, true);
+        u = svs::lib::load<std::vector<SaveableContextFree>>(
+            svs::lib::node_view(tmp), true
+        );
         CATCH_REQUIRE(u.at(0).extra_arg_ == true);
         CATCH_REQUIRE(u.at(1).extra_arg_ == true);
 
-        u = svs::lib::load<std::vector<SaveableContextFree>>(tmp, allocator, true);
+        u = svs::lib::load<std::vector<SaveableContextFree>>(
+            svs::lib::node_view(tmp), allocator, true
+        );
         CATCH_REQUIRE(u.at(0).extra_arg_ == true);
         CATCH_REQUIRE(u.at(1).extra_arg_ == true);
 
@@ -653,7 +838,7 @@ CATCH_TEST_CASE("Save/Load", "[lib][saveload]") {
         auto m = std::numeric_limits<uint64_t>::max();
         for (size_t x : std::array<size_t, 3>{0, m - 1, m}) {
             auto tmp = svs::lib::save(svs::lib::FullUnsigned(x));
-            uint64_t u = svs::lib::load<svs::lib::FullUnsigned>(tmp);
+            uint64_t u = svs::lib::load<svs::lib::FullUnsigned>(svs::lib::node_view(tmp));
             CATCH_REQUIRE(u == x);
         }
     }
