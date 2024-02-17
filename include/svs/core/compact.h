@@ -27,11 +27,10 @@ namespace svs {
 template <
     data::MemoryDataset Data,
     data::MemoryDataset Buffer,
-    typename I,
-    typename Alloc,
+    std::integral I,
     threads::ThreadPool Pool>
 void compact_data(
-    Data& data, Buffer& buffer, const std::vector<I, Alloc>& new_to_old, Pool& threadpool
+    Data& data, Buffer& buffer, std::span<const I> new_to_old, Pool& threadpool
 ) {
     // The contents of the data and the buffer should be the same.
     static_assert(std::is_same_v<data::value_type_t<Data>, data::value_type_t<Buffer>>);

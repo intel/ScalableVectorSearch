@@ -27,7 +27,7 @@ namespace {
 
 template <typename T, size_t Extent>
 bool wants_const_view(svs::data::ConstSimpleDataView<T, Extent> data) {
-    return svstest::data::is_sequential(data);
+    return svs_test::data::is_sequential(data);
 }
 
 template <typename T> void fill_lines(T& x) {
@@ -56,26 +56,75 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         auto x = svs::data::SimpleData<float>(100, 10);
         CATCH_REQUIRE(x.size() == 100);
         CATCH_REQUIRE(x.dimensions() == 10);
+        CATCH_REQUIRE(x.capacity() == 100);
+
         CATCH_REQUIRE(x.get_datum(0).size() == 10);
         CATCH_REQUIRE(x.get_datum(0).extent == svs::Dynamic);
-        svstest::data::set_sequential(x);
-        CATCH_REQUIRE(svstest::data::is_sequential(x));
+        svs_test::data::set_sequential(x);
+        CATCH_REQUIRE(svs_test::data::is_sequential(x));
 
         // Make sure `is_sequential` can fail.
         x.get_datum(0)[0] = 100;
-        CATCH_REQUIRE(svstest::data::is_sequential(x) == false);
-        svstest::data::set_sequential(x);
+        CATCH_REQUIRE(svs_test::data::is_sequential(x) == false);
+        svs_test::data::set_sequential(x);
 
         // Construct a view.
-        auto y = x.view();
-        CATCH_REQUIRE(y.size() == x.size());
-        CATCH_REQUIRE(y.dimensions() == x.dimensions());
-        CATCH_REQUIRE(svstest::data::is_sequential(y));
+        {
+            auto y = x.view();
+            CATCH_REQUIRE(y.size() == x.size());
+            CATCH_REQUIRE(y.dimensions() == x.dimensions());
+            CATCH_REQUIRE(y.data() == x.data());
+            CATCH_REQUIRE(svs_test::data::is_sequential(y));
+        }
 
         // Const view.
-        const auto z = x.cview();
-        CATCH_REQUIRE(svstest::data::is_sequential(z));
-        CATCH_REQUIRE(wants_const_view(x.cview()));
+        {
+            const auto z = x.cview();
+            CATCH_REQUIRE(svs_test::data::is_sequential(z));
+            CATCH_REQUIRE(wants_const_view(x.cview()));
+        }
+
+        // Resizing - ensure that the first elements are untouched.
+        auto* original_ptr = x.data();
+        x.resize(200);
+        CATCH_REQUIRE(x.size() == 200);
+        CATCH_REQUIRE(x.dimensions() == 10);
+        CATCH_REQUIRE(x.capacity() == 200);
+
+        // Ensure reallocation took place.
+        CATCH_REQUIRE(original_ptr != x.data());
+        original_ptr = x.data();
+        {
+            // Manually construct a smaller view to ensure the first elements remain
+            // unchanged after the resizing.
+            auto v = svs::data::ConstSimpleDataView<float>(x.data(), 100, x.dimensions());
+            CATCH_REQUIRE(svs_test::data::is_sequential(v));
+        }
+
+        // Ensure mutation of the larger data still works.
+        svs_test::data::set_sequential(x);
+        CATCH_REQUIRE(svs_test::data::is_sequential(x));
+
+        // Resize down - ensure no reallocation takes place.
+        x.resize(100);
+        CATCH_REQUIRE(x.size() == 100);
+        CATCH_REQUIRE(x.capacity() == 200);
+        CATCH_REQUIRE(svs_test::data::is_sequential(x));
+        CATCH_REQUIRE(x.data() == original_ptr);
+
+        // Resizing back should not trigger a reallocation.
+        x.resize(200);
+        CATCH_REQUIRE(x.data() == original_ptr);
+        CATCH_REQUIRE(x.size() == 200);
+        CATCH_REQUIRE(x.capacity() == 200);
+
+        // Finally, drop back down in size and invoke `shrink_to_fit`.
+        x.resize(100);
+        x.shrink_to_fit();
+        CATCH_REQUIRE(x.data() != original_ptr);
+        CATCH_REQUIRE(x.size() == 100);
+        CATCH_REQUIRE(x.capacity() == 100);
+        CATCH_REQUIRE(svs_test::data::is_sequential(x));
     }
 
     CATCH_SECTION("Views") {
@@ -121,12 +170,13 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         CATCH_REQUIRE(x.get_datum(0).size() == 4);
         CATCH_REQUIRE(x.get_datum(0).extent == 4);
 
-        svstest::data::set_sequential(x);
-        CATCH_REQUIRE(svstest::data::is_sequential(x));
+        svs_test::data::set_sequential(x);
+        CATCH_REQUIRE(svs_test::data::is_sequential(x));
         auto y = x.view();
+        CATCH_REQUIRE(y.data() == x.data());
         CATCH_REQUIRE(y.size() == x.size());
         CATCH_REQUIRE(y.dimensions() == x.dimensions());
-        CATCH_REQUIRE(svstest::data::is_sequential(y));
+        CATCH_REQUIRE(svs_test::data::is_sequential(y));
         CATCH_REQUIRE(y.get_datum(0).extent == 4);
     }
 

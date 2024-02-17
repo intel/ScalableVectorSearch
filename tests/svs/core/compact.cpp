@@ -47,7 +47,6 @@ template <typename Data> bool check_sequential(const Data& data) {
 CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
     CATCH_SECTION("Simple Threaded") {
         auto data = svs::data::SimpleData<uint32_t>(10, 20);
-        auto buffer = svs::data::SimpleData<uint32_t>(2, 20);
 
         sequential_fill(data);
         CATCH_REQUIRE(check_sequential(data));
@@ -59,7 +58,7 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
         // Initially test with a sequential thread pool.
         auto pool = svs::threads::SequentialThreadPool();
         auto new_to_old = std::vector<size_t>({0, 2, 4, 5, 8, 9});
-        svs::compact_data(data, buffer, new_to_old, pool);
+        data.compact(svs::lib::as_const_span(new_to_old), pool);
         for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
             auto val = new_to_old.at(i);
             CATCH_REQUIRE(check_line(data.get_datum(i), val));
@@ -69,17 +68,29 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
         sequential_fill(data);
         CATCH_REQUIRE(check_sequential(data));
         auto tpool = svs::threads::NativeThreadPool(2);
-        svs::compact_data(data, buffer, new_to_old, tpool);
+        data.compact(svs::lib::as_const_span(new_to_old), tpool);
         for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
             auto val = new_to_old.at(i);
             CATCH_REQUIRE(check_line(data.get_datum(i), val));
         }
 
         // Make sure we get an error if we use the wrong-sized buffer.
-        buffer = svs::data::SimpleData<uint32_t>(4, 100);
+        auto buffer = svs::data::SimpleData<uint32_t>(4, 100);
         CATCH_REQUIRE_THROWS_AS(
-            svs::compact_data(data, buffer, new_to_old, tpool), svs::ANNException
+            svs::compact_data(data, buffer, svs::lib::as_const_span(new_to_old), tpool),
+            svs::ANNException
         );
+
+        // If the buffer is the correct size, ensure that the compaction free-function
+        // works.
+        sequential_fill(data);
+        CATCH_REQUIRE(check_sequential(data));
+        buffer = svs::data::SimpleData<uint32_t>(4, 20);
+        svs::compact_data(data, buffer, svs::lib::as_const_span(new_to_old), tpool);
+        for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
+            auto val = new_to_old.at(i);
+            CATCH_REQUIRE(check_line(data.get_datum(i), val));
+        }
     }
 
     CATCH_SECTION("Blocked Data") {
@@ -93,7 +104,7 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
         }
 
         // Single-threaded version
-        data.compact(new_to_old, 20);
+        data.compact(svs::lib::as_const_span(new_to_old), 20);
         for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
             auto val = new_to_old.at(i);
             CATCH_REQUIRE(check_line(data.get_datum(i), val));
@@ -103,7 +114,7 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
         sequential_fill(data);
         CATCH_REQUIRE(check_sequential(data));
         auto tpool = svs::threads::NativeThreadPool(2);
-        data.compact(new_to_old, tpool, 20);
+        data.compact(svs::lib::as_const_span(new_to_old), tpool, 20);
         for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
             auto val = new_to_old.at(i);
             CATCH_REQUIRE(check_line(data.get_datum(i), val));

@@ -15,7 +15,7 @@
 // stl
 #include <vector>
 
-namespace svstest::data {
+namespace svs_test::data {
 
 // A mock dataset with integer entries.
 class MockDataset {
@@ -73,4 +73,4 @@ template <typename T> bool is_sequential(const T& x) {
     }
     return true;
 }
-} // namespace svstest::data
+} // namespace svs_test::data
