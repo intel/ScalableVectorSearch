@@ -241,11 +241,10 @@ class LVQDataset {
     }
 
     ///// Compaction
-    template <typename I, typename A, threads::ThreadPool Pool>
+    template <std::integral I, threads::ThreadPool Pool>
         requires is_resizeable
-    void compact(
-        const std::vector<I, A>& new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
-    ) {
+    void
+    compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000) {
         primary_.compact(new_to_old, threadpool, batchsize);
         residual_.compact(new_to_old, threadpool, batchsize);
     }
@@ -469,11 +468,10 @@ class LVQDataset<Primary, 0, Extent, Strategy, Alloc> {
     }
 
     ///// Compaction
-    template <typename I, typename A, threads::ThreadPool Pool>
+    template <std::integral I, threads::ThreadPool Pool>
         requires is_resizeable
-    void compact(
-        const std::vector<I, A>& new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
-    ) {
+    void
+    compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000) {
         primary_.compact(new_to_old, threadpool, batchsize);
     }
 

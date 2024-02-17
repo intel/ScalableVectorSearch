@@ -210,6 +210,8 @@ using ConstSimpleDataView = SimpleData<const T, Extent, View<const T>>;
 /// * All vectors have the same length.
 template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T>>
 class SimpleData {
+    static_assert(std::is_trivial_v<T>, "SimpleData may only contain trivial types!");
+
   public:
     /// The static dimensionality of the underlying data.
     static constexpr size_t extent = Extent;
@@ -248,12 +250,12 @@ class SimpleData {
     SimpleData() = default;
 
     explicit SimpleData(array_type data)
-        : data_{std::move(data)} {}
+        : data_{std::move(data)}
+        , size_{getsize<0>(data_)} {}
 
     explicit SimpleData(size_t n_elements, size_t n_dimensions, const Alloc& allocator)
-        : data_{
-              make_dims(n_elements, lib::forward_extent<Extent>(n_dimensions)),
-              allocator} {}
+        : data_{make_dims(n_elements, lib::forward_extent<Extent>(n_dimensions)), allocator}
+        , size_{n_elements} {}
 
     explicit SimpleData(size_t n_elements, size_t n_dimensions)
         : SimpleData(n_elements, n_dimensions, Alloc()) {}
@@ -276,7 +278,9 @@ class SimpleData {
     ///// Data Interface
 
     /// Return the number of entries in the dataset.
-    size_t size() const { return getsize<0>(data_); }
+    size_t size() const { return size_; }
+    /// Return the maximum number of entries this dataset can hold.
+    size_t capacity() const { return getsize<0>(data_); }
     /// Return the number of dimensions for each entry in the dataset.
     size_t dimensions() const { return getsize<1>(data_); }
 
@@ -438,13 +442,74 @@ class SimpleData {
         );
     }
 
-    // // Delegate autoloading to the Matcher.
-    // static lib::autoload::Match match_load(const lib::LoadTable& table) {
-    //     return Matcher::template match_load<T, Extent>(table);
-    // }
+    ///
+    /// @brief Resize the dataset to the new size.
+    ///
+    /// Causes a reallocation if ``new_size > capacity()``.
+    /// Growing and shrinking are performed at the end the valid range.
+    ///
+    /// **NOTE**: Resizing that triggers a reallocation will invalidate *all* previously
+    /// obtained pointers!.
+    ///
+    void resize(size_t new_size)
+        requires(!is_view)
+    {
+        resize_impl(new_size, false);
+    }
+
+    ///
+    /// @brief Requests the removal of unused capacity.
+    ///
+    /// It is a non-binding request to reduce ``capacity()`` to ``size()``.
+    /// If relocation occurs, all iterators and previously obtained datums are invalidated.
+    ///
+    void shrink_to_fit()
+        requires(!is_view)
+    {
+        resize_impl(size(), true);
+    }
+
+    template <std::integral I, threads::ThreadPool Pool>
+        requires(!is_const)
+    void compact(
+        std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
+    ) {
+        // Alllocate scratch space.
+        batchsize = std::min(batchsize, size());
+        auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
+        compact_data(*this, buffer, new_to_old, threadpool);
+    }
+
+    template <std::integral I>
+        requires(!is_const)
+    void compact(std::span<const I> new_to_old, size_t batchsize = 1'000'000) {
+        auto pool = threads::SequentialThreadPool();
+        compact(new_to_old, pool, batchsize);
+    }
 
   private:
+    void resize_impl(size_t new_size, bool force_reallocate) {
+        bool forced = force_reallocate && (capacity() != size());
+        if (forced || new_size > capacity()) {
+            auto new_data = array_type{
+                svs::make_dims(new_size, lib::forward_extent<Extent>(dimensions())),
+                get_allocator()};
+
+            // Copy our contents into the new array.
+            // Since the backing array is dense, we can use `memcpy`.
+            std::memcpy(new_data.data(), data(), sizeof(T) * size() * dimensions());
+
+            // Swap out the internal buffer.
+            data_ = std::move(new_data);
+        }
+        // Any change to the underlying buffer has been performed.
+        // We are now safe to change size.
+        size_ = new_size;
+    }
+
+    ///// Members
     array_type data_;
+    size_t size_;
 };
 
 template <typename T1, size_t E1, typename A1, typename T2, size_t E2, typename A2>
@@ -622,6 +687,10 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
         }
     }
 
+    void shrink_to_fit() {
+        // We already shrink when down-sizing, so ``shink_to_fit`` becomes a no-op.
+    }
+
     /////
     ///// Dataset API
     /////
@@ -688,18 +757,17 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     }
 
     ///// Compaction
-    template <typename I, typename A, threads::ThreadPool Pool>
-    void compact(
-        const std::vector<I, A>& new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
-    ) {
+    template <std::integral I, threads::ThreadPool Pool>
+    void
+    compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000) {
         // Alllocate scratch space.
         batchsize = std::min(batchsize, size());
         auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
         compact_data(*this, buffer, new_to_old, threadpool);
     }
 
-    template <typename I, typename A>
-    void compact(const std::vector<I, A>& new_to_old, size_t batchsize = 1'000'000) {
+    template <std::integral I>
+    void compact(std::span<const I> new_to_old, size_t batchsize = 1'000'000) {
         auto pool = threads::SequentialThreadPool();
         compact(new_to_old, pool, batchsize);
     }

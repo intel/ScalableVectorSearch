@@ -25,7 +25,7 @@
 #include <span>
 #include <vector>
 
-using namespace svstest::data;
+using namespace svs_test::data;
 
 CATCH_TEST_CASE("Data view", "[core][data][view]") {
     CATCH_SECTION("Check indices") {

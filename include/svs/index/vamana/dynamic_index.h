@@ -690,7 +690,7 @@ class MutableVamanaIndex {
         }
 
         // Compact the data.
-        data_.compact(new_to_old_id_map, threadpool_, batch_size);
+        data_.compact(lib::as_const_span(new_to_old_id_map), threadpool_, batch_size);
 
         // Manually compact the graph.
         auto temp_graph = graphs::SimpleGraph<Idx>(batch_size, graph_.max_degree());

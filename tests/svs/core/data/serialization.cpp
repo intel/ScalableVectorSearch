@@ -48,7 +48,7 @@ void generate_serialized_file(
     const std::filesystem::path& dir, size_t size, svs::lib::MaybeStatic<N> dims = {}
 ) {
     auto data = svs::data::SimpleData<T, N>(size, dims);
-    svstest::data::set_sequential(data);
+    svs_test::data::set_sequential(data);
     svs::lib::save_to_disk(data, dir);
 }
 

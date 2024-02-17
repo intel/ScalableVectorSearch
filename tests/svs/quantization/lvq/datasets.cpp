@@ -48,8 +48,7 @@ void compare(const std::vector<T>& x, const Other& y) {
 float through_float16(float x) { return svs::Float16(x); }
 
 template <typename T>
-std::vector<T>
-compact_vector(const std::vector<T>& original, const std::vector<size_t> ids) {
+std::vector<T> compact_vector(const std::vector<T>& original, std::span<const size_t> ids) {
     CATCH_REQUIRE(std::is_sorted(ids.begin(), ids.end()));
     auto result = std::vector<T>();
     for (const auto& id : ids) {
@@ -231,9 +230,9 @@ template <typename Reference, typename Dataset> void test_dynamic(Reference x, D
     for (size_t i = 0, imax = x.size(); i < imax; i += 2) {
         compact_ids.push_back(i);
     }
-    auto newx = x.compact(compact_ids);
+    auto newx = x.compact(svs::lib::as_const_span(compact_ids));
     auto other = make_copy(y);
-    other.compact(compact_ids);
+    other.compact(svs::lib::as_const_span(compact_ids));
     other.resize(newx.size());
     test_comparison(newx, other);
 }
@@ -332,7 +331,7 @@ class CompressedReference {
         reference_.insert(reference_.end(), values.begin(), values.end());
     }
 
-    CompressedReference compact(const std::vector<size_t>& indices) {
+    CompressedReference compact(std::span<const size_t> indices) {
         return CompressedReference{compact_vector(reference_, indices)};
     }
 };
@@ -528,7 +527,7 @@ class ScaledBiasedReference {
         biases_.insert(biases_.end(), other.biases_.begin(), other.biases_.end());
     }
 
-    ScaledBiasedReference compact(const std::vector<size_t>& indices) {
+    ScaledBiasedReference compact(std::span<const size_t> indices) {
         return ScaledBiasedReference(
             compact_vector(reference_, indices),
             compact_vector(scales_, indices),
