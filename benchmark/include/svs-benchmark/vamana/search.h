@@ -145,6 +145,11 @@ struct SearchJob {
         };
     }
 
+    template <typename F>
+    auto invoke(F&& f, const Checkpoint& SVS_UNUSED(checkpoiner)) const {
+        return f(dataset_, query_type_, data_type_, distance_, ndims_, *this);
+    }
+
     ///// Save/Load
     static constexpr svs::lib::Version save_version{0, 0, 0};
     static constexpr std::string_view serialization_schema = "benchmark_vamana_search_job";
