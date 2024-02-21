@@ -1,6 +1,7 @@
 // svs-benchmark
 #include "svs-benchmark/vamana/test.h"
 #include "svs-benchmark/benchmark.h"
+#include "svs-benchmark/executable.h"
 #include "svs-benchmark/vamana/leanvec.h"
 #include "svs-benchmark/vamana/lvq.h"
 #include "svs-benchmark/vamana/uncompressed.h"
@@ -23,14 +24,6 @@
 
 namespace svsbenchmark::vamana {
 namespace {
-
-std::vector<vamana::TestFunction> get_generators() {
-    auto generator = std::vector<vamana::TestFunction>();
-    svsbenchmark::append_to(generator, register_uncompressed_test_routines());
-    svsbenchmark::append_to(generator, register_lvq_test_routines());
-    svsbenchmark::append_to(generator, register_leanvec_test_routines());
-    return generator;
-}
 
 const char* HELP = R"(
 Generate reference results for the Vamana index.
@@ -62,97 +55,52 @@ Usage:
 3. Display an example input TOML file to `stdout`.
 )";
 
-void print_help() { fmt::print("{}", HELP); }
-
-void print_example() {
-    using job_type = vamana::VamanaTest;
-    std::cout << "The example provides a skeleton TOML file for static vamana index "
-                 "building\n\n";
-
-    auto table =
-        toml::table({{test_benchmark_name(), svs::lib::save_to_table(job_type::example())}}
-        );
-    std::cout << table << '\n';
-}
-
-int run_benchmark(
-    const std::filesystem::path& config_path,
-    const std::filesystem::path& destination_path,
-    const std::optional<std::filesystem::path>& data_root,
-    size_t num_threads
-) {
-    auto table = toml::parse_file(config_path.native());
-    auto job = svs::lib::load<vamana::VamanaTest>(
-        svs::lib::node_view_at(table, test_benchmark_name()), data_root
-    );
-    auto generators = get_generators();
-
-    // Check that appropriate specializations exist for all jobs.
-    auto results = toml::table({{"start_time", svs::date_time()}});
-    for (const auto& f : generators) {
-        auto [key, job_results] = f(job, num_threads);
-        append_or_create(results, std::move(job_results), key);
-        atomic_save(results, destination_path);
-    }
-    // Save a copy before post-processing just in case.
-    results.emplace("stop_time", svs::date_time());
-    atomic_save(results, destination_path);
-    return 0;
-}
-
-int run_benchmark(std::span<const std::string_view> args) {
-    // Handle argument parsing.
-    // Steps:
-    // * Handle 0 argument cases.
-    // * Deal with special arguments.
-    // * Normal run.
-    auto nargs = args.size();
-    if (nargs == 0) {
-        print_help();
-        return 0;
-    }
-    auto first_arg = args[0];
-    if (first_arg == "help" || first_arg == "--help") {
-        print_help();
-        return 0;
-    }
-    if (first_arg == "--example") {
-        print_example();
-        return 0;
-    }
-
-    // Normal argument parsing.
-    if (nargs < 3 || nargs > 4) {
-        fmt::print("Expected 3 or 4 arguments. Instead, got {}.\n", nargs);
-        print_help();
-        return 0;
-    }
-
-    // At this point, we have the correct number of arguments. Assume we're going to
-    // proceed with a normal run.
-    auto config_path = std::filesystem::path(first_arg);
-    auto destination_path = std::filesystem::path(args[1]);
-    auto num_threads = std::stoull(std::string{args[2]});
-    auto data_root = std::optional<std::filesystem::path>();
-    if (nargs == 4) {
-        data_root = args[3];
-    }
-    return run_benchmark(config_path, destination_path, data_root, num_threads);
-}
-
-class TestGeneration : public Benchmark {
+struct TestGenerator {
   public:
-    TestGeneration() = default;
+    // Type Aliases
+    using job_type = vamana::VamanaTest;
+    using test_type = std::vector<vamana::TestFunction>;
 
-  protected:
-    std::string do_name() const override { return std::string(test_benchmark_name()); }
+    constexpr TestGenerator() = default;
 
-    int do_run(std::span<const std::string_view> args) const override {
-        return run_benchmark(args);
+    static std::string_view name() { return vamana::test_benchmark_name(); }
+
+    static test_type tests() {
+        auto generator = test_type{};
+        svsbenchmark::append_to(generator, register_uncompressed_test_routines());
+        svsbenchmark::append_to(generator, register_lvq_test_routines());
+        svsbenchmark::append_to(generator, register_leanvec_test_routines());
+        return generator;
+    }
+
+    static job_type example() { return job_type::example(); }
+    static void print_help() { fmt::print("{}", HELP); }
+
+    template <typename F>
+    static std::optional<job_type>
+    parse_args_and_invoke(F&& f, std::span<const std::string_view> args) {
+        // We should have 1 or 2 additional arguments to parse, corresponding to the
+        // number of threads and an optional data root.
+        auto nargs = args.size();
+        bool nargs_okay = nargs == 1 || nargs == 2;
+        if (!nargs_okay) {
+            fmt::print("Received too few arguments for Inverted test generation!");
+            print_help();
+            return std::nullopt;
+        }
+
+        auto num_threads = std::stoull(std::string{args[0]});
+        auto data_root = std::optional<std::filesystem::path>();
+        if (nargs == 2) {
+            data_root = args[1];
+        }
+        return f(num_threads, data_root);
     }
 };
 } // namespace
 
 // Return an executor for this benchmark.
-std::unique_ptr<Benchmark> test_generator() { return std::make_unique<TestGeneration>(); }
+std::unique_ptr<Benchmark> test_generator() {
+    return std::make_unique<TestBasedExecutable<TestGenerator>>();
+}
 } // namespace svsbenchmark::vamana

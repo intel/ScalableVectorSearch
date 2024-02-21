@@ -35,6 +35,8 @@ struct VamanaTest {
     // Backend-specific members
     std::filesystem::path leanvec_data_matrix_;
     std::filesystem::path leanvec_query_matrix_;
+    // Runtime values
+    size_t num_threads_;
 
   public:
     VamanaTest(
@@ -46,7 +48,9 @@ struct VamanaTest {
         size_t queries_in_training_set,
         // backend-specific members
         std::filesystem::path leanvec_data_matrix,
-        std::filesystem::path leanvec_query_matrix
+        std::filesystem::path leanvec_query_matrix,
+        // Runtime values
+        size_t num_threads
     )
         : groundtruths_{std::move(groundtruths)}
         , data_f32_{std::move(data_f32)}
@@ -55,7 +59,8 @@ struct VamanaTest {
         , queries_f32_{std::move(queries_f32)}
         , queries_in_training_set_{queries_in_training_set}
         , leanvec_data_matrix_{std::move(leanvec_data_matrix)}
-        , leanvec_query_matrix_{std::move(leanvec_query_matrix)} {}
+        , leanvec_query_matrix_{std::move(leanvec_query_matrix)}
+        , num_threads_{num_threads} {}
 
     static VamanaTest example() {
         return VamanaTest{
@@ -66,7 +71,8 @@ struct VamanaTest {
             "path/to/queries_f32",               // queries_f32
             10000,                               // queries_in_training_set
             "path/to/leanvec_data_matrix",       // LeanVec data matrix
-            "path/to/leanvec_query_matrix"       // LeanVec query matrix
+            "path/to/leanvec_query_matrix",      // LeanVec query matrix
+            0,                                   // Num Threads (not-saved)
         };
     }
 
@@ -105,6 +111,7 @@ struct VamanaTest {
 
     static VamanaTest load(
         const svs::lib::ContextFreeLoadTable& table,
+        size_t num_threads,
         const std::optional<std::filesystem::path>& root = {}
     ) {
         return VamanaTest{
@@ -115,7 +122,8 @@ struct VamanaTest {
             svsbenchmark::extract_filename(table, "queries_f32", root),
             SVS_LOAD_MEMBER_AT_(table, queries_in_training_set),
             svsbenchmark::extract_filename(table, "leanvec_data_matrix", root),
-            svsbenchmark::extract_filename(table, "leanvec_query_matrix", root)};
+            svsbenchmark::extract_filename(table, "leanvec_query_matrix", root),
+            num_threads};
     }
 };
 
@@ -129,7 +137,6 @@ using ExpectedResult = svsbenchmark::ExpectedResultPrototype<
     svs::index::vamana::VamanaSearchParameters>;
 
 // Test functions take the test input and returns a `TestFunctionReturn` with the results.
-using TestFunction =
-    std::function<svsbenchmark::TestFunctionReturn(const VamanaTest&, size_t)>;
+using TestFunction = std::function<svsbenchmark::TestFunctionReturn(const VamanaTest&)>;
 
 } // namespace svsbenchmark::vamana

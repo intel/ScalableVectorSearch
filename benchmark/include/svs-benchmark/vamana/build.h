@@ -265,6 +265,11 @@ struct BuildJob : public BuildJobBase {
         return search_parameters_;
     }
 
+    template <typename F>
+    auto invoke(F&& f, const Checkpoint& SVS_UNUSED(checkpoint)) const {
+        return f(dataset_, query_type_, data_type_, distance_, ndims_, *this);
+    }
+
     // Versioning information for saving and reloading.
     // v0.0.2: Added `queries_in_training_set` field to divide the provided queries into
     //  a training set (for performance calibration) and a test set.
@@ -329,6 +334,10 @@ struct DynamicBuildJob : public BuildJobBase {
     }
 
     size_t queries_in_training_set() const { return queries_in_training_set_; }
+
+    template <typename F> auto invoke(F&& f, const Checkpoint& checkpoint) const {
+        return f(dataset_, query_type_, data_type_, distance_, ndims_, *this, checkpoint);
+    }
 
     // Saving and Loading.
 

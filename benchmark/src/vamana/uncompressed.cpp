@@ -150,7 +150,7 @@ toml::table run_dynamic_uncompressed(
 }
 
 template <typename Eltype, typename Distance>
-svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job, size_t num_threads) {
+svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job) {
     // Get the groundtruth for the distance.
     constexpr svs::DistanceType distance = svs::distance_type_v<Distance>;
     const auto& groundtruth_path = job.groundtruth_for(distance);
@@ -170,7 +170,7 @@ svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job, size_t num_t
         svs::DataType::float32,
         svs::distance_type_v<Distance>,
         Extent(svs::Dynamic),
-        num_threads,
+        job.num_threads_,
         test_search_parameters(),
         test_search_configs()};
 
@@ -186,7 +186,7 @@ svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job, size_t num_t
         svs::GraphLoader{job.graph_},
         data_loader,
         Distance(),
-        num_threads
+        job.num_threads_
     );
     double load_time = svs::lib::time_difference(tic);
     auto queries = svs::data::SimpleData<float>::load(job.queries_f32_);
@@ -208,7 +208,7 @@ svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job, size_t num_t
 }
 
 template <typename Eltype, typename Distance>
-svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job, size_t num_threads) {
+svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
     // Get the groundtruth for the distance.
     constexpr svs::DistanceType distance = svs::distance_type_v<Distance>;
     const auto& groundtruth_path = job.groundtruth_for(distance);
@@ -233,7 +233,7 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job, size_t num_th
         svs::distance_type_v<Distance>,
         Extent(svs::Dynamic),
         build_parameters,
-        num_threads};
+        job.num_threads_};
 
     // Load the components for the test.
     auto tic = svs::lib::now();
@@ -242,8 +242,9 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job, size_t num_th
             svs::lib::Type<Eltype>(), svs::data::SimpleData<float>::load(job.data_f32_)
         );
     });
-    auto index =
-        svs::Vamana::build<float>(build_parameters, data_loader, Distance(), num_threads);
+    auto index = svs::Vamana::build<float>(
+        build_parameters, data_loader, Distance(), job.num_threads_
+    );
     double build_time = svs::lib::time_difference(tic);
     auto queries = svs::data::SimpleData<float>::load(job.queries_f32_);
     auto groundtruth = svs::data::SimpleData<uint32_t>::load(groundtruth_path);
