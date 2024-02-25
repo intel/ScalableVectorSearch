@@ -67,7 +67,7 @@ class MinRange : public CVStorage {
         }
 
         float min{std::numeric_limits<float>::max()};
-        float max{std::numeric_limits<float>::min()};
+        float max{std::numeric_limits<float>::lowest()};
         for (size_t i = 0; i < data.size(); ++i) {
             float val = static_cast<float>(data[i]);
             min = std::min(min, val);
