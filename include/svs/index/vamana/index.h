@@ -24,6 +24,7 @@
 #include "svs/index/vamana/search_buffer.h"
 #include "svs/index/vamana/search_params.h"
 #include "svs/index/vamana/vamana_build.h"
+#include "svs/lib/concurrency/readwrite_protected.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
@@ -167,9 +168,9 @@ struct VamanaIndexParameters {
 /// These can be pre-allocated and passed to the index when performing externally
 /// threaded searches to reduce allocations.
 ///
-/// **NOTE**: The members ``buffer`` and ``scratch`` are part of the public API for
-/// this class. Users are free to access and manipulate these objects. However, doing so
-/// improperly can yield undefined-behavior.
+/// **NOTE**: The members ``buffer``, ``scratch``, and ``prefetch_parameters`` are part of
+/// the public API for this class. Users are free to access and manipulate these objects.
+/// However, doing so incorrectly can yield undefined-behavior.
 ///
 /// Acceptable uses are as follows:
 /// * Changing the max capacity of the buffer (search window size).
@@ -182,13 +183,27 @@ template <typename Buffer, typename Scratch> struct SearchScratchspace {
     // Members
     Buffer buffer;
     Scratch scratch;
+    GreedySearchPrefetchParameters prefetch_parameters;
 
   public:
     // Constructors
-    SearchScratchspace(Buffer buffer_, Scratch scratch_)
+    SearchScratchspace(
+        Buffer buffer_, Scratch scratch_, GreedySearchPrefetchParameters prefetch_parameters
+    )
         : buffer{std::move(buffer_)}
-        , scratch{std::move(scratch_)} {}
+        , scratch{std::move(scratch_)}
+        , prefetch_parameters{prefetch_parameters} {}
 };
+
+// Construct the default search parameters for this index.
+template <data::ImmutableMemoryDataset Data>
+VamanaSearchParameters construct_default_search_parameters(const Data& data) {
+    auto parameters = VamanaSearchParameters();
+    auto default_prefetching = extensions::estimate_prefetch_parameters(data);
+    parameters.prefetch_lookahead(default_prefetching.lookahead);
+    parameters.prefetch_step(default_prefetching.step);
+    return parameters;
+}
 
 ///
 /// @brief Implementation of the static Vamana index.
@@ -243,19 +258,16 @@ class VamanaIndex {
     graph_type graph_;
     data_type data_;
     entry_point_type entry_point_;
-    GreedySearchPrefetchParameters prefetch_parameters_ = {};
-
     // Base distance type.
     distance_type distance_;
-
-    // "prototype" because it is copy-constructed by each thread when it begins working
-    // on a batch of queries.
-    search_buffer_type search_buffer_prototype_ = {};
+    // Thread-pool for batch queries.
     threads::NativeThreadPool threadpool_;
-
+    // Search Parameters (protected for multiple readers and writers).
+    lib::ReadWriteProtected<VamanaSearchParameters> default_search_parameters_{};
     // Construction parameters
     VamanaBuildParameters build_parameters_{};
 
+  private:
     // Methods
   public:
     /// The type of the search resource used for external threading.
@@ -298,10 +310,9 @@ class VamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
-        , prefetch_parameters_{extensions::estimate_prefetch_parameters(data_)}
         , distance_{std::move(distance_function)}
-        , search_buffer_prototype_{}
-        , threadpool_{std::move(threadpool)} {}
+        , threadpool_{std::move(threadpool)}
+        , default_search_parameters_{construct_default_search_parameters(data_)} {}
 
     VamanaIndex(
         Graph graph, Data data, Idx entry_point, Dist distance_function, size_t num_threads
@@ -309,10 +320,9 @@ class VamanaIndex {
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
-        , prefetch_parameters_{extensions::estimate_prefetch_parameters(data_)}
         , distance_{std::move(distance_function)}
-        , search_buffer_prototype_{}
-        , threadpool_{num_threads} {}
+        , threadpool_{num_threads}
+        , default_search_parameters_{construct_default_search_parameters(data_)} {}
 
     ///
     /// @brief Build a VamanaIndex over the given dataset.
@@ -357,7 +367,12 @@ class VamanaIndex {
 
         build_parameters_ = parameters;
         auto builder = VamanaBuilder(
-            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters_
+            graph_,
+            data_,
+            distance_,
+            parameters,
+            threadpool_,
+            extensions::estimate_prefetch_parameters(data_)
         );
         builder.construct(1.0F, entry_point_[0]);
         builder.construct(parameters.alpha, entry_point_[0]);
@@ -373,15 +388,27 @@ class VamanaIndex {
     }
 
     /// @brief Return scratch space resources for external threading.
-    scratchspace_type scratchspace() const {
-        return SearchScratchspace(
-            threads::shallow_copy(search_buffer_prototype_),
-            extensions::single_search_setup(data_, distance_)
-        );
+    scratchspace_type scratchspace(const VamanaSearchParameters& sp) const {
+        return scratchspace_type{
+            search_buffer_type(
+                sp.buffer_config_,
+                distance::comparator(distance_),
+                sp.search_buffer_visited_set_
+            ),
+            extensions::single_search_setup(data_, distance_),
+            {sp.prefetch_lookahead_, sp.prefetch_step_}};
     }
 
-    auto greedy_search_closure() const {
-        return [&](const auto& query, const auto& accessor, auto& distance, auto& buffer) {
+    /// @brief Return scratch-space resources for external threading with default parameters
+    ///
+    /// The default parameters can be accessed using ``get_search_parameters`` and
+    /// ``set_search_parameters``.
+    scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
+
+    auto greedy_search_closure(GreedySearchPrefetchParameters prefetch_parameters) const {
+        return [&, prefetch_parameters](
+                   const auto& query, const auto& accessor, auto& distance, auto& buffer
+               ) {
             greedy_search(
                 graph_,
                 data_,
@@ -391,7 +418,7 @@ class VamanaIndex {
                 buffer,
                 entry_point_,
                 NeighborBuilder(),
-                prefetch_parameters_
+                prefetch_parameters
             );
         };
     }
@@ -413,7 +440,11 @@ class VamanaIndex {
     template <typename Query>
     void search(const Query& query, scratchspace_type& scratch) const {
         extensions::single_search(
-            data_, scratch.buffer, scratch.scratch, query, greedy_search_closure()
+            data_,
+            scratch.buffer,
+            scratch.scratch,
+            query,
+            greedy_search_closure(scratch.prefetch_parameters)
         );
     }
 
@@ -474,11 +505,22 @@ class VamanaIndex {
     ///
     template <data::ImmutableMemoryDataset Queries, typename I>
     void search(const Queries& queries, size_t num_neighbors, QueryResultView<I> result) {
+        // Create a read-only copy of the search parameters prior to thread-launch.
+        const auto sp = default_search_parameters_.get();
         threads::run(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                auto search_buffer = threads::shallow_copy(search_buffer_prototype_);
+                auto search_buffer = search_buffer_type{
+                    SearchBufferConfig(sp.buffer_config_),
+                    distance::comparator(distance_),
+                    sp.search_buffer_visited_set_};
+
+                auto prefetch_parameters = GreedySearchPrefetchParameters{
+                    sp.prefetch_lookahead_, sp.prefetch_step_};
+
+                // Increase the search window size if the defaults are not suitable for the
+                // requested number of neighbors.
                 if (search_buffer.capacity() < num_neighbors) {
                     search_buffer.change_maxsize(SearchBufferConfig{num_neighbors});
                 }
@@ -494,7 +536,7 @@ class VamanaIndex {
                     queries,
                     result,
                     threads::UnitRange{is},
-                    greedy_search_closure()
+                    greedy_search_closure(prefetch_parameters)
                 );
             }
         );
@@ -552,12 +594,7 @@ class VamanaIndex {
     /// These parameters include
     ///
     VamanaSearchParameters get_search_parameters() const {
-        return VamanaSearchParameters(
-            search_buffer_prototype_.config(),
-            search_buffer_prototype_.visited_set_enabled(),
-            prefetch_parameters_.lookahead,
-            prefetch_parameters_.step
-        );
+        return default_search_parameters_.get();
     }
 
     void populate_search_parameters(VamanaSearchParameters& parameters) const {
@@ -565,13 +602,7 @@ class VamanaIndex {
     }
 
     void set_search_parameters(const VamanaSearchParameters& parameters) {
-        search_buffer_prototype_.change_maxsize(parameters.buffer_config_);
-        if (parameters.search_buffer_visited_set_) {
-            search_buffer_prototype_.enable_visited_set();
-        } else {
-            search_buffer_prototype_.disable_visited_set();
-        }
-        prefetch_parameters_ = {parameters.prefetch_lookahead_, parameters.prefetch_step_};
+        default_search_parameters_.set(parameters);
     }
 
     ///
@@ -581,7 +612,11 @@ class VamanaIndex {
     /// Accuracy results should not change as a side-effect of calling this function.
     ///
     void reset_performance_parameters() {
-        prefetch_parameters_ = extensions::estimate_prefetch_parameters(data_);
+        auto p = get_search_parameters();
+        auto prefetch_parameters = extensions::estimate_prefetch_parameters(data_);
+        p.prefetch_lookahead(prefetch_parameters.lookahead);
+        p.prefetch_step(prefetch_parameters.step);
+        set_search_parameters(p);
     }
 
     ///// Parameter manipulation.
