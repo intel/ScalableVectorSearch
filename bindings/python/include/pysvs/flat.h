@@ -13,6 +13,6 @@
 
 #include <pybind11/pybind11.h>
 
-namespace flat {
+namespace pysvs::flat {
 void wrap(pybind11::module& m);
 } // namespace flat

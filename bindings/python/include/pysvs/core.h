@@ -22,13 +22,15 @@
 #include "svs/quantization/lvq/lvq.h"
 
 // pysvs
-#include "common.h"
+#include "pysvs/common.h"
 
 // pybind
 #include <pybind11/pybind11.h>
 
 // stl
 #include <filesystem>
+
+namespace pysvs {
 
 // Type aliases
 template <typename T> using Type = svs::lib::Type<T>;
@@ -61,10 +63,12 @@ struct AnonymousVectorData {
     svs::AnonymousArray<2> underlying() const { return array_; }
 };
 
+}
+
 template <typename T, size_t N>
 struct svs::lib::
-    DispatchConverter<AnonymousVectorData, svs::data::ConstSimpleDataView<T, N>> {
-    static int64_t match(const AnonymousVectorData& data) {
+    DispatchConverter<pysvs::AnonymousVectorData, svs::data::ConstSimpleDataView<T, N>> {
+    static int64_t match(const pysvs::AnonymousVectorData& data) {
         // Types *must* match in order to be compatible.
         if (data.type() != svs::datatype_v<T>) {
             return svs::lib::invalid_match;
@@ -76,10 +80,12 @@ struct svs::lib::
         );
     }
 
-    static svs::data::ConstSimpleDataView<T, N> convert(AnonymousVectorData data) {
+    static svs::data::ConstSimpleDataView<T, N> convert(pysvs::AnonymousVectorData data) {
         return svs::data::ConstSimpleDataView<T, N>(data.underlying());
     }
 };
+
+namespace pysvs {
 
 // Standard loaders.
 using UnspecializedVectorDataLoader = svs::UnspecializedVectorDataLoader<Allocator>;
@@ -126,3 +132,4 @@ using LeanVec = svs::leanvec::ProtoLeanVecLoader<Allocator>;
 namespace core {
 void wrap(pybind11::module& m);
 } // namespace core
+}

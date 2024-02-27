@@ -18,30 +18,6 @@
 
 #include <pybind11/numpy.h>
 
-const size_t Dynamic = svs::Dynamic;
-
-// Exposed Allocators
-// N.B.: As more allocators get implemented, this can be switched to a ``std::variant`` of
-// allocators that will get propagated throughout the code.
-//
-// Support for this might not be fully in place but should be relatively straight-forward
-// to add.
-using Allocator = svs::HugepageAllocator<std::byte>;
-
-// Functor to wrap an allocator inside a blocked struct.
-inline constexpr auto as_blocked = [](const auto& allocator) {
-    return svs::data::Blocked<std::decay_t<decltype(allocator)>>{allocator};
-};
-
-template <typename T>
-using RebindAllocator = typename std::allocator_traits<Allocator>::rebind_alloc<T>;
-
-///
-/// Ensure certain constexpr code-paths aren't reachable at compile time.
-/// Helps ensure "constexpr" if-else chains are exhaustive.
-///
-template <bool T = false> void static_unreachable() { static_assert(T); }
-
 // Implementation here is largely inspired by:
 //
 // https://github.com/pybind/pybind11/issues/1776#issuecomment-491514980W
@@ -65,6 +41,32 @@ template <> struct npy_format_descriptor<svs::Float16> {
     static constexpr auto name = _("float16");
 };
 } // namespace pybind11::detail
+
+namespace pysvs {
+
+const size_t Dynamic = svs::Dynamic;
+
+// Exposed Allocators
+// N.B.: As more allocators get implemented, this can be switched to a ``std::variant`` of
+// allocators that will get propagated throughout the code.
+//
+// Support for this might not be fully in place but should be relatively straight-forward
+// to add.
+using Allocator = svs::HugepageAllocator<std::byte>;
+
+// Functor to wrap an allocator inside a blocked struct.
+inline constexpr auto as_blocked = [](const auto& allocator) {
+    return svs::data::Blocked<std::decay_t<decltype(allocator)>>{allocator};
+};
+
+template <typename T>
+using RebindAllocator = typename std::allocator_traits<Allocator>::rebind_alloc<T>;
+
+///
+/// Ensure certain constexpr code-paths aren't reachable at compile time.
+/// Helps ensure "constexpr" if-else chains are exhaustive.
+///
+template <bool T = false> void static_unreachable() { static_assert(T); }
 
 ///
 /// Alias for the numpy arrays we support.
@@ -219,4 +221,6 @@ transform_optional(F&& f, const std::optional<T>& x) {
         return std::nullopt;
     }
     return std::optional<detail::and_then_return_t<F, const T&>>(f(*x));
+}
+
 }

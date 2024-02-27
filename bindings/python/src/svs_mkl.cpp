@@ -10,7 +10,7 @@
  */
 
 // pysvs
-#include "svs_mkl.h"
+#include "pysvs/svs_mkl.h"
 
 // svs
 #include "svs/lib/preprocessor.h"
@@ -21,14 +21,18 @@
 SVS_VALIDATE_BOOL_ENV(SVS_HAVE_MKL);
 #if not SVS_HAVE_MKL
 
+namespace pysvs {
 bool have_mkl() { return false; }
 std::optional<size_t> mkl_num_threads() { return std::nullopt; }
+} // namespace pysvs
 
 #else
 
 #include <mkl.h>
 
+namespace pysvs {
 bool have_mkl() { return true; }
 std::optional<size_t> mkl_num_threads() { return mkl_get_max_threads(); }
+} // namespace pysvs
 
 #endif

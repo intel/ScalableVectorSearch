@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include "common.h"
-#include "core.h"
+#include "pysvs/common.h"
+#include "pysvs/core.h"
 
 #include "svs/index/vamana/calibrate.h"
 #include "svs/lib/datatype.h"
@@ -25,6 +25,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl/filesystem.h>
 
+namespace pysvs {
 namespace vamana_specializations {
 
 ///
@@ -304,3 +305,4 @@ Calling this method should not affect recall.)"
 
 void wrap(pybind11::module& m);
 } // namespace vamana
+}

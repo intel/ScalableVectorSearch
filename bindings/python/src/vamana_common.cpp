@@ -10,7 +10,7 @@
  */
 
 // pysvs
-#include "vamana_common.h"
+#include "pysvs/vamana_common.h"
 
 // svs
 #include "svs/index/vamana/index.h"
@@ -25,6 +25,7 @@
 
 namespace py = pybind11;
 
+namespace pysvs {
 namespace {
 
 std::string stringify_config(const svs::index::vamana::SearchBufferConfig& c) {
@@ -246,3 +247,4 @@ void wrap_common(py::module& m) {
 }
 
 } // namespace vamana
+} // namespace pysvs

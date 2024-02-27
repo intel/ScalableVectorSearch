@@ -10,12 +10,12 @@
  */
 
 // project local
-#include "dynamic_vamana.h"
-#include "common.h"
-#include "core.h"
-#include "manager.h"
-#include "vamana.h"
-#include "vamana_common.h"
+#include "pysvs/dynamic_vamana.h"
+#include "pysvs/common.h"
+#include "pysvs/core.h"
+#include "pysvs/manager.h"
+#include "pysvs/vamana.h"
+#include "pysvs/vamana_common.h"
 
 // svs
 #include "svs/extensions/vamana/lvq.h"
@@ -35,7 +35,7 @@
 /////
 
 namespace py = pybind11;
-namespace dynamic_vamana {
+namespace pysvs::dynamic_vamana {
 
 namespace {
 
@@ -385,4 +385,4 @@ overwritten when saving the index to this directory.
     );
 }
 
-} // namespace dynamic_vamana
+} // namespace pysvs::dynamic_vamana

@@ -9,10 +9,10 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-#include "flat.h"
-#include "common.h"
-#include "core.h"
-#include "manager.h"
+#include "pysvs/flat.h"
+#include "pysvs/common.h"
+#include "pysvs/core.h"
+#include "pysvs/manager.h"
 
 #include "svs/extensions/flat/lvq.h"
 #include "svs/lib/datatype.h"
@@ -34,7 +34,7 @@
 
 namespace py = pybind11;
 namespace lvq = svs::quantization::lvq;
-namespace flat {
+namespace pysvs::flat {
 
 template <typename F> void for_standard_specializations(F&& f) {
 #define X(Q, T, N) f.template operator()<Q, T, N>()
@@ -255,4 +255,4 @@ void wrap(py::module& m) {
     );
 }
 
-} // namespace flat
+} // namespace pysvs::flat

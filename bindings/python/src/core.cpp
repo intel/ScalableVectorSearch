@@ -10,7 +10,7 @@
  */
 
 // header
-#include "core.h"
+#include "pysvs/core.h"
 
 // svs
 #include "svs/core/data.h"
@@ -27,6 +27,7 @@
 
 namespace py = pybind11;
 
+namespace pysvs {
 namespace {
 
 constexpr std::string_view compression_constructor_proto = R"(
@@ -482,3 +483,4 @@ Args:
     });
 }
 } // namespace core
+} // namespace pysvs

@@ -10,14 +10,14 @@
  */
 
 // Dependencies within the bindings directory.
-#include "allocator.h"
-#include "common.h"
-#include "conversion.h"
-#include "core.h"
-#include "dynamic_vamana.h"
-#include "flat.h"
-#include "svs_mkl.h"
-#include "vamana.h"
+#include "pysvs/allocator.h"
+#include "pysvs/common.h"
+#include "pysvs/conversion.h"
+#include "pysvs/core.h"
+#include "pysvs/dynamic_vamana.h"
+#include "pysvs/flat.h"
+#include "pysvs/svs_mkl.h"
+#include "pysvs/vamana.h"
 
 // SVS dependencies
 #include "svs/core/distance.h"
@@ -50,6 +50,8 @@
 #endif
 
 namespace py = pybind11;
+
+namespace {
 
 // Convert fvecs to float16
 void convert_fvecs_to_float16(
@@ -136,6 +138,8 @@ class ScopedModuleNameOverride {
     py::object original_name_;
 };
 
+}
+
 PYBIND11_MODULE(PYSVS_MODULE_NAME, m) {
     // Internall, the top level `__init__.py` imports everything from the C++ module named
     // `_pysvs`.
@@ -189,27 +193,27 @@ Args:
     wrap_conversion(m);
 
     // Allocators
-    allocators::wrap(m);
+    pysvs::allocators::wrap(m);
 
     // Core data types
-    core::wrap(m);
+    pysvs::core::wrap(m);
 
     // Dataset conversion.
-    conversion::wrap(m);
+    pysvs::conversion::wrap(m);
 
     // mkl
-    m.def("have_mkl", &have_mkl, "Return whether or not pysvs is linked with MKL.");
+    m.def("have_mkl", &pysvs::have_mkl, "Return whether or not pysvs is linked with MKL.");
     m.def(
         "mkl_num_threads",
-        &mkl_num_threads,
+        &pysvs::mkl_num_threads,
         "Return the number of threads used by MKL, or None if pysvs is not linked with MKL."
     );
 
     ///// Indexes
     // Flat
-    flat::wrap(m);
+    pysvs::flat::wrap(m);
 
     // Vamana
-    vamana::wrap(m);
-    dynamic_vamana::wrap(m);
+    pysvs::vamana::wrap(m);
+    pysvs::dynamic_vamana::wrap(m);
 }

@@ -12,7 +12,7 @@
 #pragma once
 
 // Bindings
-#include "common.h"
+#include "pysvs/common.h"
 
 // SVS
 #include "svs/orchestrators/manager.h"
@@ -24,6 +24,7 @@
 // stdlib
 #include <concepts>
 
+namespace pysvs {
 template <typename QueryType, typename Manager>
 pybind11::tuple py_search(
     Manager& self,
@@ -93,4 +94,5 @@ template <typename Manager> void add_data_interface(pybind11::class_<Manager>& m
         &Manager::dimensions,
         "Return the logical number of dimensions for each vector in the dataset."
     );
+}
 }

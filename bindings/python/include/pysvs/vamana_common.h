@@ -11,9 +11,11 @@
 
 #pragma once
 
-// pybind
 #include <pybind11/pybind11.h>
 
-namespace conversion {
-void wrap(pybind11::module& m);
-} // namespace conversion
+// Wraps the following data structures:
+// svs::index::vamana::SearchBufferConfig
+// svs::index::vamana::VamanaSearchParameters
+namespace pysvs::vamana {
+void wrap_common(pybind11::module& m);
+}

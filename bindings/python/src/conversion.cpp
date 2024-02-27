@@ -9,9 +9,9 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-#include "conversion.h"
-#include "common.h"
-#include "core.h"
+#include "pysvs/conversion.h"
+#include "pysvs/common.h"
+#include "pysvs/core.h"
 
 // svs
 #include "svs/quantization/lvq/lvq.h"
@@ -28,6 +28,7 @@
 namespace lvq = svs::quantization::lvq;
 namespace py = pybind11;
 
+namespace pysvs {
 namespace {
 
 template <typename F> void register_specializations(F&& f) {
@@ -158,3 +159,4 @@ void wrap(py::module& m) {
 }
 
 } // namespace conversion
+} // namespace pysvs
