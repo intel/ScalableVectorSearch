@@ -98,6 +98,12 @@ foreach(MICRO OPT_FLAGS IN ZIP_LISTS PYSVS_MICROARCHS OPTIMIZATION_FLAGS)
     message("OPT Flags: ${OPT_FLAGS}")
     target_compile_options(${LIB_NAME} PRIVATE ${OPT_FLAGS})
 
+    # Header files.
+    target_include_directories(
+        ${LIB_NAME}
+        PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+    )
+
     # Comunicate to the C++ library the desired name of the library
     target_compile_options(${LIB_NAME} PRIVATE "-DPYSVS_MODULE_NAME=${LIB_NAME}")
 
@@ -123,6 +129,13 @@ if(DEFINED SKBUILD)
     # This is kind of a hack to avoid the needing to explicitly move JSON file into the
     # source folder of the python library.
     install(FILES ${FLAGS_MANIFEST_JSON} DESTINATION .)
+
+    # Install header files.
+    install(
+        DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/include/pysvs"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+        FILES_MATCHING PATTERN "*.h"
+    )
 
     # Installation for serialized objects upgrading.
     # Upgrading SVS objects from global serialization version ``v0.0.1`` to ``v0.0.2``

@@ -9,13 +9,17 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-#pragma once
+#include <optional>
 
-#include <pybind11/pybind11.h>
+namespace pysvs {
 
-// Wraps the following data structures:
-// svs::index::vamana::SearchBufferConfig
-// svs::index::vamana::VamanaSearchParameters
-namespace vamana {
-void wrap_common(pybind11::module& m);
+/// Return `true` if pysvs was build to link with MKL. Otherwise, return `false`.
+bool have_mkl();
+
+///
+/// @brief Return the number of threads used by MKL.
+///
+/// If ``have_mkl()`` returns false, return an empty optional.
+std::optional<size_t> mkl_num_threads();
+
 }

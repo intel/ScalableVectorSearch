@@ -11,11 +11,11 @@
 
 #pragma once
 
-#include "core.h"
+#include "pysvs/core.h"
 
 #include <pybind11/pybind11.h>
 
-namespace dynamic_vamana {
+namespace pysvs::dynamic_vamana {
 
 // Specializations
 template <typename F> void for_standard_specializations(F&& f) {

@@ -10,12 +10,12 @@
  */
 
 // project local
-#include "vamana.h"
-#include "common.h"
-#include "core.h"
-#include "dispatch.h"
-#include "manager.h"
-#include "vamana_common.h"
+#include "pysvs/vamana.h"
+#include "pysvs/common.h"
+#include "pysvs/core.h"
+#include "pysvs/dispatch.h"
+#include "pysvs/manager.h"
+#include "pysvs/vamana_common.h"
 
 // svs
 #include "svs/core/data/simple.h"
@@ -48,9 +48,9 @@ namespace py = pybind11;
 namespace lvq = svs::quantization::lvq;
 namespace leanvec = svs::leanvec;
 
-using namespace vamana_specializations;
+using namespace pysvs::vamana_specializations;
 
-namespace vamana {
+namespace pysvs::vamana {
 namespace detail {
 
 namespace lvq = svs::quantization::lvq;
@@ -650,4 +650,4 @@ overwritten when saving the index to this directory.
     )"
     );
 }
-} // namespace vamana
+} // namespace pysvs::vamana
