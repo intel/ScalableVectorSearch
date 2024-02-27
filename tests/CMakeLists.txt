@@ -74,6 +74,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/type_traits.cpp
     ${TEST_DIR}/svs/lib/version.cpp
     ${TEST_DIR}/svs/lib/uuid.cpp
+    ${TEST_DIR}/svs/lib/concurrency/readwrite_protected.cpp
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp
     ${TEST_DIR}/svs/third-party/toml.cpp
