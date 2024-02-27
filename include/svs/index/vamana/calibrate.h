@@ -255,7 +255,7 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
     using enum CalibrationParameters::SearchBufferOptimization;
     using dataset_type = typename Index::data_type;
 
-    double max_recall = std::numeric_limits<double>::min();
+    double max_recall = std::numeric_limits<double>::lowest();
     const size_t current_capacity = current.buffer_config_.get_total_capacity();
     auto state = calibration_parameters.search_buffer_optimization_;
     bool use_current_capacity = (state == ROITuneUp);

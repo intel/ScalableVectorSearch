@@ -64,7 +64,7 @@ template <std::integral I> struct Sentinel<I, std::less<>> {
 };
 
 template <std::integral I> struct Sentinel<I, std::greater<>> {
-    static constexpr I value = std::numeric_limits<I>::min();
+    static constexpr I value = std::numeric_limits<I>::lowest();
 };
 
 template <std::floating_point F> struct Sentinel<F, std::less<>> {
@@ -72,7 +72,7 @@ template <std::floating_point F> struct Sentinel<F, std::less<>> {
 };
 
 template <std::floating_point F> struct Sentinel<F, std::greater<>> {
-    static constexpr F value = std::numeric_limits<F>::min();
+    static constexpr F value = std::numeric_limits<F>::lowest();
 };
 
 ///
@@ -88,7 +88,7 @@ template <typename T, typename Cmp> struct TombStone;
 template <typename T, typename Cmp> constexpr T tombstone_v = TombStone<T, Cmp>::value;
 
 template <std::integral I> struct TombStone<I, std::less<>> {
-    static constexpr I value = std::numeric_limits<I>::min();
+    static constexpr I value = std::numeric_limits<I>::lowest();
 };
 
 template <std::integral I> struct TombStone<I, std::greater<>> {
@@ -96,7 +96,7 @@ template <std::integral I> struct TombStone<I, std::greater<>> {
 };
 
 template <std::floating_point F> struct TombStone<F, std::less<>> {
-    static constexpr F value = std::numeric_limits<F>::min();
+    static constexpr F value = std::numeric_limits<F>::lowest();
 };
 
 template <std::floating_point F> struct TombStone<F, std::greater<>> {

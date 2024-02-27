@@ -71,6 +71,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/threads/thread.cpp
     ${TEST_DIR}/svs/lib/threads/threadlocal.cpp
     ${TEST_DIR}/svs/lib/threads/threadpool.cpp
+    ${TEST_DIR}/svs/lib/type_traits.cpp
     ${TEST_DIR}/svs/lib/version.cpp
     ${TEST_DIR}/svs/lib/uuid.cpp
     # Third Party
