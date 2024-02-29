@@ -37,7 +37,7 @@ if os.environ.get("PYSVS_MULTIARCH", None) is not None:
 
 setup(
     name="pysvs",
-    version="0.0.4",
+    version="0.0.3",
     packages=['pysvs'],
     package_dir={'': 'src'},
     cmake_install_dir='src/pysvs',
