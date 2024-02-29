@@ -131,7 +131,7 @@ template <size_t Residual> class ResidualEncoder : public CVStorage {
     CompressedVector<Signed, Residual, Primary::extent, Sequential>
     operator()(const Primary& primary, lib::AnySpanLike auto data) {
         // Compute the scaling factor for the residual.
-        float decompressor = primary.get_scale() / (std::pow(2, Residual));
+        float decompressor = primary.get_scale() / (std::pow(2, Residual) - 1);
         float compressor = 1.0f / decompressor;
 
         // Round the difference between the primary compression and the
