@@ -53,13 +53,19 @@ namespace svs::index::vamana {
 ///
 enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 };
 
-template <SlotMetadata Metadata> inline std::string name();
-template <> inline std::string name<SlotMetadata::Empty>() { return "Empty"; }
-template <> inline std::string name<SlotMetadata::Valid>() { return "Valid"; }
-template <> inline std::string name<SlotMetadata::Deleted>() { return "Deleted"; }
+template <SlotMetadata Metadata> inline constexpr std::string_view name();
+template <> inline constexpr std::string_view name<SlotMetadata::Empty>() {
+    return "Empty";
+}
+template <> inline constexpr std::string_view name<SlotMetadata::Valid>() {
+    return "Valid";
+}
+template <> inline constexpr std::string_view name<SlotMetadata::Deleted>() {
+    return "Deleted";
+}
 
 // clang-format off
-inline std::string name(SlotMetadata metadata) {
+inline constexpr std::string_view name(SlotMetadata metadata) {
     #define SVS_SWITCH_RETURN(x) case x: { return name<x>(); }
     switch (metadata) {
         SVS_SWITCH_RETURN(SlotMetadata::Empty)
@@ -67,8 +73,7 @@ inline std::string name(SlotMetadata metadata) {
         SVS_SWITCH_RETURN(SlotMetadata::Deleted)
     }
     #undef SVS_SWITCH_RETURN
-    // make GCC happy
-    return "unreachable";
+    throw ANNEXCEPTION("Unreachable!");
 }
 // clang-format on
 
@@ -433,7 +438,6 @@ class MutableVamanaIndex {
 
     template <data::ImmutableMemoryDataset Queries, typename I>
     void search(const Queries& queries, size_t num_neighbors, QueryResultView<I> result) {
-        SkipBuilder builder{status_};
         const auto sp = get_search_parameters();
         threads::run(
             threadpool_,
