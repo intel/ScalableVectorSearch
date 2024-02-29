@@ -138,7 +138,7 @@ class ScopedModuleNameOverride {
     py::object original_name_;
 };
 
-}
+} // namespace
 
 PYBIND11_MODULE(PYSVS_MODULE_NAME, m) {
     // Internall, the top level `__init__.py` imports everything from the C++ module named

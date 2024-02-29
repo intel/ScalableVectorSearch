@@ -48,9 +48,7 @@ template <typename T> class ReadWriteProtected {
     }
 
     /// @brief Move construction by move-assigning the shared object.
-    ReadWriteProtected(ReadWriteProtected&& other) {
-        set(std::move(other).get());
-    }
+    ReadWriteProtected(ReadWriteProtected&& other) { set(std::move(other).get()); }
 
     /// @brief Move assignment by move-assigning the shared object.
     ReadWriteProtected& operator=(ReadWriteProtected&& other) {
