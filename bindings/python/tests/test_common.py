@@ -48,7 +48,7 @@ class CommonTester(unittest.TestCase):
     #####
 
     def test_version(self):
-        self.assertEqual(pysvs.library_version(), "v0.0.3")
+        self.assertEqual(pysvs.library_version(), "v0.0.4")
 
     def test_random_dataset(self):
         for dtype in (np.float32, np.uint32, np.uint8):
