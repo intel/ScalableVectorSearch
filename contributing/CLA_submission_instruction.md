@@ -4,6 +4,7 @@ If you are an individual constributor, i.e., you own the contribution rights you
 
 For entities, e.g., companies and non-profit organizations, please sign `CLA_entity.md` (digital signatures are acceptable) and submit by email to svs-maintainers@intel.com.
 
+The required fields for both forms are located within an HTML table located near the bottom.
 An example of a digital signature is shown below.
 ```
 <table>
