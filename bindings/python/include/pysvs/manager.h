@@ -95,4 +95,36 @@ template <typename Manager> void add_data_interface(pybind11::class_<Manager>& m
         "Return the logical number of dimensions for each vector in the dataset."
     );
 }
+namespace detail {
+
+template <typename Index>
+py_contiguous_array_t<float>
+reconstruct(Index& index, py_contiguous_array_t<uint64_t> ids) {
+    auto data_dims = index.dimensions();
+    const size_t num_ids = ids.size();
+    // Create a flat buffer for the destination.
+    // We will reshape is appropriately before returning.
+    auto destination = py_contiguous_array_t<float>({num_ids, data_dims});
+    index.reconstruct_at(
+        mutable_data_view(destination),
+        std::span<const uint64_t>(ids.template mutable_unchecked().mutable_data(), num_ids)
+    );
+
+    // Reshape the destination to have the same shape as the original IDs (plus the extra
+    // dimension for the data vectors themselves.
+    auto final_shape = std::vector<size_t>{};
+    size_t ndim = svs::lib::narrow<size_t>(ids.ndim());
+    for (size_t i = 0; i < ndim; ++i) {
+        final_shape.push_back(ids.shape(i));
+    }
+    final_shape.push_back(data_dims);
+    return destination.reshape({std::move(final_shape)});
+}
+
+} // namespace detail
+
+template <typename Manager>
+void add_reconstruct_interface(pybind11::class_<Manager>& manager) {
+    manager.def("reconstruct", &detail::reconstruct<Manager>, pybind11::arg("ids"));
+}
 }

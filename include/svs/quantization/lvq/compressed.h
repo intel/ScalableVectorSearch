@@ -172,6 +172,10 @@ class CompressedVectorBase {
     static constexpr size_t bits = Bits;
     /// Return the compile-time length of the vector, or ``Dynamic`` if unknown.
     static constexpr size_t extent = Extent;
+    /// The maximum encoding value.
+    static constexpr value_type max() { return encoding_type::max(); }
+    /// The minimum encoding value.
+    static constexpr value_type min() { return encoding_type::min(); }
 
     /// The compile-time number of bytes used for the underlying bytes the compressed
     /// vector interprets.

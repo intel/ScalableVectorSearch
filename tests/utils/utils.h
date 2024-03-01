@@ -182,6 +182,12 @@ template <> struct TypeName<double> {
 template <typename T> std::string type_name() { return TypeName<T>::name(); }
 
 /////
+///// Permute a range of indices.
+/////
+
+std::vector<uint64_t> permute_indices(size_t max_id);
+
+/////
 ///// Matcher
 /////
 

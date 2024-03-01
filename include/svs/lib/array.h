@@ -749,6 +749,9 @@ template <typename T> using Vector = DenseArray<T, std::tuple<size_t>>;
 /// @brief Dynamically sized matrix.
 template <typename T> using Matrix = DenseArray<T, std::tuple<size_t, size_t>>;
 
+/// @brief Dynamically sized, unresizeable vector.
+template <typename T> using VectorView = DenseArray<T, std::tuple<size_t>, View<T>>;
+
 /// @brief Dynamically sized matrix view.
 template <typename T> using MatrixView = DenseArray<T, std::tuple<size_t, size_t>, View<T>>;
 

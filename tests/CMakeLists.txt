@@ -37,6 +37,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/utils/benchmarks.cpp
     ${TEST_DIR}/utils/generators.cpp
     ${TEST_DIR}/utils/inverted_reference.cpp
+    ${TEST_DIR}/utils/lvq_reconstruction.cpp
     ${TEST_DIR}/utils/require_error.cpp
     ${TEST_DIR}/utils/schemas.cpp
     ${TEST_DIR}/utils/test_dataset.cpp

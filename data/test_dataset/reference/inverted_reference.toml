@@ -1,5 +1,5 @@
-start_time = 2023-12-21T18:03:24
-stop_time = 2023-12-21T18:04:29
+start_time = 2024-02-15T18:20:18
+stop_time = 2024-02-15T18:21:25
 
 [[inverted_test_build]]
 __schema__ = 'benchmark_expected_result'
@@ -49,7 +49,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.25455555555555553
+    recall = 0.25488888888888889
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
@@ -71,13 +71,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51333333333333331
+    recall = 0.51344444444444448
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 20.0
+        refinement_epsilon = 1.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -93,13 +93,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.8024444444444444
+    recall = 0.80255555555555558
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 20.0
+        refinement_epsilon = 10.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -186,7 +186,7 @@ distance = 'MIP'
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 10.0
+        refinement_epsilon = 1.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -246,13 +246,13 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90011111111111108
+    recall = 0.90033333333333332
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 2.0
+        refinement_epsilon = 20.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -313,13 +313,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.254
+    recall = 0.25344444444444447
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 5.0
+        refinement_epsilon = 2.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -335,13 +335,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51288888888888884
+    recall = 0.51255555555555554
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 5.0
+        refinement_epsilon = 0.80000000000000004
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -357,13 +357,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80000000000000004
+    recall = 0.80088888888888887
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 0.80000000000000004
+        refinement_epsilon = 1.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -424,7 +424,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24122222222222223
+    recall = 0.25033333333333335
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
@@ -446,13 +446,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51433333333333331
+    recall = 0.51344444444444448
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 10.0
+        refinement_epsilon = 2.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -468,22 +468,22 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80100000000000005
+    recall = 0.8004444444444444
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 5.0
+        refinement_epsilon = 10.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
             __version__ = 'v0.0.1'
             prefetch_lookahead = 4
             prefetch_step = 1
-            search_buffer_capacity = 70
+            search_buffer_capacity = 68
             search_buffer_visited_set = false
-            search_window_size = 70
+            search_window_size = 68
 
 [[inverted_test_build]]
 __schema__ = 'benchmark_expected_result'
@@ -535,13 +535,13 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2021111111111111
+    recall = 0.20122222222222222
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 10.0
+        refinement_epsilon = 20.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -557,7 +557,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50377777777777777
+    recall = 0.50411111111111107
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
@@ -579,13 +579,13 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80166666666666664
+    recall = 0.80088888888888887
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 10.0
+        refinement_epsilon = 2.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -646,13 +646,13 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2018888888888889
+    recall = 0.2058888888888889
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 20.0
+        refinement_epsilon = 1.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -668,35 +668,35 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5033333333333333
+    recall = 0.50022222222222223
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 0.80000000000000004
+        refinement_epsilon = 10.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
             __version__ = 'v0.0.1'
             prefetch_lookahead = 4
             prefetch_step = 1
-            search_buffer_capacity = 20
+            search_buffer_capacity = 19
             search_buffer_visited_set = false
-            search_window_size = 20
+            search_window_size = 19
 
     [[inverted_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80033333333333334
+    recall = 0.80077777777777781
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 2.0
+        refinement_epsilon = 20.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'

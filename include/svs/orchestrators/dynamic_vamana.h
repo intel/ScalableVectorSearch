@@ -204,6 +204,11 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         impl_->save(config_dir, graph_dir, data_dir);
     }
 
+    /// Reconstruction
+    void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids) {
+        impl_->reconstruct_at(data, ids);
+    }
+
     // Building
     template <typename QueryType, data::ImmutableMemoryDataset Data, typename Distance>
     static DynamicVamana build(

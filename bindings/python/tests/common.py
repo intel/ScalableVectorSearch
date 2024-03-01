@@ -12,6 +12,9 @@
 from pathlib import Path
 import time
 import unittest
+import numpy as np
+
+import pysvs.common
 
 # Logic for enumerating the paths to the test dataset.
 # We start with the current file and go up to the root
@@ -119,3 +122,34 @@ def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     # For short lived processes, we generally see closer to a 3x speedup than a 4x
     # speedup when using 4 threads.
     testcase.assertTrue(1.3 * new_time < base_time)
+
+
+def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: int = 0):
+    """
+    Test that the reconstructed values are within the expected tolerance for LVQ compressed
+    data.
+
+    Arguments:
+        - original: The original, uncompressed data.
+        - reconstucted: The reconstructed data.
+
+    Keyword Arguments:
+        - primary_bits: The number of bits in the primary encoding.
+        - residual_bits: The number of bits in the residual encoding.
+    """
+
+    # Obtain the difference between the maximum and minimum values in the pre-processed
+    # dataset.
+    spans = pysvs.common.get_lvq_range(original)
+
+    # Compute the max delta for each component of the dataset.
+    # NOTE: We *should* divide by another factor of two here, but there are some values in
+    # the LVQ quantization space that will exceed this threshold due to compression
+    # limitations.
+    #
+    # See the C++ tests for LVQ reconstruction for a more complete explanation.
+    deltas = spans / (((2 ** primary_bits) - 1) * (2 ** residual_bits))
+
+    # Ensure that each reconstructed value is within the target threshold (plus a tiny
+    # fudge factor to help offset rounding imprecision.
+    return np.all(np.abs(original - reconstructed) <= (deltas + 1 / 8192))

@@ -186,4 +186,16 @@ constexpr bool svs_invoke(svs::index::vamana::extensions::UsesReranking<Dataset>
     return true;
 }
 
+/////
+///// Reconstruct
+/////
+
+template <IsLVQDataset Data>
+lvq::DecompressionAccessor svs_invoke(
+    svs::tag_t<svs::index::vamana::extensions::reconstruct_accessor> SVS_UNUSED(cpo),
+    const Data& dataset
+) {
+    return lvq::DecompressionAccessor{dataset};
+}
+
 } // namespace svs::quantization::lvq

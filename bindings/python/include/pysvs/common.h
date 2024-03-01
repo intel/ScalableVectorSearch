@@ -143,6 +143,23 @@ data_view(const pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
 }
 
 ///
+/// Create a read-write data view over a numpy array.
+///
+/// @tparam Eltype The element type of the array.
+///
+/// @param data The numpy array to alias.
+///
+template <typename Eltype>
+svs::data::SimpleDataView<Eltype>
+mutable_data_view(pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
+    return svs::data::SimpleDataView<Eltype>(
+        data.template mutable_unchecked<2>().mutable_data(0, 0),
+        data.shape(0),
+        data.shape(1)
+    );
+}
+
+///
 /// Create a read-write MatrixView over a numpy array.
 ///
 /// @tparam Eltype The element type of the numpy array and returned MatrixView.

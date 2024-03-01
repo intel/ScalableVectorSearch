@@ -679,6 +679,29 @@ adapt_for_self(const Data& dataset, const Distance& SVS_UNUSED(distance)) {
 }
 
 /////
+///// Decompression Accessor
+/////
+
+// A composition of ``GetDatumAccessor`` and a vector decompressor.
+// For one-level datasets, this performs the standard decompression.
+// For two-level datasets, this decompresses both the primary and residual.
+class DecompressionAccessor {
+  public:
+    template <IsLVQDataset Data>
+    DecompressionAccessor(const Data& dataset)
+        : decompressor_{dataset.view_centroids()} {}
+
+    // Access
+    template <IsLVQDataset Data>
+    std::span<const float> operator()(const Data& dataset, size_t i) {
+        return decompressor_(dataset.get_datum(i));
+    }
+
+  private:
+    lvq::Decompressor decompressor_;
+};
+
+/////
 ///// Load Helpers
 /////
 

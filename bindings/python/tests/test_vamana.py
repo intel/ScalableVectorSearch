@@ -273,7 +273,7 @@ class VamanaTester(unittest.TestCase):
         self.assertEqual(vamana.size, test_number_of_vectors)
 
         # The dimensionality exposed by the index should always match the original
-        # dataset dimensionsj.
+        # dataset dimensions.
         self.assertEqual(vamana.dimensions, test_dimensions)
 
         # Test setting the window size.

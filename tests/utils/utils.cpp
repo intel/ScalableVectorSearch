@@ -9,17 +9,19 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-#include <cassert>
-#include <exception>
-#include <fstream>
-#include <iostream>
-#include <string>
-
 #include "svs/lib/float16.h"
 
 #include "catch2/catch_test_macros.hpp"
 
 #include "tests/utils/utils.h"
+
+#include <cassert>
+#include <exception>
+#include <fstream>
+#include <iostream>
+#include <random>
+#include <string>
+#include <vector>
 
 bool svs_test::compare_files(const std::string& a, const std::string& b) {
     auto x = std::ifstream(a, std::ifstream::binary | std::ifstream::ate);
@@ -45,6 +47,19 @@ bool svs_test::compare_files(const std::string& a, const std::string& b) {
         std::istreambuf_iterator<char_type>(),
         std::istreambuf_iterator<char_type>(y)
     );
+}
+
+std::vector<uint64_t> svs_test::permute_indices(size_t max_id) {
+    // Construct a scrambled version of the ids to retrieve.
+    auto ids = std::vector<uint64_t>(max_id);
+    for (size_t i = 0; i < max_id; ++i) {
+        ids.at(i) = i;
+    }
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(ids.begin(), ids.end(), g);
+    return ids;
 }
 
 void svs_test::Lens::apply(toml::table* table, bool expect_exists) const {

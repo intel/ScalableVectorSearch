@@ -200,4 +200,46 @@ constexpr bool svs_invoke(svs::index::vamana::extensions::UsesReranking<Dataset>
     return true;
 }
 
+/////
+///// Reconstruction
+/////
+
+namespace detail {
+template <IsLeanDataset Data> using secondary_dataset_type = typename Data::secondary_type;
+
+// An auxiliary accessor that accesses the secondary dataset using the nested accessor.
+template <typename T> struct SecondaryReconstructor {
+    // The return-type dance here basically says that we return whetever the result of
+    // invoking the `secondary_accessor_` on the secondary dataset returns.
+    template <IsLeanDataset Data>
+    std::invoke_result_t<T, const secondary_dataset_type<Data>&, size_t>
+    operator()(const Data& data, size_t i) {
+        return secondary_accessor_(data.view_secondary_dataset(), i);
+    }
+
+    ///// Members
+    // Auxiliary accessor for the secondary dataset.
+    T secondary_accessor_;
+};
+
+// Get the type of the accessor returned by the secondary dataset for this customization
+// point object.
+template <IsLeanDataset Data>
+using secondary_accessor_t = svs::svs_invoke_result_t<
+    svs::tag_t<svs::index::vamana::extensions::reconstruct_accessor>,
+    const detail::secondary_dataset_type<Data>&>;
+
+} // namespace detail
+
+// Compose the reconstruction accessor for the secondary dataset with an accessor that
+// grabs the secondary dataset.
+template <IsLeanDataset Dataset>
+detail::SecondaryReconstructor<detail::secondary_accessor_t<Dataset>> svs_invoke(
+    svs::tag_t<svs::index::vamana::extensions::reconstruct_accessor> cpo,
+    const Dataset& data
+) {
+    using T = detail::secondary_accessor_t<Dataset>;
+    return detail::SecondaryReconstructor<T>{cpo(data.view_secondary_dataset())};
+}
+
 } // namespace svs::leanvec

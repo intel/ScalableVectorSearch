@@ -27,6 +27,37 @@ namespace svs::lib {
 
 ///
 /// @ingroup algorithms
+/// @brief A simple aggregate containing a minimum and maximum value.
+///
+template <typename T> struct MinMax {
+    /// Members
+    T min;
+    T max;
+
+    /// A static initializer to keep this class a simple aggregate.
+    static MinMax init() {
+        return MinMax{
+            .min = std::numeric_limits<T>::max(), .max = std::numeric_limits<T>::lowest()};
+    }
+
+    void update(T x) {
+        min = std::min(min, x);
+        max = std::max(max, x);
+    }
+};
+
+template <typename Begin, typename End>
+MinMax<typename std::iterator_traits<Begin>::value_type> extrema(Begin begin, End end) {
+    using T = typename std::iterator_traits<Begin>::value_type;
+    auto mm = MinMax<T>::init();
+    for (auto it = begin; it != end; ++it) {
+        mm.update(*it);
+    }
+    return mm;
+}
+
+///
+/// @ingroup algorithms
 /// @brief Check if all elements in the range ``[begin, end)`` are unique.
 ///
 /// @param begin Forward iterator to the beginning of the range.

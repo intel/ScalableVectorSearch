@@ -49,12 +49,12 @@ template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
 // Define as `packed` because the start byte is not necessarily aligned to the 2-byte
 // boundary usually required by float16.
 struct __attribute__((packed)) ScalarBundle {
-    Float16 scale;
-    Float16 bias;
+    scaling_t scale;
+    scaling_t bias;
     selector_t selector;
 };
 // Ensure the compiler respects our request for packing.
-static_assert(sizeof(ScalarBundle) == 2 * sizeof(Float16) + sizeof(selector_t));
+static_assert(sizeof(ScalarBundle) == 2 * sizeof(scaling_t) + sizeof(selector_t));
 
 ///
 /// Layout for `ScaledBiasedVector` where the scaling constants are stored inline after the
@@ -114,9 +114,7 @@ class ScaledBiasedVectorLayout {
         auto cv = vector(raw_data);
         cv.copy_from(src);
         auto bundle = ScalarBundle{
-            lib::relaxed_narrow<Float16>(scale),
-            lib::relaxed_narrow<Float16>(bias),
-            selector};
+            lvq::through_scaling_type(scale), lvq::through_scaling_type(bias), selector};
         auto* start = raw_data.data() + cv.size_bytes();
         memcpy(start, &bundle, sizeof(ScalarBundle));
     }

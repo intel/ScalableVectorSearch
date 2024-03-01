@@ -539,4 +539,25 @@ template <typename Data> struct UsesReranking {
 
 template <typename Data> inline constexpr UsesReranking<Data> calibration_uses_reranking{};
 
+/////
+///// Reconstruct Vector
+/////
+
+struct Reconstruct {
+    template <data::ImmutableMemoryDataset Data> auto operator()(const Data& data) const {
+        return svs::svs_invoke(*this, data);
+    }
+};
+
+// Customization point for reconstructing vectors.
+inline constexpr Reconstruct reconstruct_accessor{};
+
+template <typename T, size_t Extent, typename Alloc>
+SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
+    svs::tag_t<reconstruct_accessor> SVS_UNUSED(cpo),
+    const data::SimpleData<T, Extent, Alloc>& SVS_UNUSED(dataset)
+) {
+    return data::GetDatumAccessor();
+}
+
 } // namespace svs::index::vamana::extensions

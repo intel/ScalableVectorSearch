@@ -76,6 +76,33 @@ of previously serialized SVS objects.
   index = pysvs.Vamana("config", "graph", loader)
   ```
 
+* The Vamana and DynamicVamana indexes now have a reconstruction interface.
+  This has the form
+  ```python
+  index = pysvs.Vamana(...)
+  vectors = index.reconstruct(I)
+  ```
+  where `I` is a arbitrary dimenaional `numpy` array of `uint64` indices.
+  This API returns reconstructed vectors as a `numpy` array with the shape
+  ```python
+  vectors.shape == (*I.shape, index.dimensions())
+  ```
+
+  In particular, the following now works:
+  ```python
+  I, D = index.search(...)
+  vectors = index.reconstruct(I)
+  ```
+  **Requirements**
+  * For `pysvs.Vamana` the indices in `I` must all in `[0, index.size())`.
+  * For `pysvs.DynamicVamana`, the in `I` must be in `index.all_ids()`.
+
+  **Reconstruction Semantics**
+  * Uncompressed data is returned directly (potentially promoting to `float32`).
+  * LVQ compressed data is reconstructed using this highest precision possible. For two
+    level datasets, boths levels will be used.
+  * LeanVec datasets will reconstruct using the full-precision secondary dataset.
+
 * Added an upgrade tool `pysvs.upgrader.upgrade` to upgrade the serialization layout of SVS
   objects.
 
@@ -89,9 +116,19 @@ of previously serialized SVS objects.
 
   While most of the top level API remains unchanged, users are encouraged to look at the
   at the definitions of these classes in `include/svs/lib/saveload/load.h` to understand
+
   their capabilities and API.
 * Added a new optional loading function `try_load -> svs::lib::Expected` which tries to load
   an object from a table and fails gracefully without an exception if it cannot.
 
   This API enables discovery and matching of previously serialized object, allowing
   implementation of the auto-loading functionality in `pysvs`.
+
+* Added the following member functions to `pysvs::Vamana` and `pysvs::DynamicVamana`
+  ```c++
+  void reconstruct_at(svs::data::SimpleDataView<float> data, std::span<const uint64_t> ids);
+  ```
+  which will reconstruct the vector indices in `ids` into the destination `data`.
+
+  See the description in the release notes for `pysvs` regarding the semantics of
+  reconstruction.

@@ -614,6 +614,9 @@ void wrap(py::module& m) {
     // Vamana Specific Extensions.
     add_interface(vamana);
 
+    // Reconstruction.
+    add_reconstruct_interface(vamana);
+
     ///// Index building
     // Build from Numpy array.
     detail::add_build_specialization<svs::Float16>(vamana);

@@ -74,7 +74,7 @@ template <size_t Bits, size_t Extent, typename Strategy = DefaultStrategy>
 struct ScaledBiasedVector {
   public:
     using strategy = Strategy;
-    using scalar_type = Float16;
+    using scalar_type = lvq::scaling_t;
     using auxiliary_type = ScaleBias;
     using vector_type = CompressedVector<Unsigned, Bits, Extent, Strategy>;
     using mutable_vector_type = MutableCompressedVector<Unsigned, Bits, Extent, Strategy>;
@@ -101,14 +101,31 @@ struct ScaledBiasedVector {
     size_t size() const { return data.size(); }
     selector_t get_selector() const { return selector; }
     float get_scale() const { return scale; }
+    float get_bias() const { return bias; }
     vector_type vector() const { return data; }
 
     const std::byte* pointer() const { return data.data(); }
     constexpr size_t size_bytes() const { return data.size_bytes(); }
 
-    // Distance computation helprs.
+    // Distance computation helpers.
     auxiliary_type prepare_aux() const {
         return ScaleBias{static_cast<float>(scale), static_cast<float>(bias)};
+    }
+
+    // Logical equivalence.
+    template <size_t E2, LVQPackingStrategy OtherStrategy>
+    bool logically_equivalent_to(const ScaledBiasedVector<Bits, E2, OtherStrategy>& other
+    ) const {
+        // Maybe be able to always return false if extent checks fail.
+        if constexpr (Extent != Dynamic && E2 != Dynamic && Extent != E2) {
+            return false;
+        }
+        // Compare scalar constants.
+        if (scale != other.scale || bias != other.bias || selector != other.selector) {
+            return false;
+        }
+        // Otherwise, we
+        return logically_equal(data, other.data);
     }
 
     ///// Members
@@ -149,6 +166,9 @@ struct ScaledBiasedWithResidual {
     /// Return the centroid selector.
     selector_t get_selector() const { return primary_.get_selector(); }
 
+    float get_scale() const { return primary_.get_scale() / std::pow(2, Residual); }
+    float get_bias() const { return primary_.get_bias(); }
+
     /// Prepare for distance computations.
     auxiliary_type prepare_aux() const {
         auto aux = primary_.prepare_aux();
@@ -160,8 +180,18 @@ struct ScaledBiasedWithResidual {
         return Combined<Primary, Residual, N, Strategy>{primary_.vector(), residual_};
     }
 
+    template <size_t N2, LVQPackingStrategy OtherStrategy>
+    bool logically_equivalent_to(
+        const ScaledBiasedWithResidual<Primary, Residual, N2, OtherStrategy>& other
+    ) const {
+        // Recurse over each member.
+        if (!logically_equal(primary_, other.primary_)) {
+            return false;
+        }
+        return logically_equal(residual_, other.residual_);
+    }
+
     ///// Members
-  public:
     // For now - only the primary vector is allowed to have variable strategy.
     // The residual is always kept as sequential due to implementation challenges and
     // somewhat dubious ROI.

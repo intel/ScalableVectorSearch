@@ -16,6 +16,7 @@
 #include "svs/orchestrators/vamana.h"
 
 // tests
+#include "tests/utils/lvq_reconstruction.h" // To check LVQ reconstruction.
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -38,6 +39,35 @@
 
 namespace leanvec = svs::leanvec;
 namespace {
+
+template <size_t N>
+void check_reconstruction(
+    svs::Vamana& index,
+    svs::data::ConstSimpleDataView<float, N> original,
+    size_t lvq_bits // zero for non-lvq
+) {
+    auto ids = svs_test::permute_indices(original.size());
+    auto dst = svs::data::SimpleData<float>(original.size(), original.dimensions());
+    index.reconstruct_at(dst.view(), ids);
+    auto shuffled = svs::data::SimpleData<float>(original.size(), original.dimensions());
+    for (size_t i = 0; i < original.size(); ++i) {
+        shuffled.set_datum(i, original.get_datum(ids.at(i)));
+    }
+
+    // Uncompressed residual
+    if (lvq_bits == 0) {
+        for (size_t i = 0, imax = original.size(); i < imax; ++i) {
+            auto r = dst.get_datum(i);
+            auto o = shuffled.get_datum(i);
+            CATCH_REQUIRE(r.size() == o.size());
+            for (size_t j = 0, jmax = r.size(); j < jmax; ++j) {
+                CATCH_REQUIRE(std::abs(r[j] - o[j]) <= 1.0e-4);
+            }
+        }
+    } else {
+        svs_test::check_lvq_reconstruction(shuffled.cview(), dst.cview(), lvq_bits, 0);
+    }
+}
 
 void run_search(
     svs::Vamana& index,
@@ -97,6 +127,7 @@ void run_search(
 template <leanvec::IsLeanDataset Data, typename Distance>
 void test_search(
     Data data,
+    const svs::data::SimpleData<float, Data::extent>& original,
     const Distance& distance,
     const svs::data::SimpleData<float>& queries,
     const svs::data::SimpleData<uint32_t>& groundtruth,
@@ -105,9 +136,10 @@ void test_search(
 ) {
     size_t num_threads = 2;
 
+    auto secondary_kind = svsbenchmark::leanvec_kind_v<typename Data::secondary_data_type>;
     auto kind = svsbenchmark::LeanVec(
         svsbenchmark::leanvec_kind_v<typename Data::primary_data_type>,
-        svsbenchmark::leanvec_kind_v<typename Data::secondary_data_type>,
+        secondary_kind,
         data.inner_dimensions()
     );
     if (!is_pca) {
@@ -154,6 +186,27 @@ void test_search(
     CATCH_REQUIRE(reloaded.size() == test_dataset::VECTORS_IN_DATA_SET);
     CATCH_REQUIRE(reloaded.dimensions() == test_dataset::NUM_DIMENSIONS);
     run_search(index, queries, groundtruth, expected_results.config_and_recall_, false);
+
+    // Determine the number of LVQ bits.
+    size_t lvq_bits = 0;
+    switch (secondary_kind) {
+        // Order from highest number of LVQ bits to the lowest number so if we forget a
+        // fallthrough, at least the test fails.
+        case svsbenchmark::LeanVecKind::lvq8: {
+            lvq_bits = 8;
+            break;
+        }
+        case svsbenchmark::LeanVecKind::lvq4: {
+            lvq_bits = 4;
+            break;
+        }
+        case svsbenchmark::LeanVecKind::float32:
+        case svsbenchmark::LeanVecKind::float16: {
+            lvq_bits = 0;
+            break;
+        }
+    }
+    check_reconstruction(index, original.cview(), lvq_bits);
 }
 
 } // namespace
@@ -191,6 +244,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
 
         test_search(
             leanvec::LeanDataset<float, float, 64, E>::reduce(data),
+            data,
             distance,
             queries,
             gt,
@@ -203,6 +257,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
             leanvec::LeanDataset<float, float, svs::Dynamic, E>::reduce(
                 data, 1, 0, leanvec_dims
             ),
+            data,
             distance,
             queries,
             gt
@@ -211,6 +266,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
             leanvec::LeanDataset<leanvec::UsingLVQ<4>, leanvec::UsingLVQ<4>, 64, E>::reduce(
                 data
             ),
+            data,
             distance,
             queries,
             gt
@@ -219,6 +275,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
             leanvec::LeanDataset<leanvec::UsingLVQ<4>, leanvec::UsingLVQ<8>, 64, E>::reduce(
                 data
             ),
+            data,
             distance,
             queries,
             gt
@@ -227,6 +284,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
             leanvec::LeanDataset<leanvec::UsingLVQ<8>, leanvec::UsingLVQ<4>, 64, E>::reduce(
                 data
             ),
+            data,
             distance,
             queries,
             gt
@@ -235,17 +293,23 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
             leanvec::LeanDataset<leanvec::UsingLVQ<8>, leanvec::UsingLVQ<8>, 64, E>::reduce(
                 data
             ),
+            data,
             distance,
             queries,
             gt
         );
         test_search(
-            leanvec::LeanDataset<float, float, 96, E>::reduce(data), distance, queries, gt
+            leanvec::LeanDataset<float, float, 96, E>::reduce(data),
+            data,
+            distance,
+            queries,
+            gt
         );
         test_search(
             leanvec::LeanDataset<leanvec::UsingLVQ<8>, leanvec::UsingLVQ<8>, 96, E>::reduce(
                 data
             ),
+            data,
             distance,
             queries,
             gt
@@ -260,6 +324,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
 
         test_search(
             leanvec::LeanDataset<float, float, LeanVecDims, E>::reduce(data, matrices),
+            data,
             distance,
             queries,
             gt,
@@ -269,6 +334,7 @@ CATCH_TEST_CASE("LeanVec Vamana Search", "[integration][search][vamana][leanvec]
             leanvec::
                 LeanDataset<leanvec::UsingLVQ<8>, leanvec::UsingLVQ<8>, LeanVecDims, E>::
                     reduce(data, matrices),
+            data,
             distance,
             queries,
             gt,

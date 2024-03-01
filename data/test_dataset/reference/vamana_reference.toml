@@ -1,5 +1,5 @@
-start_time = 2024-01-17T00:49:30
-stop_time = 2024-01-17T00:52:14
+start_time = 2024-02-16T06:00:33
+stop_time = 2024-02-16T06:01:57
 
 [[vamana_test_build]]
 __schema__ = 'benchmark_expected_result'
@@ -32,7 +32,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.40044444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -49,7 +49,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.40044444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -66,7 +66,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.40044444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -83,7 +83,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.40044444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -100,7 +100,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.40044444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -117,7 +117,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.40044444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -151,7 +151,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51233333333333331
+    recall = 0.51188888888888884
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -159,7 +159,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 17
+        search_buffer_capacity = 18
         search_buffer_visited_set = false
         search_window_size = 16
 
@@ -168,7 +168,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80100000000000005
+    recall = 0.80111111111111111
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -185,7 +185,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.89755555555555555
+    recall = 0.89722222222222225
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -228,7 +228,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24522222222222223
+    recall = 0.245
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -245,7 +245,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24522222222222223
+    recall = 0.245
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -262,7 +262,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24522222222222223
+    recall = 0.245
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -279,7 +279,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24522222222222223
+    recall = 0.245
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -296,7 +296,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24522222222222223
+    recall = 0.245
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -313,7 +313,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24522222222222223
+    recall = 0.245
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -330,7 +330,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.21055555555555555
+    recall = 0.21188888888888888
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -347,7 +347,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50288888888888894
+    recall = 0.5033333333333333
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -364,7 +364,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80266666666666664
+    recall = 0.80300000000000005
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -424,7 +424,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23344444444444445
+    recall = 0.23266666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -441,7 +441,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23344444444444445
+    recall = 0.23266666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -458,7 +458,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23344444444444445
+    recall = 0.23266666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -475,7 +475,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23344444444444445
+    recall = 0.23266666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -492,7 +492,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23344444444444445
+    recall = 0.23266666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -509,7 +509,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23344444444444445
+    recall = 0.23266666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -526,7 +526,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.21811111111111112
+    recall = 0.21744444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -543,7 +543,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50600000000000001
+    recall = 0.50388888888888894
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -551,7 +551,7 @@ distance = 'Cosine'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 35
+        search_buffer_capacity = 34
         search_buffer_visited_set = false
         search_window_size = 34
 
@@ -560,7 +560,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.8004444444444444
+    recall = 0.80066666666666664
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -577,7 +577,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.81422222222222218
+    recall = 0.81455555555555559
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -620,7 +620,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.3998888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -637,7 +637,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.3998888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -654,7 +654,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.3998888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -671,7 +671,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.3998888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -688,7 +688,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.3998888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -705,7 +705,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39955555555555555
+    recall = 0.3998888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -739,7 +739,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51233333333333331
+    recall = 0.51122222222222224
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -756,7 +756,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80100000000000005
+    recall = 0.80166666666666664
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -773,7 +773,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.89766666666666661
+    recall = 0.89711111111111108
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -816,7 +816,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24533333333333332
+    recall = 0.24477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -833,7 +833,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24533333333333332
+    recall = 0.24477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -850,7 +850,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24533333333333332
+    recall = 0.24477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -867,7 +867,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24533333333333332
+    recall = 0.24477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -884,7 +884,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24533333333333332
+    recall = 0.24477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -901,7 +901,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24533333333333332
+    recall = 0.24477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -918,7 +918,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.21077777777777779
+    recall = 0.21244444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -935,7 +935,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50288888888888894
+    recall = 0.50388888888888894
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -952,7 +952,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80277777777777781
+    recall = 0.80322222222222217
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -969,7 +969,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.83666666666666667
+    recall = 0.83644444444444443
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1012,7 +1012,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23366666666666666
+    recall = 0.23300000000000001
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1029,7 +1029,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23366666666666666
+    recall = 0.23300000000000001
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1046,7 +1046,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23366666666666666
+    recall = 0.23300000000000001
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1063,7 +1063,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23366666666666666
+    recall = 0.23300000000000001
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1080,7 +1080,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23366666666666666
+    recall = 0.23300000000000001
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1097,7 +1097,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23366666666666666
+    recall = 0.23300000000000001
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1114,7 +1114,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.21833333333333332
+    recall = 0.21777777777777776
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1131,7 +1131,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50622222222222224
+    recall = 0.50355555555555553
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1139,7 +1139,7 @@ distance = 'Cosine'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 35
+        search_buffer_capacity = 34
         search_buffer_visited_set = false
         search_window_size = 34
 
@@ -1148,7 +1148,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.8004444444444444
+    recall = 0.80011111111111111
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1165,7 +1165,7 @@ distance = 'Cosine'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.81422222222222218
+    recall = 0.81355555555555559
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1210,7 +1210,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.40311111111111109
+    recall = 0.40477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1227,7 +1227,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.40311111111111109
+    recall = 0.40477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1244,7 +1244,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.40311111111111109
+    recall = 0.40477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1261,7 +1261,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.40311111111111109
+    recall = 0.40477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1278,7 +1278,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.40311111111111109
+    recall = 0.40477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1295,7 +1295,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.40311111111111109
+    recall = 0.40477777777777779
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1312,7 +1312,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.22677777777777777
+    recall = 0.22755555555555557
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1329,7 +1329,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51188888888888884
+    recall = 0.51377777777777778
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1346,7 +1346,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80177777777777781
+    recall = 0.8024444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1354,7 +1354,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 61
+        search_buffer_capacity = 63
         search_buffer_visited_set = false
         search_window_size = 57
 
@@ -1363,7 +1363,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.89422222222222225
+    recall = 0.89300000000000002
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1408,7 +1408,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24577777777777779
+    recall = 0.24444444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1425,7 +1425,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24577777777777779
+    recall = 0.24444444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1442,7 +1442,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24577777777777779
+    recall = 0.24444444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1459,7 +1459,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24577777777777779
+    recall = 0.24444444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1476,7 +1476,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24577777777777779
+    recall = 0.24444444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1493,7 +1493,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24577777777777779
+    recall = 0.24444444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1510,7 +1510,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.20944444444444443
+    recall = 0.20566666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1527,7 +1527,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50155555555555553
+    recall = 0.50177777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1535,7 +1535,7 @@ distance = 'MIP'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 32
+        search_buffer_capacity = 31
         search_buffer_visited_set = false
         search_window_size = 30
 
@@ -1544,7 +1544,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80200000000000005
+    recall = 0.80188888888888887
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1552,16 +1552,16 @@ distance = 'MIP'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 97
+        search_buffer_capacity = 94
         search_buffer_visited_set = false
-        search_window_size = 89
+        search_window_size = 88
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.8322222222222222
+    recall = 0.8348888888888889
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1606,7 +1606,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39055555555555554
+    recall = 0.39166666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1623,7 +1623,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39055555555555554
+    recall = 0.39166666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1640,7 +1640,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39055555555555554
+    recall = 0.39166666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1657,7 +1657,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39055555555555554
+    recall = 0.39166666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1674,7 +1674,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39055555555555554
+    recall = 0.39166666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1691,7 +1691,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.39055555555555554
+    recall = 0.39166666666666666
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1708,7 +1708,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.224
+    recall = 0.221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1725,7 +1725,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50422222222222224
+    recall = 0.50577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1742,7 +1742,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80066666666666664
+    recall = 0.80333333333333334
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1750,7 +1750,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 64
+        search_buffer_capacity = 61
         search_buffer_visited_set = false
         search_window_size = 56
 
@@ -1759,7 +1759,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.89633333333333332
+    recall = 0.89555555555555555
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1804,7 +1804,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24811111111111112
+    recall = 0.24733333333333332
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1821,7 +1821,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24811111111111112
+    recall = 0.24733333333333332
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1838,7 +1838,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24811111111111112
+    recall = 0.24733333333333332
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1855,7 +1855,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24811111111111112
+    recall = 0.24733333333333332
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1872,7 +1872,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24811111111111112
+    recall = 0.24733333333333332
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1889,7 +1889,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.24811111111111112
+    recall = 0.24733333333333332
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1906,7 +1906,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.20922222222222223
+    recall = 0.21255555555555555
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1923,7 +1923,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50588888888888894
+    recall = 0.50255555555555553
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1940,7 +1940,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80133333333333334
+    recall = 0.80055555555555558
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -1948,16 +1948,16 @@ distance = 'MIP'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 98
+        search_buffer_capacity = 100
         search_buffer_visited_set = false
-        search_window_size = 88
+        search_window_size = 87
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.8328888888888889
+    recall = 0.83499999999999996
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2004,7 +2004,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.12544444444444444
+    recall = 0.12577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2021,7 +2021,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.12544444444444444
+    recall = 0.12577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2038,7 +2038,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.12544444444444444
+    recall = 0.12577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2055,7 +2055,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.12544444444444444
+    recall = 0.12577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2072,7 +2072,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.12544444444444444
+    recall = 0.12577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2089,7 +2089,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.12544444444444444
+    recall = 0.12577777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2106,7 +2106,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.20722222222222222
+    recall = 0.20355555555555555
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2114,7 +2114,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 27
+        search_buffer_capacity = 26
         search_buffer_visited_set = false
         search_window_size = 10
 
@@ -2123,7 +2123,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5006666666666667
+    recall = 0.50188888888888894
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2131,9 +2131,9 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 92
+        search_buffer_capacity = 94
         search_buffer_visited_set = false
-        search_window_size = 52
+        search_window_size = 50
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
@@ -2204,7 +2204,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.13222222222222221
+    recall = 0.13322222222222221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2221,7 +2221,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.13222222222222221
+    recall = 0.13322222222222221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2238,7 +2238,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.13222222222222221
+    recall = 0.13322222222222221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2255,7 +2255,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.13222222222222221
+    recall = 0.13322222222222221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2272,7 +2272,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.13222222222222221
+    recall = 0.13322222222222221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2289,7 +2289,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.13222222222222221
+    recall = 0.13322222222222221
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2306,407 +2306,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2028888888888889
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 20
-        search_buffer_visited_set = false
-        search_window_size = 14
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.50044444444444447
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 87
-        search_buffer_visited_set = false
-        search_window_size = 66
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.55966666666666665
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 100
-        search_buffer_visited_set = false
-        search_window_size = 100
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.55966666666666665
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 100
-        search_buffer_visited_set = false
-        search_window_size = 100
-
-[[vamana_test_build]]
-__schema__ = 'benchmark_expected_result'
-__version__ = 'v0.0.0'
-distance = 'L2'
-
-    [vamana_test_build.build_parameters]
-    __schema__ = 'vamana_build_parameters'
-    __version__ = 'v0.0.1'
-    alpha = 1.2000000476837158
-    graph_max_degree = 32
-    max_candidate_pool_size = 250
-    name = 'vamana build parameters'
-    prune_to = 28
-    use_full_search_history = true
-    window_size = 100
-
-    [vamana_test_build.dataset]
-    __schema__ = 'benchmark_dataset_abstract'
-    __version__ = 'v0.0.0'
-    kind = 'leanvec'
-
-        [vamana_test_build.dataset.dataset]
-        __schema__ = 'benchmark_dataset_leanvec'
-        __version__ = 'v0.0.1'
-        data_matrix = ''
-        leanvec_dims = 64
-        primary = 'lvq8'
-        query_matrix = ''
-        secondary = 'lvq8'
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.12622222222222224
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 1
-        search_buffer_visited_set = false
-        search_window_size = 1
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.12622222222222224
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 2
-        search_buffer_visited_set = false
-        search_window_size = 2
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.12622222222222224
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 3
-        search_buffer_visited_set = false
-        search_window_size = 3
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.12622222222222224
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 4
-        search_buffer_visited_set = false
-        search_window_size = 4
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.12622222222222224
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 5
-        search_buffer_visited_set = false
-        search_window_size = 5
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.12622222222222224
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 10
-        search_buffer_visited_set = false
-        search_window_size = 10
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.20655555555555555
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 25
-        search_buffer_visited_set = false
-        search_window_size = 11
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.5006666666666667
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 95
-        search_buffer_visited_set = false
-        search_window_size = 47
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.55766666666666664
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 100
-        search_buffer_visited_set = false
-        search_window_size = 100
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.55766666666666664
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 100
-        search_buffer_visited_set = false
-        search_window_size = 100
-
-[[vamana_test_build]]
-__schema__ = 'benchmark_expected_result'
-__version__ = 'v0.0.0'
-distance = 'MIP'
-
-    [vamana_test_build.build_parameters]
-    __schema__ = 'vamana_build_parameters'
-    __version__ = 'v0.0.1'
-    alpha = 0.94999998807907104
-    graph_max_degree = 32
-    max_candidate_pool_size = 250
-    name = 'vamana build parameters'
-    prune_to = 28
-    use_full_search_history = true
-    window_size = 100
-
-    [vamana_test_build.dataset]
-    __schema__ = 'benchmark_dataset_abstract'
-    __version__ = 'v0.0.0'
-    kind = 'leanvec'
-
-        [vamana_test_build.dataset.dataset]
-        __schema__ = 'benchmark_dataset_leanvec'
-        __version__ = 'v0.0.1'
-        data_matrix = ''
-        leanvec_dims = 64
-        primary = 'lvq8'
-        query_matrix = ''
-        secondary = 'lvq8'
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.13422222222222221
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 1
-        search_buffer_visited_set = false
-        search_window_size = 1
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.13422222222222221
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 2
-        search_buffer_visited_set = false
-        search_window_size = 2
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.13422222222222221
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 3
-        search_buffer_visited_set = false
-        search_window_size = 3
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.13422222222222221
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 4
-        search_buffer_visited_set = false
-        search_window_size = 4
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.13422222222222221
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 5
-        search_buffer_visited_set = false
-        search_window_size = 5
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.13422222222222221
-    recall_k = 10
-
-        [vamana_test_build.config_and_recall.search_parameters]
-        __schema__ = 'vamana_search_parameters'
-        __version__ = 'v0.0.1'
-        prefetch_lookahead = 4
-        prefetch_step = 1
-        search_buffer_capacity = 10
-        search_buffer_visited_set = false
-        search_window_size = 10
-
-    [[vamana_test_build.config_and_recall]]
-    __schema__ = 'benchmark_config_and_result'
-    __version__ = 'v0.0.0'
-    num_neighbors = 10
-    num_queries = 900
-    recall = 0.2058888888888889
+    recall = 0.20377777777777778
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2723,7 +2323,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50044444444444447
+    recall = 0.50122222222222224
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2731,16 +2331,16 @@ distance = 'MIP'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 87
+        search_buffer_capacity = 94
         search_buffer_visited_set = false
-        search_window_size = 67
+        search_window_size = 59
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.56033333333333335
+    recall = 0.55988888888888888
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2757,7 +2357,407 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.56033333333333335
+    recall = 0.55988888888888888
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 100
+        search_buffer_visited_set = false
+        search_window_size = 100
+
+[[vamana_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'L2'
+
+    [vamana_test_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
+    __version__ = 'v0.0.1'
+    alpha = 1.2000000476837158
+    graph_max_degree = 32
+    max_candidate_pool_size = 250
+    name = 'vamana build parameters'
+    prune_to = 28
+    use_full_search_history = true
+    window_size = 100
+
+    [vamana_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'leanvec'
+
+        [vamana_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_leanvec'
+        __version__ = 'v0.0.1'
+        data_matrix = ''
+        leanvec_dims = 64
+        primary = 'lvq8'
+        query_matrix = ''
+        secondary = 'lvq8'
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.12322222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 1
+        search_buffer_visited_set = false
+        search_window_size = 1
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.12322222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 2
+        search_buffer_visited_set = false
+        search_window_size = 2
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.12322222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 3
+        search_buffer_visited_set = false
+        search_window_size = 3
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.12322222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 4
+        search_buffer_visited_set = false
+        search_window_size = 4
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.12322222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 5
+        search_buffer_visited_set = false
+        search_window_size = 5
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.12322222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 10
+        search_buffer_visited_set = false
+        search_window_size = 10
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.20166666666666666
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 29
+        search_buffer_visited_set = false
+        search_window_size = 9
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.5003333333333333
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 99
+        search_buffer_visited_set = false
+        search_window_size = 45
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.55944444444444441
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 100
+        search_buffer_visited_set = false
+        search_window_size = 100
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.55944444444444441
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 100
+        search_buffer_visited_set = false
+        search_window_size = 100
+
+[[vamana_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'MIP'
+
+    [vamana_test_build.build_parameters]
+    __schema__ = 'vamana_build_parameters'
+    __version__ = 'v0.0.1'
+    alpha = 0.94999998807907104
+    graph_max_degree = 32
+    max_candidate_pool_size = 250
+    name = 'vamana build parameters'
+    prune_to = 28
+    use_full_search_history = true
+    window_size = 100
+
+    [vamana_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'leanvec'
+
+        [vamana_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_leanvec'
+        __version__ = 'v0.0.1'
+        data_matrix = ''
+        leanvec_dims = 64
+        primary = 'lvq8'
+        query_matrix = ''
+        secondary = 'lvq8'
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.13144444444444445
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 1
+        search_buffer_visited_set = false
+        search_window_size = 1
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.13144444444444445
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 2
+        search_buffer_visited_set = false
+        search_window_size = 2
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.13144444444444445
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 3
+        search_buffer_visited_set = false
+        search_window_size = 3
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.13144444444444445
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 4
+        search_buffer_visited_set = false
+        search_window_size = 4
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.13144444444444445
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 5
+        search_buffer_visited_set = false
+        search_window_size = 5
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.13144444444444445
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 10
+        search_buffer_visited_set = false
+        search_window_size = 10
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.20222222222222222
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 30
+        search_buffer_visited_set = false
+        search_window_size = 10
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50211111111111106
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 100
+        search_buffer_visited_set = false
+        search_window_size = 56
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.55855555555555558
+    recall_k = 10
+
+        [vamana_test_build.config_and_recall.search_parameters]
+        __schema__ = 'vamana_search_parameters'
+        __version__ = 'v0.0.1'
+        prefetch_lookahead = 4
+        prefetch_step = 1
+        search_buffer_capacity = 100
+        search_buffer_visited_set = false
+        search_window_size = 100
+
+    [[vamana_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.55855555555555558
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2804,7 +2804,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.15244444444444444
+    recall = 0.15566666666666668
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2821,7 +2821,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.15244444444444444
+    recall = 0.15566666666666668
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2838,7 +2838,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.15244444444444444
+    recall = 0.15566666666666668
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2855,7 +2855,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.15244444444444444
+    recall = 0.15566666666666668
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2872,7 +2872,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.15244444444444444
+    recall = 0.15566666666666668
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2889,7 +2889,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.15244444444444444
+    recall = 0.15566666666666668
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2906,7 +2906,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.20677777777777778
+    recall = 0.20644444444444446
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2914,7 +2914,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 25
+        search_buffer_capacity = 24
         search_buffer_visited_set = false
         search_window_size = 8
 
@@ -2923,7 +2923,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50211111111111106
+    recall = 0.50366666666666671
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2931,16 +2931,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 75
+        search_buffer_capacity = 98
         search_buffer_visited_set = false
-        search_window_size = 45
+        search_window_size = 33
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.62822222222222224
+    recall = 0.62877777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -2957,7 +2957,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.62822222222222224
+    recall = 0.62877777777777777
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3004,7 +3004,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.18155555555555555
+    recall = 0.18344444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3021,7 +3021,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.18155555555555555
+    recall = 0.18344444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3038,7 +3038,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.18155555555555555
+    recall = 0.18344444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3055,7 +3055,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.18155555555555555
+    recall = 0.18344444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3072,7 +3072,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.18155555555555555
+    recall = 0.18344444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3089,7 +3089,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.18155555555555555
+    recall = 0.18344444444444444
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3106,7 +3106,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.20200000000000001
+    recall = 0.20544444444444446
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3114,16 +3114,16 @@ distance = 'MIP'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 13
+        search_buffer_capacity = 15
         search_buffer_visited_set = false
-        search_window_size = 10
+        search_window_size = 9
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50422222222222224
+    recall = 0.5
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3131,16 +3131,16 @@ distance = 'MIP'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 4
         prefetch_step = 1
-        search_buffer_capacity = 65
+        search_buffer_capacity = 60
         search_buffer_visited_set = false
-        search_window_size = 36
+        search_window_size = 37
 
     [[vamana_test_build.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.68133333333333335
+    recall = 0.68188888888888888
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3157,7 +3157,7 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.68133333333333335
+    recall = 0.68188888888888888
     recall_k = 10
 
         [vamana_test_build.config_and_recall.search_parameters]
@@ -3542,7 +3542,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.75922222222222224
+    recall = 0.75866666666666671
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3559,7 +3559,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.84044444444444444
+    recall = 0.83955555555555561
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3576,7 +3576,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.30877777777777776
+    recall = 0.30855555555555558
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3593,7 +3593,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.55966666666666665
+    recall = 0.5003333333333333
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3603,14 +3603,14 @@ distance = 'L2'
         prefetch_step = 1
         search_buffer_capacity = 10
         search_buffer_visited_set = false
-        search_window_size = 4
+        search_window_size = 3
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.81455555555555559
+    recall = 0.81299999999999994
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3627,7 +3627,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90366666666666662
+    recall = 0.90333333333333332
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3635,7 +3635,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 24
+        search_buffer_capacity = 23
         search_buffer_visited_set = false
         search_window_size = 23
 
@@ -3661,7 +3661,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.7055555555555556
+    recall = 0.7045555555555556
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3678,7 +3678,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.75955555555555554
+    recall = 0.76055555555555554
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3695,7 +3695,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.30133333333333334
+    recall = 0.30044444444444446
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3712,7 +3712,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5441111111111111
+    recall = 0.54322222222222227
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3729,7 +3729,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.8014444444444444
+    recall = 0.80177777777777781
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3746,7 +3746,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.84033333333333338
+    recall = 0.84088888888888891
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3780,7 +3780,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.75188888888888894
+    recall = 0.74977777777777777
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3797,7 +3797,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.82222222222222219
+    recall = 0.82188888888888889
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3814,7 +3814,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.30133333333333334
+    recall = 0.30044444444444446
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3831,7 +3831,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5441111111111111
+    recall = 0.54322222222222227
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3848,7 +3848,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80411111111111111
+    recall = 0.80733333333333335
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3856,7 +3856,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 14
+        search_buffer_capacity = 15
         search_buffer_visited_set = false
         search_window_size = 14
 
@@ -3865,7 +3865,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90477777777777779
+    recall = 0.90211111111111109
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3873,7 +3873,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 28
+        search_buffer_capacity = 24
         search_buffer_visited_set = false
         search_window_size = 24
 
@@ -3899,7 +3899,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.75277777777777777
+    recall = 0.75077777777777777
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3916,7 +3916,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.82311111111111113
+    recall = 0.82277777777777783
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3933,7 +3933,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.30133333333333334
+    recall = 0.30044444444444446
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3950,7 +3950,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5441111111111111
+    recall = 0.54322222222222227
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3967,7 +3967,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80288888888888887
+    recall = 0.80811111111111111
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -3975,16 +3975,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 19
+        search_buffer_capacity = 15
         search_buffer_visited_set = false
-        search_window_size = 13
+        search_window_size = 14
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90100000000000002
+    recall = 0.90022222222222226
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4018,7 +4018,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.75988888888888884
+    recall = 0.75922222222222224
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4035,7 +4035,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.84244444444444444
+    recall = 0.8412222222222222
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4052,7 +4052,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.30877777777777776
+    recall = 0.30855555555555558
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4069,7 +4069,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.55966666666666665
+    recall = 0.5003333333333333
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4079,14 +4079,14 @@ distance = 'L2'
         prefetch_step = 1
         search_buffer_capacity = 10
         search_buffer_visited_set = false
-        search_window_size = 4
+        search_window_size = 3
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.81599999999999995
+    recall = 0.81444444444444442
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4103,7 +4103,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90088888888888885
+    recall = 0.90100000000000002
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4260,7 +4260,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.26400000000000001
+    recall = 0.26500000000000001
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4277,7 +4277,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.22311111111111112
+    recall = 0.22255555555555556
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4294,7 +4294,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2001111111111111
+    recall = 0.23777777777777778
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4302,7 +4302,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 17
+        search_buffer_capacity = 25
         search_buffer_visited_set = false
         search_window_size = 2
 
@@ -4311,7 +4311,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50377777777777777
+    recall = 0.50688888888888894
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4319,7 +4319,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 89
+        search_buffer_capacity = 90
         search_buffer_visited_set = false
         search_window_size = 10
 
@@ -4328,7 +4328,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.57544444444444443
+    recall = 0.57611111111111113
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4345,7 +4345,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.57544444444444443
+    recall = 0.57611111111111113
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4381,7 +4381,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.26400000000000001
+    recall = 0.26500000000000001
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4398,7 +4398,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.22311111111111112
+    recall = 0.22255555555555556
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4415,7 +4415,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2001111111111111
+    recall = 0.23777777777777778
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4423,7 +4423,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 17
+        search_buffer_capacity = 25
         search_buffer_visited_set = false
         search_window_size = 2
 
@@ -4432,7 +4432,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50111111111111106
+    recall = 0.50744444444444448
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4440,16 +4440,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 69
+        search_buffer_capacity = 88
         search_buffer_visited_set = false
-        search_window_size = 19
+        search_window_size = 10
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.58477777777777773
+    recall = 0.58566666666666667
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4466,7 +4466,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.58477777777777773
+    recall = 0.58566666666666667
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4502,7 +4502,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2658888888888889
+    recall = 0.26644444444444443
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4519,7 +4519,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23088888888888889
+    recall = 0.2311111111111111
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4536,7 +4536,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.21444444444444444
+    recall = 0.23777777777777778
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4544,16 +4544,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 16
+        search_buffer_capacity = 24
         search_buffer_visited_set = false
-        search_window_size = 3
+        search_window_size = 2
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50266666666666671
+    recall = 0.50088888888888894
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4561,16 +4561,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 81
+        search_buffer_capacity = 76
         search_buffer_visited_set = false
-        search_window_size = 11
+        search_window_size = 13
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5812222222222222
+    recall = 0.5798888888888889
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4587,7 +4587,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5812222222222222
+    recall = 0.5798888888888889
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4623,7 +4623,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.2658888888888889
+    recall = 0.26644444444444443
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4640,7 +4640,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23088888888888889
+    recall = 0.2311111111111111
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4674,7 +4674,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50144444444444447
+    recall = 0.51044444444444448
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4682,16 +4682,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 72
+        search_buffer_capacity = 98
         search_buffer_visited_set = false
-        search_window_size = 15
+        search_window_size = 8
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.59077777777777774
+    recall = 0.58988888888888891
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4708,7 +4708,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.59077777777777774
+    recall = 0.58988888888888891
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4865,7 +4865,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.5
+    recall = 0.50122222222222224
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4882,7 +4882,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.46044444444444443
+    recall = 0.4608888888888889
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4916,7 +4916,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.52344444444444449
+    recall = 0.52288888888888885
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4933,7 +4933,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80122222222222217
+    recall = 0.80422222222222217
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4941,7 +4941,7 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 80
+        search_buffer_capacity = 81
         search_buffer_visited_set = false
         search_window_size = 21
 
@@ -4950,7 +4950,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90022222222222226
+    recall = 0.90000000000000002
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -4958,9 +4958,9 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 96
+        search_buffer_capacity = 100
         search_buffer_visited_set = false
-        search_window_size = 73
+        search_window_size = 58
 
 [[vamana_test_search]]
 __schema__ = 'benchmark_expected_result'
@@ -5037,7 +5037,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50600000000000001
+    recall = 0.5033333333333333
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -5045,9 +5045,9 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 63
+        search_buffer_capacity = 67
         search_buffer_visited_set = false
-        search_window_size = 8
+        search_window_size = 7
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
@@ -5107,7 +5107,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.32444444444444442
+    recall = 0.32477777777777778
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -5141,7 +5141,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.23655555555555555
+    recall = 0.23677777777777778
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -5158,7 +5158,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50600000000000001
+    recall = 0.50077777777777777
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -5166,16 +5166,16 @@ distance = 'L2'
         __version__ = 'v0.0.1'
         prefetch_lookahead = 1
         prefetch_step = 1
-        search_buffer_capacity = 63
+        search_buffer_capacity = 66
         search_buffer_visited_set = false
-        search_window_size = 8
+        search_window_size = 7
 
     [[vamana_test_search.config_and_recall]]
     __schema__ = 'benchmark_config_and_result'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.67388888888888887
+    recall = 0.67466666666666664
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
@@ -5192,7 +5192,7 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.67388888888888887
+    recall = 0.67466666666666664
     recall_k = 10
 
         [vamana_test_search.config_and_recall.search_parameters]
