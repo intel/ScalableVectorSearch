@@ -1,6 +1,28 @@
 # Contributor License Agreement (CLA) Submission Instructions
 
-If you are an individual contributor, i.e., you own the contribution rights yourself, the preferred method for sending your signed CLA is to do it directly from the GitHub pull request. You can also send it by email at svs-maintainers@intel.com.
+If you are an individual constributor, i.e., you own the contribution rights yourself, please fill out `CLA_individual.md` (digital signatures are acceptable) and submit by email to svs-maintainers@intel.com.
 
-For entities, e.g., companies and non-profit organizations, please sign it manually or electronically and send it by email at svs-maintainers@intel.com.
+For entities, e.g., companies and non-profit organizations, please sign `CLA_entity.md` (digital signatures are acceptable) and submit by email to svs-maintainers@intel.com.
+
+An example of a digital signature is shown below.
+```
+<table>
+    <tr>
+        <td>Signature</td>
+        <td><div style="width:300px;height:60px"></div>Your Signature</td>
+    </tr>
+    <tr>
+        <td>Name</td>
+        <td><div style="width:300px;height:60px"></div>Your Name</td>
+    </tr>
+    <tr>
+        <td>Email</td>
+        <td><div style="width:300px;height:60px"></div>Your email</td>
+    </tr>
+    <tr>
+        <td>Address</td>
+        <td><div style="width:300px;height:60px"></div>Your Address</td>
+    </tr>
+</table>
+```
 
