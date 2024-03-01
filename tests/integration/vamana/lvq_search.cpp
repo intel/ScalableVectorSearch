@@ -16,6 +16,7 @@
 #include "svs/orchestrators/vamana.h"
 
 // tests
+#include "tests/utils/lvq_reconstruction.h" // To check LVQ reconstruction.
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -42,6 +43,26 @@ namespace {
 template <lvq::IsLVQDataset Data> consteval bool is_turbo_compatible() {
     return Data::primary_bits == 4 &&
            (Data::residual_bits == 0 || Data::residual_bits == 8);
+}
+
+void check_reconstruction(
+    svs::Vamana& index,
+    const svs::data::SimpleData<float>& original,
+    size_t primary,
+    size_t residual
+) {
+    auto ids = svs_test::permute_indices(original.size());
+
+    // Reconstruct
+    auto dst = svs::data::SimpleData<float>(original.size(), original.dimensions());
+    index.reconstruct_at(dst.view(), ids);
+
+    auto shuffled = svs::data::SimpleData<float>(original.size(), original.dimensions());
+    for (size_t i = 0; i < original.size(); ++i) {
+        shuffled.set_datum(i, original.get_datum(ids.at(i)));
+    }
+
+    svs_test::check_lvq_reconstruction(shuffled.cview(), dst.cview(), primary, residual);
 }
 
 void run_search(
@@ -102,6 +123,7 @@ void run_search(
 template <lvq::IsLVQDataset Data, typename Distance>
 void test_search(
     Data data,
+    const svs::data::SimpleData<float>& original,
     const Distance& distance,
     const svs::data::SimpleData<float>& queries,
     const svs::data::SimpleData<uint32_t>& groundtruth,
@@ -123,6 +145,7 @@ void test_search(
         )
     );
 
+    // Make a copy of the original data to use for reconstruction comparison.
     auto index = svs::Vamana::assemble<float>(
         test_dataset::vamana_config_file(),
         svs::GraphLoader(test_dataset::graph_file()),
@@ -131,6 +154,7 @@ void test_search(
         num_threads
     );
     CATCH_REQUIRE(index.get_num_threads() == num_threads);
+    check_reconstruction(index, original, Data::primary_bits, Data::residual_bits);
 
     run_search(
         index, queries, groundtruth, expected_results.config_and_recall_, try_calibration
@@ -208,6 +232,7 @@ CATCH_TEST_CASE("LVQ Vamana Search", "[integration][search][vamana][lvq]") {
     auto gt = test_dataset::groundtruth_euclidean();
 
     auto extents = std::make_tuple(svs::lib::Val<N>(), svs::lib::Val<svs::Dynamic>());
+    auto original = svs::data::SimpleData<float>::load(datafile);
 
     svs::lib::foreach (extents, [&]<size_t E>(svs::lib::Val<E> /*unused*/) {
         fmt::print("LVQ Search - Extent {}\n", E);
@@ -216,24 +241,39 @@ CATCH_TEST_CASE("LVQ Vamana Search", "[integration][search][vamana][lvq]") {
         bool try_calibration = (E == svs::Dynamic);
 
         // Sequential tests
-        test_search(lvq::LVQDataset<8, 0, E>::compress(data), distance, queries, gt);
-        test_search(lvq::LVQDataset<4, 0, E>::compress(data), distance, queries, gt);
+        test_search(
+            lvq::LVQDataset<8, 0, E>::compress(data), original, distance, queries, gt
+        );
+        test_search(
+            lvq::LVQDataset<4, 0, E>::compress(data), original, distance, queries, gt
+        );
 
         test_search(
-            lvq::LVQDataset<4, 4, E>::compress(data), distance, queries, gt, try_calibration
+            lvq::LVQDataset<4, 4, E>::compress(data),
+            original,
+            distance,
+            queries,
+            gt,
+            try_calibration
         );
-        test_search(lvq::LVQDataset<4, 8, E>::compress(data), distance, queries, gt);
-        test_search(lvq::LVQDataset<8, 8, E>::compress(data), distance, queries, gt);
+        test_search(
+            lvq::LVQDataset<4, 8, E>::compress(data), original, distance, queries, gt
+        );
+        test_search(
+            lvq::LVQDataset<8, 8, E>::compress(data), original, distance, queries, gt
+        );
 
         // Turbo tests
         test_search(
             lvq::LVQDataset<4, 0, E, lvq::Turbo<16, 8>>::compress(data),
+            original,
             distance,
             queries,
             gt
         );
         test_search(
             lvq::LVQDataset<4, 8, E, lvq::Turbo<16, 8>>::compress(data),
+            original,
             distance,
             queries,
             gt

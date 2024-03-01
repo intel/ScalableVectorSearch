@@ -59,6 +59,11 @@ class VamanaInterface : public manager::ManagerInterface {
         const std::filesystem::path& data_dir
     ) = 0;
 
+    ///// Reconstruction
+    // TODO: Allow threadpools to be const-invocable.
+    virtual void
+    reconstruct_at(data::SimpleDataView<float> dst, std::span<const uint64_t> ids) = 0;
+
     ///// Calibrations
     virtual index::vamana::VamanaSearchParameters experimental_calibrate(
         ConstErasedPointer queries,
@@ -139,6 +144,12 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
         } else {
             throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
         }
+    }
+
+    ///// Reconstruction
+    void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids)
+        override {
+        impl().reconstruct_at(data, ids);
     }
 
     ///// Calibration
@@ -285,6 +296,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         const std::filesystem::path& data_directory
     ) {
         impl_->save(config_directory, graph_directory, data_directory);
+    }
+
+    void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids) {
+        impl_->reconstruct_at(data, ids);
     }
 
     ///

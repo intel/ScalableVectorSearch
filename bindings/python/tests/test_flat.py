@@ -51,8 +51,8 @@ class FlatTester(unittest.TestCase):
                 pysvs.DistanceType.MIP: 1.0,
             }),
             (pysvs.LVQ8(file, 0), {
-                pysvs.DistanceType.L2: 0.9917,
-                pysvs.DistanceType.MIP: 0.99212,
+                pysvs.DistanceType.L2: 0.99217,
+                pysvs.DistanceType.MIP: 0.99232,
             }),
         ]
 

@@ -46,16 +46,7 @@ template <size_t N, size_t D, lvq::LVQPackingStrategy S>
 [[nodiscard]] bool compare(
     const lvq::ScaledBiasedVector<N, D, S> x, const lvq::ScaledBiasedVector<N, D, S> y
 ) {
-    if (x.size() != y.size()) {
-        return false;
-    }
-
-    for (size_t j = 0, jmax = x.size(); j < jmax; ++j) {
-        if (x.get(j) != y.get(j)) {
-            return false;
-        }
-    }
-    return true;
+    return lvq::logically_equal(x, y);
 }
 
 template <leanvec::IsLeanDataset A, leanvec::IsLeanDataset B>

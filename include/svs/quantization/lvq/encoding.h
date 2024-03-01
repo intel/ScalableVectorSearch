@@ -12,6 +12,7 @@
 #pragma once
 
 // svs
+#include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/preprocessor.h"
@@ -25,6 +26,14 @@
 #include <type_traits>
 
 namespace svs::quantization::lvq {
+
+/// The storage format for LVQ constants.
+using scaling_t = svs::Float16;
+
+/// Route floating point numbers through the scaling type.
+inline scaling_t through_scaling_type(svs::Float16 x) { return x; }
+inline scaling_t through_scaling_type(float x) { return lib::narrow_cast<scaling_t>(x); }
+inline scaling_t through_scaling_type(double x) { return lib::narrow_cast<scaling_t>(x); }
 
 ///
 /// @brief Compute the number of bytes to store a compressed vector.

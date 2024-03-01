@@ -81,7 +81,7 @@ class MinRange : public CVStorage {
         // Find the maximum absolute value of the data to encode.
         auto [min, max] = extrema(data);
 
-        float bias = min;
+        float bias = lvq::through_scaling_type(min);
         float decompressor = 1;
         float compressor = 1;
 
@@ -92,10 +92,12 @@ class MinRange : public CVStorage {
         // is 2^−14 ~= 6.10e-5. We chose an epsilon for "almost constant" vectors such that
         // the decompressor constant is not flushed to zero when converted to float16
         // for storage.
-        constexpr float epsilon = 7e-5f * max_s;
+        constexpr float epsilon = 7e-5F * max_s;
         if (range > epsilon) {
-            decompressor = range / max_s;
-            compressor = max_s / range;
+            // Route the decompressor through a 16-bit floating point number to ensure that
+            // we compress properly.
+            decompressor = lvq::through_scaling_type(range / max_s);
+            compressor = 1.0F / decompressor;
         }
 
         auto cv = view<Unsigned, Bits, Extent, Strategy>(size_);
@@ -106,7 +108,7 @@ class MinRange : public CVStorage {
         }
 
         // Make sure we aren't truncating the decompressor to 0 after conversion to float16.
-        assert(Float16(decompressor) != 0.0f);
+        assert(Float16(decompressor) != 0.0F);
         return return_type{decompressor, bias, selector, cv};
     }
 

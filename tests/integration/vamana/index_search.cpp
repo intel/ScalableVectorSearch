@@ -27,6 +27,7 @@
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
 
 // fmt
 #include "fmt/core.h"
@@ -37,6 +38,86 @@
 #include "tests/utils/vamana_reference.h"
 
 namespace {
+
+void verify_reconstruction(svs::Vamana& index, const svs::data::SimpleData<float>& data) {
+    // Construct a scrambled version of the ids to retrieve.
+    auto ids = std::vector<uint64_t>(data.size());
+    for (size_t i = 0; i < data.size(); ++i) {
+        ids.at(i) = i;
+    }
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::shuffle(ids.begin(), ids.end(), g);
+
+    auto dst = svs::data::SimpleData<float>(data.size(), data.dimensions());
+    index.reconstruct_at(dst.view(), ids);
+    for (size_t i = 0; i < data.size(); ++i) {
+        auto id = ids.at(i);
+        auto d = data.get_datum(id);
+        auto o = dst.get_datum(i);
+        CATCH_REQUIRE(d.size() == o.size());
+        CATCH_REQUIRE(std::equal(d.begin(), d.end(), o.begin()));
+    }
+
+    // Check error handling.
+    // (A) Wrong dimensionality.
+    // (A1) Too big.
+    dst = svs::data::SimpleData<float>(data.size(), 2 * data.dimensions());
+    CATCH_REQUIRE_THROWS_MATCHES(
+        index.reconstruct_at(dst.view(), ids),
+        svs::ANNException,
+        svs_test::ExceptionMatcher(
+            Catch::Matchers::ContainsSubstring("Destination has dimensions")
+        )
+    );
+
+    // (A2) Too small.
+    dst = svs::data::SimpleData<float>(data.size(), data.dimensions() - 1);
+    CATCH_REQUIRE_THROWS_MATCHES(
+        index.reconstruct_at(dst.view(), ids),
+        svs::ANNException,
+        svs_test::ExceptionMatcher(
+            Catch::Matchers::ContainsSubstring("Destination has dimensions")
+        )
+    );
+
+    // (B) Size mismatch.
+    // (B1) Too big.
+    dst = svs::data::SimpleData<float>(data.size() + 1, data.dimensions());
+    CATCH_REQUIRE_THROWS_MATCHES(
+        index.reconstruct_at(dst.view(), ids),
+        svs::ANNException,
+        svs_test::ExceptionMatcher(Catch::Matchers::ContainsSubstring("IDs span has size"))
+    );
+
+    // (B2) Too small.
+    dst = svs::data::SimpleData<float>(data.size() - 1, data.dimensions());
+    CATCH_REQUIRE_THROWS_MATCHES(
+        index.reconstruct_at(dst.view(), ids),
+        svs::ANNException,
+        svs_test::ExceptionMatcher(Catch::Matchers::ContainsSubstring("IDs span has size"))
+    );
+
+    // (C) IDs out of range.
+    // Make sure that the contents of `dst` are unmodified until the bounds of all indices
+    // are checked.
+    dst = svs::data::SimpleData<float>(2, data.dimensions());
+    for (size_t i = 0; i < dst.size(); ++i) {
+        auto a = dst.get_datum(i);
+        std::fill(a.begin(), a.end(), 0);
+    }
+    ids = {0, data.size()};
+    CATCH_REQUIRE_THROWS_MATCHES(
+        index.reconstruct_at(dst.view(), ids),
+        svs::ANNException,
+        svs_test::ExceptionMatcher(Catch::Matchers::ContainsSubstring("ID 1 with value"))
+    );
+    for (size_t i = 0; i < dst.size(); ++i) {
+        auto a = dst.get_datum(i);
+        CATCH_REQUIRE(std::all_of(a.begin(), a.end(), [](float v) { return v == 0; }));
+    }
+}
 
 void run_tests(
     svs::Vamana& index,
@@ -131,10 +212,12 @@ void run_tests(
 
 CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
     auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
-
     const auto queries = test_dataset::queries();
     auto temp_dir = svs_test::temp_directory();
 
+    auto original_data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+
+    bool first = true;
     for (auto distance_type : distances) {
         auto groundtruth = test_dataset::load_groundtruth(distance_type);
         auto expected_results = test_dataset::vamana::expected_search_results(
@@ -151,6 +234,12 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
 
         CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
         CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
+
+        if (first) {
+            verify_reconstruction(index, original_data);
+            first = false;
+        }
+
         run_tests(index, queries, groundtruth, expected_results.config_and_recall_, true);
 
         // Save and reload.

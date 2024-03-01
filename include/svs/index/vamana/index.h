@@ -553,6 +553,61 @@ class VamanaIndex {
     /// @brief Return the logical number aLf dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
 
+    /// @brief Reconstruct vectors.
+    ///
+    /// Reconstruct each vector indexed by an external ID and store the results into
+    /// ``dst``.
+    ///
+    /// Preconditions:
+    /// - ``ids.size() == svs::getsize<0>(dst)``: Each ID has a corresponding entry in the
+    ///     destination array.
+    /// - ``0 <= i < size()`` for all ``i`` in ``ids``: Each ID is in-bounds.
+    /// - ``svs::getsize<1>(dst) == dimensions()``: The space allocated for each vector in
+    ///     ``dst`` is correct.
+    ///
+    /// An exception will be thrown if any of these pre-conditions does not hold.
+    /// If such an exception is thrown, the argument ``dst`` will be left unmodified.
+    template <std::unsigned_integral I, svs::Arithmetic T>
+    void reconstruct_at(data::SimpleDataView<T> dst, std::span<const I> ids) {
+        // Check pre-conditions.
+        const size_t ids_size = ids.size();
+        const size_t dst_size = dst.size();
+        const size_t dst_dims = dst.dimensions();
+
+        if (ids_size != dst_size) {
+            throw ANNEXCEPTION(
+                "IDs span has size {} but destination has {} vectors!", ids_size, dst_size
+            );
+        }
+
+        if (dst_dims != dimensions()) {
+            throw ANNEXCEPTION(
+                "Destination has dimensions {} but index is {}!", dst_dims, dimensions()
+            );
+        }
+
+        // Bounds checking.
+        const size_t sz = size();
+        for (size_t i = 0; i < ids_size; ++i) {
+            I id = ids[i]; // inbounds by loop bounds.
+            if (id >= sz) {
+                throw ANNEXCEPTION("ID {} with value {} is out of bounds!", i, id);
+            }
+        }
+
+        // Prerequisites checked - proceed with the operation.
+        // TODO: Communicate the requested decompression type to the backend dataset to
+        // allow more fine-grained specialization?
+        auto threaded_function = [&](auto is, uint64_t SVS_UNUSED(tid)) {
+            auto accessor = extensions::reconstruct_accessor(data_);
+            for (auto i : is) {
+                auto id = ids[i];
+                dst.set_datum(i, accessor(data_, id));
+            }
+        };
+        threads::run(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
+    }
+
     ///// Threading Interface
 
     /// Return whether this implementation can dynamically change the number of threads.

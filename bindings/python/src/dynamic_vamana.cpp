@@ -328,6 +328,9 @@ void wrap(py::module& m) {
     // Index modification.
     add_points_specialization<float>(vamana);
 
+    // Vector Reconstruction
+    add_reconstruct_interface(vamana);
+
     // Index Deletion.
     vamana.def(
         "delete",
