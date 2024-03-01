@@ -1,6 +1,6 @@
 # Contributor License Agreement (CLA) Submission Instructions
 
-If you are an individual constributor, i.e., you own the contribution rights yourself, please fill out `CLA_individual.md` (digital signatures are acceptable) and submit by email to svs-maintainers@intel.com.
+If you are an individual contributor, i.e., you own the contribution rights yourself, please fill out `CLA_individual.md` (digital signatures are acceptable) and submit by email to svs-maintainers@intel.com.
 
 For entities, e.g., companies and non-profit organizations, please sign `CLA_entity.md` (digital signatures are acceptable) and submit by email to svs-maintainers@intel.com.
 
