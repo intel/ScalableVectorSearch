@@ -43,9 +43,10 @@ void test_predicate(Index& index, const Queries& queries) {
     auto result = svs::QueryResult<size_t>(queries.size(), num_neighbors);
 
     // Perform a predicated search.
-    index.search(queries.cview(), num_neighbors, result.view(), [](size_t data_index) {
-        return (data_index % 2) != 0;
-    });
+    // TODO: Expose predicated search through the dispatch pipeline.
+    auto predicate = [](size_t data_index) { return (data_index % 2) != 0; };
+
+    index.search(result.view(), queries.cview(), index.get_search_parameters(), predicate);
 
     for (size_t i = 0; i < result.n_queries(); ++i) {
         for (size_t j = 0; j < result.n_neighbors(); ++j) {
@@ -62,17 +63,19 @@ void test_flat(Index& index, const Queries& queries, const GroundTruth& groundtr
     const double expected_recall = 0.9999;
 
     ///// Make sure setting the data and query batch sizes works.
-    // Data
-    index.set_data_batch_size(10);
-    CATCH_REQUIRE((index.get_data_batch_size() == 10));
-    index.set_data_batch_size(0);
-    CATCH_REQUIRE((index.get_data_batch_size() == 0));
+    auto p = index.get_search_parameters();
+    CATCH_REQUIRE(p.data_batch_size_ == 0);
+    CATCH_REQUIRE(p.query_batch_size_ == 0);
 
-    // Query
-    index.set_query_batch_size(10);
-    CATCH_REQUIRE((index.get_query_batch_size() == 10));
-    index.set_query_batch_size(0);
-    CATCH_REQUIRE((index.get_query_batch_size() == 0));
+    index.set_search_parameters({10, 20});
+    auto q = index.get_search_parameters();
+
+    CATCH_REQUIRE(q.data_batch_size_ == 10);
+    CATCH_REQUIRE(q.query_batch_size_ == 20);
+    index.set_search_parameters({0, 0});
+    q = index.get_search_parameters();
+    CATCH_REQUIRE(q.data_batch_size_ == 0);
+    CATCH_REQUIRE(q.query_batch_size_ == 0);
 
     // Make sure that changing the number of threads works as exected.
     // Should not change the end result.
@@ -81,17 +84,19 @@ void test_flat(Index& index, const Queries& queries, const GroundTruth& groundtr
     for (auto num_threads : std::array<size_t, 2>{{1, 2}}) {
         index.set_num_threads(num_threads);
         CATCH_REQUIRE((index.get_num_threads() == num_threads));
-        index.search(queries.cview(), groundtruth.dimensions(), result.view());
+        svs::index::search_batch_into(index, result.view(), queries.cview());
+        // index.search(queries.cview(), groundtruth.dimensions(), result.view());
         CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) > expected_recall);
     }
 
     // Set different data and query batch sizes.
     index.set_num_threads(2);
-    for (auto query_batch_size : {0, 10}) {
-        index.set_query_batch_size(query_batch_size);
-        for (auto data_batch_size : {0, 100}) {
-            index.set_data_batch_size(data_batch_size);
-            index.search(queries.cview(), groundtruth.dimensions(), result.view());
+    for (size_t query_batch_size : {0, 10}) {
+        for (size_t data_batch_size : {0, 100}) {
+            svs::index::search_batch_into_with(
+                index, result.view(), queries.cview(), {data_batch_size, query_batch_size}
+            );
+
             CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) > expected_recall);
         }
     }

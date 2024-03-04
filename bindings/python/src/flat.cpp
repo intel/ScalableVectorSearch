@@ -220,6 +220,8 @@ Method {}:
     );
 }
 
+constexpr std::string_view flat_parameters_name = "FlatSearchParameters";
+
 } // namespace detail
 
 void wrap(py::module& m) {
@@ -244,14 +246,57 @@ void wrap(py::module& m) {
     add_threading_interface(flat);
     add_data_interface(flat);
 
-    // Flat index specific components.
-    flat.def_property(
-        "data_batch_size", &svs::Flat::get_data_batch_size, &svs::Flat::set_data_batch_size
+    ///// Search Parameters
+    py::class_<svs::index::flat::FlatParameters> flat_parameters(
+        m,
+        std::string(detail::flat_parameters_name).c_str(),
+        R"(
+Configuration parameters for the flat index.
+
+Attributes:
+    data_batch_size (int, read/write): The number of dataset elements to process at a time.
+        This attempts to improve locality of dataset accesses. A value of 0 will use an
+        implementation defined default. Default: 0.
+
+    query_batch_size (int, read/write): The number of query elements to process at a time.
+        This attempts to improve locality of query accesses. A value of 0 will use an
+        implementation defined default. Default: 0.
+)"
     );
+
+    flat_parameters
+        .def(py::init<>())
+        .def_readwrite(
+            "data_batch_size",
+            &svs::index::flat::FlatParameters::data_batch_size_,
+            "The batch-size to use over the dataset. A value of 0 means the implementation "
+            "will choose."
+        )
+        .def_readwrite(
+            "query_batch_size",
+            &svs::index::flat::FlatParameters::query_batch_size_,
+            "The batch-size to use over the queries. A value of 0 means the implementation "
+            "will choose."
+        )
+        .def("__str__", [](const svs::index::flat::FlatParameters& p) {
+            return fmt::format(
+                "pysvs.{}(data_batch_size = {}, query_batch_size = {})",
+                detail::flat_parameters_name,
+                p.data_batch_size_,
+                p.query_batch_size_
+            );
+        });
+
     flat.def_property(
-        "query_batch_size",
-        &svs::Flat::get_query_batch_size,
-        &svs::Flat::set_query_batch_size
+        "search_parameters",
+        &svs::Flat::get_search_parameters,
+        &svs::Flat::set_search_parameters,
+        R"(
+"Read/Write (pysvs.FlatSearchParameters): Get/set the current search parameters for the
+index. These parameters modify and non-algorthmic properties of search (affecting
+queries-per-second).
+
+See also: `pysvs.FlatSearchParameters`.)"
     );
 }
 

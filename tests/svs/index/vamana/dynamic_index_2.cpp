@@ -73,8 +73,8 @@ auto find_windowsize(
         target_recall,
         [&](size_t window_size, double recall) {
             parameters.buffer_config(window_size);
-            index.set_search_parameters(parameters);
-            auto result = index.search(queries, NUM_NEIGHBORS);
+            auto result =
+                svs::index::search_batch_with(index, queries, NUM_NEIGHBORS, parameters);
             auto this_recall = svs::k_recall_at_n(groundtruth, result);
             return this_recall < recall;
         }
@@ -159,7 +159,7 @@ void do_check(
 
     // Run search
     tic = svs::lib::now();
-    auto result = index.search(queries, NUM_NEIGHBORS);
+    auto result = svs::index::search_batch(index, queries, NUM_NEIGHBORS);
     double search_time = svs::lib::time_difference(tic);
 
     // Extra ID checks

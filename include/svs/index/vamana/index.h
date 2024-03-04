@@ -253,6 +253,9 @@ class VamanaIndex {
     /// Type of the dataset.
     using data_type = Data;
     using entry_point_type = std::vector<Idx>;
+    /// The type of the configurable search parameters.
+    using search_parameters_type = VamanaSearchParameters;
+
     // Members
   private:
     graph_type graph_;
@@ -267,8 +270,6 @@ class VamanaIndex {
     // Construction parameters
     VamanaBuildParameters build_parameters_{};
 
-  private:
-    // Methods
   public:
     /// The type of the search resource used for external threading.
     using inner_scratch_type =
@@ -449,30 +450,6 @@ class VamanaIndex {
     }
 
     ///
-    /// @brief Return the ``num_neighbors`` approximate nearest neighbors to each query.
-    ///
-    /// @tparam Queries The full type of the queries.
-    ///
-    /// @param queries The queries. Each entry will be processed.
-    /// @param num_neighbors The number of approximate nearest neighbors to return for
-    ///     each query.
-    ///
-    /// @returns A QueryResult containing ``queries.size()`` entries with position-wise
-    ///     correspondence to the queries. Row `i` in the result corresponds to the
-    ///     neighbors for the `i`th query. Neighbors within each row are ordered from
-    ///     nearest to furthest.
-    ///
-    /// Internally, this method calls the mutating version of search. See the
-    /// documentation of that method for more details.
-    ///
-    template <data::ImmutableMemoryDataset Queries>
-    QueryResult<size_t> search(const Queries& queries, size_t num_neighbors) {
-        QueryResult<size_t> result{queries.size(), num_neighbors};
-        search(queries, num_neighbors, result.view());
-        return result;
-    }
-
-    ///
     /// @brief Fill the result with the ``num_neighbors`` nearest neighbors for each
     /// query.
     ///
@@ -486,8 +463,7 @@ class VamanaIndex {
     ///     Neighbors within each row are ordered from nearest to furthest.
     ///
     /// Perform a multi-threaded graph search over the index, overwriting the contents
-    /// of
-    /// ``result`` with the results of search.
+    /// of ``result`` with the results of search.
     ///
     /// After the initial graph search, a post-operation defined by the ``PostOp`` type
     /// parameter will be conducted which may conduct refinement on the candidates.
@@ -503,21 +479,28 @@ class VamanaIndex {
     /// - The value type of ``queries`` is compatible with the value type of the index
     ///     dataset with respect to the stored distance functor.
     ///
-    template <data::ImmutableMemoryDataset Queries, typename I>
-    void search(const Queries& queries, size_t num_neighbors, QueryResultView<I> result) {
-        // Create a read-only copy of the search parameters prior to thread-launch.
-        const auto sp = default_search_parameters_.get();
+    template <typename I, data::ImmutableMemoryDataset Queries>
+    void search(
+        QueryResultView<I> result,
+        const Queries& queries,
+        const search_parameters_type& search_parameters
+    ) {
         threads::run(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                // The number of neighbors to store in the result.
+                size_t num_neighbors = result.n_neighbors();
+
+                // Allocate scratchspace according to the provided search parameters.
                 auto search_buffer = search_buffer_type{
-                    SearchBufferConfig(sp.buffer_config_),
+                    SearchBufferConfig(search_parameters.buffer_config_),
                     distance::comparator(distance_),
-                    sp.search_buffer_visited_set_};
+                    search_parameters.search_buffer_visited_set_};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                    search_parameters.prefetch_lookahead_,
+                    search_parameters.prefetch_step_};
 
                 // Increase the search window size if the defaults are not suitable for the
                 // requested number of neighbors.
@@ -767,16 +750,27 @@ class VamanaIndex {
         double target_recall,
         const CalibrationParameters& calibration_parameters = {}
     ) {
+        // Preallocate the destination for search.
+        // Further, reference the search lambda in the recall lambda.
+        auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
+
+        auto do_search = [&](const search_parameters_type& p) {
+            this->search(results.view(), queries, p);
+        };
+
+        auto compute_recall = [&](const search_parameters_type& p) {
+            // Calling `do_search` will mutate `results`.
+            do_search(p);
+            return svs::k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
+        };
+
         auto p = vamana::calibrate(
             calibration_parameters,
             *this,
             num_neighbors,
             target_recall,
-            [&]() {
-                auto results = this->search(queries, num_neighbors);
-                return k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
-            },
-            [&]() { this->search(queries, num_neighbors); }
+            compute_recall,
+            do_search
         );
         set_search_parameters(p);
         return p;

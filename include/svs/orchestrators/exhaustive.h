@@ -33,13 +33,9 @@ namespace svs {
 /////
 
 // Additional API exposed by exhaustive search.
-class FlatInterface : public manager::ManagerInterface {
+class FlatInterface {
   public:
-    // Batch size adjustment
-    virtual void set_data_batch_size(size_t batch_size) = 0;
-    virtual size_t get_data_batch_size() const = 0;
-    virtual void set_query_batch_size(size_t batch_size) = 0;
-    virtual size_t get_query_batch_size() const = 0;
+    using search_parameters_type = svs::index::flat::FlatParameters;
 };
 
 template <typename QueryType, typename Impl, typename IFace = FlatInterface>
@@ -61,17 +57,6 @@ class FlatImpl : public manager::ManagerImpl<QueryType, Impl, FlatInterface> {
     template <typename... Args>
     explicit FlatImpl(Args&&... args)
         : base_type{std::forward<Args>(args)...} {}
-
-    // Batch size management.
-    void set_data_batch_size(size_t batch_size) override {
-        impl().set_data_batch_size(batch_size);
-    }
-    size_t get_data_batch_size() const override { return impl().get_data_batch_size(); }
-
-    void set_query_batch_size(size_t batch_size) override {
-        impl().set_query_batch_size(batch_size);
-    }
-    size_t get_query_batch_size() const override { return impl().get_query_batch_size(); }
 };
 
 // Forward Declarations
@@ -85,24 +70,8 @@ class Flat : public manager::IndexManager<FlatInterface> {
     struct AssembleTag {};
     using base_type = manager::IndexManager<FlatInterface>;
 
-    explicit Flat(std::unique_ptr<FlatInterface> impl)
+    explicit Flat(std::unique_ptr<manager::ManagerInterface<FlatInterface>> impl)
         : base_type{std::move(impl)} {}
-
-    ///// Flat interface
-
-    Flat& set_data_batch_size(size_t batch_size) {
-        impl_->set_data_batch_size(batch_size);
-        return *this;
-    }
-
-    size_t get_data_batch_size() const { return impl_->get_data_batch_size(); }
-
-    Flat& set_query_batch_size(size_t batch_size) {
-        impl_->set_query_batch_size(batch_size);
-        return *this;
-    }
-
-    size_t get_query_batch_size() const { return impl_->get_query_batch_size(); }
 
     ///// Loading
 

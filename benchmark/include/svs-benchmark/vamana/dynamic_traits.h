@@ -47,7 +47,7 @@ struct IndexTraits<svs::index::vamana::MutableVamanaIndex<Graph, Data, Dist>> {
         const config_type& config
     ) {
         apply_config(index, config);
-        return index.search(queries, num_neighbors);
+        return svs::index::search_batch(index, queries, num_neighbors);
     }
 
     static state_type report_state(const index_type& index) { return state_type(index); }

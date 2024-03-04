@@ -117,7 +117,9 @@ namespace calibration {
 
 template <typename DoSearch>
 double get_search_time(
-    const CalibrationParameters& calibration_parameters, const DoSearch& do_search
+    const CalibrationParameters& calibration_parameters,
+    const DoSearch& do_search,
+    const VamanaSearchParameters& parameters
 ) {
     double min_time = std::numeric_limits<double>::max();
     auto start_time = lib::now();
@@ -127,7 +129,7 @@ double get_search_time(
 
     for (size_t i = 0; i < max_iterations; ++i) {
         auto tic = lib::now();
-        do_search();
+        do_search(parameters);
         auto toc = lib::now();
         min_time = std::min(min_time, lib::time_difference(toc, tic));
 
@@ -140,14 +142,10 @@ double get_search_time(
     return min_time;
 }
 
-template <typename Index, typename F>
+template <typename F>
 VamanaSearchParameters optimize_split_buffer_using_binary_search(
-    Index& index,
-    double target_recall,
-    VamanaSearchParameters current,
-    const F& compute_recall
+    double target_recall, VamanaSearchParameters current, const F& compute_recall
 ) {
-    index.set_search_parameters(current);
     size_t current_capacity = current.buffer_config_.get_total_capacity();
     auto range = svs::threads::UnitRange<size_t>(1, current_capacity);
 
@@ -157,20 +155,17 @@ VamanaSearchParameters optimize_split_buffer_using_binary_search(
         target_recall,
         [&](size_t window_size, double recall) {
             current.buffer_config({window_size, current_capacity});
-            index.set_search_parameters(current);
-            double this_recall = compute_recall();
+            double this_recall = compute_recall(current);
             return this_recall < recall;
         }
     );
     current.buffer_config({search_window_size, current_capacity});
-    index.set_search_parameters(current);
     return current;
 }
 
-template <typename Index, typename F, typename DoSearch>
+template <typename F, typename DoSearch>
 VamanaSearchParameters optimize_split_buffer(
     const CalibrationParameters& calibration_parameters,
-    Index& index,
     size_t num_neighbors,
     double target_recall,
     VamanaSearchParameters current,
@@ -184,8 +179,7 @@ VamanaSearchParameters optimize_split_buffer(
     );
 
     // Get the timing for the baseline search.
-    index.set_search_parameters(current);
-    double min_search_time = get_search_time(calibration_parameters, do_search);
+    double min_search_time = get_search_time(calibration_parameters, do_search, current);
 
     // Now, start experimenting.
     size_t sws = current.buffer_config_.get_search_window_size();
@@ -202,9 +196,8 @@ VamanaSearchParameters optimize_split_buffer(
         // If that fails, then we shouldn't see any better progress by further decreasing
         // the search window size and we can terminate now.
         sp.buffer_config({sws, search_window_capacity_upper});
-        index.set_search_parameters(sp);
         fmt::print("Trying search window size {} ...", sws);
-        if (compute_recall() < target_recall) {
+        if (compute_recall(sp) < target_recall) {
             fmt::print("failed\n");
             return current;
         }
@@ -224,14 +217,13 @@ VamanaSearchParameters optimize_split_buffer(
             target_recall,
             [&](size_t capacity, double recall) {
                 sp.buffer_config({sws, capacity});
-                index.set_search_parameters(sp);
-                auto r = compute_recall();
+                auto r = compute_recall(sp);
                 fmt::print("recall = {}\n", r);
                 return r < recall;
             }
         );
         sp.buffer_config({sws, best_capacity});
-        double search_time = get_search_time(calibration_parameters, do_search);
+        double search_time = get_search_time(calibration_parameters, do_search, sp);
         fmt::print("Best capacity: {}, Search time: {}\n", best_capacity, search_time);
         if (search_time < min_search_time) {
             min_search_time = search_time;
@@ -245,7 +237,6 @@ VamanaSearchParameters optimize_split_buffer(
 template <typename Index, typename ComputeRecall, typename DoSearch>
 std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
     const CalibrationParameters& calibration_parameters,
-    Index& index,
     VamanaSearchParameters current,
     size_t num_neighbors,
     double target_recall,
@@ -286,8 +277,7 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
         target_recall,
         [&](size_t window_size, double recall) {
             configure_current_buffer(window_size);
-            index.set_search_parameters(current);
-            double this_recall = compute_recall();
+            double this_recall = compute_recall(current);
             fmt::print("Trying {}, got {}. Target: {}\n", window_size, this_recall, recall);
             max_recall = std::max(max_recall, this_recall);
             return this_recall < recall;
@@ -320,13 +310,12 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
     // capacity fixed to the number of neighbors.
     if (!dataset_uses_reranking) {
         current = optimize_split_buffer_using_binary_search(
-            index, target_recall, current, compute_recall
+            target_recall, current, compute_recall
         );
     } else {
         // Optimize the split-buffer using a generic exhaustive search.
         current = optimize_split_buffer(
             calibration_parameters,
-            index,
             num_neighbors,
             target_recall,
             current,
@@ -351,8 +340,8 @@ VamanaSearchParameters tune_prefetch(
     // Start with no prefetching.
     search_parameters.prefetch_lookahead_ = 0;
     search_parameters.prefetch_step_ = 0;
-    index.set_search_parameters(search_parameters);
-    double min_search_time = get_search_time(calibration_parameters, do_search);
+    double min_search_time =
+        get_search_time(calibration_parameters, do_search, search_parameters);
     fmt::print("Time with no prefetching: {}s\n", min_search_time);
 
     // Create a local copy of `search_parameters` to mutate.
@@ -369,8 +358,7 @@ VamanaSearchParameters tune_prefetch(
                 if (itr == visited_lookaheads.end()) {
                     // Compute a new run-time;
                     sp.prefetch_lookahead_ = l;
-                    index.set_search_parameters(sp);
-                    auto run_time = get_search_time(calibration_parameters, do_search);
+                    auto run_time = get_search_time(calibration_parameters, do_search, sp);
                     itr = visited_lookaheads.insert(itr, {l, run_time});
                 }
 
@@ -397,8 +385,7 @@ VamanaSearchParameters tune_prefetch(
         // First - try with the maximum lookahead value.
         {
             sp.prefetch_lookahead_ = max_lookahead;
-            index.set_search_parameters(sp);
-            auto search_time = get_search_time(calibration_parameters, do_search);
+            auto search_time = get_search_time(calibration_parameters, do_search, sp);
             if (search_time < min_search_time) {
                 search_parameters.prefetch_lookahead_ = sp.prefetch_lookahead_;
                 search_parameters.prefetch_step_ = sp.prefetch_step_;
@@ -437,7 +424,6 @@ VamanaSearchParameters tune_prefetch(
             lookahead_stop = best_lookahead + 2 * lookahead_step;
         }
     }
-    index.set_search_parameters(search_parameters);
     return search_parameters;
 }
 
@@ -487,17 +473,11 @@ VamanaSearchParameters calibrate(
                        ? preset_parameters
                        : default_parameters;
 
-    auto on_exit = [&]() {
-        index.set_search_parameters(current);
-        return current;
-    };
-
     // Step 1: Optimize aspects of the search buffer if desired.
     if (calibration_parameters.should_optimize_search_buffer()) {
         fmt::print("Optimizing search buffer.\n");
-        auto [best, converged] = calibration::optimize_search_buffer(
+        auto [best, converged] = calibration::optimize_search_buffer<Index>(
             calibration_parameters,
-            index,
             current,
             num_neighbors,
             target_recall,
@@ -509,7 +489,7 @@ VamanaSearchParameters calibrate(
         if (!converged) {
             fmt::print("Target recall could not be achieved. Exiting optimization early.\n"
             );
-            return on_exit();
+            return current;
         }
     }
 
@@ -521,7 +501,7 @@ VamanaSearchParameters calibrate(
     }
 
     // Finish up.
-    return on_exit();
+    return current;
 }
 
 } // namespace svs::index::vamana

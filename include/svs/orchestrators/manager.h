@@ -17,6 +17,8 @@
 #include "svs/lib/datatype.h"
 #include "svs/lib/threads/threadpool.h"
 
+#include "svs/index/index.h"
+
 #include <concepts>
 #include <memory>
 #include <numeric>
@@ -28,12 +30,28 @@ namespace svs::manager {
 /// Top level Manager
 ///
 
-class ManagerInterface {
+template <typename IFace> class ManagerInterface : public IFace {
   public:
+    static_assert(
+        std::is_abstract_v<IFace> || std::is_empty_v<IFace>,
+        "Manager Interface must be templated with only pure abstract parameters!"
+    );
+
+    // Default constructor. Not much needed for pure-abstract classes.
     ManagerInterface() = default;
 
-    virtual void
-    search(AnonymousArray<2> data, size_t nneighbors, QueryResultView<size_t> result) = 0;
+    // Interface specific search parameters.
+    using search_parameters_type = typename IFace::search_parameters_type;
+
+    // Search interface
+    virtual search_parameters_type get_search_parameters() const = 0;
+    virtual void set_search_parameters(const search_parameters_type&) = 0;
+
+    virtual void search(
+        svs::QueryResultView<size_t> results,
+        AnonymousArray<2> data,
+        const search_parameters_type& search_parameters
+    ) = 0;
 
     // Data Interface
     virtual size_t size() const = 0;
@@ -57,11 +75,14 @@ class ManagerInterface {
 /// The base implementation for types meant to implement polymorphic Manager interface.
 /// The goal of this type is to wrap a concrete implementation of type `T` with the
 ///
-template <typename QueryType, typename Impl, std::derived_from<ManagerInterface> IFace>
-class ManagerImpl : public IFace {
+template <typename QueryType, typename Impl, typename IFace>
+class ManagerImpl : public ManagerInterface<IFace> {
   public:
+    // Inherit the search parameters type from the interface.
+    using search_parameters_type = typename IFace::search_parameters_type;
+
     explicit ManagerImpl(Impl implementation)
-        : IFace{}
+        : ManagerInterface<IFace>{}
         , implementation_{std::move(implementation)} {}
 
     ///
@@ -70,12 +91,26 @@ class ManagerImpl : public IFace {
     ///
     template <typename... Args>
     explicit ManagerImpl(Args&&... args)
-        : IFace{}
+        : ManagerInterface<IFace>{}
         , implementation_{std::forward<Args>(args)...} {}
 
+    /// Return the default search parameters for the index.
+    search_parameters_type get_search_parameters() const override {
+        return implementation_.get_search_parameters();
+    }
+
+    /// Set the default search parameters for the index.
+    void set_search_parameters(const search_parameters_type& search_parameters) override {
+        implementation_.set_search_parameters(search_parameters);
+    }
+
     // Search Interface
-    void search(AnonymousArray<2> data, size_t nneighbors, QueryResultView<size_t> result)
-        override {
+    // At this level - simply dispatch over the supported query types.
+    void search(
+        QueryResultView<size_t> result,
+        AnonymousArray<2> data,
+        const search_parameters_type& search_parameters
+    ) override {
         // TODO (Mark) For now - only allow implementations to support a single query
         // type.
         //
@@ -83,7 +118,9 @@ class ManagerImpl : public IFace {
         // dances.
         if (data.type() == datatype_v<QueryType>) {
             const auto view = data::ConstSimpleDataView<QueryType>(data);
-            implementation_.search(view, nneighbors, result);
+            svs::index::search_batch_into_with(
+                implementation_, result, view, search_parameters
+            );
         } else {
             throw ANNEXCEPTION(
                 "Unsupported datatype! Got: {}. Expected: {}.",
@@ -117,52 +154,40 @@ class ManagerImpl : public IFace {
 ///
 /// @brief Do I need to document this also?
 ///
-template <std::derived_from<ManagerInterface> IFace> class IndexManager {
+template <typename IFace> class IndexManager {
   public:
+    /// Require the presence of the `search_parameters_type` alias in the instantiating
+    /// interface.
+    using search_parameters_type = typename IFace::search_parameters_type;
+
     template <typename Impl>
-        requires std::is_base_of_v<IFace, Impl>
+        requires std::is_base_of_v<ManagerInterface<IFace>, Impl>
     explicit IndexManager(std::unique_ptr<Impl> impl)
         : impl_{std::move(impl)} {}
 
-    ///
-    /// @brief Perform a batch search over the provided queries.
-    ///
-    /// @tparam QueryType The data type used for each component of the vector elements
-    ///     of the query data structure.
-    ///
-    /// @param queries The batch of queries to find neighbors for.
-    /// @param nneighbors The number of (potentially approximate) neighbors to return for
-    ///     each query.
-    ///
-    /// @returns A `QueryResult` containing the `nneighbors` nearest neighbors for each
-    ///     query and the computed distances.
-    ///     Row `i` in the result corresponds to the neighbors for the `i`th query.
-    ///     Neighbors within each row are ordered from nearest to furthest.
-    ///
-    /// The backend-implementations may not support all templated query types.
-    /// If the implementation does not support the given query type, throws `ANNException`.
-    ///
-    template <typename QueryType>
-    QueryResult<size_t>
-    search(data::ConstSimpleDataView<QueryType> queries, size_t nneighbors) {
-        QueryResult<size_t> result{queries.size(), nneighbors};
-        search(queries, nneighbors, result.view());
-        return result;
+    search_parameters_type get_search_parameters() const {
+        return impl_->get_search_parameters();
     }
 
-    /// @copydoc search(data::ConstSimpleDataView<QueryType>,size_t)
-    template <data::ImmutableMemoryDataset Data>
-    QueryResult<size_t> search(const Data& queries, size_t nneighbors) {
-        return search(queries.cview(), nneighbors);
+    void set_search_parameters(const search_parameters_type& search_parameters) {
+        impl_->set_search_parameters(search_parameters);
     }
 
     template <typename QueryType>
     void search(
+        QueryResultView<size_t> result,
         data::ConstSimpleDataView<QueryType> queries,
-        size_t nneighbors,
-        QueryResultView<size_t> result
+        const search_parameters_type& search_parameters
     ) {
-        impl_->search(AnonymousArray<2>(queries), nneighbors, result);
+        impl_->search(result, AnonymousArray<2>(queries), search_parameters);
+    }
+
+    // This is an API compatibility trick.
+    // If called with just the queries and number of neighbors - bounce into the dispatch
+    // pipeline which will end-up calling the appropriate search above.
+    template <typename Queries>
+    QueryResult<size_t> search(const Queries& queries, size_t num_neighbors) {
+        return svs::index::search_batch(*this, queries.cview(), num_neighbors);
     }
 
     ///// Data Interface
@@ -204,7 +229,7 @@ template <std::derived_from<ManagerInterface> IFace> class IndexManager {
     // TODO: This could be exposed via a `get_impl()` accessor - but is that really
     // any different than just grabbing the interface pointer directly?
   protected:
-    std::unique_ptr<IFace> impl_;
+    std::unique_ptr<ManagerInterface<IFace>> impl_;
 };
 
 } // namespace svs::manager

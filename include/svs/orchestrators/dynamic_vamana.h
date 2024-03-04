@@ -96,7 +96,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @param impl A pointer to a concrete implementation of the full
     ///     DynamicVamanaInteface.
     ///
-    explicit DynamicVamana(std::unique_ptr<DynamicVamanaInterface> impl)
+    explicit DynamicVamana(
+        std::unique_ptr<manager::ManagerInterface<DynamicVamanaInterface>> impl
+    )
         : base_type{std::move(impl)} {}
 
     template <typename QueryType, typename Impl>
@@ -107,13 +109,6 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     }
 
     ///// Vamana Interface
-
-    VamanaSearchParameters get_search_parameters() const {
-        return impl_->get_search_parameters();
-    }
-    void set_search_parameters(const VamanaSearchParameters& parameters) {
-        impl_->set_search_parameters(parameters);
-    }
     void experimental_reset_performance_parameters() {
         impl_->reset_performance_parameters();
     }

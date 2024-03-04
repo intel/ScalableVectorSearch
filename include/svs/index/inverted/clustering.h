@@ -26,6 +26,7 @@
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/prune.h"
 
+#include "svs/index/index.h"
 #include "svs/index/inverted/extensions.h"
 
 // third-party
@@ -817,7 +818,9 @@ Clustering<I> cluster_with(
 
         // Get neighbor candidates.
         auto handle = timer.push_back("Search Phase");
-        auto results = primary_index.search(subdata, params.num_intermediate_results_);
+        auto results = svs::index::search_batch(
+            primary_index, subdata, params.num_intermediate_results_
+        );
         handle.finish();
 
         // Assign dataset elements to clusters.
