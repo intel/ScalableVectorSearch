@@ -16,13 +16,9 @@
 
 namespace svs {
 
-class InvertedInterface : public manager::ManagerInterface {
+class InvertedInterface {
   public:
     using search_parameters_type = svs::index::inverted::InvertedSearchParameters;
-
-    ///// Parameter Intefrace
-    virtual search_parameters_type get_search_parameters() const = 0;
-    virtual void set_search_parameters(const search_parameters_type& search_parameters) = 0;
 
     ///// Beckend Information Inteface
     virtual std::string experimental_backend_string() const = 0;
@@ -84,22 +80,12 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
     using search_parameters_type = typename InvertedInterface::search_parameters_type;
 
     // Constructors
-    Inverted(std::unique_ptr<InvertedInterface> impl)
+    Inverted(std::unique_ptr<manager::ManagerInterface<InvertedInterface>> impl)
         : base_type{std::move(impl)} {}
 
     template <typename QueryType, typename Impl>
     Inverted(std::in_place_t, lib::Type<QueryType> SVS_UNUSED(type), Impl&& impl)
         : base_type{std::make_unique<InvertedImpl<QueryType, Impl>>(SVS_FWD(impl))} {}
-
-    ///// Parameters
-    search_parameters_type get_search_parameters() const {
-        return impl_->get_search_parameters();
-    }
-
-    Inverted& set_search_parameters(const search_parameters_type& search_parameters) {
-        impl_->set_search_parameters(search_parameters);
-        return *this;
-    }
 
     ///// Backend String
     std::string experimental_backend_string() const {

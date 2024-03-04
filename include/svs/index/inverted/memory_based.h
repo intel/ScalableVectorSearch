@@ -330,6 +330,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
   public:
     using index_type = typename Cluster::index_type;
     using translator_type = std::vector<index_type, lib::Allocator<index_type>>;
+    using search_parameters_type = InvertedSearchParameters;
 
     InvertedIndex(
         Index index,
@@ -360,32 +361,29 @@ template <typename Index, typename Cluster> class InvertedIndex {
     size_t dimensions() const { return index_.dimensions(); }
 
     ///// Search Parameter Setting
-    InvertedSearchParameters get_search_parameters() const {
+    search_parameters_type get_search_parameters() const {
         return InvertedSearchParameters{
             index_.get_search_parameters(), refinement_epsilon_};
     }
 
-    void set_search_parameters(const InvertedSearchParameters& parameters) {
+    void set_search_parameters(const search_parameters_type& parameters) {
         index_.set_search_parameters(parameters.primary_parameters_);
         refinement_epsilon_ = parameters.refinement_epsilon_;
     }
 
     // Search
-    template <data::ImmutableMemoryDataset Queries>
-    QueryResult<size_t> search(const Queries& queries, size_t num_neighbors) {
-        auto results = QueryResult<size_t>{queries.size(), num_neighbors};
-        search(queries, results.view());
-        return results;
-    }
-
-    template <data::ImmutableMemoryDataset Queries, typename Idx>
-    void
-    search(const Queries& queries, size_t num_neighbors, QueryResultView<Idx> results) {
-        assert(num_neighbors <= results.n_neighbors());
+    template <typename Idx, data::ImmutableMemoryDataset Queries>
+    void search(
+        QueryResultView<Idx> results,
+        const Queries& queries,
+        const search_parameters_type& search_parameters
+    ) {
         threads::run(
             threadpool_,
             threads::StaticPartition(queries.size()),
-            [&, num_neighbors](auto is, auto SVS_UNUSED(tid)) {
+            [&](auto is, auto SVS_UNUSED(tid)) {
+                size_t num_neighbors = results.n_neighbors();
+
                 // Allocate scratch space to use the externally threaded
                 auto scratch = index_.scratchspace();
                 if (scratch.buffer.capacity() == 0) {
@@ -408,7 +406,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
                     auto& scratch_buffer = scratch.buffer;
                     auto cutoff_distance = inverted::bound_with<double>(
                         scratch_buffer[0].distance(),
-                        refinement_epsilon_,
+                        search_parameters.refinement_epsilon_,
                         index_.get_distance()
                     );
 

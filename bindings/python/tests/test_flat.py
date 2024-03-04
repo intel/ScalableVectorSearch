@@ -74,17 +74,30 @@ class FlatTester(unittest.TestCase):
         self.assertEqual(flat.dimensions, test_dimensions)
 
         # Test setting the batch size
-        flat.data_batch_size = 20
-        self.assertEqual(flat.data_batch_size, 20)
+        p = flat.search_parameters
+        self.assertEqual(p.data_batch_size, 0)
+        self.assertEqual(p.query_batch_size, 0)
 
-        flat.data_batch_size = 0
-        self.assertEqual(flat.data_batch_size, 0)
+        p.data_batch_size = 20
+        p.query_batch_size = 10
+        self.assertEqual(p.data_batch_size, 20)
+        self.assertEqual(p.query_batch_size, 10)
 
-        flat.query_batch_size = 20
-        self.assertEqual(flat.query_batch_size, 20)
+        # Ensure that round-tripping works
+        flat.search_parameters = p
+        q = flat.search_parameters
 
-        flat.query_batch_size = 0
-        self.assertEqual(flat.query_batch_size, 0)
+        self.assertEqual(q.data_batch_size, 20)
+        self.assertEqual(q.query_batch_size, 10)
+        q.data_batch_size = 0
+        q.query_batch_size = 0
+        flat.search_parameters = p
+
+        # Test string formatting.
+        self.assertEqual(
+            str(q),
+            "pysvs.FlatSearchParameters(data_batch_size = 0, query_batch_size = 0)"
+        )
 
         # Test querying.
         # Return as many neighbors as we have exising groundtruth for.

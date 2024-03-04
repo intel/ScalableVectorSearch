@@ -114,6 +114,8 @@ class MutableVamanaIndex {
     using graph_type = Graph;
     using data_type = Data;
     using entry_point_type = std::vector<Idx>;
+    /// The type of the configurable search parameters.
+    using search_parameters_type = VamanaSearchParameters;
 
     // Members
   private:
@@ -421,28 +423,15 @@ class MutableVamanaIndex {
         };
     }
 
-    ///
-    /// @brief Return the ``num_neighbors`` approximate nearest neighbors to ``queries``.
-    ///
-    /// @param queries The queries to use.
-    /// @param num_neighbors The number of neighbors to return per query.
-    ///
-    /// @return A query result with one row of IDs and distances for each query.
-    ///
-    template <data::ImmutableMemoryDataset Queries>
-    QueryResult<size_t> search(const Queries& queries, size_t num_neighbors) {
-        QueryResult<size_t> result{queries.size(), num_neighbors};
-        search(queries.cview(), num_neighbors, result.view());
-        return result;
-    }
-
-    template <data::ImmutableMemoryDataset Queries, typename I>
-    void search(const Queries& queries, size_t num_neighbors, QueryResultView<I> result) {
-        const auto sp = get_search_parameters();
+    template <typename I, data::ImmutableMemoryDataset Queries>
+    void search(
+        QueryResultView<I> results, const Queries& queries, const search_parameters_type& sp
+    ) {
         threads::run(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                size_t num_neighbors = results.n_neighbors();
                 auto buffer =
                     search_buffer_type{sp.buffer_config_, distance::comparator(distance_)};
 
@@ -460,7 +449,7 @@ class MutableVamanaIndex {
                     buffer,
                     scratch,
                     queries,
-                    result,
+                    results,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters)
                 );
@@ -469,7 +458,7 @@ class MutableVamanaIndex {
 
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
-        translate_to_external(result.indices());
+        translate_to_external(results.indices());
     }
 
     ///
@@ -925,17 +914,29 @@ class MutableVamanaIndex {
         double target_recall,
         const CalibrationParameters& calibration_parameters = {}
     ) {
+        // Preallocate the destination for search.
+        // Further, reference the search lambda in the recall lambda.
+        auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
+
+        auto do_search = [&](const search_parameters_type& p) {
+            this->search(results.view(), queries, p);
+        };
+
+        auto compute_recall = [&](const search_parameters_type& p) {
+            // Calling `do_search` will mutate `results`.
+            do_search(p);
+            return svs::k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
+        };
+
         auto p = vamana::calibrate(
             calibration_parameters,
             *this,
             num_neighbors,
             target_recall,
-            [&]() {
-                auto results = this->search(queries, num_neighbors);
-                return k_recall_at_n(results, groundtruth, num_neighbors, num_neighbors);
-            },
-            [&]() { this->search(queries, num_neighbors); }
+            compute_recall,
+            do_search
         );
+
         set_search_parameters(p);
         return p;
     }

@@ -38,7 +38,8 @@ pybind11::tuple py_search(
     svs::QueryResultView<size_t> q_result(
         matrix_view(result_idx), matrix_view(result_dists)
     );
-    self.search(query_data, n_neighbors, q_result);
+
+    svs::index::search_batch_into(self, q_result, query_data.cview());
     return pybind11::make_tuple(result_idx, result_dists);
 }
 

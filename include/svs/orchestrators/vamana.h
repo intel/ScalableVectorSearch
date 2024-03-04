@@ -33,8 +33,10 @@
 
 namespace svs {
 
-class VamanaInterface : public manager::ManagerInterface {
+class VamanaInterface {
   public:
+    using search_parameters_type = svs::index::vamana::VamanaSearchParameters;
+
     virtual void set_alpha(float alpha) = 0;
     virtual float get_alpha() const = 0;
 
@@ -43,11 +45,6 @@ class VamanaInterface : public manager::ManagerInterface {
 
     virtual void set_max_candidates(size_t max_candidates) = 0;
     virtual size_t get_max_candidates() const = 0;
-
-    ///// Parameter Interface
-    virtual index::vamana::VamanaSearchParameters get_search_parameters() const = 0;
-    virtual void
-    set_search_parameters(const index::vamana::VamanaSearchParameters& parameters) = 0;
 
     ///// Backend Information Interface
     virtual std::string experimental_backend_string() const = 0;
@@ -97,13 +94,6 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
     template <typename... Args>
     explicit VamanaImpl(Args&&... args)
         : base_type{std::forward<Args>(args)...} {}
-
-    VamanaSearchParameters get_search_parameters() const override {
-        return impl().get_search_parameters();
-    }
-    void set_search_parameters(const VamanaSearchParameters& parameters) override {
-        impl().set_search_parameters(parameters);
-    }
 
     void set_alpha(float alpha) override { impl().set_alpha(alpha); }
     float get_alpha() const override { return impl().get_alpha(); }
@@ -222,15 +212,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @private
     struct AssembleTag {};
 
-    explicit Vamana(std::unique_ptr<VamanaInterface> impl)
+    explicit Vamana(std::unique_ptr<manager::ManagerInterface<VamanaInterface>> impl)
         : base_type{std::move(impl)} {}
-
-    VamanaSearchParameters get_search_parameters() const {
-        return impl_->get_search_parameters();
-    }
-    void set_search_parameters(const VamanaSearchParameters& parameters) {
-        impl_->set_search_parameters(parameters);
-    }
 
     void experimental_reset_performance_parameters() {
         impl_->reset_performance_parameters();

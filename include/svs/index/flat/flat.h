@@ -13,6 +13,7 @@
 
 // Flat index utilities
 #include "svs/index/flat/inserters.h"
+#include "svs/index/index.h"
 
 // svs
 #include "svs/concepts/distance.h"
@@ -85,6 +86,17 @@ struct ReferencesMembers {
 template <typename Ownership, typename T>
 using storage_type_t = typename Ownership::template storage_type<T>;
 
+struct FlatParameters {
+    FlatParameters() = default;
+    FlatParameters(size_t data_batch_size, size_t query_batch_size)
+        : data_batch_size_{data_batch_size}
+        , query_batch_size_{query_batch_size} {}
+
+    ///// Members
+    size_t data_batch_size_ = 0;
+    size_t query_batch_size_ = 0;
+};
+
 ///
 /// @brief Implementation of the Flat index.
 ///
@@ -123,36 +135,45 @@ class FlatIndex {
     using data_storage_type = storage_type_t<Ownership, Data>;
     using thread_storage_type = storage_type_t<Ownership, thread_pool_type>;
 
+    // Search parameters
+    using search_parameters_type = FlatParameters;
+
   private:
     data_storage_type data_;
     [[no_unique_address]] distance_type distance_;
     thread_storage_type threadpool_;
 
     // Constructs controlling the iteration strategy over the data and queries.
-    size_t data_batch_size_ = 0;
-    size_t query_batch_size_ = 0;
+    search_parameters_type search_parameters_{};
 
     // Helpers methods to obtain automatic batch sizing.
 
     // Automatic behavior: Use the default batch size.
-    size_t compute_data_batch_size() const {
-        if (data_batch_size_ == 0) {
+    size_t compute_data_batch_size(const search_parameters_type& p) const {
+        auto sz = p.data_batch_size_;
+        if (sz == 0) {
             return default_data_batch_size;
-        } else {
-            return std::min(data_batch_size_, data_.size());
         }
+        return std::min(sz, data_.size());
     }
 
     // Automatic behavior: Evenly divide queries over the threads.
-    size_t compute_query_batch_size(size_t num_queries) const {
-        if (query_batch_size_ == 0) {
+    size_t
+    compute_query_batch_size(const search_parameters_type& p, size_t num_queries) const {
+        auto sz = p.query_batch_size_;
+        if (sz == 0) {
             return lib::div_round_up(num_queries, threadpool_.size());
-        } else {
-            return query_batch_size_;
         }
+        return std::min(sz, num_queries);
     }
 
   public:
+    search_parameters_type get_search_parameters() const { return search_parameters_; }
+
+    void set_search_parameters(const search_parameters_type& search_parameters) {
+        search_parameters_ = search_parameters;
+    }
+
     ///
     /// @brief Construct a new index from constituent parts.
     ///
@@ -190,41 +211,6 @@ class FlatIndex {
 
     /// Return the logical number of dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
-
-    ///
-    /// @brief Return the ``num_neighbors`` nearest neighbors to each query.
-    ///
-    /// @tparam Queries The full type of the queries.
-    /// @tparam Pred The type of the optional predicate.
-    ///
-    /// @param queries The queries. Each entry will be processed.
-    /// @param num_neighbors The number of approximate nearest neighbors to return for
-    ///     each query.
-    /// @param predicate A predicate functor that can be used to exclude certain dataset
-    ///     elements from consideration. See
-    ///     \ref flat_class_search_mutating "the mutating method" for details.
-    ///
-    /// @returns A QueryResult containing ``queries.size()`` entries with position-wise
-    ///     correspondence to the queries with respect to ``Dist`` and ``predicate``.
-    ///
-    ///     Row `i` in the result corresponds to the neighbors for the `i`th query.
-    ///     Neighbors within each row are ordered from nearest to furthest.
-    ///
-    /// Internally, this method calls the mutating version of search. See the documentation
-    /// of that method for more details.
-    ///
-    template <
-        data::ImmutableMemoryDataset Queries,
-        typename Pred = lib::Returns<lib::Const<true>>>
-    QueryResult<size_t> search(
-        const Queries& queries,
-        size_t num_neighbors,
-        Pred predicate = lib::Returns(lib::Const<true>())
-    ) {
-        QueryResult<size_t> result{queries.size(), num_neighbors};
-        search(queries.cview(), num_neighbors, result.view(), predicate);
-        return result;
-    }
 
     ///
     /// @anchor flat_class_search_mutating
@@ -271,9 +257,9 @@ class FlatIndex {
     ///
     template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
     void search(
-        const data::ConstSimpleDataView<QueryType>& queries,
-        size_t num_neighbors,
         QueryResultView<size_t> result,
+        const data::ConstSimpleDataView<QueryType>& queries,
+        const search_parameters_type& search_parameters,
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         const size_t data_max_size = data_.size();
@@ -281,16 +267,23 @@ class FlatIndex {
         // Partition the data into `data_batch_size_` chunks.
         // This will keep all threads at least working on the same sub-region of the dataset
         // to provide somewhat better locality.
-        auto data_batch_size = compute_data_batch_size();
+        auto data_batch_size = compute_data_batch_size(search_parameters);
 
         // Allocate query processing space.
+        size_t num_neighbors = result.n_neighbors();
         sorter_type scratch{queries.size(), num_neighbors, compare()};
         scratch.prepare();
 
         size_t start = 0;
         while (start < data_.size()) {
             size_t stop = std::min(data_max_size, start + data_batch_size);
-            search_subset(queries, threads::UnitRange(start, stop), scratch, predicate);
+            search_subset(
+                queries,
+                threads::UnitRange(start, stop),
+                scratch,
+                search_parameters,
+                predicate
+            );
             start = stop;
         }
 
@@ -317,13 +310,15 @@ class FlatIndex {
         const data::ConstSimpleDataView<QueryType>& queries,
         const threads::UnitRange<size_t>& data_indices,
         sorter_type& scratch,
+        const search_parameters_type& search_parameters,
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         // Process all queries.
         threads::run(
             threadpool_,
             threads::DynamicPartition{
-                queries.size(), compute_query_batch_size(queries.size())},
+                queries.size(),
+                compute_query_batch_size(search_parameters, queries.size())},
             [&](const auto& query_indices, uint64_t /*tid*/) {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
@@ -414,15 +409,6 @@ class FlatIndex {
     void set_num_threads(size_t num_threads) {
         num_threads = std::max(num_threads, size_t(1));
         threadpool_.resize(num_threads);
-    }
-
-    // Batchsize API.
-    size_t get_data_batch_size() const { return data_batch_size_; }
-    void set_data_batch_size(size_t data_batch_size) { data_batch_size_ = data_batch_size; }
-
-    size_t get_query_batch_size() const { return query_batch_size_; }
-    void set_query_batch_size(size_t query_batch_size) {
-        query_batch_size_ = query_batch_size;
     }
 };
 

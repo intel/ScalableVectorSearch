@@ -178,7 +178,8 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
             auto view = data::make_const_view(data_, ids);
 
             auto index = index::flat::temporary_flat_index(view, distance_, threadpool_);
-            auto groundtruth = index.search(queries, num_neighbors);
+            auto groundtruth =
+                svs::index::search_batch(index, queries.cview(), num_neighbors);
 
             // Unpack the QueryResult
             const auto& indices = groundtruth.indices();
