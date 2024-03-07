@@ -100,12 +100,11 @@ template <typename F, typename I> struct Thunk<F, StaticPartition<I>> {
 // Dynamic partition
 template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
     static auto wrap(ThreadCount SVS_UNUSED(nthreads), F& f, DynamicPartition<I> space) {
-        auto count = std::make_shared<std::atomic<uint64_t>>(0);
-        return [&f, space, count](uint64_t tid) {
+        return [&f, space, count = std::atomic<uint64_t>(0)](uint64_t tid) mutable {
             size_t grainsize = space.grainsize;
             size_t iterator_size = space.size();
             for (;;) {
-                uint64_t i = count->fetch_add(1, std::memory_order_relaxed);
+                uint64_t i = count.fetch_add(1, std::memory_order_relaxed);
                 auto start = grainsize * i;
                 if (start >= iterator_size) {
                     return;
