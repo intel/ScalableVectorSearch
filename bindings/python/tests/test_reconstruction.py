@@ -104,6 +104,7 @@ class ReconstructionTester(unittest.TestCase):
         )
 
     def _compare_lvq(self, data, reconstructed, loader: pysvs.LVQLoader):
+        print(f"LVQ: primary = {loader.primary_bits}, residual = {loader.residual_bits}")
         self.assertTrue(isinstance(loader, pysvs.LVQLoader))
         self.assertTrue(test_close_lvq(
             data,

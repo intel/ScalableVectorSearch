@@ -60,10 +60,6 @@ template <typename T, size_t N> void test_lvq_top() {
     // Buffer for datasets elements with the centroid removed.
     auto buffer = std::vector<double>(original.dimensions());
 
-    // The number of max-value residual errors that result in excess precision loss.
-    // See the comments lower for details.
-    size_t max_value_errors = 0;
-
     // The total bits of precision available to the dataset.
     constexpr size_t primary_bits = T::primary_bits;
     constexpr size_t residual_bits = T::residual_bits;
@@ -91,10 +87,12 @@ template <typename T, size_t N> void test_lvq_top() {
         //
         // Ensure that the actual scaling parameter is close to the expected scaling
         // parameter - then use the actual scale for accuracy comparison.
-        auto expected_scale = (max_val - min_val) / ((std::pow(2.0, primary_bits) - 1) *
-                                                     std::pow(2.0, residual_bits));
+        auto numerator = lvq::through_scaling_type(
+            (max_val - min_val) / (std::pow(2.0, primary_bits) - 1)
+        );
+        auto denominator = residual_bits == 0 ? 1.0 : (std::pow(2.0, residual_bits) - 1);
+        auto expected_scale = numerator / denominator;
 
-        std::pow(2.0, primary_bits + residual_bits);
         auto actual_scale = lvq_datum.get_scale();
         CATCH_REQUIRE(std::abs(actual_scale / expected_scale - 1.0) < 0.001);
 
@@ -107,19 +105,6 @@ template <typename T, size_t N> void test_lvq_top() {
         auto reconstructed = accessor(lvq_dataset, i);
         CATCH_REQUIRE(reconstructed.size() == datum.size());
 
-        // We keep track of two kinds of errors:
-        // * `max_max_error`: The residual codes are computed after the primary codes.
-        //   Because signed integers are asymmetric (The maximum positive value is one less
-        //   than the absolute value of the minimum negative value), clamping the residual
-        //   to the range of valid integers can result in twice the error in ULP.
-        //
-        //   This can only occur when the residual is at its maximum encoding.
-        //
-        //   This "max_max_error" is treated specially.
-        //
-        // * `max_error`: The maximum error that does not fall into the special category
-        //   mentioned above.
-        [[maybe_unused]] double max_max_error = 0.0; // unused for one-level datasets.
         double max_error = 0.0;
         for (size_t j = 0; j < buffer.size(); ++j) {
             // Compute the actual error between the reconstructed dimensions and the
@@ -129,36 +114,11 @@ template <typename T, size_t N> void test_lvq_top() {
             );
 
             // Error checking for one-level compression is straight-forward.
-            if constexpr (residual_bits == 0) {
-                CATCH_REQUIRE(error <= delta);
-                max_error = std::max(max_error, error);
-            } else {
-                auto residual = lvq_datum.residual_;
-
-                // Determine if we are in the regime of possibly increased error and track
-                // this error separately.
-                if (residual.get(j) == residual.max()) {
-                    CATCH_REQUIRE(error <= 2.0 * delta);
-                    max_max_error = std::max(max_max_error, error);
-                } else {
-                    CATCH_REQUIRE(error <= delta);
-                    max_error = std::max(max_error, error);
-                }
-            }
+            CATCH_REQUIRE(error <= delta);
+            max_error = std::max(max_error, error);
         }
         // Ensure our bound is tight.
-        CATCH_REQUIRE(max_error / delta > 0.925);
-        if constexpr (residual_bits != 0) {
-            if (max_max_error > delta) {
-                ++max_value_errors;
-            }
-        }
-    }
-
-    // Ensure that if we're in two-level mode that we got at least one max error value.
-    if constexpr (residual_bits != 0) {
-        fmt::print("Max value errors = {}\n", max_value_errors);
-        CATCH_REQUIRE(max_value_errors > 1);
+        CATCH_REQUIRE(max_error / delta > 0.91);
     }
 
     // Check matchers.

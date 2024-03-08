@@ -261,6 +261,6 @@ def get_lvq_range(data: np.array):
     centered_data = data - center
 
     # Obtain the minimum and maximum values for each dimension.
-    mins = np.min(centered_data, axis = 0)
-    maxs = np.max(centered_data, axis = 0)
+    mins = np.min(centered_data, axis = 1)
+    maxs = np.max(centered_data, axis = 1)
     return maxs - mins

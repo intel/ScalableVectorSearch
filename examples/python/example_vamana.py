@@ -33,8 +33,8 @@ def run_test_two_level4_8(index, queries, groundtruth):
     expected = {
         10: 0.5482,
         20: 0.7294,
-        30: 0.8224,
-        40: 0.8758,
+        30: 0.8223,
+        40: 0.8756,
     }
 
     for window_size in range(10, 50, 10):
@@ -47,10 +47,10 @@ def run_test_two_level4_8(index, queries, groundtruth):
 
 def run_test_build_two_level4_8(index, queries, groundtruth):
     expected = {
-        10: 0.5478,
-        20: 0.7294,
+        10: 0.5484,
+        20: 0.7295,
         30: 0.8221,
-        40: 0.8759,
+        40: 0.8758,
     }
 
     for window_size in range(10, 50, 10):
@@ -239,7 +239,7 @@ def run():
     I, D = index.search(queries, 10)
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Compressed recall: {recall}")
-    assert(recall == 0.8224)
+    assert(recall == 0.8223)
     # [search-compressed]
 
     ##### Begin Test

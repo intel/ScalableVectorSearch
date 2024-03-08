@@ -121,7 +121,7 @@ class MinRange : public CVStorage {
 
 template <size_t Residual> class ResidualEncoder : public CVStorage {
   public:
-    using encoding_type = Encoding<Signed, Residual>;
+    using encoding_type = Encoding<Unsigned, Residual>;
     static constexpr float min_s = encoding_type::min();
     static constexpr float max_s = encoding_type::max();
 
@@ -130,18 +130,39 @@ template <size_t Residual> class ResidualEncoder : public CVStorage {
 
     // Compression Operator.
     template <LVQCompressedVector Primary>
-    CompressedVector<Signed, Residual, Primary::extent, Sequential>
+    CompressedVector<Unsigned, Residual, Primary::extent, Sequential>
     operator()(const Primary& primary, lib::AnySpanLike auto data) {
-        // Compute the scaling factor for the residual.
-        float decompressor = primary.get_scale() / (std::pow(2, Residual));
-        float compressor = 1.0f / decompressor;
+        // Quantize the residual between the original data and the quantized reconstruction.
+        // We treat this as another level of scalar quantization with the following ideas:
+        //
+        // (1) From the first round of quantization, we expect the maximum error between
+        //     a quantized value and the original data points to be
+        //     `primary.get_scale() / 2`.
+        //
+        //     This implies that the residual quantization is applied to a dynamic range
+        //     of `primary.get_scale()`.
+        //
+        // (2) The residual can then be thought of as scalar quantization stored as an
+        //     unsigned integer, beginning at `primary.get_scale() / 2` with a step size of
+        //     ```c++
+        //     primary.get_scale() / (std::pos(2, Residual) - 1);
+        //     ```
+        //     where `Residual` is the number of bits used to encode the residual.
+        //
+        //     This maps 0 to `-(primary.get_scale() / 2)` and `Encoding::max()` to
+        //     `+(primary.get_scale() / 2).
+        //
+        auto delta = primary.get_scale();
+        float decompressor = delta / (std::pow(2, Residual) - 1.0F);
+        float compressor = 1.0F / decompressor;
+        float offset = delta / 2;
 
         // Round the difference between the primary compression and the
-        auto cv = view<Signed, Residual, Primary::extent, Sequential>(
+        auto cv = view<Unsigned, Residual, Primary::extent, Sequential>(
             lib::MaybeStatic<Primary::extent>(primary.size())
         );
         for (size_t i = 0; i < primary.size(); ++i) {
-            float difference = static_cast<float>(data[i]) - primary.get(i);
+            float difference = static_cast<float>(data[i]) - primary.get(i) + offset;
             auto v = crunch(compressor, difference, min_s, max_s);
             cv.set(v, i);
         }
