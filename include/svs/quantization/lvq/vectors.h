@@ -155,8 +155,9 @@ struct ScaledBiasedWithResidual {
     /// Return the decoded value at index `i` using both the primary and residual encodings.
     float get(size_t i) const {
         float primary = primary_.get(i);
-        float residual_step = primary_.get_scale() / std::pow(2, Residual);
-        float residual = residual_.get(i) * residual_step;
+        float delta = primary_.get_scale();
+        float residual_step = delta / (std::pow(2, Residual) - 1);
+        float residual = residual_.get(i) * residual_step - delta / 2;
         return primary + residual;
     }
 
@@ -166,14 +167,14 @@ struct ScaledBiasedWithResidual {
     /// Return the centroid selector.
     selector_t get_selector() const { return primary_.get_selector(); }
 
-    float get_scale() const { return primary_.get_scale() / std::pow(2, Residual); }
-    float get_bias() const { return primary_.get_bias(); }
+    float get_scale() const { return primary_.get_scale() / (std::pow(2, Residual) - 1); }
+    float get_bias() const { return primary_.get_bias() - primary_.get_scale() / 2; }
 
     /// Prepare for distance computations.
     auxiliary_type prepare_aux() const {
-        auto aux = primary_.prepare_aux();
-        float rescale{aux.scale / static_cast<float>(std::pow(2, Residual))};
-        return auxiliary_type{rescale, aux.bias};
+        auto [scale, bias] = primary_.prepare_aux();
+        float rescale{scale / (static_cast<float>(std::pow(2, Residual)) - 1)};
+        return auxiliary_type{rescale, bias - (scale / 2)};
     }
 
     Combined<Primary, Residual, N, Strategy> vector() const {
@@ -196,7 +197,7 @@ struct ScaledBiasedWithResidual {
     // The residual is always kept as sequential due to implementation challenges and
     // somewhat dubious ROI.
     ScaledBiasedVector<Primary, N, Strategy> primary_;
-    CompressedVector<Signed, Residual, N, Sequential> residual_;
+    CompressedVector<Unsigned, Residual, N, Sequential> residual_;
 };
 
 namespace detail {
@@ -210,7 +211,7 @@ inline constexpr bool
 template <size_t Primary, size_t Residual, size_t N, typename Strategy>
 ScaledBiasedWithResidual<Primary, Residual, N, Strategy> combine(
     const ScaledBiasedVector<Primary, N, Strategy>& primary,
-    const CompressedVector<Signed, Residual, N, Sequential>& residual
+    const CompressedVector<Unsigned, Residual, N, Sequential>& residual
 ) {
     return ScaledBiasedWithResidual<Primary, Residual, N, Strategy>{primary, residual};
 }

@@ -148,8 +148,12 @@ def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: in
     # limitations.
     #
     # See the C++ tests for LVQ reconstruction for a more complete explanation.
-    deltas = spans / (((2 ** primary_bits) - 1) * (2 ** residual_bits))
+    deltas = spans / (((2 ** primary_bits) - 1) * 2)
+    if residual_bits != 0:
+        deltas = deltas / ((2 ** residual_bits) - 1)
 
     # Ensure that each reconstructed value is within the target threshold (plus a tiny
     # fudge factor to help offset rounding imprecision.
-    return np.all(np.abs(original - reconstructed) <= (deltas + 1 / 8192))
+    upper_bound = np.expand_dims(deltas, axis = 1)
+    upper_bound = upper_bound + 0.0125 * upper_bound;
+    return np.all(np.abs(original - reconstructed) <= upper_bound)

@@ -699,7 +699,7 @@ struct Combined {
     CompressedVector<Unsigned, Primary, Extent, Strategy> primary_;
     // N.B.: Purposely leave the residual using the Sequential strategy because for 8-bit
     // residuals, it doesn't seem to make much difference.
-    CompressedVector<Signed, Residual, Extent, Sequential> residual_;
+    CompressedVector<Unsigned, Residual, Extent, Sequential> residual_;
 };
 
 // Prepare for unpacking a combined vector by unpacking the primary and residual components.
@@ -709,8 +709,22 @@ auto prepare_unpack(const Combined<Primary, Residual, Extent, Strategy>& x) {
 }
 
 // Unpack a combined vector.
-// This consists of unpacking the primary and residual components, shifting the primary
-// and adding in the residual.
+//
+// The combined vector is assumed to model cascaded scalar quantization.
+// Let:
+// * p: The integer code for the primary encoding.
+// * r: The integer encoding for the residual.
+// * B: The number of bits used to encode the residual.
+// * d: The scaling coefficient for the primary encoding.
+//
+// In this case, the formula for reconstruction looks like the following (excluding the
+// application of offsets, which is performed elsewhere):
+//
+// d * p + (d / (2^B - 1)) * r = (d / (2 ^ B - 1)) * ((2^B - 1) * p + r)
+//                             = (d / (2 ^ B - 1)) * (2^B * p - p + r)
+//
+// This function computes the (2^B * p - p + r) portion, which can be performed entirely
+// as integer arithmetic.
 template <
     size_t Primary,
     size_t Residual,
@@ -724,8 +738,9 @@ wide_<int32_t, 16> unpack_as(
     Helper helper,
     Predicate predicate = {}
 ) {
-    return (unpack_as(x.primary_, i, as, helper.first, predicate) << Residual) +
-           unpack_as(x.residual_, i, as, helper.second, predicate);
+    auto primary = unpack_as(x.primary_, i, as, helper.first, predicate);
+    auto residual = unpack_as(x.residual_, i, as, helper.second, predicate);
+    return (primary << Residual) - primary + residual;
 }
 
 /////
@@ -905,7 +920,7 @@ auto for_each_slice(
         p,
         [helper, r, &op](auto accum, size_t lane, wide_<int32_t, 16> primary, auto pred) {
             auto res = unpack_as(r, lane, eve::as<wide_<int32_t, 16>>(), helper, pred);
-            return op(accum, lane, (primary << 8) + res, pred);
+            return op(accum, lane, (primary << 8) - primary + res, pred);
         },
         SVS_FWD(init),
         SVS_FWD(reduce)

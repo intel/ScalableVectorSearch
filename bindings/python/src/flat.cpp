@@ -264,8 +264,7 @@ Attributes:
 )"
     );
 
-    flat_parameters
-        .def(py::init<>())
+    flat_parameters.def(py::init<>())
         .def_readwrite(
             "data_batch_size",
             &svs::index::flat::FlatParameters::data_batch_size_,

@@ -111,7 +111,7 @@ void generic_compress_residual(
 inline constexpr std::string_view one_level_serialization_schema = "one_level_lvq_dataset";
 inline constexpr lib::Version one_level_save_version = lib::Version(0, 0, 2);
 inline constexpr std::string_view two_level_serialization_schema = "two_level_lvq_dataset";
-inline constexpr lib::Version two_level_save_version = lib::Version(0, 0, 2);
+inline constexpr lib::Version two_level_save_version = lib::Version(0, 0, 3);
 
 // Multi-level Dataset
 template <
@@ -133,7 +133,7 @@ class LVQDataset {
     static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
     using strategy = Strategy;
     using primary_type = ScaledBiasedDataset<Primary, Extent, Strategy, Alloc>;
-    using residual_type = CompressedDataset<Signed, Residual, Extent, Alloc>;
+    using residual_type = CompressedDataset<Unsigned, Residual, Extent, Alloc>;
     using centroid_type = detail::centroid_type;
     using allocator_type = Alloc;
 
@@ -357,6 +357,9 @@ class LVQDataset {
     //     strategies and alignments.
     //
     //   - Added an alignment argument to `load`.
+    // v0.0.3 - BREAKING
+    //   - Changed the residual encoding from signed to unsigned, treating two-level LVQ as
+    //     cascaded applications of scalar quantization.
     static constexpr lib::Version save_version = two_level_save_version;
     static constexpr std::string_view serialization_schema = two_level_serialization_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {

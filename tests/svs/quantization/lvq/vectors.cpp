@@ -124,7 +124,7 @@ struct ScaledBiasedWithResidual {
   private:
     [[no_unique_address]] svs::lib::MaybeStatic<Extent> size_;
     compressed_generator_t<lvq::Unsigned, Primary> primary_generator_;
-    compressed_generator_t<lvq::Signed, Residual> residual_generator_;
+    compressed_generator_t<lvq::Unsigned, Residual> residual_generator_;
     Catch::Generators::GeneratorWrapper<float> float_;
     lvq::CVStorage primary_{};
     lvq::CVStorage residual_{};
@@ -138,7 +138,7 @@ struct ScaledBiasedWithResidual {
     ScaledBiasedWithResidual(svs::lib::MaybeStatic<Extent> size = {})
         : size_{size}
         , primary_generator_{test_q::create_generator<lvq::Unsigned, Primary>()}
-        , residual_generator_{test_q::create_generator<lvq::Signed, Residual>()}
+        , residual_generator_{test_q::create_generator<lvq::Unsigned, Residual>()}
         , float_{svs_test::make_generator<float>(float_min, float_max)} {}
 
     svs::lib::MaybeStatic<Extent> static_size() const { return size_; }
@@ -159,7 +159,7 @@ struct ScaledBiasedWithResidual {
         auto primary =
             primary_.template view<lvq::Unsigned, Primary, Extent, Strategy>(static_size());
         auto residual =
-            residual_.template view<lvq::Signed, Residual, Extent, lvq::Sequential>(
+            residual_.template view<lvq::Unsigned, Residual, Extent, lvq::Sequential>(
                 static_size()
             );
         CATCH_REQUIRE((primary.size() == reference_.size()));
@@ -172,7 +172,7 @@ struct ScaledBiasedWithResidual {
             CATCH_REQUIRE((residual.size() == Extent));
         }
 
-        float multiplier = std::pow(2, Residual);
+        float multiplier = std::pow(2, Residual) - 1;
         for (size_t i = 0, imax = reference_.size(); i < imax; ++i) {
             auto x = reference_[i];
             auto y = temp[i];
@@ -180,7 +180,7 @@ struct ScaledBiasedWithResidual {
             primary.set(reference_[i], i);
             residual.set(temp[i], i);
 
-            reference_[i] = scale * (x + (y / multiplier)) + bias;
+            reference_[i] = scale * (x + (y / multiplier)) + bias - scale / 2;
         }
 
         auto v = vector_type{
@@ -217,9 +217,8 @@ void test_distance(TestGenerator& rhs, Distance distance, size_t num_tests = NUM
         for (size_t j = 0, jmax = rhs_compressed.size(); j < jmax; ++j) {
             // Compare with a tiny epsilon because the multilevel compression techniques
             // are subject to a small amount of floating point error.
-            CATCH_REQUIRE(
-                (rhs_compressed.get(j) == Catch::Approx(rhs_ref[j]).epsilon(0.00001))
-            );
+            auto approx = Catch::Approx(rhs_ref[j]).epsilon(0.00001).margin(0.0001);
+            CATCH_REQUIRE(rhs_compressed.get(j) == approx);
         }
 
         // Test distances
