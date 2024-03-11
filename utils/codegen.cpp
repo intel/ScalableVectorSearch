@@ -11,6 +11,7 @@
 
 // svs
 #include "svs/quantization/lvq/compressed.h"
+#include "svs/quantization/lvq/vectors.h"
 
 // stl
 #include <span>
@@ -28,4 +29,20 @@ void unpack_combined(
     std::span<int32_t> dst, lvq::Combined<4, 8, svs::Dynamic, lvq::Turbo<16, 8>> cv
 ) {
     lvq::unpack(dst, cv);
+}
+
+float distance(
+    lvq::DistanceFastIP tag,
+    std::span<const float> x,
+    const lvq::ScaledBiasedWithResidual<8, 8, svs::Dynamic, lvq::Sequential>& y
+) {
+    return svs::distance::compute(tag, x, y);
+}
+
+float distance(
+    lvq::DistanceFastIP tag,
+    std::span<const float> x,
+    const lvq::ScaledBiasedVector<8, svs::Dynamic, lvq::Turbo<16, 4>>& y
+) {
+    return svs::distance::compute(tag, x, y);
 }
