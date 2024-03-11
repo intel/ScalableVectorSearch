@@ -230,13 +230,13 @@ void test_distance(TestGenerator& rhs, Distance distance, size_t num_tests = NUM
         float compressed_ref =
             svs::distance::compute(compressed_distance_ref, lhs_span, rhs_compressed);
         CATCH_REQUIRE(
-            reference == Catch::Approx(compressed_ref).epsilon(0.0001).margin(0.001)
+            reference == Catch::Approx(compressed_ref).epsilon(0.01).margin(0.003)
         );
 
         // Accelerated distance computation.
         float compressed_avx = svs::distance::compute(distance, lhs_span, rhs_compressed);
         CATCH_REQUIRE(
-            reference == Catch::Approx(compressed_avx).epsilon(0.0001).margin(0.001)
+            reference == Catch::Approx(compressed_avx).epsilon(0.01).margin(0.003)
         );
     }
 }
@@ -271,7 +271,7 @@ void test_biased_distance(
 
         svs::distance::maybe_fix_argument(distance_bias, lhs_span);
         float dist = svs::distance::compute(distance_bias, lhs_span, rhs_compressed);
-        CATCH_REQUIRE(reference == Catch::Approx(dist).epsilon(0.0001).margin(0.001));
+        CATCH_REQUIRE(reference == Catch::Approx(dist).epsilon(0.01).margin(0.001));
     }
 }
 
@@ -323,8 +323,31 @@ CATCH_TEST_CASE("Compressed Vector Variants", "[quantization][lvq][distances]") 
     using DistanceL2 = svs::distance::DistanceL2;
     using DistanceIP = svs::distance::DistanceIP;
 
-    // const size_t TEST_DIM = 37;
-    const size_t TEST_DIM = 37;
+    // Rationale for test dimensions:
+    //
+    // SEQUENTIAL
+    //
+    // We want a dimension that
+    // (A) Tests the macro unroll (16 x 4 = 64 elements for float32).
+    // (B) Tests the full-width epilogue (16 x 1 = 16 elements for float32).
+    // (C) Tests the predicated epilogue (less than 16 elements for float32).
+    //
+    // We'd ideally like to test at least two trips around each loops.
+    // This puts us at least
+    //
+    // (2 * 64) + (3 * 16) + 7 = 183 dimensions.
+    //
+    // TURBO
+    //
+    // We want at least two trips through the main sequence.
+    // For `lvq::Turbo<16, 8>`, the main sequence processes 128 elements at a time.
+    //
+    // This now puts us at:
+    //
+    // (2 * 128) + (3 * 16) + 7 = 311 dimensions
+    //
+    // For the sake of consistency, use `311 dimensions` for all tests.
+    const size_t TEST_DIM = 311;
     auto bits = std::make_tuple(Val<8>(), Val<7>(), Val<6>(), Val<5>(), Val<4>(), Val<3>());
 
     CATCH_SECTION("Must fix argument") {

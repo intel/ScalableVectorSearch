@@ -389,12 +389,11 @@ void decompress(std::span<float, N> dst, const T& src, const float* centroid) {
         eve::store[pred](
             decompress_step(unpacked, aux, lane, centroid, pred), ptr + simd_width * lane
         );
-        return detail::Empty();
+        return detail::empty;
     };
 
-    for_each_slice(
-        v, op, []() { return detail::Empty(); }, [](detail::Empty) {}
-    );
+    constexpr auto empty_op = detail::empty;
+    for_each_slice(v, op, empty_op, empty_op, empty_op);
 }
 
 template <LVQCompressedVector T>
@@ -441,18 +440,52 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
     const auto helper = prepare_unpack(v);
 
     const size_t simd_width = 16;
+    const size_t unroll = 4;
 
     size_t iterations = y.size() / simd_width;
+    size_t unrolled_iterations = iterations / 4;
     size_t remaining = y.size() % simd_width;
 
     using accumulator_t = wide_<float, simd_width>;
     using int_wide_t = wide_<int32_t, simd_width>;
 
-    auto accum = accumulator_t(0);
-    for (size_t i = 0; i < iterations; ++i) {
+    // Lambda for general unpacking of the LVQ compressed vector.
+    auto unpack = [&]<typename Pred = eve::ignore_none_>(size_t i, Pred pred = {}) {
+        return unpack_as(v, i, eve::as<int_wide_t>(), helper, pred);
+    };
+
+    auto a0 = accumulator_t(0);
+    if (unrolled_iterations > 0) {
+        auto a1 = accumulator_t(0);
+        auto a2 = accumulator_t(0);
+        auto a3 = accumulator_t(0);
+        for (size_t i = 0; i < unrolled_iterations; ++i) {
+            size_t j = unroll * i;
+            auto lhs0 = accumulator_t{&x[simd_width * j]};
+            auto lhs1 = accumulator_t{&x[simd_width * (j + 1)]};
+            auto lhs2 = accumulator_t{&x[simd_width * (j + 2)]};
+            auto lhs3 = accumulator_t{&x[simd_width * (j + 3)]};
+
+            auto unpacked0 = unpack(j);
+            auto unpacked1 = unpack(j + 1);
+            auto unpacked2 = unpack(j + 2);
+            auto unpacked3 = unpack(j + 3);
+
+            a0 = apply_step(distance, a0, lhs0, unpacked0, aux, j, eve::ignore_none);
+            a1 = apply_step(distance, a1, lhs1, unpacked1, aux, j, eve::ignore_none);
+            a2 = apply_step(distance, a2, lhs2, unpacked2, aux, j, eve::ignore_none);
+            a3 = apply_step(distance, a3, lhs3, unpacked3, aux, j, eve::ignore_none);
+        }
+
+        // Reduce
+        a0 = (a0 + a1) + (a2 + a3);
+    }
+
+    size_t end_of_unroll = unroll * unrolled_iterations;
+    for (size_t i = end_of_unroll; i < iterations; ++i) {
         auto lhs = accumulator_t{&x[simd_width * i]};
-        auto unpacked = unpack_as(v, i, eve::as<int_wide_t>(), helper, eve::ignore_none);
-        accum = apply_step(distance, accum, lhs, unpacked, aux, i, eve::ignore_none);
+        auto unpacked = unpack(i);
+        a0 = apply_step(distance, a0, lhs, unpacked, aux, i, eve::ignore_none);
     }
 
     // Handle tail elements.
@@ -467,9 +500,9 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
         auto lhs =
             eve::load[predicate.else_(0)](&x[simd_width * i], eve::as<accumulator_t>());
         auto unpacked = unpack_as(v, i, eve::as<int_wide_t>(), helper, predicate);
-        accum = apply_step(distance, accum, lhs, unpacked, aux, i, predicate);
+        a0 = apply_step(distance, a0, lhs, unpacked, aux, i, predicate);
     }
-    return finish_step(distance, accum, aux);
+    return finish_step(distance, a0, aux);
 }
 
 // Turbo-based distance computation.
@@ -498,6 +531,7 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
         v,
         op,
         []() { return wide_<float, simd_width>(0); },
+        eve::plus,
         [distance, aux](wide_<float, simd_width> accum) {
             return finish_step(distance, accum, aux);
         }

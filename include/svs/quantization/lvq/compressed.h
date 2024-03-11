@@ -549,7 +549,16 @@ template <typename T, size_t Bits> wide_<T, 8> shifts_x8() {
 }
 
 // Sentinal type representing no pre-computed data for unpack helping.
-struct Empty {};
+struct Empty {
+    // Init
+    constexpr Empty operator()() const { return {}; }
+    // Combine
+    constexpr Empty operator()(Empty, Empty) const { return {}; }
+    // Reduce
+    constexpr void operator()(Empty) const {}
+};
+
+inline constexpr Empty empty {};
 
 } // namespace detail
 
@@ -748,9 +757,19 @@ wide_<int32_t, 16> unpack_as(
 /////
 
 // 8-bit AVX-512 turbo unpacking.
-template <typename Sign, size_t Extent, typename Op, typename Init, typename Reduce>
-auto for_each_slice(
-    CompressedVector<Sign, 8, Extent, Turbo<16, 4>> v, Op&& op, Init&& init, Reduce&& reduce
+template <
+    typename Sign,
+    size_t Extent,
+    typename Op,
+    typename Init,
+    typename Combine,
+    typename Reduce>
+SVS_FORCE_INLINE auto for_each_slice(
+    CompressedVector<Sign, 8, Extent, Turbo<16, 4>> v,
+    Op&& op,
+    Init&& init,
+    Combine&& combine,
+    Reduce&& reduce
 ) {
     using CV = decltype(v);
     using turbo_type = typename CV::strategy;
@@ -762,15 +781,19 @@ auto for_each_slice(
     static_assert(turbo_type::compute_bytes(CV::bits, block_size) == 64);
 
     // Precompute auxiliary values.
-    auto shift = wide_<int32_t, 16>(8);
+    constexpr size_t shift = 8;
     auto mask = wide_<int32_t, 16>(0xff);
 
     size_t sz = v.size();
     size_t num_blocks = sz / block_size;
     size_t remaining = sz - num_blocks * block_size;
 
-    auto accum = init();
     const auto* compressed_base = reinterpret_cast<const int32_t*>(v.data());
+
+    auto a0 = init();
+    auto a1 = init();
+    auto a2 = init();
+    auto a3 = init();
 
     size_t lane = 0;
     for (size_t block = 0; block < num_blocks; ++block) {
@@ -778,21 +801,20 @@ auto for_each_slice(
         const auto* ptr = compressed_base + turbo_type::lanes * block;
         auto packed_data = eve::load(ptr, eve::as<wide_<int32_t, 16>>());
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+        a0 = op(a0, lane, packed_data & mask, eve::ignore_none);
         ++lane;
-        packed_data >>= shift;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+        a1 = op(a1, lane, (packed_data >> 8) & mask, eve::ignore_none);
         ++lane;
-        packed_data >>= shift;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+        a2 = op(a2, lane, (packed_data >> 16) & mask, eve::ignore_none);
         ++lane;
-        packed_data >>= shift;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+        a3 = op(a3, lane, (packed_data >> 24) & mask, eve::ignore_none);
         ++lane;
     }
+
+    a0 = combine(combine(a0, a1), combine(a2, a3));
 
     // Main loop has been completed.
     // When working with the remaining elements - we perform as many standard iterations as
@@ -804,7 +826,7 @@ auto for_each_slice(
 
         // Unroll the tail iterations.
         for (size_t i = 0; i < full_lanes; ++i) {
-            accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+            a0 = op(a0, lane, packed_data & mask, eve::ignore_none);
             packed_data >>= shift;
             ++lane;
         };
@@ -812,16 +834,26 @@ auto for_each_slice(
         // Get the very last elements.
         size_t final_remaining = remaining - turbo_type::lanes * full_lanes;
         if (final_remaining != 0) {
-            accum = op(accum, lane, packed_data & mask, eve::keep_first(final_remaining));
+            a0 = op(a0, lane, packed_data & mask, eve::keep_first(final_remaining));
         }
     }
-    return reduce(accum);
+    return reduce(a0);
 }
 
 // 4-bit AVX-512 turbo unpacking.
-template <typename Sign, size_t Extent, typename Op, typename Init, typename Reduce>
-auto for_each_slice(
-    CompressedVector<Sign, 4, Extent, Turbo<16, 8>> v, Op&& op, Init&& init, Reduce&& reduce
+template <
+    typename Sign,
+    size_t Extent,
+    typename Op,
+    typename Init,
+    typename Combine,
+    typename Reduce>
+SVS_FORCE_INLINE auto for_each_slice(
+    CompressedVector<Sign, 4, Extent, Turbo<16, 8>> v,
+    Op&& op,
+    Init&& init,
+    Combine&& combine,
+    Reduce&& reduce
 ) {
     using CV = decltype(v);
     using turbo_type = typename CV::strategy;
@@ -833,15 +865,20 @@ auto for_each_slice(
     static_assert(turbo_type::compute_bytes(CV::bits, block_size) == 64);
 
     // Precompute auxiliary values.
-    auto shift = wide_<int32_t, 16>(4);
+    constexpr size_t shift = 4;
+    // auto shift = wide_<int32_t, 16>(4);
     auto mask = wide_<int32_t, 16>(0xf);
 
     size_t sz = v.size();
     size_t num_blocks = sz / block_size;
     size_t remaining = sz - num_blocks * block_size;
 
-    auto accum = init();
     const auto* compressed_base = reinterpret_cast<const int32_t*>(v.data());
+
+    auto a0 = init();
+    auto a1 = init();
+    auto a2 = init();
+    auto a3 = init();
 
     size_t lane = 0;
     for (size_t block = 0; block < num_blocks; ++block) {
@@ -850,37 +887,32 @@ auto for_each_slice(
         auto packed_data = eve::load(ptr, eve::as<wide_<int32_t, 16>>());
 
         // Manually unroll 8 iterations.
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a0 = op(a0, lane, packed_data & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a1 = op(a1, lane, (packed_data >> 4) & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a2 = op(a2, lane, (packed_data >> 8) & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a3 = op(a3, lane, (packed_data >> 12) & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a0 = op(a0, lane, (packed_data >> 16) & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a1 = op(a1, lane, (packed_data >> 20) & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
-        packed_data >>= shift;
+        a2 = op(a2, lane, (packed_data >> 24) & mask, eve::ignore_none);
         ++lane;
 
-        accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+        a3 = op(a3, lane, (packed_data >> 28) & mask, eve::ignore_none);
         ++lane;
     }
+
+    a0 = combine(combine(a0, a1), combine(a2, a3));
 
     // Main loop has been completed.
     // When working with the remaining elements - we perform as many standard iterations as
@@ -892,7 +924,7 @@ auto for_each_slice(
 
         // Unroll the tail iterations.
         for (size_t i = 0; i < full_lanes; ++i) {
-            accum = op(accum, lane, packed_data & mask, eve::ignore_none);
+            a0 = op(a0, lane, packed_data & mask, eve::ignore_none);
             packed_data >>= shift;
             ++lane;
         };
@@ -900,16 +932,20 @@ auto for_each_slice(
         // Get the very last elements.
         size_t final_remaining = remaining - turbo_type::lanes * full_lanes;
         if (final_remaining != 0) {
-            accum = op(accum, lane, packed_data & mask, eve::keep_first(final_remaining));
+            a0 = op(a0, lane, packed_data & mask, eve::keep_first(final_remaining));
         }
     }
-    return reduce(accum);
+    return reduce(a0);
 }
 
 // Combined unpacking.
-template <size_t Extent, typename Op, typename Init, typename Reduce>
+template <size_t Extent, typename Op, typename Init, typename Combine, typename Reduce>
 auto for_each_slice(
-    Combined<4, 8, Extent, Turbo<16, 8>> c, Op&& op, Init&& init, Reduce&& reduce
+    Combined<4, 8, Extent, Turbo<16, 8>> c,
+    Op&& op,
+    Init&& init,
+    Combine&& combine,
+    Reduce&& reduce
 ) {
     auto p = c.primary_;
     auto r = c.residual_;
@@ -923,6 +959,7 @@ auto for_each_slice(
             return op(accum, lane, (primary << 8) - primary + res, pred);
         },
         SVS_FWD(init),
+        SVS_FWD(combine),
         SVS_FWD(reduce)
     );
 }
@@ -983,9 +1020,10 @@ void unpack_turbo(std::span<I> dst, const CV& compressed_like) {
 
     for_each_slice(
         compressed_like,
-        op,                               // op
-        []() { return detail::Empty(); }, // init
-        [](detail::Empty) {}              // reduce
+        op,                                                           // op
+        []() { return detail::Empty(); },                             // init
+        [](detail::Empty, detail::Empty) { return detail::Empty{}; }, // combine
+        [](detail::Empty) {}                                          // reduce
     );
 }
 } // namespace detail
