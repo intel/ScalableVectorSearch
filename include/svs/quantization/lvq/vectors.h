@@ -124,12 +124,12 @@ struct ScaledBiasedVector {
         if (scale != other.scale || bias != other.bias || selector != other.selector) {
             return false;
         }
-        // Otherwise, we
+        // So far so good - compare the underlying vectors for equivalence.
         return logically_equal(data, other.data);
     }
 
     ///// Members
-    // The vector-wise scaling amount.
+    // The vector-wise scaling constant.
     scalar_type scale;
     // The vector-wise offset.
     scalar_type bias;
@@ -278,7 +278,6 @@ wide_<float, N> apply_step(
     wide_<float, N> x,
     wide_<T, N> y,
     ScaleBias aux,
-    size_t /*i*/,
     P pred
 ) {
     // Apply the scaling parameter and add in the bias.
@@ -297,7 +296,6 @@ wide_<float, N> apply_step(
     wide_<float, N> x,
     wide_<T, N> y,
     ScaleBias aux,
-    size_t /*i*/,
     P /*unused*/
 ) {
     // In this case, we can leverage the fact that `x` will be set to zero in the masked
@@ -313,7 +311,6 @@ wide_<float, N> apply_step(
     wide_<float, N> x,
     wide_<T, N> y,
     ScaleBias /*aux*/,
-    size_t /*i*/,
     P /*unused*/
 ) {
     // In the first step, just do <x,y>
@@ -471,10 +468,10 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
             auto unpacked2 = unpack(j + 2);
             auto unpacked3 = unpack(j + 3);
 
-            a0 = apply_step(distance, a0, lhs0, unpacked0, aux, j, eve::ignore_none);
-            a1 = apply_step(distance, a1, lhs1, unpacked1, aux, j, eve::ignore_none);
-            a2 = apply_step(distance, a2, lhs2, unpacked2, aux, j, eve::ignore_none);
-            a3 = apply_step(distance, a3, lhs3, unpacked3, aux, j, eve::ignore_none);
+            a0 = apply_step(distance, a0, lhs0, unpacked0, aux, eve::ignore_none);
+            a1 = apply_step(distance, a1, lhs1, unpacked1, aux, eve::ignore_none);
+            a2 = apply_step(distance, a2, lhs2, unpacked2, aux, eve::ignore_none);
+            a3 = apply_step(distance, a3, lhs3, unpacked3, aux, eve::ignore_none);
         }
 
         // Reduce
@@ -485,7 +482,7 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
     for (size_t i = end_of_unroll; i < iterations; ++i) {
         auto lhs = accumulator_t{&x[simd_width * i]};
         auto unpacked = unpack(i);
-        a0 = apply_step(distance, a0, lhs, unpacked, aux, i, eve::ignore_none);
+        a0 = apply_step(distance, a0, lhs, unpacked, aux, eve::ignore_none);
     }
 
     // Handle tail elements.
@@ -500,7 +497,7 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
         auto lhs =
             eve::load[predicate.else_(0)](&x[simd_width * i], eve::as<accumulator_t>());
         auto unpacked = unpack_as(v, i, eve::as<int_wide_t>(), helper, predicate);
-        a0 = apply_step(distance, a0, lhs, unpacked, aux, i, predicate);
+        a0 = apply_step(distance, a0, lhs, unpacked, aux, predicate);
     }
     return finish_step(distance, a0, aux);
 }
@@ -524,7 +521,7 @@ compute_quantized(Distance distance, std::span<const float> x, const T& y) {
               ) {
         auto left =
             eve::load[pred.else_(0)](ptr + simd_width * lane, eve::as<wide_<float, 16>>());
-        return apply_step(distance, accum, left, unpacked, aux, lane, pred);
+        return apply_step(distance, accum, left, unpacked, aux, pred);
     };
 
     return for_each_slice(
