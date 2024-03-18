@@ -558,7 +558,7 @@ struct Empty {
     constexpr void operator()(Empty) const {}
 };
 
-inline constexpr Empty empty {};
+inline constexpr Empty empty{};
 
 } // namespace detail
 

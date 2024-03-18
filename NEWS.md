@@ -141,3 +141,21 @@ of previously serialized SVS objects.
 
   Consequently, previously saved two-level LVQ datasets have had their serialization version
   incremented from `v0.0.2` to `v0.0.3` and will need to be regenerated.
+
+* The data structure `svsbenchmark::vamana::BuildJob` has been updated from `v0.0.3` to
+  `v0.0.4`. This change is backwards compatible, but users of this class are encouraged to
+  upgrade as soon as possible.
+
+  This change drops the `search_window_size` array and adds a field `preset_parameters`
+  which must be an array of `svs::index::vamana::VamanaSearchParameters`. This is done to
+  provide more fine-grained control of preset search parameters (including split-buffer,
+  visited-set, and prefetching) more inline with `svsbenchmark::vamana::SearchJob`.
+
+  Version `v0.0.3` with `search_window_size` be compatible until the next minor version of
+  SVS with the semantics of constructing a non-split-buffered
+  `svs::index::vamana::VamanaSearchParameters` with no visited filter and no prefetching.
+
+  An example of the new format can be obtained by running
+  ```
+  ./svs_benchmark vamana_static_build --example
+  ```

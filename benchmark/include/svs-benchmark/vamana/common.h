@@ -3,6 +3,10 @@
 
 // svs
 #include "svs/core/distance.h"
+#include "svs/index/vamana/search_params.h"
+
+// stl
+#include <initializer_list>
 
 namespace svsbenchmark::vamana {
 
@@ -24,6 +28,15 @@ SVS_BENCHMARK_FOR_TESTS_ONLY inline float pick_alpha(svs::DistanceType distance)
 // Test Routines
 SVS_BENCHMARK_FOR_TESTS_ONLY inline search::SearchParameters test_search_parameters() {
     return search::SearchParameters{10, {0.2, 0.5, 0.8, 0.9}};
+}
+
+SVS_BENCHMARK_FOR_TESTS_ONLY inline std::vector<svs::index::vamana::VamanaSearchParameters>
+search_parameters_from_window_sizes(std::initializer_list<size_t> search_window_sizes) {
+    auto v = std::vector<svs::index::vamana::VamanaSearchParameters>();
+    for (auto i : search_window_sizes) {
+        v.push_back({{i, i}, false, 1, 1});
+    }
+    return v;
 }
 
 SVS_BENCHMARK_FOR_TESTS_ONLY inline std::vector<svs::index::vamana::VamanaSearchParameters>
