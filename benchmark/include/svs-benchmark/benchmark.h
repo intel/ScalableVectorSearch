@@ -163,7 +163,7 @@ class ExecutableDispatcher {
         // Check if this executable is already registered.
         if (lookup(name) != nullptr) {
             throw ANNEXCEPTION(
-                "An executable with the name ", name, " is already registered!"
+                "An executable with the name \"{}\" is already registered!", name
             );
         }
         executables_[std::move(name)] = std::move(exe);
