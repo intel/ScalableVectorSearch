@@ -106,7 +106,8 @@ if (SVS_NO_AVX512)
     target_compile_options(${SVS_LIB} INTERFACE -mno-avx512f)
 endif()
 
-if (SVS_EXPERIMENTAL_CHECK_BOUNDS)
+# Enable bounds-checking by default for non-release builds.
+if (SVS_EXPERIMENTAL_CHECK_BOUNDS OR NOT CMAKE_BUILD_TYPE STREQUAL "Release")
     target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS=1)
 else()
     target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS=0)
