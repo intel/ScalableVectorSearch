@@ -221,7 +221,7 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
     // Construct a `SearchJob` for this operation.
     auto build_job = BuildJob{
         groundtruth_path,
-        {1, 2, 3, 4, 5, 10},
+        svsbenchmark::vamana::search_parameters_from_window_sizes({1, 2, 3, 4, 5, 10}),
         test_search_parameters(),
         "uncompressed reference build",
         kind,

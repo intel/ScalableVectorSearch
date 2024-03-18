@@ -224,7 +224,8 @@ struct BuildJob : public BuildJobBase {
   public:
     // Paths
     std::filesystem::path groundtruth_;
-    std::vector<size_t> search_window_sizes_;
+    // Preset search parameters
+    std::vector<svs::index::vamana::VamanaSearchParameters> preset_parameters_;
     // Post-build validation parameters.
     svsbenchmark::search::SearchParameters search_parameters_;
 
@@ -232,34 +233,28 @@ struct BuildJob : public BuildJobBase {
     template <typename... Args>
     BuildJob(
         std::filesystem::path groundtruth,
-        std::vector<size_t> search_window_sizes,
+        std::vector<svs::index::vamana::VamanaSearchParameters> preset_parameters,
         svsbenchmark::search::SearchParameters search_parameters,
         Args&&... args
     )
         : BuildJobBase(std::forward<Args>(args)...)
         , groundtruth_{std::move(groundtruth)}
-        , search_window_sizes_{std::move(search_window_sizes)}
+        , preset_parameters_{std::move(preset_parameters)}
         , search_parameters_{std::move(search_parameters)} {}
 
     // Return an example BuildJob that can be used to generate sample config files.
     static BuildJob example() {
         return BuildJob(
-            "groundtruth.ivecs",
-            {10, 20, 30, 40},
-            svsbenchmark::search::SearchParameters::example(),
-            BuildJobBase::example()
+            "groundtruth.ivecs",                                // groundtruth
+            {{{10, 20}, false, 1, 1}, {{15, 15}, false, 1, 1}}, // preset_parameters
+            svsbenchmark::search::SearchParameters::example(),  // search_parameters
+            BuildJobBase::example()                             // base-class
         );
     }
 
     // Compatibility with abstract search-space.
     std::vector<svs::index::vamana::VamanaSearchParameters> get_search_configs() const {
-        auto results = std::vector<svs::index::vamana::VamanaSearchParameters>();
-        for (size_t sws : search_window_sizes_) {
-            results.push_back(
-                svs::index::vamana::VamanaSearchParameters().buffer_config({sws, sws})
-            );
-        }
-        return results;
+        return preset_parameters_;
     }
     const svsbenchmark::search::SearchParameters& get_search_parameters() const {
         return search_parameters_;
@@ -275,7 +270,10 @@ struct BuildJob : public BuildJobBase {
     //  a training set (for performance calibration) and a test set.
     // v0.0.3: Changed `build_type` to `dataset`, which is one of the variants defined by
     //  the `Datasets` class.
-    static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 3);
+    // v0.0.4: Compatible - Switched `search_window_sizes` to `preset_parameters` to:
+    //  - A. Enable finer-grained control of preset parameters.
+    //  - B. Align more closely with the `SearchJob`.
+    static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 4);
     static constexpr std::string_view serialization_schema = "benchmark_vamana_build_job";
 
     // Save the BuildJob to a TOML table.
@@ -285,9 +283,28 @@ struct BuildJob : public BuildJobBase {
 
         // Append the extra information needed by the static BuildJob.
         SVS_INSERT_SAVE_(table, groundtruth);
-        SVS_INSERT_SAVE_(table, search_window_sizes);
+        SVS_INSERT_SAVE_(table, preset_parameters);
         SVS_INSERT_SAVE_(table, search_parameters);
         return table;
+    }
+
+    // Customize `check_load_compatibility` in order to provide better error messages
+    // providing upgrade instructions for `v0.0.3` files.
+    static bool
+    check_load_compatibility(std::string_view schema, const svs::lib::Version& version) {
+        if (schema != serialization_schema) {
+            return false;
+        }
+
+        // If this version is `v0.0.3` - provide upgrade instructions.
+        if (version == svs::lib::Version{0, 0, 3}) {
+            fmt::print(
+                "Please upgrade the BuildJob serialization struct to version {}. Consult "
+                "the release notes for instructions.\n",
+                save_version
+            );
+        }
+        return svs::lib::Version{0, 0, 3} <= version && version <= save_version;
     }
 
     // Load a BuildJob from a TOML table.
@@ -295,9 +312,25 @@ struct BuildJob : public BuildJobBase {
         const svs::lib::ContextFreeLoadTable& table,
         const std::optional<std::filesystem::path>& root
     ) {
+        const auto& version = table.version();
+        auto load_preset = [&]() {
+            // load as search-window sizes and return the appropriate
+            if (version == svs::lib::Version{0, 0, 3}) {
+                auto sizes =
+                    svs::lib::load_at<std::vector<size_t>>(table, "search_window_sizes");
+                auto dst = std::vector<svs::index::vamana::VamanaSearchParameters>();
+                for (auto sws : sizes) {
+                    dst.push_back({{sws, sws}, false, 0, 0});
+                }
+                return dst;
+            }
+            assert(version == save_version);
+            return SVS_LOAD_MEMBER_AT_(table, preset_parameters);
+        };
+
         return BuildJob{
             svsbenchmark::extract_filename(table, "groundtruth", root),
-            SVS_LOAD_MEMBER_AT_(table, search_window_sizes),
+            load_preset(),
             SVS_LOAD_MEMBER_AT_(table, search_parameters),
             BuildJobBase::from_toml(table, root)};
     }

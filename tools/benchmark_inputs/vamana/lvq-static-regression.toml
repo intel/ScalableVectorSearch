@@ -1,6 +1,6 @@
 [[vamana_static_build]]
 __schema__ = 'benchmark_vamana_build_job'
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 description = 'dpr-1m'
@@ -11,7 +11,7 @@ num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-search_window_sizes = []
+preset_parameters = []
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -42,7 +42,7 @@ search_window_sizes = []
 
 [[vamana_static_build]]
 __schema__ = 'benchmark_vamana_build_job'
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 description = 'dpr-1m'
@@ -53,7 +53,7 @@ num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-search_window_sizes = []
+preset_parameters = []
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -86,7 +86,7 @@ search_window_sizes = []
 
 [[vamana_static_build]]
 __schema__ = 'benchmark_vamana_build_job'
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 description = 'dpr-1m'
@@ -97,7 +97,7 @@ num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-search_window_sizes = []
+preset_parameters = []
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -130,7 +130,7 @@ search_window_sizes = []
 
 [[vamana_static_build]]
 __schema__ = 'benchmark_vamana_build_job'
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 description = 'dpr-1m'
@@ -141,7 +141,7 @@ num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-search_window_sizes = []
+preset_parameters = []
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -174,7 +174,7 @@ search_window_sizes = []
 
 [[vamana_static_build]]
 __schema__ = 'benchmark_vamana_build_job'
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 description = 'dpr-1m'
@@ -185,7 +185,7 @@ num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-search_window_sizes = []
+preset_parameters = []
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -218,7 +218,7 @@ search_window_sizes = []
 
 [[vamana_static_build]]
 __schema__ = 'benchmark_vamana_build_job'
-__version__ = 'v0.0.3'
+__version__ = 'v0.0.4'
 data = 'dpr/dpr_1m_f16.fvecs'
 data_type = 'float16'
 description = 'dpr-1m'
@@ -229,7 +229,7 @@ num_threads = 72
 queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
-search_window_sizes = []
+preset_parameters = []
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
