@@ -60,6 +60,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/neighbor.cpp
     # ${TEST_DIR}/svs/lib/numa.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
     ${TEST_DIR}/svs/lib/prefetch.cpp
+    ${TEST_DIR}/svs/lib/preprocessor.cpp
     ${TEST_DIR}/svs/lib/readwrite.cpp
     ${TEST_DIR}/svs/lib/saveload.cpp
     ${TEST_DIR}/svs/lib/saveload/load.cpp
