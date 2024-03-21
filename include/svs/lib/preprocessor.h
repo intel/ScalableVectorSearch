@@ -17,8 +17,17 @@ namespace svs::preprocessor::detail {
 // See the discussion here: https://discourse.llvm.org/t/rfc-llvm-libc-tuning/67980
 // for some context.
 
-// char* string is not null and is non-empty.
-consteval bool is_valid(const char* ptr) { return (ptr != nullptr) && (*ptr != '\0'); }
+// Compile time string length.
+// Provided pointer must not be null.
+consteval long long strlen(const char* ptr) {
+    const auto* head = ptr;
+    while (*head != '\0') {
+        ++head;
+    }
+    return head - ptr;
+}
+// char* string is not null and has length 1.
+consteval bool is_valid(const char* ptr) { return (ptr != nullptr) && (strlen(ptr) == 1); }
 consteval bool is_one_or_zero(const char* ptr) {
     return is_valid(ptr) && ((*ptr == '0') || *ptr == '1');
 }
