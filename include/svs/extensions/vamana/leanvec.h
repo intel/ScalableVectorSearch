@@ -171,7 +171,10 @@ void svs_invoke(
         const auto& query = queries.get_datum(i);
         const auto& processed_query = processed_queries.get_datum(i - batch_start);
 
-        search(processed_query, data::GetDatumAccessor(), distance_primary, search_buffer);
+        {
+            auto accessor = data::GetDatumAccessor();
+            search(processed_query, accessor, distance_primary, search_buffer);
+        }
 
         // For LeanVec, always rerank the result
         distance::maybe_fix_argument(distance_secondary, query);

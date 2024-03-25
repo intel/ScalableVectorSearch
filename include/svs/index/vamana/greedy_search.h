@@ -71,7 +71,7 @@ template <
 void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
-    const Accessor& accessor,
+    Accessor& accessor,
     const QueryType& query,
     Dist& distance_function,
     Buffer& search_buffer,
@@ -163,7 +163,7 @@ template <
 void greedy_search(
     const Graph& graph,
     const Dataset& dataset,
-    const Accessor& accessor,
+    Accessor& accessor,
     QueryType query,
     Dist& distance_function,
     Buffer& search_buffer,
