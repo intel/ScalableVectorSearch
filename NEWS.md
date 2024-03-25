@@ -146,14 +146,22 @@ of previously serialized SVS objects.
   `v0.0.4`. This change is backwards compatible, but users of this class are encouraged to
   upgrade as soon as possible.
 
-  This change drops the `search_window_size` array and adds a field `preset_parameters`
-  which must be an array of `svs::index::vamana::VamanaSearchParameters`. This is done to
-  provide more fine-grained control of preset search parameters (including split-buffer,
-  visited-set, and prefetching) more inline with `svsbenchmark::vamana::SearchJob`.
+  1. This change drops the `search_window_size` array and adds a field `preset_parameters`
+     which must be an array of `svs::index::vamana::VamanaSearchParameters`. This is done to
+     provide more fine-grained control of preset search parameters (including split-buffer,
+     visited-set, and prefetching) more inline with `svsbenchmark::vamana::SearchJob`.
 
-  Version `v0.0.3` with `search_window_size` be compatible until the next minor version of
-  SVS with the semantics of constructing a non-split-buffered
-  `svs::index::vamana::VamanaSearchParameters` with no visited filter and no prefetching.
+     Version `v0.0.3` with `search_window_size` be compatible until the next minor version
+     of SVS with the semantics of constructing a non-split-buffered
+     `svs::index::vamana::VamanaSearchParameters` with no visited filter and no prefetching.
+
+  2. Added a field `save_directory` into which the constructed index will be saved.
+     This field can be left as the empty string to indicate that no saving is desired.
+
+     The benchmarking framework will ensure that all requested save directories are unique
+     and that the parents of the requested directories exist.
+
+     Older serialization version will default to no saving.
 
   An example of the new format can be obtained by running
   ```

@@ -12,6 +12,7 @@ queries = 'bigann/bigann_queries.bvecs'
 queries_in_training_set = 5000
 query_type = 'uint8'
 preset_parameters = []
+save_directory = "./temp"
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -54,6 +55,7 @@ queries = 'deep/deep_queries.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
 preset_parameters = []
+save_directory = "./temp"
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -96,6 +98,7 @@ queries = 'dpr/dpr_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
 preset_parameters = []
+save_directory = ""
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -138,6 +141,7 @@ queries = 'msturing/msturing_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
 preset_parameters = []
+save_directory = ""
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -180,6 +184,7 @@ queries = 'spacev/spacev_queries_i8.bvecs'
 queries_in_training_set = 5000
 query_type = 'int8'
 preset_parameters = []
+save_directory = ""
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -222,6 +227,7 @@ queries = 'text2image/text2image_queries_10k_f32.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
 preset_parameters = []
+save_directory = ""
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'

@@ -138,7 +138,11 @@ template <typename BenchmarkType> struct Exe {
         if (args.size() == 1) {
             root = std::filesystem::path(args[0]);
         }
-        return f(root);
+        if constexpr (std::is_same_v<BenchmarkType, StaticBenchmark>) {
+            return f(root, svsbenchmark::SaveDirectoryChecker());
+        } else {
+            return f(root);
+        }
     }
 };
 } // namespace

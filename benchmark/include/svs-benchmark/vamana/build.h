@@ -228,6 +228,9 @@ struct BuildJob : public BuildJobBase {
     std::vector<svs::index::vamana::VamanaSearchParameters> preset_parameters_;
     // Post-build validation parameters.
     svsbenchmark::search::SearchParameters search_parameters_;
+    // Directory to save the built index.
+    // An empty optional implies no saving.
+    std::optional<std::filesystem::path> save_directory_;
 
   public:
     template <typename... Args>
@@ -235,12 +238,14 @@ struct BuildJob : public BuildJobBase {
         std::filesystem::path groundtruth,
         std::vector<svs::index::vamana::VamanaSearchParameters> preset_parameters,
         svsbenchmark::search::SearchParameters search_parameters,
+        std::optional<std::filesystem::path> save_directory,
         Args&&... args
     )
         : BuildJobBase(std::forward<Args>(args)...)
         , groundtruth_{std::move(groundtruth)}
         , preset_parameters_{std::move(preset_parameters)}
-        , search_parameters_{std::move(search_parameters)} {}
+        , search_parameters_{std::move(search_parameters)}
+        , save_directory_{std::move(save_directory)} {}
 
     // Return an example BuildJob that can be used to generate sample config files.
     static BuildJob example() {
@@ -248,6 +253,7 @@ struct BuildJob : public BuildJobBase {
             "groundtruth.ivecs",                                // groundtruth
             {{{10, 20}, false, 1, 1}, {{15, 15}, false, 1, 1}}, // preset_parameters
             svsbenchmark::search::SearchParameters::example(),  // search_parameters
+            std::nullopt,                                       // save_directory
             BuildJobBase::example()                             // base-class
         );
     }
@@ -265,14 +271,26 @@ struct BuildJob : public BuildJobBase {
         return f(dataset_, query_type_, data_type_, distance_, ndims_, *this);
     }
 
+    // Save the index if the `save_directory` field is non-empty.
+    template <typename Index> void maybe_save_index(Index& index) const {
+        if (!save_directory_) {
+            return;
+        }
+        const auto& root = save_directory_.value();
+        index.save(root / "config", root / "graph", root / "data");
+    }
+
     // Versioning information for saving and reloading.
     // v0.0.2: Added `queries_in_training_set` field to divide the provided queries into
     //  a training set (for performance calibration) and a test set.
     // v0.0.3: Changed `build_type` to `dataset`, which is one of the variants defined by
     //  the `Datasets` class.
-    // v0.0.4: Compatible - Switched `search_window_sizes` to `preset_parameters` to:
-    //  - A. Enable finer-grained control of preset parameters.
-    //  - B. Align more closely with the `SearchJob`.
+    // v0.0.4: Compatible
+    //    Switched `search_window_sizes` to `preset_parameters` to:
+    //    - A. Enable finer-grained control of preset parameters.
+    //    - B. Align more closely with the `SearchJob`.
+    //    Added an argument "save_directory" to allow built indexes to be saved after
+    //    building.
     static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 4);
     static constexpr std::string_view serialization_schema = "benchmark_vamana_build_job";
 
@@ -285,6 +303,7 @@ struct BuildJob : public BuildJobBase {
         SVS_INSERT_SAVE_(table, groundtruth);
         SVS_INSERT_SAVE_(table, preset_parameters);
         SVS_INSERT_SAVE_(table, search_parameters);
+        table.insert("save_directory", svs::lib::save(save_directory_.value_or("")));
         return table;
     }
 
@@ -310,12 +329,14 @@ struct BuildJob : public BuildJobBase {
     // Load a BuildJob from a TOML table.
     static BuildJob load(
         const svs::lib::ContextFreeLoadTable& table,
-        const std::optional<std::filesystem::path>& root
+        const std::optional<std::filesystem::path>& root,
+        svsbenchmark::SaveDirectoryChecker& checker
     ) {
         const auto& version = table.version();
+        bool is003 = version == svs::lib::Version{0, 0, 3};
         auto load_preset = [&]() {
             // load as search-window sizes and return the appropriate
-            if (version == svs::lib::Version{0, 0, 3}) {
+            if (is003) {
                 auto sizes =
                     svs::lib::load_at<std::vector<size_t>>(table, "search_window_sizes");
                 auto dst = std::vector<svs::index::vamana::VamanaSearchParameters>();
@@ -328,10 +349,21 @@ struct BuildJob : public BuildJobBase {
             return SVS_LOAD_MEMBER_AT_(table, preset_parameters);
         };
 
+        auto load_save_directory = [&]() -> std::optional<std::filesystem::path> {
+            if (is003) {
+                return std::nullopt;
+            }
+            // Load the save directory.
+            // The checker will ensure that the save directory exists and is unique and thus
+            // should not conflict with other indexes being saved.
+            return checker.extract(table.unwrap(), "save_directory");
+        };
+
         return BuildJob{
             svsbenchmark::extract_filename(table, "groundtruth", root),
             load_preset(),
             SVS_LOAD_MEMBER_AT_(table, search_parameters),
+            load_save_directory(),
             BuildJobBase::from_toml(table, root)};
     }
 };
