@@ -327,18 +327,21 @@ class VamanaBuilder {
 
                 // Perform the greedy search.
                 // The search tracker will be used if it is enabled.
-                greedy_search(
-                    graph_,
-                    data_,
-                    build_adaptor.graph_search_accessor(),
-                    graph_search_query,
-                    graph_search_distance,
-                    search_buffer,
-                    entry_points,
-                    NeighborBuilder(),
-                    tracker,
-                    prefetch_hint_
-                );
+                {
+                    auto accessor = build_adaptor.graph_search_accessor();
+                    greedy_search(
+                        graph_,
+                        data_,
+                        accessor,
+                        graph_search_query,
+                        graph_search_distance,
+                        search_buffer,
+                        entry_points,
+                        NeighborBuilder(),
+                        tracker,
+                        prefetch_hint_
+                    );
+                }
 
                 const auto& post_search_query = build_adaptor.modify_post_search_query(
                     data_, node_id, graph_search_query

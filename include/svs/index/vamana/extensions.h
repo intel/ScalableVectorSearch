@@ -435,7 +435,8 @@ SVS_FORCE_INLINE void svs_invoke(
     const Search& search
 ) {
     // Perform graph search.
-    search(query, data::GetDatumAccessor(), distance, search_buffer);
+    auto accessor = data::GetDatumAccessor();
+    search(query, accessor, distance, search_buffer);
 }
 
 ///

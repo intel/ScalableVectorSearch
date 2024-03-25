@@ -165,7 +165,10 @@ void svs_invoke(
     const Search& search
 ) {
     // Perform graph search.
-    search(query, PrimaryAccessor(), distance, search_buffer);
+    {
+        auto accessor = PrimaryAccessor();
+        search(query, accessor, distance, search_buffer);
+    }
 
     // Rerank the results
     for (size_t j = 0, jmax = search_buffer.size(); j < jmax; ++j) {

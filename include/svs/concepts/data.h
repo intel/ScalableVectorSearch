@@ -193,7 +193,7 @@ struct GetDatumAccessor {
 };
 
 template <typename Accessor, typename Data>
-concept AccessorFor = requires(const Accessor& accessor, const Data& data, size_t i) {
+concept AccessorFor = requires(Accessor& accessor, const Data& data, size_t i) {
                           accessor(data, i);
                           accessor.prefetch(data, i);
                       };

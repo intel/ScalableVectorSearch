@@ -403,7 +403,7 @@ class MutableVamanaIndex {
 
     auto greedy_search_closure(GreedySearchPrefetchParameters prefetch_parameters) const {
         return [&, prefetch_parameters](
-                   const auto& query, const auto& accessor, auto& distance, auto& buffer
+                   const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
             // Perform the greedy search using the provided resources.
             greedy_search(
