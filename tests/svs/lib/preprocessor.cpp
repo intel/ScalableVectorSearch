@@ -75,8 +75,6 @@ CATCH_TEST_CASE("Preprocessor", "[lib][preprocessor]") {
         );
 
         x.d("bar");
-        CATCH_REQUIRE(
-            x == TestClass{.a_ = -1, .b_ = 20.0, .c_ = "foo", .d_ = "bar"}
-        );
+        CATCH_REQUIRE(x == TestClass{.a_ = -1, .b_ = 20.0, .c_ = "foo", .d_ = "bar"});
     }
 }

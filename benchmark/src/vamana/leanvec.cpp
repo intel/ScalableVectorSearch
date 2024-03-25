@@ -111,6 +111,10 @@ toml::table run_static_leanvec(
     auto index =
         svs::Vamana::build<Q>(job.build_parameters_, lazy, distance, job.num_threads_);
     double build_time = svs::lib::time_difference(tic);
+    // Save the index if requested by the caller.
+    job.maybe_save_index(index);
+
+    // Load and run queries.
     auto queries = svs::data::SimpleData<Q>::load(job.queries_);
     auto groundtruth = svs::data::SimpleData<uint32_t>::load(job.groundtruth_);
     auto results = svsbenchmark::search::run_search(
@@ -230,6 +234,7 @@ TestFunctionReturn test_build(const VamanaTest& job) {
         groundtruth_path,
         svsbenchmark::vamana::search_parameters_from_window_sizes({1, 2, 3, 4, 5, 10}),
         test_search_parameters(),
+        std::nullopt,
         "leanvec reference build",
         kind,
         job.data_f32_,
