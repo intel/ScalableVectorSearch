@@ -195,7 +195,7 @@ auto_load(const std::filesystem::path& filename, const F& construct) {
         return load_dataset(io::NativeFile(filename), construct);
     }
     if (sv.ends_with("vecs")) {
-        return load_dataset(io::vecs::VecsFile<T>(filename), construct);
+        return load_dataset(io::vecs::VecsFile(filename), construct);
     }
     if (sv.ends_with("bin")) {
         return load_dataset(io::binary::BinaryFile(filename), construct);
@@ -203,14 +203,14 @@ auto_load(const std::filesystem::path& filename, const F& construct) {
     throw ANNEXCEPTION("Unknown file extension for input file: {}.", filename);
 }
 
-inline size_t deduce_dimensions(const std::filesystem::path& filename, size_t elsize) {
+inline size_t deduce_dimensions(const std::filesystem::path& filename) {
     auto sv = std::string_view(filename.native());
     assert(special_by_file_extension(sv));
     if (sv.ends_with("svs")) {
         return io::NativeFile{filename}.get_dims().second;
     }
     if (sv.ends_with("vecs")) {
-        return io::vecs::VecsFile{filename}.get_dims(elsize).second;
+        return io::vecs::VecsFile{filename}.get_dims().second;
     }
     if (sv.ends_with("bin")) {
         return io::binary::BinaryFile{filename}.get_dims().second;

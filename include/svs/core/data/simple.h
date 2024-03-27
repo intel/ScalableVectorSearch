@@ -135,7 +135,7 @@ struct Matcher {
             throw ANNEXCEPTION("Cannot deduce the element type of raw file {}.", path);
         }
 
-        size_t dims = io::deduce_dimensions(path, svs::element_size(type_hint));
+        size_t dims = io::deduce_dimensions(path);
         if (dims_hint != Dynamic && dims != dims_hint) {
             throw ANNEXCEPTION(
                 "Dims hint {} does not match deduced dimensions of {}!", dims_hint, dims
