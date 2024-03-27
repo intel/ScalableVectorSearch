@@ -12,7 +12,7 @@ queries = 'bigann/bigann_queries.bvecs'
 queries_in_training_set = 5000
 query_type = 'uint8'
 preset_parameters = []
-save_directory = "./temp"
+save_directory = ""
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
@@ -55,7 +55,7 @@ queries = 'deep/deep_queries.fvecs'
 queries_in_training_set = 5000
 query_type = 'float32'
 preset_parameters = []
-save_directory = "./temp"
+save_directory = ""
 
     [vamana_static_build.build_parameters]
     __schema__ = 'vamana_build_parameters'
