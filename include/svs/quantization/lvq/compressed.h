@@ -940,7 +940,7 @@ SVS_FORCE_INLINE auto for_each_slice(
 
 // Combined unpacking.
 template <size_t Extent, typename Op, typename Init, typename Combine, typename Reduce>
-auto for_each_slice(
+SVS_FORCE_INLINE auto for_each_slice(
     Combined<4, 8, Extent, Turbo<16, 8>> c,
     Op&& op,
     Init&& init,
