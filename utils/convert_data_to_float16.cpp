@@ -20,7 +20,7 @@
 int svs_main(std::vector<std::string> args) {
     if (args.size() != 4) {
         std::cout << "Specify the right parameters: input index, output index, "
-                     "vector_type: 0 for SVS data, 1 for fvecs"
+                     "vector_type: 0 for SVS data, 1 for fvecs, 2 for fbin"
                   << std::endl;
         return 1;
     }
@@ -45,7 +45,16 @@ int svs_main(std::vector<std::string> args) {
         for (auto i : reader) {
             writer << i;
         }
+    } else if (file_type == 2) {
+        std::cout << "Converting Bin data!" << std::endl;
+        auto reader = svs::io::binary::BinaryReader<float>{filename_f32};
+        auto writer = svs::io::binary::BinaryWriter<svs::Float16>{
+            filename_f16, reader.nvectors(), reader.ndims()};
+        for (auto i : reader) {
+            writer << i;
+        }
     }
+
     return 0;
 }
 

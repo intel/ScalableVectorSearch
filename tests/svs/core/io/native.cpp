@@ -120,7 +120,7 @@ CATCH_TEST_CASE("Testing Native Reader Iterator", "[core][io]") {
 
     CATCH_SECTION("Compare with Vecs") {
         auto eltype = svs::lib::Type<float>();
-        auto vecs_loader = svs::io::vecs::VecsFile<float>(vecs_file).reader(eltype);
+        auto vecs_loader = svs::io::vecs::VecsFile(vecs_file).reader(eltype);
         auto native_loader = svs::io::v1::NativeFile(native_file).reader(eltype);
 
         auto vecs_data = std::vector<float>{};
