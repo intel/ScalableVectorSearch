@@ -28,7 +28,7 @@ const char* HELP = R"(
 Run a search-only benchmark for the Vamana index.
 
 Usage:
-    (1) src-file.toml output-file.toml [basename]
+    (1) src-file.toml (output-file.toml/--validate) [basename]
     (2) --help
     (3) --example
 
@@ -36,6 +36,9 @@ Usage:
    All elements in the array must be parseable as a ``svsbenchmark::vamana::SearchJob``.
 
    Results will be saved to `output-file.toml`.
+
+   If `--validate` is given as the second argument, then all pre-run checks will be
+   performed on the input file and arguments but not benchmark will actually be run.
 
    Optional third argument `basename` will be used as the root for all file paths parsed.
 

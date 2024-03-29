@@ -29,7 +29,7 @@ const char* HELP = R"(
 Generate reference results for the in-memory Inverted index.
 
 Usage:
-    (1) src-file.toml output-file.toml num_threads [basename]
+    (1) src-file.toml (output-file.toml/--validate) num_threads [basename]
     (2) --help
     (3) --example
 
