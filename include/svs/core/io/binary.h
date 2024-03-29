@@ -49,7 +49,8 @@ get_dims(std::ifstream& stream, std::string_view source = {}, size_t elsize_hint
     stream.seekg(0, std::ifstream::beg);
 
     size_t filesize_minus_header = filesize - sizeof(header);
-    size_t n_vec_elements = header.num_vectors * header.vector_dim;
+    size_t n_vec_elements =
+        lib::narrow<size_t>(header.num_vectors) * lib::narrow<size_t>(header.vector_dim);
     size_t remainder = filesize_minus_header % n_vec_elements;
     size_t deduced_elsize = filesize_minus_header / n_vec_elements;
 
