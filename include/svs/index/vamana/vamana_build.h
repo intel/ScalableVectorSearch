@@ -215,8 +215,8 @@ class VamanaBuilder {
         unsigned progress_counter = 0;
 
         if (verbose) {
-            fmt::print("Number of syncs: {}\n", num_batches);
-            fmt::print("Batch Size: {}\n", batchsize);
+            fmt::print(stderr, "Number of syncs: {}\n", num_batches);
+            fmt::print(stderr, "Batch Size: {}\n", batchsize);
         }
 
         // The base point for iteration.
@@ -258,6 +258,7 @@ class VamanaBuilder {
                         "Estimated Remaining Time: {:.4}s\n";
 
                     fmt::print(
+                        stderr, 
                         message,
                         batch_id + 1,
                         num_batches,
@@ -273,7 +274,7 @@ class VamanaBuilder {
             }
         }
         if (verbose) {
-            fmt::print("Completed pass using window size {}.\n", params_.window_size);
+            fmt::print(stderr, "Completed pass using window size {}.\n", params_.window_size);
             timer.print();
         }
     }

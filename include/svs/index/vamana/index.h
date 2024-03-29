@@ -95,7 +95,8 @@ struct VamanaIndexParameters {
     }
 
     static VamanaIndexParameters load_legacy(const lib::ContextFreeLoadTable& table) {
-        fmt::print("Loading a legacy IndexParameters class. Please consider resaving this "
+        fmt::print(stderr,
+                   "Loading a legacy IndexParameters class. Please consider resaving this "
                    "index to update the save version and prevent future breaking!\n");
 
         if (table.version() > lib::Version{0, 0, 2}) {

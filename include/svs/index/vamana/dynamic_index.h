@@ -819,10 +819,10 @@ class MutableVamanaIndex {
         assert(entry_point_.size() == 1);
         auto entry_point = entry_point_[0];
         if (status_.at(entry_point) == SlotMetadata::Deleted) {
-            fmt::print("Replacing entry point! ... ");
+            fmt::print(stderr, "Replacing entry point! ... ");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
-            fmt::print(" New point: {}\n", new_entry_point);
+            fmt::print(stderr, " New point: {}\n", new_entry_point);
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
         }

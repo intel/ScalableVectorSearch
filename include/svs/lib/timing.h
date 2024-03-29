@@ -275,6 +275,7 @@ class Timer {
         auto hyphens = std::string(str.size(), '-');
         auto [measured_formatted, measured_units] = pretty_number(measured_time);
         fmt::print(
+            stderr, 
             "{}\n"
             "Total / % Measured: {:.4} {} / {:.4}\n"
             "{}\n"
@@ -290,7 +291,7 @@ class Timer {
         for (const auto& it : subtimers()) {
             (it.second)->print_inner(section_length, measured_time, 0, it.first);
         }
-        fmt::print("{}\n", hyphens);
+        fmt::print(stderr, "{}\n", hyphens);
     }
 
     void print_inner(
@@ -310,6 +311,7 @@ class Timer {
         auto [max_time_format, max_time_units] = pretty_number(max_time);
 
         fmt::print(
+            stderr, 
             "{}{}{}{:10}{:10.4}{:>3}{:12.4}{:10.4}{:>3}{:10.4}{:>3}{:10.4}{:>3}\n",
             prefix,
             label,

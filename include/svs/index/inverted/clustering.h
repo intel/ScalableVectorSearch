@@ -812,7 +812,7 @@ Clustering<I> cluster_with(
     auto timer = lib::Timer();
     while (start < datasize) {
         size_t stop = std::min(start + batchsize, datasize);
-        fmt::print("Processing batch [{}, {})\n", start, stop);
+        fmt::print(stderr, "Processing batch [{}, {})\n", start, stop);
         auto indices = clustering.complement_range(threads::UnitRange(start, stop));
         auto subdata = extensions::prepare_index_search(data, lib::as_const_span(indices));
 
@@ -839,7 +839,7 @@ Clustering<I> cluster_with(
         start = stop;
     }
     timer.print();
-    fmt::print("Clustering Stats: {}\n", clustering.statistics().report("\n"));
+    fmt::print(stderr, "Clustering Stats: {}\n", clustering.statistics().report("\n"));
 
     // Post Processing
     auto max_cluster_size = params.max_cluster_size_;
