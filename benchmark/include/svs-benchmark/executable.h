@@ -29,6 +29,13 @@ struct IsExample {
 };
 inline constexpr IsExample is_example{};
 
+struct IsValidate {
+    inline constexpr bool operator()(std::string_view str) const {
+        return str == "--validate";
+    }
+};
+inline constexpr IsValidate is_validate{};
+
 } // namespace detail
 
 ///
@@ -82,7 +89,6 @@ class JobBasedExecutable : private Implementation, public Benchmark {
     using job_type = typename Implementation::job_type;
     using dispatcher_type = typename Implementation::dispatcher_type;
 
-  public:
     template <typename... Args>
     JobBasedExecutable(Args&&... args)
         : Implementation(SVS_FWD(args)...)
@@ -125,12 +131,23 @@ class JobBasedExecutable : private Implementation, public Benchmark {
         );
     }
 
-    int run_jobs(const std::filesystem::path& results_path, std::span<const job_type> jobs)
-        const {
+    int run_jobs(
+        const std::optional<std::filesystem::path>& results_path,
+        std::span<const job_type> jobs
+    ) const {
         // Now that we've finished parsing the jobs - we can check that we have ewverything
         // we need to complete the run.
         if (!check_jobs(jobs)) {
             return 1;
+        }
+
+        // If the results-path is an empty optional, then this is a validation run.
+        // Don't actually run the benchmarks.
+        if (!results_path) {
+            fmt::print("#########################\n");
+            fmt::print("# Validation successful #\n");
+            fmt::print("#########################\n");
+            return 0;
         }
 
         auto results = toml::table({{"start_time", svs::date_time()}});
@@ -139,15 +156,15 @@ class JobBasedExecutable : private Implementation, public Benchmark {
         for (auto&& job : jobs) {
             svsbenchmark::append_or_create(
                 results,
-                run_job(f, job, svsbenchmark::Checkpoint(results, results_path)),
+                run_job(f, job, svsbenchmark::Checkpoint(results, results_path.value())),
                 Implementation::name()
             );
-            svsbenchmark::atomic_save(results, results_path);
+            svsbenchmark::atomic_save(results, results_path.value());
         }
 
         // Save final results.
         results.emplace("stop_time", svs::date_time());
-        atomic_save(results, results_path);
+        atomic_save(results, results_path.value());
         return 0;
     }
 
@@ -177,7 +194,12 @@ class JobBasedExecutable : private Implementation, public Benchmark {
         // Done with error checking out-side of that needed by the lower-level
         // implementation.
         auto config_file = args[0];
-        auto results_path = args[1];
+
+        // Allow the `--validate` flag to be provided instead of an output file.
+        auto results_path = std::optional<std::filesystem::path>();
+        if (!detail::is_validate(args[1])) {
+            results_path = args[1];
+        }
 
         // Let the implementation parse the remainder of the arguments and then load the
         // requested job from the configuration file.
@@ -255,7 +277,6 @@ class TestBasedExecutable : private Implementation, public Benchmark {
   public:
     using job_type = typename Implementation::job_type;
 
-  public:
     template <typename... Args>
     TestBasedExecutable(Args&&... args)
         : Implementation(SVS_FWD(args)...)
