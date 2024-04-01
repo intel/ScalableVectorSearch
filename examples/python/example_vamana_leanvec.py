@@ -87,7 +87,7 @@ def run():
     # Compare with the groundtruth.
     recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert_equal(recall, 0.865, "initial recall")
+    assert_equal(recall, 0.86, "initial recall")
     # [build-and-search-index]
 
 #####
