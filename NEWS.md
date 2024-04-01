@@ -31,6 +31,24 @@ This change is necessary to support efficient introspective loading, where seria
 objects can be inspected for load compatibility. This, in turn, enables automatic loading
 of previously serialized SVS objects.
 
+### Build System and Testing
+
+Included reference results for the Vamana index require MKL 2024.1 for reproducibility in testing.
+Linking against MKL 2023.X may cause LeanVec tests to fail.
+
+Reference results for your version of MKL can be regenerated using
+```sh
+# Build the test generators
+mkdir build
+cd build
+CC=gcc-11 CXX=g++-11 cmake .. -DCMAKE_BUILD_TYPE=Release -DSVS_BUILD_BENCHMARK_TEST_GENERATORS=YES -DSVS_EXPERIMENTAL_LEANVEC=YES
+make -j
+
+# Run the test generator executable.
+./benchmark/svs_benchmark vamana_test_generator ../tools/benchmark_inputs/vamana/test-generator.toml vamana_reference.toml 5 ../data/test_dataset
+cp ./vamana_reference ../data/test_dataset/reference/vamana_reference.toml
+```
+
 ## `pysvs` (Python)
 
 ### Additions and Changes
