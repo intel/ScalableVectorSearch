@@ -184,219 +184,131 @@ template <size_t N, typename Ea, typename Eb> struct L2Impl {
 ///// AVX512 Implementations
 /////
 
-#if defined(__AVX512F__)
+// SIMD accelerated operations that convert both left and right hand arguments to
+// ``float`` and perform arithmetic on those floating point operands.
+template <size_t SIMDWidth> struct L2FloatOp;
+
+// SIMD accelerated operations that convert both left and right hand arguments to
+// ``To`` and perform arithmetic on those integer operands.
+template <std::integral To, size_t SIMDWidth> struct L2VNNIOp;
+
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+#if SVS_AVX512_F
+
+template <> struct L2FloatOp<16> : public svs::simd::ConvertToFloat<16> {
+    using parent = svs::simd::ConvertToFloat<16>;
+    using mask_t = typename parent::mask_t;
+
+    // Here, we can fill-in the shared init, accumulate, combine, and reduce methods.
+    static __m512 init() { return _mm512_setzero_ps(); }
+
+    static __m512 accumulate(__m512 accumulator, __m512 a, __m512 b) {
+        auto c = _mm512_sub_ps(a, b);
+        return _mm512_fmadd_ps(c, c, accumulator);
+    }
+
+    static __m512 accumulate(mask_t m, __m512 accumulator, __m512 a, __m512 b) {
+        auto c = _mm512_maskz_sub_ps(m, a, b);
+        return _mm512_mask3_fmadd_ps(c, c, accumulator, m);
+    }
+
+    static __m512 combine(__m512 x, __m512 y) { return _mm512_add_ps(x, y); }
+    static float reduce(__m512 x) { return _mm512_reduce_add_ps(x); }
+};
 
 // Small Integers
-#if defined(__AVX512VNNI__)
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
+#if SVS_AVX512_VNNI
+
+template <> struct L2VNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int16_t, 32> {
+    using parent = svs::simd::ConvertForVNNI<int16_t, 32>;
+    using reg_t = typename parent::reg_t;
+    using mask_t = typename parent::mask_t;
+
+    SVS_FORCE_INLINE static reg_t init() { return _mm512_setzero_si512(); }
+    SVS_FORCE_INLINE static reg_t accumulate(reg_t accumulator, reg_t a, reg_t b) {
+        auto c = _mm512_sub_epi16(a, b);
+        return _mm512_dpwssd_epi32(accumulator, c, c);
+    }
+
+    SVS_FORCE_INLINE static reg_t
+    accumulate(mask_t m, reg_t accumulator, reg_t a, reg_t b) {
+        auto c = _mm512_maskz_sub_epi16(m, a, b);
+        // `c` already contains zeros, so no need to mask the accumulation operation.
+        return _mm512_mask_dpwssd_epi32(accumulator, m, c, c);
+    }
+
+    SVS_FORCE_INLINE static reg_t combine(reg_t x, reg_t y) {
+        return _mm512_add_epi32(x, y);
+    }
+
+    SVS_FORCE_INLINE static float reduce(reg_t x) {
+        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(x));
+    }
+};
+
+// VNNI Dispatching
 template <size_t N> struct L2Impl<N, int8_t, int8_t> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto mask = create_mask<32>(length);
-        auto all = no_mask<32>();
-
-        for (size_t j = 0; j < length.size(); j += 32) {
-            auto temp_a =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepi8_epi16(temp_a);
-
-            auto temp_b =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi8_epi16(temp_b);
-
-            auto diff = _mm512_sub_epi16(va, vb);
-            sum = _mm512_dpwssd_epi32(sum, diff, diff);
-        }
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum));
+        return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto mask = create_mask<32>(length);
-        auto all = no_mask<32>();
-
-        for (size_t j = 0; j < length.size(); j += 32) {
-            auto temp_a =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepu8_epi16(temp_a);
-
-            auto temp_b =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepu8_epi16(temp_b);
-
-            auto diff = _mm512_sub_epi16(va, vb);
-            sum = _mm512_dpwssd_epi32(sum, diff, diff);
-        }
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum));
-    }
-};
-#elif defined(__AVX512BW__) && defined(__KNCNI__)
-template <size_t N> struct L2Impl<N, int8_t, int8_t> {
-    SVS_NOINLINE static float
-    compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto temp_a1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepi8_epi32(temp_a1);
-
-            auto temp_b1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi8_epi32(temp_b1);
-
-            auto diff = _mm512_sub_epi32(va, vb);
-            sum = _mm512_fmadd_epi32(diff, diff, sum);
-        }
-        return _mm512_reduce_add_epi32(sum);
+        return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
-    SVS_NOINLINE static float
-    compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto temp_a1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepu8_epi32(temp_a1);
-
-            auto temp_b1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepu8_epi32(temp_b1);
-
-            auto diff = _mm512_sub_epi32(va, vb);
-            sum = _mm512_fmadd_epi32(diff, diff, sum);
-        }
-        return _mm512_reduce_add_epi32(sum);
-    }
-};
 #endif
 
 // Floating and Mixed Types
 template <size_t N> struct L2Impl<N, float, float> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto vb = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, b + j);
-            auto tmp = _mm512_sub_ps(va, vb);
-            sum = _mm512_fmadd_ps(tmp, tmp, sum);
-        }
-        return _mm512_reduce_add_ps(sum);
+        return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, float, uint8_t> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-        for (size_t j = 0; j < length.size(); j += 16) {
-            // Load and convert the integers to floating point.
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto tb = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi32_ps(_mm512_cvtepu8_epi32(tb));
-            auto tmp = _mm512_sub_ps(va, vb);
-            sum = _mm512_fmadd_ps(tmp, tmp, sum);
-        }
-        return _mm512_reduce_add_ps(sum);
+        return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
 template <size_t N> struct L2Impl<N, float, int8_t> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-        for (size_t j = 0; j < length.size(); j += 16) {
-            // Load and convert the integers to floating point.
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto tb = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi32_ps(_mm512_cvtepi8_epi32(tb));
-            auto tmp = _mm512_sub_ps(va, vb);
-            sum = _mm512_fmadd_ps(tmp, tmp, sum);
-        }
-        return _mm512_reduce_add_ps(sum);
+        return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
 template <size_t N> struct L2Impl<N, float, Float16> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto vb_f16 =
-                _mm256_maskz_loadu_epi16(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtph_ps(vb_f16);
-            auto tmp = _mm512_sub_ps(va, vb);
-            sum = _mm512_fmadd_ps(tmp, tmp, sum);
-        }
-
-        return _mm512_reduce_add_ps(sum);
+        return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, Float16, Float16> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto va_f16 =
-                _mm256_maskz_loadu_epi16(islast<16>(length, j) ? mask : all, a + j);
-            auto vb_f16 =
-                _mm256_maskz_loadu_epi16(islast<16>(length, j) ? mask : all, b + j);
-            auto va = _mm512_cvtph_ps(va_f16);
-            auto vb = _mm512_cvtph_ps(vb_f16);
-            auto tmp = _mm512_sub_ps(va, vb);
-            sum = _mm512_fmadd_ps(tmp, tmp, sum);
-        }
-
-        return _mm512_reduce_add_ps(sum);
+        return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-// template <size_t N> struct L2Impl<N, Float16, Float16> {
-//     SVS_NOINLINE static float
-//     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
-//         auto sum = _mm256_setzero_ps();
-//         auto mask = create_mask<8>(length);
-//         auto all = no_mask<8>();
-//
-//         for (size_t j = 0; j < length.size(); j += 8) {
-//             auto va_f16 = _mm_maskz_loadu_epi16(islast<8>(length, j) ? mask : all, a +
-//             j); auto vb_f16 = _mm_maskz_loadu_epi16(islast<8>(length, j) ? mask : all, b
-//             + j); auto va = _mm256_cvtph_ps(va_f16); auto vb = _mm256_cvtph_ps(vb_f16);
-//             auto tmp = _mm256_sub_ps(va, vb);
-//             sum = _mm256_fmadd_ps(tmp, tmp, sum);
-//         }
-//
-//         return simd::_mm256_reduce_add_ps(sum);
-//     };
-// };
 #endif
 
 /////
 ///// AVX 2 Implementations
 /////
 
-#if !defined(__AVX512F__) && defined(__AVX2__)
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
+#if !SVS_AVX512_F && SVS_AVX2
 template <size_t N> struct L2Impl<N, float, float> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {

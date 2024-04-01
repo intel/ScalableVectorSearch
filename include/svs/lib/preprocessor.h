@@ -96,3 +96,41 @@ consteval bool is_one_or_zero(const char* ptr) {
         name##_ = SVS_FWD(arg);                      \
         return std::move(*this);                     \
     }
+
+/////
+///// AVX extensions
+/////
+
+// Switching ifdefs to boolean defs helps reduce the probability of mistyping.
+
+// Most 32-bit and 64-bit AVX instructions.
+// - 512 bit registers
+// - operation masks
+// - broadcasting
+// - embedded rounding and exception control.
+#if defined(__AVX512F__)
+#define SVS_AVX512_F 1
+#else
+#define SVS_AVX512_F 0
+#endif
+
+// 8-bit and 16-bit integer operations for AVx-512.
+#if defined(__AVX512BW__)
+#define SVS_AVX512_BW 1
+#else
+#define SVS_AVX512_BW 0
+#endif
+
+// Vector instruction for deep learning.
+#if defined(__AVX512VNNI__)
+#define SVS_AVX512_VNNI 1
+#else
+#define SVS_AVX512_VNNI 0
+#endif
+
+// 256-bit AVX instruction set.
+#if defined(__AVX2__)
+#define SVS_AVX2 1
+#else
+#define SVS_AVX2 0
+#endif

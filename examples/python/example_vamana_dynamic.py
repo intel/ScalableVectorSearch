@@ -19,7 +19,7 @@ def run_test_float(index, queries, groundtruth):
         10: 0.563,
         20: 0.729,
         30: 0.8202,
-        40: 0.8751,
+        40: 0.875,
     }
 
     for window_size in range(10, 50, 10):

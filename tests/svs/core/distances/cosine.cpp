@@ -98,25 +98,33 @@ const size_t NTESTS = 1000;
 
 CATCH_TEST_CASE("Testing CosineSimilarity", "[distance][cosinesimilarity_distance]") {
     auto ntests = NTESTS;
-    constexpr size_t ndims = 128;
-
     CATCH_SECTION("Must fix argument") {
         CATCH_STATIC_REQUIRE(
             svs::distance::fix_argument_mandated<svs::distance::DistanceCosineSimilarity>()
         );
     }
 
-    CATCH_SECTION("Float-Float") { test_types<float, float, ndims>(-1, 1, ntests); }
-    CATCH_SECTION("Float-Float16") {
-        test_types<float, svs::Float16, ndims>(-1, 1, ntests);
+    auto run_test = [=]<size_t N>() {
+        CATCH_SECTION("Float-Float") { test_types<float, float, N>(-1, 1, ntests); }
+        CATCH_SECTION("Float-Float16") {
+            test_types<float, svs::Float16, N>(-1, 1, ntests);
+        }
+        CATCH_SECTION("Float16-Float16") {
+            test_types<svs::Float16, svs::Float16, N>(-1, 1, ntests);
+        }
+        CATCH_SECTION("Float-UInt8") { test_types<float, uint8_t, N>(0, 255, ntests); }
+        CATCH_SECTION("UInt8-UInt8") { test_types<uint8_t, uint8_t, N>(0, 255, ntests); }
+        CATCH_SECTION("Float-Int8") { test_types<float, int8_t, N>(-128, 127, ntests); }
+        CATCH_SECTION("Int8-Int8") { test_types<int8_t, int8_t, N>(-128, 127, ntests); }
+    };
+
+    CATCH_SECTION("Even Dimensions") {
+        run_test.template operator()<160>();
     }
-    CATCH_SECTION("Float16-Float16") {
-        test_types<svs::Float16, svs::Float16, ndims>(-1, 1, ntests);
+
+    CATCH_SECTION("Odd Dimensions") {
+        run_test.template operator()<223>();
     }
-    CATCH_SECTION("Float-UInt8") { test_types<float, uint8_t, ndims>(0, 255, ntests); }
-    CATCH_SECTION("UInt8-UInt8") { test_types<uint8_t, uint8_t, ndims>(0, 255, ntests); }
-    CATCH_SECTION("Float-Int8") { test_types<float, int8_t, ndims>(-128, 127, ntests); }
-    CATCH_SECTION("Int8-Int8") { test_types<int8_t, int8_t, ndims>(-128, 127, ntests); }
 
     // Saving and Loading
     CATCH_SECTION("Saving and Loading") {

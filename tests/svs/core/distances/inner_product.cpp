@@ -87,7 +87,7 @@ const size_t NTESTS = 1000;
 CATCH_TEST_CASE("Testing InnerProduct Distance", "[distance][innerproduct_distance]") {
     auto ntests = NTESTS;
     CATCH_SECTION("Even dimensions") {
-        constexpr size_t ndims = 64;
+        constexpr size_t ndims = 160;
 
         CATCH_SECTION("Float-Float") { test_types<float, float, ndims>(-1, 1, ntests); }
         CATCH_SECTION("Float-Float16") {
@@ -105,7 +105,7 @@ CATCH_TEST_CASE("Testing InnerProduct Distance", "[distance][innerproduct_distan
     }
 
     CATCH_SECTION("Ragged Dimension") {
-        constexpr size_t ndims = 47;
+        constexpr size_t ndims = 223;
 
         CATCH_SECTION("Float-Float") { test_types<float, float, ndims>(-1, 1, ntests); }
         CATCH_SECTION("Float-Float16") {
