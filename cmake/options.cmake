@@ -89,11 +89,26 @@ option(SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL
 )
 
 #####
+##### svsbenchmark
+#####
+
+# The super build increases compilation time by a lot.
+# Use with care.
+option(SVS_BENCHMARK_VAMANA_SUPERSEARCH
+    "Build many specializations in the benchmark framework for exhaustive testing. (Experimental)"
+    OFF # disabled by default
+)
+
+#####
 ##### Checking
 #####
 
 if (NOT SVS_EXPERIMENTAL_LEANVEC AND SVS_EXPERIMENAL_BUILD_CUSTOM_MKL)
     message(FATAL_ERROR "Cannot build custom MKL if MKL/LEANVEC is not enabled! Terminating CMake.")
+endif()
+
+if (SVS_BENCHMARK_VAMANA_SUPERSEARCH AND NOT SVS_BUILD_BENCHMARK)
+    message(FATAL_ERROR "Vamana super-search requires `SVS_BUILD_BENCHMARK=YES`")
 endif()
 
 #####

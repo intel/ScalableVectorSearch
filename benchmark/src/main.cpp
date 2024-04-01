@@ -48,7 +48,8 @@ void print_help(
     // Less difficult to visually parse this way.
     fmt::print("SVS Benchmarking Executable\n");
     fmt::print("        Benchmarks Built: {}\n", !svsbenchmark::is_minimal);
-    fmt::print("   Test Generators Built: {}\n\n", svsbenchmark::build_test_generators);
+    fmt::print("   Test Generators Built: {}\n", svsbenchmark::build_test_generators);
+    fmt::print("      Vamana Supersearch: {}\n\n", svsbenchmark::vamana_supersearch);
 
     if (!prefix.empty()) {
         fmt::print("{}\n", prefix);

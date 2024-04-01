@@ -41,6 +41,13 @@ inline constexpr bool build_test_generators = true;
 inline constexpr bool build_test_generators = false;
 #endif
 
+SVS_VALIDATE_BOOL_ENV(SVS_BENCHMARK_VAMANA_SUPERSEARCH)
+#if SVS_BENCHMARK_VAMANA_SUPERSEARCH
+inline constexpr bool vamana_supersearch = true;
+#else
+inline constexpr bool vamana_supersearch = false;
+#endif
+
 // Serialize the TOML table to a file in a way that either succeeds in overwriting an
 // existing file at the path `path` or completely fails.
 //

@@ -14,8 +14,8 @@ namespace {
 namespace leanvec = svs::leanvec;
 
 // Specializations
-template <typename F> void leanvec_specializations(F&& f) {
 #define X(P, S, Q, T, D, L, N) f.template operator()<P, S, Q, T, D, L, N>()
+template <typename F> void leanvec_specializations(F&& f) {
     if constexpr (!is_minimal) {
         using SrcType = svs::Float16;
         using Distance = svs::distance::DistanceIP;
@@ -33,8 +33,31 @@ template <typename F> void leanvec_specializations(F&& f) {
           Dim);
         X(SrcType, leanvec::UsingLVQ<8>, float, SrcType, Distance, LeanVecDim, Dim);
     }
-#undef X
 }
+
+template <typename F> void leanvec_search_specializations(F&& f) {
+    if constexpr (svsbenchmark::vamana_supersearch) {
+        using IP = svs::DistanceIP;
+        using L2 = svs::DistanceL2;
+
+        using SrcType = svs::Float16;
+        auto layer = [&f]<size_t LV, size_t N, typename Distance>() {
+            X(leanvec::UsingLVQ<8>, SrcType, float, SrcType, Distance, LV, N);
+            X(leanvec::UsingLVQ<8>, leanvec::UsingLVQ<8>, float, SrcType, Distance, LV, N);
+        };
+
+        layer.template operator()<160, 768, IP>(); // DPR/RQA
+        layer.template operator()<256, 512, IP>(); // Laion
+        layer.template operator()<160, 512, L2>(); // OpenImages
+
+        layer.template operator()<160, svs::Dynamic, IP>(); // Dynamic
+        layer.template operator()<256, svs::Dynamic, IP>(); // Dynamic
+        layer.template operator()<160, svs::Dynamic, L2>(); // Dynamic
+    } else {
+        leanvec_specializations(SVS_FWD(f));
+    }
+}
+#undef X
 
 // Load and Search
 template <
@@ -286,14 +309,14 @@ TestFunctionReturn test_build(const VamanaTest& job) {
 
 // target-registration.
 void register_leanvec_static_search(vamana::StaticSearchDispatcher& dispatcher) {
-    leanvec_specializations([&dispatcher]<
-                                typename P,
-                                typename S,
-                                typename Q,
-                                typename T,
-                                typename D,
-                                size_t L,
-                                size_t N>() {
+    leanvec_search_specializations([&dispatcher]<
+                                       typename P,
+                                       typename S,
+                                       typename Q,
+                                       typename T,
+                                       typename D,
+                                       size_t L,
+                                       size_t N>() {
         auto method = &run_static_search<P, S, Q, T, D, L, N>;
         dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
     });

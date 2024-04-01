@@ -16,8 +16,8 @@ using svs::quantization::lvq::Sequential;
 using svs::quantization::lvq::Turbo;
 
 // Specializations
-template <typename F> void lvq_specializations(F&& f) {
 #define X(P, R, Q, T, D, S, N) f.template operator()<P, R, Q, T, D, S, N>()
+template <typename F> void lvq_specializations(F&& f) {
     if constexpr (!is_minimal) {
         using SrcType = svs::Float16;
         using Distance = svs::distance::DistanceIP;
@@ -34,8 +34,39 @@ template <typename F> void lvq_specializations(F&& f) {
         X(4, 8, float, SrcType, Distance, Turbo16x8, Dim);
         X(8, 0, float, SrcType, Distance, Turbo16x4, Dim);
     }
-#undef X
 }
+
+template <typename F> void lvq_search_specializations(F&& f) {
+    if constexpr (svsbenchmark::vamana_supersearch) {
+        // Compile many specializations.
+        using IP = svs::distance::DistanceIP;
+        using L2 = svs::distance::DistanceL2;
+        using SrcType = svs::Float16;
+
+        auto layer = [&f]<size_t N, typename Distance>() {
+            // Sequential
+            X(8, 0, float, SrcType, Distance, Sequential, N);
+            X(4, 8, float, SrcType, Distance, Sequential, N);
+            X(8, 8, float, SrcType, Distance, Sequential, N);
+            // Turbo
+            using Turbo16x8 = Turbo<16, 8>;
+            X(4, 8, float, SrcType, Distance, Turbo16x8, N);
+        };
+
+        layer.template operator()<96, L2>();  // Deep
+        layer.template operator()<100, L2>(); // MSTuring
+        layer.template operator()<200, IP>(); // Text2Image
+        layer.template operator()<512, IP>(); // Laion
+        layer.template operator()<512, L2>(); // OpenImages
+        layer.template operator()<768, IP>(); // DPR/RQA
+
+        layer.template operator()<svs::Dynamic, L2>(); // Dynamic
+        layer.template operator()<svs::Dynamic, IP>(); // Dynamic
+    } else {
+        lvq_specializations(SVS_FWD(f));
+    }
+}
+#undef X
 
 // Load and Search
 template <
@@ -305,14 +336,14 @@ TestFunctionReturn test_build(const VamanaTest& job) {
 
 // target-registration.
 void register_lvq_static_search(vamana::StaticSearchDispatcher& dispatcher) {
-    lvq_specializations([&dispatcher]<
-                            size_t P,
-                            size_t R,
-                            typename Q,
-                            typename T,
-                            typename D,
-                            typename S,
-                            size_t N>() {
+    lvq_search_specializations([&dispatcher]<
+                                   size_t P,
+                                   size_t R,
+                                   typename Q,
+                                   typename T,
+                                   typename D,
+                                   typename S,
+                                   size_t N>() {
         auto method = &run_static_search<P, R, Q, T, D, S, N>;
         dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
     });
