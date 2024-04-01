@@ -20,8 +20,8 @@ namespace svsbenchmark::vamana {
 namespace {
 
 // Specializations
-template <typename F> void for_standard_specializations(F&& f) {
 #define X(Q, T, D, N) f.template operator()<Q, T, D, N>()
+template <typename F> void for_standard_specializations(F&& f) {
     if constexpr (!is_minimal) {
         X(uint8_t, uint8_t, svs::distance::DistanceL2, 128);    // bigann
         X(float, svs::Float16, svs::distance::DistanceL2, 96);  // deep
@@ -33,8 +33,30 @@ template <typename F> void for_standard_specializations(F&& f) {
         // X(float, float, svs::distance::DistanceL2, svs::Dynamic);
         // X(float, svs::Float16, svs::distance::DistanceL2, svs::Dynamic);
     }
-#undef X
 }
+
+template <typename F> void for_standard_search_specializations(F&& f) {
+    if constexpr (svsbenchmark::vamana_supersearch) {
+        X(uint8_t, uint8_t, svs::distance::DistanceL2, 128);          // bigann
+        X(uint8_t, uint8_t, svs::distance::DistanceL2, svs::Dynamic); // bigann
+
+        X(float, svs::Float16, svs::distance::DistanceL2, 96);      // deep
+        X(float, svs::Float16, svs::distance::DistanceL2, 100);     // msturing
+        X(int8_t, int8_t, svs::distance::DistanceL2, 100);          // spacev
+        X(int8_t, int8_t, svs::distance::DistanceL2, svs::Dynamic); // spacev
+
+        X(float, svs::Float16, svs::distance::DistanceIP, 200); // text2image
+        X(float, svs::Float16, svs::distance::DistanceIP, 768); // dpr/rqa
+        X(float, svs::Float16, svs::distance::DistanceIP, 512); // laion
+        X(float, svs::Float16, svs::distance::DistanceL2, 512); // open-images
+
+        X(float, svs::Float16, svs::distance::DistanceIP, svs::Dynamic);
+        X(float, svs::Float16, svs::distance::DistanceL2, svs::Dynamic);
+    } else {
+        for_standard_specializations(SVS_FWD(f));
+    }
+}
+#undef X
 
 // Load and Search
 template <typename Q, typename T, typename D, size_t N>
@@ -273,7 +295,7 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
 
 // target-registration.
 void register_uncompressed_static_search(vamana::StaticSearchDispatcher& dispatcher) {
-    for_standard_specializations(
+    for_standard_search_specializations(
         [&dispatcher]<typename Q, typename T, typename D, size_t N>() {
             auto method = &run_static_search<Q, T, D, N>;
             dispatcher.register_target(svs::lib::dispatcher_build_docs, method);

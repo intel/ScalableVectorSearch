@@ -39,6 +39,7 @@ set(SHARED_LIBRARY_FILES
 add_library(svs_benchmark_library SHARED ${SHARED_LIBRARY_FILES})
 target_include_directories(svs_benchmark_library PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 
+# Minimal
 if (${SVS_BENCHMARK_MINIMAL})
     message("Compiling minimal benchmark library")
     target_compile_options(svs_benchmark_library PUBLIC -DSVS_BENCHMARK_MINIMAL=1)
@@ -46,6 +47,7 @@ else()
     target_compile_options(svs_benchmark_library PUBLIC -DSVS_BENCHMARK_MINIMAL=0)
 endif()
 
+# Test Generators
 if (${SVS_BUILD_BENCHMARK_TEST_GENERATORS})
     message("Compiling test reference generators")
     target_compile_options(
@@ -54,6 +56,18 @@ if (${SVS_BUILD_BENCHMARK_TEST_GENERATORS})
 else()
     target_compile_options(
         svs_benchmark_library PUBLIC -DSVS_BENCHMARK_BUILD_TEST_GENERATORS=0
+    )
+endif()
+
+# Super Search
+if (${SVS_BENCHMARK_VAMANA_SUPERSEARCH})
+    message("Compiling Vamana super search")
+    target_compile_options(
+        svs_benchmark_library PUBLIC -DSVS_BENCHMARK_VAMANA_SUPERSEARCH=1
+    )
+else()
+    target_compile_options(
+        svs_benchmark_library PUBLIC -DSVS_BENCHMARK_VAMANA_SUPERSEARCH=0
     )
 endif()
 
