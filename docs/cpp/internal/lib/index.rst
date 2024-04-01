@@ -10,4 +10,5 @@ Library Components
    array.rst
    algorithms.rst
    saveload.rst
+   dispatcher.rst
 

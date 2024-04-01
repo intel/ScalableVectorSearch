@@ -136,7 +136,7 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
         //-------
         static_assert(lib::DispatchConvertible<lib::ExtentArg, lib::ExtentTag<10>>);
 
-        CATCH_STATIC_REQUIRE(lib::dispatch_match<size_t, size_t>(0) == lib::perfect_match);
+        CATCH_STATIC_REQUIRE(lib::dispatch_match<size_t, size_t>(0) == lib::implicit_match);
         CATCH_STATIC_REQUIRE(lib::dispatch_convert<size_t, size_t>(size_t(10)) == 10);
     }
 
@@ -273,7 +273,7 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
                 auto input = VarT(std::move(v));
 
                 CATCH_REQUIRE(std::get<Vec>(input).data() == ptr);
-                CATCH_REQUIRE(lib::dispatch_match<From, To>(input) == lib::perfect_match);
+                CATCH_REQUIRE(lib::dispatch_match<From, To>(input) == lib::implicit_match);
                 CATCH_STATIC_REQUIRE(lib::DispatchConvertible<From, To>);
 
                 auto check_lambda = [ptr](To arg) {
@@ -326,7 +326,7 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
 
                 CATCH_REQUIRE(std::get<Uncopyable>(input).value_ == 10);
                 CATCH_REQUIRE(!std::get<Uncopyable>(input).is_moved_from());
-                CATCH_REQUIRE(lib::dispatch_match<From, To>(input) == lib::perfect_match);
+                CATCH_REQUIRE(lib::dispatch_match<From, To>(input) == lib::implicit_match);
                 CATCH_STATIC_REQUIRE(lib::DispatchConvertible<From, To>);
 
                 auto check_lambda = [](To arg) {
@@ -440,7 +440,7 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
 
         // size_t alternative.
         auto x = Variant{std::in_place_type<size_t>, 10};
-        CATCH_REQUIRE(lib::dispatch_match<Variant, size_t>(x) == lib::perfect_match);
+        CATCH_REQUIRE(lib::dispatch_match<Variant, size_t>(x) == lib::implicit_match);
         CATCH_REQUIRE(lib::dispatch_match<Variant, DynamicTag>(x) == lib::invalid_match);
         CATCH_REQUIRE(lib::dispatch_match<Variant, E20>(x) == lib::invalid_match);
         CATCH_REQUIRE(lib::dispatch_match<Variant, E10>(x) == lib::invalid_match);
@@ -495,7 +495,9 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
                 dispatch_sig{}, Signature<void(lib::ExtentTag<svs::Dynamic>, size_t, int)>()
             );
             auto ret = fptr(a, b, c);
-            CATCH_REQUIRE(ret == std::array<int64_t, 3>{1, 0, 0});
+            CATCH_REQUIRE(
+                ret == std::array<int64_t, 3>{1, lib::implicit_match, lib::implicit_match}
+            );
 
             // Deduction.
             auto f = [](lib::ExtentTag<svs::Dynamic>, size_t, int) {};
@@ -512,7 +514,7 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
                 dispatch_sig{}, Signature<void(lib::ExtentTag<2>, Uncopyable, int)>{}
             );
             auto ret = fptr(a, b, c);
-            CATCH_REQUIRE(ret == std::array<int64_t, 3>{-1, -1, 0});
+            CATCH_REQUIRE(ret == std::array<int64_t, 3>{-1, -1, lib::implicit_match});
 
             // Deduction.
             auto f = [](lib::ExtentTag<2>, Uncopyable, int) {};
@@ -529,7 +531,7 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
                 dispatch_sig{}, Signature<void(lib::ExtentTag<20>, Uncopyable, int)>{}
             );
             auto ret = fptr(a, b, c);
-            CATCH_REQUIRE(ret == std::array<int64_t, 3>{0, -1, 0});
+            CATCH_REQUIRE(ret == std::array<int64_t, 3>{0, -1, lib::implicit_match});
 
             // Deduction.
             auto f = [](lib::ExtentTag<20>, Uncopyable, int) {};
@@ -618,13 +620,20 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
             });
 
             auto var = VarT{std::in_place_type<size_t>, 10};
-            CATCH_REQUIRE(f.check_match(lib::ExtentArg(), var, c) == make_match(0, -1, 0));
+            CATCH_REQUIRE(
+                f.check_match(lib::ExtentArg(), var, c) ==
+                make_match(0, -1, lib::implicit_match)
+            );
 
             var = Uncopyable(10);
-            CATCH_REQUIRE(f.check_match(lib::ExtentArg(5), var, c) == make_match(1, 0, 0));
+            CATCH_REQUIRE(
+                f.check_match(lib::ExtentArg(5), var, c) ==
+                make_match(1, lib::implicit_match, lib::implicit_match)
+            );
 
             CATCH_REQUIRE(
-                f.check_match(lib::ExtentArg(5, true), var, c) == make_match(-1, 0, 0)
+                f.check_match(lib::ExtentArg(5, true), var, c) ==
+                make_match(-1, lib::implicit_match, lib::implicit_match)
             );
 
             // Do the call with a matching combination.
@@ -645,16 +654,21 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
             });
 
             auto var = VarT{std::in_place_type<size_t>, 10};
-            CATCH_REQUIRE(f.check_match(lib::ExtentArg(), var, c) == make_match(-1, 0, 0));
+            CATCH_REQUIRE(
+                f.check_match(lib::ExtentArg(), var, c) ==
+                make_match(-1, lib::implicit_match, lib::implicit_match)
+            );
 
             var = Uncopyable(10);
             CATCH_REQUIRE(
-                f.check_match(lib::ExtentArg(16), var, c) == make_match(0, -1, 0)
+                f.check_match(lib::ExtentArg(16), var, c) ==
+                make_match(0, -1, lib::implicit_match)
             );
 
             var = size_t(10);
             CATCH_REQUIRE(
-                f.check_match(lib::ExtentArg(5, true), var, c) == make_match(-1, 0, 0)
+                f.check_match(lib::ExtentArg(5, true), var, c) ==
+                make_match(-1, lib::implicit_match, lib::implicit_match)
             );
 
             // Do the call with a matching combination.
@@ -735,7 +749,9 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
             VarT x{std::in_place_type<size_t>, 10};
             auto [i, match] = dispatcher.best_match(lib::ExtentArg{5, false}, x, {1, 2, 3});
             CATCH_REQUIRE(i.value() == 0);
-            CATCH_REQUIRE(match == std::array<int64_t, 3>{1, 0, 0});
+            CATCH_REQUIRE(
+                match == std::array<int64_t, 3>{1, lib::implicit_match, lib::implicit_match}
+            );
 
             auto ret = dispatcher.invoke(lib::ExtentArg{5, false}, x, {1, 2, 3});
             // Check return value and side-effects.
@@ -758,13 +774,19 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
             {
                 auto [i, match] = dispatcher.best_match(lib::ExtentArg{20}, x, v);
                 CATCH_REQUIRE(i.value() == 2);
-                CATCH_REQUIRE(match == std::array<int64_t, 3>{0, 0, 0});
+                CATCH_REQUIRE(
+                    match ==
+                    std::array<int64_t, 3>{0, lib::implicit_match, lib::implicit_match}
+                );
             }
 
             {
                 auto [i, match] = dispatcher.best_match(lib::ExtentArg{40}, x, v);
                 CATCH_REQUIRE(i.value() == 1);
-                CATCH_REQUIRE(match == std::array<int64_t, 3>{1, 0, 0});
+                CATCH_REQUIRE(
+                    match ==
+                    std::array<int64_t, 3>{1, lib::implicit_match, lib::implicit_match}
+                );
             }
 
             auto ret = dispatcher.invoke(lib::ExtentArg{40}, x, v);

@@ -29,10 +29,19 @@ namespace svs::lib {
 ///// Dispatcher V2
 /////
 
-// Empty invalid converter.
+/// The worst possible invalid match.
 inline constexpr int64_t invalid_match = -1;
+/// The best possible match.
 inline constexpr int64_t perfect_match = 0;
+/// The next best possible match.
 inline constexpr int64_t imperfect_match = 1;
+
+/// @brief Match was found using an implicit conversion.
+///
+/// This conversion is performed on arguments with the same type (or ref-compatible types).
+/// Use a non-zero value to allow specializations to provide better matches than the type
+/// identity.
+inline constexpr int64_t implicit_match = 10000;
 
 /// Return whether all entries in argument `match` are non-negative.
 template <size_t N> constexpr bool is_valid_match(const std::array<int64_t, N>& match) {
@@ -46,15 +55,37 @@ template <size_t N> constexpr bool is_valid_match(const std::array<int64_t, N>& 
 
 /// Resolve ties between equally applicable match scores using lexicographical scoring.
 struct LexicographicResolver {
+    template <size_t N> using array_type = std::array<int64_t, N>;
+
     constexpr LexicographicResolver() = default;
 
     template <size_t N>
-    constexpr bool
-    operator()(const std::array<int64_t, N>& x, const std::array<int64_t, N>& y) {
+    constexpr bool operator()(const array_type<N>& x, const array_type<N>& y) {
         return x < y;
     }
 };
 
+/// @brief Customization point for defining dispatch conversion rules.
+///
+/// Expected API:
+/// @code{cpp}
+/// template<> struct DispatchConverter<From, To> {
+///     // Return a score for matching arguments of type `From` to type `To`.
+///     // * Negative values indicate an invalid match (cannot convert).
+///     // * Non-negative values are scored with lower values given higher priority.
+///     static int64_t match(const std::remove_cvref_t<From>&);
+///
+///     // Perform a dispatch conversion.
+///     // This behavior of this function is undefined if `match` returns an invalid score.
+///     static To convert(From);
+///
+///     // An optional method describing the acceptable value for this conversion.
+///     static std::string description();
+/// }
+/// @endcode
+///
+/// Note that specialization requires full cv-ref qualification of the ``From`` and ``To``
+/// types in order to be applicable.
 template <typename From, typename To> struct DispatchConverter : std::false_type {};
 
 namespace detail {
@@ -78,22 +109,33 @@ template <typename From, typename To> consteval bool implicitly_dispatch_convert
 
 } // namespace detail
 
+/// Two types are considered dispatcher convertible if:
+/// * Removing cv-ref qualifiers from ``From`` and ``To`` yields the same type.
+/// * ``From`` and be forwarded to ``To`` without invoking a copy constructor.
+///
+/// For a type non-reference type ``T`` the following implicit conversion are allowed:
+/// * ``T -> T`` (using move construction), ``T -> const T&``, ``T&& -> const T&``
+/// * ``T& -> T&``, ``T& -> const T&``
+/// * ``const T& -> const T&``
+/// * ``T&& -> T``, ``T&& -> const T&``, ``T&& -> T&&``
 template <typename From, typename To>
 concept ImplicitlyDispatchConvertible = detail::implicitly_dispatch_convertible<From, To>();
 
-// Define implicit conversions for identical or ref-compatible types.
+/// @brief A specialization of ``DispatchConverter`` for implicit conversions.
 template <typename From, typename To>
     requires ImplicitlyDispatchConvertible<From, To>
 struct DispatchConverter<From, To> {
     using FromBase = std::remove_cvref_t<From>;
-    static constexpr bool match(const FromBase& SVS_UNUSED(from)) { return true; }
+    static constexpr int64_t match(const FromBase& SVS_UNUSED(from)) {
+        return implicit_match;
+    }
     static constexpr To&& convert(From&& x) { return SVS_FWD(x); }
     static constexpr std::string_view description() { return "all values"; }
 };
 
-/// Concept indicating whether a specialization of ``DispatchConverter<From, To>`` exists
+/// Concept indicating whether a specialization of ``DispatchConverter`` e
+/// xists
 /// for this combination of arguments - implying that dispatcher conversion is well-defined.
-///
 template <typename From, typename To>
 concept DispatchConvertible =
     (!std::derived_from<DispatchConverter<From, To>, std::false_type>);
@@ -126,6 +168,9 @@ constexpr int64_t dispatch_match(const std::remove_cvref_t<From>& x) {
 }
 
 /// @brief Use dispatch conversion to convert a value of type ``From`` to ``To``.
+///
+/// It is undefined behavior to call this method if
+/// ``svs::lib::dispatch_match<From, To>(x)`` is invalid.
 template <typename From, typename To> constexpr To dispatch_convert(From&& x) {
     return DispatchConverter<From, To>::convert(SVS_FWD(x));
 }
@@ -175,6 +220,7 @@ template <DispatchCategory Cat, typename T> using apply_t = typename Apply<Cat, 
 template <DispatchCategory Cat, typename To, typename... Ts>
 inline constexpr bool is_applicable = (DispatchConvertible<apply_t<Cat, Ts>, To> || ...);
 
+/// @brief Match all applicable alternatives of a variant to the destination type.
 template <DispatchCategory Cat, typename To, typename... Ts> struct VariantDispatcher {
     // Use reference collapsing  to perform the following conversions:
     // Cat = Value    -> std::variant<Ts...>&&
@@ -185,9 +231,10 @@ template <DispatchCategory Cat, typename To, typename... Ts> struct VariantDispa
     // Require at least one of the alternatives to be compatible with the right.
     static_assert(is_applicable<Cat, To, Ts...>);
 
-    // Match the current alternative in the variant to ``T``.
-    // If an alternative type is not ``DispatchConvertible`` with ``T``, then return
-    // ``svs::lib::invalid_match``.
+    /// @brief Match the current alternative in the variant to ``To``.
+    ///
+    /// If an alternative type is not ``svs::lib::DispatchConvertible`` with ``To``, then
+    /// return ``svs::lib::invalid_match``.
     static constexpr int64_t match(const std::variant<Ts...>& x) {
         return std::visit<int64_t>(
             []<typename T>(const T& alternative) {
@@ -202,9 +249,9 @@ template <DispatchCategory Cat, typename To, typename... Ts> struct VariantDispa
         );
     }
 
-    // Dispatch convert the current alternative in the variant to the type ``T``.
-    //
-    // Throws ``svs::ANNException`` if such a conversion is undefined.
+    /// @brief Dispatch convert the current alternative in the variant to the type ``To``.
+    ///
+    /// Throws ``svs::ANNException`` if such a conversion is undefined.
     static constexpr To convert(variant_type x) {
         return std::visit<To>(
             [&]<typename T>(T&& alternative) -> To {
@@ -217,6 +264,7 @@ template <DispatchCategory Cat, typename To, typename... Ts> struct VariantDispa
         );
     }
 
+    /// @brief Document all possible conversion from the variant to ``To``.
     static std::string description() {
         auto matches = std::vector<std::string>();
         auto alternatives = std::vector<size_t>();
@@ -232,6 +280,7 @@ template <DispatchCategory Cat, typename To, typename... Ts> struct VariantDispa
             ++i;
         };
 
+        // Append all applicable conversions.
         (f.template operator()<apply_t<Cat, Ts>>(), ...);
 
         assert(!matches.empty());
@@ -307,7 +356,7 @@ struct ExtentArg {
     explicit ExtentArg(size_t value)
         : ExtentArg(value, false) {}
 
-  public:
+    ///// Members
     size_t value_ = Dynamic;
     bool force_ = false;
 };
@@ -454,7 +503,9 @@ std::unique_ptr<DocFunctionPtr[]> make_descriptors(
 struct BuildDocsTag {};
 struct NoDocsTag {};
 
+/// @brief Tag to build argument-conversion documentation.
 inline constexpr BuildDocsTag dispatcher_build_docs{};
+/// @brief Tag to suppress argument-conversion documentation.
 inline constexpr NoDocsTag dispatcher_no_docs{};
 
 /// @brief Method wrapper for the target of a dispatch operation.
@@ -472,16 +523,23 @@ template <typename Ret, typename... Args> class DispatchTarget {
     /// The type encoding a match based on dispatch values.
     using match_type = std::array<int64_t, num_args>;
 
-    /// @brief Construct a new DispatchTarget around the callable ``f``.
+    /// @brief Construct a DispatchTarget around the callable ``f`` with no documentation.
     ///
+    /// @param tag Indicate no argument conversion documention is required.
     /// @param f The function to wrap for dispatch. The wrapped functor must have a
     ///     const-qualified call operator and *no* non-const-qualified call operator.
     ///
-    /// The argument types of ``f`` must be deducible (in other words, ``f`` cannot have
-    /// an overloaded call operator nor can its call operator be templated).
+    /// The following requirements must hold:
     ///
-    /// Furthermore, dispatch conversion must be defined between each dispatch argument
-    /// and its corresponding argument in ``f``.
+    /// 1. The argument types of ``f`` must be deducible (in other words, ``f`` cannot have
+    ///    an overloaded call operator nor can its call operator be templated).
+    ///
+    /// 2. The number of arguments of ``f`` must match ``Dispatcher::num_args``.
+    ///
+    /// 3. Furthermore, dispatch conversion must be defined between each dispatch argument
+    ///    and its corresponding argument in ``f``.
+    ///
+    /// If any of these requirements fails, this method should not compile.
     template <typename Callable>
     DispatchTarget(NoDocsTag SVS_UNUSED(tag), Callable f)
         : match_{detail::make_matcher(
@@ -489,6 +547,23 @@ template <typename Ret, typename... Args> class DispatchTarget {
           )}
         , call_{detail::make_converter(signature_type{}, std::move(f))} {}
 
+    /// @brief Construct a DispatchTarget around the callable ``f`` with documentation.
+    ///
+    /// @param tag Indicate argument conversion documention is required.
+    /// @param f The function to wrap for dispatch. The wrapped functor must have a
+    ///     const-qualified call operator and *no* non-const-qualified call operator.
+    ///
+    /// The following requirements must hold:
+    ///
+    /// 1. The argument types of ``f`` must be deducible (in other words, ``f`` cannot have
+    ///    an overloaded call operator nor can its call operator be templated).
+    ///
+    /// 2. The number of arguments of ``f`` must match ``Dispatcher::num_args``.
+    ///
+    /// 3. Furthermore, dispatch conversion must be defined between each dispatch argument
+    ///    and its corresponding argument in ``f``.
+    ///
+    /// If any of these requirements fails, this method should not compile.
     template <typename Callable>
     DispatchTarget(BuildDocsTag SVS_UNUSED(tag), Callable f)
         : DispatchTarget(dispatcher_no_docs, std::move(f)) {
@@ -497,17 +572,17 @@ template <typename Ret, typename... Args> class DispatchTarget {
         );
     }
 
-    /// Return the result of matching each argument with the wrapped method.
+    /// @brief Return the result of matching each argument with the wrapped method.
     match_type check_match(const std::remove_cvref_t<Args>&... args) const {
         return match_(args...);
     }
 
-    /// Invoke the wrapped method by dispatch-converting each argument.
+    /// @brief Invoke the wrapped method by dispatch-converting each argument.
     Ret invoke(Args&&... args) const { return call_(SVS_FWD(args)...); }
 
     /// @brief Return dispatch documentation for argument ``i``.
     ///
-    /// If ``i >= num_args``, throws ``ANNException`` indicating a bounds error.
+    /// If ``i >= num_args``, throws ``svs::ANNException`` indicating a bounds error.
     /// If the DispatchTarget was constructed without documentation, then this function
     /// returns the string "unknown">
     std::string description(size_t i) const {
@@ -533,30 +608,52 @@ template <typename Ret, typename... Args> class DispatchTarget {
     std::unique_ptr<detail::DocFunctionPtr[]> documentation_ = nullptr;
 };
 
+/// @brief A dynamic, multi-method dispatcher for registering specializations.
+///
+/// @tparam Ret The return type of invoking ai contained method.
+/// @tparam Args The run-time arguments to dispatch over.
+///
+/// Multiple target methods can be registered with the dispatcher, provided that each
+/// target method has the same number of arguments and dispatch conversion between each
+/// target argument type and its corresponding member in ``Args`` is defined.
+///
+/// When invoked, the dispatcher will find the most applicable registered target by applying
+/// ``svs::lib::dispatch_match`` on its arguments and the argument types of each registered
+/// method.
+///
+/// The most specific applicable method will then be invoked by calling
+/// ``svs::lib::dispatch_convert`` on each argument to its corresponding target type.
 template <typename Ret, typename... Args> class Dispatcher {
   public:
     // Type Aliases
     using target_type = DispatchTarget<Ret, Args...>;
+    /// @brief The type used to represent method matches for scoring.
     using match_type = std::array<int64_t, sizeof...(Args)>;
     using return_type = Ret;
 
-    /// Constructors
+    /// @brief Construct an empty dispatcher.
     Dispatcher() = default;
 
-    /// Return the number of registered candidates.
+    /// @brief Return the number of registered candidates.
     size_t size() const { return candidates_.size(); }
 
-    /// Target Registration.
+    /// @brief Return the number of arguments the dispatcher expects to receive.
+    static constexpr size_t num_args() { return sizeof...(Args); }
+
+    /// @brief Register a callable with the dispatcher.
     template <typename F> void register_target(F f) {
         candidates_.emplace_back(dispatcher_no_docs, std::move(f));
     }
 
-    // Documented Target Registration.
+    /// @brief Register a callable with the dispatcher with conversion documentation.
     template <typename F> void register_target(BuildDocsTag build_docs, F f) {
         candidates_.emplace_back(build_docs, std::move(f));
     }
 
-    /// Get the index and the rank of the best match.
+    /// @brief Get the index and the score of the best match.
+    ///
+    /// If no match is found, then the optional in the return value will be empty.
+    /// In this case, the contents of the ``match_type`` is undefined.
     std::pair<std::optional<size_t>, match_type>
     best_match(const std::remove_cvref_t<Args>&... args) const {
         auto best_match = match_type{};
@@ -592,6 +689,10 @@ template <typename Ret, typename... Args> class Dispatcher {
         return candidates_.at(match_index.value()).invoke(SVS_FWD(args)...);
     }
 
+    /// @brief Return dispatch documentation for the given method and argument.
+    ///
+    /// Throws an ``svs::ANNException`` if ``method >= size()``  or
+    /// ``argument >= num_args()``.
     std::string description(size_t method, size_t argument) const {
         if (method >= size()) {
             throw ANNEXCEPTION(
@@ -615,7 +716,6 @@ template <typename Ret, typename... Args> class Dispatcher {
     Dispatcher& operator=(const Dispatcher&) = default;
     Dispatcher(const Dispatcher&) = default;
 
-  private:
     // The registered targets
     std::vector<target_type> candidates_ = {};
 };
@@ -633,6 +733,8 @@ struct DispatchConverter<svs::DataType, lib::Type<T>> {
         assert(match(type));
         return {};
     }
+
+    static constexpr std::string_view description() { return name(datatype_v<T>); }
 };
 
 } // namespace svs::lib
