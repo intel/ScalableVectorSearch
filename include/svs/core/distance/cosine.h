@@ -177,10 +177,52 @@ template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl {
 ///// AVX512 Implementations
 /////
 
-#if defined(__AVX512F__)
+// Shared implementation among those that use floating-point arithmetic.
+template<size_t SIMDWidth> struct CosineFloatOp;
+
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+#if SVS_AVX512_F
+
+template <> struct CosineFloatOp<16> : public svs::simd::ConvertToFloat<16> {
+    using parent = svs::simd::ConvertToFloat<16>;
+    using mask_t = typename parent::mask_t;
+
+    // A lightweight struct to contain both the partial results for the inner product
+    // of the left-hand and right-hand as well as partial results for computing the norm
+    // of the right-hand.
+    struct Pair {
+        __m512 op;
+        __m512 norm;
+    };
+
+    static Pair init() { return {_mm512_setzero_ps(), _mm512_setzero_ps()}; };
+
+    static Pair accumulate(Pair accumulator, __m512 a, __m512 b) {
+        return {
+            _mm512_fmadd_ps(a, b, accumulator.op),
+            _mm512_fmadd_ps(b, b, accumulator.norm)
+        };
+    }
+
+    static Pair accumulate(mask_t m, Pair accumulator, __m512 a, __m512 b) {
+        return {
+            _mm512_mask3_fmadd_ps(a, b, accumulator.op, m),
+            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)
+        };
+    }
+
+    static Pair combine(Pair x, Pair y) {
+        return {_mm512_add_ps(x.op, y.op), _mm512_add_ps(x.norm, y.norm)};
+    }
+
+    static std::pair<float, float> reduce(Pair x) {
+        return std::make_pair(_mm512_reduce_add_ps(x.op), _mm512_reduce_add_ps(x.norm));
+    }
+};
 
 // Small Integers
-#if defined(__AVX512VNNI__)
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
+#if SVS_AVX512_VNNI
 template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
@@ -231,130 +273,39 @@ template <size_t N> struct CosineSimilarityImpl<N, uint8_t, uint8_t> {
         return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) / (a_norm * b_norm);
     }
 };
-#elif defined(__AVX512BW__) && defined(__KNCNI__)
-template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t> {
-    SVS_NOINLINE static float
-    compute(const int8_t* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto bnorm_accum = _mm512_setzero_epi32();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
 
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto temp_a1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepi8_epi32(temp_a1);
-
-            auto temp_b1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi8_epi32(temp_b1);
-
-            bnorm_accum = _mm512_fmadd_epi32(vb, vb, bnorm_accum);
-            sum = _mm512_fmadd_epi32(va, vb, sum);
-        }
-        float b_norm = std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
-        return _mm512_reduce_add_epi32(sum) / (a_norm * b_norm);
-    }
-};
-
-template <size_t N> struct CosineSimilarityImpl<N, uint8_t, uint8_t> {
-    SVS_NOINLINE static float
-    compute(const uint8_t* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto bnorm_accum = _mm512_setzero_epi32();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto temp_a1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepu8_epi32(temp_a1);
-
-            auto temp_b1 = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepu8_epi32(temp_b1);
-            bnorm_accum = _mm512_fmadd_epi32(vb, vb, bnorm_accum);
-            sum = _mm512_fmadd_epi32(va, vb, sum);
-        }
-        float b_norm = std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
-        return _mm512_reduce_add_epi32(sum) / (a_norm * b_norm);
-    }
-};
 #endif
 
 // Floating and Mixed Types
 template <size_t N> struct CosineSimilarityImpl<N, float, float> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto bnorm_accum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-        for (size_t j = 0; j < length.size(); j += 16) {
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto vb = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, b + j);
-            bnorm_accum = _mm512_fmadd_ps(vb, vb, bnorm_accum);
-            sum = _mm512_fmadd_ps(va, vb, sum);
-        }
-        float b_norm = std::sqrt(_mm512_reduce_add_ps(bnorm_accum));
-        return _mm512_reduce_add_ps(sum) / (a_norm * b_norm);
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 
 template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto bnorm_accum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-        for (size_t j = 0; j < length.size(); j += 16) {
-            // Load and convert the integers to floating point.
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto tb = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi32_ps(_mm512_cvtepu8_epi32(tb));
-            bnorm_accum = _mm512_fmadd_ps(vb, vb, bnorm_accum);
-            sum = _mm512_fmadd_ps(va, vb, sum);
-        }
-        float b_norm = std::sqrt(_mm512_reduce_add_ps(bnorm_accum));
-        return _mm512_reduce_add_ps(sum) / (a_norm * b_norm);
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     };
 };
 
 template <size_t N> struct CosineSimilarityImpl<N, float, int8_t> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto bnorm_accum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-        for (size_t j = 0; j < length.size(); j += 16) {
-            // Load and convert the integers to floating point.
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a + j);
-            auto tb = _mm_maskz_loadu_epi8(islast<16>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi32_ps(_mm512_cvtepi8_epi32(tb));
-            bnorm_accum = _mm512_fmadd_ps(vb, vb, bnorm_accum);
-            sum = _mm512_fmadd_ps(va, vb, sum);
-        }
-        float b_norm = std::sqrt(_mm512_reduce_add_ps(bnorm_accum));
-        return _mm512_reduce_add_ps(sum) / (a_norm * b_norm);
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     };
 };
 
 template <size_t N> struct CosineSimilarityImpl<N, float, Float16> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_ps();
-        auto bnorm_accum = _mm512_setzero_ps();
-        auto mask = create_mask<16>(length);
-        auto all = no_mask<16>();
-
-        for (size_t j = 0; j < length.size(); j += 16, a += 16, b += 16) {
-            auto va = _mm512_maskz_loadu_ps(islast<16>(length, j) ? mask : all, a);
-            auto vb_f16 = _mm256_maskz_loadu_epi16(islast<16>(length, j) ? mask : all, b);
-            auto vb = _mm512_cvtph_ps(vb_f16);
-            bnorm_accum = _mm512_fmadd_ps(vb, vb, bnorm_accum);
-            sum = _mm512_fmadd_ps(va, vb, sum);
-        }
-
-        float b_norm = std::sqrt(_mm512_reduce_add_ps(bnorm_accum));
-        return _mm512_reduce_add_ps(sum) / (a_norm * b_norm);
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 #endif

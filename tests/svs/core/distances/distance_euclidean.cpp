@@ -79,7 +79,7 @@ const size_t NTESTS = 1000;
 CATCH_TEST_CASE("Testing Euclidean Distance", "[distance][euclidean_distance]") {
     auto ntests = NTESTS;
     CATCH_SECTION("Even number of dimensions") {
-        constexpr size_t ndims = 64;
+        constexpr size_t ndims = 160;
 
         CATCH_SECTION("Float-Float") { test_types<float, float, ndims>(-1, 1, ntests); }
         CATCH_SECTION("Float-Float16") {
@@ -97,7 +97,7 @@ CATCH_TEST_CASE("Testing Euclidean Distance", "[distance][euclidean_distance]") 
     }
 
     CATCH_SECTION("Ragged number of dimensions") {
-        constexpr size_t ndims = 43;
+        constexpr size_t ndims = 223;
 
         CATCH_SECTION("Float-Float") { test_types<float, float, ndims>(-1, 1, ntests); }
         CATCH_SECTION("Float-Float16") {
