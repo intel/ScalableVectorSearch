@@ -178,7 +178,7 @@ template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl {
 /////
 
 // Shared implementation among those that use floating-point arithmetic.
-template<size_t SIMDWidth> struct CosineFloatOp;
+template <size_t SIMDWidth> struct CosineFloatOp;
 
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
@@ -199,16 +199,13 @@ template <> struct CosineFloatOp<16> : public svs::simd::ConvertToFloat<16> {
 
     static Pair accumulate(Pair accumulator, __m512 a, __m512 b) {
         return {
-            _mm512_fmadd_ps(a, b, accumulator.op),
-            _mm512_fmadd_ps(b, b, accumulator.norm)
-        };
+            _mm512_fmadd_ps(a, b, accumulator.op), _mm512_fmadd_ps(b, b, accumulator.norm)};
     }
 
     static Pair accumulate(mask_t m, Pair accumulator, __m512 a, __m512 b) {
         return {
             _mm512_mask3_fmadd_ps(a, b, accumulator.op, m),
-            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)
-        };
+            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)};
     }
 
     static Pair combine(Pair x, Pair y) {

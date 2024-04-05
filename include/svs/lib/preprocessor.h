@@ -101,6 +101,7 @@ consteval bool is_one_or_zero(const char* ptr) {
 ///// AVX extensions
 /////
 
+namespace arch {
 // Switching ifdefs to boolean defs helps reduce the probability of mistyping.
 
 // Most 32-bit and 64-bit AVX instructions.
@@ -110,27 +111,46 @@ consteval bool is_one_or_zero(const char* ptr) {
 // - embedded rounding and exception control.
 #if defined(__AVX512F__)
 #define SVS_AVX512_F 1
+inline constexpr bool have_avx512_f = true;
 #else
 #define SVS_AVX512_F 0
+inline constexpr bool have_avx512_f = false;
 #endif
 
-// 8-bit and 16-bit integer operations for AVx-512.
+// Extends AVX512 operations to 128-bit and 256-bit registers.
+#if defined(__AVX512VL__)
+#define SVS_AVX512_VL 1
+inline constexpr bool have_avx512_vl = true;
+#else
+#define SVS_AVX512_VL 0
+inline constexpr bool have_avx512_vl = true;
+#endif
+
+// 8-bit and 16-bit integer operations for AVX-512.
 #if defined(__AVX512BW__)
 #define SVS_AVX512_BW 1
+inline constexpr bool have_avx512_bw = true;
 #else
 #define SVS_AVX512_BW 0
+inline constexpr bool have_avx512_bw = false;
 #endif
 
 // Vector instruction for deep learning.
 #if defined(__AVX512VNNI__)
 #define SVS_AVX512_VNNI 1
+inline constexpr bool have_avx512_vnni = true;
 #else
 #define SVS_AVX512_VNNI 0
+inline constexpr bool have_avx512_vnni = false;
 #endif
 
 // 256-bit AVX instruction set.
 #if defined(__AVX2__)
 #define SVS_AVX2 1
+inline constexpr bool have_avx512_avx2 = true;
 #else
 #define SVS_AVX2 0
+inline constexpr bool have_avx512_avx2 = true;
 #endif
+
+} // namespace arch

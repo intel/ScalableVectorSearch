@@ -283,6 +283,7 @@ template <typename Sign, size_t Bits, size_t Extent, typename Strategy>
 void test_unpacker(svs::lib::MaybeStatic<Extent> size = {}) {
     using CV = lvq::MutableCompressedVector<Sign, Bits, Extent, Strategy>;
     using value_type = typename CV::value_type;
+    CATCH_REQUIRE(size >= 16);
 
     // Test the vectorized unpacking.
     constexpr size_t StorageExtent = CV::storage_extent;
@@ -294,15 +295,41 @@ void test_unpacker(svs::lib::MaybeStatic<Extent> size = {}) {
     auto dst = std::vector<value_type>(cv.size());
     auto g = test_q::create_generator<Sign, Bits>();
 
-    const size_t ntests = 10;
-    for (size_t i = 0; i < ntests; ++i) {
+    auto populate_and_set = [&]() {
         svs_test::populate(reference, g);
         for (size_t j = 0; j < cv.size(); ++j) {
             cv.set(reference.at(j), j);
         }
+    };
 
+    const size_t ntests = 10;
+    for (size_t i = 0; i < ntests; ++i) {
+        populate_and_set();
         lvq::unpack(dst, cv.as_const());
         CATCH_REQUIRE(std::equal(dst.begin(), dst.end(), reference.begin()));
+    }
+
+    // Test handling of varying tail-element reads for the sequential strategy.
+    if constexpr (lvq::UsesSequential<CV>) {
+        populate_and_set();
+        auto helper = lvq::prepare_unpack(cv.as_const());
+        for (size_t i = 1; i <= 16; ++i) {
+            auto w = lvq::unpack_as(
+                cv.as_const(),
+                0,
+                eve::as<svs::wide_<int32_t, 16>>(),
+                helper,
+                eve::keep_first(i)
+            );
+            // Check that the lower reads are correct.
+            for (size_t j = 0; j < i; ++j) {
+                CATCH_REQUIRE(w.get(j) == reference.at(j));
+            }
+            // Check that all higher values are set to zero.
+            for (size_t j = i; j < 16; ++j) {
+                CATCH_REQUIRE(w.get(j) == 0);
+            }
+        }
     }
 }
 

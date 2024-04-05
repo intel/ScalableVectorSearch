@@ -118,13 +118,9 @@ CATCH_TEST_CASE("Testing CosineSimilarity", "[distance][cosinesimilarity_distanc
         CATCH_SECTION("Int8-Int8") { test_types<int8_t, int8_t, N>(-128, 127, ntests); }
     };
 
-    CATCH_SECTION("Even Dimensions") {
-        run_test.template operator()<160>();
-    }
+    CATCH_SECTION("Even Dimensions") { run_test.template operator()<160>(); }
 
-    CATCH_SECTION("Odd Dimensions") {
-        run_test.template operator()<223>();
-    }
+    CATCH_SECTION("Odd Dimensions") { run_test.template operator()<223>(); }
 
     // Saving and Loading
     CATCH_SECTION("Saving and Loading") {

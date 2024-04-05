@@ -362,7 +362,5 @@ template <> struct ConvertForVNNI<int16_t, 32> {
 
 #endif
 
-
 } // namespace simd
-
 } // namespace svs

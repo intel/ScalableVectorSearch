@@ -113,7 +113,7 @@ void generic(
 }
 //! [generic-fallback]
 
-}
+} // namespace
 
 //! [converted-dispatch-conversion-rules]
 // Define full-specializations for converting `std::string` and `bool` to `Converted`.
