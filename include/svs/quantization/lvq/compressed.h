@@ -393,15 +393,62 @@ class CompressedVectorBase {
         // We use `memcpy` instead of `reinterpret_cast` and load because `memcpy`
         // is a bit more "blessed" from a C++ stand point when it comes to winking
         // objects into and out of existence from a bunch of bytes.
-        std::memcpy(&v, &data_[i], sizeof(T));
+        std::memcpy(&v, data() + i, sizeof(T));
         return v;
     }
 
-    template <typename T> T extract_subset(size_t i, size_t bytes) const {
+    /// Extract a value by copying the specified bytes beginning at offset ``i``.
+    ///
+    /// This function behaves as if constructing a value of type ``T`` with an all-zero
+    /// bit representation and performing a ``std::memcpy`` of the specified bytes
+    /// into the representation of ``T``.
+    ///
+    /// In other words, copy only the requested bytes and zero pad the rest of ``T``.
+    ///
+    /// This function is safe to use in contexts where generating a read of ``sizeof(T)``
+    /// would result in an out-of-bounds access.
+    ///
+    /// Prerequisites:
+    /// * ``T`` is constexpr default constructible AND constructible from ``int(0)`` with
+    ///   bit representation of the returned object consisting of zeroed memory.
+    /// * ``T`` is trivially copyable.
+    /// * ``bytes <= sizeof(T)``
+    /// * ``0 < bytes``: At least one byte must be read and that read must be inbounds.
+    /// @tparam T The type to extract.
+    /// @tparam Static Whether this is being called in a static dimensional context or not.
+    ///     This is a hint and should not affect the read value.
+    template <typename T, bool Static = (Extent != svs::Dynamic)>
+    SVS_FORCE_INLINE T extract_subset(size_t i, uint64_t bytes) const {
+        static_assert(T{} == T{0});
+        static_assert(std::is_trivially_copyable_v<T>);
+
+        // Check pre-requisites.
         assert(bytes <= sizeof(T));
-        T v{0};
-        std::memcpy(&v, &data_[i], bytes);
-        return v;
+        assert(0 < bytes);
+        assert(i + bytes <= size_bytes());
+
+        // Variable length memcopies are quite slow.
+        // If it is available, use a masked load.
+        // Fault suppression will ensure that we don't trap on an invalid read.
+        //
+        // When static dimensionality is used, the compiler's constant-propagated
+        // heuristics seem to do slightly better than the predicated load.
+        constexpr bool use_predicated_load =
+            !Static && sizeof(T) <= 16 && arch::have_avx512_vl && arch::have_avx512_bw;
+
+        // Choose the strategy for loading the requested number of bytes.
+        if constexpr (use_predicated_load) {
+            T v{};
+            constexpr uint64_t one = 1;
+            auto mask = static_cast<__mmask16>((one << bytes) - one);
+            auto reg = _mm_maskz_loadu_epi8(mask, data() + i);
+            std::memcpy(&v, &reg, sizeof(T));
+            return v;
+        } else {
+            T v{0};
+            std::memcpy(&v, data() + i, bytes);
+            return v;
+        }
     }
 
     ///
@@ -411,7 +458,8 @@ class CompressedVectorBase {
     void insert(T v, size_t i)
         requires(!IsConst)
     {
-        std::memcpy(&data_[i], &v, sizeof(T));
+        assert(i + sizeof(T) <= size_bytes());
+        std::memcpy(data() + i, &v, sizeof(T));
     }
 
     ///
@@ -649,9 +697,70 @@ SVS_FORCE_INLINE wide_<int32_t, 16> unpack_as(
     }
 }
 
-// Predicated version of the above "unpack" function.
-// The main difficulty here is converting the 16-wide predicate into two 8-wide predicates.
-// Other than that, we hope that intermediate predicate operations work as advertised.
+namespace detail {
+
+// A very light-weight container for constructing a pair of `eve::wide`.
+template <typename T, size_t N> struct WidePair {
+    // Convenience constructor broadcasting the arguments across all lanes in the
+    // corresponding `wide`.
+    WidePair(T first, T second)
+        : first_{first}
+        , second_{second} {}
+
+    wide_<T, N> first_;
+    wide_<T, N> second_;
+};
+
+// Utility pair for splitting predicates.
+struct PredicatePair {
+    eve::keep_first first_;
+    eve::keep_first second_;
+};
+
+// Split a predicate in half.
+template <int64_t N> SVS_FORCE_INLINE PredicatePair split_predicate(eve::keep_first p) {
+    auto v = p.count(eve::as<int64_t>());
+    assert(v <= 2 * N);
+    auto ishigh = v > N;
+    return PredicatePair{
+        eve::keep_first(ishigh ? N : v), eve::keep_first(ishigh ? (v - N) : 0)};
+}
+
+} // namespace detail
+
+// Notes on predicated unpacking:
+//
+// Static Dimensionality:
+//
+//    When compile-time dimensionality is used, the compilers (both GCC and Clang) are
+//    generally able to constant-propagate the value (number of SIMD lanes to keep) of the
+//    predicate through all these methods.
+//
+//    In particular, the number of bytes given to `CompressedVector::extract_predicated`
+//    is known at compile time and an appropriate sequence of loads is used instead of
+//    a full call to `memcpy`.
+//
+//    However, GCC only seems able to materialized sub-object loads when the value being
+//    extracted from `CompressedVector::extract_predicate` is a primitive integral type.
+//
+//    In other words, trying to load something like `std::array<int64_t, 2>` is not
+//    optimized correctly. Instead, GCC writes sub-object loads onto the stack before
+//    reading back into registers (i.e., SROA fails).
+//
+//    So, when static dimensionality is used, we generate two predicated loads to native
+//    integer types.
+//
+// Dynamic Dimensionality:
+//
+//    When dynamic dimensionality is used, the compiler for obvious reasons is unable to
+//    constant propagate the value of the predicate.
+//
+//    In order to prevent actual calls to `memcpy` from appearing in the generated code
+//    (this slows down end-to-end performance by A LOT) we try to hit the masked SIMD load
+//    path in `CompressedVector::extract_predicated`.
+//
+//    To do this efficiently, we load the bit data as an array so that we only need to
+//    invoke the masked load a single time.
 template <typename Sign, size_t Bits, size_t Extent, typename Helper>
 wide_<int32_t, 16> unpack_as(
     CompressedVector<Sign, Bits, Extent, Sequential> x,
@@ -663,16 +772,40 @@ wide_<int32_t, 16> unpack_as(
     if constexpr (Bits == 8) {
         return unpack_8_as(x, i, as, helper, predicate);
     } else {
-        auto count = predicate.count(eve::as<int64_t>());
-        auto lo_mask = eve::keep_first(count >= 8 ? 8 : count);
-        auto hi_mask = eve::keep_first(count >= 8 ? count - 8 : 0);
+        // Utility lambda for picking the best strategy for unpacking.
+        // Upon invocation, will yield a `detail::WidePair` consisting of two half-width
+        // `wides` loading the `predicate` lanes in total.
+        //
+        // All masked out lanes will have zero as their value.
+        auto unpack = [&]<std::integral T>() -> detail::WidePair<T, 8> {
+            // With 4-bits, the alignment works out that we can load both the low and high
+            // values in a single shot.
+            //
+            // However, doing this is only really beneficial when using dynamic
+            // dimensionality because the compiler's handling of the masked load in the
+            // static case (i.e., the contents of `predicate` are const-propagated) seem
+            // to be slightly better.
+            if constexpr (Extent == Dynamic && Bits == 4) {
+                auto r = extract_predicated<std::array<T, 2>>(x, Bits * 2 * i, predicate);
+                return {r[0], r[1]};
+            } else {
+                // Read the low and high values.
+                // Only generate a read to the high register if at least one of the lanes
+                // is valid (otherwise, we might call `memcpy` on an invalid pointer.
+                auto [lomask, himask] = detail::split_predicate<8>(predicate);
+                bool generate_upper_read = himask.count(eve::as<int64_t>()) != 0;
+                return {
+                    extract_predicated<T>(x, Bits * 2 * i, lomask),
+                    generate_upper_read
+                        ? extract_predicated<T>(x, Bits * (2 * i + 1), himask)
+                        : T{0}};
+            }
+        };
 
         if constexpr (Bits > 4) {
-            auto lo =
-                wide_<int64_t, 8>{extract_predicated<int64_t>(x, Bits * 2 * i, lo_mask)};
-            auto hi = wide_<int64_t, 8>{
-                extract_predicated<int64_t>(x, Bits * (2 * i + 1), hi_mask)};
-
+            // Obtain low and high components.
+            // Shift and mask before merging.
+            auto [lo, hi] = unpack.template operator()<int64_t>();
             auto combined = wide_<int32_t, 16>(
                 eve::convert(lo >> helper.first, eve::as<int32_t>()),
                 eve::convert(hi >> helper.first, eve::as<int32_t>())
@@ -681,11 +814,9 @@ wide_<int32_t, 16> unpack_as(
                 combined & helper.second, Encoding<Sign, Bits>::min()
             );
         } else {
-            auto lo =
-                wide_<int32_t, 8>{extract_predicated<int32_t>(x, Bits * 2 * i, lo_mask)};
-            auto hi = wide_<int32_t, 8>{
-                extract_predicated<int32_t>(x, Bits * (2 * i + 1), hi_mask)};
-
+            // Obtain low and high components.
+            // Combine before shifting and masking.
+            auto [lo, hi] = unpack.template operator()<int32_t>();
             auto combined = wide_<int32_t, 16>{lo, hi};
             return eve::add[predicate.else_(0)](
                 ((combined >> helper.first) & helper.second), Encoding<Sign, Bits>::min()

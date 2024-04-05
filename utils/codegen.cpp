@@ -32,9 +32,9 @@ void unpack_combined(
 }
 
 float distance(
-    lvq::DistanceFastIP tag,
+    svs::DistanceL2 tag,
     std::span<const float> x,
-    const lvq::ScaledBiasedWithResidual<8, 8, svs::Dynamic, lvq::Sequential>& y
+    const lvq::ScaledBiasedVector<4, svs::Dynamic, lvq::Sequential>& y
 ) {
     return svs::distance::compute(tag, x, y);
 }
