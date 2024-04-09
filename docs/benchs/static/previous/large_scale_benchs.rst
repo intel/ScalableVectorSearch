@@ -28,7 +28,6 @@ We consider datasets that are large scale because of their total footprint (see 
 * deep-96-1B (96 dimensions, 1 billion points)
 * sift-128-1B (128 dimensions, 1 billion points)
 * t2i-200-100M (200 dimensions, 100 million points)
-* DPR-768-10M (768 dimensions, 10 million points)
 
 Comparison to Other Implementations
 ===================================
@@ -51,7 +50,7 @@ the evaluated configurations and the version of the code used for each method.
 
 |
 
-.. image:: ../figs/SVS_performance_memoryfootprint.png
+.. image:: ../../../figs/SVS_performance_memoryfootprint.png
    :width: 600
    :align: center
    :alt: SVS performance vs memory footprint.
@@ -89,7 +88,7 @@ to M=16, 32, 48 in HSNW notation). We had to reduce ``graph_max_degree`` from 12
 1TB memory.
 
 For **FAISS-IVFPQfs**, we use ``nlist`` = 32768 and ``nbins`` :math:`=48`.
-Re-ranking is enabled, and at runtime we sweep ``nprobe`` :math:`=[1,5,10,50,100,20]` and  ``k for re-ranking`` :math:`= [0,10,100,1000]`.
+Re-ranking is enabled, and at runtime we sweep ``nprobe`` :math:`=[1,5,10,50,100,200]` and  ``k for re-ranking`` :math:`= [0,10,100,1000]`.
 For **ScaNN**, we use the recommended parameters setting: ``n_leaves`` = :math:`\sqrt{n}`, ``avq_threshold`` = 0.2,
 ``dims_per_block`` = 2 (where :math:`n` is the number of vectors in the dataset), as that is the best among several
 evaluated settings and vary the runtime parameters (``leaves_to_search`` = [2-1000], ``reorder`` = [20-1000]).
@@ -112,13 +111,12 @@ Results summary:
   (see results for deep-96-1B and sift-128-1B below).
 
 * For high-dimensional datasets that require inner product, SVS has a significant performance advantage across recall values
-  for query batch size 128, and up to recall 0.95 for batch size 10k (see results for t2i-200-100M and DPR-768-10M below).
+  for query batch size 128, and up to recall 0.95 for batch size 10k (see results for t2i-200-100M below).
 
 * For a search accuracy of 0.9 10-recall at 10, SVS achieves
 
     * **6.5x and 5.4x higher throughput** over the closest competitor for **deep-96-1B** with query batch sizes 10k and 128 respectively.
     * **3.4x and 4.0x higher throughput** over the closest competitor for **sift-128-1B** (uint8-valued vectors) with query batch sizes 10k and 128 respectively.
-    * **1.8x and 3.2x higher throughput** over the closest competitor for **DPR-768-10M** with query batch sizes 10k and 128 respectively.
     * **2.0x higher throughput** over the closest competitor for **t2i-200-100M**.
 
 **Click on the triangles** to see the throughput vs recall curves for each dataset.
@@ -127,7 +125,7 @@ Results summary:
 
     Results for the deep-96-1B dataset
 
-    .. image:: ../figs/bench_largeScale_bothBatchSz_deep-1B.png
+    .. image:: ../../../figs/bench_largeScale_bothBatchSz_deep-1B.png
        :width: 800
        :alt: deep-96-1B benchmarking results
 
@@ -135,7 +133,7 @@ Results summary:
 
     Results for the sift-128-1B dataset
 
-    .. image:: ../figs/bench_largeScale_bothBatchSz_bigann-1B.png
+    .. image:: ../../../figs/bench_largeScale_bothBatchSz_bigann-1B.png
        :width: 800
        :alt: sift-128-1B benchmarking results
 
@@ -143,17 +141,9 @@ Results summary:
 
     Results for the t2i-200-100M dataset
 
-    .. image:: ../figs/bench_largeScale_bothBatchSz_text2image-100M.png
+    .. image:: ../../../figs/bench_largeScale_bothBatchSz_text2image-100M.png
        :width: 800
        :alt: t2i-200-100M benchmarking results
-
-.. collapse:: DPR-768-10M
-
-    Results for the DPR-768-10M dataset
-
-    .. image:: ../figs/bench_largeScale_bothBatchSz_dpr-10M.png
-       :width: 800
-       :alt: DPR-768-10M benchmarking results
 
 |
 
@@ -181,127 +171,33 @@ to M=64 in HSNW notation), except deep-96-1B for which we must reduce ``graph_ma
 working set size in 1TB memory.
 
 For **FAISS-IVFPQfs**, we pre-build indices with ``nlist`` = 32768 and ``nbins`` :math:`=d/2` (where :math:`d` is the dataset dimensionality)
-for the 1 billion scale datasets deep-96-1B and sift-128-1B. For t2i-200-100M and DPR-768-10M, indices are built on the fly
+for the 1 billion scale datasets deep-96-1B and sift-128-1B. For t2i-200-100M, indices are built on the fly
 with combinations of ``nlist`` :math:`=[512, 1024, 4096, 8192]` and ``nbins`` :math:`=[d/4, d/2, d]`.
 Re-ranking is enabled, and at runtime we sweep ``nprobe`` :math:`=[1,5,10,50,100,20]` and  ``k for re-ranking`` :math:`= [0,10,100,1000]`.
 
 For **ScaNN**, we use the recommended parameters setting: ``n_leaves`` = :math:`\sqrt{n}`, ``avq_threshold`` = 0.2,
 ``dims_per_block`` = 2 (where :math:`n` is the number of vectors in the dataset) for the billion scale datasets
-(deep-96-1B and sift-128-1B), as that is the best among several evaluated settings. For t2i-200-100M and DPR-768-10M we evaluate
+(deep-96-1B and sift-128-1B), as that is the best among several evaluated settings. For t2i-200-100M we evaluate
 different parameter settings (see Table below). For all dataests we vary the runtime parameters
 (``leaves_to_search`` = [2-1000], ``reorder`` = [20-1000]).
 
-+---------------------------------------------------------------------------------------------------------------+
-|                                          **ScaNN parameter setting**                                          |
-+-------------------------------------------------------+-------------------------------------------------------+
-|                    **t2i-200-100M**                   |                    **DPR-768-10M**                    |
-+--------------+-------------------+--------------------+--------------+-------------------+--------------------+
-| **n_leaves** | **avq_threshold** | **dims_per_block** | **n_leaves** | **avq_threshold** | **dims_per_block** |
-+--------------+-------------------+--------------------+--------------+-------------------+--------------------+
-|     2000     |        0.2        |          1         |     1000     |        0.55       |          1         |
-+--------------+-------------------+--------------------+--------------+-------------------+--------------------+
-|     5000     |        0.15       |          3         |     2000     |        0.2        |          1         |
-+--------------+-------------------+--------------------+--------------+-------------------+--------------------+
-|     10000    |        0.2        |          2         |     3162     |        0.2        |          2         |
-+--------------+-------------------+--------------------+--------------+-------------------+--------------------+
-|     20000    |        0.2        |          2         |     6000     |        0.2        |          2         |
-+--------------+-------------------+--------------------+--------------+-------------------+--------------------+
++-------------------------------------------------------+
+|           **ScaNN parameter setting**                 |
++-------------------------------------------------------+
+|                    **t2i-200-100M**                   |
++--------------+-------------------+--------------------+
+| **n_leaves** | **avq_threshold** | **dims_per_block** |
++--------------+-------------------+--------------------+
+|     2000     |        0.2        |          1         |
++--------------+-------------------+--------------------+
+|     5000     |        0.15       |          3         |
++--------------+-------------------+--------------------+
+|     10000    |        0.2        |          2         |
++--------------+-------------------+--------------------+
+|     20000    |        0.2        |          2         |
++--------------+-------------------+--------------------+
 
 In all cases where several parameter settings are evaluated, the results show the corresponding Pareto lines.
-
-.. _benchs-compression-evaluation:
-
-SVS + Vector Compression
-========================
-
-We show here how the :ref:`LVQ <vector_compression>` vector compression can boost SVS performance relative to using float32 or float16 encoded vectors.
-The :ref:`best LVQ flavor <compression-setting>` (whether one or two levels, and the number of bits used to encode each level) depends on the dataset and
-the memory footprint restrictions. The results below can serve as reference for datasets of similar dimensionality / cardinality.
-
-The memory-footprint ratio (MR) measures the space occupied by the graph (with ``graph_max_degree`` = 128) and the
-float32-valued vectors relative to the space occupied by the graph and the LVQ-compressed vectors. As shown in the table below,
-for larger dimensionalities (d = 768, DPR-768-10M dataset), LVQ highly reduces the memory requirements achieving a large MR,
-and the additional bandwidth reduction from LVQ-4x4 and LVQ-4x8 provides a significant performance boost over LVQ-8.
-
-+--------------------+---------------------+---------------------+---------------------+
-|                    | **deep-96-1B**      | **t2i-200-100M**    | **DPR-768-10M**     |
-+--------------------+----------+----------+----------+----------+----------+----------+
-| **w.r.t. float32** | **QPS**  | **MR**   | **QPS**  | **MR**   | **QPS**  | **MR**   |
-+--------------------+----------+----------+----------+----------+----------+----------+
-| **float16**        | 2.1x     | 1.3x     | 1.9x     | 1.4x     | 1.7x     | 1.8x     |
-+--------------------+----------+----------+----------+----------+----------+----------+
-| **LVQ-8**          | **2.6x** | **1.4x** | 2.9x     | **1.8x** | 3.1x     | **2.7x** |
-+--------------------+----------+----------+----------+----------+----------+----------+
-| **LVQ-4x4**        | 2.3x     | **1.4x** | 2.2x     | **1.8x** | 4.3x     | **2.7x** |
-+--------------------+----------+----------+----------+----------+----------+----------+
-| **LVQ-4x8**        | 2.5x     | 1.3x     | **3.1x** | 1.6x     | **4.7x** | 2.1x     |
-+--------------------+----------+----------+----------+----------+----------+----------+
-
-Ablation Results
-----------------
-
-**Click on the triangles** to see the throughput vs recall curves comparing SVS with several LVQ settings, as well as float32
-and float16 encodings, for each dataset.
-
-.. collapse:: deep-96-1B
-
-    Results for the deep-96-1B dataset
-
-    .. image:: ../figs/bench_largeScale_SVS_ablation_deep-1B.png
-       :width: 800
-       :alt: deep-96-1B compression evaluation results
-
-.. collapse:: deep-96-100M
-
-    Results for the deep-96-100M dataset
-
-    .. image:: ../figs/bench_largeScale_SVS_ablation_deep-100M.png
-       :width: 800
-       :alt: deep-96-100M compression evaluation results
-
-.. collapse:: t2i-200-100M
-
-    Results for the t2i-200-100M dataset
-
-    .. image:: ../figs/bench_largeScale_SVS_ablation_text2image-100M.png
-       :width: 800
-       :alt: t2i-200-100M compression evaluation results
-
-.. collapse:: DPR-768-10M
-
-    Results for the DPR-768-10M dataset
-
-    .. image:: ../figs/bench_largeScale_SVS_ablation_dpr-10M.png
-       :width: 800
-       :alt: DPR-768-10M compression evaluation results
-
-|
-
-Ablation + comparison to other methods
---------------------------------------
-
-**Click on the triangles** to see the throughput vs recall curves comparing the highest performing SVS-LVQ setting
-(a Pareto curve built with results from LVQ-8, LVQ-4x4, LVQ4x8 and LVQ8x8), SVS using float32 and float16 encodings,
-as well as other methods for each dataset.
-
-.. collapse:: deep-96-1B
-
-    Results for the deep-96-1B dataset
-
-    .. image:: ../figs/bench_largeScale_ablation_and_other_methods_deep-1B.png
-       :width: 700
-       :alt: deep-96-1B compression evaluation results
-
-
-.. collapse:: DPR-768-10M
-
-    Results for the DPR-768-10M dataset
-
-    .. image:: ../figs/bench_largeScale_ablation_and_other_methods_dpr-10M.png
-       :width: 700
-       :alt: DPR-768-10M compression evaluation results
-
-|
 
 .. |copy|   unicode:: U+000A9 .. COPYRIGHT SIGN
 .. |reg|   unicode:: U+00AE .. REGISTERED

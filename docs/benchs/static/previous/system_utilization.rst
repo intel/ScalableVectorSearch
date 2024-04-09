@@ -28,7 +28,7 @@ Interestingly, for both data types, the performance drops immediately after 40 t
 The threads sharing a core are slower and cap the overall search performance in batch mode.
 However, increasing the threads further leads to higher throughput outweighing the individual thread latency.
 
-.. image:: ../figs/core_scaling.png
+.. image:: ../../../figs/core_scaling.png
        :width: 49%
        :align: center
        :alt: deep-96-100M core scaling
@@ -43,10 +43,10 @@ with the system configuration described in :ref:`system_setup_large_scale_benchs
 
 For a search accuracy of 0.9 10 recall at 10, SVS achieves a 20% performance boost in deep-96-100M and 90% in deep-96-1B [ABHT23]_.
 
-.. image:: ../figs/hugepages_deep-96-100M.png
+.. image:: ../../../figs/hugepages_deep-96-100M.png
        :width: 49%
        :alt: deep-96-100M huge pages utilization
-.. image:: ../figs/hugepages_deep-96-1B.png
+.. image:: ../../../figs/hugepages_deep-96-1B.png
        :width: 48%
        :alt: deep-96-1B huge pages utilization
 

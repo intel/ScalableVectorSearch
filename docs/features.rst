@@ -185,13 +185,15 @@ and finally call the build function with the chosen compression loader
 
 .. rubric:: References
 
-.. [SDSK19] Subramanya, S.J.; Devvrit, F.; Simhadri, H.V.; Krishnawamy, R.; Kadekodi, R..:Diskann: Fast accurate billion-point nearest neighbor search on a single node. In: Advances in Neural Information Processing Systems 32 (2019).
-.. [ABHT23] Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T..:Similarity search in the blink of an eye with compressed indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)
-.. [AHBW24] Aguerrebere, C.; Hildebrand M.; Bhati I.; Willke T.; Tepper M..:Locally-adaptive Quantization for Streaming Vector Search. In: arxiv preprint arXiv:2402.02044 (2024)
+.. [SDSK19] Subramanya, S.J.; Devvrit, F.; Simhadri, H.V.; Krishnawamy, R.; Kadekodi, R..: Diskann: Fast accurate billion-point nearest neighbor search on a single node. In: Advances in Neural Information Processing Systems 32 (2019).
+.. [ABHT23] Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T..: Similarity search in the blink of an eye with compressed indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)
+.. [AHBW24] Aguerrebere, C.; Hildebrand M.; Bhati I.; Willke T.; Tepper M..: Locally-adaptive Quantization for Streaming Vector Search. In: arxiv preprint arXiv:2402.02044 (2024)
 .. [MaYa18] Malkov, Y. A. and Yashunin, D. A..: Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs. In: IEEE transactions on pattern analysis and machine intelligence 42, 4 (2018), 824–836.
 .. [JoDJ19] Johnson, J.; Douze, M.; Jégou, H..: Billion-scale similarity search with GPUs. In: IEEE Transactions on Big Data 7, 3 (2019), 535–547.
 .. [GSLG20] Guo, R.; Sun, P.; Lindgren, E.; Geng, Q.; Simcha, D.; Chern, F.; Kumar, S..: Accelerating large-scale inference with anisotropic vector quantization. In International Conference on Machine Learning. PMLR, 3887-3896 (2020)
 .. [IwMi18] Iwasaki, M. and Miyazaki, D..: Nearest Neighbor Search with Neighborhood Graph and Tree for High-dimensional Data. https://github.com/yahoojapan/NGT (2018)
 .. [AuBF20] Aumüller, M.; Bernhardsson, E.; Faithfull, A..: ANN-Benchmarks: A benchmarking tool for approximate nearest neighbor algorithms. In: Information Systems 87 (2020), 101374. https://doi.org/10.1016/j.is.2019.02.006
-.. [KOML20] Karpukhin, V.; Oguz, B.; Min, S.; Lewis, P.; Wu, L.; Edunov, S.; Chen, D.; Yih, W..: Dense Passage Retrieval for Open-Domain Question Answering. In: Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP). 6769–6781. (2020)
-.. [RSRL20] Raffel, C.; Shazeer, N.; Roberts, A.; Lee, K.; Narang, S.; Matena, M.; Zhou, Y.; Li, W.; Liu, P.J.: Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer. In: The Journal of Machine Learning Research 21,140:1–140:67.(2020)
+.. [QDLL21] Qu, Y.; Ding, Y.; Liu, J.; Liu, K.; Ren, R.; Zhao, W. X.; Dong, D.; Wu, H. and Wang, H..: RocketQA: An optimized training approach to dense passage retrieval for open-domain question answering. In: Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies. 5835–5847. (2021)
+.. [SSKS21] Singh, A.; Subramanya, S.J.; Krishnaswamy, R.; Simhadri, H.V..: FreshDiskANN: A Fast and Accurate Graph-Based ANN Index for Streaming Similarity Search. In: arxiv preprint arXiv:2105.09613 (2021)
+.. [DGDJ24] Douze, M.; Guzhva, A.; Deng, C.; Johnson, J.; Szilvasy, G.; Mazaré, P.E.; Lomeli, M.; Hosseini, L.; Jégou, H.: The Faiss library. In: arxiv preprint arXiv:2401.08281 (2024)
+.. [TBAH24] Tepper M.; Bhati I.; Aguerrebere, C.; Hildebrand M.; Willke T.: LeanVec: Search your vectors faster by making them fit. arXiv preprint arXiv:2312.16335 (2024)

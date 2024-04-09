@@ -8,6 +8,8 @@ We present here the results of an exhaustive evaluation, comparing SVS to other 
    :local:
    :depth: 1
 
+.. _system_setup_small_scale_benchs:
+
 System Setup and Datasets
 =========================
 
@@ -71,13 +73,13 @@ The full query batch is 10k queries for all datasets except for gist-960-1.0M wh
 
     .. collapse:: Batched queries
 
-        .. image:: ../figs/bench_smallScale_batch_deep-image-96-angular.png
+        .. image:: ../../../figs/bench_smallScale_batch_deep-image-96-angular.png
            :width: 800
            :alt: deep-96-10M benchmarking results (batch mode)
 
     .. collapse:: Single query
 
-        .. image:: ../figs/bench_smallScale_single_deep-image-96-angular.png
+        .. image:: ../../../figs/bench_smallScale_single_deep-image-96-angular.png
            :width: 550
            :alt: deep-96-10M benchmarking results (single query)
 
@@ -89,13 +91,13 @@ The full query batch is 10k queries for all datasets except for gist-960-1.0M wh
 
     .. collapse:: Batched queries
 
-        .. image:: ../figs/bench_smallScale_batch_glove-25-angular.png
+        .. image:: ../../../figs/bench_smallScale_batch_glove-25-angular.png
            :width: 800
            :alt: glove-25-1.2M benchmarking results (batch mode)
 
     .. collapse:: Single query
 
-        .. image:: ../figs/bench_smallScale_single_glove-25-angular.png
+        .. image:: ../../../figs/bench_smallScale_single_glove-25-angular.png
            :width: 550
            :alt: glove-25-1.2M benchmarking results (single query)
 
@@ -107,13 +109,13 @@ The full query batch is 10k queries for all datasets except for gist-960-1.0M wh
 
     .. collapse:: Batched queries
 
-        .. image:: ../figs/bench_smallScale_batch_glove-50-angular.png
+        .. image:: ../../../figs/bench_smallScale_batch_glove-50-angular.png
            :width: 800
            :alt: glove-50-1.2M benchmarking results (batch mode)
 
     .. collapse:: Single query
 
-        .. image:: ../figs/bench_smallScale_single_glove-50-angular.png
+        .. image:: ../../../figs/bench_smallScale_single_glove-50-angular.png
            :width: 550
            :alt: glove-50-1.2M benchmarking results (single query)
 
@@ -125,13 +127,13 @@ The full query batch is 10k queries for all datasets except for gist-960-1.0M wh
 
     .. collapse:: Batched queries
 
-        .. image:: ../figs/bench_smallScale_batch_gist-960-euclidean.png
+        .. image:: ../../../figs/bench_smallScale_batch_gist-960-euclidean.png
            :width: 800
            :alt: gist-960-1.0M benchmarking results (batch mode)
 
     .. collapse:: Single query
 
-        .. image:: ../figs/bench_smallScale_single_gist-960-euclidean.png
+        .. image:: ../../../figs/bench_smallScale_single_gist-960-euclidean.png
            :width: 550
            :alt: gist-960-1.0M benchmarking results (single query)
 
@@ -143,13 +145,13 @@ The full query batch is 10k queries for all datasets except for gist-960-1.0M wh
 
     .. collapse:: Batched queries
 
-        .. image:: ../figs/bench_smallScale_batch_sift-128-euclidean.png
+        .. image:: ../../../figs/bench_smallScale_batch_sift-128-euclidean.png
            :width: 800
            :alt: sift-128-1M benchmarking results (batch mode)
 
     .. collapse:: Single query
 
-        .. image:: ../figs/bench_smallScale_single_sift-128-euclidean.png
+        .. image:: ../../../figs/bench_smallScale_single_sift-128-euclidean.png
            :width: 550
            :alt: sift-128-1M benchmarking results (single query)
 
@@ -167,26 +169,6 @@ For IVFPQfs, ScaNN and NGT-qg we consider the provided `yaml configuration files
 For SVS, we include various LVQ settings (LVQ-8, LVQ-4x4, LVQ-4x8, and LVQ8x8) as well as float16 and float32 encodings.
 LVQ-compressed vectors are padded to half cache lines (``padding`` = 32).
 
-.. _benchs-compression-evaluation_small_scale:
-
-SVS + Vector Compression
-========================
-Memory footprint reduction is often not relevant for small scale datasets as their overall memory requirements are easily
-satisfied by most low-end servers. However, we show here that for high-dimensional datasets, the performance boost achieved
-by LVQ makes it very relevant even for datasets with a few million points.
-
-.. image:: ../figs/bench_smallScale_SVS_ablation_gist-960-euclidean.png
-           :width: 800
-           :align: center
-           :alt: gist-960-1M compression ablation results.
-
-The figure compares search performance for different LVQ settings, as well as using float32 and float16 encoded
-vectors, for the 960-dimensional :ref:`gist-960-1M <datasets>` dataset (graph built with ``graph_max_degree`` = 128).
-LVQ-compressed vectors are padded to half cache lines (``padding`` = 32).
-
-For a search accuracy of 0.9 10 recall at 10, **SVS with LVQ-4x4** compressed vectors has a **4.3x** and a **4.5x higher
-QPS** than its float32 counterpart for batch sizes 1k and 128 respectively. Similar performance gains are achieved by
-LVQ-4x8, with a slighter higher memory footprint.
 
 .. |copy|   unicode:: U+000A9 .. COPYRIGHT SIGN
 .. |reg|   unicode:: U+00AE .. REGISTERED
