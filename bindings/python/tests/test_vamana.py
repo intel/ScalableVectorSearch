@@ -473,12 +473,18 @@ class VamanaTester(unittest.TestCase):
             pysvs.DistanceType.Cosine: test_groundtruth_cosine,
         }
 
-    def _test_build(self, loader, distance: pysvs.DistanceType, matcher):
+    def _test_build(
+        self,
+        loader,
+        distance: pysvs.DistanceType,
+        matcher,
+        additional_query_types = []
+    ):
         num_threads = 2
         distance_map = self._distance_map()
 
         params = self._get_build_parameters(
-                'vamana_test_build', distance_map[distance], matcher
+            'vamana_test_build', distance_map[distance], matcher
         );
 
         vamana = pysvs.Vamana.build(params, loader, distance, num_threads = num_threads)
@@ -494,8 +500,9 @@ class VamanaTester(unittest.TestCase):
         self.assertEqual(vamana.num_threads, num_threads)
 
         expected_results = self._get_config_and_recall(
-                'vamana_test_build', distance_map[distance], matcher
+            'vamana_test_build', distance_map[distance], matcher
         )
+
         for expected in expected_results:
             window_size, buffer_capacity, k, nq, expected_recall = \
                 self._parse_config_and_recall(expected)
@@ -511,6 +518,17 @@ class VamanaTester(unittest.TestCase):
             print(f"Recall = {recall}, Expected = {expected_recall}")
             if not DEBUG:
                 self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.005))
+
+            for typ in additional_query_types:
+                print(f"Trying Query Type {typ}")
+                self.assertTrue(pysvs.np_to_svs(typ) in vamana.query_types)
+                queries_converted = queries.astype(typ)
+                results = vamana.search(get_test_set(queries_converted, nq), k)
+                recall = pysvs.k_recall_at(get_test_set(groundtruth, nq), results[0], k, k)
+                print(f"Recall = {recall}, Expected = {expected_recall}")
+
+                if not DEBUG:
+                    self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.005))
 
     def test_build(self):
         # Build directly from data
@@ -528,9 +546,16 @@ class VamanaTester(unittest.TestCase):
         # Build using float16
         data_f16 = data.astype('float16')
         matcher = UncompressedMatcher("float16")
-        self._test_build(data_f16, pysvs.DistanceType.L2, matcher)
-        self._test_build(data_f16, pysvs.DistanceType.MIP, matcher)
-        self._test_build(data_f16, pysvs.DistanceType.Cosine, matcher)
+        f16 = [np.float16]
+        self._test_build(
+            data_f16, pysvs.DistanceType.L2, matcher, additional_query_types = f16
+        )
+        self._test_build(
+            data_f16, pysvs.DistanceType.MIP, matcher, additional_query_types = f16
+        )
+        self._test_build(
+            data_f16, pysvs.DistanceType.Cosine, matcher, additional_query_types = f16
+        )
 
         # Build from file loader
         loader = pysvs.VectorDataLoader(test_data_svs, pysvs.DataType.float32)

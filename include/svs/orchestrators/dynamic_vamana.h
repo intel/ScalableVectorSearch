@@ -40,10 +40,10 @@ class DynamicVamanaInterface : public VamanaInterface {
     virtual void all_ids(std::vector<size_t>& ids) const = 0;
 };
 
-template <typename QueryType, typename Impl>
-class DynamicVamanaImpl : public VamanaImpl<QueryType, Impl, DynamicVamanaInterface> {
+template <lib::TypeList QueryTypes, typename Impl>
+class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInterface> {
   public:
-    using base_type = VamanaImpl<QueryType, Impl, DynamicVamanaInterface>;
+    using base_type = VamanaImpl<QueryTypes, Impl, DynamicVamanaInterface>;
     using base_type::impl;
 
     explicit DynamicVamanaImpl(Impl impl)
@@ -77,7 +77,7 @@ class DynamicVamanaImpl : public VamanaImpl<QueryType, Impl, DynamicVamanaInterf
 // Forward Declaractions.
 class DynamicVamana;
 
-template <typename QueryType, typename... Args>
+template <lib::TypeList QueryTypes, typename... Args>
 DynamicVamana make_dynamic_vamana(Args&&... args);
 
 ///
@@ -101,12 +101,12 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     )
         : base_type{std::move(impl)} {}
 
-    template <typename QueryType, typename Impl>
+    template <lib::TypeList QueryTypes, typename Impl>
     explicit DynamicVamana(
-        AssembleTag SVS_UNUSED(tag), lib::Type<QueryType> SVS_UNUSED(type), Impl impl
+        AssembleTag SVS_UNUSED(tag), QueryTypes SVS_UNUSED(type), Impl impl
     )
-        : base_type{std::make_unique<DynamicVamanaImpl<QueryType, Impl>>(std::move(impl))} {
-    }
+        : base_type{
+              std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::move(impl))} {}
 
     ///// Vamana Interface
     void experimental_reset_performance_parameters() {
@@ -205,7 +205,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     }
 
     // Building
-    template <typename QueryType, data::ImmutableMemoryDataset Data, typename Distance>
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        data::ImmutableMemoryDataset Data,
+        typename Distance>
     static DynamicVamana build(
         const index::vamana::VamanaBuildParameters& parameters,
         Data data,
@@ -213,14 +216,14 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         Distance distance,
         size_t num_threads
     ) {
-        return make_dynamic_vamana<QueryType>(
+        return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
             parameters, std::move(data), ids, std::move(distance), num_threads
         );
     }
 
     // Assembly
     template <
-        typename QueryType,
+        manager::QueryTypeDefinition QueryTypes,
         typename GraphLoader,
         typename DataLoader,
         typename Distance>
@@ -234,7 +237,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     ) {
         return DynamicVamana(
             AssembleTag(),
-            lib::Type<QueryType>(),
+            manager::as_typelist<QueryTypes>(),
             index::vamana::auto_dynamic_assemble(
                 config_path,
                 graph_loader,
@@ -292,11 +295,11 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
 /// @brief Construct a ``DynamicVamana`` by calling the default implementations'
 /// constructor.
 ///
-template <typename QueryType, typename... Args>
+template <lib::TypeList QueryTypes, typename... Args>
 DynamicVamana make_dynamic_vamana(Args&&... args) {
     using Impl = decltype(index::vamana::MutableVamanaIndex{std::forward<Args>(args)...});
     return DynamicVamana{
-        std::make_unique<DynamicVamanaImpl<QueryType, Impl>>(std::forward<Args>(args)...)};
+        std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
 } // namespace svs

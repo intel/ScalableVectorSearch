@@ -601,6 +601,7 @@ void wrap(py::module& m) {
     detail::wrap_assemble(vamana);
 
     // Make the Vamana type searchable.
+    add_search_specialization<svs::Float16>(vamana);
     add_search_specialization<float>(vamana);
     add_search_specialization<uint8_t>(vamana);
     add_search_specialization<int8_t>(vamana);

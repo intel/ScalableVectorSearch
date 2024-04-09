@@ -19,7 +19,9 @@ globals().update(
 )
 
 # Misc types and functions
-from .common import read_npy, \
+from .common import \
+    np_to_svs, \
+    read_npy, \
     read_vecs, \
     write_vecs, \
     read_svs, \

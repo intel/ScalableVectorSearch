@@ -18,7 +18,46 @@ import numpy as np
 from .loader import library
 lib = library()
 
-def read_npy(filename:str):
+def np_to_svs(nptype):
+    """
+    Convert the provided numpy type to the corresponding SVS type enum.
+    Throws an unspecified exception if no such conversion is possible.
+
+    Args:
+        nptype: The numpy type to obtain the SVS enum for.
+
+    Returns:
+        An SVS enum equivalent for the argument.
+    """
+    # Signed
+    if nptype == np.int8:
+        return lib.int8
+    if nptype == np.int16:
+        return lib.int16
+    if nptype == np.int32:
+        return lib.int32
+    if nptype == np.int64:
+        return lib.int64
+    # Unsigned
+    if nptype == np.uint8:
+        return lib.uint8
+    if nptype == np.uint16:
+        return lib.uint16
+    if nptype == np.uint32:
+        return lib.uint32
+    if nptype == np.uint64:
+        return lib.uint64
+    # Float
+    if nptype == np.float16:
+        return lib.float16
+    if nptype == np.float32:
+        return lib.float32
+    if nptype == np.float64:
+        return lib.float64
+
+    raise Exception(f"Could not convert {nptype} to a pysvs.DataType enum!");
+
+def read_npy(filename: str):
     """
     Read a file in the `npy` format and return a NumPy array with the results.
     Args:

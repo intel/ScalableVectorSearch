@@ -151,6 +151,25 @@ cp ./vamana_reference ../data/test_dataset/reference/vamana_reference.toml
   See the description in the release notes for `pysvs` regarding the semantics of
   reconstruction.
 
+* Type erased orchestrators may now be compiled with support for multiple query types.
+  For example,
+  ```c++
+  auto index = svs::Vamana::assemble<svs::lib::Types<svs::Float16, float>>(...);
+  ```
+  will compile an orchestrator capable of processing queries of either 16-bit or 32-bit
+  floating values. The old syntax of
+  ```c++
+  auto index = svs::Vamana:assemble<float>(...);
+  ```
+  is still supported and yields an index capable of only processing a single query type.
+
+  The augmented methods are given below:
+  * `svs::Vamana::assemble`
+  * `svs::Vamana::build`
+  * `svs::DynamicVamana::assemble`
+  * `svs::DynamicVamana::build`
+  * `svs::Flat::assemble`
+
 ## Object Serialization Changes
 
 * The implementation of two-level LVQ has changed from bitwise extension to true cascaded

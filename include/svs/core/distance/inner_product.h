@@ -248,6 +248,13 @@ template <size_t N> struct IPImpl<N, float, Float16> {
     }
 };
 
+template <size_t N> struct IPImpl<N, Float16, float> {
+    SVS_NOINLINE static float
+    compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
+        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+    }
+};
+
 template <size_t N> struct IPImpl<N, Float16, Float16> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {

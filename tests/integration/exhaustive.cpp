@@ -172,11 +172,21 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive]") {
 
     CATCH_SECTION("Euclidean") {
         // From file
-        svs::Flat index = svs::Flat::assemble<float>(
+        svs::Flat index = svs::Flat::assemble<svs::lib::Types<float, svs::Float16>>(
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()), svs::L2, 2
         );
         CATCH_REQUIRE(index.get_num_threads() == 2);
+        CATCH_REQUIRE(
+            index.query_types() ==
+            std::vector<svs::DataType>{svs::DataType::float32, svs::DataType::float16}
+        );
         test_flat(index, queries, test_dataset::groundtruth_euclidean());
+
+        // Also try float16 as the query to test heterogeneous query handling.
+        auto queries_f16 =
+            svs::data::SimpleData<svs::Float16>(queries.size(), queries.dimensions());
+        svs::data::copy(queries, queries_f16);
+        test_flat(index, queries_f16, test_dataset::groundtruth_euclidean());
 
         // From Data
         index = svs::Flat::assemble<float>(std::move(data), svs::L2, 2);
