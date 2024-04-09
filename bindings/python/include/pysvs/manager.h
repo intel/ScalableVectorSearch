@@ -95,6 +95,11 @@ template <typename Manager> void add_data_interface(pybind11::class_<Manager>& m
         &Manager::dimensions,
         "Return the logical number of dimensions for each vector in the dataset."
     );
+    manager.def_property_readonly(
+        "query_types",
+        &Manager::query_types,
+        "Return the query element types this index is specialized for."
+    );
 }
 namespace detail {
 

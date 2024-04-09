@@ -26,6 +26,26 @@
 
 namespace svs::manager {
 
+// Enable manager methods to take either a direct data type or a type list for accepted
+// query types.
+template <typename T>
+concept QueryTypeDefinition = svs::HasDataType<T> || svs::lib::TypeList<T>;
+
+namespace detail {
+
+template <typename T> struct AsTypeList;
+template <svs::lib::TypeList T> struct AsTypeList<T> {
+    using type = T;
+};
+template <svs::HasDataType T> struct AsTypeList<T> {
+    using type = lib::Types<T>;
+};
+
+}; // namespace detail
+
+/// @brief Convert a query-type definition to a `svs::lib::Types` type.
+template <QueryTypeDefinition T> using as_typelist = typename detail::AsTypeList<T>::type;
+
 ///
 /// Top level Manager
 ///
@@ -57,6 +77,9 @@ template <typename IFace> class ManagerInterface : public IFace {
     virtual size_t size() const = 0;
     virtual size_t dimensions() const = 0;
 
+    // Accepted Query Types
+    virtual std::vector<svs::DataType> query_types() const = 0;
+
     // Threading interface
     virtual bool can_change_threads() const = 0;
     virtual size_t get_num_threads() const = 0;
@@ -75,7 +98,7 @@ template <typename IFace> class ManagerInterface : public IFace {
 /// The base implementation for types meant to implement polymorphic Manager interface.
 /// The goal of this type is to wrap a concrete implementation of type `T` with the
 ///
-template <typename QueryType, typename Impl, typename IFace>
+template <lib::TypeList QueryTypes, typename Impl, typename IFace>
 class ManagerImpl : public ManagerInterface<IFace> {
   public:
     // Inherit the search parameters type from the interface.
@@ -111,28 +134,35 @@ class ManagerImpl : public ManagerInterface<IFace> {
         AnonymousArray<2> data,
         const search_parameters_type& search_parameters
     ) override {
-        // TODO (Mark) For now - only allow implementations to support a single query
-        // type.
-        //
-        // Generalizing this to multiple query types will require some metaprogramming
-        // dances.
-        if (data.type() == datatype_v<QueryType>) {
-            const auto view = data::ConstSimpleDataView<QueryType>(data);
-            svs::index::search_batch_into_with(
-                implementation_, result, view, search_parameters
-            );
-        } else {
-            throw ANNEXCEPTION(
-                "Unsupported datatype! Got: {}. Expected: {}.",
-                data.type(),
-                (datatype_v<QueryType>)
-            );
-        }
+        // See if we have a specialization for this particular query type.
+        // If so, invoke that specialization, otherwise throw
+        lib::match(
+            QueryTypes{},
+            data.type(),
+            [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
+                const auto view = data::ConstSimpleDataView<T>(data);
+                svs::index::search_batch_into_with(
+                    implementation_, result, view, search_parameters
+                );
+            },
+            [&](svs::DataType data_type) {
+                throw ANNEXCEPTION(
+                    "Unsupported datatype! Got: {}. Expected one of: {}.",
+                    data_type,
+                    fmt::join(QueryTypes::data_types(), ", ")
+                );
+            }
+        );
     }
 
     // Data Interface
     size_t size() const override { return implementation_.size(); }
     size_t dimensions() const override { return implementation_.dimensions(); }
+
+    // Accepted Query Types
+    virtual std::vector<svs::DataType> query_types() const override {
+        return svs::lib::make_vec<svs::DataType>(QueryTypes{}, std::identity{});
+    };
 
     // Threading interface.
     bool can_change_threads() const override {
@@ -151,9 +181,7 @@ class ManagerImpl : public ManagerInterface<IFace> {
     Impl implementation_;
 };
 
-///
-/// @brief Do I need to document this also?
-///
+/// @brief Base class for type erased index managers.
 template <typename IFace> class IndexManager {
   public:
     /// Require the presence of the `search_parameters_type` alias in the instantiating
@@ -198,6 +226,9 @@ template <typename IFace> class IndexManager {
     /// @brief Return the logical number of dimensions of each vector in the indexed
     /// dataset.
     size_t dimensions() const { return impl_->dimensions(); }
+
+    /// @brief Return query-types that this index is specialized to work with.
+    std::vector<svs::DataType> query_types() const { return impl_->query_types(); }
 
     ///// Threading Interface
 

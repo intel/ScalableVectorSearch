@@ -70,7 +70,8 @@ template <typename F> void for_standard_specializations(F&& f) {
     // X(float,   svs::Float16, 96, EnableBuild::FromFile);  // Deep 1B - F16
     // XN(float,   svs::Float16, 50);  // Glove50 - F16
     // XN(float,   svs::Float16, 25);  // Glove25 - F16
-    X (float,   svs::Float16, Dynamic, EnableBuild::FromFileAndArray);
+    using float16xfloat = svs::lib::Types<svs::Float16, float>;
+    X (float16xfloat, svs::Float16, Dynamic, EnableBuild::FromFileAndArray);
 
     // XN(uint8_t, uint8_t,      128); // BigANN 1B
     X (uint8_t, uint8_t,      Dynamic, EnableBuild::FromFileAndArray);
@@ -300,6 +301,7 @@ Calling this method should not affect recall.)"
     );
 
     ///// Experiemntal Interfaces
+    add_experimental_calibration<svs::Float16>(manager);
     add_experimental_calibration<float>(manager);
 }
 

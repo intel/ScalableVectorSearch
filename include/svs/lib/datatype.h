@@ -305,6 +305,13 @@ template <typename T>
 inline constexpr bool has_datatype_v = (datatype_v<T> != DataType::undef);
 
 ///
+/// @ingroup lib_public_datatype
+/// @brief Concept matching a type that has a corresponding data type.
+///
+template <typename T>
+concept HasDataType = has_datatype_v<T>;
+
+///
 /// Erased Pointer
 ///
 

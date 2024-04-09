@@ -76,15 +76,15 @@ class VamanaInterface {
     virtual void reset_performance_parameters() = 0;
 };
 
-template <typename QueryType, typename Impl, typename IFace = VamanaInterface>
-class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
+template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
+class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
   private:
     // Null-terimated array of characters.
     static constexpr auto typename_impl = lib::generate_typename<Impl>();
 
   public:
     // type aliases
-    using base_type = manager::ManagerImpl<QueryType, Impl, IFace>;
+    using base_type = manager::ManagerImpl<QueryTypes, Impl, IFace>;
     using base_type::impl;
     using VamanaSearchParameters = index::vamana::VamanaSearchParameters;
 
@@ -155,11 +155,11 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
         double target_recall,
         const index::vamana::CalibrationParameters& calibration_parameters
     ) override {
-        if (queries.type() != datatype_v<QueryType>) {
+        if (!lib::in(queries.type(), QueryTypes{})) {
             throw ANNEXCEPTION(
                 "Unsupported query type! Got {}, expected {}.",
                 queries.type(),
-                (datatype_v<QueryType>)
+                fmt::join(QueryTypes::data_types(), ", ")
             );
         }
         if (groundtruth.type() != DataType::uint32) {
@@ -171,16 +171,22 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
         }
 
         // Reassemble and call the real implementation.
-        return impl().calibrate(
-            data::ConstSimpleDataView<QueryType>(
-                get<QueryType>(queries), query_size_0, query_size_1
-            ),
-            data::ConstSimpleDataView<uint32_t>(
-                get<uint32_t>(groundtruth), groundtruth_size_0, groundtruth_size_1
-            ),
-            num_neighbors,
-            target_recall,
-            calibration_parameters
+        return lib::match(
+            QueryTypes{},
+            queries.type(),
+            [&]<typename Q>(lib::Type<Q> SVS_UNUSED(tag)) {
+                return impl().calibrate(
+                    data::ConstSimpleDataView<Q>(
+                        get<Q>(queries), query_size_0, query_size_1
+                    ),
+                    data::ConstSimpleDataView<uint32_t>(
+                        get<uint32_t>(groundtruth), groundtruth_size_0, groundtruth_size_1
+                    ),
+                    num_neighbors,
+                    target_recall,
+                    calibration_parameters
+                );
+            }
         );
     }
 
@@ -192,7 +198,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
 // Type-erased wrapper around the VamanaIndex
 class Vamana;
 // Deducing constructor.
-template <typename QueryType, typename... Args> Vamana make_vamana(Args&&... args);
+template <lib::TypeList QueryTypes, typename... Args> Vamana make_vamana(Args&&... args);
 
 ///
 /// Vamana Manager
@@ -313,7 +319,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @sa save, build
     ///
     template <
-        typename QueryType,
+        manager::QueryTypeDefinition QueryTypes,
         typename GraphLoaderType,
         typename DataLoader,
         typename Distance>
@@ -331,7 +337,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         if constexpr (std::is_same_v<Distance, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&, num_threads](auto distance_function) {
-                return make_vamana<QueryType>(
+                return make_vamana<manager::as_typelist<QueryTypes>>(
                     AssembleTag(),
                     config_path,
                     graph_loader,
@@ -341,7 +347,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 );
             });
         } else {
-            return make_vamana<QueryType>(
+            return make_vamana<manager::as_typelist<QueryTypes>>(
                 AssembleTag(),
                 config_path,
                 graph_loader,
@@ -376,7 +382,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @sa assemble, save
     ///
     template <
-        typename QueryType,
+        manager::QueryTypeDefinition QueryTypes,
         typename DataLoader,
         typename Distance,
         typename Allocator = HugepageAllocator<uint32_t>>
@@ -390,7 +396,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
-                return make_vamana<QueryType>(
+                return make_vamana<manager::as_typelist<QueryTypes>>(
                     BuildTag(),
                     parameters,
                     std::forward<DataLoader>(data_loader),
@@ -400,7 +406,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 );
             });
         } else {
-            return make_vamana<QueryType>(
+            return make_vamana<manager::as_typelist<QueryTypes>>(
                 BuildTag(),
                 parameters,
                 std::forward<DataLoader>(data_loader),
@@ -468,10 +474,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 ///
 /// @sa svs::index::vamana::VamanaIndex::VamanaIndex
 ///
-template <typename QueryType, typename... Args> Vamana make_vamana(Args&&... args) {
+template <lib::TypeList QueryTypes, typename... Args> Vamana make_vamana(Args&&... args) {
     using Impl = decltype(index::vamana::VamanaIndex{std::forward<Args>(args)...});
     return Vamana{
-        std::make_unique<VamanaImpl<QueryType, Impl>>(std::forward<Args>(args)...)};
+        std::make_unique<VamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
 ///
@@ -488,14 +494,14 @@ template <typename QueryType, typename... Args> Vamana make_vamana(Args&&... arg
 ///
 /// @sa svs::index::vamana::vamana_index_factory
 ///
-template <typename QueryType, typename... Args>
+template <lib::TypeList QueryTypes, typename... Args>
 Vamana make_vamana(Vamana::BuildTag SVS_UNUSED(tag), Args&&... args) {
-    return make_vamana<QueryType>(index::vamana::auto_build(std::forward<Args>(args)...));
+    return make_vamana<QueryTypes>(index::vamana::auto_build(std::forward<Args>(args)...));
 }
 
-template <typename QueryType, typename... Args>
+template <lib::TypeList QueryTypes, typename... Args>
 Vamana make_vamana(Vamana::AssembleTag SVS_UNUSED(tag), Args&&... args) {
-    return make_vamana<QueryType>(index::vamana::auto_assemble(std::forward<Args>(args)...)
+    return make_vamana<QueryTypes>(index::vamana::auto_assemble(std::forward<Args>(args)...)
     );
 }
 

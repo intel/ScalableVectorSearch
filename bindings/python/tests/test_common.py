@@ -50,6 +50,26 @@ class CommonTester(unittest.TestCase):
     def test_version(self):
         self.assertEqual(pysvs.library_version(), "v0.0.4")
 
+    def test_conversion(self):
+        # signed
+        self.assertEqual(pysvs.np_to_svs(np.int8), pysvs.int8)
+        self.assertEqual(pysvs.np_to_svs(np.int16), pysvs.int16)
+        self.assertEqual(pysvs.np_to_svs(np.int32), pysvs.int32)
+        self.assertEqual(pysvs.np_to_svs(np.int64), pysvs.int64)
+        # unsigned
+        self.assertEqual(pysvs.np_to_svs(np.uint8), pysvs.uint8)
+        self.assertEqual(pysvs.np_to_svs(np.uint16), pysvs.uint16)
+        self.assertEqual(pysvs.np_to_svs(np.uint32), pysvs.uint32)
+        self.assertEqual(pysvs.np_to_svs(np.uint64), pysvs.uint64)
+        # float
+        self.assertEqual(pysvs.np_to_svs(np.float16), pysvs.float16)
+        self.assertEqual(pysvs.np_to_svs(np.float32), pysvs.float32)
+        self.assertEqual(pysvs.np_to_svs(np.float64), pysvs.float64)
+
+        # pysvs does not have 128-bit floats.
+        with self.assertRaises(Exception) as context:
+            pysvs.np_to_svs(np.float128)
+
     def test_random_dataset(self):
         for dtype in (np.float32, np.uint32, np.uint8):
             x = pysvs.common.random_dataset(10000, 10, dtype = dtype, seed = 1234)

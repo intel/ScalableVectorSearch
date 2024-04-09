@@ -75,6 +75,9 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
             num_threads,
             distance_type
         );
+        CATCH_REQUIRE(
+            index.query_types() == std::vector<svs::DataType>{svs::DataType::float32}
+        );
 
         auto groundtruth = test_dataset::load_groundtruth(distance_type);
         for (const auto& expected : expected_result.config_and_recall_) {

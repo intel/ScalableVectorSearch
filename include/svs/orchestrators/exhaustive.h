@@ -38,10 +38,10 @@ class FlatInterface {
     using search_parameters_type = svs::index::flat::FlatParameters;
 };
 
-template <typename QueryType, typename Impl, typename IFace = FlatInterface>
-class FlatImpl : public manager::ManagerImpl<QueryType, Impl, FlatInterface> {
+template <lib::TypeList QueryTypes, typename Impl, typename IFace = FlatInterface>
+class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
   public:
-    using base_type = manager::ManagerImpl<QueryType, Impl, FlatInterface>;
+    using base_type = manager::ManagerImpl<QueryTypes, Impl, FlatInterface>;
     using base_type::impl;
 
     ///
@@ -61,7 +61,7 @@ class FlatImpl : public manager::ManagerImpl<QueryType, Impl, FlatInterface> {
 
 // Forward Declarations
 class Flat;
-template <typename QueryType, typename... Args> Flat make_flat(Args&&... args);
+template <lib::TypeList QueryTypes, typename... Args> Flat make_flat(Args&&... args);
 
 /// @brief Type erased container for the Flat index.
 class Flat : public manager::IndexManager<FlatInterface> {
@@ -86,12 +86,15 @@ class Flat : public manager::IndexManager<FlatInterface> {
     ///
     /// @copydoc hidden_flat_auto_assemble
     ///
-    template <typename QueryType, typename DataLoader, typename Distance>
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename DataLoader,
+        typename Distance>
     static Flat assemble(DataLoader&& data_loader, Distance distance, size_t num_threads) {
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher{distance};
             return dispatcher([&, num_threads](auto distance_function) {
-                return make_flat<QueryType>(
+                return make_flat<manager::as_typelist<QueryTypes>>(
                     AssembleTag(),
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
@@ -99,7 +102,7 @@ class Flat : public manager::IndexManager<FlatInterface> {
                 );
             });
         } else {
-            return make_flat<QueryType>(
+            return make_flat<manager::as_typelist<QueryTypes>>(
                 AssembleTag(),
                 std::forward<DataLoader>(data_loader),
                 std::move(distance),
@@ -109,13 +112,13 @@ class Flat : public manager::IndexManager<FlatInterface> {
     }
 };
 
-template <typename QueryType, typename... Args> Flat make_flat(Args&&... args) {
+template <lib::TypeList QueryTypes, typename... Args> Flat make_flat(Args&&... args) {
     using Impl = decltype(index::flat::FlatIndex(std::forward<Args>(args)...));
-    return Flat{std::make_unique<FlatImpl<QueryType, Impl>>(std::forward<Args>(args)...)};
+    return Flat{std::make_unique<FlatImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
-template <typename QueryType, typename... Args>
+template <lib::TypeList QueryTypes, typename... Args>
 Flat make_flat(Flat::AssembleTag SVS_UNUSED(tag) /*unused*/, Args&&... args) {
-    return make_flat<QueryType>(index::flat::auto_assemble(std::forward<Args>(args)...));
+    return make_flat<QueryTypes>(index::flat::auto_assemble(std::forward<Args>(args)...));
 }
 } // namespace svs

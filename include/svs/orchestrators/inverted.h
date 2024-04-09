@@ -31,14 +31,14 @@ class InvertedInterface {
     ) = 0;
 };
 
-template <typename QueryType, typename Impl, typename IFace = InvertedInterface>
-class InvertedImpl : public manager::ManagerImpl<QueryType, Impl, IFace> {
+template <lib::TypeList QueryTypes, typename Impl, typename IFace = InvertedInterface>
+class InvertedImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
   private:
     // Null-terminated array of characters.
     static constexpr auto typename_impl = lib::generate_typename<Impl>();
 
   public:
-    using base_type = manager::ManagerImpl<QueryType, Impl, IFace>;
+    using base_type = manager::ManagerImpl<QueryTypes, Impl, IFace>;
     using base_type::impl;
     using search_parameters_type = typename IFace::search_parameters_type;
 
@@ -83,9 +83,9 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
     Inverted(std::unique_ptr<manager::ManagerInterface<InvertedInterface>> impl)
         : base_type{std::move(impl)} {}
 
-    template <typename QueryType, typename Impl>
-    Inverted(std::in_place_t, lib::Type<QueryType> SVS_UNUSED(type), Impl&& impl)
-        : base_type{std::make_unique<InvertedImpl<QueryType, Impl>>(SVS_FWD(impl))} {}
+    template <lib::TypeList QueryTypes, typename Impl>
+    Inverted(std::in_place_t, QueryTypes SVS_UNUSED(type), Impl&& impl)
+        : base_type{std::make_unique<InvertedImpl<QueryTypes, Impl>>(SVS_FWD(impl))} {}
 
     ///// Backend String
     std::string experimental_backend_string() const {
@@ -103,7 +103,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
 
     ///// Building
     template <
-        typename QueryType,
+        manager::QueryTypeDefinition QueryTypes,
         typename DataProto,
         typename Distance,
         typename ThreadpoolProto,
@@ -122,7 +122,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
         // Forward the results of `auto_build`.
         return Inverted{
             std::in_place,
-            lib::Type<QueryType>(),
+            manager::as_typelist<QueryTypes>{},
             index::inverted::auto_build(
                 build_parameters,
                 std::move(data_proto),
@@ -136,7 +136,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
 
     ///// Assembling
     template <
-        typename QueryType,
+        manager::QueryTypeDefinition QueryTypes,
         typename DataProto,
         typename Distance,
         typename StorageStrategy = index::inverted::SparseStrategy>
@@ -151,7 +151,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
     ) {
         return Inverted{
             std::in_place,
-            lib::Type<QueryType>(),
+            manager::as_typelist<QueryTypes>{},
             index::inverted::assemble_from_clustering(
                 clustering_path,
                 std::move(data_proto),

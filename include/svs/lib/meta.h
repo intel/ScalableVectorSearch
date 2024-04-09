@@ -72,7 +72,21 @@ template <typename T> struct Type {
 template <typename... Ts> struct Types {
     /// The number of types in the list.
     static constexpr size_t size = sizeof...(Ts);
+    /// Return an array of the type enums.
+    static constexpr std::array<svs::DataType, sizeof...(Ts)> data_types()
+        requires(has_datatype_v<Ts> && ...)
+    {
+        return std::array<svs::DataType, sizeof...(Ts)>{datatype_v<Ts>...};
+    }
 };
+
+namespace detail {
+template <typename T> inline constexpr bool is_types_v = false;
+template <typename... Ts> inline constexpr bool is_types_v<svs::lib::Types<Ts...>> = true;
+} // namespace detail
+
+template <typename T>
+concept TypeList = detail::is_types_v<T>;
 
 ///
 /// @ingroup lib_public_types
@@ -112,27 +126,42 @@ constexpr void for_each_type(Types<Ts...> SVS_UNUSED(types), F&& f) {
 }
 
 template <typename T, typename F, typename... Ts>
-std::vector<T> make_vec(Types<Ts...> types, F&& f) {
-    auto result = std::vector<T>();
-    for_each_type(types, [&](auto type) { result.push_back(f(type)); });
-    return result;
+std::vector<T> make_vec(Types<Ts...> SVS_UNUSED(types), F&& f) {
+    return std::vector<T>{{f(Type<Ts>())...}};
 }
 
 /////
 ///// Match
 /////
 
-template <typename F, typename T, typename... Ts>
-auto match(lib::Types<T, Ts...> /*unused*/, DataType type, F&& f) {
+namespace detail {
+struct ThrowMismatchError {
+    void operator()(svs::DataType type) const {
+        throw ANNEXCEPTION("Type {} is not supported for this operation!", type);
+    }
+};
+} // namespace detail
+
+template <
+    typename F,
+    typename T,
+    typename... Ts,
+    typename OnError = detail::ThrowMismatchError>
+auto match(lib::Types<T, Ts...> /*unused*/, DataType type, F&& f, OnError&& on_error = {}) {
     if (type == datatype_v<T>) {
         return f(lib::Type<T>{});
     }
 
     // At the end of recursion, throw an exception.
     if constexpr (sizeof...(Ts) == 0) {
-        throw ANNEXCEPTION("Type {} is not supported for this operation!", type);
+        if constexpr (std::is_void_v<std::invoke_result_t<OnError, DataType>>) {
+            on_error(type);
+            throw ANNEXCEPTION("The type {} is not allowed by this operation!", type);
+        } else {
+            return on_error(type);
+        }
     } else {
-        return match(lib::Types<Ts...>{}, type, std::forward<F>(f));
+        return match(lib::Types<Ts...>{}, type, SVS_FWD(f), SVS_FWD(on_error));
     }
 }
 

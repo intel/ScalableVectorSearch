@@ -140,23 +140,32 @@ void run_tests(
     CATCH_REQUIRE(index.get_search_window_size() == 10);
 
     // Make sure we get errors if we try to feed in an unsupported query type.
-    auto mock_queries_f16 =
+    auto queries_f16_all =
         svs::data::SimpleData<svs::Float16>{queries_all.size(), queries_all.dimensions()};
-    CATCH_REQUIRE_THROWS_AS(index.search(mock_queries_f16, 10), svs::ANNException);
+    svs::data::copy(queries_all, queries_f16_all);
+
+    {
+        auto mock_queries_u8 = svs::data::SimpleData<uint8_t>(10, queries_all.dimensions());
+        CATCH_REQUIRE_THROWS_AS(index.search(mock_queries_u8, 10), svs::ANNException);
+    }
 
     // Ensure we have at least one entry in the expected results.
-    CATCH_REQUIRE(expected_results.size() >= 1);
+    CATCH_REQUIRE(!expected_results.empty());
 
     const auto queries_in_test_set = expected_results.at(0).num_queries_;
+
     auto queries = test_dataset::get_test_set(queries_all, queries_in_test_set);
+    auto queries_f16 = test_dataset::get_test_set(queries_f16_all, queries_in_test_set);
     auto groundtruth = test_dataset::get_test_set(groundtruth_all, queries_in_test_set);
 
     // End to end queries.
+    bool first = false;
     for (const auto& expected : expected_results) {
         // Update the query set if needed.
         auto num_queries = expected.num_queries_;
         if (num_queries != queries.size()) {
             queries = test_dataset::get_test_set(queries_all, num_queries);
+            queries_f16 = test_dataset::get_test_set(queries_f16_all, num_queries);
             groundtruth = test_dataset::get_test_set(groundtruth_all, num_queries);
         }
 
@@ -167,20 +176,30 @@ void run_tests(
 
         for (auto num_threads : {1, 2}) {
             index.set_num_threads(num_threads);
+            // Float32
             auto results = index.search(queries, expected.num_neighbors_);
             auto recall = svs::k_recall_at_n(
                 groundtruth, results, expected.num_neighbors_, expected.recall_k_
             );
-            // fmt::print(
-            //     "Uncompressed search, got {}, expected {}\n", recall, expected.recall_
-            // );
             CATCH_REQUIRE(recall > expected.recall_ - epsilon);
             CATCH_REQUIRE(recall < expected.recall_ + epsilon);
+
+            // Test Float16 results, but only on the first iteration.
+            // Otherwise, skip it to keep run times down.
+            if (first) {
+                results = index.search(queries_f16, expected.num_neighbors_);
+                recall = svs::k_recall_at_n(
+                    groundtruth, results, expected.num_neighbors_, expected.recall_k_
+                );
+                CATCH_REQUIRE(recall > expected.recall_ - epsilon);
+                CATCH_REQUIRE(recall < expected.recall_ + epsilon);
+                first = false;
+            }
         }
     }
 
     // Make sure calibration works.
-    if (test_calibration == false) {
+    if (!test_calibration) {
         return;
     }
 
@@ -224,7 +243,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             distance_type, svsbenchmark::Uncompressed(svs::DataType::float32)
         );
 
-        auto index = svs::Vamana::assemble<float>(
+        auto index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
             svs::GraphLoader(test_dataset::graph_file()),
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()),
@@ -234,6 +253,10 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
 
         CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
         CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
+        CATCH_REQUIRE(
+            index.query_types() ==
+            std::vector<svs::DataType>{svs::DataType::float32, svs::DataType::float16}
+        );
 
         if (first) {
             verify_reconstruction(index, original_data);
@@ -256,7 +279,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         auto data_dir = temp_dir / "data";
 
         index.save(config_dir, graph_dir, data_dir);
-        index = svs::Vamana::assemble<float>(
+        index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             config_dir,
             svs::GraphLoader(graph_dir),
             svs::VectorDataLoader<float>(data_dir),

@@ -14,12 +14,17 @@
 #include <vector>
 
 // svs
+#include "svs/lib/exception.h"
 #include "svs/lib/meta.h"
+
+// svs_test
+#include "tests/utils/utils.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
 
-CATCH_TEST_CASE("Val", "[core]") {
+CATCH_TEST_CASE("Meta", "[lib][meta]") {
     CATCH_SECTION("Value Extracting") {
         auto a = svs::lib::Val<1>{};
         CATCH_REQUIRE(a.value == 1);
@@ -37,6 +42,13 @@ CATCH_TEST_CASE("Val", "[core]") {
         CATCH_REQUIRE(c);
         constexpr bool d = svs::lib::in<double>(types);
         CATCH_REQUIRE(!d);
+
+        constexpr auto values = decltype(types)::data_types();
+        CATCH_STATIC_REQUIRE(
+            values ==
+            std::array<svs::DataType, 3>{
+                svs::DataType::float32, svs::DataType::uint8, svs::DataType::int64}
+        );
     }
 
     CATCH_SECTION("Dynamic Type Checking") {
@@ -50,6 +62,76 @@ CATCH_TEST_CASE("Val", "[core]") {
         CATCH_REQUIRE(c);
         constexpr bool d = svs::lib::in(DataType::float64, types);
         CATCH_REQUIRE(!d);
+    }
+
+    // Match
+    CATCH_SECTION("Match") {
+        auto types = svs::lib::Types<float, uint8_t, int32_t>();
+        auto ret = svs::lib::match(
+            types,
+            svs::DataType::float32,
+            []<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                return std::is_same_v<T, float>;
+            }
+        );
+        CATCH_REQUIRE(ret);
+        ret = svs::lib::match(
+            types,
+            svs::DataType::uint8,
+            []<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                return std::is_same_v<T, uint8_t>;
+            }
+        );
+        CATCH_REQUIRE(ret);
+        ret = svs::lib::match(
+            types,
+            svs::DataType::int32,
+            []<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                return std::is_same_v<T, int32_t>;
+            }
+        );
+
+        // Provide an error handler that returns a value.
+        auto onerror = [](svs::DataType x) -> bool { return x == svs::DataType::float64; };
+        ret = svs::lib::match(
+            types,
+            svs::DataType::float64,
+            [](auto SVS_UNUSED(x)) -> bool { return false; },
+            onerror
+        );
+        CATCH_REQUIRE(ret);
+
+        // Provide an error handler that throws an exception.
+        ret = svs::lib::match(
+            types,
+            svs::DataType::float32,
+            []<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                return std::is_same_v<T, float>;
+            },
+            [](svs::DataType SVS_UNUSED(x)) { throw ANNEXCEPTION("Hit the error path!"); }
+        );
+        CATCH_REQUIRE(ret);
+
+        auto f = [=]() {
+            return svs::lib::match(
+                types,
+                svs::DataType::float64,
+                []<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                    return std::is_same_v<T, float>;
+                },
+                [](svs::DataType SVS_UNUSED(x)) {
+                    throw ANNEXCEPTION("Hit the error path!");
+                }
+            );
+        };
+
+        CATCH_REQUIRE_THROWS_MATCHES(
+            f(),
+            svs::ANNException,
+            svs_test::ExceptionMatcher(
+                Catch::Matchers::ContainsSubstring("Hit the error path!")
+            )
+        );
     }
 
     // Extent Forwarding
