@@ -16,6 +16,7 @@
 
 #include <cassert>
 #include <chrono>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -255,7 +256,20 @@ class Timer {
         return sorted;
     }
 
-    void print() const {
+    void print() const { print(std::cout); }
+
+    void print(std::ostream& stream) const { stream << fmt::to_string(format()); }
+
+    std::string format() const {
+        auto buffer = fmt::memory_buffer();
+        {
+            auto out = std::back_inserter(buffer);
+            format_into(out);
+        }
+        return fmt::to_string(std::move(buffer));
+    }
+
+    void format_into(auto& buffer) const {
         auto measured_time = as_seconds(total_sub_time());
         auto e = as_seconds(elapsed());
         // Print the header - figure out how long the section names are going to be.
@@ -274,7 +288,8 @@ class Timer {
 
         auto hyphens = std::string(str.size(), '-');
         auto [measured_formatted, measured_units] = pretty_number(measured_time);
-        fmt::print(
+        fmt::format_to(
+            buffer,
             "{}\n"
             "Total / % Measured: {:.4} {} / {:.4}\n"
             "{}\n"
@@ -288,12 +303,15 @@ class Timer {
         );
         // Sort sub-timers by execution time.
         for (const auto& it : subtimers()) {
-            (it.second)->print_inner(section_length, measured_time, 0, it.first);
+            (it.second)->format_into_inner(
+                buffer, section_length, measured_time, 0, it.first
+            );
         }
-        fmt::print("{}\n", hyphens);
+        fmt::print("{}", hyphens);
     }
 
-    void print_inner(
+    void format_into_inner(
+        auto& buffer,
         size_t section_length,
         double measured_time,
         size_t this_indent,
@@ -309,7 +327,8 @@ class Timer {
         auto [min_time_format, min_time_units] = pretty_number(min_time);
         auto [max_time_format, max_time_units] = pretty_number(max_time);
 
-        fmt::print(
+        fmt::format_to(
+            buffer,
             "{}{}{}{:10}{:10.4}{:>3}{:12.4}{:10.4}{:>3}{:10.4}{:>3}{:10.4}{:>3}\n",
             prefix,
             label,
@@ -326,8 +345,8 @@ class Timer {
             max_time_units
         );
         for (const auto& it : subtimers()) {
-            (it.second)->print_inner(
-                section_length, measured_time, this_indent + indent_size, it.first
+            (it.second)->format_into_inner(
+                buffer, section_length, measured_time, this_indent + indent_size, it.first
             );
         }
     }
@@ -361,3 +380,11 @@ inline std::chrono::nanoseconds AutoTime::finish() {
     return e;
 }
 } // namespace svs::lib
+
+template <> struct fmt::formatter<svs::lib::Timer> : svs::format_empty {
+    auto format(const svs::lib::Timer& timer, auto& ctx) const {
+        // TODO: Figure out the right way to propage the context into the inner formatting
+        // to save on some memory.
+        return fmt::format_to(ctx.out(), "{}", timer.format());
+    }
+};

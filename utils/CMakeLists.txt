@@ -34,6 +34,7 @@ create_utility(compute_recall compute_recall.cpp)
 create_utility(convert_data_to_float16 convert_data_to_float16.cpp)
 create_utility(search_index search_index.cpp)
 create_utility(consolidate characterization/consolidate.cpp)
+create_utility(logging logging.cpp)
 # create_utility(mutable characterization/mutable.cpp)
 
 # Quantization

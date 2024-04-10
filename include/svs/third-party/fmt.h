@@ -16,6 +16,9 @@
 #include "fmt/format.h"
 #include "fmt/std.h"
 
+// stl
+#include <string_view>
+
 namespace svs {
 
 #define SVS_SHOW_IMPL(f, suffix, show_name, var_name) f(#show_name ": {}" #suffix, var_name)
@@ -46,4 +49,9 @@ struct format_empty {
         throw fmt::format_error("invalid format - must be empty!");
     }
 };
+
+constexpr std::string_view make_string_view(fmt::string_view v) {
+    return std::string_view{v.data(), v.size()};
+}
+
 } // namespace svs

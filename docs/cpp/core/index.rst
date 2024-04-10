@@ -13,3 +13,4 @@ Methods and data structures living in core are designed to be reuseable, mid lev
    distance.rst
    query_result.rst
    recall.rst
+   logging.rst

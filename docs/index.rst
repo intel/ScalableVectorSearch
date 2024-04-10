@@ -20,6 +20,7 @@ Welcome to Scalable Vector Search's documentation!
    benchs/index.rst
    roadmap.rst
    faq.rst
+   logging.rst
 
 .. toctree::
    :maxdepth: 1
@@ -32,6 +33,7 @@ Welcome to Scalable Vector Search's documentation!
    python/dynamic.rst
    python/backend.rst
    python/upgrader.rst
+   python/logging.rst
 
 .. toctree::
    :maxdepth: 1

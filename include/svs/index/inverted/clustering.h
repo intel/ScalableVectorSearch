@@ -21,6 +21,7 @@
 
 #include "svs/concepts/data.h"
 #include "svs/core/data/view.h"
+#include "svs/core/logging.h"
 #include "svs/index/flat/flat.h"
 #include "svs/index/inverted/common.h"
 #include "svs/index/vamana/dynamic_index.h"
@@ -605,7 +606,7 @@ template <std::integral I> class Clustering {
             auto file = table.resolve_at("filepath");
             size_t actual_filesize = std::filesystem::file_size(file);
             if (actual_filesize != expected_filesize) {
-                auto msg = fmt::format(
+                throw ANNEXCEPTION(
                     "Expected cluster file size to be {}. Instead, it is {}!",
                     actual_filesize,
                     expected_filesize
@@ -795,7 +796,7 @@ Clustering<I> cluster_with(
 ) {
     for (auto id : centroid_ids) {
         if (id >= data.size()) {
-            auto msg = fmt::format(
+            throw ANNEXCEPTION(
                 "Centroid id {} is out of bounds (maximum is {})", id, data.size()
             );
         }
@@ -810,9 +811,11 @@ Clustering<I> cluster_with(
     size_t start = 0;
     size_t datasize = data.size();
     auto timer = lib::Timer();
+    auto logger = svs::logging::get();
+
     while (start < datasize) {
         size_t stop = std::min(start + batchsize, datasize);
-        fmt::print("Processing batch [{}, {})\n", start, stop);
+        svs::logging::debug(logger, "Processing batch [{}, {})", start, stop);
         auto indices = clustering.complement_range(threads::UnitRange(start, stop));
         auto subdata = extensions::prepare_index_search(data, lib::as_const_span(indices));
 
@@ -838,8 +841,10 @@ Clustering<I> cluster_with(
         );
         start = stop;
     }
-    timer.print();
-    fmt::print("Clustering Stats: {}\n", clustering.statistics().report("\n"));
+    svs::logging::debug(logger, "{}", timer);
+    svs::logging::debug(
+        logger, "Clustering Stats: {}", clustering.statistics().report("\n")
+    );
 
     // Post Processing
     auto max_cluster_size = params.max_cluster_size_;

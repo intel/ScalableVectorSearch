@@ -12,6 +12,7 @@
 #pragma once
 
 // svs
+#include "svs/core/logging.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/search_params.h"
 #include "svs/lib/threads/types.h"
@@ -172,7 +173,8 @@ VamanaSearchParameters optimize_split_buffer(
     const F& compute_recall,
     const DoSearch& do_search
 ) {
-    fmt::print("Entering split buffer optimization routine\n");
+    auto logger = svs::logging::get();
+    svs::logging::trace(logger, "Entering split buffer optimization routine");
     assert(
         current.buffer_config_.get_search_window_size() ==
         current.buffer_config_.get_total_capacity()
@@ -183,8 +185,10 @@ VamanaSearchParameters optimize_split_buffer(
 
     // Now, start experimenting.
     size_t sws = current.buffer_config_.get_search_window_size();
-    fmt::print("Search time with uniform buffer with size {}: {}s\n", sws, min_search_time);
-    fmt::print("Trying to achieve recall {}\n", target_recall);
+    svs::logging::trace(
+        logger, "Search time with uniform buffer with size {}: {}s", sws, min_search_time
+    );
+    svs::logging::trace(logger, "Trying to achieve recall {}", target_recall);
 
     // Copy the current state of the search parameters so we only tweak the buffer config.
     size_t search_window_capacity_upper =
@@ -196,12 +200,12 @@ VamanaSearchParameters optimize_split_buffer(
         // If that fails, then we shouldn't see any better progress by further decreasing
         // the search window size and we can terminate now.
         sp.buffer_config({sws, search_window_capacity_upper});
-        fmt::print("Trying search window size {} ...", sws);
+        svs::logging::trace(logger, "Trying search window size {} ...", sws);
         if (compute_recall(sp) < target_recall) {
-            fmt::print("failed\n");
+            svs::logging::trace(logger, "Search window size {} failed", sws);
             return current;
         }
-        fmt::print("success.\n");
+        svs::logging::trace(logger, "Search window size {} succeeded", sws);
 
         // Otherwise, this search window size has a chance of working.
         // Use a binary search to determine the smallest capacity that achieves the desired
@@ -218,13 +222,15 @@ VamanaSearchParameters optimize_split_buffer(
             [&](size_t capacity, double recall) {
                 sp.buffer_config({sws, capacity});
                 auto r = compute_recall(sp);
-                fmt::print("recall = {}\n", r);
+                svs::logging::trace(logger, "recall = {}", r);
                 return r < recall;
             }
         );
         sp.buffer_config({sws, best_capacity});
         double search_time = get_search_time(calibration_parameters, do_search, sp);
-        fmt::print("Best capacity: {}, Search time: {}\n", best_capacity, search_time);
+        svs::logging::trace(
+            logger, "Best capacity: {}, Search time: {}", best_capacity, search_time
+        );
         if (search_time < min_search_time) {
             min_search_time = search_time;
             current = sp;
@@ -245,6 +251,7 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
 ) {
     using enum CalibrationParameters::SearchBufferOptimization;
     using dataset_type = typename Index::data_type;
+    auto logger = svs::logging::get();
 
     double max_recall = std::numeric_limits<double>::lowest();
     const size_t current_capacity = current.buffer_config_.get_total_capacity();
@@ -278,7 +285,9 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
         [&](size_t window_size, double recall) {
             configure_current_buffer(window_size);
             double this_recall = compute_recall(current);
-            fmt::print("Trying {}, got {}. Target: {}\n", window_size, this_recall, recall);
+            svs::logging::trace(
+                logger, "Trying {}, got {}. Target: {}", window_size, this_recall, recall
+            );
             max_recall = std::max(max_recall, this_recall);
             return this_recall < recall;
         }
@@ -333,7 +342,8 @@ VamanaSearchParameters tune_prefetch(
     VamanaSearchParameters search_parameters,
     const DoSearch& do_search
 ) {
-    fmt::print("Tuning prefetch parameters");
+    auto logger = svs::logging::get();
+    svs::logging::trace(logger, "Tuning prefetch parameters");
     const auto& prefetch_steps = calibration_parameters.prefetch_steps_;
     size_t max_lookahead = index.max_degree();
 
@@ -342,7 +352,7 @@ VamanaSearchParameters tune_prefetch(
     search_parameters.prefetch_step_ = 0;
     double min_search_time =
         get_search_time(calibration_parameters, do_search, search_parameters);
-    fmt::print("Time with no prefetching: {}s\n", min_search_time);
+    svs::logging::trace(logger, "Time with no prefetching: {}s", min_search_time);
 
     // Create a local copy of `search_parameters` to mutate.
     auto sp = search_parameters;
@@ -364,7 +374,7 @@ VamanaSearchParameters tune_prefetch(
 
                 // Access cached run-time.[
                 double time = itr->second;
-                fmt::print("Tried {}, got {}\n", l, time);
+                svs::logging::trace(logger, "Tried {}, got {}", l, time);
                 if (time < best_time) {
                     best_time = time;
                     best_l = l;
@@ -375,12 +385,12 @@ VamanaSearchParameters tune_prefetch(
 
     for (auto step : prefetch_steps) {
         sp.prefetch_step_ = step;
-        fmt::print("Trying prefetch step {}\n", step);
+        svs::logging::trace(logger, "Trying prefetch step {}", step);
         visited_lookaheads.clear();
 
         int64_t lookahead_step = lib::narrow<int64_t>(max_lookahead) / 4;
         int64_t lookahead_start = 1;
-        int64_t lookahead_stop = max_lookahead;
+        int64_t lookahead_stop = lib::narrow<int64_t>(max_lookahead);
 
         // First - try with the maximum lookahead value.
         {
@@ -394,8 +404,9 @@ VamanaSearchParameters tune_prefetch(
 
         // Perform successive refinement.
         while (lookahead_step != 0) {
-            fmt::print(
-                "Running refinement with {}:{}:{}\n",
+            svs::logging::trace(
+                logger,
+                "Running refinement with {}:{}:{}",
                 lookahead_start,
                 lookahead_step,
                 lookahead_stop
@@ -410,8 +421,9 @@ VamanaSearchParameters tune_prefetch(
                 min_search_time = search_time;
                 search_parameters.prefetch_lookahead_ = best_lookahead;
                 search_parameters.prefetch_step_ = step;
-                fmt::print(
-                    "Replacing prefetch parameters to {}, {} at {}s\n",
+                svs::logging::trace(
+                    logger,
+                    "Replacing prefetch parameters to {}, {} at {}s",
                     search_parameters.prefetch_lookahead_,
                     search_parameters.prefetch_step_,
                     search_time
@@ -475,7 +487,7 @@ VamanaSearchParameters calibrate(
 
     // Step 1: Optimize aspects of the search buffer if desired.
     if (calibration_parameters.should_optimize_search_buffer()) {
-        fmt::print("Optimizing search buffer.\n");
+        svs::logging::trace("Optimizing search buffer.");
         auto [best, converged] = calibration::optimize_search_buffer<Index>(
             calibration_parameters,
             current,
@@ -487,7 +499,8 @@ VamanaSearchParameters calibrate(
         current = best;
 
         if (!converged) {
-            fmt::print("Target recall could not be achieved. Exiting optimization early.\n"
+            svs::logging::warn(
+                "Target recall could not be achieved. Exiting optimization early."
             );
             return current;
         }
@@ -495,7 +508,7 @@ VamanaSearchParameters calibrate(
 
     // Step 2: Optimize prefetch parameters.
     if (calibration_parameters.train_prefetchers_) {
-        fmt::print("Training Prefetchers.\n");
+        svs::logging::trace("Training Prefetchers.");
         current =
             calibration::tune_prefetch(calibration_parameters, index, current, do_search);
     }
