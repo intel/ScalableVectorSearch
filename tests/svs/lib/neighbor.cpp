@@ -187,35 +187,31 @@ CATCH_TEST_CASE("Testing Neighbors", "[core]") {
     }
 
     CATCH_SECTION("SkipVisit") {
-        svs::SkipVisit metadata{false};
+        svs::ValidVisit metadata{false};
         CATCH_REQUIRE(metadata.visited() == false);
-        CATCH_REQUIRE(metadata.skipped() == false);
+        CATCH_REQUIRE(metadata.valid() == false);
 
-        // Set `visited` then `skipped`.
+        // Set `visited`. Ensure the change is visible.
         metadata.set_visited();
         CATCH_REQUIRE(metadata.visited() == true);
-        CATCH_REQUIRE(metadata.skipped() == false);
+        CATCH_REQUIRE(metadata.valid() == false);
 
-        metadata.set_skipped();
-        CATCH_REQUIRE(metadata.visited() == true);
-        CATCH_REQUIRE(metadata.skipped() == true);
-
-        // Set `skipped` then `visited`.
-        metadata = svs::SkipVisit{};
+        // Test default construction.
+        metadata = svs::ValidVisit{};
         CATCH_REQUIRE(metadata.visited() == false);
-        CATCH_REQUIRE(metadata.skipped() == false);
+        CATCH_REQUIRE(metadata.valid() == true);
 
-        metadata.set_skipped();
-        CATCH_REQUIRE(metadata.visited() == false);
-        CATCH_REQUIRE(metadata.skipped() == true);
-
+        // Setting visited should not change the valid status.
         metadata.set_visited();
         CATCH_REQUIRE(metadata.visited() == true);
-        CATCH_REQUIRE(metadata.skipped() == true);
+        CATCH_REQUIRE(metadata.valid() == true);
 
-        // Constructor initializing to skipped
-        metadata = svs::SkipVisit{true};
+        // Constructor initializing to valid
+        metadata = svs::ValidVisit{true};
         CATCH_REQUIRE(metadata.visited() == false);
-        CATCH_REQUIRE(metadata.skipped() == true);
+        CATCH_REQUIRE(metadata.valid() == true);
+        metadata.set_visited();
+        CATCH_REQUIRE(metadata.visited() == true);
+        CATCH_REQUIRE(metadata.valid() == true);
     }
 }

@@ -50,18 +50,18 @@ struct SearchBufferNeighbor {
 };
 
 namespace detail {
-bool skipped(svs::Neighbor<uint32_t, svs::Visited>) { return false; }
-bool skipped(const svs::SkippableSearchNeighbor<uint32_t>& n) { return n.skipped(); }
+bool valid(svs::Neighbor<uint32_t, svs::Visited>) { return true; }
+bool valid(const svs::PredicatedSearchNeighbor<uint32_t>& n) { return n.valid(); }
 
 template <svs::NeighborLike As>
 As convert_to(svs::lib::Type<As>, const SearchBufferNeighbor& x) {
     return As{x.neighbor_};
 }
 
-svs::SkippableSearchNeighbor<uint32_t> convert_to(
-    svs::lib::Type<svs::SkippableSearchNeighbor<uint32_t>>, const SearchBufferNeighbor& x
+svs::PredicatedSearchNeighbor<uint32_t> convert_to(
+    svs::lib::Type<svs::PredicatedSearchNeighbor<uint32_t>>, const SearchBufferNeighbor& x
 ) {
-    return svs::SkippableSearchNeighbor<uint32_t>{x.neighbor_, !x.valid_};
+    return svs::PredicatedSearchNeighbor<uint32_t>{x.neighbor_, x.valid_};
 }
 
 } // namespace detail
@@ -97,7 +97,7 @@ template <typename Cmp = std::less<>> struct SearchBufferReference {
     size_t size() const { return neighbors_.size(); }
     size_t valid() const {
         size_t s = 0;
-        for (auto& n : neighbors_) {
+        for (const auto& n : neighbors_) {
             if (n.valid_) {
                 ++s;
             }
@@ -124,7 +124,7 @@ template <typename Cmp = std::less<>> struct SearchBufferReference {
 
     size_t best_unvisited() const {
         size_t s = 0;
-        for (auto& n : neighbors_) {
+        for (const auto& n : neighbors_) {
             if (!n.visited_) {
                 return s;
             }
@@ -156,13 +156,13 @@ template <typename Cmp = std::less<>> struct SearchBufferReference {
         // Gather the valid neighbors
         auto valid_in_buffer = std::vector<svs::Neighbor<uint32_t>>();
         for (size_t i = 0; i < buffer.size(); ++i) {
-            if (!detail::skipped(buffer[i])) {
+            if (detail::valid(buffer[i])) {
                 valid_in_buffer.push_back(buffer[i]);
             }
         }
 
         auto valid_neighbors = std::vector<svs::Neighbor<uint32_t>>();
-        for (auto& n : neighbors_) {
+        for (const auto& n : neighbors_) {
             if (n.valid_) {
                 valid_neighbors.push_back(n.neighbor_);
             }
@@ -179,7 +179,7 @@ template <typename Cmp = std::less<>> struct SearchBufferReference {
         }
     }
 
-  public:
+    ///// Members
     std::unordered_set<uint32_t> visited_;
     std::vector<SearchBufferNeighbor> neighbors_;
     size_t roi_size_;
@@ -618,71 +618,71 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
     // Test inserting all valid elements.
     CATCH_SECTION("All Valid") {
         CATCH_REQUIRE(buffer.size() == 0);
-        buffer.insert({0, 100, false});
+        buffer.insert({0, 100, true});
         CATCH_REQUIRE(buffer.size() == 1);
         CATCH_REQUIRE(buffer.full() == false);
-        CATCH_REQUIRE(eq(buffer[0], {0, 100, false}));
+        CATCH_REQUIRE(eq(buffer[0], {0, 100, true}));
 
-        buffer.insert({1, 50, false});
+        buffer.insert({1, 50, true});
         CATCH_REQUIRE(buffer.size() == 2);
         CATCH_REQUIRE(buffer.full() == false);
-        CATCH_REQUIRE(eq(buffer[0], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[1], {0, 100, false}));
+        CATCH_REQUIRE(eq(buffer[0], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[1], {0, 100, true}));
 
-        buffer.insert({2, 150, false});
+        buffer.insert({2, 150, true});
         CATCH_REQUIRE(buffer.size() == 3);
         CATCH_REQUIRE(buffer.full() == false);
-        CATCH_REQUIRE(eq(buffer[0], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[1], {0, 100, false}));
-        CATCH_REQUIRE(eq(buffer[2], {2, 150, false}));
+        CATCH_REQUIRE(eq(buffer[0], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[1], {0, 100, true}));
+        CATCH_REQUIRE(eq(buffer[2], {2, 150, true}));
 
-        buffer.insert({3, 40, false});
+        buffer.insert({3, 40, true});
         CATCH_REQUIRE(buffer.size() == 4);
         CATCH_REQUIRE(buffer.full() == true);
-        CATCH_REQUIRE(eq(buffer[0], {3, 40, false}));
-        CATCH_REQUIRE(eq(buffer[1], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[2], {0, 100, false}));
-        CATCH_REQUIRE(eq(buffer[3], {2, 150, false}));
+        CATCH_REQUIRE(eq(buffer[0], {3, 40, true}));
+        CATCH_REQUIRE(eq(buffer[1], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[2], {0, 100, true}));
+        CATCH_REQUIRE(eq(buffer[3], {2, 150, true}));
 
         // Now that the search buffer is full, adding a new larger element to the end
         // will have no effect.
-        buffer.insert({4, 1000, false});
+        buffer.insert({4, 1000, true});
         CATCH_REQUIRE(buffer.size() == 4);
         CATCH_REQUIRE(buffer.full() == true);
-        CATCH_REQUIRE(eq(buffer[0], {3, 40, false}));
-        CATCH_REQUIRE(eq(buffer[1], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[2], {0, 100, false}));
-        CATCH_REQUIRE(eq(buffer[3], {2, 150, false}));
+        CATCH_REQUIRE(eq(buffer[0], {3, 40, true}));
+        CATCH_REQUIRE(eq(buffer[1], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[2], {0, 100, true}));
+        CATCH_REQUIRE(eq(buffer[3], {2, 150, true}));
 
         // Adding a smaller element to the front will shift everything back.
-        buffer.insert({5, 0, false});
+        buffer.insert({5, 0, true});
         CATCH_REQUIRE(buffer.size() == 4);
         CATCH_REQUIRE(buffer.full() == true);
-        CATCH_REQUIRE(eq(buffer[0], {5, 0, false}));
-        CATCH_REQUIRE(eq(buffer[1], {3, 40, false}));
-        CATCH_REQUIRE(eq(buffer[2], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[3], {0, 100, false}));
+        CATCH_REQUIRE(eq(buffer[0], {5, 0, true}));
+        CATCH_REQUIRE(eq(buffer[1], {3, 40, true}));
+        CATCH_REQUIRE(eq(buffer[2], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[3], {0, 100, true}));
 
-        // Now, if we add a skipped element to the front, the buffer size should grow in
+        // Now, if we add an invalid element to the front, the buffer size should grow in
         // order to maintain the correct number of valid elements.
-        buffer.insert({6, 1, true});
+        buffer.insert({6, 1, false});
         CATCH_REQUIRE(buffer.size() == 5);
         CATCH_REQUIRE(buffer.full() == true);
-        CATCH_REQUIRE(eq(buffer[0], {5, 0, false}));
-        CATCH_REQUIRE(eq(buffer[1], {6, 1, true}));
-        CATCH_REQUIRE(eq(buffer[2], {3, 40, false}));
-        CATCH_REQUIRE(eq(buffer[3], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[4], {0, 100, false}));
+        CATCH_REQUIRE(eq(buffer[0], {5, 0, true}));
+        CATCH_REQUIRE(eq(buffer[1], {6, 1, false}));
+        CATCH_REQUIRE(eq(buffer[2], {3, 40, true}));
+        CATCH_REQUIRE(eq(buffer[3], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[4], {0, 100, true}));
 
-        // Appending a skipped element at the end should still get dropped.
-        buffer.insert({7, 2000, true});
+        // Appending an invalid element at the end should still get dropped.
+        buffer.insert({7, 2000, false});
         CATCH_REQUIRE(buffer.size() == 5);
         CATCH_REQUIRE(buffer.full() == true);
-        CATCH_REQUIRE(eq(buffer[0], {5, 0, false}));
-        CATCH_REQUIRE(eq(buffer[1], {6, 1, true}));
-        CATCH_REQUIRE(eq(buffer[2], {3, 40, false}));
-        CATCH_REQUIRE(eq(buffer[3], {1, 50, false}));
-        CATCH_REQUIRE(eq(buffer[4], {0, 100, false}));
+        CATCH_REQUIRE(eq(buffer[0], {5, 0, true}));
+        CATCH_REQUIRE(eq(buffer[1], {6, 1, false}));
+        CATCH_REQUIRE(eq(buffer[2], {3, 40, true}));
+        CATCH_REQUIRE(eq(buffer[3], {1, 50, true}));
+        CATCH_REQUIRE(eq(buffer[4], {0, 100, true}));
     }
 
     // One behavior of the MutableBuffer is that it will continue to acrue candidates until
@@ -692,30 +692,214 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
     // elements should then be dropped.
     CATCH_SECTION("Collapsing") {
         for (uint32_t i = 0; i < 100; ++i) {
-            buffer.insert({i, svs::lib::narrow_cast<float>(1000 - i), true});
+            buffer.insert({i, svs::lib::narrow_cast<float>(1000 - i), false});
         }
         CATCH_REQUIRE(buffer.size() == 100);
         CATCH_REQUIRE(buffer.full() == false);
         CATCH_REQUIRE(buffer.valid() == 0);
 
-        buffer.insert({100, 10, false});
+        buffer.insert({100, 10, true});
         CATCH_REQUIRE(buffer.size() == 101);
         CATCH_REQUIRE(buffer.full() == false);
         CATCH_REQUIRE(buffer.valid() == 1);
 
-        buffer.insert({101, 8, false});
+        buffer.insert({101, 8, true});
         CATCH_REQUIRE(buffer.size() == 102);
         CATCH_REQUIRE(buffer.full() == false);
         CATCH_REQUIRE(buffer.valid() == 2);
 
-        buffer.insert({102, 6, false});
+        buffer.insert({102, 6, true});
         CATCH_REQUIRE(buffer.size() == 103);
         CATCH_REQUIRE(buffer.full() == false);
         CATCH_REQUIRE(buffer.valid() == 3);
 
-        buffer.insert({103, 4, false});
+        buffer.insert({103, 4, true});
         CATCH_REQUIRE(buffer.size() == 4);
         CATCH_REQUIRE(buffer.full() == true);
+    }
+
+    // Push-back initialization.
+    CATCH_SECTION("Push-back initialization") {
+        auto b = buffer_type{{2, 4}};
+        using T = svs::PredicatedSearchNeighbor<uint32_t>;
+        auto make_visited = [](uint32_t id, float distance, bool valid) {
+            auto n = T{id, distance, valid};
+            n.set_visited();
+            return n;
+        };
+
+        CATCH_SECTION("Full Buffer") {
+            // We should be able to add elements to the buffer.
+            // Valid elements should only be appended until 4 have been added.
+            CATCH_REQUIRE(b.target() == 4);
+            CATCH_REQUIRE(b.size() == 0);
+            CATCH_REQUIRE(b.valid() == 0);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({1, 10.0, true});
+            CATCH_REQUIRE(b.size() == 1);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({2, 9.0, false});
+            CATCH_REQUIRE(b.size() == 2);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({3, 8.0, true});
+            CATCH_REQUIRE(b.size() == 3);
+            CATCH_REQUIRE(b.valid() == 2);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({4, 7.0, true});
+            CATCH_REQUIRE(b.size() == 4);
+            CATCH_REQUIRE(b.valid() == 3);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({5, 6.0, false});
+            CATCH_REQUIRE(b.size() == 5);
+            CATCH_REQUIRE(b.valid() == 3);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({6, 5.0, false});
+            CATCH_REQUIRE(b.size() == 6);
+            CATCH_REQUIRE(b.valid() == 3);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({7, 4.0, true});
+            CATCH_REQUIRE(b.size() == 7);
+            CATCH_REQUIRE(b.valid() == 4);
+            CATCH_REQUIRE(b.full());
+
+            // Appending another valid item should have no effect.
+            b.push_back({8, 3.0, true});
+            CATCH_REQUIRE(b.size() == 7);
+            CATCH_REQUIRE(b.valid() == 4);
+            CATCH_REQUIRE(b.full());
+
+            // Appending an invalid item should still grow the buffer.
+            b.push_back({8, 2.0, false});
+            CATCH_REQUIRE(b.size() == 8);
+            CATCH_REQUIRE(b.valid() == 4);
+            CATCH_REQUIRE(b.full());
+
+            // Append a few more items that will fall off the end after sorting.
+            b.push_back({9, 100.0, false});
+            CATCH_REQUIRE(b.size() == 9);
+            CATCH_REQUIRE(b.valid() == 4);
+
+            b.push_back({10, 110.0, false});
+            CATCH_REQUIRE(b.size() == 10);
+            CATCH_REQUIRE(b.valid() == 4);
+
+            // Now - invoke `sort()` to restore data structure invariants.
+            //
+            // The higher elements we appended should be implicitly dropped since the buffer
+            // is not in a full state.
+            b.sort();
+            CATCH_REQUIRE(b.size() == 8);
+            CATCH_REQUIRE(b.valid() == 4);
+            CATCH_REQUIRE(b.back().valid());
+
+            // Ensure the contents of the buffer are as expected.
+            CATCH_REQUIRE(eq(b[0], {8, 2.0, false}));
+            CATCH_REQUIRE(eq(b[1], {7, 4.0, true}));
+            CATCH_REQUIRE(eq(b[2], {6, 5.0, false}));
+            CATCH_REQUIRE(eq(b[3], {5, 6.0, false}));
+            CATCH_REQUIRE(eq(b[4], {4, 7.0, true}));
+            CATCH_REQUIRE(eq(b[5], {3, 8.0, true}));
+            CATCH_REQUIRE(eq(b[6], {2, 9.0, false}));
+            CATCH_REQUIRE(eq(b[7], {1, 10.0, true}));
+
+            // Ensure that the ROI is configured properly.
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(eq(b.next(), make_visited(8, 2.0, false)));
+
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(eq(b.next(), make_visited(7, 4.0, true)));
+
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(eq(b.next(), make_visited(6, 5.0, false)));
+
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(eq(b.next(), make_visited(5, 6.0, false)));
+
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(eq(b.next(), make_visited(4, 7.0, true)));
+
+            CATCH_REQUIRE(b.done());
+        }
+
+        CATCH_SECTION("Partially Full Buffer") {
+            // Here, we target a buffer that crosses the target_valid threshold, but not yet
+            // the valid_capacity threshold.
+            b.push_back({1, 10.0, true});
+            CATCH_REQUIRE(b.size() == 1);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({2, 9.0, false});
+            CATCH_REQUIRE(b.size() == 2);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({3, 8.0, true});
+            CATCH_REQUIRE(b.size() == 3);
+            CATCH_REQUIRE(b.valid() == 2);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({4, 7.0, true});
+            CATCH_REQUIRE(b.size() == 4);
+            CATCH_REQUIRE(b.valid() == 3);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({5, 20.0, false});
+            CATCH_REQUIRE(b.size() == 5);
+            CATCH_REQUIRE(b.valid() == 3);
+            CATCH_REQUIRE(!b.full());
+
+            // Invariant 6 hasn't kicked in, so we aren't guarenteed a valid last element.
+            b.sort();
+            CATCH_REQUIRE(b.size() == 5);
+            CATCH_REQUIRE(b.valid() == 3);
+            CATCH_REQUIRE(!b.back().valid());
+
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(b.next() == make_visited(4, 7.0, true));
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(b.next() == make_visited(3, 8.0, true));
+            CATCH_REQUIRE(b.done());
+        }
+
+        CATCH_SECTION("Non full buffer") {
+            b.push_back({1, 10.0, true});
+            CATCH_REQUIRE(b.size() == 1);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({2, 9.0, false});
+            CATCH_REQUIRE(b.size() == 2);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.push_back({3, 8.0, false});
+            CATCH_REQUIRE(b.size() == 3);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(!b.full());
+
+            b.sort();
+            CATCH_REQUIRE(b.size() == 3);
+            CATCH_REQUIRE(b.valid() == 1);
+            CATCH_REQUIRE(b.back().valid());
+
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(b.next() == make_visited(3, 8.0, false));
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(b.next() == make_visited(2, 9.0, false));
+            CATCH_REQUIRE(!b.done());
+            CATCH_REQUIRE(b.next() == make_visited(1, 10.0, true));
+            CATCH_REQUIRE(b.done());
+        }
     }
 }
 
