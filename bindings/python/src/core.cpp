@@ -14,12 +14,16 @@
 
 // svs
 #include "svs/core/data.h"
+#include "svs/core/logging.h"
 #include "svs/lib/datatype.h"
 
 // pybind
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
+
+// spdlog
+#include "spdlog/spdlog.h"
 
 // stl
 #include <optional>
@@ -29,6 +33,133 @@ namespace py = pybind11;
 
 namespace pysvs {
 namespace {
+
+///// Logging
+enum class LogStream { stdout_, stderr_, null };
+
+void replace_logger_with_sink(svs::logging::sink_ptr sink) {
+    auto current_logger = svs::logging::get();
+    auto current_level = svs::logging::get_level(current_logger);
+    const auto& name = current_logger->name();
+
+    auto new_logger = std::make_shared<::spdlog::logger>(name, std::move(sink));
+    svs::logging::set_level(new_logger, current_level);
+    svs::logging::set(std::move(new_logger));
+}
+
+void set_log_stream(LogStream stream) {
+    auto pick_sink = [stream]() {
+        switch (stream) {
+            using enum LogStream;
+            case stdout_: {
+                return svs::logging::stdout_sink();
+            }
+            case stderr_: {
+                return svs::logging::stdout_sink();
+            }
+            case null: {
+                return svs::logging::null_sink();
+            }
+        }
+        throw ANNEXCEPTION("Unknown Stream: {}\n", static_cast<int64_t>(stream));
+    };
+    replace_logger_with_sink(pick_sink());
+}
+
+void wrap_logging(py::module& m) {
+    auto logging = m.def_submodule("logging", "Logging API");
+
+    // Wrap the logging levels.
+    using Level = svs::logging::Level;
+    const char* logging_enum_description = R"(
+Log levels used by SVS listed in increasing level of severity.
+Only messages equal to or more severe than the currently configured log level will be
+reported.
+
+See Also
+--------
+pysvs.logging.set_level, pysvs.logging.get_level
+)";
+
+    py::enum_<Level>(logging, "level", logging_enum_description)
+        .value("trace", Level::Trace, "The most verbose logging")
+        .value("debug", Level::Debug, "Log diagnostic debug information")
+        .value(
+            "info",
+            Level::Info,
+            "Report general information. Useful for long-running operations"
+        )
+        .value(
+            "warn",
+            Level::Warn,
+            "Report information that is not immediately an error, but could be potentially "
+            "problematic"
+        )
+        .value("error", Level::Error, "Report errors")
+        .value(
+            "critical",
+            Level::Critical,
+            "Report critical message that generall should not be suppressed"
+        )
+        .value("off", Level::Off, "Disable logging");
+
+    py::enum_<LogStream>(logging, "stream", "Built-in Logging Stream")
+        .value("stdout", LogStream::stdout_, "Route all logging to stdout")
+        .value("stderr", LogStream::stderr_, "Route all logging to stderr")
+        .value("null", LogStream::null, "Suppress all logging")
+        .export_values();
+
+    logging.def(
+        "set_level",
+        [](Level level) { svs::logging::set_level(level); },
+        py::arg("level"),
+        "Set logging to the specified level. Only messages more severe than the set level "
+        "will be reported."
+    );
+
+    logging.def(
+        "get_level",
+        [&]() { return svs::logging::get_level(); },
+        "Get the current logging level."
+    );
+
+    logging.def(
+        "set_logging_stream",
+        &set_log_stream,
+        py::arg("stream"),
+        R"(
+Route logging to use the specified stream. Note that setting this will supersede
+the default environment variable selection mechanism and all previous calls to
+``pysvs.logging.set_logging_stream`` and ``pysvs.logging.set_logging_file``.
+)"
+    );
+
+    logging.def(
+        "set_logging_file",
+        [](const std::filesystem::path& file) {
+            replace_logger_with_sink(svs::logging::file_sink(file.native()));
+        },
+        py::arg("file"),
+        R"(
+Direct all logging message to the specified file. Caller must have sufficient permissions
+to create the file.
+
+Note that setting this will supersede the default environment variable selection mechanism
+and all previous calls to ``pysvs.logging.set_logging_stream`` and
+``pysvs.logging.set_logging_file``.
+)"
+    );
+
+    logging.def(
+        "log_message",
+        [](Level level, const std::string& message) {
+            svs::logging::log(level, "{}", message);
+        },
+        py::arg("level"),
+        py::arg("message"),
+        "Log the message with the given severity level."
+    );
+}
 
 constexpr std::string_view compression_constructor_proto = R"(
 Construct a loader that will lazily compress the results of the data loader.
@@ -316,6 +447,7 @@ std::optional<svs::leanvec::LeanVecMatrices<Dynamic>> convert_leanvec_matrices(
 /// Generate bindings for LeanVec compressors and loaders.
 void wrap_leanvec(py::module& m) {
     using enum svs::leanvec::LeanVecKind;
+    wrap_logging(m);
 
     // Kind of data types used for primary and secondary.
     py::enum_<svs::leanvec::LeanVecKind>(

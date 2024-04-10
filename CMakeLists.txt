@@ -32,7 +32,11 @@ target_include_directories(
 
 # We use C++ 20 features in our exposed headers.
 # Anyone using us as a depdency and including our headers will need to be C++20 compatible.
+#
+# Keep this variable in-sync with the `SVS_CXX_STANDARD` given below.
+# We need to manually set the standard for `spdlog`
 target_compile_features(${SVS_LIB} INTERFACE cxx_std_20)
+set(SVS_CXX_STANDARD 20)
 
 # Populate with the version number macro.
 target_compile_options(
@@ -55,6 +59,7 @@ include("cmake/pthread.cmake")
 include("cmake/numa.cmake")
 include("cmake/robin-map.cmake")
 include("cmake/fmt.cmake")
+include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
 # LeanVec requires MKL support

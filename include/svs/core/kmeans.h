@@ -16,6 +16,7 @@
 #include "svs/core/data/simple.h"
 #include "svs/core/data/view.h"
 #include "svs/core/distance/euclidean.h"
+#include "svs/core/logging.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/threads/threadpool.h"
@@ -195,7 +196,7 @@ data::SimpleData<float> train_impl(
             old_counts[i] = 0;
         }
     }
-    timer.print();
+    svs::logging::debug("{}", timer);
     return centroids;
 }
 

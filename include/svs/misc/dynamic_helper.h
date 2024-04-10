@@ -18,6 +18,7 @@
 #pragma once
 
 // svs
+#include "svs/core/logging.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/neighbor.h"
 #include "svs/lib/threads.h"
@@ -200,7 +201,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
             reserve_buckets_.emplace_back(ids, std::move(bucket_groundtruth));
             start = stop;
         }
-        timer.print();
+        svs::logging::debug("{}", timer);
     }
 
     /// @brief Return the total number of elements in the dataset.

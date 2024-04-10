@@ -49,6 +49,38 @@ make -j
 cp ./vamana_reference ../data/test_dataset/reference/vamana_reference.toml
 ```
 
+### Logging Infrastructure
+
+SVS has switched to using [spdlog](https://github.com/gabime/spdlog) for its logging needs.
+As such, users will now have control of what messages get logged and where they are logged.
+The default interface for configuring logging is through the environment variables `SVS_LOG_LEVEL` and `SVS_LOG_SINK`.
+Valid values for `SVS_LOG_LEVEL` in order of increasing severity are shown below:
+
+
+| `SVS_LOG_LEVEL`       |  Descriptions                                                 |
+| --------------------- | ------------------------------------------------------------- |
+| ``TRACE``             | Tracing control flow through functions. Verbose.              |
+| ``DEBUG``             | Verbose logging useful for debugging. Verbose.                |
+| ``INFO``              | Informative prints for long-running processed.                |
+| ``WARN`` (default)    | Diagnostic prints that may need to be addressed by the user.  |
+| ``ERROR``             | Program errors.                                               |
+| ``CRITICAL``          | Critical information.                                         |
+| ``OFF``               | Disable logging.                                              |
+
+Logging sinks control where logged message get sent and can be controlled using `SVS_LOG_SINK` with the following values.
+
+| `SVS_LOG_SINK`            | Description
+| ------------------------- | ----------------------------------------- |
+| ``stdout`` (default)      | Send all messages to ``stdout``           |
+| ``stderr``                | Send all messages to ``stderr``           |
+| ``null``                  | Suppress all logging messages.            |
+| ``file:/path/to/file``    | Send all messages to `/path/to/file`.     |
+
+Additionally, both the C++ library and `pysvs` contain APIs for customizing logging that supersede the environment variables.
+In C++, any `std::shared_ptr<spdlog::logger>` can be used if desired.
+
+Finally, if environment variable based initialization is not desired, it can be disabled by providing `-DSVS_INITIALIZE_LOGGER=NO` to CMake at configuration time.
+
 ## `pysvs` (Python)
 
 ### Additions and Changes

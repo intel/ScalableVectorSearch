@@ -19,7 +19,7 @@ set(CATCH_CONFIG_PREFIX_ALL ON CACHE BOOL "" FORCE)
 # Since Catch2 does not provide a mechanism for building with a specific C++ version,
 # we need to use this hack.
 set(PRESET_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD ${SVS_CXX_STANDARD})
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
@@ -103,6 +103,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/io/native.cpp
     ${TEST_DIR}/svs/core/io.cpp
     ${TEST_DIR}/svs/core/loading.cpp
+    ${TEST_DIR}/svs/core/logging.cpp
     ${TEST_DIR}/svs/core/kmeans.cpp
     ${TEST_DIR}/svs/core/medioid.cpp
     ${TEST_DIR}/svs/core/recall.cpp

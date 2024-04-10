@@ -14,6 +14,7 @@
 // local
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
+#include "svs/core/logging.h"
 #include "svs/index/vamana/build_params.h"
 #include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
@@ -196,12 +197,19 @@ class VamanaBuilder {
         }
     }
 
-    void construct(float alpha, Idx entry_point, bool verbose = true) {
-        construct(alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, verbose);
+    void
+    construct(float alpha, Idx entry_point, logging::Level level = logging::Level::Info) {
+        construct(alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, level);
     }
 
     template <typename R>
-    void construct(float alpha, Idx entry_point, const R& range, bool verbose = true) {
+    void construct(
+        float alpha,
+        Idx entry_point,
+        const R& range,
+        logging::Level level = logging::Level::Info
+    ) {
+        auto logger = svs::logging::get();
         size_t num_nodes = range.size();
         size_t num_batches = std::max(
             size_t{40}, lib::div_round_up(num_nodes, lib::narrow_cast<size_t>(64 * 64))
@@ -214,10 +222,8 @@ class VamanaBuilder {
         double reverse_time = 0;
         unsigned progress_counter = 0;
 
-        if (verbose) {
-            fmt::print("Number of syncs: {}\n", num_batches);
-            fmt::print("Batch Size: {}\n", batchsize);
-        }
+        svs::logging::log(logger, level, "Number of syncs: {}", num_batches);
+        svs::logging::log(logger, level, "Batch Size: {}", batchsize);
 
         // The base point for iteration.
         auto&& base = range.begin();
@@ -249,33 +255,32 @@ class VamanaBuilder {
 
                 double estimated_remaining_time =
                     total_elapsed_time * (num_batches_f / batch_id_f - 1);
-                if (verbose) {
-                    constexpr std::string_view message =
-                        "Completed round {} of {}. "
-                        "Search Time: {:.4}s, "
-                        "Reverse Time: {:.4}s, "
-                        "Total Time: {:.4}s, "
-                        "Estimated Remaining Time: {:.4}s\n";
+                constexpr std::string_view message = "Completed round {} of {}. "
+                                                     "Search Time: {:.4}s, "
+                                                     "Reverse Time: {:.4}s, "
+                                                     "Total Time: {:.4}s, "
+                                                     "Estimated Remaining Time: {:.4}s";
 
-                    fmt::print(
-                        message,
-                        batch_id + 1,
-                        num_batches,
-                        search_time,
-                        reverse_time,
-                        total_elapsed_time,
-                        estimated_remaining_time
-                    );
-                }
+                svs::logging::log(
+                    logger,
+                    level,
+                    message,
+                    batch_id + 1,
+                    num_batches,
+                    search_time,
+                    reverse_time,
+                    total_elapsed_time,
+                    estimated_remaining_time
+                );
                 search_time = 0;
                 reverse_time = 0;
                 progress_counter += 1;
             }
         }
-        if (verbose) {
-            fmt::print("Completed pass using window size {}.\n", params_.window_size);
-            timer.print();
-        }
+        svs::logging::log(
+            logger, level, "Completed pass using window size {}.", params_.window_size
+        );
+        svs::logging::log(logger, level, "{}", timer);
     }
 
     ///

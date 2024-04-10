@@ -178,6 +178,13 @@ These fine-grained variables are defined below.
     | CMake Option                        | Supported Values   | Description                                   |
     |                                     | (defaults in bold) |                                               |
     +=====================================+====================+===============================================+
+    | SVS_INITIALIZE_LOGGER               | **ON**, OFF        | Enable the default SVS logger using the       |
+    |                                     |                    | environment variable SVS_LOG_LEVEL and        |
+    |                                     |                    | SVS_LOG_SINK (if they are defined).           |
+    |                                     |                    |                                               |
+    |                                     |                    | If disabled, the default SVS logger will be   |
+    |                                     |                    | a null logger propagating no logging mesasges.|
+    +-------------------------------------+--------------------+-----------------------------------------------+
     | SVS_FORCE_INTEGRATION_TESTS         | ON, **OFF**        | By default, integration tests will not be     |
     |                                     |                    | compiled when building in tests in debug mode |
     |                                     |                    | because debug builds of SVS are extremely     |

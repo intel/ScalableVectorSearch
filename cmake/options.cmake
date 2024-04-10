@@ -55,8 +55,13 @@ option(SVS_NO_AVX512
 )
 
 option(SVS_FORCE_INTEGRATION_TESTS
-    "Run integration tests in debug mode (slow)"
-    OFF #disabled by default
+    "Run integration tests in debug mode (slow)."
+    OFF # disabled by default
+)
+
+option(SVS_INITIALIZE_LOGGER
+    "Initialize the global logger using environment variables."
+    ON # enabled by default
 )
 
 #####
@@ -132,6 +137,12 @@ if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_NUMA=1)
 else()
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_NUMA=0)
+endif()
+
+if (SVS_INITIALIZE_LOGGER)
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=1)
+else()
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=0)
 endif()
 
 #####

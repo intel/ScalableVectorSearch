@@ -22,6 +22,7 @@
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
 #include "svs/core/loading.h"
+#include "svs/core/logging.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
 #include "svs/core/recall.h"
@@ -601,7 +602,7 @@ class MutableVamanaIndex {
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
-        builder.construct(alpha_, entry_point(), slots, false);
+        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
@@ -819,10 +820,11 @@ class MutableVamanaIndex {
         assert(entry_point_.size() == 1);
         auto entry_point = entry_point_[0];
         if (status_.at(entry_point) == SlotMetadata::Deleted) {
-            fmt::print("Replacing entry point! ... ");
+            auto logger = svs::logging::get();
+            svs::logging::debug(logger, "Replacing entry point.");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
-            fmt::print(" New point: {}\n", new_entry_point);
+            svs::logging::debug(logger, "New point: {}", new_entry_point);
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
         }
