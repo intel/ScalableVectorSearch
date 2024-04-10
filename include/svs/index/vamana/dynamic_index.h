@@ -78,17 +78,17 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 }
 // clang-format on
 
-class SkipBuilder {
+class ValidBuilder {
   public:
-    SkipBuilder(const std::vector<SlotMetadata>& status)
+    ValidBuilder(const std::vector<SlotMetadata>& status)
         : status_{status} {}
 
     template <typename I>
-    constexpr SkippableSearchNeighbor<I> operator()(I i, float distance) const {
-        bool skipped = getindex(status_, i) == SlotMetadata::Deleted;
+    constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
-        return SkippableSearchNeighbor<I>(i, distance, skipped);
+        return PredicatedSearchNeighbor<I>(i, distance, !invalid);
     }
 
   private:
@@ -415,7 +415,7 @@ class MutableVamanaIndex {
                 distance,
                 buffer,
                 entry_point_,
-                SkipBuilder{status_},
+                ValidBuilder{status_},
                 prefetch_parameters
             );
             // Take a pass over the search buffer to remove any deleted elements that
@@ -440,7 +440,7 @@ class MutableVamanaIndex {
                     sp.prefetch_lookahead_, sp.prefetch_step_};
 
                 // Legalize search buffer for this search.
-                if (buffer.capacity() < num_neighbors) {
+                if (buffer.target() < num_neighbors) {
                     buffer.change_maxsize(num_neighbors);
                 }
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
@@ -679,7 +679,7 @@ class MutableVamanaIndex {
         // Step 1: Compute a prefix-sum matching each valid internal index to its new
         // internal index.
         //
-        // In the returned data structure, an entry `j` at index index `i` means that the
+        // In the returned data structure, an entry `j` at index `i` means that the
         // data at index `j` is to be moved to index `i`.
         auto new_to_old_id_map = nonmissing_indices();
 

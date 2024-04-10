@@ -32,6 +32,10 @@ namespace svs {
 /// Don't use `operator==()` to compare the equality of neighbor ids because the semantics
 /// of equality don't play well with the ordering semantics which are based on distance.
 ///
+/// Furthermore, all retrievals of the underlying `id` and `distance` should go through
+/// the `id()` and `distance()` member functions. This allows implementations to bit-packing
+/// if desired.
+///
 template <typename Idx, typename Meta = void> struct Neighbor : public Meta {
     using index_type = Idx;
 
@@ -204,41 +208,35 @@ inline constexpr bool operator==(Visited x, Visited y) {
 template <typename Idx> using SearchNeighbor = Neighbor<Idx, Visited>;
 
 /////
-///// Skippable Neighbor
+///// ValidNeighbor
 /////
 
 ///
 /// Small metadata class to indicate whether a neighbor for graph search has been visited
-/// and whether or not this neighbor should be excluded from the final results (skipped)
+/// and whether or not this neighbor should be included in the final results (valid)
 /// or not.
 ///
 /// Internally, we use a bit set to mark these states.
 ///
-class SkipVisit {
+class ValidVisit {
   public:
     static constexpr uint8_t visited_mask = uint8_t{0x01};
-    static constexpr uint8_t skipped_mask = uint8_t{0x02};
+    static constexpr uint8_t valid_mask = uint8_t{0x02};
 
-    constexpr SkipVisit(bool skipped = false)
-        : value_{skipped ? skipped_mask : uint8_t{0x0}} {}
+    constexpr ValidVisit(bool valid = true)
+        : value_{valid ? valid_mask : uint8_t{0x0}} {}
 
     constexpr void set_visited() { value_ |= visited_mask; }
     constexpr bool visited() const { return (value_ & visited_mask) != 0; }
+    constexpr bool valid() const { return (value_ & valid_mask) != 0; }
 
-    constexpr void set_skipped() { value_ |= skipped_mask; }
-    constexpr bool skipped() const { return (value_ & skipped_mask) != 0; }
-
-    friend constexpr bool operator==(SkipVisit, SkipVisit);
+    friend constexpr bool operator==(ValidVisit, ValidVisit) = default;
 
   private:
     uint8_t value_{0};
 };
 
-inline constexpr bool operator==(SkipVisit x, SkipVisit y) { return x.value_ == y.value_; }
-
-///
 /// Type alias for skippable neighbor.
-///
-template <typename Idx> using SkippableSearchNeighbor = Neighbor<Idx, SkipVisit>;
+template <typename Idx> using PredicatedSearchNeighbor = Neighbor<Idx, ValidVisit>;
 
 } // namespace svs
