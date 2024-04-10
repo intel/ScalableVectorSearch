@@ -101,7 +101,7 @@ consteval bool is_one_or_zero(const char* ptr) {
 ///// AVX extensions
 /////
 
-namespace arch {
+namespace svs::arch {
 // Switching ifdefs to boolean defs helps reduce the probability of mistyping.
 
 // Most 32-bit and 64-bit AVX instructions.
