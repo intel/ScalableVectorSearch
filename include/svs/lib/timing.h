@@ -307,7 +307,7 @@ class Timer {
                 buffer, section_length, measured_time, 0, it.first
             );
         }
-        fmt::print("{}", hyphens);
+        fmt::format_to(buffer, "{}", hyphens);
     }
 
     void format_into_inner(
