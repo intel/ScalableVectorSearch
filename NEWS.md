@@ -81,6 +81,11 @@ In C++, any `std::shared_ptr<spdlog::logger>` can be used if desired.
 
 Finally, if environment variable based initialization is not desired, it can be disabled by providing `-DSVS_INITIALIZE_LOGGER=NO` to CMake at configuration time.
 
+### Performance Enhancements
+
+* Generally improved the performance of uncompressed distance computations with run-time lengths for AVX512 based systems.
+* Fixed a performance pathology for run-time dimensional sequential LVQ4(xN) when the number of dimensions is not a multiple of 16.
+
 ## `pysvs` (Python)
 
 ### Additions and Changes
