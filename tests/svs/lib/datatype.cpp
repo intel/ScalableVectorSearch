@@ -13,6 +13,9 @@
 #include "svs/lib/datatype.h"
 #include "svs/lib/saveload.h"
 
+// svstest
+#include "tests/utils/require_error.h"
+
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
@@ -149,6 +152,10 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
             CATCH_REQUIRE(x.type() == svs::datatype_v<int>);
             CATCH_REQUIRE(x.pointer() == svs::ConstErasedPointer(v.data()));
             CATCH_REQUIRE(x.size(0) == 3);
+            CATCH_REQUIRE(x.size() == 3); // Special member for 1-dimensional array.
+
+            SVS_REQUIRE_COMPILES(svs::AnonymousArray<1>, (std::declval<TestType>().size()));
+
             CATCH_REQUIRE(svs::get<int>(x) == v.data());
             CATCH_REQUIRE_THROWS_AS(svs::get<float>(x), svs::ANNException);
             CATCH_REQUIRE(x.template data_unchecked<int>() == v.data());
@@ -168,6 +175,11 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
             CATCH_REQUIRE(x.pointer() == svs::ConstErasedPointer(v.data()));
             CATCH_REQUIRE(x.size(0) == 3);
             CATCH_REQUIRE(x.size(1) == 2);
+
+            SVS_REQUIRE_DOES_NOT_COMPILE(
+                svs::AnonymousArray<2>, (std::declval<TestType>().size())
+            );
+
             CATCH_REQUIRE(svs::get<uint32_t>(x) == v.data());
             CATCH_REQUIRE_THROWS_AS(svs::get<int>(x), svs::ANNException);
             CATCH_REQUIRE(x.template data_unchecked<uint32_t>() == v.data());
@@ -188,6 +200,11 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
             CATCH_REQUIRE(x.size(0) == 2);
             CATCH_REQUIRE(x.size(1) == 2);
             CATCH_REQUIRE(x.size(2) == 2);
+
+            SVS_REQUIRE_DOES_NOT_COMPILE(
+                svs::AnonymousArray<3>, (std::declval<TestType>().size())
+            );
+
             CATCH_REQUIRE(svs::get<uint32_t>(x) == v.data());
             CATCH_REQUIRE_THROWS_AS(svs::get<int>(x), svs::ANNException);
             CATCH_REQUIRE(x.template data_unchecked<uint32_t>() == v.data());

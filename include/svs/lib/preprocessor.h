@@ -153,4 +153,4 @@ inline constexpr bool have_avx512_avx2 = true;
 inline constexpr bool have_avx512_avx2 = true;
 #endif
 
-} // namespace arch
+} // namespace svs::arch
