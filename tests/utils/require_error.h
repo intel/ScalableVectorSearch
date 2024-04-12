@@ -22,3 +22,11 @@
         }.template operator()<Type>();                     \
         CATCH_STATIC_REQUIRE_FALSE(Result);                \
     }
+
+#define SVS_REQUIRE_COMPILES(Type, ...)                    \
+    {                                                      \
+        constexpr auto Result = [&]<typename TestType>() { \
+            return requires { __VA_ARGS__; };              \
+        }.template operator()<Type>();                     \
+        CATCH_STATIC_REQUIRE(Result);                      \
+    }

@@ -18,6 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "svs/lib/datatype.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/meta.h"
 
@@ -100,6 +101,15 @@ std::span<const T> as_const_span(const std::vector<T, Alloc>& v) {
 template <typename T, typename Alloc>
 std::span<const T> as_span(const std::vector<T, Alloc>& v) {
     return as_const_span(v);
+}
+
+template <typename T>
+std::span<const T> as_const_span(const svs::AnonymousArray<1>& array) {
+    return std::span<const T>(get<T>(array), array.size());
+}
+
+template <typename T> std::span<const T> as_span(const svs::AnonymousArray<1>& array) {
+    return as_const_span<const T>(array);
 }
 
 namespace detail {

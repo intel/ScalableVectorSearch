@@ -26,5 +26,6 @@ struct Add {
 
 CATCH_TEST_CASE("SFINAE Checker") {
     CATCH_STATIC_REQUIRE(Add<int>::value);
+    SVS_REQUIRE_COMPILES(int, Add<TestType>::value);
     SVS_REQUIRE_DOES_NOT_COMPILE(char*, Add<TestType>::value);
 }

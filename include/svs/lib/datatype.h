@@ -439,6 +439,13 @@ template <size_t N> class AnonymousArray {
         return dims_[i];
     }
 
+    /// @brief Return the number of elements in a 1-dimensional array.
+    size_t size() const
+        requires(N == 1)
+    {
+        return size(0);
+    }
+
     /// @brief Return the based pointer performing a checked cast.
     template <typename T> const T* data() const { return get<T>(data_); }
 

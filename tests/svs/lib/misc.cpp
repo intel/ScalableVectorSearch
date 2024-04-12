@@ -118,6 +118,31 @@ CATCH_TEST_CASE("Misc", "[core][misc]") {
                 svs::lib::as_span<11>(std::as_const(x)), svs::ANNException
             );
         }
+
+        // Anonymous Array
+        {
+            auto a = svs::AnonymousArray<1>(x.data(), x.size());
+
+            // as_const_span
+            std::span<const float> sp = svs::lib::as_const_span<float>(a);
+            CATCH_REQUIRE(sp.size() == x.size());
+            CATCH_REQUIRE(std::equal(sp.begin(), sp.end(), x.begin()));
+            CATCH_REQUIRE(sp.data() == x.data());
+
+            // as_span
+            sp = svs::lib::as_span<float>(a);
+            CATCH_REQUIRE(sp.size() == x.size());
+            CATCH_REQUIRE(std::equal(sp.begin(), sp.end(), x.begin()));
+            CATCH_REQUIRE(sp.data() == x.data());
+
+            // Trying to extract an incorrect type should be a runtime error.
+            CATCH_REQUIRE_THROWS_AS(
+                svs::lib::as_const_span<svs::Float16>(a), svs::ANNException
+            );
+            CATCH_REQUIRE_THROWS_AS(
+                svs::lib::as_const_span<double>(a), svs::ANNException
+            );
+        }
     }
 
     CATCH_SECTION("Identity") {
