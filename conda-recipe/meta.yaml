@@ -1,0 +1,68 @@
+#
+# Copyright (C) 2024-present, Intel Corporation
+#
+# You can redistribute and/or modify this software under the terms of the
+# GNU Affero General Public License version 3.
+#
+# You should have received a copy of the GNU Affero General Public License
+# version 3 along with this software. If not, see
+# <https://www.gnu.org/licenses/agpl-3.0.en.html>.
+#
+
+{% set version = '0.0.4' %}
+{% set buildnumber = 0 %}
+
+package:
+  name: pysvs
+  version: {{ version }}
+
+source:
+    path: ..
+build:
+  number: {{ buildnumber }}
+  include_recipe: False
+
+requirements:
+  host:
+    - python
+    - setuptools
+    - numpy
+    - cython
+    - ninja
+    - pybind11
+    - scikit-build
+    - archspec
+    - toml
+  run:
+    - python
+    - archspec
+    - toml
+    - {{ pin_compatible('numpy') }}
+
+test:
+  requires:
+    - pytest
+  source_files:
+    - bindings/python/tests
+    - data
+  commands:
+    - pytest -v bindings/python/tests/test_common.py bindings/python/tests/test_flat.py
+
+about:
+  home: https://intellabs.github.io/ScalableVectorSearch/index.html
+  license: AGPL-3.0
+  license_file:
+    - LICENSE
+    - THIRD-PARTY-PROGRAMS
+  summary: Scalable Vector Search
+  description: |
+    <strong>LEGAL NOTICE: Use of this software package is subject to the
+    software license agreement (as set forth above, in the license section of
+    the installed Conda package and/or the README file) and all notices,
+    disclaimers or license terms for third party or open source software
+    included in or with the software.</strong>
+    <br/><br/>
+    EULA: <a href="https://github.com/IntelLabs/ScalableVectorSearch/blob/main/LICENSE" target="_blank">AGPL-3.0</a>
+    <br/><br/>
+  dev_url: https://github.com/IntelLabs/ScalableVectorSearch
+  doc_url: https://intellabs.github.io/ScalableVectorSearch/index.html
