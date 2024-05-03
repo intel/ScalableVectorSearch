@@ -26,6 +26,8 @@ Prerequisites
   * GCC >= 11.0
   * Clang >= 13.0
 
+* `OneMKL <https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html>`_ (:ref:`installation details <one-mkl-install>`)
+
 To install the Python module you'll also need:
 
 * Python >= 3.7
@@ -69,6 +71,23 @@ For more details see :ref:`building_python_library`.
 C++ build
 ==========
 SVS provides a cmake target to enable source builds against the library. See :ref:`cpp_cmake_support` for details.
+
+.. _one-mkl-install:
+
+OneMKL installation
+===================
+`OneMKL <https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html>`_ can be installed as part of the
+`Intel oneAPI Base Toolkit <https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html#gs.8u2swh>`_ by following one of the methods indicated in the `oneAPI docs <https://www.intel.com/content/www/us/en/docs/oneapi/installation-guide-linux/2024-1/installation.html>`_ .
+
+For example, the following commands show how to install the OneMKL component of the Intel oneAPI Base Toolkit on a Linux
+system using the `offline installer <https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html>`_:
+
+.. code-block:: sh
+
+    wget [link to the offline installer]
+    sudo sh [downloaded installer script] -a --components intel.oneapi.lin.mkl.devel --action install --eula accept -s
+    source /opt/intel/oneapi/setvars.sh
+
 
 Generating test data
 ********************
