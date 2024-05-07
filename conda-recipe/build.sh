@@ -17,4 +17,5 @@ rm l_onemkl_p_2024.1.0.695_offline.sh
 
 source $ONEAPI_INSTALL_DIR/setvars.sh
 
+export CMAKE_ARGS="$CMAKE_ARGS -DPYSVS_MICROARCHS=x86_64_v3;cascadelake;icelake;sapphirerapids"
 $PYTHON -m pip install bindings/python
