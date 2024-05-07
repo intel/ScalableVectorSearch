@@ -23,6 +23,15 @@ build:
   include_recipe: False
 
 requirements:
+  build:
+    - make
+    - cmake
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    # required for correct gcc alias
+    - gxx  # [linux]
+    # required for MAP_HUGE_* defines in allocator.h
+    - kernel-headers_linux-64 ==4.18.0  # [linux]
   host:
     - python
     - setuptools
