@@ -99,7 +99,7 @@ To include the C++ portion of the library in a CMake based project, follow the t
     FetchContent_Declare(
         svs
         GIT_REPOSITORY https://github.com/IntelLabs/ScalableVectorSearch.git
-        GIT_TAG dev
+        GIT_TAG main
     )
 
     FetchContent_MakeAvailable(svs)
