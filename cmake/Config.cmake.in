@@ -15,6 +15,7 @@ find_dependency(tsl-robin-map REQUIRED)
 find_dependency(eve REQUIRED)
 find_dependency(tomlplusplus REQUIRED)
 find_dependency(fmt REQUIRED)
+find_dependency(spdlog REQUIRED)
 
 # # Dependencies that could be optional at build time.
 if(SVS_EXPERIMENTAL_ENABLE_NUMA)
