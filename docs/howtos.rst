@@ -265,3 +265,110 @@ footprint for `Deep <http://sites.skoltech.ru/compvision/noimi/>`_ with ``graph_
 A value of 0 (default) implies no special alignment.
 
 For details on the C++ implementation see :ref:`cpp_quantization_lvq`.
+
+How to Prepare Your Own Vector Dataset
+======================================
+Preparing your own vector dataset is simple with our Python API ``pysvs``, which can
+directly use embeddings encoded as ``numpy`` arrays.
+
+There are 3 main steps to preparing your own vector dataset, starting from the original
+data format (e.g. images, text).
+
+0. Select embedding model
+1. Preprocess the data
+2. Embed the data to generate vectors
+3. Use or save the embeddings
+
+We will walk through a simple example below. For complete examples, please
+see our `VectorSearchDatasets repository <https://github
+.com/intellabs/vectorsearchdatasets>`_, which contains code to generate compatible
+vector embeddings for common datasets such as `open-images <https://storage.googleapis.com/openimages/web/index.html>`_.
+
+Example: vector embeddings of images
+************************************
+This simplified example is derived from our `VectorSearchDatasets <https://github
+.com/IntelLabs/VectorSearchDatasets/tree/main/openimages>`_ code.
+
+Select embedding model
+----------------------
+Many users will be interested in using deep learning models to embed their data. For an
+image this could be something like the multimodal vision-language model, `CLIP
+<https://github.com/OpenAI/CLIP>`_. This model is available through the
+`Hugging Face
+Transformers library <https://huggingface.co/docs/transformers/en/model_doc/clip>`_,
+which we import here in order to load the model. We also import PyTorch and some data
+processing tools which will appear in the next step.
+
+.. code-block:: py
+
+    import pysvs
+    import torch
+    from transformers import AutoProcessor, CLIPProcessor, CLIPModel
+
+    model_str = "openai/clip-vit-base-patch32"
+    model = CLIPModel.from_pretrained(model_str)
+
+Preprocess the data
+-------------------
+You will need to prepare your data so that it can be processed by the embedding model.
+You should also apply any other preprocessing here, such as cropping images, removing
+extraneous text, etc.
+
+For our example, let's assume that the OpenImages dataset has been downloaded and we
+wish to preprocess the first 24 images. Here we use the HuggingFace
+AutoProcessor to pre-process the dataset to the format required by CLIP.
+
+.. collapse:: Click to display
+
+    .. code-block:: py
+
+        import pandas as pd
+        from PIL import Image
+
+        processor = AutoProcessor.from_pretrained(model_str)
+
+        image_list = []
+        n_img_to_process = 24
+        for img_id in range(0, n_img_to_process):
+            image_fname = f'{oi_base_dir}/images/{img_id}.jpg'
+            image = Image.open(image_fname)
+            image_list.append(image)
+
+        print(f'Pre-processing {n_img_to_process} images')
+        inputs = processor(images=image_list, return_tensors="pt")
+
+|
+
+Embed the data to generate vectors
+----------------------------------
+We then call the CLIP method to grab the features, or vector embeddings, associated
+with the images in our list. We also convert these embeddings from torch tensors to
+numpy arrays to enable their use in pysvs.
+
+.. code-block:: py
+
+    with torch.no_grad():
+        print(f'Generating embeddings')
+        embeddings = model.get_image_features(**inputs).detach().numpy()
+
+Use or save the embeddings
+--------------------------
+Now that you have the embeddings as numpy arrays, you can directly pass them as
+inputs to pysvs functions. An example call to build a search index from the
+embeddings is shown below.
+
+.. code-block:: py
+
+    index = pysvs.Vamana.build(parameters, embeddings, pysvs.DistanceType.L2)
+
+You may also save the embeddings into the commonly used vector file format ``*vecs``
+with :py:func:`pysvs.write_vecs`. A description of the ``*vecs`` file format is given
+`here <http://corpus-texmex.irisa.fr/>`_.
+
+.. code-block:: py
+
+    pysvs.write_vecs(embeddings, out_file)
+
+Other data format helper functions are described in our `I/O and Conversion Tools
+<https://intellabs.github
+.io/ScalableVectorSearch/io.html>`_ documentation.
