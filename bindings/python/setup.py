@@ -43,7 +43,7 @@ setup(
     cmake_install_dir='src/pysvs',
     cmake_args = cmake_args,
     install_requires = [
-        "numpy>=1.10.0",   # keep in-sync with `pyproject.toml`
+        "numpy>=1.10.0, <2",   # keep in-sync with `pyproject.toml`
         "archspec>=0.2.0", # keep in-sync with `pyproject.toml`
         "toml>=0.10.2",    # keep in-sync with `pyproject.toml` required for the tests
     ]

@@ -12,6 +12,7 @@ Welcome to Scalable Vector Search's documentation!
 
    intro.rst
    start.rst
+   start_cpp.rst
    features.rst
    howtos.rst
    io.rst

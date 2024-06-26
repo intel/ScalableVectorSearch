@@ -24,40 +24,65 @@ The minimum tested compilers are
 Building Python Library
 =======================
 
-Native Wheel
-------------
+.. _build_cibuildwheel:
 
-We support two methods for building the binary wheel for the Python interface to the library: (1) as a native build and (2) as a more portable containerized build through cibuildwheel (see :ref:`cibuildwheel <build_cibuildwheel>`).
+CIBuildWheel and Microarchitecture Compatibility
+------------------------------------------------
 
-The following commands will perform the **native** build:
+We support building SVS as a Python wheel in a Docker container using `cibuildwheel <https://cibuildwheel.pypa.io>`_.
+
+You need to install cibuildwheel and `docker <https://docs.docker.com/engine/install/>`_.
+Once those are installed, navigate to the root directory of the source and run
+
+.. code-block:: sh
+
+    # clean any previous build artifacts
+    rm -rf bindings/python/_skbuild
+    # build container image
+    cd docker/x86_64/manylinux2014
+    ./build.sh
+    # build Python wheel
+    cd -
+    cibuildwheel --only $(python3 tools/pybuild.py) bindings/python
+
+If you wish to build wheels for all supported versions of Python, not just the version you are using, leave out ``--only``:
+
+.. code-block:: sh
+
+    cibuildwheel bindings/python
+
+The resulting Python wheel will be generated in the ``wheelhouse`` directory and can be installed from there.
+
+.. code-block:: sh
+
+    pip install wheelhouse/pysvs*.whl
+
+
+SVS uses C++20 and many AVX-512 hardware features to achieve performance.
+However, we still want to support older CPUs and reasonably old Linux distributions that may have some GLIBC limitations.
+The wheel built by cibuildwheel has maximum compatibility.
+
+
+Customizing Wheels
+------------------
+
+The following commands will perform the **native** build, with optimizations specific to the CPU you are using:
 
 .. code-block:: sh
 
    cd bindings/python
-   CC=gcc CXX=g++ python setup.py bdist_wheel -- [cmake arguments] -- -j$(nproc)
+   python3 setup.py bdist_wheel -- [cmake arguments] -- -j$(nproc)
    pip install ./dist/pysvs*.whl
 
-If the default build options are acceptable, the CMake arguments may be left empty.
-Alternatively, pip can be used to drive the entire compilation process by (running from the root git directory)
+If the default build options are acceptable, the CMake arguments may be left empty. If you want optimizations for a different CPU than the one you are using for the build, you can specify a microarchitecture using ``PYSVS_MICROARCHS``:
 
 .. code-block:: sh
 
-   CC=gcc CXX=g++ pip install bindings/python -vvv
+   python3 setup.py bdist_wheel -- -DPYSVS_MICROARCHS=sapphirerapids -- -j$(nproc)
 
-Building Without AVX512
-^^^^^^^^^^^^^^^^^^^^^^^
 
-The snippet below shows how to build the Python library without AVX512 instructions.
-This is not recommended as AVX512 is critical for performance in many aspects of the library, but may be necessary if running on older hardware.
-
-.. code-block:: sh
-
-   cd bindings/python
-   CC=gcc CXX=g++ python setup.py bdist_wheel -- -DSVS_NO_AVX512=YES -- -j$(nproc)
-   pip install ./dist/pysvs*.whl
-
-Debug Builds for Native Wheels
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Debug Builds
+^^^^^^^^^^^^
 
 Every once in a while, it is beneficial to use either a debug build of the Python wheel or at least build the wheel with debug information.
 This can be difficult through the pip only approach as it likes to transitively build dependencies.
@@ -66,14 +91,14 @@ Instead, it is recommended to go through the two stage approach:
 .. code-block:: sh
 
    cd bindings/python
-   CC=gcc CXX=g++ python setup.py bdist_wheel --build-type=Debug -- -- -j$(nproc)
+   python3 setup.py bdist_wheel --build-type=Debug -- -- -j$(nproc)
 
 Building Notes
 --------------
 
-Occasionally, the Python build process will break mysteriously.
-This usually occurs when messing around with different compilers, compile-time variables, and build strategies.
-If this happens, try removing ``./bindings/python/_skbuild`` and ``./bindings/python/dist`` and going again.
+Occasionally, the Python build process will fail seemingly without cause.
+This usually occurs when previously there has been a mix of different compilers, compile-time variables, and build strategies.
+If this happens, try removing ``bindings/python/_skbuild`` and ``bindings/python/dist`` and going again.
 
 C++ Build
 =========
@@ -111,7 +136,6 @@ Installing Locally
 ^^^^^^^^^^^^^^^^^^
 
 The C++ library can also be installed locally using CMake's installation logic.
-**Note**: This approach is not recommended.
 
 .. code-block:: sh
 
@@ -162,10 +186,6 @@ SVS supports the following build-time options.
     |                     |                    |                                               |
     |                     |                    | This option is not required when compiling on |
     |                     |                    | non-AVX512 systems.                           |
-    |                     |                    |                                               |
-    |                     |                    | May be helpful on older systems that          |
-    |                     |                    | experience down-clocking when using AVX512    |
-    |                     |                    | instructions.                                 |
     +---------------------+--------------------+-----------------------------------------------+
 
 Occasionally, more control over the compiled binaries and executables is desired (to aid binary size and compilation time).
@@ -231,30 +251,6 @@ Please avoid using them.
 |                                 |                    | Requires MKL library to implement SVD/GEMM    |
 +---------------------------------+--------------------+-----------------------------------------------+
 
-
-.. _build_cibuildwheel:
-
-(Advanced) CIBuildWheel and Microarchitecture Compatibility
-===========================================================
-
-This library uses C++ 20 and many AVX-512 hardware features to achieve performance.
-However, we still want to support older CPUs and reasonably old Linux distributions that may have some GLIBC limitations.
-To that end, we also support building the Python library using `cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`_ and enabling multiple microarchitecture backends.
-
-To generate a wheel using your current version of Python you will need to cibuildwheel installed as well as `docker <https://www.docker.com/>`_.
-Once those are installed, simply navigate to the root directory of the source and run
-
-.. code-block:: sh
-
-    cibuildwheel --only $(python tools/pybuild.py) bindings/python
-
-The resulting Python wheel will be generated into the "wheelhouse" directly and can be installed from there.
-
-If you wish to build wheels for all supported versions of Python, use the following:
-
-.. code-block:: sh
-
-    cibuildwheel bindings/python
 
 Details on multi-arch support
 -----------------------------

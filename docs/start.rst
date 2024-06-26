@@ -1,7 +1,7 @@
 .. _start:
 
-Getting Started
-################
+Getting started with Python
+###########################
 This tutorial will show you how to install SVS and run your first search with it! Tutorials for running
 :ref:`dynamic indexing <how_to_run_dynamic_indexing>`, setting :ref:`index <graph-build-param-setting>` and
 :ref:`search<search-window-size-setting>` parameters, :ref:`using vector compression <compression-setting>`, as well as
@@ -16,77 +16,53 @@ more :ref:`advanced installation options <build>` are also available.
 Installation
 ************
 
-Building and installing SVS should be relatively straight-forward.
+Building and installing SVS should be relatively straight-forward. We test on Ubuntu 22.04 LTS, but any Linux distribution should work.
 
 Prerequisites
 =============
 
-* A C++20 capable compiler:
+* Python >= 3.9
 
-  * GCC >= 11.0
-  * Clang >= 13.0
+.. include:: prerequisites.rst
 
-* `OneMKL <https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html>`_ (:ref:`installation details <one-mkl-install>`)
 
-To install the Python module you'll also need:
+Building and installing
+=======================
 
-* Python >= 3.7
-* A working internet connection
-
-Python build
-============
-
-To build and install the Python module, pysvs, clone the repo and run the following pip install command.
+To build and install the SVS Python module, ``pysvs``, clone the repo and run the following pip install command.
 
 .. code-block:: sh
 
     # Clone the repository
-    git clone https://github.com/IntelLabs/ScalableVectorSearch.git
+    git clone https://github.com/IntelLabs/ScalableVectorSearch
     cd ScalableVectorSearch
 
     # Install pysvs using pip
-    CC=gcc-11 CXX=g++-11 pip install bindings/python
+    pip install bindings/python
 
-If you encounter any issues with the pip install command, we suggest you follow an alternative installation procedure using
-`cibuildwheel <https://cibuildwheel.readthedocs.io/en/stable/>`_. To generate a wheel using your current version of
-Python you will need to have cibuildwheel installed as well as `docker <https://www.docker.com/>`_.
-Once those are installed, follow these steps:
+If you encounter any issues with the pip install command, please follow the :ref:`advanced installation instructions <building_python_library>`.
 
-1. Navigate to the root directory of the source and, if the ``bindings/python/_skbuild`` folder exists, remove it.
 
-2. From the root directory of the source run
+Verifying the installation
+==========================
 
-.. code-block:: sh
-
-    cibuildwheel --only $(python tools/pybuild.py) bindings/python
-
-3. Then simply run
+Run the following command to verify that SVS was successfully installed. It should print ``['native']``.
 
 .. code-block:: sh
 
-    pip install ./wheelhouse/pysvs*.whl
+    python3 -c "import pysvs; print(pysvs.available_backends())"
 
-For more details see :ref:`building_python_library`.
 
-C++ build
-==========
-SVS provides a cmake target to enable source builds against the library. See :ref:`cpp_cmake_support` for details.
+SVS search example
+******************
 
-.. _one-mkl-install:
-
-OneMKL installation
-===================
-`OneMKL <https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html>`_ can be installed as part of the
-`Intel oneAPI Base Toolkit <https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html#gs.8u2swh>`_ by following one of the methods indicated in the `oneAPI docs <https://www.intel.com/content/www/us/en/docs/oneapi/installation-guide-linux/2024-1/installation.html>`_ .
-
-For example, the following commands show how to install the OneMKL component of the Intel oneAPI Base Toolkit on a Linux
-system using the `offline installer <https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html>`_:
+In this tutorial we will showcase the most important features of SVS. The :ref:`full example <entire_example>` is available at the end of this tutorial.
+You can run it with the following commands:
 
 .. code-block:: sh
 
-    wget [link to the offline installer]
-    sudo sh [downloaded installer script] -a --components intel.oneapi.lin.mkl.devel --action install --eula accept -s
-    source /opt/intel/oneapi/setvars.sh
+    cd examples/python
+    python3 example_vamana.py
 
 
 Generating test data
@@ -113,7 +89,7 @@ Then proceed to generate the test dataset.
 
 .. _graph-building-code:
 
-Building the Index
+Building the index
 ******************
 
 Now that data has been generated, we need to construct an index over that data.
@@ -121,8 +97,6 @@ The index is a graph connecting related data vectors in such a way that searchin
 The first step is to define the hyper-parameters of the graph we wish to construct.
 Don't worry too much about selecting the correct values for these hyper-parameters right now.
 This usually involves a bit of experimentation and is dataset dependent. See :ref:`graph-build-param-setting` for details.
-
-**In Python**
 
 This is done by creating an instance of :py:class:`pysvs.VamanaBuildParameters`.
 
@@ -132,24 +106,8 @@ This is done by creating an instance of :py:class:`pysvs.VamanaBuildParameters`.
    :end-before: [build-parameters]
    :dedent: 4
 
-**In C++**
-
-.. collapse:: Click to display
-
-    This is done by creating an instance of :cpp:class:`svs::index::vamana::VamanaBuildParameters`.
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Build Parameters]
-       :end-before: [Build Parameters]
-       :dedent: 4
-
-|
-
 Now that we've established our hyper-parameters, it is time to construct the index.
 Passing the ``dims`` is optional, but may :ref:`yield performance benefits if given <static-dim>`.
-
-**In Python**
 
 We can build the index directly from the dataset file on disk
 
@@ -176,47 +134,19 @@ for details about the build function.
    :py:class:`pysvs.Vamana.build` supports building from Numpy arrays with dtypes float32, float16, int8 and uint8.
 
 
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Index Build]
-       :end-before: [Index Build]
-       :dedent: 4
-
-    Note the use of :cpp:class:`svs::VectorDataLoader` to indicate both the path to the dataset file ``data_vecs`` and the
-    :ref:`data type <supported_data_types>` of the file on disk (see :ref:`io` for supported file formats).
-    See :cpp:func:`svs::Vamana::build` for details about the build function.
-
-|
-
-Searching the Index
+Searching the index
 ********************
 
 The graph is now built and we can perform queries over the graph.
-First, we load the queries and the computed ground truth for our example dataset.
-
-**In Python**
+First, we load the queries for our example dataset.
+After searching, we compare the search results with ground truth results which
+we also load from the dataset.
 
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
    :start-after: [load-aux]
    :end-before: [load-aux]
    :dedent: 4
-
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Load Aux]
-       :end-before: [Load Aux]
-       :dedent: 4
-
-|
 
 Performing queries is easy.
 First establish a base-line search window size. This provides a parameter by which performance and accuracy can be traded.
@@ -228,8 +158,6 @@ We use the search function to find the 10 approximate nearest neighbors to each 
 Then, we compute the 10-recall at 10 of the returned neighbors, checking to confirm
 the accuracy.
 
-**In Python**
-
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
    :start-after: [perform-queries]
@@ -238,28 +166,13 @@ the accuracy.
 
 See :py:class:`pysvs.Vamana.search` for details about the search function.
 
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Perform Queries]
-       :end-before: [Perform Queries]
-       :dedent: 4
-
-    See :cpp:func:`svs::Vamana::search` for details about the search function.
-
-|
 
 .. _index_saving:
 
-Saving the Index
+Saving the index
 ****************
 
 If you are satisfied with the performance of the generated index, you can save it to disk to avoid rebuilding it in the future.
-
-**In Python**
 
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
@@ -268,20 +181,6 @@ If you are satisfied with the performance of the generated index, you can save i
    :dedent: 4
 
 See :py:func:`pysvs.Vamana.save` for details about the save function.
-
-**In C++**
-
-.. collapse:: Click to display
-
-    See :cpp:func:`svs::Vamana::save` for details about the save function.
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Saving]
-       :end-before: [Saving]
-       :dedent: 4
-
-|
 
 .. note::
 
@@ -294,15 +193,14 @@ See :py:func:`pysvs.Vamana.save` for details about the save function.
 
     This is subject to change in the future.
 
+
 .. _index_loading:
 
-Reloading a Saved Index
+Reloading a saved index
 ***********************
 
 To reload the index from file, use the corresponding constructor with the three folder names used to save the index.
 Performing queries is identical to before.
-
-**In Python**
 
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
@@ -313,33 +211,17 @@ Performing queries is identical to before.
 Note that the second argument, the one corresponding to the file for the data, requires a :py:class:`pysvs.VectorDataLoader` and
 the corresponding data type.
 
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Loading]
-       :end-before: [Loading]
-       :dedent: 4
-
-    Note that the second argument, the one corresponding to the file for the data, requires a :cpp:class:`svs::VectorDataLoader` and
-    the corresponding data type. See the :ref:`entire executable code <entire_cpp_example>` for details about the ``run_recall`` function.
-
-|
 
 .. _search_with_compression:
 
-Search using Vector Compression
+Search using vector compression
 *******************************
 
 :ref:`Vector compression <vector_compression>` can be used to speed up the search. It can be done on the fly by loading
-the index with a :py:class:`LVQLoader <pysvs.LVQLoader>` (:ref:`details for Python <python_api_loaders>`, :ref:`details for C++ <cpp_quantization_lvq>`)
+the index with a :py:class:`LVQLoader <pysvs.LVQLoader>` (:ref:`details for Python <python_api_loaders>`)
 or by :ref:`loading an index with a previously compressed dataset <loading_compressed_indices>`.
 
 See :ref:`compression-setting` for details on setting the compression parameters.
-
-**In Python**
 
 First, specify the compression loader. Specifying ``dims`` in :py:class:`pysvs.VectorDataLoader` is optional and
 :ref:`can boost performance considerably <static-dim>` (:ref:`see <static-dim-for-lvq>` for details on how to enable
@@ -359,26 +241,6 @@ Then load the index and run the search as usual.
    :end-before: [search-compressed]
    :dedent: 4
 
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Compressed Loader]
-       :end-before: [Compressed Loader]
-       :dedent: 4
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Search Compressed]
-       :end-before: [Search Compressed]
-       :dedent: 4
-
-    See the :ref:`entire executable code <entire_cpp_example>` for details about the ``run_recall`` function.
-
-|
-
 .. note::
    Vector compression is usually accompanied by an accuracy loss for the same search window size and may require
    increasing the window size to compensate.
@@ -386,33 +248,22 @@ Then load the index and run the search as usual.
 
 .. _loading_compressed_indices:
 
-Saving an Index with Compressed Vectors
+
+Saving an index with compressed vectors
 =======================================
 
 SVS has support to save and load indices with a previously compressed dataset.
-Just follow the same procedure for :ref:`saving <index_saving>` and :ref:`loading <index_loading>` indices with
-uncompressed vectors.
+The saving and loading procedures are the same as with uncompressed vectors.
 
 
-Entire Example
+.. _entire_example:
+
+Entire example
 **************
 
 This ends the example demonstrating the features of the Vamana index.
 The entire executable code is shown below.
 Please reach out with any questions.
 
-**Entire code in Python**
-
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
-
-.. _entire_cpp_example:
-
-**Entire code in C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-
-|
