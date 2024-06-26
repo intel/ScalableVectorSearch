@@ -65,6 +65,11 @@ def run_test_build_two_level4_8(index, queries, groundtruth):
 test_data_dir = None
 
 def run():
+
+    # ###
+    # Generating test data
+    # ###
+
     # [generate-dataset]
     # Create a test dataset.
     # This will create a directory "example_data_vamana" and populate it with three
@@ -84,6 +89,11 @@ def run():
         distance = pysvs.DistanceType.L2,   # The distance type to use.
     )
     # [generate-dataset]
+
+
+    # ###
+    # Building the index
+    # ###
 
     # [build-parameters]
     # Now, we can build a graph index over the data set.
@@ -116,6 +126,11 @@ def run():
     )
     # [build-index-fromNumpyArray]
 
+
+    # ###
+    # Searching the index
+    # ###
+
     # [load-aux]
     # Load the queries and ground truth.
     queries = pysvs.read_vecs(os.path.join(test_data_dir, "queries.fvecs"))
@@ -146,6 +161,11 @@ def run():
     run_test_float(index, queries, groundtruth)
     ##### End Test
 
+
+    # ###
+    # Saving the index
+    # ###
+
     # [saving-results]
     # Finally, we can save the results.
     index.save(
@@ -155,9 +175,10 @@ def run():
     )
     # [saving-results]
 
-    #####
-    ##### Loading from an existing index.
-    #####
+
+    # ###
+    # Reloading a saved index
+    # ###
 
     # [loading]
     # We can reload an index from a previously saved set of files.
@@ -202,9 +223,10 @@ def run():
     index.num_threads = 4
     # [runtime-nthreads]
 
-    #####
-    ##### Quantization.
-    #####
+
+    # ###
+    # Search using vector compression
+    # ###
 
     # [search-compressed-loader]
     data_loader = pysvs.VectorDataLoader(

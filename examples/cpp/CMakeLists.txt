@@ -20,7 +20,6 @@ function(create_simple_example exe test file)
 endfunction()
 
 # Examples
-create_simple_example(hello_world test_hello_world hello_world.cpp)
 create_simple_example(saveload test_saveload saveload.cpp)
 create_simple_example(types test_types types.cpp)
 
@@ -30,16 +29,10 @@ create_simple_example(types test_types types.cpp)
 ##### Vamana Test
 #####
 
-# Create a setup fixture to generate the test dataset from pysvs
-add_test(
-    NAME generate_dataset
-    COMMAND python ${CMAKE_CURRENT_LIST_DIR}/test_dataset.py
-)
-set_tests_properties(generate_dataset PROPERTIES FIXTURES_SETUP gen_dataset)
-
+configure_file(../../data/test_dataset/data_f32.fvecs . COPYONLY)
+configure_file(../../data/test_dataset/queries_f32.fvecs . COPYONLY)
+configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
 # The vamana test executable.
-# Have it depend on the `gen_dataset` fixture so we can generated the dataset before
-# executing the test.
 add_executable(vamana vamana.cpp)
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(vamana ${SVS_LIB} svs_compile_options svs_native_options)
@@ -47,11 +40,10 @@ add_test(
     NAME test_vamana
     COMMAND
         vamana
-        example_data_vamana/data.fvecs
-        example_data_vamana/queries.fvecs
-        example_data_vamana/groundtruth.ivecs
+        data_f32.fvecs
+        queries_f32.fvecs
+        groundtruth_euclidean.ivecs
 )
-set_tests_properties(test_vamana PROPERTIES FIXTURES_REQUIRED gen_dataset)
 
 #####
 ##### Dispatcher

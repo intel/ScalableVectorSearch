@@ -60,6 +60,9 @@ int svs_main(std::vector<std::string> args) {
     const std::string& groundtruth_vecs = args.at(3);
     //! [Argument Extraction]
 
+
+    // Building the index
+
     //! [Build Parameters]
     auto parameters = svs::index::vamana::VamanaBuildParameters{
         1.2,  // alpha
@@ -78,6 +81,9 @@ int svs_main(std::vector<std::string> args) {
     );
     //! [Index Build]
 
+
+    // Searching the index
+
     //! [Load Aux]
     // Load the queries and ground truth.
     auto queries = svs::load_data<float>(query_vecs);
@@ -88,21 +94,27 @@ int svs_main(std::vector<std::string> args) {
     index.set_search_window_size(30);
     svs::QueryResult<size_t> results = index.search(queries, 10);
     double recall = svs::k_recall_at_n(groundtruth, results);
-    check(0.8064, recall);
+    check(0.8215, recall);
     //! [Perform Queries]
 
     //! [Search Window Size]
     auto expected_recall =
-        std::map<size_t, double>({{10, 0.5337}, {20, 0.7129}, {30, 0.8064}, {40, 0.8651}});
+        std::map<size_t, double>({{10, 0.5509}, {20, 0.7281}, {30, 0.8215}, {40, 0.8788}});
     for (auto windowsize : {10, 20, 30, 40}) {
         recall = run_recall(index, queries, groundtruth, windowsize, 10, "Sweep");
         check(expected_recall.at(windowsize), recall);
     }
     //! [Search Window Size]
 
+
+    // Saving the index
+
     //! [Saving]
     index.save("example_config", "example_graph", "example_data");
     //! [Saving]
+
+
+    //Reloading a saved index
 
     //! [Loading]
     // We can reload an index from a previously saved set of files.
@@ -115,8 +127,11 @@ int svs_main(std::vector<std::string> args) {
     );
 
     recall = run_recall(index, queries, groundtruth, 30, 10, "Reload");
-    check(0.8065, recall);
+    check(0.8215, recall);
     //! [Loading]
+
+
+    // Search using vector compression
 
     //! [Compressed Loader]
     // Quantization
@@ -130,15 +145,14 @@ int svs_main(std::vector<std::string> args) {
         auto data = svs::VectorDataLoader<float, 128>("example_data").load();
         return lvq::LVQDataset<8, 0, 128>::compress(data, threadpool, padding);
     });
-    //! [Compressed Loader]
-
-    //! [Search Compressed]
     index = svs::Vamana::assemble<float>(
         "example_config", svs::GraphLoader("example_graph"), compressor, svs::DistanceL2()
     );
+    //! [Compressed Loader]
 
+    //! [Search Compressed]
     recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Load");
-    check(0.8054, recall);
+    check(0.8215, recall);
     //! [Search Compressed]
 
     //! [Build Index Compressed]
@@ -146,7 +160,7 @@ int svs_main(std::vector<std::string> args) {
     index =
         svs::Vamana::build<float>(parameters, compressor, svs::DistanceL2(), num_threads);
     recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Build");
-    check(0.8076, recall);
+    check(0.8212, recall);
     //! [Build Index Compressed]
 
     //! [Only Loading]
