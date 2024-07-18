@@ -12,4 +12,5 @@ Note that classes documented here are primarily meant to be used from C++ and ar
    :caption: Index Implementations
 
    vamana.rst
+   dynamic_vamana.rst
    flat.rst

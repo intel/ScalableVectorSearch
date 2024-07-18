@@ -7,6 +7,7 @@ The main index interfaces are listed here and in the next sections.
 Refer to this table when making decisions about which index to use.
 
 * :cpp:class:`svs::Vamana` - A graph-based similarity search engine suitable for high recall, high throughput, and low latency.
+* :cpp:class:`svs::DynamicVamana` - A dynamic graph-based similarity search engine suitable for high recall, high throughput, and low latency.
 * :cpp:class:`svs::Flat` - An exhaustive search engine.
   Provides precise results at the expense of low throughput and high latency for large datasets.
 
@@ -15,6 +16,7 @@ Contents
 
 .. toctree::
    vamana.rst
+   dynamic_vamana.rst
    flat.rst
 
 Compatible Loaders
