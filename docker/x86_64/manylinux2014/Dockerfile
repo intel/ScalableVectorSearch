@@ -1,4 +1,4 @@
-FROM quay.io/pypa/manylinux2014_x86_64:2023-03-05-271004f
+FROM quay.io/pypa/manylinux2014_x86_64:2024-07-15-c746fd8
 
 COPY ./oneAPI.repo /etc/yum.repos.d/oneAPI.repo
 
