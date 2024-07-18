@@ -25,7 +25,7 @@ SVS supports the following index types:
 
 Graphs for static datasets
 ---------------------------
-The Vamana graph (:ref:`in Python <vamana_api>`, :ref:`in C++ <vamana>`) enables fast in-memory
+The Vamana graph (:ref:`in Python <vamana_api>`, :ref:`in C++ <cpp_orchestrators_vamana>`) enables fast in-memory
 :ref:`graph-based <graph-search>` similarity search with high accuracy for static databases, where the database
 is fixed and never updated.
 
@@ -33,7 +33,7 @@ is fixed and never updated.
 
 Graphs for streaming data
 -------------------------
-The DynamicVamana graph (:ref:`in Python <dynamic_vamana_api>`) enables fast in-memory
+The DynamicVamana graph (:ref:`in Python <dynamic_vamana_api>`, :ref:`in C++ <cpp_orchestrators_dynamic_vamana>`) enables fast in-memory
 :ref:`graph-based <graph-search>` similarity search with high accuracy for streaming data, where the database is built
 dynamically by adding and removing vectors.
 
@@ -80,7 +80,7 @@ The data type for the **database vectors** is specified by the ``data_type`` arg
 
         svs::VectorDataLoader<float>("data_f32.svs")
 
-    For details on setting the query vectors data type see :ref:`cpp_orchestrators_vamana` and :ref:`cpp_orchestrators_flat`.
+    For details on setting the query vectors data type see :ref:`cpp_orchestrators`.
 
 |
 
