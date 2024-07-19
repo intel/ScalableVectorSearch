@@ -15,7 +15,7 @@ we observe up to a 32% performance speedup when using static versus dynamic dime
 
 Uncompressed data
 -----------------
-**In Python**, to add support to the pysvs module for static dimensionality for the :ref:`Vamana graph index <vamana_api>`:
+**In Python**, to add support to the svs module for static dimensionality for the :ref:`Vamana graph index <vamana_api>`:
 
 1. Define the desired dimensionality specialization in the vamana.h_ file by adding the corresponding line to the ``for_standard_specializations`` template
    indicating the desired query data type, vector data type and dimensionality (see :ref:`supported data types <supported_data_types>`).
@@ -33,7 +33,7 @@ Or use the following if also want to enable graph building directly from a Numpy
 
    X (float,   float, 96, EnableBuild::FromFileAndArray);
 
-2. :ref:`Install pysvs <install_pysvs>`.
+2. :ref:`Install svs <install_svs>`.
 
 For the :ref:`Dynamic <dynamic_vamana_api>` and :ref:`Flat <flat_api>` indices follow the same procedure with the
 dynamic_vamana.h_ and flat.cpp_ files respectively.
@@ -74,7 +74,7 @@ when using LVQ compression:
 
 2. Add the corresponding template to the ``compressed_specializations`` template in the same file.
 
-3. :ref:`Install pysvs <install_pysvs>`.
+3. :ref:`Install svs <install_svs>`.
 
 For the :ref:`DynamicVamana graph index <dynamic_vamana_api>`:
 
@@ -91,6 +91,6 @@ For the :ref:`DynamicVamana graph index <dynamic_vamana_api>`:
 
        X(DistanceIP, 4, 8, Turbo, 512);
 
-2. :ref:`Install pysvs <install_pysvs>`.
+2. :ref:`Install svs <install_svs>`.
 
 For the :ref:`Flat index <flat_api>` follow the same procedure with the flat.cpp_ file.

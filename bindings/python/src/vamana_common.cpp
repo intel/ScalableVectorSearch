@@ -9,8 +9,8 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// pysvs
-#include "pysvs/vamana_common.h"
+// python svs
+#include "svs/vamana_common.h"
 
 // svs
 #include "svs/index/vamana/index.h"
@@ -25,7 +25,7 @@
 
 namespace py = pybind11;
 
-namespace pysvs {
+namespace svs::python {
 namespace {
 
 std::string stringify_config(const svs::index::vamana::SearchBufferConfig& c) {
@@ -73,8 +73,8 @@ void wrap_search_buffer_config(py::module& m) {
         "SearchBufferConfig",
         R"(
 Size configuration for the Vamana index search buffer.`
-See also: :py:class:`pysvs.VamanaSearchParameters`,
-:py:meth:`pysvs.Vamana.search_parameters`.
+See also: :py:class:`svs.VamanaSearchParameters`,
+:py:meth:`svs.Vamana.search_parameters`.
 
 Attributes:
     search_window_size (int, read-only): The number of valid entries in the buffer
@@ -97,7 +97,7 @@ Configure with a given search window size. This constructor implicitly defaults
             py::arg("search_buffer_capacity"),
             R"(
 Configure with a given search window size and capacity.
-Raises ``pysvs.ANNException`` if ``search_buffer_capacity < search_window_size``.)"
+Raises ``svs.ANNException`` if ``search_buffer_capacity < search_window_size``.)"
         )
         .def_property_readonly(
             "search_window_size", &SearchBufferConfig::get_search_window_size
@@ -121,7 +121,7 @@ Parameters controlling recall and performance of the VamanaIndex.
 See also: :py:class:`Vamana.search_parameters`.
 
 Attributes:
-    buffer_config (:py:class:`pysvs.SearchBufferConfig`, read/write): Configuration state
+    buffer_config (:py:class:`svs.SearchBufferConfig`, read/write): Configuration state
         for the underlying search buffer.
     search_buffer_visited_set (bool, read/write): Enable/disable status of the search
         buffer visited set.
@@ -204,7 +204,7 @@ Attributes:
         will terminate early if the aggregate search time for a given setting exceeds this
         bound.
     prefetch_steps (List[int]): Steps to try when optimizing Prefetching.
-    search_buffer_optimization (:py:class:`pysvs.VamanaSearchBufferOptimization`): Setting
+    search_buffer_optimization (:py:class:`svs.VamanaSearchBufferOptimization`): Setting
         for optimizing the index search buffer.
 
         - Disable: Do not optimize the search buffer at all.
@@ -247,4 +247,4 @@ void wrap_common(py::module& m) {
 }
 
 } // namespace vamana
-} // namespace pysvs
+} // namespace svs::python

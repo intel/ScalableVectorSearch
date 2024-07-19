@@ -97,11 +97,11 @@ For example, to send all log messages to a file ``~/svslog.txt``, an application
 Logging API
 -----------
 
-Both the C++ library and ``pysvs`` provide APIs for configuring logging, with the former accepting any instance of a ``std::shared_ptr<spdlog::logger>``.
+Both the C++ library and ``svs`` provide APIs for configuring logging, with the former accepting any instance of a ``std::shared_ptr<spdlog::logger>``.
 Configuration made through the API superseded those configured using the environment variables.
 
 * :ref:`Link to C++ API <cpp_core_logging>`
-* :ref:`Link to pysvs API <python_logging>`
+* :ref:`Link to svs API <python_logging>`
 
 .. HINT::
 

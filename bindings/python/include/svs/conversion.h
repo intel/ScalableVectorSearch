@@ -9,17 +9,11 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-#include <optional>
+#pragma once
 
-namespace pysvs {
+// pybind
+#include <pybind11/pybind11.h>
 
-/// Return `true` if pysvs was build to link with MKL. Otherwise, return `false`.
-bool have_mkl();
-
-///
-/// @brief Return the number of threads used by MKL.
-///
-/// If ``have_mkl()`` returns false, return an empty optional.
-std::optional<size_t> mkl_num_threads();
-
-}
+namespace svs::python::conversion {
+void wrap(pybind11::module& m);
+} // namespace conversion

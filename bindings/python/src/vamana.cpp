@@ -9,13 +9,13 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// project local
-#include "pysvs/vamana.h"
-#include "pysvs/common.h"
-#include "pysvs/core.h"
-#include "pysvs/dispatch.h"
-#include "pysvs/manager.h"
-#include "pysvs/vamana_common.h"
+// python svs
+#include "svs/vamana.h"
+#include "svs/common.h"
+#include "svs/core.h"
+#include "svs/dispatch.h"
+#include "svs/manager.h"
+#include "svs/vamana_common.h"
 
 // svs
 #include "svs/core/data/simple.h"
@@ -48,9 +48,9 @@ namespace py = pybind11;
 namespace lvq = svs::quantization::lvq;
 namespace leanvec = svs::leanvec;
 
-using namespace pysvs::vamana_specializations;
+using namespace svs::python::vamana_specializations;
 
-namespace pysvs::vamana {
+namespace svs::python::vamana {
 namespace detail {
 
 namespace lvq = svs::quantization::lvq;
@@ -369,7 +369,7 @@ Construct a Vamana index over the given data, returning a searchable index.
 Args:
     parameters: Parameters controlling graph construction.
         See the documentation of this class.
-    py_data: The dataset to index. *NOTE*: PySVS will maintain an internal copy
+    py_data: The dataset to index. *NOTE*: SVS will maintain an internal copy
         of the dataset. This may change in future releases.
     distance_type: The distance type to use for this dataset.
     num_threads: The number of threads to use for index construction. Default: 1.
@@ -455,10 +455,10 @@ void wrap_build_from_file(py::class_<svs::Vamana>& vamana) {
 Construct a Vamana index over the given data file, returning a searchable index.
 
 Args:
-    build_parameters (:py:class:`pysvs.VamanaBuildParameters`): Hyper-parameters
+    build_parameters (:py:class:`svs.VamanaBuildParameters`): Hyper-parameters
         controlling index build.
     data_loader: The source of the data on-disk. Can either be
-        :py:class:`pysvs.DataFile` to represent a standard uncompressed dataset, or a
+        :py:class:`svs.DataFile` to represent a standard uncompressed dataset, or a
         compressed loader.
     distance_type: The similarity-function to use for this index.
     num_threads: The number of threads to use for index construction. Default: 1.
@@ -532,7 +532,7 @@ void wrap(py::module& m) {
                         "removed "
                         "from future versions of the library. Use the \"num_threads\" "
                         "keyword "
-                        "argument of \"pysvs.Vamana.build\" instead!",
+                        "argument of \"svs.Vamana.build\" instead!",
                         1
                     );
                 }
@@ -654,4 +654,4 @@ overwritten when saving the index to this directory.
     )"
     );
 }
-} // namespace pysvs::vamana
+} // namespace svs::python::vamana

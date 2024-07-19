@@ -3,7 +3,7 @@
 Flat Index
 ==========
 
-.. autoclass:: pysvs.Flat
+.. autoclass:: svs.Flat
    :members:
 
    .. automethod:: __init__

@@ -69,7 +69,7 @@ Finally, we do some argument decoding.
    :end-before: [Argument Extraction]
    :dedent: 4
 
-It is expected that the pysvs function :py:func:`pysvs.generate_test_dataset` was used
+It is expected that the svs function :py:func:`svs.generate_test_dataset` was used
 to generate the data, graph, and metdata files.
 
 Building and Index

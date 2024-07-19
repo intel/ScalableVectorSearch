@@ -1,4 +1,4 @@
-import pysvs
+import svs
 import numpy as np
 import os
 import multiprocessing as multip
@@ -11,8 +11,8 @@ class MLVQ:
         self.B1 = B1
         self.B2 = B2
         self.padding = padding
-        self.strategy = pysvs.LVQStrategy.Turbo if self.B1 == 4 and self.B2 == 8 \
-            else pysvs.LVQStrategy.Sequential
+        self.strategy = svs.LVQStrategy.Turbo if self.B1 == 4 and self.B2 == 8 \
+            else svs.LVQStrategy.Sequential
 
         if centroids is None:
             assert X is not None, 'Need to provide X to compute the centroids.'
@@ -47,7 +47,7 @@ class ExperimentalSetup:
 
 
 def svs_build_parameters(graph_max_degree, alpha, window_size=200, max_candidate_pool_size = 750):
-    buildParams = pysvs.VamanaBuildParameters(
+    buildParams = svs.VamanaBuildParameters(
         graph_max_degree=graph_max_degree,
         window_size=window_size,
         alpha=alpha,
@@ -72,21 +72,21 @@ def update_svs_LVQ_dataset_file(X, cluster_assignments, centroids, mlvq, expSetu
 
     if ids_sort is not None:
         print('Saving auxiliary files with ids reasignment...')
-        pysvs.write_vecs(X.astype('float32')[ids_sort],
+        svs.write_vecs(X.astype('float32')[ids_sort],
                          expSetup.data_compr_fname)  # These points should be in the correct order!
         save_assignments(cluster_assignments[ids_sort], expSetup.clust_assignment_fname)
     else:
         print('Saving auxiliary files without ids reasignment...')
-        pysvs.write_vecs(X.astype('float32'),
+        svs.write_vecs(X.astype('float32'),
                          expSetup.data_compr_fname)  # These points should be in the correct order!
         save_assignments(cluster_assignments, expSetup.clust_assignment_fname)
 
-    pysvs.write_vecs(centroids.astype('float32'), expSetup.centroids_fname)
+    svs.write_vecs(centroids.astype('float32'), expSetup.centroids_fname)
     print('SVS compression...')
     if not os.path.exists(expSetup.compress_datadir):
             os.makedirs(expSetup.compress_datadir)
 
-    pysvs.reproducibility.compress(pysvs.LVQLoader("", primary=mlvq.B1, residual=mlvq.B2),
+    svs.reproducibility.compress(svs.LVQLoader("", primary=mlvq.B1, residual=mlvq.B2),
                    expSetup.data_compr_fname,
                    expSetup.centroids_fname, expSetup.clust_assignment_fname,
                    expSetup.compress_datadir, expSetup.num_threads)
@@ -96,7 +96,7 @@ def save_assignments(assignments, assignment_fname):
     assignments.astype('uint64').tofile(assignment_fname)
 
 def compressed_vector_loader(dataset_path, B1, B2, padding, strategy, dims):
-    return pysvs.LVQLoader(dataset_path, primary=B1, residual=B2, strategy=strategy, padding=padding, dims=dims)
+    return svs.LVQLoader(dataset_path, primary=B1, residual=B2, strategy=strategy, padding=padding, dims=dims)
 
 def ids_for_sorting_dict(id):
     return ids_map_dict[id]
@@ -161,9 +161,9 @@ def update_and_reload_compressed_graph(X, cluster_assignments, centroids, mlvq, 
     update_svs_LVQ_dataset_file(X, cluster_assignments, centroids, mlvq, expSetup, ids_sort=ids_sort)
 
     print(f'Loading graph: {expSetup.configdir}, {expSetup.graphdir}, {expSetup.compress_datadir}')
-    index = pysvs.DynamicVamana(
+    index = svs.DynamicVamana(
         expSetup.configdir,
-        pysvs.GraphLoader(expSetup.graphdir),
+        svs.GraphLoader(expSetup.graphdir),
         compressed_vector_loader(expSetup.compress_datadir, mlvq.B1, mlvq.B2, mlvq.padding, mlvq.strategy,
                                  dims),
         expSetup.dist_type,
@@ -172,7 +172,7 @@ def update_and_reload_compressed_graph(X, cluster_assignments, centroids, mlvq, 
     return index
 
 def build_and_save(X, expSetup):
-    index = pysvs.DynamicVamana.build(
+    index = svs.DynamicVamana.build(
             expSetup.graph_build_parameters,
             X.astype('float32'),
             np.arange(X.shape[0]).astype('uint64'),
@@ -193,9 +193,9 @@ def main():
     B2 = 8
     num_threads = 72
     num_neighbors = 10
-    dist_type = pysvs.DistanceType.MIP
+    dist_type = svs.DistanceType.MIP
     graph_max_degree = 64
-    alpha = 1.2 if dist_type == pysvs.DistanceType.L2 else 0.95
+    alpha = 1.2 if dist_type == svs.DistanceType.L2 else 0.95
 
     # Auxiliary files and folder
     centroids_fname = f'{base_dir}/indices/centroids.fvecs'
@@ -212,9 +212,9 @@ def main():
                                  num_neighbors)
 
     # Load the dataset
-    X = pysvs.read_vecs(fname_dataset)
-    Q = pysvs.read_vecs(fname_queries)
-    gtruth = pysvs.read_vecs(fname_gtruth)
+    X = svs.read_vecs(fname_dataset)
+    Q = svs.read_vecs(fname_queries)
+    gtruth = svs.read_vecs(fname_gtruth)
 
     # Initialize M-LVQ
     mlvq = MLVQ(M, B1, B2, X=X)
@@ -229,7 +229,7 @@ def main():
     index.num_threads = expSetup.num_threads
     index.search_window_size = 20
     I, _ = index.search(Q, expSetup.num_neighbors)
-    recall = pysvs.k_recall_at(gtruth, I, expSetup.num_neighbors, expSetup.num_neighbors)
+    recall = svs.k_recall_at(gtruth, I, expSetup.num_neighbors, expSetup.num_neighbors)
 
     print(f'Recall: {recall}')
 

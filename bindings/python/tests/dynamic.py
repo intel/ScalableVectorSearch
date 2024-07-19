@@ -11,7 +11,7 @@
 
 # Test helper for dynamic datasets.
 import numpy as np
-import pysvs
+import svs
 
 from .common import test_data_vecs, test_queries
 
@@ -29,8 +29,8 @@ class ReferenceDataset:
         Arguments
             num_threads: The number of threads to use for groundtruth generation.
         """
-        self.raw_data = pysvs.read_vecs(test_data_vecs)
-        self.queries = pysvs.read_vecs(test_queries)
+        self.raw_data = svs.read_vecs(test_data_vecs)
+        self.queries = svs.read_vecs(test_queries)
         self.all_ids = np.arange(self.raw_data.shape[0])
         self.current_ids = set()
         self.num_threads = num_threads
@@ -75,7 +75,7 @@ class ReferenceDataset:
         sub_dataset = self.raw_data[ids_np, :]
 
         # Create the flat index.
-        index = pysvs.Flat(sub_dataset, pysvs.DistanceType.L2, self.num_threads)
+        index = svs.Flat(sub_dataset, svs.DistanceType.L2, self.num_threads)
         I, D = index.search(self.queries, num_neighbors)
         return ids_np[I]
 

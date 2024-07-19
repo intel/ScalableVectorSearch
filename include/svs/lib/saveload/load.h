@@ -802,7 +802,7 @@ check_global_version(lib::Version version, const std::filesystem::path& source) 
     if (version == lib::Version{0, 0, 1}) {
         throw ANNEXCEPTION(
             "File {} is using serialization version {}. Please upgrade using "
-            "`pysvs.upgrader.upgrade({})` and try again.",
+            "`svs.upgrader.upgrade({})` and try again.",
             source,
             version,
             source

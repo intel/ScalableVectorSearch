@@ -3,7 +3,7 @@ import unittest
 
 # [imports]
 import os
-import pysvs
+import svs
 import numpy as np
 # [imports]
 
@@ -25,7 +25,7 @@ def run_test_float(index, queries, groundtruth):
     for window_size in range(10, 50, 10):
         index.search_window_size = window_size
         I, D = index.search(queries, 10)
-        recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
+        recall = svs.k_recall_at(groundtruth, I, 10, 10)
         assert_equal(
             recall, expected[window_size], f"Standard Search Check ({window_size})"
         )
@@ -42,7 +42,7 @@ def run():
     # - queries.fvecs: The test queries.
     # - groundtruth.ivecs: The groundtruth.
     test_data_dir = "./example_data_vamana"
-    pysvs.generate_test_dataset(
+    svs.generate_test_dataset(
         10000,                      # Create 10000 vectors in the dataset.
         1000,                       # Generate 1000 query vectors.
         128,                        # Set the vector dimensionality to 128.
@@ -50,12 +50,12 @@ def run():
         data_seed = 1234,           # Random number seed for reproducibility.
         query_seed = 5678,          # Random number seed for reproducibility.
         num_threads = 4,            # Number of threads to use.
-        distance = pysvs.DistanceType.L2,   # The distance type to use.
+        distance = svs.DistanceType.L2,   # The distance type to use.
     )
     # [generate-dataset]
 
     # [build-parameters]
-    parameters = pysvs.VamanaBuildParameters(
+    parameters = svs.VamanaBuildParameters(
         graph_max_degree = 64,
         window_size = 128,
     )
@@ -63,14 +63,14 @@ def run():
 
     # [build-index]
     n = 9000
-    data = pysvs.read_vecs(os.path.join(test_data_dir, "data.fvecs"))
+    data = svs.read_vecs(os.path.join(test_data_dir, "data.fvecs"))
     idx = np.arange(data.shape[0]).astype('uint64')
 
-    index = pysvs.DynamicVamana.build(
+    index = svs.DynamicVamana.build(
         parameters,
         data[:n],
         idx[:n],
-        pysvs.DistanceType.L2,
+        svs.DistanceType.L2,
         num_threads = 4,
     )
     # [build-index]
@@ -92,8 +92,8 @@ def run():
 
     # [load-aux]
     # Load the queries and ground truth.
-    queries = pysvs.read_vecs(os.path.join(test_data_dir, "queries.fvecs"))
-    groundtruth = pysvs.read_vecs(os.path.join(test_data_dir, "groundtruth.ivecs"))
+    queries = svs.read_vecs(os.path.join(test_data_dir, "queries.fvecs"))
+    groundtruth = svs.read_vecs(os.path.join(test_data_dir, "groundtruth.ivecs"))
     # [load-aux]
 
     # [perform-queries]
@@ -102,7 +102,7 @@ def run():
     I, D = index.search(queries, 10)
 
     # Compare with the groundtruth.
-    recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
+    recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
     assert(recall == 0.8202)
     # [perform-queries]
@@ -126,13 +126,13 @@ def run():
 
     # [loading]
     # We can reload an index from a previously saved set of files.
-    index = pysvs.DynamicVamana(
+    index = svs.DynamicVamana(
         os.path.join(test_data_dir, "example_config"),
-        pysvs.GraphLoader(os.path.join(test_data_dir, "example_graph")),
-        pysvs.VectorDataLoader(
-            os.path.join(test_data_dir, "example_data"), pysvs.DataType.float32
+        svs.GraphLoader(os.path.join(test_data_dir, "example_graph")),
+        svs.VectorDataLoader(
+            os.path.join(test_data_dir, "example_data"), svs.DataType.float32
         ),
-        pysvs.DistanceType.L2,
+        svs.DistanceType.L2,
         num_threads = 4,
     )
     # [loading]
@@ -142,7 +142,7 @@ def run():
     I, D = index.search(queries, 10)
 
     # Compare with the groundtruth.
-    recall = pysvs.k_recall_at(groundtruth, I, 10, 10)
+    recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
     assert(recall == 0.8202)
 

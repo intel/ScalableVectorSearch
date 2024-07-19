@@ -10,11 +10,11 @@
 #
 
 import unittest
-import pysvs
+import svs
 
 class MKLTester(unittest.TestCase):
     def test_mkl(self):
-        if pysvs.have_mkl():
-            self.assertTrue(pysvs.mkl_num_threads() is not None)
+        if svs.have_mkl():
+            self.assertTrue(svs.mkl_num_threads() is not None)
         else:
-            self.assertTrue(pysvs.mkl_num_threads() is None)
+            self.assertTrue(svs.mkl_num_threads() is None)

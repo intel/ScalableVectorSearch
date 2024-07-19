@@ -12,8 +12,8 @@
 #include <string>
 #include <variant>
 
-// pysvs
-#include "pysvs/allocator.h"
+// python svs
+#include "svs/allocator.h"
 
 // pybind
 #include <pybind11/numpy.h>
@@ -25,7 +25,7 @@
 
 namespace py = pybind11;
 
-namespace pysvs::allocators {
+namespace svs::python::allocators {
 void wrap(pybind11::module& m) {
     // Hugepage Allocator
     // Use `std::byte` as a stand-in for various rebindings that will be used.
@@ -46,4 +46,4 @@ and how to allocate them on your system.
         return py::str("DRAM()");
     });
 }
-} // namespace pysvs::allocators
+} // namespace svs::python::allocators

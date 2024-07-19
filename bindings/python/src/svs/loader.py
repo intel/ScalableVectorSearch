@@ -24,21 +24,21 @@ def _is_quiet():
     Return whether or not backend loading should be "quiet".
     In this context, "quiet" means not warning for older architectures.
     """
-    return os.environ.get("PYSVS_QUIET", False)
+    return os.environ.get("SVS_QUIET", False)
 
 def _override_backend():
     """
     Return a manual override for the backend.
     If no override is set, return `None`.
     """
-    return os.environ.get("PYSVS_OVERRIDE_BACKEND", None)
+    return os.environ.get("SVS_OVERRIDE_BACKEND", None)
 
 
 # The name of the manifest file.
 FLAGS_MANIFEST = "flags_manifest.json" # Keep in-sync with CMakeLists.txt
 
 def _library_from_suffix(suffix):
-    return f"._pysvs_{suffix}"
+    return f"._svs_{suffix}"
 
 def _message_prehook(spec, host = cpu.host()):
     """
@@ -110,7 +110,7 @@ def available_backends():
     """
     Return a list of the available backends that where compiled when this module was built.
 
-    Each backend in the list may be used to initialize ``PYSVS_OVERRIDE_BACKEND``
+    Each backend in the list may be used to initialize ``SVS_OVERRIDE_BACKEND``
     environment variable prior to application start to override the default loading logic.
     """
     return list(_load_manifest()["libraries"].keys())
@@ -152,7 +152,7 @@ def __load_module_once__():
     global __LIBRARY__
     if __LIBRARY__ is None:
         library_name = _library_from_suffix(_find_library())
-        __LIBRARY__ = importlib.import_module(library_name, package = "pysvs")
+        __LIBRARY__ = importlib.import_module(library_name, package = "svs")
 
 def library():
     """
@@ -160,7 +160,7 @@ def library():
 
     Dynamically loading the library may trigger warnings related to correctness or
     performance. If you really **really** don't want these warnings, they can be suppressed
-    by defining the environemtn variable ``PYSVS_QUIET=YES`` prior to application start.
+    by defining the environemtn variable ``SVS_QUIET=YES`` prior to application start.
     """
     __load_module_once__()
     return __LIBRARY__

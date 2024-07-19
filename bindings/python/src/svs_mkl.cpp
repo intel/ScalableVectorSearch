@@ -9,8 +9,8 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// pysvs
-#include "pysvs/svs_mkl.h"
+// python svs
+#include "svs/svs_mkl.h"
 
 // svs
 #include "svs/lib/preprocessor.h"
@@ -21,18 +21,18 @@
 SVS_VALIDATE_BOOL_ENV(SVS_HAVE_MKL);
 #if not SVS_HAVE_MKL
 
-namespace pysvs {
+namespace svs::python {
 bool have_mkl() { return false; }
 std::optional<size_t> mkl_num_threads() { return std::nullopt; }
-} // namespace pysvs
+} // namespace svs::python
 
 #else
 
 #include <mkl.h>
 
-namespace pysvs {
+namespace svs::python {
 bool have_mkl() { return true; }
 std::optional<size_t> mkl_num_threads() { return mkl_get_max_threads(); }
-} // namespace pysvs
+} // namespace svs::python
 
 #endif

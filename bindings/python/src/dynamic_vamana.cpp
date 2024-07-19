@@ -9,13 +9,13 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// project local
-#include "pysvs/dynamic_vamana.h"
-#include "pysvs/common.h"
-#include "pysvs/core.h"
-#include "pysvs/manager.h"
-#include "pysvs/vamana.h"
-#include "pysvs/vamana_common.h"
+// python svs
+#include "svs/dynamic_vamana.h"
+#include "svs/common.h"
+#include "svs/core.h"
+#include "svs/manager.h"
+#include "svs/vamana.h"
+#include "svs/vamana_common.h"
 
 // svs
 #include "svs/extensions/vamana/lvq.h"
@@ -35,7 +35,7 @@
 /////
 
 namespace py = pybind11;
-namespace pysvs::dynamic_vamana {
+namespace svs::python::dynamic_vamana {
 
 namespace {
 
@@ -65,7 +65,7 @@ const char* BUILD_FROM_ARRAY_DOC = R"(
 Construct a Vamana index over the given data, returning a searchable index.
 
 Args:
-    data: The dataset to index. **NOTE**: PySVS will maintain an internal copy of the
+    data: The dataset to index. **NOTE**: SVS will maintain an internal copy of the
         dataset. This may change in future releases.
     parameters: Parameters controlling graph construction.
         See below for the documentation of this class.
@@ -388,4 +388,4 @@ overwritten when saving the index to this directory.
     );
 }
 
-} // namespace pysvs::dynamic_vamana
+} // namespace svs::python::dynamic_vamana

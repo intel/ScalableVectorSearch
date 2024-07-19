@@ -15,19 +15,19 @@ import unittest
 import os
 import warnings
 
-import pysvs.loader as loader
+import svs.loader as loader
 
 def set_quiet():
-    os.environ["PYSVS_QUIET"] = "YES"
+    os.environ["SVS_QUIET"] = "YES"
 
 def clear_quiet():
-    os.environ.pop("PYSVS_QUIET", None)
+    os.environ.pop("SVS_QUIET", None)
 
 def set_override(override: str):
-    os.environ["PYSVS_OVERRIDE_BACKEND"] = override
+    os.environ["SVS_OVERRIDE_BACKEND"] = override
 
 def clear_override():
-    os.environ.pop("PYSVS_OVERRIDE_BACKEND", None)
+    os.environ.pop("SVS_OVERRIDE_BACKEND", None)
 
 class LoadingTester(unittest.TestCase):
     def __unset_environment_variables__(self):
@@ -59,8 +59,8 @@ class LoadingTester(unittest.TestCase):
         self.__unset_environment_variables__()
 
     def test_suffix(self):
-        self.assertEqual(loader._library_from_suffix("native"), "._pysvs_native")
-        self.assertEqual(loader._library_from_suffix("cascadelake"), "._pysvs_cascadelake")
+        self.assertEqual(loader._library_from_suffix("native"), "._svs_native")
+        self.assertEqual(loader._library_from_suffix("cascadelake"), "._svs_cascadelake")
 
     def test_available_backends(self):
         self.assertGreaterEqual(len(loader.available_backends()), 1)

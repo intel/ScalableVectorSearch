@@ -55,7 +55,7 @@ The resulting Python wheel will be generated in the ``wheelhouse`` directory and
 
 .. code-block:: sh
 
-    pip install wheelhouse/pysvs*.whl
+    pip install wheelhouse/svs*.whl
 
 
 SVS uses C++20 and many AVX-512 hardware features to achieve performance.
@@ -72,13 +72,13 @@ The following commands will perform the **native** build, with optimizations spe
 
    cd bindings/python
    python3 setup.py bdist_wheel -- [cmake arguments] -- -j$(nproc)
-   pip install ./dist/pysvs*.whl
+   pip install ./dist/svs*.whl
 
-If the default build options are acceptable, the CMake arguments may be left empty. If you want optimizations for a different CPU than the one you are using for the build, you can specify a microarchitecture using ``PYSVS_MICROARCHS``:
+If the default build options are acceptable, the CMake arguments may be left empty. If you want optimizations for a different CPU than the one you are using for the build, you can specify a microarchitecture using ``SVS_MICROARCHS``:
 
 .. code-block:: sh
 
-   python3 setup.py bdist_wheel -- -DPYSVS_MICROARCHS=sapphirerapids -- -j$(nproc)
+   python3 setup.py bdist_wheel -- -DSVS_MICROARCHS=sapphirerapids -- -j$(nproc)
 
 
 Debug Builds
@@ -255,7 +255,7 @@ Please avoid using them.
 Details on multi-arch support
 -----------------------------
 
-The cibuildwheel environment sets the ``PYSVS_MULTIARCH`` environment variable before triggering the build of the library.
+The cibuildwheel environment sets the ``SVS_MULTIARCH`` environment variable before triggering the build of the library.
 The file ``bindings/python/setup.py`` file observes this variable and passes a list of micro-architectures to the CMake build system.
 CMake will then compiler a version of the backend shared library for each given micro-architecture using that micro-architecture name as a suffix.
 At run-time, the Python library will detect the CPU it is currently running on and attempt to load the most compatible shared libary.
@@ -280,7 +280,7 @@ The following prerequisites are required:
 * Doxygen version 1.9.2 or higher (for C++ 20 support).
   Precompiled binaries are available `at this link <https://www.doxygen.nl/download.html>`_.
 
-* The pysvs :ref:`Python module <building_python_library>` built and installed.
+* The svs :ref:`Python module <building_python_library>` built and installed.
 
 Building
 --------
@@ -293,11 +293,11 @@ Run the following series of commands to set-up and build the documentation.
     cmake .. -DSVS_BUILD_DOCS=YES -DDoxygen_ROOT="path/to/doxygen/bin"
     make
 
-Alternatively, if pysvs has been installed in a non-standard directory, the final command will be
+Alternatively, if svs has been installed in a non-standard directory, the final command will be
 
 .. code-block:: sh
 
-   PYTHONPATH="path/to/pysvs/dir" make
+   PYTHONPATH="path/to/svs/dir" make
 
 (Advanced) MKL as a Dependency
 ==============================

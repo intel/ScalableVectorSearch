@@ -16,11 +16,11 @@ This tutorial will show you how to create a dynamic index, add and remove vector
 Generating test data
 ********************
 
-We generate a sample dataset using the :py:func:`pysvs.generate_test_dataset` generation function.
+We generate a sample dataset using the :py:func:`svs.generate_test_dataset` generation function.
 This function generates a data file, a query file, and the ground truth. Note that this is randomly generated data,
 with no semantic meaning for the elements within it.
 
-We first load pysvs and other modules required for this example.
+We first load svs and other modules required for this example.
 
 .. literalinclude:: ../examples/python/example_vamana_dynamic.py
    :language: python
@@ -42,7 +42,7 @@ To construct the index we first need to define the hyper-parameters for the grap
 
 **In Python**
 
-This is done by creating an instance of :py:class:`pysvs.VamanaBuildParameters`.
+This is done by creating an instance of :py:class:`svs.VamanaBuildParameters`.
 
 .. literalinclude:: ../examples/python/example_vamana_dynamic.py
    :language: python
@@ -154,7 +154,7 @@ Performing queries is identical to before.
    :end-before: [loading]
    :dedent: 4
 
-Note that the second argument, the one corresponding to the file for the data, requires a :py:class:`pysvs.VectorDataLoader` and
+Note that the second argument, the one corresponding to the file for the data, requires a :py:class:`svs.VectorDataLoader` and
 the corresponding data type.
 
 |
@@ -252,7 +252,7 @@ the different LVQ settings in standard datasets.
 
 LVQ implementation strategy
 ***************************
-The ``strategy`` argument in the :py:class:`pysvs.LVQLoader` is of type :py:class:`pysvs.LVQStrategy`
+The ``strategy`` argument in the :py:class:`svs.LVQLoader` is of type :py:class:`svs.LVQStrategy`
 and defines the low level implementation strategy for LVQ, whether it is Turbo or Sequential. Turbo is an
 optimized implementation that brings further performance over the default (Sequential) implementation [AHBW24]_. Turbo can be used
 when using 4 bits for the primary LVQ level and it is enabled by default for that setting.
@@ -268,7 +268,7 @@ For details on the C++ implementation see :ref:`cpp_quantization_lvq`.
 
 How to Prepare Your Own Vector Dataset
 ======================================
-Preparing your own vector dataset is simple with our Python API ``pysvs``, which can
+Preparing your own vector dataset is simple with our Python API ``svs``, which can
 directly use embeddings encoded as ``numpy`` arrays.
 
 There are 3 main steps to preparing your own vector dataset, starting from the original
@@ -301,7 +301,7 @@ processing tools which will appear in the next step.
 
 .. code-block:: py
 
-    import pysvs
+    import svs
     import torch
     from transformers import AutoProcessor, CLIPProcessor, CLIPModel
 
@@ -343,7 +343,7 @@ Embed the data to generate vectors
 ----------------------------------
 We then call the CLIP method to grab the features, or vector embeddings, associated
 with the images in our list. We also convert these embeddings from torch tensors to
-numpy arrays to enable their use in pysvs.
+numpy arrays to enable their use in svs.
 
 .. code-block:: py
 
@@ -354,20 +354,20 @@ numpy arrays to enable their use in pysvs.
 Use or save the embeddings
 --------------------------
 Now that you have the embeddings as numpy arrays, you can directly pass them as
-inputs to pysvs functions. An example call to build a search index from the
+inputs to svs functions. An example call to build a search index from the
 embeddings is shown below.
 
 .. code-block:: py
 
-    index = pysvs.Vamana.build(parameters, embeddings, pysvs.DistanceType.L2)
+    index = svs.Vamana.build(parameters, embeddings, svs.DistanceType.L2)
 
 You may also save the embeddings into the commonly used vector file format ``*vecs``
-with :py:func:`pysvs.write_vecs`. A description of the ``*vecs`` file format is given
+with :py:func:`svs.write_vecs`. A description of the ``*vecs`` file format is given
 `here <http://corpus-texmex.irisa.fr/>`_.
 
 .. code-block:: py
 
-    pysvs.write_vecs(embeddings, out_file)
+    svs.write_vecs(embeddings, out_file)
 
 Other data format helper functions are described in our `I/O and Conversion Tools
 <https://intellabs.github

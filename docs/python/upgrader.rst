@@ -3,4 +3,4 @@
 Object Upgrader
 ===============
 
-.. automethod:: pysvs.upgrader.upgrade
+.. automethod:: svs.upgrader.upgrade

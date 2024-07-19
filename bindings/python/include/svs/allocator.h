@@ -14,6 +14,6 @@
 // pybind
 #include <pybind11/pybind11.h>
 
-namespace pysvs::allocators {
+namespace svs::python::allocators {
 void wrap(pybind11::module& m);
 } // namespace allocators

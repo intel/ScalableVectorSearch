@@ -55,7 +55,7 @@ def np_to_svs(nptype):
     if nptype == np.float64:
         return lib.float64
 
-    raise Exception(f"Could not convert {nptype} to a pysvs.DataType enum!");
+    raise Exception(f"Could not convert {nptype} to a svs.DataType enum!");
 
 def read_npy(filename: str):
     """
@@ -117,7 +117,7 @@ def read_vecs(filename: str):
 
 def read_svs(filename: str, dtype = np.float32):
     """
-    Read the pysvs native data file as a numpy array.
+    Read the svs native data file as a numpy array.
     *Note*: As of no, now type checking is performed. Make sure the requested type actually
     matches the contents of the file.
 

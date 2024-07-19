@@ -20,27 +20,27 @@ def target(arch):
 
 # N.B.: cibuildwheel must configure the multi-arch environment variable.
 # Also, the micro-architectures defined below should be in order of preference.
-if os.environ.get("PYSVS_MULTIARCH", None) is not None:
-    pysvs_microarchs = [
+if os.environ.get("SVS_MULTIARCH", None) is not None:
+    svs_microarchs = [
         "cascadelake",
         "x86_64_v3", # conservative base CPU for x86 CPUs.
     ]
 
     # Add the current host to the list of micro-architecture if it doesn't already exist.
-    last_target = target(pysvs_microarchs[-1])
+    last_target = target(svs_microarchs[-1])
     host_name = cpu.host().name
-    if host_name not in pysvs_microarchs and target(host_name) < last_target:
-        pysvs_microarchs.append(host_name)
+    if host_name not in svs_microarchs and target(host_name) < last_target:
+        svs_microarchs.append(host_name)
 
-    cmake_array = ";".join(pysvs_microarchs)
-    cmake_args.append(f"-DPYSVS_MICROARCHS={cmake_array}")
+    cmake_array = ";".join(svs_microarchs)
+    cmake_args.append(f"-DSVS_MICROARCHS={cmake_array}")
 
 setup(
-    name="pysvs",
+    name="svs",
     version="0.0.4",
-    packages=['pysvs'],
+    packages=['svs'],
     package_dir={'': 'src'},
-    cmake_install_dir='src/pysvs',
+    cmake_install_dir='src/svs',
     cmake_args = cmake_args,
     install_requires = [
         "numpy>=1.10.0, <2",   # keep in-sync with `pyproject.toml`

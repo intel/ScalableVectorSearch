@@ -27,7 +27,7 @@ Preamble
 ========
 
 We first need to setup the example environment.
-Following the :ref:`basic Vamana example <python_vamana_inline_example>`, we import ``pysvs`` and other required modules.
+Following the :ref:`basic Vamana example <python_vamana_inline_example>`, we import ``svs`` and other required modules.
 
 .. literalinclude:: ../../../examples/python/example_vamana_leanvec.py
    :language: python
@@ -45,7 +45,7 @@ Next, we create an example dataset.
 Constructing a LeanVec Loader
 =============================
 
-As with the :py:class:`pysvs.LVQLoader`, the :py:class:`pysvs.LeanVecLoader` can perform dynamic compression of uncompressed vectors.
+As with the :py:class:`svs.LVQLoader`, the :py:class:`svs.LeanVecLoader` can perform dynamic compression of uncompressed vectors.
 An example is shown below.
 
 .. literalinclude:: ../../../examples/python/example_vamana_leanvec.py
@@ -54,7 +54,7 @@ An example is shown below.
    :end-before: [create-loader]
    :dedent: 4
 
-In this example, we construct a :py:class:`pysvs.LeanVecLoader` with a reduced dimensionality of 128.
+In this example, we construct a :py:class:`svs.LeanVecLoader` with a reduced dimensionality of 128.
 This means that the bulk of the graph search will be done using a 128-dimensional transformation of the 256 dimensional dataset we just generated.
 Furthermore, we can choose the encodings of the primary and secondary dataset.
 The example demonstrates using LVQ8 for the primary dataset and ``float16`` for the full-dimensional secondary dataset.

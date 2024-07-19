@@ -13,9 +13,6 @@
 
 #include <pybind11/pybind11.h>
 
-// Wraps the following data structures:
-// svs::index::vamana::SearchBufferConfig
-// svs::index::vamana::VamanaSearchParameters
-namespace pysvs::vamana {
-void wrap_common(pybind11::module& m);
-}
+namespace svs::python::flat {
+void wrap(pybind11::module& m);
+} // namespace flat

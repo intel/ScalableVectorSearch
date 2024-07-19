@@ -7,14 +7,14 @@
 #include "svs/lib/saveload.h"
 #include "svs/quantization/lvq/lvq.h"
 
-#include "pysvs/core.h"
+#include "svs/core.h"
 
 // Dispatch rule for serialized objects to a VectorDataLoader.
 template <typename T, size_t N>
 struct svs::lib::DispatchConverter<
     svs::lib::SerializedObject,
-    svs::VectorDataLoader<T, N, pysvs::RebindAllocator<T>>> {
-    using To = svs::VectorDataLoader<T, N, pysvs::RebindAllocator<T>>;
+    svs::VectorDataLoader<T, N, svs::python::RebindAllocator<T>>> {
+    using To = svs::VectorDataLoader<T, N, svs::python::RebindAllocator<T>>;
 
     static int64_t match(const svs::lib::SerializedObject& object) {
         auto ex = svs::lib::try_load<svs::data::Matcher>(object);
@@ -43,9 +43,9 @@ template <
 struct svs::lib::DispatchConverter<
     svs::lib::SerializedObject,
     svs::quantization::lvq::
-        LVQLoader<Primary, Residual, Extent, Strategy, pysvs::RebindAllocator<std::byte>>> {
+        LVQLoader<Primary, Residual, Extent, Strategy, svs::python::RebindAllocator<std::byte>>> {
     using To = svs::quantization::lvq::
-        LVQLoader<Primary, Residual, Extent, Strategy, pysvs::RebindAllocator<std::byte>>;
+        LVQLoader<Primary, Residual, Extent, Strategy, svs::python::RebindAllocator<std::byte>>;
 
     using LVQStrategyDispatch = svs::quantization::lvq::LVQStrategyDispatch;
 
@@ -65,7 +65,7 @@ struct svs::lib::DispatchConverter<
         return To{
             svs::quantization::lvq::Reload{std::move(object.context().get_directory())},
             0,
-            pysvs::RebindAllocator<std::byte>()};
+            svs::python::RebindAllocator<std::byte>()};
     }
 };
 
@@ -77,13 +77,13 @@ struct svs::lib::DispatchConverter<
         SecondaryKind,
         LeanVecDims,
         Extent,
-        pysvs::RebindAllocator<std::byte>>> {
+        svs::python::RebindAllocator<std::byte>>> {
     using To = leanvec::LeanVecLoader<
         PrimaryKind,
         SecondaryKind,
         LeanVecDims,
         Extent,
-        pysvs::RebindAllocator<std::byte>>;
+        svs::python::RebindAllocator<std::byte>>;
 
     static int64_t match(const svs::lib::SerializedObject& object) {
         // TODO: Use a LoadTable directly instead of forcing reparsing every time.
@@ -103,6 +103,6 @@ struct svs::lib::DispatchConverter<
                          // matter.
             std::nullopt,
             0,
-            pysvs::RebindAllocator<std::byte>()};
+            svs::python::RebindAllocator<std::byte>()};
     }
 };

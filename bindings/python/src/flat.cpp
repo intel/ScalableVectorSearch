@@ -9,11 +9,13 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-#include "pysvs/flat.h"
-#include "pysvs/common.h"
-#include "pysvs/core.h"
-#include "pysvs/manager.h"
+// python svs
+#include "svs/flat.h"
+#include "svs/common.h"
+#include "svs/core.h"
+#include "svs/manager.h"
 
+// svs
 #include "svs/extensions/flat/lvq.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
@@ -34,7 +36,7 @@
 
 namespace py = pybind11;
 namespace lvq = svs::quantization::lvq;
-namespace pysvs::flat {
+namespace svs::python::flat {
 
 template <typename F> void for_standard_specializations(F&& f) {
 #define X(Q, T, N) f.template operator()<Q, T, N>()
@@ -159,7 +161,7 @@ void add_assemble_specialization(py::class_<svs::Flat>& flat) {
 Construct a Flat index over the given data, returning a searchable index.
 
 Args:
-    data: The dataset to index. **NOTE**: PySVS will maintain an internal copy of the
+    data: The dataset to index. **NOTE**: SVS will maintain an internal copy of the
         dataset. This may change in future releases.
     distance: The distance type to use for this dataset.
     num_threads: The number of threads to use for searching. This value can also be
@@ -279,7 +281,7 @@ Attributes:
         )
         .def("__str__", [](const svs::index::flat::FlatParameters& p) {
             return fmt::format(
-                "pysvs.{}(data_batch_size = {}, query_batch_size = {})",
+                "svs.{}(data_batch_size = {}, query_batch_size = {})",
                 detail::flat_parameters_name,
                 p.data_batch_size_,
                 p.query_batch_size_
@@ -291,12 +293,12 @@ Attributes:
         &svs::Flat::get_search_parameters,
         &svs::Flat::set_search_parameters,
         R"(
-"Read/Write (pysvs.FlatSearchParameters): Get/set the current search parameters for the
+"Read/Write (svs.FlatSearchParameters): Get/set the current search parameters for the
 index. These parameters modify and non-algorthmic properties of search (affecting
 queries-per-second).
 
-See also: `pysvs.FlatSearchParameters`.)"
+See also: `svs.FlatSearchParameters`.)"
     );
 }
 
-} // namespace pysvs::flat
+} // namespace svs::python::flat

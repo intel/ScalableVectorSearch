@@ -21,8 +21,8 @@
 #include "svs/lib/misc.h"
 #include "svs/quantization/lvq/lvq.h"
 
-// pysvs
-#include "pysvs/common.h"
+// python svs
+#include "svs/common.h"
 
 // pybind
 #include <pybind11/pybind11.h>
@@ -30,7 +30,7 @@
 // stl
 #include <filesystem>
 
-namespace pysvs {
+namespace svs::python {
 
 // Type aliases
 template <typename T> using Type = svs::lib::Type<T>;
@@ -67,8 +67,8 @@ struct AnonymousVectorData {
 
 template <typename T, size_t N>
 struct svs::lib::
-    DispatchConverter<pysvs::AnonymousVectorData, svs::data::ConstSimpleDataView<T, N>> {
-    static int64_t match(const pysvs::AnonymousVectorData& data) {
+    DispatchConverter<svs::python::AnonymousVectorData, svs::data::ConstSimpleDataView<T, N>> {
+    static int64_t match(const svs::python::AnonymousVectorData& data) {
         // Types *must* match in order to be compatible.
         if (data.type() != svs::datatype_v<T>) {
             return svs::lib::invalid_match;
@@ -80,12 +80,12 @@ struct svs::lib::
         );
     }
 
-    static svs::data::ConstSimpleDataView<T, N> convert(pysvs::AnonymousVectorData data) {
+    static svs::data::ConstSimpleDataView<T, N> convert(svs::python::AnonymousVectorData data) {
         return svs::data::ConstSimpleDataView<T, N>(data.underlying());
     }
 };
 
-namespace pysvs {
+namespace svs::python {
 
 // Standard loaders.
 using UnspecializedVectorDataLoader = svs::UnspecializedVectorDataLoader<Allocator>;
