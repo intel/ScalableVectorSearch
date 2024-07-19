@@ -3,7 +3,7 @@
 Python Logging API
 ==================
 
-In addition to the environment variable initialization described in the :ref:`top level logging documentation <logging_top>`, ``pysvs`` exposes a programatic API in the ``pysvs.logging`` submodule.
+In addition to the environment variable initialization described in the :ref:`top level logging documentation <logging_top>`, ``svs`` exposes a programatic API in the ``svs.logging`` submodule.
 
-.. automodule:: pysvs.logging
+.. automodule:: svs.logging
    :members:

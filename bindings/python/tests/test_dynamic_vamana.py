@@ -10,7 +10,7 @@
 #
 
 # unit under test
-import pysvs
+import svs
 
 # stdlib
 import unittest
@@ -37,7 +37,7 @@ class DynamicVamanaTester(unittest.TestCase):
 
     def recall_check(
             self,
-            index: pysvs.DynamicVamana,
+            index: svs.DynamicVamana,
             reference: ReferenceDataset,
             num_neighbors: int,
             expected_recall,
@@ -45,7 +45,7 @@ class DynamicVamanaTester(unittest.TestCase):
         ):
         gt = reference.ground_truth(num_neighbors)
         I, D = index.search(reference.queries, num_neighbors)
-        recall = pysvs.k_recall_at(gt, I, num_neighbors, num_neighbors)
+        recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
         print("    Recall: ", recall)
         self.assertTrue(recall < expected_recall + recall_delta)
         self.assertTrue(recall > expected_recall - recall_delta)
@@ -57,11 +57,11 @@ class DynamicVamanaTester(unittest.TestCase):
             datadir = os.path.join(tempdir, "data")
             index.save(configdir, graphdir, datadir);
 
-            reloaded = pysvs.DynamicVamana(
+            reloaded = svs.DynamicVamana(
                 configdir,
-                pysvs.GraphLoader(graphdir),
-                pysvs.VectorDataLoader(datadir, pysvs.DataType.float32),
-                pysvs.DistanceType.L2,
+                svs.GraphLoader(graphdir),
+                svs.VectorDataLoader(datadir, svs.DataType.float32),
+                svs.DistanceType.L2,
                 num_threads = 2,
             )
 
@@ -71,7 +71,7 @@ class DynamicVamanaTester(unittest.TestCase):
 
             ### Get recall with the saved search-window-size and other search parameters.
             I, D = reloaded.search(reference.queries, num_neighbors)
-            reloaded_recall = pysvs.k_recall_at(gt, I, num_neighbors, num_neighbors)
+            reloaded_recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
 
             # Because saving triggers graph compaction, we can't guarentee that the reloaded
             # recall is the same as the original index.
@@ -81,7 +81,7 @@ class DynamicVamanaTester(unittest.TestCase):
 
             # Make sure that search still works even when we set the search parameters
             # to default values.
-            reloaded.search_parameters = pysvs.VamanaSearchParameters()
+            reloaded.search_parameters = svs.VamanaSearchParameters()
             I, D = reloaded.search(reference.queries, num_neighbors)
 
     def test_loop(self):
@@ -100,17 +100,17 @@ class DynamicVamanaTester(unittest.TestCase):
         reference = ReferenceDataset(num_threads = num_threads)
         data, ids = reference.new_ids(5000)
 
-        parameters = pysvs.VamanaBuildParameters(
+        parameters = svs.VamanaBuildParameters(
             graph_max_degree = 64,
             window_size = 128,
             alpha = 1.2,
         )
 
-        index = pysvs.DynamicVamana.build(
+        index = svs.DynamicVamana.build(
             parameters,
             data,
             ids,
-            pysvs.DistanceType.L2,
+            svs.DistanceType.L2,
             num_threads = num_threads,
         )
 

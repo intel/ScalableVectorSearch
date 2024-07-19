@@ -14,7 +14,7 @@ import time
 import unittest
 import numpy as np
 
-import pysvs.common
+import svs.common
 
 # Logic for enumerating the paths to the test dataset.
 # We start with the current file and go up to the root
@@ -140,7 +140,7 @@ def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: in
 
     # Obtain the difference between the maximum and minimum values in the pre-processed
     # dataset.
-    spans = pysvs.common.get_lvq_range(original)
+    spans = svs.common.get_lvq_range(original)
 
     # Compute the max delta for each component of the dataset.
     # NOTE: We *should* divide by another factor of two here, but there are some values in

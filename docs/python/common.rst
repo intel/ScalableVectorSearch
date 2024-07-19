@@ -6,33 +6,33 @@ Common Python API
 Memory Allocators
 -----------------
 
-.. autoclass:: pysvs.DRAM
+.. autoclass:: svs.DRAM
 
 Enums
 -----
 
-.. autoclass:: pysvs.DistanceType
+.. autoclass:: svs.DistanceType
 
-.. autoclass:: pysvs.DataType
+.. autoclass:: svs.DataType
 
 .. _python_common_helpers:
 
 Helper Functions
 ----------------
 
-.. autofunction:: pysvs.read_vecs
+.. autofunction:: svs.read_vecs
 
-.. autofunction:: pysvs.write_vecs
+.. autofunction:: svs.write_vecs
 
 .. warning::
 
     The user must specify the file extension corresponding to the desired file format in the ``filename`` argument of
-    :py:func:`pysvs.write_vecs`.
+    :py:func:`svs.write_vecs`.
 
-.. autofunction:: pysvs.read_svs
+.. autofunction:: svs.read_svs
 
-.. autofunction:: pysvs.convert_fvecs_to_float16
+.. autofunction:: svs.convert_fvecs_to_float16
 
-.. autofunction:: pysvs.generate_test_dataset
+.. autofunction:: svs.generate_test_dataset
 
-.. autofunction:: pysvs.convert_vecs_to_svs
+.. autofunction:: svs.convert_vecs_to_svs

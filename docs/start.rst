@@ -11,7 +11,7 @@ more :ref:`advanced installation options <build>` are also available.
    :local:
    :depth: 2
 
-.. _install_pysvs:
+.. _install_svs:
 
 Installation
 ************
@@ -29,7 +29,7 @@ Prerequisites
 Building and installing
 =======================
 
-To build and install the SVS Python module, ``pysvs``, clone the repo and run the following pip install command.
+To build and install the SVS Python module, ``svs``, clone the repo and run the following pip install command.
 
 .. code-block:: sh
 
@@ -37,7 +37,7 @@ To build and install the SVS Python module, ``pysvs``, clone the repo and run th
     git clone https://github.com/IntelLabs/ScalableVectorSearch
     cd ScalableVectorSearch
 
-    # Install pysvs using pip
+    # Install svs using pip
     pip install bindings/python
 
 If you encounter any issues with the pip install command, please follow the :ref:`advanced installation instructions <building_python_library>`.
@@ -50,7 +50,7 @@ Run the following command to verify that SVS was successfully installed. It shou
 
 .. code-block:: sh
 
-    python3 -c "import pysvs; print(pysvs.available_backends())"
+    python3 -c "import svs; print(svs.available_backends())"
 
 
 SVS search example
@@ -68,11 +68,11 @@ You can run it with the following commands:
 Generating test data
 ********************
 
-We generate a sample dataset using the :py:func:`pysvs.generate_test_dataset` generation function.
+We generate a sample dataset using the :py:func:`svs.generate_test_dataset` generation function.
 This function generates a data file, a query file, and the ground truth. Note that this is randomly generated data,
 with no semantic meaning for the elements within it.
 
-We first load pysvs and the os module also required for this example.
+We first load svs and the os module also required for this example.
 
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
@@ -98,7 +98,7 @@ The first step is to define the hyper-parameters of the graph we wish to constru
 Don't worry too much about selecting the correct values for these hyper-parameters right now.
 This usually involves a bit of experimentation and is dataset dependent. See :ref:`graph-build-param-setting` for details.
 
-This is done by creating an instance of :py:class:`pysvs.VamanaBuildParameters`.
+This is done by creating an instance of :py:class:`svs.VamanaBuildParameters`.
 
 .. literalinclude:: ../examples/python/example_vamana.py
    :language: python
@@ -125,13 +125,13 @@ or from a Numpy array
    :end-before: [build-index-fromNumpyArray]
    :dedent: 4
 
-Note the use of :py:class:`pysvs.VectorDataLoader` to indicate both the file path and the :ref:`data type <supported_data_types>`
-of the ``fvecs`` file on disk (see :ref:`io` for supported file formats). See :py:class:`pysvs.Vamana.build`
+Note the use of :py:class:`svs.VectorDataLoader` to indicate both the file path and the :ref:`data type <supported_data_types>`
+of the ``fvecs`` file on disk (see :ref:`io` for supported file formats). See :py:class:`svs.Vamana.build`
 for details about the build function.
 
 .. note::
 
-   :py:class:`pysvs.Vamana.build` supports building from Numpy arrays with dtypes float32, float16, int8 and uint8.
+   :py:class:`svs.Vamana.build` supports building from Numpy arrays with dtypes float32, float16, int8 and uint8.
 
 
 Searching the index
@@ -164,7 +164,7 @@ the accuracy.
    :end-before: [perform-queries]
    :dedent: 4
 
-See :py:class:`pysvs.Vamana.search` for details about the search function.
+See :py:class:`svs.Vamana.search` for details about the search function.
 
 
 .. _index_saving:
@@ -180,7 +180,7 @@ If you are satisfied with the performance of the generated index, you can save i
    :end-before: [saving-results]
    :dedent: 4
 
-See :py:func:`pysvs.Vamana.save` for details about the save function.
+See :py:func:`svs.Vamana.save` for details about the save function.
 
 .. note::
 
@@ -208,7 +208,7 @@ Performing queries is identical to before.
    :end-before: [loading]
    :dedent: 4
 
-Note that the second argument, the one corresponding to the file for the data, requires a :py:class:`pysvs.VectorDataLoader` and
+Note that the second argument, the one corresponding to the file for the data, requires a :py:class:`svs.VectorDataLoader` and
 the corresponding data type.
 
 
@@ -218,12 +218,12 @@ Search using vector compression
 *******************************
 
 :ref:`Vector compression <vector_compression>` can be used to speed up the search. It can be done on the fly by loading
-the index with a :py:class:`LVQLoader <pysvs.LVQLoader>` (:ref:`details for Python <python_api_loaders>`)
+the index with a :py:class:`LVQLoader <svs.LVQLoader>` (:ref:`details for Python <python_api_loaders>`)
 or by :ref:`loading an index with a previously compressed dataset <loading_compressed_indices>`.
 
 See :ref:`compression-setting` for details on setting the compression parameters.
 
-First, specify the compression loader. Specifying ``dims`` in :py:class:`pysvs.VectorDataLoader` is optional and
+First, specify the compression loader. Specifying ``dims`` in :py:class:`svs.VectorDataLoader` is optional and
 :ref:`can boost performance considerably <static-dim>` (:ref:`see <static-dim-for-lvq>` for details on how to enable
 this functionality).
 

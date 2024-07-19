@@ -11,9 +11,11 @@
 
 #pragma once
 
-#include "pysvs/common.h"
-#include "pysvs/core.h"
+// python svs
+#include "svs/common.h"
+#include "svs/core.h"
 
+// svs
 #include "svs/index/vamana/calibrate.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/float16.h"
@@ -25,7 +27,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl/filesystem.h>
 
-namespace pysvs {
+namespace svs::python {
 namespace vamana_specializations {
 
 ///
@@ -219,13 +221,13 @@ Args:
     calibration_parameters: The hyper-parameters to use during calibration.
 
 Returns:
-    The best `pysvs.VamanaSearchParameters` found.
+    The best `svs.VamanaSearchParameters` found.
 
 The calibration routine will also configure the index with the best found parameters.
 Note that calibration will use the number of threads already assigned to the index and can
 therefore be used to tune the algorithm to different threading amounts.
 
-See also: `pysvs.VamanaCalibrationParameters`)"
+See also: `svs.VamanaCalibrationParameters`)"
     );
 }
 
@@ -253,11 +255,11 @@ A larger value will likely yield more accurate results at the cost of speed.)"
         &Manager::get_search_parameters,
         &Manager::set_search_parameters,
         R"(
-"Read/Write (pysvs.VamanaSearchParameters): Get/set the current search parameters for the
+"Read/Write (svs.VamanaSearchParameters): Get/set the current search parameters for the
 index. These parameters modify both the algorithmic properties of search (affecting recall)
 and non-algorthmic properties of search (affecting queries-per-second).
 
-See also: `pysvs.VamanaSearchParameters`.)"
+See also: `svs.VamanaSearchParameters`.)"
     );
 
     manager.def(
@@ -280,7 +282,7 @@ Calling this method should not affect recall.)"
             PyErr_WarnEx(
                 PyExc_DeprecationWarning,
                 "Direct calls to to \"visited_set_enabled\" are deprecated. Instead, "
-                "please use the \"pysvs.Vamana.search_parameters\" method to get and set "
+                "please use the \"svs.Vamana.search_parameters\" method to get and set "
                 "the search parameters used by the index.",
                 1
             );

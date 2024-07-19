@@ -9,11 +9,11 @@
 # <https://www.gnu.org/licenses/agpl-3.0.en.html>.
 #
 
-# Tests for the exported methods in the module `pysvs.common`.
+# Tests for the exported methods in the module `svs.common`.
 import tempfile
 import unittest
 import os
-import pysvs
+import svs
 
 import numpy as np
 
@@ -48,42 +48,42 @@ class CommonTester(unittest.TestCase):
     #####
 
     def test_version(self):
-        self.assertEqual(pysvs.library_version(), "v0.0.4")
+        self.assertEqual(svs.library_version(), "v0.0.4")
 
     def test_conversion(self):
         # signed
-        self.assertEqual(pysvs.np_to_svs(np.int8), pysvs.int8)
-        self.assertEqual(pysvs.np_to_svs(np.int16), pysvs.int16)
-        self.assertEqual(pysvs.np_to_svs(np.int32), pysvs.int32)
-        self.assertEqual(pysvs.np_to_svs(np.int64), pysvs.int64)
+        self.assertEqual(svs.np_to_svs(np.int8), svs.int8)
+        self.assertEqual(svs.np_to_svs(np.int16), svs.int16)
+        self.assertEqual(svs.np_to_svs(np.int32), svs.int32)
+        self.assertEqual(svs.np_to_svs(np.int64), svs.int64)
         # unsigned
-        self.assertEqual(pysvs.np_to_svs(np.uint8), pysvs.uint8)
-        self.assertEqual(pysvs.np_to_svs(np.uint16), pysvs.uint16)
-        self.assertEqual(pysvs.np_to_svs(np.uint32), pysvs.uint32)
-        self.assertEqual(pysvs.np_to_svs(np.uint64), pysvs.uint64)
+        self.assertEqual(svs.np_to_svs(np.uint8), svs.uint8)
+        self.assertEqual(svs.np_to_svs(np.uint16), svs.uint16)
+        self.assertEqual(svs.np_to_svs(np.uint32), svs.uint32)
+        self.assertEqual(svs.np_to_svs(np.uint64), svs.uint64)
         # float
-        self.assertEqual(pysvs.np_to_svs(np.float16), pysvs.float16)
-        self.assertEqual(pysvs.np_to_svs(np.float32), pysvs.float32)
-        self.assertEqual(pysvs.np_to_svs(np.float64), pysvs.float64)
+        self.assertEqual(svs.np_to_svs(np.float16), svs.float16)
+        self.assertEqual(svs.np_to_svs(np.float32), svs.float32)
+        self.assertEqual(svs.np_to_svs(np.float64), svs.float64)
 
-        # pysvs does not have 128-bit floats.
+        # svs does not have 128-bit floats.
         with self.assertRaises(Exception) as context:
-            pysvs.np_to_svs(np.float128)
+            svs.np_to_svs(np.float128)
 
     def test_random_dataset(self):
         for dtype in (np.float32, np.uint32, np.uint8):
-            x = pysvs.common.random_dataset(10000, 10, dtype = dtype, seed = 1234)
+            x = svs.common.random_dataset(10000, 10, dtype = dtype, seed = 1234)
             self.assertEqual(x.ndim, 2)
             self.assertEqual(x.shape[0], 10000)
             self.assertEqual(x.shape[1], 10)
             self.assertEqual(x.dtype, dtype)
 
             # Generate again with the same seed. Ensure the seed is propagated correctly.
-            y = pysvs.common.random_dataset(10000, 10, dtype = dtype, seed = 1234)
+            y = svs.common.random_dataset(10000, 10, dtype = dtype, seed = 1234)
             self.assertTrue(np.array_equal(x, y))
 
             # Ensure different seed yields different results.
-            z = pysvs.common.random_dataset(10000, 10, dtype = dtype, seed = 5678)
+            z = svs.common.random_dataset(10000, 10, dtype = dtype, seed = 5678)
             self.assertFalse(np.array_equal(x, z))
 
         # Deterministic random number generation.
@@ -91,7 +91,7 @@ class CommonTester(unittest.TestCase):
         # random number generation fails.
         #
         # Hopefully `RandomState` does what is says.
-        x = pysvs.common.random_dataset(1, 10, dtype = np.float32, seed = 44)
+        x = svs.common.random_dataset(1, 10, dtype = np.float32, seed = 44)
         reference = np.array([[
             -0.7506147, 1.3163574, 1.24614, -1.6049157, -1.4681437,
             -1.7150705, 1.8587837, 0.087587975, -0.052322198, 0.55547166]],
@@ -104,74 +104,74 @@ class CommonTester(unittest.TestCase):
 
         # fvecs
         file = os.path.join(self.tempdir_name, "test.fvecs")
-        x = pysvs.common.random_dataset(10000, 10, dtype = np.float32)
-        pysvs.write_vecs(x, file)
-        y = pysvs.read_vecs(file)
+        x = svs.common.random_dataset(10000, 10, dtype = np.float32)
+        svs.write_vecs(x, file)
+        y = svs.read_vecs(file)
         self.assertEqual(y.dtype, np.float32)
         self.assertTrue(np.array_equal(x, y))
         # convert to svs
-        pysvs.convert_vecs_to_svs(file, svs_file, dtype = pysvs.float32)
-        # z = pysvs.read_svs(svs_file, dtype = np.float32)
+        svs.convert_vecs_to_svs(file, svs_file, dtype = svs.float32)
+        # z = svs.read_svs(svs_file, dtype = np.float32)
         # self.assertEqual(z.dtype, np.float32)
         # self.assertTrue(np.array_equal(x, z))
 
         # ivecs
         file = os.path.join(self.tempdir_name, "test.ivecs")
-        x = pysvs.common.random_dataset(10000, 10, dtype = np.uint32)
-        pysvs.write_vecs(x, file)
-        y = pysvs.read_vecs(file)
+        x = svs.common.random_dataset(10000, 10, dtype = np.uint32)
+        svs.write_vecs(x, file)
+        y = svs.read_vecs(file)
         self.assertEqual(y.dtype, np.uint32)
         self.assertTrue(np.array_equal(x, y))
         # convert to svs
-        pysvs.convert_vecs_to_svs(file, svs_file, dtype = pysvs.uint32)
-        # z = pysvs.read_svs(svs_file, dtype = np.uint32)
+        svs.convert_vecs_to_svs(file, svs_file, dtype = svs.uint32)
+        # z = svs.read_svs(svs_file, dtype = np.uint32)
         # self.assertEqual(z.dtype, np.uint32)
         # self.assertTrue(np.array_equal(x, z))
 
         # bvecs
         file = os.path.join(self.tempdir_name, "test.bvecs")
-        x = pysvs.common.random_dataset(10000, 10, dtype = np.uint8)
-        pysvs.write_vecs(x, file)
-        # y = pysvs.read_vecs(file)
+        x = svs.common.random_dataset(10000, 10, dtype = np.uint8)
+        svs.write_vecs(x, file)
+        # y = svs.read_vecs(file)
         # self.assertEqual(y.dtype, np.uint8)
         # self.assertTrue(np.array_equal(x, y))
         # convert to svs
-        pysvs.convert_vecs_to_svs(file, svs_file, dtype = pysvs.uint8)
-        # z = pysvs.read_svs(svs_file, dtype = np.uint8)
+        svs.convert_vecs_to_svs(file, svs_file, dtype = svs.uint8)
+        # z = svs.read_svs(svs_file, dtype = np.uint8)
         # self.assertEqual(z.dtype, np.uint8)
         # self.assertTrue(np.array_equal(x, z))
 
     def test_vecs_extension_checking(self):
         # Float
-        x = pysvs.common.random_dataset(10, 128, dtype = np.float32)
+        x = svs.common.random_dataset(10, 128, dtype = np.float32)
         self.assertTrue(x.dtype == np.float32)
         self.assertRaises(
-            RuntimeError, pysvs.write_vecs, x, os.path.join(self.tempdir_name, "temp.hvecs")
+            RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.hvecs")
         );
 
         # Half
-        x = pysvs.common.random_dataset(10, 128, dtype = np.float16)
+        x = svs.common.random_dataset(10, 128, dtype = np.float16)
         self.assertTrue(x.dtype == np.float16)
         self.assertRaises(
-            RuntimeError, pysvs.write_vecs, x, os.path.join(self.tempdir_name, "temp.fvecs")
+            RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.fvecs")
         );
 
         # UInt32
-        x = pysvs.common.random_dataset(10, 128, dtype = np.uint32)
+        x = svs.common.random_dataset(10, 128, dtype = np.uint32)
         self.assertTrue(x.dtype == np.uint32)
         self.assertRaises(
-            RuntimeError, pysvs.write_vecs, x, os.path.join(self.tempdir_name, "temp.bvecs")
+            RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.bvecs")
         );
 
         # UInt8
-        x = pysvs.common.random_dataset(10, 128, dtype = np.uint8)
+        x = svs.common.random_dataset(10, 128, dtype = np.uint8)
         self.assertTrue(x.dtype == np.uint8)
         self.assertRaises(
-            RuntimeError, pysvs.write_vecs, x, os.path.join(self.tempdir_name, "temp.ivecs")
+            RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.ivecs")
         );
 
     def test_generate_test_dataset(self):
-        pysvs.generate_test_dataset(
+        svs.generate_test_dataset(
             10000,
             1000,
             10,
@@ -190,19 +190,19 @@ class CommonTester(unittest.TestCase):
         self.assertTrue(os.path.isfile(query_file))
         self.assertTrue(os.path.isfile(groundtruth_file))
 
-        data = pysvs.read_vecs(data_file)
+        data = svs.read_vecs(data_file)
         self.assertEqual(data.ndim, 2)
         self.assertEqual(data.shape[0], 10000)
         self.assertEqual(data.shape[1], 10)
         self.assertEqual(data.dtype, np.float32)
 
-        queries = pysvs.read_vecs(query_file)
+        queries = svs.read_vecs(query_file)
         self.assertEqual(queries.ndim, 2)
         self.assertEqual(queries.shape[0], 1000)
         self.assertEqual(queries.shape[1], 10)
         self.assertEqual(queries.dtype, np.float32)
 
-        groundtruth = pysvs.read_vecs(groundtruth_file)
+        groundtruth = svs.read_vecs(groundtruth_file)
         self.assertEqual(groundtruth.ndim, 2)
         self.assertEqual(groundtruth.shape[0], 1000)
         self.assertEqual(groundtruth.shape[1], 128)
@@ -236,9 +236,9 @@ class CommonTester(unittest.TestCase):
         self.assertLessEqual(expected_equal_lower, actually_equal)
 
     def test_leanvec_matrices(self):
-        data = pysvs.read_vecs(test_data_vecs)
-        queries = pysvs.read_vecs(test_queries)
-        data_matrix, query_matrix = pysvs.compute_leanvec_matrices(data, queries, 64);
+        data = svs.read_vecs(test_data_vecs)
+        queries = svs.read_vecs(test_queries)
+        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64);
 
         self.assertEqual(data_matrix.ndim, 2)
         self.assertEqual(data_matrix.shape[0], data.shape[1])
@@ -249,8 +249,8 @@ class CommonTester(unittest.TestCase):
         self.assertEqual(query_matrix.shape, data_matrix.shape)
         self.assertEqual(query_matrix.dtype, data_matrix.dtype)
 
-        test_data_matrix = pysvs.read_vecs(test_leanvec_data_matrix);
-        test_query_matrix = pysvs.read_vecs(test_leanvec_query_matrix);
+        test_data_matrix = svs.read_vecs(test_leanvec_data_matrix);
+        test_query_matrix = svs.read_vecs(test_leanvec_query_matrix);
 
         self.assertEqual(test_data_matrix.shape, data_matrix.shape)
         self.assertEqual(test_query_matrix.shape, query_matrix.shape)

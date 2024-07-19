@@ -1,5 +1,7 @@
 # SVS 0.0.4 Release Notes
 
+Note that `pysvs` was changed to `svs` since this release.
+
 ## Major Changes
 
 ### Serialization Update

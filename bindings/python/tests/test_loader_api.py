@@ -9,10 +9,10 @@
 # <https://www.gnu.org/licenses/agpl-3.0.en.html>.
 #
 
-# Tests for the Vamana index portion of the PySVS module.
+# Tests for the Vamana index portion of the SVS module.
 import unittest
 import itertools
-import pysvs
+import svs
 
 # Local dependencies
 from .common import \
@@ -28,8 +28,8 @@ class LoaderAPITester(unittest.TestCase):
     Test routines for the various loader classes.
     """
     def _get_basic_loader(self):
-        loader = pysvs.VectorDataLoader(test_data_vecs, data_type = pysvs.float32)
-        self.assertEqual(loader.data_type, pysvs.float32)
+        loader = svs.VectorDataLoader(test_data_vecs, data_type = svs.float32)
+        self.assertEqual(loader.data_type, svs.float32)
         self.assertEqual(loader.dims, 128)
         return loader
 
@@ -37,53 +37,53 @@ class LoaderAPITester(unittest.TestCase):
         loader = self._get_basic_loader()
 
         # One Level LVQ - 4 bits.
-        lvq = pysvs.LVQLoader(loader, primary = 4)
+        lvq = svs.LVQLoader(loader, primary = 4)
         self.assertEqual(lvq.dims, 128)
         self.assertEqual(lvq.primary_bits, 4)
         self.assertEqual(lvq.residual_bits, 0)
-        self.assertEqual(lvq.strategy, pysvs.LVQStrategy.Auto)
+        self.assertEqual(lvq.strategy, svs.LVQStrategy.Auto)
 
         # One Level LVQ - 8 bits.
-        lvq = pysvs.LVQLoader(
-            loader, primary = 8, strategy = pysvs.LVQStrategy.Sequential
+        lvq = svs.LVQLoader(
+            loader, primary = 8, strategy = svs.LVQStrategy.Sequential
         )
         self.assertEqual(lvq.dims, 128)
         self.assertEqual(lvq.primary_bits, 8)
         self.assertEqual(lvq.residual_bits, 0)
-        self.assertEqual(lvq.strategy, pysvs.LVQStrategy.Sequential)
+        self.assertEqual(lvq.strategy, svs.LVQStrategy.Sequential)
 
         # Two level LVQ - 4x8 bits
-        lvq = pysvs.LVQLoader(
-            loader, primary = 4, residual = 8, strategy = pysvs.LVQStrategy.Turbo
+        lvq = svs.LVQLoader(
+            loader, primary = 4, residual = 8, strategy = svs.LVQStrategy.Turbo
         )
         self.assertEqual(lvq.dims, 128)
         self.assertEqual(lvq.primary_bits, 4)
         self.assertEqual(lvq.residual_bits, 8)
-        self.assertEqual(lvq.strategy, pysvs.LVQStrategy.Turbo)
+        self.assertEqual(lvq.strategy, svs.LVQStrategy.Turbo)
 
 
         # Two level LVQ - 8x8 bits
-        lvq = pysvs.LVQLoader(loader, primary = 8, residual = 8)
+        lvq = svs.LVQLoader(loader, primary = 8, residual = 8)
         self.assertEqual(lvq.dims, 128)
         self.assertEqual(lvq.primary_bits, 8)
         self.assertEqual(lvq.residual_bits, 8)
-        self.assertEqual(lvq.strategy, pysvs.LVQStrategy.Auto)
+        self.assertEqual(lvq.strategy, svs.LVQStrategy.Auto)
 
     def test_leanvec_loader(self):
         loader = self._get_basic_loader()
 
         kinds = [
-            pysvs.LeanVecKind.lvq4,
-            pysvs.LeanVecKind.lvq8,
-            pysvs.LeanVecKind.float16,
-            pysvs.LeanVecKind.float32,
+            svs.LeanVecKind.lvq4,
+            svs.LeanVecKind.lvq8,
+            svs.LeanVecKind.float16,
+            svs.LeanVecKind.float32,
         ]
 
         alignments = [0, 32]
         dims = [64, 96]
 
         for (p, s, a, d) in itertools.product(kinds, kinds, alignments, dims):
-            leanvec = pysvs.LeanVecLoader(
+            leanvec = svs.LeanVecLoader(
                 loader,
                 d,
                 primary_kind = p,

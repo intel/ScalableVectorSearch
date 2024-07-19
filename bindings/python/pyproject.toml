@@ -24,7 +24,7 @@ dependency-versions = "pinned"
 environment.CC = "/opt/rh/devtoolset-11/root/usr/bin/cc"
 environment.CXX = "/opt/rh/devtoolset-11/root/usr/bin/c++"
 # Compile multiple versions for difference microarchitectures
-environment.PYSVS_MULTIARCH = "YES"
+environment.SVS_MULTIARCH = "YES"
 environment-pass = []
 build-verbosity = "3"
 

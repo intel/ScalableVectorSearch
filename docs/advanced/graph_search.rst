@@ -29,7 +29,7 @@ improving the accuracy at the cost of a longer search path.
 How does graph building work?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 First, we :ref:`set the hyper-parameters <graph-build-param-setting>` required to build the graph: ``alpha``,
-``graph_max_degree``, ``window_size``, ``max_candidate_pool_size`` (see :py:class:`pysvs.VamanaBuildParameters` and
+``graph_max_degree``, ``window_size``, ``max_candidate_pool_size`` (see :py:class:`svs.VamanaBuildParameters` and
 :cpp:class:`svs::index::vamana::VamanaBuildParameters` for more details).
 
 .. _graph-building-pseudocode:

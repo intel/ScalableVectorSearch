@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21) # keep in-sync with `pyproject.toml`
-project(pysvs)
+project(svs)
 
 # Install pybind11 manually for version control.
 include(FetchContent)
@@ -22,8 +22,8 @@ else()
 endif()
 
 # The micro architectures to compile for.
-if(NOT DEFINED PYSVS_MICROARCHS)
-    set(PYSVS_MICROARCHS native)
+if(NOT DEFINED SVS_MICROARCHS)
+    set(SVS_MICROARCHS native)
 endif()
 
 # Include the SVS library directly.
@@ -63,7 +63,7 @@ execute_process(
         ${FLAGS_MANIFEST_JSON}
         --compiler ${CMAKE_CXX_COMPILER_ID}
         --compiler-version ${CMAKE_CXX_COMPILER_VERSION}
-        --microarchitectures ${PYSVS_MICROARCHS}
+        --microarchitectures ${SVS_MICROARCHS}
     COMMAND_ERROR_IS_FATAL ANY
 )
 
@@ -86,8 +86,8 @@ set(CPP_FILES
 )
 
 # Generate a shared library for each target microarchitecture.
-foreach(MICRO OPT_FLAGS IN ZIP_LISTS PYSVS_MICROARCHS OPTIMIZATION_FLAGS)
-    set(LIB_NAME "_pysvs_${MICRO}")
+foreach(MICRO OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
+    set(LIB_NAME "_svs_${MICRO}")
 
     pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES})
     target_link_libraries(${LIB_NAME} PUBLIC svs::svs)
@@ -105,7 +105,7 @@ foreach(MICRO OPT_FLAGS IN ZIP_LISTS PYSVS_MICROARCHS OPTIMIZATION_FLAGS)
     )
 
     # Comunicate to the C++ library the desired name of the library
-    target_compile_options(${LIB_NAME} PRIVATE "-DPYSVS_MODULE_NAME=${LIB_NAME}")
+    target_compile_options(${LIB_NAME} PRIVATE "-DSVS_MODULE_NAME=${LIB_NAME}")
 
     # If scikit build is running the compilation process,
     if(DEFINED SKBUILD)
@@ -132,7 +132,7 @@ if(DEFINED SKBUILD)
 
     # Install header files.
     install(
-        DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/include/pysvs"
+        DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/include/svs"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
         FILES_MATCHING PATTERN "*.h"
     )
@@ -145,7 +145,7 @@ if(DEFINED SKBUILD)
     # To facilitate this, an input schema file is provided which can be matched against
     # serialized SVS objects to automatically apply apply this field.
     #
-    # Upgrading is done by ``pysvs.upgrader.upgrade``, which uses a default path to this
+    # Upgrading is done by ``svs.upgrader.upgrade``, which uses a default path to this
     # matching schema file.
     #
     # The logic here is what installs that file from the SVS repository into the Python

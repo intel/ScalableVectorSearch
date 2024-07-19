@@ -6,7 +6,7 @@ Loaders
 Uncompressed File Loaders
 -------------------------
 
-.. autoclass:: pysvs.VectorDataLoader
+.. autoclass:: svs.VectorDataLoader
    :members:
 
    .. automethod:: __init__
@@ -19,7 +19,7 @@ LVQ Loader
 The LVQ loader provides lazy compression of uncompressed data and reloading of previously
 saved LVQ data.
 
-.. autoclass:: pysvs.LVQLoader
+.. autoclass:: svs.LVQLoader
    :members:
 
    .. automethod:: __init__
@@ -31,9 +31,9 @@ The strategy argument of the LVQ loader provides a way of overriding the default
 of the packing strategy used by a LVQ backend.
 
 Note that overriding the default strategy requires the corresponding backend to
-be compiled in the `pysvs` shared library component.
+be compiled in the `svs` shared library component.
 
-.. autoclass:: pysvs.LVQStrategy
+.. autoclass:: svs.LVQStrategy
 
 LeanVecLoader
 -------------
@@ -45,12 +45,12 @@ Internally, a LeanVec dataset consists of the dimensionality reduced primary dat
 (over which the bulk of the index search is conducted) and a full dimensional secondary
 dataset used to rerank and refine candidates returned from the initial search.
 
-`pysvs` allows selection of the storage format using the :py:class:`pysvs.LeanVecKind` enum,
+`svs` allows selection of the storage format using the :py:class:`svs.LeanVecKind` enum,
 enabling `float16` and `lvq` compression for either of the primary and secondary datasets.
 
-.. autoclass:: pysvs.LeanVecLoader
+.. autoclass:: svs.LeanVecLoader
    :members:
 
    .. automethod:: __init__
 
-.. autoclass:: pysvs.LeanVecKind
+.. autoclass:: svs.LeanVecKind

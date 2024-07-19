@@ -48,9 +48,9 @@ the ground-truth nearest neighbors for a dataset.
 
 Distance functions
 ===================
-SVS supports the distance functions listed in :ref:`cpp_core_distance` (see :py:class:`pysvs.DistanceType` for the corresponding
+SVS supports the distance functions listed in :ref:`cpp_core_distance` (see :py:class:`svs.DistanceType` for the corresponding
 Python classes). The distance function is specified when the index is created by the corresponding :ref:`index constructors <index_constructors>`. In the
-case of the Vamana index, it must also be specified when the graph is built (see :py:class:`pysvs.Vamana.build` and
+case of the Vamana index, it must also be specified when the graph is built (see :py:class:`svs.Vamana.build` and
 :cpp:func:`svs::Vamana::build` for details).
 
 .. _supported_data_types:
@@ -66,9 +66,9 @@ the query in float32.
 **In Python**
 
 The data type for the **database vectors** is specified by the ``data_type`` argument when the vectors are loaded with
-:py:class:`pysvs.VectorDataLoader`. The data type for the
+:py:class:`svs.VectorDataLoader`. The data type for the
 **query vectors** is specified in the ``query_type`` argument for the corresponding index constructors
-(:py:class:`pysvs.Vamana`, :py:class:`pysvs.Flat`).
+(:py:class:`svs.Vamana`, :py:class:`svs.Flat`).
 
 **In C++**
 
@@ -87,7 +87,7 @@ The data type for the **database vectors** is specified by the ``data_type`` arg
 .. warning::
 
     This will not perform any dataset conversion. If a dataset was saved to disk as float16 data, for example,
-    then it must be loaded with ``data_type = pysvs.DataType.float16`` in Python or
+    then it must be loaded with ``data_type = svs.DataType.float16`` in Python or
     ``svs::Float16`` in C++.
 
 The supported data type combinations for (*queries*, *database vectors*) are: (*float32*, *float32*), (*float32*, *float16*),

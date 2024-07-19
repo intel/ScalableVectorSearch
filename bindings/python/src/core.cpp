@@ -9,8 +9,8 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// header
-#include "pysvs/core.h"
+// python svs
+#include "svs/core.h"
 
 // svs
 #include "svs/core/data.h"
@@ -31,7 +31,7 @@
 
 namespace py = pybind11;
 
-namespace pysvs {
+namespace svs::python {
 namespace {
 
 ///// Logging
@@ -78,7 +78,7 @@ reported.
 
 See Also
 --------
-pysvs.logging.set_level, pysvs.logging.get_level
+svs.logging.set_level, svs.logging.get_level
 )";
 
     py::enum_<Level>(logging, "level", logging_enum_description)
@@ -130,7 +130,7 @@ pysvs.logging.set_level, pysvs.logging.get_level
         R"(
 Route logging to use the specified stream. Note that setting this will supersede
 the default environment variable selection mechanism and all previous calls to
-``pysvs.logging.set_logging_stream`` and ``pysvs.logging.set_logging_file``.
+``svs.logging.set_logging_stream`` and ``svs.logging.set_logging_file``.
 )"
     );
 
@@ -145,8 +145,8 @@ Direct all logging message to the specified file. Caller must have sufficient pe
 to create the file.
 
 Note that setting this will supersede the default environment variable selection mechanism
-and all previous calls to ``pysvs.logging.set_logging_stream`` and
-``pysvs.logging.set_logging_file``.
+and all previous calls to ``svs.logging.set_logging_stream`` and
+``svs.logging.set_logging_file``.
 )"
     );
 
@@ -167,7 +167,7 @@ Requires an appropriate back-end to be compiled for all combinations of primary 
 bits.
 
 Args:
-    loader (:py:class:`pysvs.VectorDataLoader`): The uncompressed dataset to compress
+    loader (:py:class:`svs.VectorDataLoader`): The uncompressed dataset to compress
         in-memory.
     primary (int): The number of bits to use for compression in the primary dataset.
     residual (int): The number of bits to use for compression in the residual dataset.
@@ -175,7 +175,7 @@ Args:
     padding (int): The value (in bytes) to align the beginning of each compressed vectors.
         Values of 32 or 64 may offer the best performance at the cost of a lower compression
         ratio. A value of 0 implies no special alignment.
-    strategy (:py:class:`pysvs.LVQStrategy`): The packing strategy to use for the compressed
+    strategy (:py:class:`svs.LVQStrategy`): The packing strategy to use for the compressed
         codes. See the associated documenation for that enum.
 )";
 
@@ -194,7 +194,7 @@ Args:
     padding (int): The value (in bytes) to align the beginning of each compressed vectors.
         Values of 32 or 64 may offer the best performance at the cost of a lower compression
         ratio. A value of 0 implies no special alignment. Default: 0.
-    strategy (:py:class:`pysvs.LVQStrategy`): The packing strategy to use for the compressed
+    strategy (:py:class:`svs.LVQStrategy`): The packing strategy to use for the compressed
         codes. See the associated documenation for that enum.
 )";
 
@@ -204,7 +204,7 @@ Requires an appropriate back-end to be compiled for all combinations of primary 
 secondary types.
 
 Args:
-    loader (:py:class:`pysvs.VectorDataLoader`): The uncompressed original dataset.
+    loader (:py:class:`svs.VectorDataLoader`): The uncompressed original dataset.
     leanvec_dims (int): resulting value of reduced dimensionality
     primary (LeanVecKind): Type of dataset used for Primary (Default: LVQ8)
     secondary (LeanVecKind): Type of dataset used for Secondary (Default: LVQ8)
@@ -236,9 +236,9 @@ Args:
     dims (int): The number of dimensions in the original dataset.
         Default: Dynamic (any dimension).
     primary (LeanVecKind): Type of dataset used for Primary
-        Default: ``pysvs.LeanVecKind.lvq8``.
+        Default: ``svs.LeanVecKind.lvq8``.
     secondary (LeanVecKind): Type of dataset used for Secondary
-        Default: ``pysvs.LeanVecKind.LVQ8``.
+        Default: ``svs.LeanVecKind.LVQ8``.
     alignment (int):  alignement/padding used in LVQ data types. Default: 32.
 )";
 
@@ -540,7 +540,7 @@ void wrap(py::module& m) {
             py::arg("data_type") = py::none(),
             py::arg("dims") = py::none(),
             R"(
-Construct a new ``pysvs.VectorDataLoader``.
+Construct a new ``svs.VectorDataLoader``.
 
 Args:
     path (str): The path to the file to load. This can either be:
@@ -550,7 +550,7 @@ Args:
           will try to be inferred automatically. Recognized extensions: ".[b/i/f]vecs",
           ".bin", and ".svs".
 
-    data_type (:py:class:`pysvs.DataType`): The native type of the elements in the dataset.
+    data_type (:py:class:`svs.DataType`): The native type of the elements in the dataset.
     dims (int): The expected dimsionality of the dataset. While this argument is generally
         optional, providing it may yield runtime speedups.
         )"
@@ -563,7 +563,7 @@ Args:
         .def_readwrite(
             "data_type",
             &UnspecializedVectorDataLoader::type_,
-            "Read/Write (:py:class:`pysvs.DataType`): Access the assigned data type."
+            "Read/Write (:py:class:`svs.DataType`): Access the assigned data type."
         )
         .def_readwrite(
             "dims",
@@ -579,7 +579,7 @@ Args:
         py::init<std::string>(),
         py::arg("directory"),
         R"(
-Construct a new ``pysvs.GraphLoader``.
+Construct a new ``svs.GraphLoader``.
 
 Args:
     directory (str): The path to the directory where the graph is stored.
@@ -615,4 +615,4 @@ Args:
     });
 }
 } // namespace core
-} // namespace pysvs
+} // namespace svs::python

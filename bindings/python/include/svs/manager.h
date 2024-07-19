@@ -11,8 +11,8 @@
 
 #pragma once
 
-// Bindings
-#include "pysvs/common.h"
+// Python SVS Bindings
+#include "svs/common.h"
 
 // SVS
 #include "svs/orchestrators/manager.h"
@@ -24,7 +24,7 @@
 // stdlib
 #include <concepts>
 
-namespace pysvs {
+namespace svs::python {
 template <typename QueryType, typename Manager>
 pybind11::tuple py_search(
     Manager& self,

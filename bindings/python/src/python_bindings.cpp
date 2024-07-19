@@ -9,15 +9,15 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// Dependencies within the bindings directory.
-#include "pysvs/allocator.h"
-#include "pysvs/common.h"
-#include "pysvs/conversion.h"
-#include "pysvs/core.h"
-#include "pysvs/dynamic_vamana.h"
-#include "pysvs/flat.h"
-#include "pysvs/svs_mkl.h"
-#include "pysvs/vamana.h"
+// Dependencies within the python SVS bindings directory.
+#include "svs/allocator.h"
+#include "svs/common.h"
+#include "svs/conversion.h"
+#include "svs/core.h"
+#include "svs/dynamic_vamana.h"
+#include "svs/flat.h"
+#include "svs/svs_mkl.h"
+#include "svs/vamana.h"
 
 // SVS dependencies
 #include "svs/core/distance.h"
@@ -45,8 +45,8 @@
 //
 // The variable allows us to customize the name of the python module to support
 // micro-architecture versioning.
-#if !defined(PYSVS_MODULE_NAME)
-#define PYSVS_MODULE_NAME _pysvs_native
+#if !defined(SVS_MODULE_NAME)
+#define SVS_MODULE_NAME _svs_native
 #endif
 
 namespace py = pybind11;
@@ -93,25 +93,25 @@ void wrap_conversion(py::module& m) {
     });
 
     constexpr const char* docstring_proto = R"(
-Convert the vecs file (containing the specified element types) to the pysvs native format.
+Convert the vecs file (containing the specified element types) to the svs native format.
 
 Args:
     vecs_file: The source [f/h/i/b]vecs file.
-    pysvs_file: The destination native file.
-    dtype: The pysvs.DataType of the vecs file. Supported types: ({}).
+    svs_file: The destination native file.
+    dtype: The svs.DataType of the vecs file. Supported types: ({}).
 File extension type map:
 
-* fvecs = pysvs.DataType.float32
-* hvecs = pysvs.DataType.float16
-* ivecs = pysvs.DataType.uint32
-* bvecs = pysvs.DataType.uint8
+* fvecs = svs.DataType.float32
+* hvecs = svs.DataType.float16
+* ivecs = svs.DataType.uint32
+* bvecs = svs.DataType.uint8
 )";
 
     m.def(
         "convert_vecs_to_svs",
         &convert_vecs_to_svs,
         py::arg("vecs_file"),
-        py::arg("pysvs_file"),
+        py::arg("svs_file"),
         py::arg("dtype") = svs::DataType::float32,
         fmt::format(docstring_proto, svs::lib::format(supported_types)).c_str()
     );
@@ -140,13 +140,13 @@ class ScopedModuleNameOverride {
 
 } // namespace
 
-PYBIND11_MODULE(PYSVS_MODULE_NAME, m) {
+PYBIND11_MODULE(SVS_MODULE_NAME, m) {
     // Internall, the top level `__init__.py` imports everything from the C++ module named
-    // `_pysvs`.
+    // `_svs`.
     //
     // Performing the name override makes the definitions inside the C++ bindings
-    // "first class" in the top level `pysvs` module>
-    auto name_override = ScopedModuleNameOverride(m, "pysvs");
+    // "first class" in the top level `svs` module>
+    auto name_override = ScopedModuleNameOverride(m, "svs::python");
     m.doc() = "Python bindings";
     m.def(
         "library_version",
@@ -193,27 +193,27 @@ Args:
     wrap_conversion(m);
 
     // Allocators
-    pysvs::allocators::wrap(m);
+    svs::python::allocators::wrap(m);
 
     // Core data types
-    pysvs::core::wrap(m);
+    svs::python::core::wrap(m);
 
     // Dataset conversion.
-    pysvs::conversion::wrap(m);
+    svs::python::conversion::wrap(m);
 
     // mkl
-    m.def("have_mkl", &pysvs::have_mkl, "Return whether or not pysvs is linked with MKL.");
+    m.def("have_mkl", &svs::python::have_mkl, "Return whether or not svs is linked with MKL.");
     m.def(
         "mkl_num_threads",
-        &pysvs::mkl_num_threads,
-        "Return the number of threads used by MKL, or None if pysvs is not linked with MKL."
+        &svs::python::mkl_num_threads,
+        "Return the number of threads used by MKL, or None if svs is not linked with MKL."
     );
 
     ///// Indexes
     // Flat
-    pysvs::flat::wrap(m);
+    svs::python::flat::wrap(m);
 
     // Vamana
-    pysvs::vamana::wrap(m);
-    pysvs::dynamic_vamana::wrap(m);
+    svs::python::vamana::wrap(m);
+    svs::python::dynamic_vamana::wrap(m);
 }

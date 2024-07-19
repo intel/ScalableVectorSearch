@@ -9,7 +9,7 @@
 # <https://www.gnu.org/licenses/agpl-3.0.en.html>.
 #
 
-# Tests for the Vamana index portion of the PySVS module.
+# Tests for the Vamana index portion of the SVS module.
 import unittest
 import os
 import warnings
@@ -19,7 +19,7 @@ import numpy as np
 
 from tempfile import TemporaryDirectory
 
-import pysvs
+import svs
 
 # Local dependencies
 from .common import \
@@ -37,50 +37,50 @@ class ReconstructionTester(unittest.TestCase):
     """
     Test the reconstruction interface for indexex.
     """
-    def _get_loaders(self, loader: pysvs.VectorDataLoader):
-        sequential = pysvs.LVQStrategy.Sequential
-        turbo = pysvs.LVQStrategy.Turbo
+    def _get_loaders(self, loader: svs.VectorDataLoader):
+        sequential = svs.LVQStrategy.Sequential
+        turbo = svs.LVQStrategy.Turbo
 
         return [
             # Uncompressed
             loader,
             # LVQ
-            pysvs.LVQLoader(loader, primary = 8, padding = 0),
-            pysvs.LVQLoader(loader, primary = 4, padding = 0),
-            pysvs.LVQLoader(
+            svs.LVQLoader(loader, primary = 8, padding = 0),
+            svs.LVQLoader(loader, primary = 4, padding = 0),
+            svs.LVQLoader(
                 loader, primary = 4, residual = 8, strategy = sequential, padding = 0
             ),
-            pysvs.LVQLoader(
+            svs.LVQLoader(
                 loader, primary = 4, residual = 8, strategy = turbo, padding = 0
             ),
-            pysvs.LVQLoader(loader, primary = 8, residual = 8, padding = 0),
+            svs.LVQLoader(loader, primary = 8, residual = 8, padding = 0),
 
             # LeanVec
-            pysvs.LeanVecLoader(
+            svs.LeanVecLoader(
                 loader,
                 leanvec_dims = 64,
-                primary_kind = pysvs.LeanVecKind.float32,
-                secondary_kind = pysvs.LeanVecKind.float32,
+                primary_kind = svs.LeanVecKind.float32,
+                secondary_kind = svs.LeanVecKind.float32,
             ),
-            pysvs.LeanVecLoader(
+            svs.LeanVecLoader(
                 loader,
                 leanvec_dims = 64,
-                primary_kind = pysvs.LeanVecKind.lvq8,
-                secondary_kind = pysvs.LeanVecKind.lvq8,
+                primary_kind = svs.LeanVecKind.lvq8,
+                secondary_kind = svs.LeanVecKind.lvq8,
                 alignment = 0
             ),
-            pysvs.LeanVecLoader(
+            svs.LeanVecLoader(
                 loader,
                 leanvec_dims = 64,
-                primary_kind = pysvs.LeanVecKind.lvq8,
-                secondary_kind = pysvs.LeanVecKind.float16,
+                primary_kind = svs.LeanVecKind.lvq8,
+                secondary_kind = svs.LeanVecKind.float16,
                 alignment = 0
             ),
         ]
 
-    def _test_misc(self, loader: pysvs.VectorDataLoader, data):
+    def _test_misc(self, loader: svs.VectorDataLoader, data):
         num_points = data.shape[0]
-        vamana = pysvs.Vamana(test_vamana_config, test_graph, loader)
+        vamana = svs.Vamana(test_vamana_config, test_graph, loader)
 
         # Throw exception on out-of-bounds
         with self.assertRaises(Exception) as context:
@@ -103,9 +103,9 @@ class ReconstructionTester(unittest.TestCase):
             vamana.reconstruct(np.zeros((10, 10), dtype = np.uint64)).shape == (10, 10, d)
         )
 
-    def _compare_lvq(self, data, reconstructed, loader: pysvs.LVQLoader):
+    def _compare_lvq(self, data, reconstructed, loader: svs.LVQLoader):
         print(f"LVQ: primary = {loader.primary_bits}, residual = {loader.residual_bits}")
-        self.assertTrue(isinstance(loader, pysvs.LVQLoader))
+        self.assertTrue(isinstance(loader, svs.LVQLoader))
         self.assertTrue(test_close_lvq(
             data,
             reconstructed,
@@ -113,25 +113,25 @@ class ReconstructionTester(unittest.TestCase):
             residual_bits = loader.residual_bits
         ))
 
-    def _compare_leanvec(self, data, reconstructed, loader: pysvs.LeanVecLoader):
-        self.assertTrue(isinstance(loader, pysvs.LeanVecLoader))
+    def _compare_leanvec(self, data, reconstructed, loader: svs.LeanVecLoader):
+        self.assertTrue(isinstance(loader, svs.LeanVecLoader))
         secondary_kind = loader.secondary_kind
-        if secondary_kind == pysvs.LeanVecKind.float32:
+        if secondary_kind == svs.LeanVecKind.float32:
             self.assertTrue(np.array_equal(data, reconstructed))
-        elif secondary_kind == pysvs.LeanVecKind.float16:
+        elif secondary_kind == svs.LeanVecKind.float16:
             self.assertTrue(np.allclose(data, reconstructed))
-        elif secondary_kind == pysvs.LeanVecKind.lvq4:
+        elif secondary_kind == svs.LeanVecKind.lvq4:
             self.assertTrue(test_close_lvq(data, reconstructed, primary_bits = 4))
-        elif secondary_kind == pysvs.LeanVecKind.lvq8:
+        elif secondary_kind == svs.LeanVecKind.lvq8:
             self.assertTrue(test_close_lvq(data, reconstructed, primary_bits = 8))
         else:
             raise Exception(f"Unknown leanvec kind {secondary_kind}")
 
     def test_reconstruction(self):
-        default_loader = pysvs.VectorDataLoader(test_data_svs, pysvs.DataType.float32)
+        default_loader = svs.VectorDataLoader(test_data_svs, svs.DataType.float32)
         all_loaders = self._get_loaders(default_loader)
 
-        data = pysvs.read_vecs(test_data_vecs)
+        data = svs.read_vecs(test_data_vecs)
 
         # Test the error handling separately.
         self._test_misc(default_loader, data)
@@ -142,14 +142,14 @@ class ReconstructionTester(unittest.TestCase):
         shuffled_data = data[all_ids]
 
         for loader in all_loaders:
-            vamana = pysvs.Vamana(test_vamana_config, test_graph, loader)
+            vamana = svs.Vamana(test_vamana_config, test_graph, loader)
             r = vamana.reconstruct(all_ids)
 
-            if isinstance(loader, pysvs.VectorDataLoader):
+            if isinstance(loader, svs.VectorDataLoader):
                 self.assertTrue(np.array_equal(shuffled_data, r))
-            elif isinstance(loader, pysvs.LVQLoader):
+            elif isinstance(loader, svs.LVQLoader):
                 self._compare_lvq(shuffled_data, r, loader)
-            elif isinstance(loader, pysvs.LeanVecLoader):
+            elif isinstance(loader, svs.LeanVecLoader):
                 self._compare_leanvec(shuffled_data, r, loader)
             else:
                 raise Exception(f"Unhandled loader kind: {loader}")

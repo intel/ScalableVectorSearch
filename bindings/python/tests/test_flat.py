@@ -9,9 +9,9 @@
 # <https://www.gnu.org/licenses/agpl-3.0.en.html>.
 #
 
-# Tests for the Flat index portion of the PySVS module.
+# Tests for the Flat index portion of the SVS module.
 import unittest
-import pysvs
+import svs
 
 import numpy as np
 
@@ -37,22 +37,22 @@ class FlatTester(unittest.TestCase):
     library.
     """
 
-    def _loaders(self, file: pysvs.VectorDataLoader):
+    def _loaders(self, file: svs.VectorDataLoader):
         """
         Return a list of loaders to test with exhaustive search.
         Each entry in the list contains a tuple `(loader, recall_dict)` where
-        * `loader`: The actual PYSVS compressed loader object.
+        * `loader`: The actual SVS compressed loader object.
         * `recall_dict`: A dictionary mapping distance type to expected recall after the
            exhaustive search.
         """
         return [
             (file, {
-                pysvs.DistanceType.L2: 1.0,
-                pysvs.DistanceType.MIP: 1.0,
+                svs.DistanceType.L2: 1.0,
+                svs.DistanceType.MIP: 1.0,
             }),
-            (pysvs.LVQ8(file, 0), {
-                pysvs.DistanceType.L2: 0.99217,
-                pysvs.DistanceType.MIP: 0.99232,
+            (svs.LVQ8(file, 0), {
+                svs.DistanceType.L2: 0.99217,
+                svs.DistanceType.MIP: 0.99232,
             }),
         ]
 
@@ -60,7 +60,7 @@ class FlatTester(unittest.TestCase):
         """
         Perform a series of tests on a Flat index to test its conformance to expectations.
         Parameters:
-            - `flat`: A pysvs.Flat index manager.
+            - `flat`: A svs.Flat index manager.
             - `queries`: The set of queries.
             - `groundtruth`: The groundtruth for these queries.
 
@@ -96,7 +96,7 @@ class FlatTester(unittest.TestCase):
         # Test string formatting.
         self.assertEqual(
             str(q),
-            "pysvs.FlatSearchParameters(data_batch_size = 0, query_batch_size = 0)"
+            "svs.FlatSearchParameters(data_batch_size = 0, query_batch_size = 0)"
         )
 
         # Test querying.
@@ -107,21 +107,21 @@ class FlatTester(unittest.TestCase):
         # Compute the recall - should be almost exact.
         # The reason it isn't precisely exact is due to how ties are handled at the very
         # end of the returned neighbor list.
-        recall = pysvs.k_recall_at(groundtruth, results[0], num_neighbors, num_neighbors)
+        recall = svs.k_recall_at(groundtruth, results[0], num_neighbors, num_neighbors)
         print(f"Flat. Expected {expected_recall}. Got {recall}.")
         self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.0001))
         # test_threading(flat, queries, num_neighbors)
 
-    def _do_test_from_file(self, distance: pysvs.DistanceType, queries, groundtruth):
+    def _do_test_from_file(self, distance: svs.DistanceType, queries, groundtruth):
         # Load the index from files.
         num_threads = 2
         loaders = self._loaders(
-            pysvs.VectorDataLoader(
-                test_data_svs, pysvs.DataType.float32, dims = test_data_dims
+            svs.VectorDataLoader(
+                test_data_svs, svs.DataType.float32, dims = test_data_dims
             )
         );
         for loader, recall in loaders:
-            index = pysvs.Flat(
+            index = svs.Flat(
                 loader,
                 distance = distance,
                 num_threads = num_threads
@@ -134,42 +134,42 @@ class FlatTester(unittest.TestCase):
         """
         Test basic querying.
         """
-        queries = pysvs.read_vecs(test_queries)
+        queries = svs.read_vecs(test_queries)
         # Euclidean Distance
         self._do_test_from_file(
-            pysvs.DistanceType.L2,
+            svs.DistanceType.L2,
             queries,
-            pysvs.read_vecs(test_groundtruth_l2)
+            svs.read_vecs(test_groundtruth_l2)
         )
         # Inner Product
         self._do_test_from_file(
-            pysvs.DistanceType.MIP,
+            svs.DistanceType.MIP,
             queries,
-            pysvs.read_vecs(test_groundtruth_mip)
+            svs.read_vecs(test_groundtruth_mip)
         )
 
     def test_from_array(self):
-        data_f32 = pysvs.read_vecs(test_data_vecs)
-        queries_f32 = pysvs.read_vecs(test_queries)
-        groundtruth = pysvs.read_vecs(test_groundtruth_l2)
+        data_f32 = svs.read_vecs(test_data_vecs)
+        queries_f32 = svs.read_vecs(test_queries)
+        groundtruth = svs.read_vecs(test_groundtruth_l2)
 
         # Test `float32`
         print("Flat, From Array, Float32")
-        flat = pysvs.Flat(data_f32, pysvs.DistanceType.L2)
+        flat = svs.Flat(data_f32, svs.DistanceType.L2)
         self._do_test(flat, queries_f32, groundtruth)
 
         # Test `float16`
         print("Flat, From Array, Float16")
         data_f16 = data_f32.astype('float16')
         queries_f16 = queries_f32.astype('float16')
-        flat = pysvs.Flat(data_f16, pysvs.DistanceType.L2)
+        flat = svs.Flat(data_f16, svs.DistanceType.L2)
         self._do_test(flat, queries_f16, groundtruth)
 
         # Test `int8`
         print("Flat, From Array, Int8")
         data_i8 = data_f32.astype('int8')
         queries_i8 = queries_f32.astype('int8')
-        flat = pysvs.Flat(data_i8, pysvs.DistanceType.L2)
+        flat = svs.Flat(data_i8, svs.DistanceType.L2)
         self._do_test(flat, queries_i8, groundtruth)
 
         # Test 'uint8'
@@ -179,5 +179,5 @@ class FlatTester(unittest.TestCase):
         print("Flat, From Array, UInt8")
         data_u8 = (data_f32 + 128).astype('uint8')
         queries_u8 = (queries_f32 + 128).astype('uint8')
-        flat = pysvs.Flat(data_u8, pysvs.DistanceType.L2)
+        flat = svs.Flat(data_u8, svs.DistanceType.L2)
         self._do_test(flat, queries_u8, groundtruth)

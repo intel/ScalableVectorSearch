@@ -42,7 +42,7 @@ template <> struct npy_format_descriptor<svs::Float16> {
 };
 } // namespace pybind11::detail
 
-namespace pysvs {
+namespace svs::python {
 
 const size_t Dynamic = svs::Dynamic;
 
