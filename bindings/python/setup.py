@@ -36,7 +36,7 @@ if os.environ.get("SVS_MULTIARCH", None) is not None:
     cmake_args.append(f"-DSVS_MICROARCHS={cmake_array}")
 
 setup(
-    name="svs",
+    name="scalable-vector-search",
     version="0.0.4",
     packages=['svs'],
     package_dir={'': 'src'},
