@@ -29,7 +29,7 @@ Prerequisites
 Building and installing
 =======================
 
-To build and install the SVS Python module, ``svs``, clone the repo and run the following pip install command.
+To build and install the SVS Python module, clone the repo and run the following pip install command.
 
 .. code-block:: sh
 
