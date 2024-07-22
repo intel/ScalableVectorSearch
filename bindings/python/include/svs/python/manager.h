@@ -11,8 +11,8 @@
 
 #pragma once
 
-// Python SVS Bindings
-#include "svs/common.h"
+// SVS python bindings
+#include "svs/python/common.h"
 
 // SVS
 #include "svs/orchestrators/manager.h"
@@ -133,4 +133,4 @@ template <typename Manager>
 void add_reconstruct_interface(pybind11::class_<Manager>& manager) {
     manager.def("reconstruct", &detail::reconstruct<Manager>, pybind11::arg("ids"));
 }
-}
+} // namespace svs::python

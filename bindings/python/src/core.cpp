@@ -9,8 +9,8 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// python svs
-#include "svs/core.h"
+// svs python bindings
+#include "svs/python/core.h"
 
 // svs
 #include "svs/core/data.h"

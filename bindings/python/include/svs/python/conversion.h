@@ -14,6 +14,6 @@
 // pybind
 #include <pybind11/pybind11.h>
 
-namespace svs::python::allocators {
+namespace svs::python::conversion {
 void wrap(pybind11::module& m);
-} // namespace allocators
+} // namespace svs::python::conversion

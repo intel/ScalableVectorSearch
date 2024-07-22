@@ -9,13 +9,13 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// python svs
-#include "svs/vamana.h"
-#include "svs/common.h"
-#include "svs/core.h"
-#include "svs/dispatch.h"
-#include "svs/manager.h"
-#include "svs/vamana_common.h"
+// svs python bindings
+#include "svs/python/vamana.h"
+#include "svs/python/common.h"
+#include "svs/python/core.h"
+#include "svs/python/dispatch.h"
+#include "svs/python/manager.h"
+#include "svs/python/vamana_common.h"
 
 // svs
 #include "svs/core/data/simple.h"
