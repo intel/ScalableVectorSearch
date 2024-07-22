@@ -11,7 +11,10 @@
 
 #pragma once
 
-// quantization
+// svs python bindings
+#include "svs/python/common.h"
+
+// svs
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
@@ -20,9 +23,6 @@
 #include "svs/lib/meta.h"
 #include "svs/lib/misc.h"
 #include "svs/quantization/lvq/lvq.h"
-
-// python svs
-#include "svs/common.h"
 
 // pybind
 #include <pybind11/pybind11.h>
@@ -63,11 +63,12 @@ struct AnonymousVectorData {
     svs::AnonymousArray<2> underlying() const { return array_; }
 };
 
-}
+} // namespace svs::python
 
 template <typename T, size_t N>
-struct svs::lib::
-    DispatchConverter<svs::python::AnonymousVectorData, svs::data::ConstSimpleDataView<T, N>> {
+struct svs::lib::DispatchConverter<
+    svs::python::AnonymousVectorData,
+    svs::data::ConstSimpleDataView<T, N>> {
     static int64_t match(const svs::python::AnonymousVectorData& data) {
         // Types *must* match in order to be compatible.
         if (data.type() != svs::datatype_v<T>) {
@@ -80,7 +81,8 @@ struct svs::lib::
         );
     }
 
-    static svs::data::ConstSimpleDataView<T, N> convert(svs::python::AnonymousVectorData data) {
+    static svs::data::ConstSimpleDataView<T, N>
+    convert(svs::python::AnonymousVectorData data) {
         return svs::data::ConstSimpleDataView<T, N>(data.underlying());
     }
 };
@@ -132,4 +134,4 @@ using LeanVec = svs::leanvec::ProtoLeanVecLoader<Allocator>;
 namespace core {
 void wrap(pybind11::module& m);
 } // namespace core
-}
+} // namespace svs::python

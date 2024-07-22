@@ -9,10 +9,10 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// python svs
-#include "svs/conversion.h"
-#include "svs/common.h"
-#include "svs/core.h"
+// svs python bindings
+#include "svs/python/conversion.h"
+#include "svs/python/common.h"
+#include "svs/python/core.h"
 
 // svs
 #include "svs/quantization/lvq/lvq.h"

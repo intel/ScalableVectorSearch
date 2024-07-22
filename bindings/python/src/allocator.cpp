@@ -12,8 +12,8 @@
 #include <string>
 #include <variant>
 
-// python svs
-#include "svs/allocator.h"
+// svs python bindings
+#include "svs/python/allocator.h"
 
 // pybind
 #include <pybind11/numpy.h>

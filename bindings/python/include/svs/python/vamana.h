@@ -11,9 +11,9 @@
 
 #pragma once
 
-// python svs
-#include "svs/common.h"
-#include "svs/core.h"
+// svs python bindings
+#include "svs/python/common.h"
+#include "svs/python/core.h"
 
 // svs
 #include "svs/index/vamana/calibrate.h"
@@ -309,4 +309,4 @@ Calling this method should not affect recall.)"
 
 void wrap(pybind11::module& m);
 } // namespace vamana
-}
+} // namespace svs::python

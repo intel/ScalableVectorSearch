@@ -1,13 +1,14 @@
 #pragma once
 
+// svs python bindings
+#include "svs/python/core.h"
+
 // svs
 #include "svs/core/data.h"
 #include "svs/leanvec/leanvec.h"
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/saveload.h"
 #include "svs/quantization/lvq/lvq.h"
-
-#include "svs/core.h"
 
 // Dispatch rule for serialized objects to a VectorDataLoader.
 template <typename T, size_t N>
@@ -42,10 +43,18 @@ template <
     svs::quantization::lvq::LVQPackingStrategy Strategy>
 struct svs::lib::DispatchConverter<
     svs::lib::SerializedObject,
-    svs::quantization::lvq::
-        LVQLoader<Primary, Residual, Extent, Strategy, svs::python::RebindAllocator<std::byte>>> {
-    using To = svs::quantization::lvq::
-        LVQLoader<Primary, Residual, Extent, Strategy, svs::python::RebindAllocator<std::byte>>;
+    svs::quantization::lvq::LVQLoader<
+        Primary,
+        Residual,
+        Extent,
+        Strategy,
+        svs::python::RebindAllocator<std::byte>>> {
+    using To = svs::quantization::lvq::LVQLoader<
+        Primary,
+        Residual,
+        Extent,
+        Strategy,
+        svs::python::RebindAllocator<std::byte>>;
 
     using LVQStrategyDispatch = svs::quantization::lvq::LVQStrategyDispatch;
 

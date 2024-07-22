@@ -11,8 +11,9 @@
 
 #pragma once
 
+// pybind
 #include <pybind11/pybind11.h>
 
-namespace svs::python::flat {
+namespace svs::python::allocators {
 void wrap(pybind11::module& m);
-} // namespace flat
+} // namespace svs::python::allocators

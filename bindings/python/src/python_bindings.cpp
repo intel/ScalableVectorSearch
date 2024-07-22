@@ -10,14 +10,14 @@
  */
 
 // Dependencies within the python SVS bindings directory.
-#include "svs/allocator.h"
-#include "svs/common.h"
-#include "svs/conversion.h"
-#include "svs/core.h"
-#include "svs/dynamic_vamana.h"
-#include "svs/flat.h"
-#include "svs/svs_mkl.h"
-#include "svs/vamana.h"
+#include "svs/python/allocator.h"
+#include "svs/python/common.h"
+#include "svs/python/conversion.h"
+#include "svs/python/core.h"
+#include "svs/python/dynamic_vamana.h"
+#include "svs/python/flat.h"
+#include "svs/python/svs_mkl.h"
+#include "svs/python/vamana.h"
 
 // SVS dependencies
 #include "svs/core/distance.h"
@@ -202,7 +202,9 @@ Args:
     svs::python::conversion::wrap(m);
 
     // mkl
-    m.def("have_mkl", &svs::python::have_mkl, "Return whether or not svs is linked with MKL.");
+    m.def(
+        "have_mkl", &svs::python::have_mkl, "Return whether or not svs is linked with MKL."
+    );
     m.def(
         "mkl_num_threads",
         &svs::python::mkl_num_threads,

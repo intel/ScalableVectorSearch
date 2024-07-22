@@ -240,4 +240,4 @@ transform_optional(F&& f, const std::optional<T>& x) {
     return std::optional<detail::and_then_return_t<F, const T&>>(f(*x));
 }
 
-}
+} // namespace svs::python

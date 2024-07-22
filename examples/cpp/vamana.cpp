@@ -60,7 +60,6 @@ int svs_main(std::vector<std::string> args) {
     const std::string& groundtruth_vecs = args.at(3);
     //! [Argument Extraction]
 
-
     // Building the index
 
     //! [Build Parameters]
@@ -80,7 +79,6 @@ int svs_main(std::vector<std::string> args) {
         parameters, svs::VectorDataLoader<float>(data_vecs), svs::DistanceL2(), num_threads
     );
     //! [Index Build]
-
 
     // Searching the index
 
@@ -106,15 +104,13 @@ int svs_main(std::vector<std::string> args) {
     }
     //! [Search Window Size]
 
-
     // Saving the index
 
     //! [Saving]
     index.save("example_config", "example_graph", "example_data");
     //! [Saving]
 
-
-    //Reloading a saved index
+    // Reloading a saved index
 
     //! [Loading]
     // We can reload an index from a previously saved set of files.
@@ -129,7 +125,6 @@ int svs_main(std::vector<std::string> args) {
     recall = run_recall(index, queries, groundtruth, 30, 10, "Reload");
     check(0.8215, recall);
     //! [Loading]
-
 
     // Search using vector compression
 

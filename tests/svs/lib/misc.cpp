@@ -139,9 +139,7 @@ CATCH_TEST_CASE("Misc", "[core][misc]") {
             CATCH_REQUIRE_THROWS_AS(
                 svs::lib::as_const_span<svs::Float16>(a), svs::ANNException
             );
-            CATCH_REQUIRE_THROWS_AS(
-                svs::lib::as_const_span<double>(a), svs::ANNException
-            );
+            CATCH_REQUIRE_THROWS_AS(svs::lib::as_const_span<double>(a), svs::ANNException);
         }
     }
 

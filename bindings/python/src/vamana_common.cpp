@@ -9,8 +9,8 @@
  *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
  */
 
-// python svs
-#include "svs/vamana_common.h"
+// svs python bindings
+#include "svs/python/vamana_common.h"
 
 // svs
 #include "svs/index/vamana/index.h"

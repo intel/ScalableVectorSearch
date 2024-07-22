@@ -11,7 +11,8 @@
 
 #pragma once
 
-#include "svs/core.h"
+// svs python bindings
+#include "svs/python/core.h"
 
 #include <pybind11/pybind11.h>
 
@@ -44,4 +45,4 @@ template <typename F> void for_compressed_specializations(F&& f) {
 }
 
 void wrap(pybind11::module& m);
-} // namespace dynamic_vamana
+} // namespace svs::python::dynamic_vamana
