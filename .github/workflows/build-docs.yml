@@ -48,7 +48,7 @@ jobs:
         run: |
           cd ${GITHUB_WORKSPACE}/bindings/python
           python setup.py bdist_wheel --cmake-executable="cmake" --build-type=Debug -- -- -j2
-          pip install ./dist/pysvs*.whl
+          pip install ./dist/scalable_vs*.whl
 
       - name: Build Docs
         working-directory: ${{ runner.temp }}
