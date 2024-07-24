@@ -55,7 +55,7 @@ The resulting Python wheel will be generated in the ``wheelhouse`` directory and
 
 .. code-block:: sh
 
-    pip install wheelhouse/scalable_vector_search*.whl
+    pip install wheelhouse/scalable_vs*.whl
 
 
 SVS uses C++20 and many AVX-512 hardware features to achieve performance.
@@ -72,7 +72,7 @@ The following commands will perform the **native** build, with optimizations spe
 
    cd bindings/python
    python3 setup.py bdist_wheel -- [cmake arguments] -- -j$(nproc)
-   pip install ./dist/scalable_vector_search*.whl
+   pip install ./dist/scalable_vs*.whl
 
 If the default build options are acceptable, the CMake arguments may be left empty. If you want optimizations for a different CPU than the one you are using for the build, you can specify a microarchitecture using ``SVS_MICROARCHS``:
 
