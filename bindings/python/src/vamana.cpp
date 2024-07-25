@@ -20,8 +20,6 @@
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
-#include "svs/extensions/vamana/leanvec.h"
-#include "svs/extensions/vamana/lvq.h"
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
@@ -45,15 +43,11 @@
 /////
 
 namespace py = pybind11;
-namespace lvq = svs::quantization::lvq;
-namespace leanvec = svs::leanvec;
 
 using namespace svs::python::vamana_specializations;
 
 namespace svs::python::vamana {
 namespace detail {
-
-namespace lvq = svs::quantization::lvq;
 
 /////
 ///// Assembly
@@ -83,64 +77,12 @@ void register_uncompressed_vamana_assemble(Dispatcher& dispatcher) {
     );
 }
 
-template <
-    size_t Primary,
-    size_t Residual,
-    size_t N,
-    lvq::LVQPackingStrategy Strategy,
-    typename D>
-svs::Vamana assemble_lvq(
-    const std::filesystem::path& config_path,
-    const UnspecializedGraphLoader& graph_loader,
-    lvq::LVQLoader<Primary, Residual, N, Strategy, Allocator> data,
-    D distance,
-    size_t num_threads
-) {
-    return svs::Vamana::assemble<float>(
-        config_path, graph_loader, std::move(data), std::move(distance), num_threads
-    );
-}
-
-template <typename Dispatcher> void register_lvq_vamana_assemble(Dispatcher& dispatcher) {
-    compressed_specializations(
-        [&dispatcher]<typename D, size_t P, size_t R, size_t N, typename S, bool B>() {
-            auto method = &assemble_lvq<P, R, N, S, D>;
-            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-        }
-    );
-}
-
-template <typename Primary, typename Secondary, size_t L, size_t N, typename D>
-svs::Vamana assemble_leanvec(
-    const std::filesystem::path& config_path,
-    const UnspecializedGraphLoader& graph_loader,
-    leanvec::LeanVecLoader<Primary, Secondary, L, N, Allocator> data,
-    D distance,
-    size_t num_threads
-) {
-    return svs::Vamana::assemble<float>(
-        config_path, graph_loader, std::move(data), std::move(distance), num_threads
-    );
-}
-
-template <typename Dispatcher>
-void register_leanvec_vamana_assemble(Dispatcher& dispatcher) {
-    leanvec_specializations(
-        [&dispatcher]<typename P, typename S, size_t L, size_t N, typename D>() {
-            auto method = &assemble_leanvec<P, S, L, N, D>;
-            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-        }
-    );
-}
-
 template <typename Dispatcher> void register_vamana_assembly(Dispatcher& dispatcher) {
     register_uncompressed_vamana_assemble(dispatcher);
-    register_lvq_vamana_assemble(dispatcher);
-    register_leanvec_vamana_assemble(dispatcher);
 }
 
 using VamanaAssembleTypes =
-    std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec, svs::lib::SerializedObject>;
+    std::variant<UnspecializedVectorDataLoader, svs::lib::SerializedObject>;
 
 /////
 ///// Build From File
@@ -168,60 +110,12 @@ void register_uncompressed_vamana_build_from_file(Dispatcher& dispatcher) {
     );
 }
 
-template <size_t Primary, size_t Residual, size_t N, lvq::LVQPackingStrategy S, typename D>
-svs::Vamana build_lvq_from_file(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
-    lvq::LVQLoader<Primary, Residual, N, S, Allocator> data,
-    D distance,
-    size_t num_threads
-) {
-    return svs::Vamana::build<float>(
-        parameters, std::move(data), std::move(distance), num_threads
-    );
-}
-
-template <typename Dispatcher>
-void register_lvq_vamana_build_from_file(Dispatcher& dispatcher) {
-    compressed_specializations(
-        [&dispatcher]<typename D, size_t P, size_t R, size_t N, typename S, bool B>() {
-            if constexpr (B /* build-enabled*/) {
-                auto method = &build_lvq_from_file<P, R, N, S, D>;
-                dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-            }
-        }
-    );
-}
-
-template <typename Primary, typename Secondary, size_t L, size_t N, typename D>
-svs::Vamana build_leanvec_from_file(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
-    leanvec::LeanVecLoader<Primary, Secondary, L, N, Allocator> data,
-    D distance,
-    size_t num_threads
-) {
-    return svs::Vamana::build<float>(
-        parameters, std::move(data), std::move(distance), num_threads
-    );
-}
-
-template <typename Dispatcher>
-void register_leanvec_vamana_build_from_file(Dispatcher& dispatcher) {
-    leanvec_specializations(
-        [&dispatcher]<typename P, typename S, size_t L, size_t N, typename D>() {
-            auto method = &build_leanvec_from_file<P, S, L, N, D>;
-            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-        }
-    );
-}
-
 template <typename Dispatcher>
 void register_vamana_build_from_file(Dispatcher& dispatcher) {
     register_uncompressed_vamana_build_from_file(dispatcher);
-    register_lvq_vamana_build_from_file(dispatcher);
-    register_leanvec_vamana_build_from_file(dispatcher);
 }
 
-using VamanaBuildTypes = std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec>;
+using VamanaBuildTypes = std::variant<UnspecializedVectorDataLoader>;
 
 /////
 ///// Build from Array
@@ -457,9 +351,8 @@ Construct a Vamana index over the given data file, returning a searchable index.
 Args:
     build_parameters (:py:class:`svs.VamanaBuildParameters`): Hyper-parameters
         controlling index build.
-    data_loader: The source of the data on-disk. Can either be
-        :py:class:`svs.DataFile` to represent a standard uncompressed dataset, or a
-        compressed loader.
+    data_loader: The source of the data on-disk. Can be
+        :py:class:`svs.DataFile` to represent a standard uncompressed dataset.
     distance_type: The similarity-function to use for this index.
     num_threads: The number of threads to use for index construction. Default: 1.
 

@@ -76,7 +76,6 @@ message("Length of flags: ${OPT_FLAGS_LENGTH}")
 set(CPP_FILES
     src/allocator.cpp
     src/dynamic_vamana.cpp
-    src/conversion.cpp
     src/core.cpp
     src/flat.cpp
     src/python_bindings.cpp

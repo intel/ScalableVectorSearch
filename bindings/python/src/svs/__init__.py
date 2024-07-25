@@ -28,9 +28,6 @@ from .common import \
     k_recall_at, \
     generate_test_dataset
 
-# LeanVec computation
-from .leanvec import compute_leanvec_matrices
-
 # Make the upgrader available without explicit import.
 from . import upgrader
 

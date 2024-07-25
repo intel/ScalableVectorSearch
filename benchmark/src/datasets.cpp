@@ -51,59 +51,6 @@ specialize on this field.)";
     fmt::print(stream, PROTOTYPE, fmt::streamed(table));
 }
 
-void LVQ::describe_layout(std::ostream& stream) {
-    constexpr std::string_view PROTOTYPE = R"(
-LVQ compressed data with a proto-type layout of as shown below:
-
-{}
-
-Where:
-* `primary` is the number of bits for the primary dataset.
-* `residual` is the number of bits in the residual (can be 0).
-* `strategy` is the packing strategy to used. It can be one of {}.)";
-
-    auto table = svs::lib::save_to_table(LVQ::example());
-    fmt::print(
-        stream,
-        PROTOTYPE,
-        fmt::streamed(table),
-        fmt::join(get_names(svsbenchmark::all_lvq_strategies), ", ")
-    );
-}
-
-void LeanVec::describe_layout(std::ostream& stream) {
-    constexpr std::string_view PROTOTYPE = R"(
-LeanVec dimensionality reducing data with a layout of as shown below:
-
-{}
-
-Where:
-* `primary` is the kind of the primary dataset [see note 1 for valid values].
-* `secondary` is the kind of the secondary dataset [see note 1 for valid values].
-* `leanvec_dims` is the number of dimensions in the reduced primary dataset.
-* `data_matrix` is the matrix used for data transformation [see note 2].
-* `query_matrix` is the matrix used for query transformation [see note 2].
-* Provide both the matrices or none. Providing one of them is not allowed.
-
-Note 1: Argument `kind` is a string and can take one of the following values: {}
-Note 2: These arguments are optional in the sense that providing an empty string defaults
-    to internally generated PCA-based transformation matrices.
-
-    It is required that either *both* matrices are supplied or *neither* are supplied.
-
-    The paths for `data_matrix` and `query_matrix` can alias if the same transformation
-    for queries and data is desired.
-)";
-
-    auto table = svs::lib::save_to_table(LeanVec::example());
-    fmt::print(
-        stream,
-        PROTOTYPE,
-        fmt::streamed(table),
-        fmt::join(get_names(svsbenchmark::all_leanvec_kinds), ", ")
-    );
-}
-
 // Full dataset documentation.
 void Dataset::describe_layout(std::ostream& stream) {
     constexpr std::string_view PROTOTYPE = R"(

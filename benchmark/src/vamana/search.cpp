@@ -2,8 +2,6 @@
 #include "svs-benchmark/vamana/search.h"
 #include "svs-benchmark/benchmark.h"
 #include "svs-benchmark/executable.h"
-#include "svs-benchmark/vamana/leanvec.h"
-#include "svs-benchmark/vamana/lvq.h"
 #include "svs-benchmark/vamana/uncompressed.h"
 
 // svs
@@ -65,8 +63,6 @@ struct Exe {
     static dispatcher_type dispatcher() {
         auto dispatcher = dispatcher_type{};
         vamana::register_uncompressed_static_search(dispatcher);
-        vamana::register_lvq_static_search(dispatcher);
-        vamana::register_leanvec_static_search(dispatcher);
         return dispatcher;
     }
 

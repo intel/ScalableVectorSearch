@@ -2,8 +2,6 @@
 #include "svs-benchmark/vamana/test.h"
 #include "svs-benchmark/benchmark.h"
 #include "svs-benchmark/executable.h"
-#include "svs-benchmark/vamana/leanvec.h"
-#include "svs-benchmark/vamana/lvq.h"
 #include "svs-benchmark/vamana/uncompressed.h"
 
 // svs
@@ -68,8 +66,6 @@ struct TestGenerator {
     static test_type tests() {
         auto generator = test_type{};
         svsbenchmark::append_to(generator, register_uncompressed_test_routines());
-        svsbenchmark::append_to(generator, register_lvq_test_routines());
-        svsbenchmark::append_to(generator, register_leanvec_test_routines());
         return generator;
     }
 

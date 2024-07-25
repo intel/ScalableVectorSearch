@@ -29,8 +29,6 @@ This example will cover the following topic:
 * Performing queries to retrieve neighbors from the :cpp:class:`svs::Vamana` index.
 * Saving the index to disk.
 * Loading a :cpp:class:`svs::Vamana` index orchestrator from disk.
-* Compressing an on-disk dataset and loading/searching with a compressed
-  :cpp:class:`svs::Vamana`.
 
 The complete example is included at the end of this file.
 
@@ -160,36 +158,6 @@ This informs the dispatch mechanisms that we're loading an uncompressed data fil
    :dedent: 4
 
 Performing queries is identical to before.
-
-Using Vector Compression
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The library has experimental support for performing online vector compression.
-The second argument to :cpp:func:`svs::Vamana::load` can be one of the :ref:`compressed loaders <cpp_quantization_lvq>`, which will compress an uncompressed dataset on the fly.
-
-Specifying the loader is all that is required to use vector compression.
-Note that vector compression is usually accompanied by an accuracy loss for the same search window size and may require increasing the window size to compensate.
-The example below shows a :cpp:class:`svs::quantization::lvq::OneLevelWithBias` quantization scheme with a static dimensionality of 128.
-
-.. literalinclude:: ../../../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Compressed Loader]
-   :end-before: [Compressed Loader]
-
-.. literalinclude:: ../../../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Search Compressed]
-   :end-before: [Search Compressed]
-
-Building using Vector Compression
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Index building using LVQ is very similar to index building using standard uncompressed vectors, though it may not be supported by all compression techniques.
-
-.. literalinclude:: ../../../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Build Index Compressed]
-   :end-before: [Build Index Compressed]
 
 Entire Example
 ^^^^^^^^^^^^^^

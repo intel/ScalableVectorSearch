@@ -4,7 +4,6 @@
 // SVS Dependencies
 #include "svs/orchestrators/vamana.h"  // bulk of the dependencies required.
 #include "svs/core/recall.h"           // Convenient k-recall@n computation.
-#include "svs/extensions/vamana/lvq.h" // LVQ extensions for the Vamana index.
 
 // Alternative main definition
 #include "svsmain.h"
@@ -125,38 +124,6 @@ int svs_main(std::vector<std::string> args) {
     recall = run_recall(index, queries, groundtruth, 30, 10, "Reload");
     check(0.8215, recall);
     //! [Loading]
-
-    // Search using vector compression
-
-    //! [Compressed Loader]
-    // Quantization
-    size_t padding = 32;
-    namespace lvq = svs::quantization::lvq;
-
-    // Wrap the compressor object in a lazy functor.
-    // This will defer loading and compression of the LVQ dataset until the threadpool
-    // used in the index has been created.
-    auto compressor = svs::lib::Lazy([=](svs::threads::ThreadPool auto& threadpool) {
-        auto data = svs::VectorDataLoader<float, 128>("example_data").load();
-        return lvq::LVQDataset<8, 0, 128>::compress(data, threadpool, padding);
-    });
-    index = svs::Vamana::assemble<float>(
-        "example_config", svs::GraphLoader("example_graph"), compressor, svs::DistanceL2()
-    );
-    //! [Compressed Loader]
-
-    //! [Search Compressed]
-    recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Load");
-    check(0.8215, recall);
-    //! [Search Compressed]
-
-    //! [Build Index Compressed]
-    // Compressed building
-    index =
-        svs::Vamana::build<float>(parameters, compressor, svs::DistanceL2(), num_threads);
-    recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Build");
-    check(0.8212, recall);
-    //! [Build Index Compressed]
 
     //! [Only Loading]
     // We can reload an index from a previously saved set of files.

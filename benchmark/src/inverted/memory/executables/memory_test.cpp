@@ -1,7 +1,6 @@
 // svs-benchmark
 #include "svs-benchmark/benchmark.h"
 #include "svs-benchmark/executable.h"
-#include "svs-benchmark/inverted/memory/lvq.h"
 #include "svs-benchmark/inverted/memory/register.h"
 #include "svs-benchmark/inverted/memory/test.h"
 #include "svs-benchmark/inverted/memory/uncompressed.h"
@@ -65,7 +64,6 @@ struct TestGenerator {
     static test_type tests() {
         auto generator = test_type{};
         svsbenchmark::append_to(generator, register_uncompressed_test_routines());
-        svsbenchmark::append_to(generator, register_lvq_test_routines());
         return generator;
     }
 

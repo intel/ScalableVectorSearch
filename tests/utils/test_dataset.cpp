@@ -73,14 +73,6 @@ std::filesystem::path groundtruth_cosine_file() {
     return dataset_directory() / "groundtruth_cosine.ivecs";
 }
 
-std::filesystem::path leanvec_data_matrix_file() {
-    return dataset_directory() / "leanvec_data_matrix.fvecs";
-}
-
-std::filesystem::path leanvec_query_matrix_file() {
-    return dataset_directory() / "leanvec_query_matrix.fvecs";
-}
-
 svs::data::SimpleData<float> queries() { return svs::load_data<float>(query_file()); }
 svs::data::SimpleData<uint32_t> groundtruth_euclidean() {
     return svs::load_data<uint32_t>(groundtruth_euclidean_file());

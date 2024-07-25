@@ -28,21 +28,5 @@ template <typename F> void for_standard_specializations(F&& f) {
 #undef X
 }
 
-template <typename F> void for_compressed_specializations(F&& f) {
-    using Sequential = svs::quantization::lvq::Sequential;
-#define X(Dist, Primary, Residual, Strategy, N) \
-    f.template operator()<Dist, Primary, Residual, Strategy, N>()
-    // Sequential
-    X(DistanceL2, 4, 8, Sequential, Dynamic);
-    X(DistanceIP, 4, 8, Sequential, Dynamic);
-    X(DistanceL2, 8, 0, Sequential, Dynamic);
-    X(DistanceIP, 8, 0, Sequential, Dynamic);
-
-    // Turbo
-    using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
-    X(DistanceIP, 4, 8, Turbo16x8, Dynamic);
-#undef X
-}
-
 void wrap(pybind11::module& m);
 } // namespace svs::python::dynamic_vamana

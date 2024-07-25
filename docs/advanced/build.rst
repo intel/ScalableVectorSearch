@@ -247,9 +247,6 @@ Please avoid using them.
 |                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be      |
 |                                 |                    | effective.                                    |
 +---------------------------------+--------------------+-----------------------------------------------+
-| SVS_EXPERIMENTAL_LEANVEC        | ON, **OFF**        | Enable LeanVec for vector dimension reduction |
-|                                 |                    | Requires MKL library to implement SVD/GEMM    |
-+---------------------------------+--------------------+-----------------------------------------------+
 
 
 Details on multi-arch support
@@ -298,30 +295,3 @@ Alternatively, if svs has been installed in a non-standard directory, the final 
 .. code-block:: sh
 
    PYTHONPATH="path/to/svs/dir" make
-
-(Advanced) MKL as a Dependency
-==============================
-
-Upcoming SVS features need to use functionality provided by MKL.
-SVS can link with MKL in a number of ways.
-
-First, if MKL is not needed, then compiled SVS artifacts should not try to link with MKL.
-Second, a system MKL can be used with the combination:
-
-.. code-block:: sh
-
-    -DSVS_EXPERIMENTAL_LEANVEC=YES
-    -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=NO
-
-Note that if this option is used, you *may* need to include appropriate environment variable
-for SVS to find MKL at run time.
-
-Finally, SVS can also build and link with a custom MKL shared library using the
-`custom shared object builder <https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2024-0/using-the-custom-shared-object-builder.html>`_ .
-To use this feature, provide the following variables to Cmake at configuration time:
-
-.. code-block:: sh
-
-    -DSVS_EXPERIMENTAL_LEANVEC=YES
-    -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=YES
-

@@ -4,8 +4,6 @@ __version__ = 'v0.0.1'
 data_f32 = 'data_f32.fvecs'
 graph = 'graph_128.svs'
 index_config = 'vamana_config.toml'
-leanvec_data_matrix = 'leanvec_data_matrix.fvecs'
-leanvec_query_matrix = 'leanvec_query_matrix.fvecs'
 queries_f32 = 'queries_f32.fvecs'
 queries_in_training_set = 100
 
