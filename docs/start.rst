@@ -34,7 +34,7 @@ To build and install the SVS Python module, clone the repo and run the following
 .. code-block:: sh
 
     # Clone the repository
-    git clone https://github.com/IntelLabs/ScalableVectorSearch
+    git clone https://github.com/intel/ScalableVectorSearch
     cd ScalableVectorSearch
 
     # Install svs using pip

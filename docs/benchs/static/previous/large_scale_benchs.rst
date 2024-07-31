@@ -74,7 +74,7 @@ Parameters Setting
 ^^^^^^^^^^^^^^^^^^^
 
 We used the following versions of each method:
-SVS `commit ad821d8 <https://github.com/IntelLabs/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c>`_,
+SVS `commit ad821d8 <https://github.com/intel/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c>`_,
 Vamana `commit 647f68f <https://github.com/microsoft/DiskANN/commit/647f68fe5aa7b45124ae298c219fe909d46a1834>`_,
 HNSWlib `commmit 4b2cb72 <https://github.com/nmslib/hnswlib/commit/4b2cb72c3c1bbddee55535ec6f360a0b2e40a81e>`_,
 ScaNN `commit d170ac5 <https://github.com/google-research/google-research/commit/d170ac58ce1d071614b2813b056afa292f5e490c>`_,
