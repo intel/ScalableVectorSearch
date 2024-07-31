@@ -32,7 +32,7 @@ Comparison to Other Implementations
 We compare SVS to five widely adopted approaches: Vamana [SDSK19]_, HSNWlib [MaYa18]_, FAISS-IVFPQfs [JoDJ19]_, ScaNN
 [GSLG20]_, and NGT [IwMi18]_. We use the implementations available through `ANN-Benchmarks <https://github.com/erikbern/ann-benchmarks>`_
 (`commit 167f129 <https://github.com/erikbern/ann-benchmarks/commit/167f1297b21789d13a9fa82646c522011df8c163>`_ , October 4th 2022)
-and for SVS we use `commit ad821d8 <https://github.com/IntelLabs/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c>`_.
+and for SVS we use `commit ad821d8 <https://github.com/intel/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c>`_.
 See :ref:`param_setting_bench_small_scale` for details on the evaluated configurations for
 each method. We run the evaluation in the three different :ref:`query modes <query_batch_size>`. [#ft2]_
 

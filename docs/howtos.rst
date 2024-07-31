@@ -281,7 +281,7 @@ data format (e.g. images, text).
 
 We will walk through a simple example below. For complete examples, please
 see our `VectorSearchDatasets repository <https://github
-.com/intellabs/vectorsearchdatasets>`_, which contains code to generate compatible
+.com/IntelLabs/VectorSearchDatasets>`_, which contains code to generate compatible
 vector embeddings for common datasets such as `open-images <https://storage.googleapis.com/openimages/web/index.html>`_.
 
 Example: vector embeddings of images
@@ -370,5 +370,5 @@ with :py:func:`svs.write_vecs`. A description of the ``*vecs`` file format is gi
     svs.write_vecs(embeddings, out_file)
 
 Other data format helper functions are described in our `I/O and Conversion Tools
-<https://intellabs.github
+<https://intel.github
 .io/ScalableVectorSearch/io.html>`_ documentation.

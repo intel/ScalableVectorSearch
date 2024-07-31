@@ -16,7 +16,7 @@ SVS is written in C++ to facilitate its integration into performance-critical ap
 ## Performance
 
 SVS provides state-of-the-art performance and accuracy [[ABHT23]](#1) for billion-scale similarity search on
-[standard benchmarks](https://intellabs.github.io/ScalableVectorSearch/benchs/index.html).
+[standard benchmarks](https://intel.github.io/ScalableVectorSearch/benchs/index.html).
 
 For example, for the standard billion-scale [Deep-1B](http://sites.skoltech.ru/compvision/noimi/) dataset,
 different configurations of SVS yield significantly increased performance (measured in queries per second, QPS) with a smaller memory footprint (horizontal axis) than the alternatives[^1]:
@@ -26,7 +26,7 @@ different configurations of SVS yield significantly increased performance (measu
 </p>
 
 SVS is primarily optimized for large-scale similarity search but it still offers [state-of-the-art performance
-at million-scale](https://intellabs.github.io/ScalableVectorSearch/benchs/small_scale_benchs.html).
+at million-scale](https://intel.github.io/ScalableVectorSearch/benchs/small_scale_benchs.html).
 
 Best performance is obtained with 4th generation (Sapphire Rapids) by making use of AVX-512 instructions,
 with excellent results also with 2nd and 3rd Intel &reg; Xeon &reg; processors (Cascade Lake
@@ -47,12 +47,12 @@ SVS supports:
   - 3rd generation (Ice Lake)
   - 4th generation (Sapphire Rapids)
 
-See [Roadmap](https://intellabs.github.io/ScalableVectorSearch/roadmap.html) for upcoming features.
+See [Roadmap](https://intel.github.io/ScalableVectorSearch/roadmap.html) for upcoming features.
 
 
 ## Documentation
 
-[SVS documentation](https://intellabs.github.io/ScalableVectorSearch) includes getting started tutorials with [installation instructions for Python](https://intellabs.github.io/ScalableVectorSearch/start.html#installation) and [C++](https://intellabs.github.io/ScalableVectorSearch/start_cpp.html#building) and step-by-step search examples, an API reference, as well as several guides and benchmark comparisons.
+[SVS documentation](https://intel.github.io/ScalableVectorSearch) includes getting started tutorials with [installation instructions for Python](https://intel.github.io/ScalableVectorSearch/start.html#installation) and [C++](https://intel.github.io/ScalableVectorSearch/start_cpp.html#building) and step-by-step search examples, an API reference, as well as several guides and benchmark comparisons.
 
 ## References
 Reference to cite when you use SVS in a research paper:

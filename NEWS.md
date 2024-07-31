@@ -213,7 +213,7 @@ Finally, if environment variable based initialization is not desired, it can be 
 
 * The implementation of two-level LVQ has changed from bitwise extension to true cascaded
   application of scalar quantization. See the discussion on
-  [this PR](https://github.com/IntelLabs/ScalableVectorSearch/pull/28).
+  [this PR](https://github.com/intel/ScalableVectorSearch/pull/28).
 
   Consequently, previously saved two-level LVQ datasets have had their serialization version
   incremented from `v0.0.2` to `v0.0.3` and will need to be regenerated.
