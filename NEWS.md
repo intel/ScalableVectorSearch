@@ -35,10 +35,10 @@ of previously serialized SVS objects.
 
 ### Build System and Testing
 
-Included reference results for the Vamana index require MKL 2024.1 for reproducibility in testing.
-Linking against MKL 2023.X may cause LeanVec tests to fail.
+Included reference results for the Vamana index require Intel(R) MKL 2024.1 for reproducibility in testing.
+Linking against Intel(R) MKL 2023.X may cause LeanVec tests to fail.
 
-Reference results for your version of MKL can be regenerated using
+Reference results for your version of Intel(R) MKL can be regenerated using
 ```sh
 # Build the test generators
 mkdir build
@@ -85,7 +85,7 @@ Finally, if environment variable based initialization is not desired, it can be 
 
 ### Performance Enhancements
 
-* Generally improved the performance of uncompressed distance computations with run-time lengths for AVX512 based systems.
+* Generally improved the performance of uncompressed distance computations with run-time lengths for Intel(R) AVX-512 based systems.
 * Fixed a performance pathology for run-time dimensional sequential LVQ4(xN) when the number of dimensions is not a multiple of 16.
 
 ## `pysvs` (Python)

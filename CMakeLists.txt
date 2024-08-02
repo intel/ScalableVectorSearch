@@ -62,7 +62,7 @@ include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
-# LeanVec requires MKL support
+# LeanVec requires Intel(R) MKL support
 if(SVS_EXPERIMENTAL_LEANVEC)
     include("cmake/mkl.cmake")
     target_compile_options(${SVS_LIB} INTERFACE "-DSVS_HAVE_MKL=1")

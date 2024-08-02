@@ -9,9 +9,9 @@ Backend Selection
     mysterious crashes. This section is meant for educational purposes and for those who
     wish to dig a little deeper.
 
-The C++ library makes extensive use of AVX-512 instructions both in the form of direct intrinsics and through the `EVE <https://github.com/jfalcou/eve>`_ SIMD library.
+The C++ library makes extensive use of Intel(R) AVX-512 instructions both in the form of direct intrinsics and through the `EVE <https://github.com/jfalcou/eve>`_ SIMD library.
 Along with design decisions around generic programming and static dimensionality, this makes it quite difficult to surgically extract the portions of the library that are accelerated by these instructions.
-In order to support multiple CPU micro-architectures including those that lack AVX-512 support, we instead ship multiple versions of the backing shared library, each targeting a different micro-architecture.
+In order to support multiple CPU micro-architectures including those that lack Intel(R) AVX-512 support, we instead ship multiple versions of the backing shared library, each targeting a different micro-architecture.
 At run-time, the svs Python module tries to select the best backend for the current CPU.
 
 There are several environment variables that can be set prior to loading the library that can influence this behavior.

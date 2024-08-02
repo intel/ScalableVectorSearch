@@ -5,7 +5,7 @@
 
 * `OneMKL <https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html>`_
 
-  * Make sure you set the MKL environment variables, e.g., ``source /opt/intel/oneapi/setvars.sh``.
+  * Make sure you set the OneMKL environment variables, e.g., ``source /opt/intel/oneapi/setvars.sh``.
 
   .. collapse:: Click to expand installation details
 

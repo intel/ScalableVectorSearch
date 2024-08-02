@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -98,13 +98,13 @@ consteval bool is_one_or_zero(const char* ptr) {
     }
 
 /////
-///// AVX extensions
+///// Intel(R) AVX extensions
 /////
 
 namespace svs::arch {
 // Switching ifdefs to boolean defs helps reduce the probability of mistyping.
 
-// Most 32-bit and 64-bit AVX instructions.
+// Most 32-bit and 64-bit Intel(R) AVX instructions.
 // - 512 bit registers
 // - operation masks
 // - broadcasting
@@ -117,7 +117,7 @@ inline constexpr bool have_avx512_f = true;
 inline constexpr bool have_avx512_f = false;
 #endif
 
-// Extends AVX512 operations to 128-bit and 256-bit registers.
+// Extends Intel(R) AVX-512 operations to 128-bit and 256-bit registers.
 #if defined(__AVX512VL__)
 #define SVS_AVX512_VL 1
 inline constexpr bool have_avx512_vl = true;
@@ -126,7 +126,7 @@ inline constexpr bool have_avx512_vl = true;
 inline constexpr bool have_avx512_vl = true;
 #endif
 
-// 8-bit and 16-bit integer operations for AVX-512.
+// 8-bit and 16-bit integer operations for Intel(R) AVX-512.
 #if defined(__AVX512BW__)
 #define SVS_AVX512_BW 1
 inline constexpr bool have_avx512_bw = true;
@@ -144,7 +144,7 @@ inline constexpr bool have_avx512_vnni = true;
 inline constexpr bool have_avx512_vnni = false;
 #endif
 
-// 256-bit AVX instruction set.
+// 256-bit Intel(R) AVX instruction set.
 #if defined(__AVX2__)
 #define SVS_AVX2 1
 inline constexpr bool have_avx512_avx2 = true;

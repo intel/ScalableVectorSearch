@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -201,14 +201,14 @@ Args:
     // Dataset conversion.
     svs::python::conversion::wrap(m);
 
-    // mkl
+    // Intel(R) MKL
     m.def(
-        "have_mkl", &svs::python::have_mkl, "Return whether or not svs is linked with MKL."
+        "have_mkl", &svs::python::have_mkl, "Return whether or not svs is linked with Intel(R) MKL."
     );
     m.def(
         "mkl_num_threads",
         &svs::python::mkl_num_threads,
-        "Return the number of threads used by MKL, or None if svs is not linked with MKL."
+        "Return the number of threads used by Intel(R) MKL, or None if svs is not linked with Intel(R) MKL."
     );
 
     ///// Indexes

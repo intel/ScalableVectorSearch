@@ -58,7 +58,7 @@ The resulting Python wheel will be generated in the ``wheelhouse`` directory and
     pip install wheelhouse/scalable_vs*.whl
 
 
-SVS uses C++20 and many AVX-512 hardware features to achieve performance.
+SVS uses C++20 and many Intel(R) AVX-512 hardware features to achieve performance.
 However, we still want to support older CPUs and reasonably old Linux distributions that may have some GLIBC limitations.
 The wheel built by cibuildwheel has maximum compatibility.
 
@@ -180,12 +180,13 @@ SVS supports the following build-time options.
     +---------------------+--------------------+-----------------------------------------------+
     | SVS_BUILD_EXAMPLES  | ON, **OFF**        | Build the documentation examples.             |
     +---------------------+--------------------+-----------------------------------------------+
-    | SVS_NO_AVX512       | ON, **OFF**        | Disable AVX512 instructions from being used.  |
+    | SVS_NO_AVX512       | ON, **OFF**        | Disable Intel(R) AVX-512 instructions         |
+    |                     |                    | from being used.                              |
     |                     |                    | Helpful when running Valgrind as that tool    |
-    |                     |                    | does not support AVX512.                      |
+    |                     |                    | does not support Intel(R) AVX-512.            |
     |                     |                    |                                               |
     |                     |                    | This option is not required when compiling on |
-    |                     |                    | non-AVX512 systems.                           |
+    |                     |                    | non-Intel(R) AVX-512 systems.                 |
     +---------------------+--------------------+-----------------------------------------------+
 
 Occasionally, more control over the compiled binaries and executables is desired (to aid binary size and compilation time).
@@ -223,10 +224,10 @@ These fine-grained variables are defined below.
     |                                     |                    | This is left off be default to reduce compile |
     |                                     |                    | times for the benchmark suite.                |
     +-------------------------------------+--------------------+-----------------------------------------------+
-    | SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL   | ON, **OFF**        | If the included modules have MKL has a        |
-    |                                     |                    | dependency, this option will create a custom  |
-    |                                     |                    | MKL shared-library using only the symbols     |
-    |                                     |                    | needed by SVS.                                |
+    | SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL   | ON, **OFF**        | If the included modules have Intel(R) MKL has |
+    |                                     |                    | a dependency, this option will create         |
+    |                                     |                    | a custom Intel(R) MKL shared-library using    |
+    |                                     |                    | only the symbols needed by SVS.               |
     |                                     |                    |                                               |
     |                                     |                    | This allows for compiled SVS executables to   |
     |                                     |                    | be portable.                                  |
@@ -236,20 +237,20 @@ The following variables can be found in CMake files but are intended for develop
 As such, they are subject to change without notice.
 Please avoid using them.
 
-+---------------------------------+--------------------+-----------------------------------------------+
-| SVS_EXPERIMENTAL_CHECK_BOUNDS   | ON, **OFF**        | Enable bounds checking on some data structure |
-|                                 |                    | accesses. Can be helpful for debugging        |
-|                                 |                    | out-of-bounds accesses.                       |
-+---------------------------------+--------------------+-----------------------------------------------+
-| SVS_EXPERIMENTAL_CLANG_TIDY     | ON, **OFF**        | Enable the clang-tidy static analyzer on the  |
-|                                 |                    | utility binaries.                             |
-|                                 |                    |                                               |
-|                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be      |
-|                                 |                    | effective.                                    |
-+---------------------------------+--------------------+-----------------------------------------------+
-| SVS_EXPERIMENTAL_LEANVEC        | ON, **OFF**        | Enable LeanVec for vector dimension reduction |
-|                                 |                    | Requires MKL library to implement SVD/GEMM    |
-+---------------------------------+--------------------+-----------------------------------------------+
++---------------------------------+--------------------+-----------------------------------------------------+
+| SVS_EXPERIMENTAL_CHECK_BOUNDS   | ON, **OFF**        | Enable bounds checking on some data structure       |
+|                                 |                    | accesses. Can be helpful for debugging              |
+|                                 |                    | out-of-bounds accesses.                             |
++---------------------------------+--------------------+-----------------------------------------------------+
+| SVS_EXPERIMENTAL_CLANG_TIDY     | ON, **OFF**        | Enable the clang-tidy static analyzer on the        |
+|                                 |                    | utility binaries.                                   |
+|                                 |                    |                                                     |
+|                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be            |
+|                                 |                    | effective.                                          |
++---------------------------------+--------------------+-----------------------------------------------------+
+| SVS_EXPERIMENTAL_LEANVEC        | ON, **OFF**        | Enable LeanVec for vector dimension reduction       |
+|                                 |                    | Requires Intel(R) MKL library to implement SVD/GEMM |
++---------------------------------+--------------------+-----------------------------------------------------+
 
 
 Details on multi-arch support
@@ -299,14 +300,14 @@ Alternatively, if svs has been installed in a non-standard directory, the final 
 
    PYTHONPATH="path/to/svs/dir" make
 
-(Advanced) MKL as a Dependency
-==============================
+(Advanced) Intel(R) MKL as a Dependency
+=======================================
 
-Upcoming SVS features need to use functionality provided by MKL.
-SVS can link with MKL in a number of ways.
+Upcoming SVS features need to use functionality provided by Intel(R) MKL.
+SVS can link with Intel(R) MKL in a number of ways.
 
-First, if MKL is not needed, then compiled SVS artifacts should not try to link with MKL.
-Second, a system MKL can be used with the combination:
+First, if Intel(R) MKL is not needed, then compiled SVS artifacts should not try to link with Intel(R) MKL.
+Second, a system Intel(R) MKL can be used with the combination:
 
 .. code-block:: sh
 
@@ -314,9 +315,9 @@ Second, a system MKL can be used with the combination:
     -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=NO
 
 Note that if this option is used, you *may* need to include appropriate environment variable
-for SVS to find MKL at run time.
+for SVS to find Intel(R) MKL at run time.
 
-Finally, SVS can also build and link with a custom MKL shared library using the
+Finally, SVS can also build and link with a custom Intel(R) MKL shared library using the
 `custom shared object builder <https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2024-0/using-the-custom-shared-object-builder.html>`_ .
 To use this feature, provide the following variables to Cmake at configuration time:
 

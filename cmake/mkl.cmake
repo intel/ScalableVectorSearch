@@ -1,11 +1,11 @@
-# Using single threaded MKL to minimize the interference with SVS ThreadPool
+# Using single threaded Intel(R) MKL to minimize the interference with SVS ThreadPool
 set(MKL_THREADING sequential)
 
 # As a side-effect of `find_package`, the variable `MKL_ROOT` will be defined.
 # This helps us find the custom shared-object building if needed.
 find_package(MKL CONFIG REQUIRED)
 
-# The custom MKL flow uses MKL's builder utility to create a small shared-library with
+# The custom Intel(R) MKL flow uses MKL's builder utility to create a small shared-library with
 # just the symbols used by SVS.
 #
 # The resulting object and linking are portable and should be suitable for distribution.
@@ -17,8 +17,8 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
     # Find where the makefile is.
     # It can exist in one of several paths.
     #
-    # For 2023 MKL flavors, it is found at "MKL_ROOT/tools/builder"
-    # For 2024 MKL - it is a "MKL_ROOT/share/mkl/tool/builder"
+    # For 2023 Intel(R) MKL flavors, it is found at "MKL_ROOT/tools/builder"
+    # For 2024 Intel(R) MKL - it is a "MKL_ROOT/share/mkl/tool/builder"
     #
     # Don't seach CMake defaults - "makefile" is a common enough name that we might find
     # an incorrect version if we include the default search paths.
@@ -50,7 +50,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
     # Create a target for the newly created shared object.
     add_custom_target(svs_mkl_target DEPENDS ${SVS_MKL_CUSTOM_FULL_PATH})
 
-    # Create an imported object for the custom MKL library - configure it to depend on
+    # Create an imported object for the custom Intel(R) MKL library - configure it to depend on
     # the custom library built.
     add_library(svs_mkl SHARED IMPORTED)
     add_dependencies(svs_mkl svs_mkl_target)
@@ -65,7 +65,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
     )
     target_link_libraries(${SVS_LIB} INTERFACE svs_mkl)
 
-    # Ensure that the custom MKL library is bundled with the rest of the library.
+    # Ensure that the custom Intel(R) MKL library is bundled with the rest of the library.
     include(GNUInstallDirs)
     install(IMPORTED_RUNTIME_ARTIFACTS svs_mkl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 else()
