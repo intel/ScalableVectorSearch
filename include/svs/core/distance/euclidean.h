@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -28,27 +28,27 @@
 #include <type_traits>
 #include <x86intrin.h>
 
-// Implementation Notes regarding AVX Extentions
+// Implementation Notes regarding Intel(R) AVX Extentions
 // Top most entry in the bulleted list underneath each type pair <T,U> is the preferred
 // implementation based on the available extension.
 //
 // The vector width used is added as well in case there is an apparent mismatch between
-// AVX extension and the preferred vector width due to performance (sometimes, smaller
+// Intel(R) AVX extension and the preferred vector width due to performance (sometimes, smaller
 // vector widths are faster).
 //
 // Versions for older extensions are implemented as fallbacks.
 //
-// TODO: Implement testing for non-AVX512 implementations.
+// TODO: Implement testing for non-Intel(R) AVX-512 implementations.
 // TODO: Alphabetize implementations.
 // TODO: Refactor distance computation implementation to avoid the need to explicitly
 // implement kernels for all type combinations.
 //
 // <float,float>
 // - AVX512F, Width 16
-// - AVX2, Width 8.
+// - Intel(R) AVX2, Width 8.
 //
 // <float,Float16>
-// - AVX2, Vector Width 8 (smaller vector width is faster.
+// - Intel(R) AVX2, Vector Width 8 (smaller vector width is faster.
 // - [[TODO]]: What is the correct check for the `_mm256_cvtph_ps` intrinsic?
 //
 // <int8_t,float>
@@ -144,7 +144,7 @@ inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
 ///
 /// *Performance Tips*
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
-/// - Compiling and executing on an AVX512 system will improve performance.
+/// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
 template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
 float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
@@ -181,7 +181,7 @@ template <size_t N, typename Ea, typename Eb> struct L2Impl {
 };
 
 /////
-///// AVX512 Implementations
+///// Intel(R) AVX-512 Implementations
 /////
 
 // SIMD accelerated operations that convert both left and right hand arguments to
@@ -310,7 +310,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16> {
 #endif
 
 /////
-///// AVX 2 Implementations
+///// Intel(R) AVX2 Implementations
 /////
 
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)

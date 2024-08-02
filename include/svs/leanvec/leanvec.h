@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -15,7 +15,7 @@
 #include "svs/core/data.h"
 #include "svs/quantization/lvq/lvq.h"
 
-// mkl
+// Intel(R) MKL
 #include "mkl_lapacke.h"
 #include <mkl.h>
 
@@ -260,7 +260,7 @@ auto transform_batch(
             detail::remove_means(batch_data.view(), lib::as_const_span(means), threadpool);
         }
 
-        // MKL runs in sequential mode, using our native threads for parallelism
+        // Intel(R) MKL runs in sequential mode, using our native threads for parallelism
         threads::run(
             threadpool,
             threads::StaticPartition{curr_batch_size},

@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -106,7 +106,7 @@ inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
 ///
 /// *Performance Tips*
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
-/// - Compiling and executing on an AVX512 system will improve performance.
+/// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
 template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
 float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
@@ -142,7 +142,7 @@ template <size_t N, typename Ea, typename Eb> struct IPImpl {
 };
 
 /////
-///// AVX512 Implementations
+///// Intel(R) AVX-512 Implementations
 /////
 
 // Shared implementation among those that use floating-point arithmetic.
@@ -264,7 +264,7 @@ template <size_t N> struct IPImpl<N, Float16, Float16> {
 #endif
 
 /////
-///// AVX 2 Implementations
+///// Intel(R) AVX2 Implementations
 /////
 
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)

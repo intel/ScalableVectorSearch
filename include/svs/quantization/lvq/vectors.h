@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -339,7 +339,7 @@ float finish_step(DistanceFastIP distance, wide_<float, N> accum, ScaleBias aux)
     return aux.scale * eve::reduce(accum, eve::plus) + aux.bias * distance.query_sum;
 }
 
-///// AVX implementations.
+///// Intel(R) AVX implementations.
 template <LVQCompressedVector T, size_t N>
     requires UsesSequential<T>
 void decompress(std::span<float, N> dst, const T& src, const float* centroid) {

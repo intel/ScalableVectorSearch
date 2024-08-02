@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -128,7 +128,7 @@ inline constexpr bool operator==(DistanceCosineSimilarity, DistanceCosineSimilar
 ///
 /// *Performance Tips*
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
-/// - Compiling and executing on an AVX512 system will improve performance.
+/// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
 template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
 float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<Eb, Db> b) {
@@ -174,7 +174,7 @@ template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl {
 };
 
 /////
-///// AVX512 Implementations
+///// Intel(R) AVX-512 Implementations
 /////
 
 // Shared implementation among those that use floating-point arithmetic.

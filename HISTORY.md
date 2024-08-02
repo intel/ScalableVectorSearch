@@ -25,7 +25,7 @@ Highlighted Features
 
 New Dependencies
 
-* [MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html):
+* [Intel(R) MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html):
   Required by LeanVec.
 * [toml](https://github.com/uiri/toml): Required by testing infrastructure.
 
@@ -197,7 +197,7 @@ removal.
 
 ### Build System Changes
 
-Building `pysvs` using `cibuildwheel` now requires a custom docker container with MKL.
+Building `pysvs` using `cibuildwheel` now requires a custom docker container with Intel(R) MKL.
 To build the container, run the following commands:
 ```sh
 cd ./docker/x86_64/manylinux2014/
@@ -225,9 +225,9 @@ cd ./docker/x86_64/manylinux2014/
      parameters requires some knowledge of the target hardware and appropriate overloads
      for decompression and distance computation.
 
-     Accelerated methods require AVX-512 and are:
+     Accelerated methods require Intel(R) AVX-512 and are:
      * L2, IP, and decompression for LVQ 4 and LVQ 4x8 using `Turbo<16, 8>`
-       (targeting AVX 512)
+       (targeting Intel(R) AVX-512)
      * L2, IP, and decompression for LVQ 8 using `Turbo<16, 4>`.
 
 * Added the following member function to `svs::lib::LoadContext`:
@@ -306,15 +306,15 @@ cd ./docker/x86_64/manylinux2014/
 
 The CMake variables were added.
 
-* `SVS_EXPERIMENTAL_LEANVEC`: Enable LeanVec support, which requires MKL as a dependency.
+* `SVS_EXPERIMENTAL_LEANVEC`: Enable LeanVec support, which requires Intel(R) MKL as a dependency.
   - Default (SVS, SVSBenchmark): `OFF`
   - Default (pysvs): `ON`
 
-* `SVS_EXPERIMENTAL_CUSTOM_MKL`: Use MKL's custom shared object builder to create a minimal
+* `SVS_EXPERIMENTAL_CUSTOM_MKL`: Use Intel(R) MKL's custom shared object builder to create a minimal
   library to be installed with SVS. This enables relocatable builds to systems that do not
-  have MKL installed and removes the need for MKL runtime environment variables.
+  have Intel(R) MKL installed and removes the need for Intel(R) MKL runtime environment variables.
 
-  With this feature disabled, SVS builds against the system's MKL.
+  With this feature disabled, SVS builds against the system's Intel(R) MKL.
 
   - Default (SVS, SVSBenchmark): `OFF`
   - Default (pysvs): `ON`

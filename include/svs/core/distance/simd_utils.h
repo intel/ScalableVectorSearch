@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -70,7 +70,7 @@ template <> struct MaskIntrinsic<uint64_t> {
 } // namespace detail
 
 // Given a length `N`, obtain an appropriate integer type used as a mask for `N` lanes in
-// an AVX vector operation.
+// an Intel(R) AVX vector operation.
 template <size_t N> using mask_repr_t = typename detail::MaskRepr<N>::type;
 
 // Given an unsigned integer type `T`, obtain the appropriate mask intrinsic type.
@@ -129,13 +129,13 @@ namespace simd {
 /// 2. Using multiple accumulators can really help in some situations. Floating point
 ///    arithmetic is not associative, so generally the compiler must strictly obey program
 ///    semantics when optimizing. This means that if a single accumulator register is used,
-///    we introduce a long chain dependency in the instruction stream. AVX functional units
-///    are generally pipelined and so have a relatively high latency (4 cycles is common)
+///    we introduce a long chain dependency in the instruction stream. Intel(R) AVX functional
+///    units are generally pipelined and so have a relatively high latency (4 cycles is common)
 ///    but with a high throughput.
 ///
 ///    For example: Cascadelake and greater servers have two execution port that offer the
-///    bulk of AVX-512 functionality. When fully utilized, SIMD instructions can obtain a
-///    throughput of 2 ops per cycle (separate from loads, which can sustain another 2 ops
+///    bulk of Intel(R) AVX-512 functionality. When fully utilized, SIMD instructions can obtain
+///    a throughput of 2 ops per cycle (separate from loads, which can sustain another 2 ops
 ///    (3 ops on Sapphire Rapids) per cycle.
 ///
 ///    A long dependence on a single accumulation register basically throws all that

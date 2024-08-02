@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -385,7 +385,7 @@ class CompressedVectorBase {
 
     ///
     /// Safely extract a value of type `T` beginning at byte `i`.
-    /// Allow caller to specify the number of bytes to help with AVX decoding.
+    /// Allow caller to specify the number of bytes to help with Intel(R) AVX decoding.
     ///
     template <typename T> T extract(size_t i) const {
         T v{};
@@ -563,7 +563,7 @@ class CVStorage {
 };
 
 /////
-///// AVX Helpers for Sequential LVQ
+///// Intel(R) AVX Helpers for Sequential LVQ
 /////
 
 ///
@@ -887,7 +887,7 @@ wide_<int32_t, 16> unpack_as(
 ///// Turbo Implementation.
 /////
 
-// 8-bit AVX-512 turbo unpacking.
+// 8-bit Intel(R) AVX-512 turbo unpacking.
 template <
     typename Sign,
     size_t Extent,
@@ -971,7 +971,7 @@ SVS_FORCE_INLINE auto for_each_slice(
     return reduce(a0);
 }
 
-// 4-bit AVX-512 turbo unpacking.
+// 4-bit Intel(R) AVX-512 turbo unpacking.
 template <
     typename Sign,
     size_t Extent,

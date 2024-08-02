@@ -50,7 +50,7 @@ option(SVS_TEST_EXAMPLES
 )
 
 option(SVS_NO_AVX512
-    "Disable use of AVX512 intrinsics."
+    "Disable use of Intel(R) AVX-512 intrinsics."
     OFF # disabled by default
 )
 
@@ -84,12 +84,12 @@ option(SVS_EXPERIMENTAL_ENABLE_NUMA
 )
 
 option(SVS_EXPERIMENTAL_LEANVEC
-    "Enable LeanVec for vector dimensionality reduction. Requires MKL support"
+    "Enable LeanVec for vector dimensionality reduction. Requires Intel(R) MKL support"
     OFF # disabled by default
 )
 
 option(SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL
-    "Build a custom MKL shared-library for redistributable binaries. (Experimental)"
+    "Build a custom Intel(R) MKL shared-library for redistributable binaries. (Experimental)"
     OFF # disabled by default
 )
 
@@ -109,7 +109,7 @@ option(SVS_BENCHMARK_VAMANA_SUPERSEARCH
 #####
 
 if (NOT SVS_EXPERIMENTAL_LEANVEC AND SVS_EXPERIMENAL_BUILD_CUSTOM_MKL)
-    message(FATAL_ERROR "Cannot build custom MKL if MKL/LEANVEC is not enabled! Terminating CMake.")
+    message(FATAL_ERROR "Cannot build custom Intel(R) MKL if MKL/LEANVEC is not enabled! Terminating CMake.")
 endif()
 
 if (SVS_BENCHMARK_VAMANA_SUPERSEARCH AND NOT SVS_BUILD_BENCHMARK)
@@ -121,8 +121,8 @@ endif()
 #####
 
 if (SVS_NO_AVX512)
-    # AVX512F is the base for the AVX512 instruction set.
-    # Adding the `-mno-avx512f` flag will disable all AVX512 dependent instructions.
+    # AVX512F is the base for the Intel(R) AVX-512 instruction set.
+    # Adding the `-mno-avx512f` flag will disable all Intel(R) AVX-512 dependent instructions.
     target_compile_options(${SVS_LIB} INTERFACE -mno-avx512f)
 endif()
 

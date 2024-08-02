@@ -1,5 +1,5 @@
 /**
- *    Copyright (C) 2023-present, Intel Corporation
+ *    Copyright (C) 2023, Intel Corporation
  *
  *    You can redistribute and/or modify this software under the terms of the
  *    GNU Affero General Public License version 3.
@@ -307,7 +307,7 @@ CATCH_TEST_CASE("Turbo Compressed Vector", "[quantization][lvq][turbo]") {
     }
 
     CATCH_SECTION("Turbo Compressed") {
-        // Only test the AVX-512 ABI combinations for now.
+        // Only test the Intel(R) AVX-512 ABI combinations for now.
         TurboCompressedVectorTester<lvq::Unsigned, 4, 157, 16, 8>().test();
         TurboCompressedVectorTester<lvq::Signed, 4, 157, 16, 8>().test();
 
