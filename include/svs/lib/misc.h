@@ -17,6 +17,7 @@
 #include <tuple>
 #include <unordered_set>
 #include <vector>
+#include <algorithm>
 
 #include "svs/lib/datatype.h"
 #include "svs/lib/exception.h"
