@@ -35,6 +35,9 @@ if os.environ.get("SVS_MULTIARCH", None) is not None:
     cmake_array = ";".join(svs_microarchs)
     cmake_args.append(f"-DSVS_MICROARCHS={cmake_array}")
 
+# Determine the root of the repository
+base_dir = os.path.relpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 setup(
     name="scalable-vs",
     version="0.0.4",
@@ -46,5 +49,14 @@ setup(
         "numpy>=1.10.0, <2",   # keep in-sync with `pyproject.toml`
         "archspec>=0.2.0", # keep in-sync with `pyproject.toml`
         "toml>=0.10.2",    # keep in-sync with `pyproject.toml` required for the tests
-    ]
+    ],
+    license="GNU Affero General Public License v3 or later (AGPLv3+)",
+    license_files=[
+        os.path.join(base_dir, "LICENSE"),
+        os.path.join(base_dir, "THIRD-PARTY-PROGRAMS"),
+    ],
+    classifiers=[
+        "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    ],
+    include_package_data=True,
 )
