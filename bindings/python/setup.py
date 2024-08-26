@@ -38,9 +38,25 @@ if os.environ.get("SVS_MULTIARCH", None) is not None:
 # Determine the root of the repository
 base_dir = os.path.relpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
+project_urls = {
+    "Source Code": "https://github.com/intel/ScalableVectorSearch",
+    "Documentation": "https://intel.github.io/ScalableVectorSearch/",
+    "Bug Tracker": "https://github.com/intel/ScalableVectorSearch",
+}
+
+with open(os.path.join(base_dir, "README.md"), "r", encoding="utf8") as f:
+    long_description = f.read()
+
 setup(
     name="scalable-vs",
-    version="0.0.4",
+    version="0.0.5",
+    description="Scalable Vector Search (SVS) is a performance library for vector similarity search.",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/intel/ScalableVectorSearch",
+    author_email="onedal.maintainers@intel.com",
+    maintainer_email="onedal.maintainers@intel.com",
+    project_urls=project_urls,
     packages=['svs'],
     package_dir={'': 'src'},
     cmake_install_dir='src/svs',
@@ -56,7 +72,22 @@ setup(
         os.path.join(base_dir, "THIRD-PARTY-PROGRAMS"),
     ],
     classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Environment :: Console",
+        "Operating System :: POSIX :: Linux",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Other Audience",
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+        "Topic :: Scientific/Engineering",
+        "Topic :: System",
+        "Topic :: Software Development",
     ],
+    keywords=["machine learning", "data science", "data analytics"],
     include_package_data=True,
 )
