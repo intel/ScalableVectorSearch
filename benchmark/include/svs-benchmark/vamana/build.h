@@ -291,7 +291,7 @@ struct BuildJob : public BuildJobBase {
     //    - B. Align more closely with the `SearchJob`.
     //    Added an argument "save_directory" to allow built indexes to be saved after
     //    building.
-    static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 4);
+    static constexpr svs::lib::Version save_version = svs::lib::Version(0, 0, 5);
     static constexpr std::string_view serialization_schema = "benchmark_vamana_build_job";
 
     // Save the BuildJob to a TOML table.
