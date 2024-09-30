@@ -1,14 +1,17 @@
-/**
- *    Copyright (C) 2023, Intel Corporation
+/*
+ * Copyright (C) 2023 Intel Corporation
  *
- *    You can redistribute and/or modify this software under the terms of the
- *    GNU Affero General Public License version 3.
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they
+ * were provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit
+ * this software or the related documents without Intel's prior written
+ * permission.
  *
- *    You should have received a copy of the GNU Affero General Public License
- *    version 3 along with this software. If not, see
- *    <https://www.gnu.org/licenses/agpl-3.0.en.html>.
+ * This software and the related documents are provided as is, with no
+ * express or implied warranties, other than those that are expressly stated
+ * in the License.
  */
-
 #pragma once
 
 #include "svs/concepts/graph.h"
