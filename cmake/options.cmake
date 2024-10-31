@@ -83,16 +83,6 @@ option(SVS_EXPERIMENTAL_ENABLE_NUMA
     OFF # disabled by default
 )
 
-option(SVS_EXPERIMENTAL_LEANVEC
-    "Enable LeanVec for vector dimensionality reduction. Requires Intel(R) MKL support"
-    OFF # disabled by default
-)
-
-option(SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL
-    "Build a custom Intel(R) MKL shared-library for redistributable binaries. (Experimental)"
-    OFF # disabled by default
-)
-
 #####
 ##### svsbenchmark
 #####
@@ -107,10 +97,6 @@ option(SVS_BENCHMARK_VAMANA_SUPERSEARCH
 #####
 ##### Checking
 #####
-
-if (NOT SVS_EXPERIMENTAL_LEANVEC AND SVS_EXPERIMENAL_BUILD_CUSTOM_MKL)
-    message(FATAL_ERROR "Cannot build custom Intel(R) MKL if MKL/LEANVEC is not enabled! Terminating CMake.")
-endif()
 
 if (SVS_BENCHMARK_VAMANA_SUPERSEARCH AND NOT SVS_BUILD_BENCHMARK)
     message(FATAL_ERROR "Vamana super-search requires `SVS_BUILD_BENCHMARK=YES`")

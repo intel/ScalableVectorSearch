@@ -17,15 +17,6 @@ import svs
 
 import numpy as np
 
-from .common import \
-    isapprox, \
-    test_data_vecs, \
-    test_data_dims, \
-    test_queries, \
-    test_groundtruth_l2, \
-    test_leanvec_data_matrix, \
-    test_leanvec_query_matrix
-
 class CommonTester(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(CommonTester, self).__init__(*args, **kwargs)
@@ -234,32 +225,3 @@ class CommonTester(unittest.TestCase):
             print(f"Expected {expected_equal_lower} number of entries. Instead, got {actually_equal}!")
 
         self.assertLessEqual(expected_equal_lower, actually_equal)
-
-    def test_leanvec_matrices(self):
-        data = svs.read_vecs(test_data_vecs)
-        queries = svs.read_vecs(test_queries)
-        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64);
-
-        self.assertEqual(data_matrix.ndim, 2)
-        self.assertEqual(data_matrix.shape[0], data.shape[1])
-        self.assertEqual(data_matrix.shape[1], 64)
-        self.assertEqual(data_matrix.dtype, np.float32)
-
-        self.assertEqual(query_matrix.ndim, 2)
-        self.assertEqual(query_matrix.shape, data_matrix.shape)
-        self.assertEqual(query_matrix.dtype, data_matrix.dtype)
-
-        test_data_matrix = svs.read_vecs(test_leanvec_data_matrix);
-        test_query_matrix = svs.read_vecs(test_leanvec_query_matrix);
-
-        self.assertEqual(test_data_matrix.shape, data_matrix.shape)
-        self.assertEqual(test_query_matrix.shape, query_matrix.shape)
-
-        rtol = 0.01
-        atol = 1E-7
-        self.assertTrue(
-            np.allclose(test_data_matrix, data_matrix, rtol = rtol, atol = atol)
-        )
-        self.assertTrue(
-            np.allclose(test_query_matrix, query_matrix, rtol = rtol, atol = atol)
-        )

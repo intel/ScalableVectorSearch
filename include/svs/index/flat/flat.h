@@ -422,7 +422,6 @@ class FlatIndex {
 /// returning a Vamana compatible dataset. Concrete examples include:
 ///
 /// * An instance of ``VectorDataLoader``.
-/// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
 /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
 ///
 

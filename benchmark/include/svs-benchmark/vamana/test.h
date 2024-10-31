@@ -32,9 +32,6 @@ struct VamanaTest {
     std::filesystem::path graph_;
     std::filesystem::path queries_f32_;
     size_t queries_in_training_set_;
-    // Backend-specific members
-    std::filesystem::path leanvec_data_matrix_;
-    std::filesystem::path leanvec_query_matrix_;
     // Runtime values
     size_t num_threads_;
 
@@ -46,9 +43,6 @@ struct VamanaTest {
         std::filesystem::path graph,
         std::filesystem::path queries_f32,
         size_t queries_in_training_set,
-        // backend-specific members
-        std::filesystem::path leanvec_data_matrix,
-        std::filesystem::path leanvec_query_matrix,
         // Runtime values
         size_t num_threads
     )
@@ -58,8 +52,6 @@ struct VamanaTest {
         , graph_{std::move(graph)}
         , queries_f32_{std::move(queries_f32)}
         , queries_in_training_set_{queries_in_training_set}
-        , leanvec_data_matrix_{std::move(leanvec_data_matrix)}
-        , leanvec_query_matrix_{std::move(leanvec_query_matrix)}
         , num_threads_{num_threads} {}
 
     static VamanaTest example() {
@@ -70,8 +62,6 @@ struct VamanaTest {
             "path/to/graph",                     // graph
             "path/to/queries_f32",               // queries_f32
             10000,                               // queries_in_training_set
-            "path/to/leanvec_data_matrix",       // LeanVec data matrix
-            "path/to/leanvec_query_matrix",      // LeanVec query matrix
             0,                                   // Num Threads (not-saved)
         };
     }
@@ -85,13 +75,6 @@ struct VamanaTest {
         throw ANNEXCEPTION("Could not find a groundtruth for {} distance!", distance);
     }
 
-    ///// Save/Load
-    // Version History
-    // * v0.0.1 (Breaking): Added `leanvec_data_matrix` and `leanvec_query_matrix` file
-    //   paths.
-    //
-    //   This is an incompatible change since generation and consumption of reference
-    //   results is expected to be entirely internal to SVS.
     static constexpr svs::lib::Version save_version{0, 0, 1};
     static constexpr std::string_view serialization_schema = "benchmark_vamana_test";
     svs::lib::SaveTable save() const {
@@ -103,9 +86,7 @@ struct VamanaTest {
              SVS_LIST_SAVE_(index_config),
              SVS_LIST_SAVE_(graph),
              SVS_LIST_SAVE_(queries_f32),
-             SVS_LIST_SAVE_(queries_in_training_set),
-             SVS_LIST_SAVE_(leanvec_data_matrix),
-             SVS_LIST_SAVE_(leanvec_query_matrix)}
+             SVS_LIST_SAVE_(queries_in_training_set)}
         );
     }
 
@@ -121,8 +102,6 @@ struct VamanaTest {
             svsbenchmark::extract_filename(table, "graph", root),
             svsbenchmark::extract_filename(table, "queries_f32", root),
             SVS_LOAD_MEMBER_AT_(table, queries_in_training_set),
-            svsbenchmark::extract_filename(table, "leanvec_data_matrix", root),
-            svsbenchmark::extract_filename(table, "leanvec_query_matrix", root),
             num_threads};
     }
 };

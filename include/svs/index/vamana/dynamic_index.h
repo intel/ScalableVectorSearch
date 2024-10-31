@@ -813,7 +813,9 @@ class MutableVamanaIndex {
     ///// Mutation
     void consolidate() {
         auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
-        auto valid = [&](size_t i) { return !(this->is_deleted(i)); };
+        std::function<bool(size_t)> valid = [&](size_t i) {
+            return !(this->is_deleted(i));
+        };
 
         // Determine if the entry point is deleted.
         // If so - we need to pick a new one.

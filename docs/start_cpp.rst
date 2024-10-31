@@ -168,37 +168,6 @@ truth.
    :end-before: [Loading]
    :dedent: 4
 
-
-Search using vector compression
-*******************************
-
-:ref:`Vector compression <vector_compression>` can be used to speed up search. It can be done with a :cpp:class:`svs::quantization::lvq::LVQDataset`.
-
-See :ref:`compression-setting` for details on setting the compression parameters.
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Compressed Loader]
-   :end-before: [Compressed Loader]
-   :dedent: 4
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Search Compressed]
-   :end-before: [Search Compressed]
-   :dedent: 4
-
-.. note::
-   Vector compression is usually accompanied by an accuracy loss for the same search window size and may require
-   increasing the window size to compensate.
-
-
-Saving an index with compressed vectors
-=======================================
-
-SVS has support to save and load indices with a previously compressed dataset.
-The saving and loading procedures are the same as with uncompressed vectors.
-
 .. _entire_example_cpp:
 
 Entire example

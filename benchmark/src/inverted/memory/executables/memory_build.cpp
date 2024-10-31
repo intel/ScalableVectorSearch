@@ -3,7 +3,6 @@
 #include "svs-benchmark/build.h"
 #include "svs-benchmark/executable.h"
 #include "svs-benchmark/inverted/memory/build.h"
-#include "svs-benchmark/inverted/memory/lvq.h"
 #include "svs-benchmark/inverted/memory/register.h"
 #include "svs-benchmark/inverted/memory/uncompressed.h"
 
@@ -60,7 +59,6 @@ struct MemoryBuild {
     static dispatcher_type dispatcher() {
         auto dispatcher = dispatcher_type();
         svsbenchmark::inverted::memory::register_uncompressed_memory_build(dispatcher);
-        svsbenchmark::inverted::memory::register_lvq_memory_build(dispatcher);
         return dispatcher;
     }
 

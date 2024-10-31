@@ -218,54 +218,6 @@ the chosen accuracy level.
 
 |
 
-.. _compression-setting:
-
-How to Choose Compression Parameters
-=====================================
-
-Number of bits per level
-************************
-LVQ compression [ABHT23]_ comes in two flavors: one or two levels. One level LVQ, or LVQ-B, uses B bits to encode each vector
-component using a scalar quantization with per-vector scaling factors. Two level LVQ, or LVQ-B1xB2, uses LVQ-B1 to encode
-the vectors and a modification of LVQ to encode the residuals using B2 bits.
-
-Whether using one or two levels, and the number of bits, depends on the dataset and the trade-off between performance and
-accuracy that needs to be achieved.
-
-When using **two-level LVQ**, the graph search is conducted using vectors compressed with LVQ-B1 and a final re-ranking
-step is performed using the residuals compressed with B2 bits to improve the search recall.
-This decoupled strategy is particularly beneficial for **high dimensional datasets** (>200 dimensions) as LVQ achieves up to
-~8x bandwidth reduction (B1=4) compared to a float32-valued vector. The number of bits for the residuals (4 or 8) should
-be chosen depending on the desired search accuracy. Suggested configurations for high dimensional vectors are LVQ-4x8 or
-LVQ-4x4 depending on the desired accuracy.
-
-For **lower dimensional datasets** (<200 dimensions), **one-level** LVQ-8 is often a good choice. If higher recall is required, and a
-slightly larger memory footprint is allowed, then LVQ-8x4 or LVQ-8x8 should be used.
-
-These are general guidelines, but the best option will depend on the dataset. If willing to optimize the search for a
-particular dataset and use case, we suggest trying different LVQ options. See :ref:`SVS + Vector compression (large scale
-datasets) <benchs-compression-evaluation>` and
-:ref:`SVS + Vector compression (small scale datasets) <benchs-compression-evaluation_small_scale>` for benchmarking results of
-the different LVQ settings in standard datasets.
-
-.. _lvq_strategy:
-
-LVQ implementation strategy
-***************************
-The ``strategy`` argument in the :py:class:`svs.LVQLoader` is of type :py:class:`svs.LVQStrategy`
-and defines the low level implementation strategy for LVQ, whether it is Turbo or Sequential. Turbo is an
-optimized implementation that brings further performance over the default (Sequential) implementation [AHBW24]_. Turbo can be used
-when using 4 bits for the primary LVQ level and it is enabled by default for that setting.
-
-Padding
-*******
-LVQ-compressed vectors can be padded to a multiple of 32 or 64 bytes to be aligned with half or full cache lines.
-This improves search performance and has a low impact on the overall memory footprint cost (e.g., 5% and 12% larger
-footprint for `Deep <http://sites.skoltech.ru/compvision/noimi/>`_ with ``graph_max_degree`` = 128 and 32, respectively).
-A value of 0 (default) implies no special alignment.
-
-For details on the C++ implementation see :ref:`cpp_quantization_lvq`.
-
 How to Prepare Your Own Vector Dataset
 ======================================
 Preparing your own vector dataset is simple with our Python API ``svs``, which can

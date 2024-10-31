@@ -37,7 +37,6 @@ set(TEST_SOURCES
     ${TEST_DIR}/utils/benchmarks.cpp
     ${TEST_DIR}/utils/generators.cpp
     ${TEST_DIR}/utils/inverted_reference.cpp
-    ${TEST_DIR}/utils/lvq_reconstruction.cpp
     ${TEST_DIR}/utils/require_error.cpp
     ${TEST_DIR}/utils/schemas.cpp
     ${TEST_DIR}/utils/test_dataset.cpp
@@ -124,13 +123,6 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
 
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
-    ${TEST_DIR}/svs/quantization/lvq/compressed.cpp
-    ${TEST_DIR}/svs/quantization/lvq/encoding.cpp
-    ${TEST_DIR}/svs/quantization/lvq/datasets.cpp
-    ${TEST_DIR}/svs/quantization/lvq/vectors.cpp
-    ${TEST_DIR}/svs/quantization/lvq/global_bias.cpp
-    ${TEST_DIR}/svs/quantization/lvq/turbo.cpp
-    ${TEST_DIR}/svs/quantization/lvq/lvq.cpp
 )
 
 #####
@@ -143,22 +135,8 @@ SET(INTEGRATION_TESTS
     ${TEST_DIR}/svs/orchestrators/vamana.cpp
     # Integration Tests
     ${TEST_DIR}/integration/exhaustive.cpp
-    ${TEST_DIR}/integration/vamana/index_search.cpp
-    ${TEST_DIR}/integration/vamana/index_build.cpp
-    ${TEST_DIR}/integration/vamana/lvq_search.cpp
-    ${TEST_DIR}/integration/inverted/build.cpp
-    ${TEST_DIR}/integration/inverted/build_lvq.cpp
     # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
 )
-
-# Option dependent LeanVec integration tests
-if (SVS_EXPERIMENTAL_LEANVEC)
-    message("Enabling LEANVEC Integration tests!")
-    list(APPEND INTEGRATION_TESTS
-        ${TEST_DIR}/integration/vamana/leanvec_search.cpp
-        ${TEST_DIR}/integration/vamana/leanvec_build.cpp
-    )
-endif()
 
 if ((NOT CMAKE_BUILD_TYPE STREQUAL "Debug") OR SVS_FORCE_INTEGRATION_TESTS)
     message("Enabling Integration Tests!")
@@ -177,19 +155,6 @@ set(NUMA_TESTS
 if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     message("Enabling NUMA tests!")
     list(APPEND TEST_SOURCES ${NUMA_TESTS})
-endif()
-
-
-#####
-##### Test Executable
-#####
-
-# Option dependent LeanVec tests
-if (SVS_EXPERIMENTAL_LEANVEC)
-    message("Enabling LeanVec tests!")
-    list(APPEND TEST_SOURCES
-    ${TEST_DIR}/svs/leanvec/leanvec.cpp
-    )
 endif()
 
 add_executable(tests ${TEST_SOURCES})

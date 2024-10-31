@@ -37,14 +37,5 @@ create_utility(consolidate characterization/consolidate.cpp)
 create_utility(logging logging.cpp)
 # create_utility(mutable characterization/mutable.cpp)
 
-# Quantization
-# create_utility(build_quantized quantization/build_quantized.cpp)
-create_utility(dynamic_lvq quantization/dynamic_lvq.cpp)
-# create_utility(clustered_lvq quantization/clustered_lvq.cpp)
-
 # # Benchmark
 # create_utility(benchmark_index_build benchmarks/index_build.cpp)
-
-### Codegen File
-add_library(codegen SHARED codegen.cpp)
-target_link_libraries(codegen PUBLIC ${SVS_LIB} svs_compile_options svs_native_options)

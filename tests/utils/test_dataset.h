@@ -53,10 +53,6 @@ std::filesystem::path groundtruth_mip_file();
 // Groundtruth of for the queries with respect to the dataset using cosine similarity.
 std::filesystem::path groundtruth_cosine_file();
 
-// LeanVec data and query matrices in "fvecs" format.
-std::filesystem::path leanvec_data_matrix_file();
-std::filesystem::path leanvec_query_matrix_file();
-
 ///// Helper Functions
 svs::data::SimpleData<float> queries();
 svs::data::SimpleData<uint32_t> groundtruth_euclidean();
@@ -71,14 +67,6 @@ svs::graphs::SimpleBlockedGraph<uint32_t> graph_blocked();
 
 /// Helper to load the ground-truth for a given file.
 svs::data::SimpleData<uint32_t> load_groundtruth(svs::DistanceType distance);
-
-/// Helpers to load LeanVec OOD matrices
-template <size_t D = svs::Dynamic> svs::data::SimpleData<float, D> leanvec_data_matrix() {
-    return svs::load_data<float, D>(leanvec_data_matrix_file());
-}
-template <size_t D = svs::Dynamic> svs::data::SimpleData<float, D> leanvec_query_matrix() {
-    return svs::load_data<float, D>(leanvec_query_matrix_file());
-}
 
 ///
 /// @brief Return a reference to the last `queries_in_test_set` entries in `queries`.

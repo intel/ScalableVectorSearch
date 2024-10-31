@@ -11,7 +11,6 @@ Do you need a **faster search**? SVS performance can be improved by using the fo
 
    avx512.rst
    hugepages.rst
-   using_compression.rst
    multithreading.rst
    ../advanced/static_dimensionality.rst
    numa.rst
