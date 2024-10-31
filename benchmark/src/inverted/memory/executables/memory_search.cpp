@@ -3,7 +3,6 @@
 #include "svs-benchmark/executable.h"
 #include "svs-benchmark/search.h"
 
-#include "svs-benchmark/inverted/memory/lvq.h"
 #include "svs-benchmark/inverted/memory/register.h"
 #include "svs-benchmark/inverted/memory/search.h"
 #include "svs-benchmark/inverted/memory/uncompressed.h"
@@ -61,7 +60,6 @@ struct MemorySearch {
     static dispatcher_type dispatcher() {
         auto dispatcher = dispatcher_type();
         svsbenchmark::inverted::memory::register_uncompressed_memory_search(dispatcher);
-        svsbenchmark::inverted::memory::register_lvq_memory_search(dispatcher);
         return dispatcher;
     }
 

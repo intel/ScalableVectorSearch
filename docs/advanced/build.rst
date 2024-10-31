@@ -237,20 +237,17 @@ The following variables can be found in CMake files but are intended for develop
 As such, they are subject to change without notice.
 Please avoid using them.
 
-+---------------------------------+--------------------+-----------------------------------------------------+
-| SVS_EXPERIMENTAL_CHECK_BOUNDS   | ON, **OFF**        | Enable bounds checking on some data structure       |
-|                                 |                    | accesses. Can be helpful for debugging              |
-|                                 |                    | out-of-bounds accesses.                             |
-+---------------------------------+--------------------+-----------------------------------------------------+
-| SVS_EXPERIMENTAL_CLANG_TIDY     | ON, **OFF**        | Enable the clang-tidy static analyzer on the        |
-|                                 |                    | utility binaries.                                   |
-|                                 |                    |                                                     |
-|                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be            |
-|                                 |                    | effective.                                          |
-+---------------------------------+--------------------+-----------------------------------------------------+
-| SVS_EXPERIMENTAL_LEANVEC        | ON, **OFF**        | Enable LeanVec for vector dimension reduction       |
-|                                 |                    | Requires Intel(R) MKL library to implement SVD/GEMM |
-+---------------------------------+--------------------+-----------------------------------------------------+
++---------------------------------+--------------------+-----------------------------------------------+
+| SVS_EXPERIMENTAL_CHECK_BOUNDS   | ON, **OFF**        | Enable bounds checking on some data structure |
+|                                 |                    | accesses. Can be helpful for debugging        |
+|                                 |                    | out-of-bounds accesses.                       |
++---------------------------------+--------------------+-----------------------------------------------+
+| SVS_EXPERIMENTAL_CLANG_TIDY     | ON, **OFF**        | Enable the clang-tidy static analyzer on the  |
+|                                 |                    | utility binaries.                             |
+|                                 |                    |                                               |
+|                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be      |
+|                                 |                    | effective.                                    |
++---------------------------------+--------------------+-----------------------------------------------+
 
 
 Details on multi-arch support
@@ -299,30 +296,4 @@ Alternatively, if svs has been installed in a non-standard directory, the final 
 .. code-block:: sh
 
    PYTHONPATH="path/to/svs/dir" make
-
-(Advanced) Intel(R) MKL as a Dependency
-=======================================
-
-Upcoming SVS features need to use functionality provided by Intel(R) MKL.
-SVS can link with Intel(R) MKL in a number of ways.
-
-First, if Intel(R) MKL is not needed, then compiled SVS artifacts should not try to link with Intel(R) MKL.
-Second, a system Intel(R) MKL can be used with the combination:
-
-.. code-block:: sh
-
-    -DSVS_EXPERIMENTAL_LEANVEC=YES
-    -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=NO
-
-Note that if this option is used, you *may* need to include appropriate environment variable
-for SVS to find Intel(R) MKL at run time.
-
-Finally, SVS can also build and link with a custom Intel(R) MKL shared library using the
-`custom shared object builder <https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2024-0/using-the-custom-shared-object-builder.html>`_ .
-To use this feature, provide the following variables to Cmake at configuration time:
-
-.. code-block:: sh
-
-    -DSVS_EXPERIMENTAL_LEANVEC=YES
-    -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=YES
 

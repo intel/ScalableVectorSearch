@@ -90,10 +90,18 @@ def _load_manifest():
     Determine which shared library to load to supply the C++ extentions.
     """
     json_file = Path(__file__).parent / FLAGS_MANIFEST
+    json_file_alternate = Path(__file__).parent.parent / FLAGS_MANIFEST
 
     # Try to give a somewhat helpful error message if the JSON manifest file was not
     # generated properly by Scikit-build/CMake
-    if not json_file.exists():
+    if json_file.exists():
+        with open(json_file, "r") as io:
+            return json.load(io)
+    elif json_file_alternate.exists():
+        with open(json_file_alternate, "r") as io:
+            return json.load(io)
+    else:
+        print(Path(str(json_file).replace("ai.similarity-search.gss/", "")))
         raise RuntimeError(f"""
         Expected a file {FLAGS_MANIFEST} to exist in the source directory to describe the
         attributes of the libraries bundled with this application.
@@ -102,9 +110,6 @@ def _load_manifest():
 
         Please report this to the project maintainer!
         """)
-
-    with open(json_file, "r") as io:
-        return json.load(io)
 
 def available_backends():
     """

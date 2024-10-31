@@ -9,9 +9,6 @@ import os
 cmake_args = [
     # Export compile commands to allow us to explore compiler flags as needed.
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=YES",
-    # TODO: need to remove these LEANVEC and Intel(R) MKL dependency from here
-    "-DSVS_EXPERIMENTAL_LEANVEC=YES ",
-    "-DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=YES ",
 ]
 
 # Utility to convert micro-architecture strings to

@@ -22,7 +22,7 @@ Contents
 Compatible Loaders
 ------------------
 
-The table below lists the compatibility between different index and the different kinds of dataset (e.g., uncompressed, lvq etc).
+The table below lists the compatibility between different index and the different kinds of dataset (e.g., uncompressed, etc).
 
 .. csv-table:: Index and Loader Compatibility Matrix
    :file: loader-compatibility.csv

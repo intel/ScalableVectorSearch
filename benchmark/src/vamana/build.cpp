@@ -2,8 +2,6 @@
 #include "svs-benchmark/vamana/build.h"
 #include "svs-benchmark/benchmark.h"
 #include "svs-benchmark/executable.h"
-#include "svs-benchmark/vamana/leanvec.h"
-#include "svs-benchmark/vamana/lvq.h"
 #include "svs-benchmark/vamana/uncompressed.h"
 
 // svs
@@ -36,8 +34,6 @@ template <> struct BuildDispatcher<StaticBenchmark> {
     static type dispatcher() {
         auto dispatcher = type{};
         vamana::register_uncompressed_static_build(dispatcher);
-        vamana::register_lvq_static_build(dispatcher);
-        vamana::register_leanvec_static_build(dispatcher);
         return dispatcher;
     }
 };
@@ -47,7 +43,6 @@ template <> struct BuildDispatcher<DynamicBenchmark> {
     static type dispatcher() {
         auto dispatcher = type{};
         vamana::register_uncompressed_dynamic_build(dispatcher);
-        vamana::register_lvq_dynamic_build(dispatcher);
         return dispatcher;
     }
 };

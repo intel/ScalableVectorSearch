@@ -43,16 +43,9 @@ Welcome to Scalable Vector Search's documentation!
    cpp/top.rst
    cpp/index/index.rst
    cpp/core/index.rst
-   cpp/quantization/index.rst
    cpp/concepts/index.rst
    cpp/internal/index.rst
    cpp/testing.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Experimental Python Library
-
-   python/experimental/leanvec.rst
 
 
 Indices and tables

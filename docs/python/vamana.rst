@@ -168,21 +168,6 @@ This informs the dispatch mechanisms that we're loading an uncompressed data fil
 
 Performing queries is identical to before.
 
-Using Vector Compression
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The library has experimental support for performing online vector compression.
-The second argument to :py:func:`svs.Vamana.__init__` can be one of the compressed loaders (:ref:`python_api_loaders`), which will compress an uncompressed dataset on the fly.
-To see which loaders are applicable to which methods, study the signature in :py:func:`svs.vamana.__init__` carefully.
-
-Specifying the loader is all that is required to use vector compression.
-Note that vector compression is usually accompanied by an accuracy loss for the same search window size and may require increasing the window size to compensate.
-
-.. literalinclude:: ../../examples/python/example_vamana.py
-   :language: python
-   :start-after: [search-compressed]
-   :end-before: [search-compressed]
-
 Entire Example
 ^^^^^^^^^^^^^^
 

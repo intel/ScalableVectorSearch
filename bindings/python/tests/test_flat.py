@@ -26,8 +26,7 @@ from .common import \
     test_groundtruth_l2, \
     test_groundtruth_mip, \
     test_number_of_vectors, \
-    test_dimensions, \
-    timed
+    test_dimensions
 
 class FlatTester(unittest.TestCase):
     """
@@ -49,10 +48,6 @@ class FlatTester(unittest.TestCase):
             (file, {
                 svs.DistanceType.L2: 1.0,
                 svs.DistanceType.MIP: 1.0,
-            }),
-            (svs.LVQ8(file, 0), {
-                svs.DistanceType.L2: 0.99217,
-                svs.DistanceType.MIP: 0.99232,
             }),
         ]
 

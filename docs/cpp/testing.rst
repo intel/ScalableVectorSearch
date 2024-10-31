@@ -55,8 +55,6 @@ A summary of the testing related files in the SVS repository and their role is g
     |   |
     |   |-- known_f32.svs : A copy of `data_f32.fvecs` but encoded in the SVS format.
     |   |-- queries_f32.svs : The queries to use for the test dataset.
-    |   |-- leanvec_data_matrix.fvecs : LeanVec OOD matrix to transform data. Shape(128, 64)
-    |   |-- leanvec_query_matrix.fvecs : LeanVec OOD matrix to transform queries. Shape(128, 64)
     |   +-- vamana_config.toml : The serialized ``VamanaIndexParameters`` of the reference
     |                            Vamana graph.
     |

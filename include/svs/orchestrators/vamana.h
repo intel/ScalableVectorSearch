@@ -313,7 +313,6 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// returning a Vamana compatible dataset. Concrete examples include:
     ///
     /// * An instance of ``VectorDataLoader``.
-    /// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
     /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
     /// @sa save, build
@@ -376,7 +375,6 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// returning a Vamana compatible dataset. Concrete examples include:
     ///
     /// * An instance of ``VectorDataLoader``.
-    /// * An LVQ loader: ``svs::quantization::lvq::LVQLoader``.
     /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
     /// @sa assemble, save

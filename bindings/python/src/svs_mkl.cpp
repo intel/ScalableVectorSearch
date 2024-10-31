@@ -18,21 +18,7 @@
 // stl
 #include <optional>
 
-SVS_VALIDATE_BOOL_ENV(SVS_HAVE_MKL);
-#if not SVS_HAVE_MKL
-
 namespace svs::python {
 bool have_mkl() { return false; }
 std::optional<size_t> mkl_num_threads() { return std::nullopt; }
 } // namespace svs::python
-
-#else
-
-#include <mkl.h>
-
-namespace svs::python {
-bool have_mkl() { return true; }
-std::optional<size_t> mkl_num_threads() { return mkl_get_max_threads(); }
-} // namespace svs::python
-
-#endif

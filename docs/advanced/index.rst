@@ -7,7 +7,6 @@ Advanced Topics
    :maxdepth: 1
    :caption: Contents:
 
-   lowermem.rst
    build.rst
    static_dimensionality.rst
    graph_search.rst

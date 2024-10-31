@@ -20,8 +20,6 @@ set(SHARED_LIBRARY_FILES
     src/datasets.cpp
     # vamana
     src/vamana/uncompressed.cpp
-    src/vamana/lvq.cpp
-    src/vamana/leanvec.cpp
     src/vamana/search.cpp
     src/vamana/build.cpp
     src/vamana/test.cpp
@@ -30,7 +28,6 @@ set(SHARED_LIBRARY_FILES
     src/inverted/memory/common.cpp
     src/inverted/memory/register.cpp
     src/inverted/memory/uncompressed.cpp
-    src/inverted/memory/lvq.cpp
     src/inverted/memory/executables/memory_build.cpp
     src/inverted/memory/executables/memory_search.cpp
     src/inverted/memory/executables/memory_test.cpp
