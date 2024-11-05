@@ -67,6 +67,7 @@ template <typename F> void for_standard_specializations(F&& f) {
     X (float,   float,        768, EnableBuild::FromFileAndArray);
     X (float,   float,        1536, EnableBuild::FromFileAndArray);
     X (float,   float,        1024, EnableBuild::FromFileAndArray);
+    X (float,   float,        2048, EnableBuild::FromFileAndArray);
 
     // XN(float,   svs::Float16, 960); // Gist - F16
     // XN(float,   svs::Float16, 768); // DPR - F16
@@ -83,6 +84,7 @@ template <typename F> void for_standard_specializations(F&& f) {
     X (float, svs::Float16, 768, EnableBuild::FromFileAndArray);
     X (float, svs::Float16, 1536, EnableBuild::FromFileAndArray);
     X (float, svs::Float16, 1024, EnableBuild::FromFileAndArray);
+    X (float, svs::Float16, 2048, EnableBuild::FromFileAndArray);
 
     // XN(uint8_t, uint8_t,      128); // BigANN 1B
     X (uint8_t, uint8_t,      Dynamic, EnableBuild::FromFileAndArray);
@@ -148,6 +150,10 @@ template <typename F> void lvq_specialize_4x8(const F& f) {
     X(DistanceL2, 4, 8, 1024, Sequential, true);
     X(DistanceIP, 4, 8, 1024, Sequential, true);
 
+    X(DistanceL2, 4, 8, 2048, Turbo, true);
+    X(DistanceIP, 4, 8, 2048, Turbo, true);
+    X(DistanceL2, 4, 8, 2048, Sequential, true);
+    X(DistanceIP, 4, 8, 2048, Sequential, true);
 }
 
 template <typename F> void lvq_specialize_8x0(const F& f) {
@@ -180,6 +186,15 @@ template <typename F> void lvq_specialize_8x0(const F& f) {
     X(DistanceIP, 8, 0, 512, Turbo, true);
     X(DistanceIP, 8, 0, 96,  Turbo, true);
 
+    X(DistanceL2, 8, 0, 1024, Turbo, true);
+    X(DistanceIP, 8, 0, 1024, Turbo, true);
+    X(DistanceL2, 8, 0, 1024, Sequential, true);
+    X(DistanceIP, 8, 0, 1024, Sequential, true);
+
+    X(DistanceL2, 8, 0, 2048, Turbo, true);
+    X(DistanceIP, 8, 0, 2048, Turbo, true);
+    X(DistanceL2, 8, 0, 2048, Sequential, true);
+    X(DistanceIP, 8, 0, 2048, Sequential, true);
 }
 
 template <typename F> void lvq_specialize_8x8(const F& f) {
@@ -222,24 +237,28 @@ template <typename F> void leanvec_specialize_lvq_lvq(const F& f) {
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceIP);
 
-    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 384, 1536, DistanceIP);
-    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 384, 1536, DistanceIP);
 
-    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceIP);
-    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceIP);
     // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic,
     // DistanceL2); X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<4>, Dynamic,
     // Dynamic, DistanceL2); X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>,
     // Dynamic, Dynamic, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 512, 2048, DistanceIP);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 2048, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 512, 1536, DistanceIP);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 384, 1536, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 1536, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 1536, DistanceIP);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 512, DistanceIP);
 
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 512, 2048, DistanceIP);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 2048, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 512, 1536, DistanceIP);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 384, 1536, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 1536, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 1536, DistanceIP);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 512, DistanceIP);
 }
