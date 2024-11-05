@@ -73,10 +73,6 @@ Reference to cite when you use SVS in a research paper:
 Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T.:Similarity search in the blink of an eye with compressed
 indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)
 
-## How to Contribute
-We welcome your contributions to this project. See [How to Contribute](contributing/CONTRIBUTING.md) for
-more details.
-
 ## Legal
 Refer to the [LICENSE file](LICENSE) for details.
 
