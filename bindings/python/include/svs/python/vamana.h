@@ -233,15 +233,31 @@ template <typename F> void leanvec_specialize_lvq_unc(const F& f) {
 
 template <typename F> void leanvec_specialize_lvq_lvq(const F& f) {
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
-    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 64, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceIP);
+
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceL2);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic, DistanceIP);
 
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 512, 2048, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 2048, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 512, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 384, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceL2);
+    X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 160, 512, DistanceL2);
 
-    // X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic,
-    // DistanceL2); X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<4>, Dynamic,
-    // Dynamic, DistanceL2); X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>,
-    // Dynamic, Dynamic, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 512, 2048, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 2048, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 512, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 384, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 1536, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceL2);
+    X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 512, DistanceL2);
+
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 512, 2048, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 256, 2048, DistanceIP);
     X(svs::leanvec::UsingLVQ<8>, svs::leanvec::UsingLVQ<8>, 512, 1536, DistanceIP);
@@ -261,6 +277,7 @@ template <typename F> void leanvec_specialize_lvq_lvq(const F& f) {
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 256, 1024, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 768, DistanceIP);
     X(svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, 160, 512, DistanceIP);
+
 }
 
 template <typename F> void leanvec_specializations(F&& f) {
