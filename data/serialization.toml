@@ -11,40 +11,6 @@ schema_version = "v0.0.0"
     num_elements = "int"
 
 [[schemas]]
-    __schema__ = "lvq_compressed_dataset"
-    __version__ = "v0.0.0"
-    inner = "table"
-    kind = "str"
-    sign = "str"
-    bits = "int"
-    ndims = "int"
-    data_dims = "int"
-    num_points = "int"
-
-[[schemas]]
-    __schema__ = "lvq_with_scaling_constants"
-    __version__ = "v0.0.3"
-    kind = "str"
-    binary_file = "str"
-    file_uuid = "str"
-    num_vectors = "int"
-    logical_dimensions = "int"
-    bits = "int"
-
-[[schemas]]
-    __schema__ = "two_level_lvq_dataset"
-    __version__ = "v0.0.2"
-    primary = "table"
-    residual = "table"
-    centroids = "table"
-
-[[schemas]]
-    __schema__ = "one_level_lvq_dataset"
-    __version__ = "v0.0.2"
-    primary = "table"
-    centroids = "table"
-
-[[schemas]]
     __schema__ = "external_to_internal_translation"
     __version__ = "v0.0.0"
     kind = "str"
@@ -219,22 +185,6 @@ schema_version = "v0.0.0"
     data_type = "str"
 
 [[schemas]]
-    __schema__ = "benchmark_dataset_lvq"
-    __version__ = "v0.0.0"
-    primary = "int"
-    residual = "int"
-    strategy = "str"
-
-[[schemas]]
-    __schema__ = "benchmark_dataset_leanvec"
-    __version__ = "v0.0.1"
-    primary = "str"
-    secondary = "str"
-    leanvec_dims = "int"
-    data_matrix = "str"
-    query_matrix = "str"
-
-[[schemas]]
     __schema__ = "benchmark_dataset_abstract"
     __version__ = "v0.0.0"
     kind = "str"
@@ -373,6 +323,4 @@ schema_version = "v0.0.0"
     graph = "str"
     queries_f32 = "str"
     queries_in_training_set = "int"
-    leanvec_data_matrix = "str"
-    leanvec_query_matrix = "str"
 

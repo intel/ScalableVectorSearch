@@ -177,4 +177,3 @@ Please reach out with any questions.
 
 .. literalinclude:: ../../examples/python/example_vamana.py
    :language: python
-

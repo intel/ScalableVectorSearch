@@ -9,3 +9,4 @@ Benchmarks
 
    static/index.rst
    dynamic.rst
+   ablation.rst
