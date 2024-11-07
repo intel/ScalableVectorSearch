@@ -1,2 +1,3 @@
 Loader / Right: Index, :cpp:class:`svs::Vamana`, :cpp:class:`svs::Flat`
 :cpp:class:`svs::VectorDataLoader`, Build and Search, Search Only
+:cpp:class:`svs::quantization::lvq::LVQDataset`, Build and Search, Search Only

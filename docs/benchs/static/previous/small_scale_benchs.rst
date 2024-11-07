@@ -166,6 +166,8 @@ Parameters Setting
 We adopt the standard ANN-benchmarks [AuBF20]_ protocol and generate Pareto curves of QPS vs. recall for the considered
 methods and datasets. For the graph-based methods (HSNWlib, Vamana, SVS) we use the same ``graph_max_degree`` values (32, 64 and 128).
 For IVFPQfs, ScaNN and NGT-qg we consider the provided `yaml configuration files <https://github.com/erikbern/ann-benchmarks/>`_.
+For SVS, we include various LVQ settings (LVQ-8, LVQ-4x4, LVQ-4x8, and LVQ8x8) as well as float16 and float32 encodings.
+LVQ-compressed vectors are padded to half cache lines (``padding`` = 32).
 
 
 .. |copy|   unicode:: U+000A9 .. COPYRIGHT SIGN

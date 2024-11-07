@@ -26,7 +26,7 @@ namespace svs::io {
 // Dispatch tags to control the loading and saving pipeline.
 constexpr lib::PriorityTag<2> default_populate_tag = lib::PriorityTag<2>();
 
-// Some specialized datasets (namely LVQ) may need to perform aritrary computation
+// Some specialized datasets may need to perform aritrary computation
 // or rearrangement of the saved data prior to committing it to the dataset.
 //
 // These datasets are expected to provide their own custom accessor in this case.
