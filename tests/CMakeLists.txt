@@ -138,6 +138,7 @@ SET(INTEGRATION_TESTS
     ${TEST_DIR}/integration/vamana/index_search.cpp
     ${TEST_DIR}/integration/vamana/index_build.cpp
     ${TEST_DIR}/integration/inverted/build.cpp
+    ${TEST_DIR}/integration/cancel.cpp
     # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
 )
 

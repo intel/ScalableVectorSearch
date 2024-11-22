@@ -41,7 +41,9 @@ struct TestIndex {
     void search(
         svs::QueryResultView<size_t> result,
         svs::data::ConstSimpleDataView<float> queries,
-        SearchParameters p
+        SearchParameters p,
+        const svs::lib::DefaultPredicate& cancel =
+            svs::lib::Returns(svs::lib::Const<false>())
     ) const {
         CATCH_REQUIRE(result.n_neighbors() == expected_num_neighbors_);
         CATCH_REQUIRE(result.n_queries() == expected_num_queries_);
@@ -51,6 +53,8 @@ struct TestIndex {
         auto vf = svs::lib::narrow_cast<float>(v);
         for (size_t i = 0, imax = result.n_queries(); i < imax; ++i) {
             for (size_t j = 0, jmax = result.n_neighbors(); j < jmax; ++j) {
+                if (cancel())
+                    return;
                 result.set(svs::Neighbor{v, vf}, i, j);
             }
         }

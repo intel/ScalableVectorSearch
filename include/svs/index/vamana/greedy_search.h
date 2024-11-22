@@ -78,7 +78,8 @@ void greedy_search(
     const Ep& entry_points,
     const Builder& builder,
     Tracker& search_tracker,
-    GreedySearchPrefetchParameters prefetch_parameters = {}
+    GreedySearchPrefetchParameters prefetch_parameters = {},
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     using I = typename Graph::index_type;
 
@@ -102,6 +103,10 @@ void greedy_search(
     // Main search routine.
     search_buffer.sort();
     while (!search_buffer.done()) {
+        // Check if request to cancel the search
+        if (cancel()) {
+            return;
+        }
         // Get the next unvisited vertex.
         const auto& node = search_buffer.next();
         auto node_id = node.id();
@@ -169,7 +174,8 @@ void greedy_search(
     Buffer& search_buffer,
     const Ep& entry_points,
     const Builder& builder = NeighborBuilder(),
-    GreedySearchPrefetchParameters prefetch_parameters = {}
+    GreedySearchPrefetchParameters prefetch_parameters = {},
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     auto null_tracker = NullTracker{};
     greedy_search(
@@ -182,7 +188,8 @@ void greedy_search(
         entry_points,
         builder,
         null_tracker,
-        prefetch_parameters
+        prefetch_parameters,
+        cancel
     );
 }
 } // namespace svs::index::vamana

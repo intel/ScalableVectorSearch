@@ -46,7 +46,13 @@ void test_predicate(Index& index, const Queries& queries) {
     // TODO: Expose predicated search through the dispatch pipeline.
     auto predicate = [](size_t data_index) { return (data_index % 2) != 0; };
 
-    index.search(result.view(), queries.cview(), index.get_search_parameters(), predicate);
+    index.search(
+        result.view(),
+        queries.cview(),
+        index.get_search_parameters(),
+        []() { return false; },
+        predicate
+    );
 
     for (size_t i = 0; i < result.n_queries(); ++i) {
         for (size_t j = 0; j < result.n_neighbors(); ++j) {
