@@ -408,7 +408,10 @@ class VamanaIndex {
     /// ``set_search_parameters``.
     scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
 
-    auto greedy_search_closure(GreedySearchPrefetchParameters prefetch_parameters) const {
+    auto greedy_search_closure(
+        GreedySearchPrefetchParameters prefetch_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
         return [&, prefetch_parameters](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
@@ -421,7 +424,8 @@ class VamanaIndex {
                 buffer,
                 entry_point_,
                 NeighborBuilder(),
-                prefetch_parameters
+                prefetch_parameters,
+                cancel
             );
         };
     }
@@ -441,13 +445,17 @@ class VamanaIndex {
     /// been initialized properly to return the requested number of neighbors.
     ///
     template <typename Query>
-    void search(const Query& query, scratchspace_type& scratch) const {
+    void search(
+        const Query& query,
+        scratchspace_type& scratch,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters)
+            greedy_search_closure(scratch.prefetch_parameters, cancel)
         );
     }
 
@@ -463,6 +471,9 @@ class VamanaIndex {
     /// @param result The result data structure to populate.
     ///     Row `i` in the result corresponds to the neighbors for the `i`th query.
     ///     Neighbors within each row are ordered from nearest to furthest.
+    /// @param cancel A predicate called during the search to determine if the search should be cancelled.
+    //      Return ``true`` if the search should be cancelled. This functor must implement ``bool operator()()``.
+    //      Note: This predicate should be thread-safe as it can be called concurrently by different threads during the search.
     ///
     /// Perform a multi-threaded graph search over the index, overwriting the contents
     /// of ``result`` with the results of search.
@@ -485,7 +496,8 @@ class VamanaIndex {
     void search(
         QueryResultView<I> result,
         const Queries& queries,
-        const search_parameters_type& search_parameters
+        const search_parameters_type& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::run(
             threadpool_,
@@ -521,7 +533,8 @@ class VamanaIndex {
                     queries,
                     result,
                     threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters)
+                    greedy_search_closure(prefetch_parameters, cancel),
+                    cancel
                 );
             }
         );

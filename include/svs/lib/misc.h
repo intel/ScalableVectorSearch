@@ -11,13 +11,13 @@
 
 #pragma once
 
+#include <algorithm>
 #include <bit>
 #include <memory>
 #include <span>
 #include <tuple>
 #include <unordered_set>
 #include <vector>
-#include <algorithm>
 
 #include "svs/lib/datatype.h"
 #include "svs/lib/exception.h"
@@ -534,4 +534,11 @@ template <std::integral T> constexpr T bitmask(T lo, T hi) {
     T one{1};
     return static_cast<T>(one << (hi + one)) - static_cast<T>(one << lo);
 }
+
+/////
+///// Callable
+/////
+
+using DefaultPredicate = std::function<bool()>;
+
 } // namespace svs::lib

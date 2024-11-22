@@ -411,15 +411,19 @@ struct VamanaSingleSearchType {
         SearchBuffer& search_buffer,
         Scratch& scratch,
         const Query& query,
-        const Search& search
+        const Search& search,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        svs::svs_invoke(*this, data, search_buffer, scratch, query, search);
+        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, cancel);
     }
 };
 
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
+/// In this function, cancel does not need to be called since search will call cancel
+/// However, lvq requires cancel to be called to skip reranking
+/// Here we have cancel to make the interface consistent with lvq
 template <
     typename Data,
     typename SearchBuffer,
@@ -432,8 +436,13 @@ SVS_FORCE_INLINE void svs_invoke(
     SearchBuffer& search_buffer,
     Distance& distance,
     const Query& query,
-    const Search& search
+    const Search& search,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
+    // Check if request to cancel the search
+    if (cancel()) {
+        return;
+    }
     // Perform graph search.
     auto accessor = data::GetDatumAccessor();
     search(query, accessor, distance, search_buffer);
@@ -482,10 +491,19 @@ struct VamanaPerThreadBatchSearchType {
         const Queries& queries,
         QueryResultView<I>& result,
         threads::UnitRange<size_t> thread_indices,
-        const Search& search
+        const Search& search,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         svs::svs_invoke(
-            *this, data, search_buffer, scratch, queries, result, thread_indices, search
+            *this,
+            data,
+            search_buffer,
+            scratch,
+            queries,
+            result,
+            thread_indices,
+            search,
+            cancel
         );
     }
 };
@@ -509,13 +527,18 @@ void svs_invoke(
     const Queries& queries,
     QueryResultView<I>& result,
     threads::UnitRange<size_t> thread_indices,
-    const Search& search
+    const Search& search,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Fallback implementation
     size_t num_neighbors = result.n_neighbors();
     for (auto i : thread_indices) {
+        // Check if request to cancel the search
+        if (cancel()) {
+            return;
+        }
         // Perform search - results will be queued in the search buffer.
-        single_search(dataset, search_buffer, distance, queries.get_datum(i), search);
+        single_search(dataset, search_buffer, distance, queries.get_datum(i), search, cancel);
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {

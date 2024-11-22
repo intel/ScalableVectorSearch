@@ -212,7 +212,6 @@ class FlatIndex {
     /// Return the logical number of dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
 
-    ///
     /// @anchor flat_class_search_mutating
     /// @brief Fill the result with the ``num_neighbors`` nearest neighbors for each query.
     ///
@@ -225,6 +224,9 @@ class FlatIndex {
     /// @param result The result data structure to populate.
     ///     Row `i` in the result corresponds to the neighbors for the `i`th query.
     ///     Neighbors within each row are ordered from nearest to furthest.
+    /// @param cancel A predicate called during the search to determine if the search should be cancelled.
+    //      Return ``true`` if the search should be cancelled. This functor must implement ``bool operator()()``.
+    //      Note: This predicate should be thread-safe as it can be called concurrently by different threads during the search.
     /// @param predicate A predicate functor that can be used to exclude certain dataset
     ///     elements from consideration. This functor must implement
     ///     ``bool operator()(size_t)`` where the ``size_t`` argument is an index in
@@ -260,6 +262,7 @@ class FlatIndex {
         QueryResultView<size_t> result,
         const data::ConstSimpleDataView<QueryType>& queries,
         const search_parameters_type& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         const size_t data_max_size = data_.size();
@@ -276,12 +279,18 @@ class FlatIndex {
 
         size_t start = 0;
         while (start < data_.size()) {
+            // Check if request to cancel the search
+            if (cancel()) {
+                scratch.cleanup();
+                return;
+            }
             size_t stop = std::min(data_max_size, start + data_batch_size);
             search_subset(
                 queries,
                 threads::UnitRange(start, stop),
                 scratch,
                 search_parameters,
+                cancel,
                 predicate
             );
             start = stop;
@@ -311,6 +320,7 @@ class FlatIndex {
         const threads::UnitRange<size_t>& data_indices,
         sorter_type& scratch,
         const search_parameters_type& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         // Process all queries.
@@ -331,6 +341,7 @@ class FlatIndex {
                     threads::UnitRange(query_indices),
                     scratch,
                     distances,
+                    cancel,
                     predicate
                 );
             }
@@ -352,6 +363,7 @@ class FlatIndex {
         const threads::UnitRange<size_t>& query_indices,
         sorter_type& scratch,
         distance::BroadcastDistance<DistFull>& distance_functors,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         assert(distance_functors.size() >= query_indices.size());
@@ -365,6 +377,11 @@ class FlatIndex {
         }
 
         for (auto data_index : data_indices) {
+            // Check if request to cancel the search
+            if (cancel()) {
+                return;
+            }
+
             // Skip this index if it doesn't pass the predicate.
             if (!predicate(data_index)) {
                 continue;

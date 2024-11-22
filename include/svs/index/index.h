@@ -41,20 +41,24 @@ void search_batch_into_with(
     Index& index,
     svs::QueryResultView<I> result,
     const Queries& queries,
-    const search_parameters_t<Index>& search_parameters
+    const search_parameters_t<Index>& search_parameters,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Assert pre-conditions.
     assert(result.n_queries() == queries.size());
-    index.search(result, queries, search_parameters);
+    index.search(result, queries, search_parameters, cancel);
 }
 
 // Apply default search parameters
 template <typename Index, std::integral I, data::ImmutableMemoryDataset Queries>
 void search_batch_into(
-    Index& index, svs::QueryResultView<I> result, const Queries& queries
+    Index& index,
+    svs::QueryResultView<I> result,
+    const Queries& queries,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     svs::index::search_batch_into_with(
-        index, result, queries, index.get_search_parameters()
+        index, result, queries, index.get_search_parameters(), cancel
     );
 }
 
@@ -64,19 +68,26 @@ svs::QueryResult<size_t> search_batch_with(
     Index& index,
     const Queries& queries,
     size_t num_neighbors,
-    const search_parameters_t<Index>& search_parameters
+    const search_parameters_t<Index>& search_parameters,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     auto result = svs::QueryResult<size_t>{queries.size(), num_neighbors};
-    svs::index::search_batch_into_with(index, result.view(), queries, search_parameters);
+    svs::index::search_batch_into_with(
+        index, result.view(), queries, search_parameters, cancel
+    );
     return result;
 }
 
 // Obtain default search parameters.
 template <typename Index, data::ImmutableMemoryDataset Queries>
-svs::QueryResult<size_t>
-search_batch(Index& index, const Queries& queries, size_t num_neighbors) {
+svs::QueryResult<size_t> search_batch(
+    Index& index,
+    const Queries& queries,
+    size_t num_neighbors,
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+) {
     return svs::index::search_batch_with(
-        index, queries, num_neighbors, index.get_search_parameters()
+        index, queries, num_neighbors, index.get_search_parameters(), cancel
     );
 }
 } // namespace svs::index

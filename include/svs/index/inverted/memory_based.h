@@ -376,7 +376,8 @@ template <typename Index, typename Cluster> class InvertedIndex {
     void search(
         QueryResultView<Idx> results,
         const Queries& queries,
-        const search_parameters_type& search_parameters
+        const search_parameters_type& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::run(
             threadpool_,
@@ -396,9 +397,11 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
                 for (auto i : is) {
                     buffer.clear();
+
                     auto&& query = queries.get_datum(i);
                     // Primary Index Search
-                    index_.search(query, scratch);
+                    index_.search(query, scratch, cancel);
+
                     auto& d = scratch.scratch;
                     auto compare = distance::comparator(d);
 
@@ -411,6 +414,11 @@ template <typename Index, typename Cluster> class InvertedIndex {
                     );
 
                     for (size_t j = 0, jmax = scratch_buffer.size(); j < jmax; ++j) {
+                        // Check if request to cancel the search
+                        // TODO: this cancel may also be inside on_leaves()
+                        if (cancel()) {
+                            return;
+                        }
                         auto candidate = scratch_buffer[j];
                         if (!compare(candidate.distance(), cutoff_distance)) {
                             break;

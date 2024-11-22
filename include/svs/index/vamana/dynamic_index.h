@@ -402,7 +402,7 @@ class MutableVamanaIndex {
     ///
     size_t dimensions() const { return data_.dimensions(); }
 
-    auto greedy_search_closure(GreedySearchPrefetchParameters prefetch_parameters) const {
+    auto greedy_search_closure(GreedySearchPrefetchParameters prefetch_parameters, const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) const {
         return [&, prefetch_parameters](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
@@ -416,7 +416,8 @@ class MutableVamanaIndex {
                 buffer,
                 entry_point_,
                 ValidBuilder{status_},
-                prefetch_parameters
+                prefetch_parameters,
+                cancel
             );
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
@@ -426,7 +427,10 @@ class MutableVamanaIndex {
 
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
-        QueryResultView<I> results, const Queries& queries, const search_parameters_type& sp
+        QueryResultView<I> results,
+        const Queries& queries,
+        const search_parameters_type& sp,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::run(
             threadpool_,
@@ -452,10 +456,16 @@ class MutableVamanaIndex {
                     queries,
                     results,
                     threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters)
+                    greedy_search_closure(prefetch_parameters, cancel),
+                    cancel
                 );
             }
         );
+
+        // Check if request to cancel the search
+        if (cancel()) {
+            return;
+        }
 
         // After the search procedure, the indices in `results` are internal.
         // Perform one more pass to convert these to external ids.
