@@ -151,22 +151,6 @@ schema_version = "v0.0.0"
     name = "str"
     visited_set = "bool"
 
-# LeanVec
-[[schemas]]
-    __schema__ = "leanvec_matrices"
-    __version__ = "v0.0.0"
-    data_matrix = "table"
-    query_matrix = "table"
-
-[[schemas]]
-    __schema__ = "leanvec_dataset"
-    __version__ = "v0.0.0"
-    primary = "table"
-    secondary = "table"
-    matrices = "table"
-    means = "array"
-    is_pca = "bool"
-
 ##### SVS Benchmark
 [[schemas]]
     __schema__ = "benchmark_dynamic_schedule"

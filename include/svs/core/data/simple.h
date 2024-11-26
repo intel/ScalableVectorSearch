@@ -397,7 +397,6 @@ class SimpleData {
     /// @brief Reload a previously saved dataset.
     ///
     /// @param table The table containing saved hyper parameters.
-    /// @param ctx The current load context.
     /// @param allocator Allocator instance to use upon reloading.
     ///
     /// This method is implicitly called when using

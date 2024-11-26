@@ -219,6 +219,10 @@ def run():
     )
     # [only-loading]
 
+    # [runtime-nthreads]
+    index.num_threads = 4
+    # [runtime-nthreads]
+
 #####
 ##### Main Executable
 #####

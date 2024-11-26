@@ -1,7 +1,7 @@
 # Scalable Vector Search
 
 **Scalable Vector Search (SVS)** is a performance library for vector [similarity search](https://en.wikipedia.org/wiki/Similarity_search).
-Thanks to the use of Locally-adaptive Vector Quantization [[ABHT23]](#1) and its highly optimized indexing and search algorithms,
+Thanks to the use of Locally-adaptive Vector Quantization (LVQ) [[ABHT23]](#1) and its highly optimized indexing and search algorithms,
 SVS provides vector similarity search:
 * on **billions** of **high-dimensional** vectors,
 * at **high accuracy**
@@ -13,6 +13,8 @@ This enables application and framework developers using similarity search to unl
 SVS offers a fully-featured and yet simple Python API, compatible with most standard libraries.
 SVS is written in C++ to facilitate its integration into performance-critical applications.
 
+**Please note** that this repository only contains the open-source portion of the SVS library, which supports all functionalities and features described [here](https://intel.github.io/ScalableVectorSearch/), except for our proprietary vector compression techniques, specifically LVQ [[ABHT23]](#1) and Leanvec [[TBAH24]](#2). These techniques are closed-source and supported exclusively on Intel hardware. We provide [shared library](https://github.com/intel/ScalableVectorSearch/releases) and [PyPI package](https://pypi.org/project/scalable-vs/) to enable these vector compression techniques in C++ and Python, respectively.
+
 ## Performance
 
 SVS provides state-of-the-art performance and accuracy [[ABHT23]](#1) for billion-scale similarity search on
@@ -22,11 +24,11 @@ For example, for the standard billion-scale [Deep-1B](http://sites.skoltech.ru/c
 different configurations of SVS yield significantly increased performance (measured in queries per second, QPS) with a smaller memory footprint (horizontal axis) than the alternatives[^1]:
 
 <p align="center">
-<img src="./docs/figs/SVS_performance_memoryfootprint.png" height=80% width=80%>
+<img src="./data/figs/SVS_performance_memoryfootprint.png" height=80% width=80%>
 </p>
 
 SVS is primarily optimized for large-scale similarity search but it still offers [state-of-the-art performance
-at million-scale](https://intel.github.io/ScalableVectorSearch/benchs/small_scale_benchs.html).
+at million-scale](https://intel.github.io/ScalableVectorSearch/benchs/static/previous/small_scale_benchs.html).
 
 Best performance is obtained with 4th generation (Sapphire Rapids) by making use of Intel(R) AVX-512 instructions,
 with excellent results also with 2nd and 3rd Intel &reg; Xeon &reg; processors (Cascade Lake
@@ -72,6 +74,10 @@ Reference to cite when you use SVS in a research paper:
 <a id="1">[ABHT23]</a>
 Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T.:Similarity search in the blink of an eye with compressed
 indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)
+
+<a id="2">[TBAH24]</a>
+Tepper M.; Bhati I.; Aguerrebere, C.; Hildebrand M.; Willke T.:LeanVec: Searching vectors faster by making them fit.
+In: Transactions on Machine Learning Research(TMLR), ISSN, 2835 - 8856. (2024)
 
 ## Legal
 Refer to the [LICENSE file](LICENSE) for details.

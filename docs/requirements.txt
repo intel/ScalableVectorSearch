@@ -1,4 +1,0 @@
-sphinx
-breathe
-sphinx-collapse
-sphinx-rtd-theme
