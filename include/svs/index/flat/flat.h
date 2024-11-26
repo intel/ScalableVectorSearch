@@ -218,12 +218,12 @@ class FlatIndex {
     /// @tparam Queries The full type of the queries.
     /// @tparam Pred The type of the optional predicate.
     ///
-    /// @param queries The queries. Each entry will be processed.
-    /// @param num_neighbors The number of approximate nearest neighbors to return for
-    ///     each query.
     /// @param result The result data structure to populate.
     ///     Row `i` in the result corresponds to the neighbors for the `i`th query.
     ///     Neighbors within each row are ordered from nearest to furthest.
+    ///     ``num_neighbors`` is computed from the number of columns in ``result``.
+    /// @param queries A dense collection of queries in R^n.
+    /// @param search_parameters search parameters to use for the search.
     /// @param cancel A predicate called during the search to determine if the search should be cancelled.
     //      Return ``true`` if the search should be cancelled. This functor must implement ``bool operator()()``.
     //      Note: This predicate should be thread-safe as it can be called concurrently by different threads during the search.

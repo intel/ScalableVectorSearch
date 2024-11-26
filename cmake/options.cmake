@@ -22,11 +22,6 @@ option(SVS_BUILD_TESTS
     OFF # disabled by default
 )
 
-option(SVS_BUILD_DOCS
-    "Build the library documentation."
-    OFF # disabled by default
-)
-
 option(SVS_BUILD_EXAMPLES
     "Build the examples. If combined with SVS_BUILD_TESTS, will also test the examples."
     OFF # disabled by default

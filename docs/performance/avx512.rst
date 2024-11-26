@@ -1,8 +1,0 @@
-.. _avx512:
-
-Intel(R) AVX-512
-================
-
-SVS makes heavy use of Intel(R) AVX-512 instructions, and performance will be considerably
-degraded if these are not available. A warning message will appear when loading the SVS Python module if the system
-does not support Intel(R) AVX-512 instructions.
