@@ -13,7 +13,7 @@ This enables application and framework developers using similarity search to unl
 SVS offers a fully-featured and yet simple Python API, compatible with most standard libraries.
 SVS is written in C++ to facilitate its integration into performance-critical applications.
 
-**Please note** that this repository only contains the open-source portion of the SVS library, which supports all functionalities and features described [here](https://intel.github.io/ScalableVectorSearch/), except for our proprietary vector compression techniques, specifically LVQ [[ABHT23]](#1) and Leanvec [[TBAH24]](#2). These techniques are closed-source and supported exclusively on Intel hardware. We provide [shared library](https://github.com/intel/ScalableVectorSearch/releases) and [PyPI package](https://pypi.org/project/scalable-vs/) to enable these vector compression techniques in C++ and Python, respectively.
+**Please note** that this repository only contains the open-source portion of the SVS library, which supports all functionalities and features described in the [documentation](https://intel.github.io/ScalableVectorSearch/), except for our proprietary vector compression techniques, specifically LVQ [[ABHT23]](#1) and Leanvec [[TBAH24]](#2). These techniques are closed-source and supported exclusively on Intel hardware. We provide [shared library](https://github.com/intel/ScalableVectorSearch/releases) and [PyPI package](https://pypi.org/project/scalable-vs/) to enable these vector compression techniques in C++ and Python, respectively.
 
 ## Performance
 
