@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Small Scale Benchmarks &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Large Scale Benchmarks" href="large_scale_benchs.html" />
+    <link rel="prev" title="Experimental Setup" href="experimental_method.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Benchmarks</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Benchmarks for Static Indexing</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../latest.html">Latest Results</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../previous.html">Previous Results</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="experimental_method.html">Experimental Setup</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Small Scale Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="large_scale_benchs.html">Large Scale Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="system_utilization.html">System Utilization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../dynamic.html">Benchmarks for Dynamic Indexing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ablation.html">Ablation Studies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Benchmarks</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Benchmarks for Static Indexing</a></li>
+          <li class="breadcrumb-item"><a href="../previous.html">Previous Results</a></li>
+      <li class="breadcrumb-item active">Small Scale Benchmarks</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/benchs/static/previous/small_scale_benchs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="small-scale-benchmarks">
+<span id="small-scale-benchs"></span><h1>Small Scale Benchmarks<a class="headerlink" href="#small-scale-benchmarks" title="Link to this heading"></a></h1>
+<p>We present here the results of an exhaustive evaluation, comparing SVS to other implementations in million scale datasets.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#system-setup-and-datasets" id="id10">System Setup and Datasets</a></p></li>
+<li><p><a class="reference internal" href="#comparison-to-other-implementations" id="id11">Comparison to Other Implementations</a></p></li>
+</ul>
+</nav>
+<section id="system-setup-and-datasets">
+<span id="system-setup-small-scale-benchs"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">System Setup and Datasets</a><a class="headerlink" href="#system-setup-and-datasets" title="Link to this heading"></a></h2>
+<p>We run our experiments on a 3rd generation Intel® Xeon® 8360Y CPU &#64;2.40GHz with
+36 cores (single socket), equipped with 256GB DDR4 memory per socket &#64;2933MT/s speed,  running Ubuntu 22.04. <a class="footnote-reference brackets" href="#ft1" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> <a class="footnote-reference brackets" href="#ft3" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a></p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">numactl</span></code> to ran all experiments in a single socket (see <a class="reference internal" href="../../../performance/numa.html#numa"><span class="std std-ref">NUMA Systems</span></a> for details).</p>
+<p>We consider datasets of diverse dimensionalities and number of vectors (see <a class="reference internal" href="experimental_method.html#datasets"><span class="std std-ref">Datasets</span></a> for details):</p>
+<ul class="simple">
+<li><p>glove-25-1.2M (25 dimensions, 1 million points)</p></li>
+<li><p>glove-50-1.2M (50 dimensions, 1 million points)</p></li>
+<li><p>deep-96-10M (96 dimensions, 10 million points)</p></li>
+<li><p>sift-128-1M (128 dimensions, 1 million points)</p></li>
+<li><p>gist-960-1.0M (960 dimensions, 1 million points)</p></li>
+</ul>
+</section>
+<section id="comparison-to-other-implementations">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Comparison to Other Implementations</a><a class="headerlink" href="#comparison-to-other-implementations" title="Link to this heading"></a></h2>
+<p>We compare SVS to five widely adopted approaches: Vamana <a class="reference internal" href="../../../features.html#sdsk19" id="id3"><span>[SDSK19]</span></a>, HSNWlib <a class="reference internal" href="../../../features.html#maya18" id="id4"><span>[MaYa18]</span></a>, FAISS-IVFPQfs <a class="reference internal" href="../../../features.html#jodj19" id="id5"><span>[JoDJ19]</span></a>, ScaNN
+<a class="reference internal" href="../../../features.html#gslg20" id="id6"><span>[GSLG20]</span></a>, and NGT <a class="reference internal" href="../../../features.html#iwmi18" id="id7"><span>[IwMi18]</span></a>. We use the implementations available through <a class="reference external" href="https://github.com/erikbern/ann-benchmarks">ANN-Benchmarks</a>
+(<a class="reference external" href="https://github.com/erikbern/ann-benchmarks/commit/167f1297b21789d13a9fa82646c522011df8c163">commit 167f129</a> , October 4th 2022)
+and for SVS we use <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c">commit ad821d8</a>.
+See <a class="reference internal" href="#param-setting-bench-small-scale"><span class="std std-ref">Parameters Setting</span></a> for details on the evaluated configurations for
+each method. We run the evaluation in the three different <a class="reference internal" href="experimental_method.html#query-batch-size"><span class="std std-ref">query modes</span></a>. <a class="footnote-reference brackets" href="#ft2" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a></p>
+<p>Results summary:</p>
+<ul class="simple">
+<li><p>SVS <strong>establishes a new SOTA</strong> at very diverse scales (dataset dimensionality and number of points) revealing its
+versatility and suitability for contrasting use cases (see <a class="reference internal" href="#small-scale-results-all-datasets"><span class="std std-ref">results below</span></a>).</p></li>
+<li><p>The table below summarizes the QPS boost with respect to SVS closest competitor for a search accuracy
+of 0.9 10 recall at 10.</p></li>
+</ul>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p><strong>Full query batch size</strong></p></td>
+<td colspan="2"><p><strong>Query batch size = 128</strong></p></td>
+<td colspan="2"><p><strong>Single query</strong></p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><strong>SVS QPS</strong></p></td>
+<td><p><strong>QPS w.r.t. 2nd</strong></p></td>
+<td><p><strong>SVS QPS</strong></p></td>
+<td><p><strong>QPS w.r.t. 2nd</strong></p></td>
+<td><p><strong>SVS QPS</strong></p></td>
+<td><p><strong>QPS w.r.t. 2nd</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>deep-96-10M</strong></p></td>
+<td><p>648122</p></td>
+<td><p>5.49x</p></td>
+<td><p>391739</p></td>
+<td><p>6.28x</p></td>
+<td><p>18440</p></td>
+<td><p>1.92x</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>glove-25-1.2M</strong></p></td>
+<td><p>1224266</p></td>
+<td><p>1.15x</p></td>
+<td><p>711890</p></td>
+<td><p>1.51x</p></td>
+<td><p>34118</p></td>
+<td><p>1.16x</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>glove-50-1.2M</strong></p></td>
+<td><p>558606</p></td>
+<td><p>1.78x</p></td>
+<td><p>376642</p></td>
+<td><p>2.28x</p></td>
+<td><p>17268</p></td>
+<td><p>1.10x</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>gist-960-1.0M</strong></p></td>
+<td><p>56717</p></td>
+<td><p>1.64x</p></td>
+<td><p>62821</p></td>
+<td><p>3.00x</p></td>
+<td><p>1857</p></td>
+<td><p>0.42x</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>sift-128-1M</strong></p></td>
+<td><p>852705</p></td>
+<td><p>1.84x</p></td>
+<td><p>512785</p></td>
+<td><p>2.15x</p></td>
+<td><p>21969</p></td>
+<td><p>0.95x</p></td>
+</tr>
+</tbody>
+</table>
+<p>The full query batch is 10k queries for all datasets except for gist-960-1.0M which has a query set of size 1000 (see
+<a class="reference internal" href="experimental_method.html#datasets"><span class="std std-ref">Datasets</span></a> for details).</p>
+<p id="small-scale-results-all-datasets"><strong>Click on the triangles</strong> to see the throughput vs recall curves for each dataset.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="b57fb9d7-bc40-409c-a9ef-b737cc74cb46" name="b57fb9d7-bc40-409c-a9ef-b737cc74cb46" type="checkbox"><label class="sphinx_collapse__label" for="b57fb9d7-bc40-409c-a9ef-b737cc74cb46"><i class="sphinx_collapse__icon"></i>deep-96-10M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-10M dataset</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="7c201574-fbf9-4225-b3b0-16f1bde04aa2" name="7c201574-fbf9-4225-b3b0-16f1bde04aa2" type="checkbox"><label class="sphinx_collapse__label" for="7c201574-fbf9-4225-b3b0-16f1bde04aa2"><i class="sphinx_collapse__icon"></i>Batched queries</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_batch_deep-image-96-angular.png"><img alt="deep-96-10M benchmarking results (batch mode)" src="../../../_images/bench_smallScale_batch_deep-image-96-angular.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="c7488a15-ff87-437b-b9ac-a75c92d8183d" name="c7488a15-ff87-437b-b9ac-a75c92d8183d" type="checkbox"><label class="sphinx_collapse__label" for="c7488a15-ff87-437b-b9ac-a75c92d8183d"><i class="sphinx_collapse__icon"></i>Single query</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_single_deep-image-96-angular.png"><img alt="deep-96-10M benchmarking results (single query)" src="../../../_images/bench_smallScale_single_deep-image-96-angular.png" style="width: 550px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="15e487c5-eb6c-498e-a778-0dc77a061f2f" name="15e487c5-eb6c-498e-a778-0dc77a061f2f" type="checkbox"><label class="sphinx_collapse__label" for="15e487c5-eb6c-498e-a778-0dc77a061f2f"><i class="sphinx_collapse__icon"></i>glove-25-1.2M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the glove-25-1.2M dataset</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="5d583e46-758f-4be4-898a-014e6733e856" name="5d583e46-758f-4be4-898a-014e6733e856" type="checkbox"><label class="sphinx_collapse__label" for="5d583e46-758f-4be4-898a-014e6733e856"><i class="sphinx_collapse__icon"></i>Batched queries</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_batch_glove-25-angular.png"><img alt="glove-25-1.2M benchmarking results (batch mode)" src="../../../_images/bench_smallScale_batch_glove-25-angular.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="22392250-4cd1-43b4-afab-d105af2c54d2" name="22392250-4cd1-43b4-afab-d105af2c54d2" type="checkbox"><label class="sphinx_collapse__label" for="22392250-4cd1-43b4-afab-d105af2c54d2"><i class="sphinx_collapse__icon"></i>Single query</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_single_glove-25-angular.png"><img alt="glove-25-1.2M benchmarking results (single query)" src="../../../_images/bench_smallScale_single_glove-25-angular.png" style="width: 550px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="4f3a985e-c473-43d9-a515-56d28d1aef7f" name="4f3a985e-c473-43d9-a515-56d28d1aef7f" type="checkbox"><label class="sphinx_collapse__label" for="4f3a985e-c473-43d9-a515-56d28d1aef7f"><i class="sphinx_collapse__icon"></i>glove-50-1.2M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the glove-50-1.2M dataset</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="bc9e8e06-d217-434a-968f-5af7dc4b1f0a" name="bc9e8e06-d217-434a-968f-5af7dc4b1f0a" type="checkbox"><label class="sphinx_collapse__label" for="bc9e8e06-d217-434a-968f-5af7dc4b1f0a"><i class="sphinx_collapse__icon"></i>Batched queries</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_batch_glove-50-angular.png"><img alt="glove-50-1.2M benchmarking results (batch mode)" src="../../../_images/bench_smallScale_batch_glove-50-angular.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="a74a630b-3e21-4f1f-a7f1-57185d862db2" name="a74a630b-3e21-4f1f-a7f1-57185d862db2" type="checkbox"><label class="sphinx_collapse__label" for="a74a630b-3e21-4f1f-a7f1-57185d862db2"><i class="sphinx_collapse__icon"></i>Single query</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_single_glove-50-angular.png"><img alt="glove-50-1.2M benchmarking results (single query)" src="../../../_images/bench_smallScale_single_glove-50-angular.png" style="width: 550px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="77fcb9de-9592-4a62-bb95-af72ad210edc" name="77fcb9de-9592-4a62-bb95-af72ad210edc" type="checkbox"><label class="sphinx_collapse__label" for="77fcb9de-9592-4a62-bb95-af72ad210edc"><i class="sphinx_collapse__icon"></i>gist-960-1.0M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the gist-960-1.0M dataset</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="ef988e10-e671-48d0-8b4a-2217ef7d88ff" name="ef988e10-e671-48d0-8b4a-2217ef7d88ff" type="checkbox"><label class="sphinx_collapse__label" for="ef988e10-e671-48d0-8b4a-2217ef7d88ff"><i class="sphinx_collapse__icon"></i>Batched queries</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_batch_gist-960-euclidean.png"><img alt="gist-960-1.0M benchmarking results (batch mode)" src="../../../_images/bench_smallScale_batch_gist-960-euclidean.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="4cc3aa35-beae-43db-977d-1048dd00fb24" name="4cc3aa35-beae-43db-977d-1048dd00fb24" type="checkbox"><label class="sphinx_collapse__label" for="4cc3aa35-beae-43db-977d-1048dd00fb24"><i class="sphinx_collapse__icon"></i>Single query</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_single_gist-960-euclidean.png"><img alt="gist-960-1.0M benchmarking results (single query)" src="../../../_images/bench_smallScale_single_gist-960-euclidean.png" style="width: 550px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="33f8e7fa-66b1-4e8d-a8e0-98915b82581e" name="33f8e7fa-66b1-4e8d-a8e0-98915b82581e" type="checkbox"><label class="sphinx_collapse__label" for="33f8e7fa-66b1-4e8d-a8e0-98915b82581e"><i class="sphinx_collapse__icon"></i>sift-128-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the sift-128-1M dataset</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="e74cd2d6-74d6-4df5-95c3-6697e50be2f3" name="e74cd2d6-74d6-4df5-95c3-6697e50be2f3" type="checkbox"><label class="sphinx_collapse__label" for="e74cd2d6-74d6-4df5-95c3-6697e50be2f3"><i class="sphinx_collapse__icon"></i>Batched queries</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_batch_sift-128-euclidean.png"><img alt="sift-128-1M benchmarking results (batch mode)" src="../../../_images/bench_smallScale_batch_sift-128-euclidean.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="1c21dcd4-7b29-4ff4-b02f-cc034c8bf4ae" name="1c21dcd4-7b29-4ff4-b02f-cc034c8bf4ae" type="checkbox"><label class="sphinx_collapse__label" for="1c21dcd4-7b29-4ff4-b02f-cc034c8bf4ae"><i class="sphinx_collapse__icon"></i>Single query</label><div class="sphinx_collapse__content docutils container">
+<a class="reference internal image-reference" href="../../../_images/bench_smallScale_single_sift-128-euclidean.png"><img alt="sift-128-1M benchmarking results (single query)" src="../../../_images/bench_smallScale_single_sift-128-euclidean.png" style="width: 550px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<section id="parameters-setting">
+<span id="param-setting-bench-small-scale"></span><h3>Parameters Setting<a class="headerlink" href="#parameters-setting" title="Link to this heading"></a></h3>
+<p>We adopt the standard ANN-benchmarks <a class="reference internal" href="../../../features.html#aubf20" id="id9"><span>[AuBF20]</span></a> protocol and generate Pareto curves of QPS vs. recall for the considered
+methods and datasets. For the graph-based methods (HSNWlib, Vamana, SVS) we use the same <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> values (32, 64 and 128).
+For IVFPQfs, ScaNN and NGT-qg we consider the provided <a class="reference external" href="https://github.com/erikbern/ann-benchmarks/">yaml configuration files</a>.
+For SVS, we include various LVQ settings (LVQ-8, LVQ-4x4, LVQ-4x8, and LVQ8x8) as well as float16 and float32 encodings.
+LVQ-compressed vectors are padded to half cache lines (<code class="docutils literal notranslate"><span class="pre">padding</span></code> = 32).</p>
+<p class="rubric">Footnotes</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="ft1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>Performance varies by use, configuration and other factors. Learn more at <a class="reference external" href="www.Intel.com/PerformanceIndex/">www.Intel.com/PerformanceIndex</a>.
+Performance results are based on testing as of dates shown in configurations and may not reflect all publicly
+available updates. No product or component can be absolutely secure. Your costs and results may vary. Intel
+technologies may require enabled hardware, software or service activation. © Intel Corporation.  Intel,
+the Intel logo, and other Intel marks are trademarks of Intel Corporation or its subsidiaries.  Other names and
+brands may be claimed as the property of others.</p>
+</aside>
+<aside class="footnote brackets" id="ft3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p>All experimental results were completed by April 30th 2023.</p>
+</aside>
+<aside class="footnote brackets" id="ft2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">3</a><span class="fn-bracket">]</span></span>
+<p>NGT-qg is not included in the query batch mode evaluation because the available implementation does not support
+multi-query processing.</p>
+</aside>
+</aside>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="experimental_method.html" class="btn btn-neutral float-left" title="Experimental Setup" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="large_scale_benchs.html" class="btn btn-neutral float-right" title="Large Scale Benchmarks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Testing &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Using LeanVec" href="../python/experimental/leanvec.html" />
+    <link rel="prev" title="Flat Index" href="internal/index_impl/flat.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="internal/index.html">Internals</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Testing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#testing-related-manifest">Testing-Related Manifest</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#generating-test-inputs">Generating Test Inputs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#vamana">Vamana</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Testing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/cpp/testing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="testing">
+<span id="id1"></span><h1>Testing<a class="headerlink" href="#testing" title="Link to this heading"></a></h1>
+<p>This file describes the testing methodology used in SVS and includes documentation on how update reference results for integration tests.</p>
+<p>The test suite defined in the <code class="docutils literal notranslate"><span class="pre">tests</span></code> directory are broken into two categories: <em>unit tests</em> that test individual components and <em>integration tests</em> which exercise more cross-unit functionality.
+The latter includes index searching and index construction.
+Now, we cannot necessarily make our integration tests exhaustive for a number of reasons.
+First, integration tests should have high coverage of the many different combinations of indexes, distance functions, compile time optimizations, etc., each of which takes time.
+Second, these integration tests must all reference the same binary dataset to minimize the repository size.
+This dataset may not be appropriate for all distance functions.</p>
+<p>Hence, integration tests compare against reference behavior (i.e., recall for a given configuration generated at some point in the past) and fail if the observed behavior deviates too far.
+These reference recalls are generated by executables in the benchmarking framework.</p>
+<p>See the section on <a class="reference internal" href="../advanced/build.html#build"><span class="std std-ref">building the library</span></a> for CMake options related to building integration tests into the test executable (<code class="docutils literal notranslate"><span class="pre">SVS_FORCE_INTEGRATION_TESTS</span></code>) and building reference result test generators into the benchmarking executable (<code class="docutils literal notranslate"><span class="pre">SVS_BUILD_BENCHMARK_TEST_GENERRATORS</span></code>).</p>
+<section id="testing-related-manifest">
+<h2>Testing-Related Manifest<a class="headerlink" href="#testing-related-manifest" title="Link to this heading"></a></h2>
+<p>A summary of the testing related files in the SVS repository and their role is given below.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>data/
+|-- test_dataset/ : Directory containing the reference dataset used for testing as well
+|   |               as reference recall values.
+|   |
+|   |-- reference/ : Directory containing reference configuration/recall values for
+|   |   |            index implementations.
+|   |   |
+|   |   +-- vamana_reference.toml: Reference configurations and recall for the Vamana
+|   |   |                          index. Auto-generated by the benchmarking framework.
+|   |   |
+|   |   +-- inverted_reference.toml: Reference configurations and recall for the
+|   |                                Inverted index. Auto-generated by the benchmarking
+|   |                                framework.
+|   |
+|   |-- data_f32.fvecs : The dataset upon which reference results are generated.
+|   |-- data_f32.svs : A copy of `data_f32.fvecs` but encoded in the SVS format.
+|   |-- graph_f32.svs : A reference Vamana index constructed for the test dataset.
+|   |-- groundtruth_cosine.ivecs : The groundtruth for the queries over the test dataset
+|   |                              for the CosineSimilarity distance measure.
+|   |
+|   |-- groundtruth_euclidean.ivecs : The groundtruth for the queries for the L2
+|   |                                 similarity measure.
+|   |
+|   |-- groundtruth_mip.ivecs : The groundtruth for the queries for the L2
+|   |                           similarity measure.
+|   |
+|   |-- known_f32.fvecs : A small &quot;fvecs&quot; file with known contents. The expected
+|   |                     contents are returned by ``test_dataset::reference_file_contents()``
+|   |
+|   |-- known_f32.svs : A copy of `data_f32.fvecs` but encoded in the SVS format.
+|   |-- queries_f32.svs : The queries to use for the test dataset.
+|   |-- leanvec_data_matrix.fvecs : LeanVec OOD matrix to transform data. Shape(128, 64)
+|   |-- leanvec_query_matrix.fvecs : LeanVec OOD matrix to transform queries. Shape(128, 64)
+|   +-- vamana_config.toml : The serialized ``VamanaIndexParameters`` of the reference
+|                            Vamana graph.
+|
++-- tools/
+    |
+    +-- benchmark_inputs/
+        |
+        +-- vamana/test-generator.toml : Input file used to generate the reference
+        |   results (data/test_dataset/reference/vamana_reference.toml) from the
+        |   benchmarking framework.
+        |
+        +-- vamana/test-generator.toml : Input file used to generate the reference
+            results (data/test_dataset/reference/inverted_reference.toml) from the
+            benchmarking framework.
+</pre></div>
+</div>
+</section>
+<section id="generating-test-inputs">
+<h2>Generating Test Inputs<a class="headerlink" href="#generating-test-inputs" title="Link to this heading"></a></h2>
+<p>Complete scripts for compiling, executing, and updating reference inputs are collected here.</p>
+<section id="vamana">
+<h3>Vamana<a class="headerlink" href="#vamana" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SVS_NUM_THREADS=10
+CC=gcc-11
+C++=g++-11
+
+mkdir build &amp;&amp; cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release \
+    -DSVS_BUILD_BENCHMARK_TEST_GENERATORS=YES
+make -j
+# Generate the expected results.
+./benchmark/svs_benchmark vamana_test_generator \
+    ../tools/benchmark_inputs/vamana-test-generator.toml \
+    ./vamana_reference.toml \
+    ${SVS_NUM_THREADS} \
+    ../data/test_dataset
+# After checking that the results look good, update the reference file.
+cp ./vamana_reference.toml ../data/test_dataset/vamana_reference.toml
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="internal/index_impl/flat.html" class="btn btn-neutral float-left" title="Flat Index" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../python/experimental/leanvec.html" class="btn btn-neutral float-right" title="Using LeanVec" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

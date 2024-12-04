@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Index</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#K"><strong>K</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#N"><strong>N</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#Q"><strong>Q</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ 
+</div>
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.__init__">__init__() (svs.DynamicVamana method)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.__init__">(svs.Flat method)</a>
+</li>
+        <li><a href="python/loaders.html#svs.LeanVecLoader.__init__">(svs.LeanVecLoader method)</a>
+</li>
+        <li><a href="python/loaders.html#svs.LVQLoader.__init__">(svs.LVQLoader method)</a>
+</li>
+        <li><a href="python/vamana.html#svs.SearchBufferConfig.__init__">(svs.SearchBufferConfig method)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.__init__">(svs.Vamana method)</a>
+</li>
+        <li><a href="python/vamana.html#svs.VamanaBuildParameters.__init__">(svs.VamanaBuildParameters method)</a>
+</li>
+        <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.__init__">(svs.VamanaCalibrationParameters method)</a>
+</li>
+        <li><a href="python/vamana.html#svs.VamanaSearchParameters.__init__">(svs.VamanaSearchParameters method)</a>
+</li>
+        <li><a href="python/loaders.html#svs.VectorDataLoader.__init__">(svs.VectorDataLoader method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.add">add() (svs.DynamicVamana method)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.alignment">alignment (svs.LeanVecLoader property)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.all_ids">all_ids() (svs.DynamicVamana method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/algorithms.html#_CPPv4I00E10all_uniquebRK5BeginRK3End">all_unique (C++ function)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.alpha">alpha (svs.DynamicVamana property)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#c.ANNEXCEPTION">ANNEXCEPTION (C macro)</a>
+</li>
+      <li><a href="python/backend.html#svs.loader.available_backends">available_backends() (in module svs.loader)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaSearchParameters.buffer_config">buffer_config (svs.VamanaSearchParameters attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.build">build() (svs.DynamicVamana static method)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.build">(svs.Vamana static method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.compact">compact() (svs.DynamicVamana method)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4I0E10comparator9compare_tI1TERK1T">comparator (C++ function)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4I0E9compare_t">compare_t (C++ type)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B">compute (C++ function)</a>, <a href="cpp/core/distance.html#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE">[1]</a>, <a href="cpp/core/distance.html#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE">[2]</a>, <a href="cpp/core/distance.html#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE">[3]</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.consolidate">consolidate() (svs.DynamicVamana method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/concepts/data.html#_CPPv4I_12HasValueTypeE18const_value_type_t">const_value_type_t (C++ type)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.construction_window_size">construction_window_size (svs.DynamicVamana property)</a>
+</li>
+      <li><a href="python/common.html#svs.convert_fvecs_to_float16">convert_fvecs_to_float16() (in module svs)</a>
+</li>
+      <li><a href="python/common.html#svs.convert_vecs_to_svs">convert_vecs_to_svs() (in module svs)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I_8DataTypeE10cpp_type_t">cpp_type_t (C++ type)</a>
+</li>
+      <li><a href="python/backend.html#svs.loader.current_backend">current_backend() (in module svs.loader)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/loaders.html#svs.VectorDataLoader.data_type">data_type (svs.VectorDataLoader property)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv48DataType">DataType (C++ enum)</a>
+
+      <ul>
+        <li><a href="python/common.html#svs.DataType">(class in svs)</a>
+</li>
+      </ul></li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType4byteE">DataType::byte (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType7float16E">DataType::float16 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType7float32E">DataType::float32 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType7float64E">DataType::float64 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5int16E">DataType::int16 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5int32E">DataType::int32 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5int64E">DataType::int64 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType4int8E">DataType::int8 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType6uint16E">DataType::uint16 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType6uint32E">DataType::uint32 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType6uint64E">DataType::uint64 (C++ enumerator)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5uint8E">DataType::uint8 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5undefE">DataType::undef (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I0E10datatype_v">datatype_v (C++ member)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.delete">delete() (svs.DynamicVamana method)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.dimensions">dimensions (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.dimensions">(svs.Flat property)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.dimensions">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.dims">dims (svs.LeanVecLoader property)</a>
+
+      <ul>
+        <li><a href="python/loaders.html#svs.LVQLoader.dims">(svs.LVQLoader property)</a>
+</li>
+        <li><a href="python/loaders.html#svs.VectorDataLoader.dims">(svs.VectorDataLoader property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/common.html#svs.DistanceType">DistanceType (class in svs)</a>
+</li>
+      <li><a href="python/common.html#svs.DRAM">DRAM (class in svs)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv47Dynamic">Dynamic (C++ member)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana">DynamicVamana (class in svs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.experimental_backend_string">experimental_backend_string (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.experimental_backend_string">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.experimental_calibrate">experimental_calibrate() (svs.DynamicVamana method)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.experimental_calibrate">(svs.Vamana method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.experimental_reset_performance_parameters">experimental_reset_performance_parameters() (svs.DynamicVamana method)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.experimental_reset_performance_parameters">(svs.Vamana method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/loaders.html#svs.VectorDataLoader.filepath">filepath (svs.VectorDataLoader property)</a>
+</li>
+      <li><a href="python/flat.html#svs.Flat">Flat (class in svs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I0DpE13for_each_typev5TypesIDp2TsERR1F">for_each_type (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv46formatRKNSt6vectorI8DataTypeEE">format (C++ function)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/common.html#svs.generate_test_dataset">generate_test_dataset() (in module svs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/concepts/graph.html#_CPPv4I_20ImmutableMemoryGraph_20ImmutableMemoryGraphE12graphs_equalbRK6Graph1RK6Graph2">graphs_equal (C++ function)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I0E14has_datatype_v">has_datatype_v (C++ member)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.has_id">has_id() (svs.DynamicVamana method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/concepts/distance.html#_CPPv4I0E24implicitly_broadcastablebv">implicitly_broadcastable (C++ function)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I0DpE2inb5TypesIDp2TsE">in (C++ function)</a>, <a href="cpp/internal/lib/public.html#_CPPv4IDpE2inb8DataType5TypesIDp2TsE">[1]</a>
+</li>
+      <li><a href="cpp/concepts/graph.html#_CPPv4I_20ImmutableMemoryGraphE12index_type_t">index_type_t (C++ type)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="K">K</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/core/recall.html#_CPPv4I00E13k_recall_at_ndRK11GroundtruthRK7Results6size_t6size_t">k_recall_at_n (C++ function)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.leanvec_dims">leanvec_dims (svs.LeanVecLoader property)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecKind">LeanVecKind (class in svs)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader">LeanVecLoader (class in svs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/backend.html#svs.loader.library">library() (in module svs.loader)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LVQLoader">LVQLoader (class in svs)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LVQStrategy">LVQStrategy (class in svs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4I00_DpN6detail5IsDimEE16make_dense_arrayDaRK5AllocDp4Dims">make_dense_array (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4I0_DpN6detail5IsDimEE16make_dense_arrayDaDp4Dims">[1]</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4I00E18maybe_fix_argumentvR1F1A">maybe_fix_argument (C++ function)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    module
+
+      <ul>
+        <li><a href="python/backend.html#module-svs.loader">svs.loader</a>
+</li>
+        <li><a href="python/logging.html#module-svs.logging">svs.logging</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="N">N</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/public.html#_CPPv44name8DataType">name (C++ function)</a>, <a href="cpp/internal/lib/public.html#_CPPv4I_8DataTypeE4nameNSt11string_viewEv">[1]</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.VamanaSearchBufferOptimization.name">(svs.VamanaSearchBufferOptimization property)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.num_threads">num_threads (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.num_threads">(svs.Flat property)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.num_threads">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaSearchParameters.prefetch_lookahead">prefetch_lookahead (svs.VamanaSearchParameters attribute)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaSearchParameters.prefetch_step">prefetch_step (svs.VamanaSearchParameters attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.prefetch_steps">prefetch_steps (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LVQLoader.primary_bits">primary_bits (svs.LVQLoader property)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.primary_kind">primary_kind (svs.LeanVecLoader property)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Q">Q</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.query_types">query_types (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.query_types">(svs.Flat property)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.query_types">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I00E11read_binary1TR6Stream">read_binary (C++ function)</a>, <a href="cpp/internal/lib/public.html#_CPPv4I00E11read_binaryvR6StreamR1T">[1]</a>
+</li>
+      <li><a href="python/common.html#svs.read_svs">read_svs() (in module svs)</a>
+</li>
+      <li><a href="python/common.html#svs.read_vecs">read_vecs() (in module svs)</a>
+</li>
+      <li><a href="cpp/core/recall.html#_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data">recall_convert (C++ function)</a>, <a href="cpp/core/recall.html#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE">[1]</a>, <a href="cpp/core/recall.html#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE">[2]</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.reconstruct">reconstruct() (svs.DynamicVamana method)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.reconstruct">(svs.Vamana method)</a>
+</li>
+      </ul></li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.reload_from">reload_from() (svs.LeanVecLoader method)</a>
+
+      <ul>
+        <li><a href="python/loaders.html#svs.LVQLoader.reload_from">(svs.LVQLoader method)</a>
+</li>
+      </ul></li>
+      <li><a href="python/loaders.html#svs.LVQLoader.residual_bits">residual_bits (svs.LVQLoader property)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4I0E4saveDaRK1T">save (C++ function)</a>, <a href="cpp/internal/lib/saveload.html#_CPPv4I0E4saveDaRK1TRK11SaveContext">[1]</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.save">save() (svs.DynamicVamana method)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.save">(svs.Vamana method)</a>
+</li>
+      </ul></li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.search">search() (svs.DynamicVamana method)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.search">(svs.Flat method)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.search">(svs.Vamana method)</a>
+</li>
+      </ul></li>
+      <li><a href="python/vamana.html#svs.SearchBufferConfig.search_buffer_capacity">search_buffer_capacity (svs.SearchBufferConfig attribute)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.search_buffer_optimization">search_buffer_optimization (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaSearchParameters.search_buffer_visited_set">search_buffer_visited_set (svs.VamanaSearchParameters attribute)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.search_parameters">search_parameters (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.search_parameters">(svs.Flat property)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.search_parameters">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.search_timeout">search_timeout (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.search_window_capacity_upper">search_window_capacity_upper (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.search_window_size">search_window_size (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.SearchBufferConfig.search_window_size">(svs.SearchBufferConfig attribute)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.search_window_size">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.search_window_size_upper">search_window_size_upper (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+      <li><a href="python/vamana.html#svs.SearchBufferConfig">SearchBufferConfig (class in svs)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.secondary_kind">secondary_kind (svs.LeanVecLoader property)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.size">size (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/flat.html#svs.Flat.size">(svs.Flat property)</a>
+</li>
+        <li><a href="python/vamana.html#svs.Vamana.size">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/loaders.html#svs.LVQLoader.strategy">strategy (svs.LVQLoader property)</a>
+</li>
+      <li>
+    svs.loader
+
+      <ul>
+        <li><a href="python/backend.html#module-svs.loader">module</a>
+</li>
+      </ul></li>
+      <li>
+    svs.logging
+
+      <ul>
+        <li><a href="python/logging.html#module-svs.logging">module</a>
+</li>
+      </ul></li>
+      <li><a href="cpp/core/data.html#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE">svs::data::ConstSimpleDataView (C++ type)</a>
+</li>
+      <li><a href="cpp/concepts/data.html#_CPPv4I0EN3svs4data12HasValueTypeE">svs::data::HasValueType (C++ concept)</a>
+</li>
+      <li><a href="cpp/concepts/data.html#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE">svs::data::ImmutableMemoryDataset (C++ concept)</a>
+</li>
+      <li><a href="cpp/concepts/data.html#_CPPv4I0EN3svs4data13MemoryDatasetE">svs::data::MemoryDataset (C++ concept)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE">svs::data::SimpleData (C++ class)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData14allocator_typeE">svs::data::SimpleData::allocator_type (C++ type)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData8capacityEv">svs::data::SimpleData::capacity (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData16const_value_typeE">svs::data::SimpleData::const_value_type (C++ type)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData5cviewEv">svs::data::SimpleData::cview (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData4dataEv">svs::data::SimpleData::data (C++ function)</a>, <a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData4dataEv">[1]</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData10dimensionsEv">svs::data::SimpleData::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData12element_typeE">svs::data::SimpleData::element_type (C++ type)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData6extentE">svs::data::SimpleData::extent (C++ member)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData13get_allocatorEv">svs::data::SimpleData::get_allocator (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData9get_datumE6size_t">svs::data::SimpleData::get_datum (C++ function)</a>, <a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData9get_datumE6size_t">[1]</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData8is_constE">svs::data::SimpleData::is_const (C++ member)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData24is_memory_map_compatibleE">svs::data::SimpleData::is_memory_map_compatible (C++ member)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData7is_viewE">svs::data::SimpleData::is_view (C++ member)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData4loadERKN3lib9LoadTableERK14allocator_type">svs::data::SimpleData::load (C++ function)</a>, <a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData4loadERKNSt10filesystem4pathERK14allocator_type">[1]</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData8prefetchE6size_t">svs::data::SimpleData::prefetch (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData6resizeE6size_t">svs::data::SimpleData::resize (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4I0_6size_tEN3svs4data10SimpleData9set_datumEv6size_tNSt4spanI1U1NEE">svs::data::SimpleData::set_datum (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData13shrink_to_fitEv">svs::data::SimpleData::shrink_to_fit (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData10SimpleDataE14AnonymousArrayIXL2EEE">svs::data::SimpleData::SimpleData (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData4sizeEv">svs::data::SimpleData::size (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData10value_typeE">svs::data::SimpleData::value_type (C++ type)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs4data10SimpleData4viewEv">svs::data::SimpleData::view (C++ function)</a>, <a href="cpp/core/data.html#_CPPv4NK3svs4data10SimpleData4viewEv">[1]</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE">svs::data::SimpleDataView (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4I000EN3svs10DenseArrayE">svs::DenseArray (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4IDpEN3svs10DenseArray2atE9referenceDpRR2Is">svs::DenseArray::at (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4IDpENK3svs10DenseArray2atE15const_referenceDpRR2Is">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4N3svs10DenseArray5beginEv">svs::DenseArray::begin (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray5beginEv">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray5bytesEv">svs::DenseArray::bytes (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray5cviewEv">svs::DenseArray::cview (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray4dimsEv">svs::DenseArray::dims (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4N3svs10DenseArray3endEv">svs::DenseArray::end (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray3endEv">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4N3svs10DenseArray6extentEv">svs::DenseArray::extent (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray5firstEv">svs::DenseArray::first (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4I_6size_tEN3svs10DenseArray9getextentE6size_tv">svs::DenseArray::getextent (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4I_6size_tENK3svs10DenseArray7getsizeE6size_tv">svs::DenseArray::getsize (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray4lastEv">svs::DenseArray::last (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4N3svs10DenseArray5ndimsEv">svs::DenseArray::ndims (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray4sizeEv">svs::DenseArray::size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4IDpEN3svs10DenseArray5sliceE4spanDpRR2Is">svs::DenseArray::slice (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4IDpENK3svs10DenseArray5sliceE10const_spanDpRR2Is">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/array.html#_CPPv4N3svs10DenseArray4viewEv">svs::DenseArray::view (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4NK3svs10DenseArray4viewEv">[1]</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4I0EN3svs8distance17BroadcastDistanceE">svs::distance::BroadcastDistance (C++ class)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4N3svs8distance17BroadcastDistance17BroadcastDistanceE1T6size_t">svs::distance::BroadcastDistance::BroadcastDistance (C++ function)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4N3svs8distance17BroadcastDistanceixE6size_t">svs::distance::BroadcastDistance::operator[] (C++ function)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4N3svs8distance17BroadcastDistance6resizeE6size_t">svs::distance::BroadcastDistance::resize (C++ function)</a>
+</li>
+      <li><a href="cpp/concepts/distance.html#_CPPv4NK3svs8distance17BroadcastDistance4sizeEv">svs::distance::BroadcastDistance::size (C++ function)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance24DistanceCosineSimilarityE">svs::distance::DistanceCosineSimilarity (C++ struct)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance24DistanceCosineSimilarity7compareE">svs::distance::DistanceCosineSimilarity::compare (C++ type)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentEvRKNSt4spanI1T6ExtentEE">svs::distance::DistanceCosineSimilarity::fix_argument (C++ function)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance24DistanceCosineSimilarity18implicit_broadcastE">svs::distance::DistanceCosineSimilarity::implicit_broadcast (C++ member)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance24DistanceCosineSimilarity17must_fix_argumentE">svs::distance::DistanceCosineSimilarity::must_fix_argument (C++ member)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance10DistanceIPE">svs::distance::DistanceIP (C++ struct)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance10DistanceIP7compareE">svs::distance::DistanceIP::compare (C++ type)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance10DistanceIP18implicit_broadcastE">svs::distance::DistanceIP::implicit_broadcast (C++ member)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance10DistanceL2E">svs::distance::DistanceL2 (C++ struct)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance10DistanceL27compareE">svs::distance::DistanceL2::compare (C++ type)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs8distance10DistanceL218implicit_broadcastE">svs::distance::DistanceL2::implicit_broadcast (C++ member)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4I0EN3svs15distance_type_vE">svs::distance_type_v (C++ member)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs18DistanceDispatcherE">svs::DistanceDispatcher (C++ class)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs18DistanceDispatcher18DistanceDispatcherE12DistanceType">svs::DistanceDispatcher::DistanceDispatcher (C++ function)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4I0DpEN3svs18DistanceDispatcherclEDaRR1FDpRR4Args">svs::DistanceDispatcher::operator() (C++ function)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs12DistanceTypeE">svs::DistanceType (C++ enum)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs12DistanceType6CosineE">svs::DistanceType::Cosine (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs12DistanceType2L2E">svs::DistanceType::L2 (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/distance.html#_CPPv4N3svs12DistanceType3MIPE">svs::DistanceType::MIP (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamanaE">svs::DynamicVamana (C++ class)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana7all_idsEv">svs::DynamicVamana::all_ids (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamana11AssembleTagE">svs::DynamicVamana::AssembleTag (C++ struct)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana18can_change_threadsEv">svs::DynamicVamana::can_change_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana10dimensionsEv">svs::DynamicVamana::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamana13DynamicVamanaENSt10unique_ptrIN7manager16ManagerInterfaceI22DynamicVamanaInterfaceEEEE">svs::DynamicVamana::DynamicVamana (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana15get_num_threadsEv">svs::DynamicVamana::get_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana22get_search_window_sizeEv">svs::DynamicVamana::get_search_window_size (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana6has_idE6size_t">svs::DynamicVamana::has_id (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana11query_typesEv">svs::DynamicVamana::query_types (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE">svs::DynamicVamana::reconstruct_at (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22search_parameters_typeE">svs::DynamicVamana::search_parameters_type (C++ type)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamana15set_num_threadsE6size_t">svs::DynamicVamana::set_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22set_search_window_sizeE6size_t">svs::DynamicVamana::set_search_window_size (C++ function)</a>
+</li>
+      <li><a href="cpp/index/dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana4sizeEv">svs::DynamicVamana::size (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4N3svs4FlatE">svs::Flat (C++ class)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t">svs::Flat::assemble (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4N3svs4Flat11AssembleTagE">svs::Flat::AssembleTag (C++ struct)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4NK3svs4Flat18can_change_threadsEv">svs::Flat::can_change_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4NK3svs4Flat10dimensionsEv">svs::Flat::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4NK3svs4Flat15get_num_threadsEv">svs::Flat::get_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4NK3svs4Flat11query_typesEv">svs::Flat::query_types (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4N3svs4Flat22search_parameters_typeE">svs::Flat::search_parameters_type (C++ type)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4N3svs4Flat15set_num_threadsE6size_t">svs::Flat::set_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/flat.html#_CPPv4NK3svs4Flat4sizeEv">svs::Flat::size (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4I0EN3svs11GraphLoaderE">svs::GraphLoader (C++ struct)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs11GraphLoader11GraphLoaderERKNSt10filesystem4pathE">svs::GraphLoader::GraphLoader (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs11GraphLoader4loadEv">svs::GraphLoader::load (C++ function)</a>
+</li>
+      <li><a href="cpp/concepts/graph.html#_CPPv4I0EN3svs6graphs20ImmutableMemoryGraphE">svs::graphs::ImmutableMemoryGraph (C++ concept)</a>
+</li>
+      <li><a href="cpp/concepts/graph.html#_CPPv4I0EN3svs6graphs11MemoryGraphE">svs::graphs::MemoryGraph (C++ concept)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE">svs::graphs::SimpleGraph (C++ class)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx">svs::graphs::SimpleGraph::add_edge (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph10clear_nodeE3Idx">svs::graphs::SimpleGraph::clear_node (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph15const_referenceE">svs::graphs::SimpleGraph::const_reference (C++ type)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs6graphs11SimpleGraph8get_nodeE3Idx">svs::graphs::SimpleGraph::get_node (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx">svs::graphs::SimpleGraph::get_node_degree (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx">svs::graphs::SimpleGraph::has_edge (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph10index_typeE">svs::graphs::SimpleGraph::index_type (C++ type)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs6graphs11SimpleGraph10max_degreeEv">svs::graphs::SimpleGraph::max_degree (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs6graphs11SimpleGraph7n_nodesEv">svs::graphs::SimpleGraph::n_nodes (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx">svs::graphs::SimpleGraph::prefetch_node (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph9referenceE">svs::graphs::SimpleGraph::reference (C++ type)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE">svs::graphs::SimpleGraph::replace_node (C++ function)</a>, <a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE">[1]</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph5resetEv">svs::graphs::SimpleGraph::reset (C++ function)</a>
+</li>
+      <li><a href="cpp/core/graph.html#_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t">svs::graphs::SimpleGraph::SimpleGraph (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4I0EN3svs17HugepageAllocatorE">svs::HugepageAllocator (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs17HugepageAllocator17HugepageAllocatorEb">svs::HugepageAllocator::HugepageAllocator (C++ function)</a>, <a href="cpp/internal/allocators.html#_CPPv4N3svs17HugepageAllocator17HugepageAllocatorEv">[1]</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto">svs::index::flat::auto_assemble (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE">svs::index::flat::FlatIndex (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4N3svs5index4flat9FlatIndex18can_change_threadsEv">svs::index::flat::FlatIndex::can_change_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4N3svs5index4flat9FlatIndex9data_typeE">svs::index::flat::FlatIndex::data_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4NK3svs5index4flat9FlatIndex10dimensionsEv">svs::index::flat::FlatIndex::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4N3svs5index4flat9FlatIndex13distance_typeE">svs::index::flat::FlatIndex::distance_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto">svs::index::flat::FlatIndex::FlatIndex (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4NK3svs5index4flat9FlatIndex15get_num_threadsEv">svs::index::flat::FlatIndex::get_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4I00EN3svs5index4flat9FlatIndex6searchEv15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred">svs::index::flat::FlatIndex::search (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4N3svs5index4flat9FlatIndex15set_num_threadsE6size_t">svs::index::flat::FlatIndex::set_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/flat.html#_CPPv4NK3svs5index4flat9FlatIndex4sizeEv">svs::index::flat::FlatIndex::size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto">svs::index::vamana::auto_assemble (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator">svs::index::vamana::auto_build (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleEDaRKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb">svs::index::vamana::auto_dynamic_assemble (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE">svs::index::vamana::MutableVamanaIndex (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsENSt6vectorI6size_tEERK6PointsRK11ExternalIds">svs::index::vamana::MutableVamanaIndex::add_points (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I_NSt8integralEEN3svs5index6vamana18MutableVamanaIndex11clear_listsEvRKNSt6vectorI1IEE">svs::index::vamana::MutableVamanaIndex::clear_lists (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex29debug_check_graph_consistencyEb">svs::index::vamana::MutableVamanaIndex::debug_check_graph_consistency (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex22debug_check_invariantsEb">svs::index::vamana::MutableVamanaIndex::debug_check_invariants (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex16debug_check_sizeEv">svs::index::vamana::MutableVamanaIndex::debug_check_size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex14delete_entriesEvRK1T">svs::index::vamana::MutableVamanaIndex::delete_entries (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex10dimensionsEv">svs::index::vamana::MutableVamanaIndex::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex17distance_functionEv">svs::index::vamana::MutableVamanaIndex::distance_function (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchEvRKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE">svs::index::vamana::MutableVamanaIndex::exhaustive_search (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex12external_idsEv">svs::index::vamana::MutableVamanaIndex::external_ids (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex9get_alphaEv">svs::index::vamana::MutableVamanaIndex::get_alpha (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex28get_construction_window_sizeEv">svs::index::vamana::MutableVamanaIndex::get_construction_window_size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex9get_datumE6size_t">svs::index::vamana::MutableVamanaIndex::get_datum (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex6has_idE6size_t">svs::index::vamana::MutableVamanaIndex::has_id (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaBuildParameters4DataRK11ExternalIds4Dist6size_t">svs::index::vamana::MutableVamanaIndex::MutableVamanaIndex (C++ function)</a>, <a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaIndexParameters9data_type10graph_typeRK4Dist12IDTranslatorN7threads16NativeThreadPoolE">[1]</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex4nameEv">svs::index::vamana::MutableVamanaIndex::name (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex18nonmissing_indicesEv">svs::index::vamana::MutableVamanaIndex::nonmissing_indices (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I0ENK3svs5index6vamana18MutableVamanaIndex6on_idsEvRR1F">svs::index::vamana::MutableVamanaIndex::on_ids (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE">svs::index::vamana::MutableVamanaIndex::reconstruct_at (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex28reset_performance_parametersEv">svs::index::vamana::MutableVamanaIndex::reset_performance_parameters (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex22search_parameters_typeE">svs::index::vamana::MutableVamanaIndex::search_parameters_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex9set_alphaEf">svs::index::vamana::MutableVamanaIndex::set_alpha (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex28set_construction_window_sizeE6size_t">svs::index::vamana::MutableVamanaIndex::set_construction_window_size (C++ function)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex4sizeEv">svs::index::vamana::MutableVamanaIndex::size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex21translate_external_idE6size_t">svs::index::vamana::MutableVamanaIndex::translate_external_id (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4NK3svs5index6vamana18MutableVamanaIndex21translate_internal_idE3Idx">svs::index::vamana::MutableVamanaIndex::translate_internal_id (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalEvR10DenseArrayI6size_t4Dims4BaseE">svs::index::vamana::MutableVamanaIndex::translate_to_external (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE">svs::index::vamana::VamanaBuildParameters (C++ struct)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters5alphaE">svs::index::vamana::VamanaBuildParameters::alpha (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters16graph_max_degreeE">svs::index::vamana::VamanaBuildParameters::graph_max_degree (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23max_candidate_pool_sizeE">svs::index::vamana::VamanaBuildParameters::max_candidate_pool_size (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters8prune_toE">svs::index::vamana::VamanaBuildParameters::prune_to (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23use_full_search_historyE">svs::index::vamana::VamanaBuildParameters::use_full_search_history (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters11window_sizeE">svs::index::vamana::VamanaBuildParameters::window_size (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE">svs::index::vamana::VamanaIndex (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex5applyERK21VamanaIndexParameters">svs::index::vamana::VamanaIndex::apply (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex17borrow_threadpoolEv">svs::index::vamana::VamanaIndex::borrow_threadpool (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex18can_change_threadsEv">svs::index::vamana::VamanaIndex::can_change_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex16const_value_typeE">svs::index::vamana::VamanaIndex::const_value_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex9data_typeE">svs::index::vamana::VamanaIndex::data_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex10dimensionsEv">svs::index::vamana::VamanaIndex::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex13distance_typeE">svs::index::vamana::VamanaIndex::distance_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex6extentE">svs::index::vamana::VamanaIndex::extent (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex9get_alphaEv">svs::index::vamana::VamanaIndex::get_alpha (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex28get_construction_window_sizeEv">svs::index::vamana::VamanaIndex::get_construction_window_size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex12get_distanceEv">svs::index::vamana::VamanaIndex::get_distance (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex23get_full_search_historyEv">svs::index::vamana::VamanaIndex::get_full_search_history (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex18get_max_candidatesEv">svs::index::vamana::VamanaIndex::get_max_candidates (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex15get_num_threadsEv">svs::index::vamana::VamanaIndex::get_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex21get_search_parametersEv">svs::index::vamana::VamanaIndex::get_search_parameters (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex10graph_typeE">svs::index::vamana::VamanaIndex::graph_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex3IdxE">svs::index::vamana::VamanaIndex::Idx (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex18inner_scratch_typeE">svs::index::vamana::VamanaIndex::inner_scratch_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE">svs::index::vamana::VamanaIndex::reconstruct_at (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex28reset_performance_parametersEv">svs::index::vamana::VamanaIndex::reset_performance_parameters (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE">svs::index::vamana::VamanaIndex::save (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex12scratchspaceERK22VamanaSearchParameters">svs::index::vamana::VamanaIndex::scratchspace (C++ function)</a>, <a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex12scratchspaceEv">[1]</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4I0ENK3svs5index6vamana11VamanaIndex6searchEvRK5QueryR17scratchspace_typeRKN3lib16DefaultPredicateE">svs::index::vamana::VamanaIndex::search (C++ function)</a>, <a href="cpp/internal/index_impl/vamana.html#_CPPv4I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchEv15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE">[1]</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex22search_parameters_typeE">svs::index::vamana::VamanaIndex::search_parameters_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex23set_full_search_historyEb">svs::index::vamana::VamanaIndex::set_full_search_history (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex15set_num_threadsE6size_t">svs::index::vamana::VamanaIndex::set_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4NK3svs5index6vamana11VamanaIndex4sizeEv">svs::index::vamana::VamanaIndex::size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex10value_typeE">svs::index::vamana::VamanaIndex::value_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex11VamanaIndexE5Graph4Data3Idx4DistN7threads16NativeThreadPoolE">svs::index::vamana::VamanaIndex::VamanaIndex (C++ function)</a>, <a href="cpp/internal/index_impl/vamana.html#_CPPv4N3svs5index6vamana11VamanaIndex11VamanaIndexERK21VamanaBuildParameters5Graph4Data3Idx4DistN7threads16NativeThreadPoolE">[1]</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE">svs::index::vamana::VamanaSearchParameters (C++ struct)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14buffer_config_E">svs::index::vamana::VamanaSearchParameters::buffer_config_ (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters19prefetch_lookahead_E">svs::index::vamana::VamanaSearchParameters::prefetch_lookahead_ (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14prefetch_step_E">svs::index::vamana::VamanaSearchParameters::prefetch_step_ (C++ member)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters26search_buffer_visited_set_E">svs::index::vamana::VamanaSearchParameters::search_buffer_visited_set_ (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib12ANNExceptionE">svs::lib::ANNException (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib12ANNException12ANNExceptionERKNSt6stringE">svs::lib::ANNException::ANNException (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I00EN3svs3lib16dispatch_convertE2ToRR4From">svs::lib::dispatch_convert (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I00EN3svs3lib20dispatch_descriptionENSt6stringEv">svs::lib::dispatch_description (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I00EN3svs3lib14dispatch_matchE7int64_tRKNSt14remove_cvref_tI4FromEE">svs::lib::dispatch_match (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I00EN3svs3lib17DispatchConverterE">svs::lib::DispatchConverter (C++ struct)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I00EN3svs3lib19DispatchConvertibleE">svs::lib::DispatchConvertible (C++ concept)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I0DpEN3svs3lib10DispatcherE">svs::lib::Dispatcher (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib10Dispatcher10best_matchEDpRKNSt14remove_cvref_tI4ArgsEE">svs::lib::Dispatcher::best_match (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib10Dispatcher11descriptionE6size_t6size_t">svs::lib::Dispatcher::description (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib10Dispatcher10DispatcherEv">svs::lib::Dispatcher::Dispatcher (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib10Dispatcher9has_matchEDpRKNSt14remove_cvref_tI4ArgsEE">svs::lib::Dispatcher::has_match (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib10Dispatcher6invokeEDp4Args">svs::lib::Dispatcher::invoke (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib10Dispatcher10match_typeE">svs::lib::Dispatcher::match_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib10Dispatcher8num_argsEv">svs::lib::Dispatcher::num_args (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv12BuildDocsTag1F">svs::lib::Dispatcher::register_target (C++ function)</a>, <a href="cpp/internal/lib/dispatcher.html#_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv1F">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib10Dispatcher4sizeEv">svs::lib::Dispatcher::size (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib21dispatcher_build_docsE">svs::lib::dispatcher_build_docs (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib18dispatcher_no_docsE">svs::lib::dispatcher_no_docs (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I0DpEN3svs3lib14DispatchTargetE">svs::lib::DispatchTarget (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib14DispatchTarget18arg_signature_typeE">svs::lib::DispatchTarget::arg_signature_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib14DispatchTarget11check_matchEDpRKNSt14remove_cvref_tI4ArgsEE">svs::lib::DispatchTarget::check_match (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib14DispatchTarget11descriptionE6size_t">svs::lib::DispatchTarget::description (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE12BuildDocsTag8Callable">svs::lib::DispatchTarget::DispatchTarget (C++ function)</a>, <a href="cpp/internal/lib/dispatcher.html#_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE9NoDocsTag8Callable">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4NK3svs3lib14DispatchTarget6invokeEDpRR4Args">svs::lib::DispatchTarget::invoke (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib14DispatchTarget10match_typeE">svs::lib::DispatchTarget::match_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib14DispatchTarget8num_argsE">svs::lib::DispatchTarget::num_args (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib14DispatchTarget14signature_typeE">svs::lib::DispatchTarget::signature_type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib15imperfect_matchE">svs::lib::imperfect_match (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib14implicit_matchE">svs::lib::implicit_match (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I00EN3svs3lib29ImplicitlyDispatchConvertibleE">svs::lib::ImplicitlyDispatchConvertible (C++ concept)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib13invalid_matchE">svs::lib::invalid_match (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4N3svs3lib11LoadContextE">svs::lib::LoadContext (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4NK3svs3lib11LoadContext13get_directoryEv">svs::lib::LoadContext::get_directory (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4NK3svs3lib11LoadContext7resolveERKNSt10filesystem4pathE">svs::lib::LoadContext::resolve (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4NK3svs3lib11LoadContext7versionEv">svs::lib::LoadContext::version (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/algorithms.html#_CPPv4I0EN3svs3lib6MinMaxE">svs::lib::MinMax (C++ struct)</a>
+</li>
+      <li><a href="cpp/internal/lib/algorithms.html#_CPPv4N3svs3lib6MinMax4initEv">svs::lib::MinMax::init (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/algorithms.html#_CPPv4N3svs3lib6MinMax3minE">svs::lib::MinMax::min (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib13perfect_matchE">svs::lib::perfect_match (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE">svs::lib::save_to_disk (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T">svs::lib::save_to_table (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4N3svs3lib11SaveContextE">svs::lib::SaveContext (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4NK3svs3lib11SaveContext13generate_nameENSt11string_viewENSt11string_viewE">svs::lib::SaveContext::generate_name (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4NK3svs3lib11SaveContext13get_directoryEv">svs::lib::SaveContext::get_directory (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4N3svs3lib11SaveContext11SaveContextENSt10filesystem4pathERK7Version">svs::lib::SaveContext::SaveContext (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4N3svs3lib9SaveTableE">svs::lib::SaveTable (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4NK3svs3lib9SaveTable8containsENSt11string_viewE">svs::lib::SaveTable::contains (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4I0EN3svs3lib9SaveTable6insertEvNSt11string_viewERR1T">svs::lib::SaveTable::insert (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/saveload.html#_CPPv4N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7Version">svs::lib::SaveTable::SaveTable (C++ function)</a>, <a href="cpp/internal/lib/saveload.html#_CPPv4N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7VersionNSt16initializer_listIN4toml4impl15table_init_pairEEE">[1]</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I0EN3svs3lib4TypeE">svs::lib::Type (C++ struct)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib4Typecv8DataTypeEv">svs::lib::Type::operator DataType (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib4Type4typeE">svs::lib::Type::type (C++ type)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4IDpEN3svs3lib5TypesE">svs::lib::Types (C++ struct)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib5Types10data_typesEv">svs::lib::Types::data_types (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib5Types4sizeE">svs::lib::Types::size (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I_6size_tEN3svs3lib3ValE">svs::lib::Val (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib3Val3ValEv">svs::lib::Val::Val (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4N3svs3lib3Val5valueE">svs::lib::Val::value (C++ member)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE">svs::lib::variant::VariantDispatcher (C++ struct)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib7variant17VariantDispatcher7convertE12variant_type">svs::lib::variant::VariantDispatcher::convert (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib7variant17VariantDispatcher11descriptionEv">svs::lib::variant::VariantDispatcher::description (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/dispatcher.html#_CPPv4N3svs3lib7variant17VariantDispatcher5matchERKNSt7variantIDp2TsEE">svs::lib::variant::VariantDispatcher::match (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/lib/public.html#_CPPv4I00EN3svs3lib12write_binaryE6size_tR6StreamRK1T">svs::lib::write_binary (C++ function)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging9file_sinkERKNSt6stringEb">svs::logging::file_sink (C++ function)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging3getEv">svs::logging::get (C++ function)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging13global_loggerEv">svs::logging::global_logger (C++ function)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5LevelE">svs::logging::Level (C++ enum)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level8CriticalE">svs::logging::Level::Critical (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level5DebugE">svs::logging::Level::Debug (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level5ErrorE">svs::logging::Level::Error (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level4InfoE">svs::logging::Level::Info (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level3OffE">svs::logging::Level::Off (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level5TraceE">svs::logging::Level::Trace (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging5Level4WarnE">svs::logging::Level::Warn (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4IDpEN3svs7logging3logEv5LevelN3fmt13format_stringIDp4ArgsEEDpRR4Args">svs::logging::log (C++ function)</a>, <a href="cpp/core/logging.html#_CPPv4IDpEN3svs7logging3logEvR10logger_ptr5LevelN3fmt13format_stringIDp4ArgsEEDpRR4Args">[1]</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging10logger_ptrE">svs::logging::logger_ptr (C++ type)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging9null_sinkEv">svs::logging::null_sink (C++ function)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging3setERK10logger_ptr">svs::logging::set (C++ function)</a>, <a href="cpp/core/logging.html#_CPPv4N3svs7logging3setERR10logger_ptr">[1]</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging8sink_ptrE">svs::logging::sink_ptr (C++ type)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging11stderr_sinkEv">svs::logging::stderr_sink (C++ function)</a>
+</li>
+      <li><a href="cpp/core/logging.html#_CPPv4N3svs7logging11stdout_sinkEv">svs::logging::stdout_sink (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapperE">svs::MemoryMapper (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper12MemoryMapperE10Permission6Policy">svs::MemoryMapper::MemoryMapper (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper10PermissionE">svs::MemoryMapper::Permission (C++ enum)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper10Permission8ReadOnlyE">svs::MemoryMapper::Permission::ReadOnly (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper10Permission9ReadWriteE">svs::MemoryMapper::Permission::ReadWrite (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper6PolicyE">svs::MemoryMapper::Policy (C++ enum)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper6Policy9MayCreateE">svs::MemoryMapper::Policy::MayCreate (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper6Policy10MustCreateE">svs::MemoryMapper::Policy::MustCreate (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs12MemoryMapper6Policy15MustUseExistingE">svs::MemoryMapper::Policy::MustUseExisting (C++ enumerator)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4I0EN3svs7MMapPtrE">svs::MMapPtr (C++ class)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs7MMapPtr4baseEv">svs::MMapPtr::base (C++ function)</a>, <a href="cpp/internal/allocators.html#_CPPv4NK3svs7MMapPtr4baseEv">[1]</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs7MMapPtr4dataEv">svs::MMapPtr::data (C++ function)</a>, <a href="cpp/internal/allocators.html#_CPPv4NK3svs7MMapPtr4dataEv">[1]</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs7MMapPtr7MMapPtrEP1TPv6size_t">svs::MMapPtr::MMapPtr (C++ function)</a>, <a href="cpp/internal/allocators.html#_CPPv4N3svs7MMapPtr7MMapPtrEPv6size_t">[1]</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4N3svs7MMapPtr9setoffsetE6size_t">svs::MMapPtr::setoffset (C++ function)</a>
+</li>
+      <li><a href="cpp/internal/allocators.html#_CPPv4NK3svs7MMapPtr4sizeEv">svs::MMapPtr::size (C++ function)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4I_6size_t_6size_t_6size_t_18LVQPackingStrategy0EN3svs12quantization3lvq10LVQDatasetE">svs::quantization::lvq::LVQDataset (C++ class)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4NK3svs12quantization3lvq10LVQDataset9get_datumE6size_t">svs::quantization::lvq::LVQDataset::get_datum (C++ function)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4NK3svs12quantization3lvq10LVQDataset11get_primaryE6size_t">svs::quantization::lvq::LVQDataset::get_primary (C++ function)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4NK3svs12quantization3lvq10LVQDataset8prefetchE6size_t">svs::quantization::lvq::LVQDataset::prefetch (C++ function)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4NK3svs12quantization3lvq10LVQDataset16prefetch_primaryE6size_t">svs::quantization::lvq::LVQDataset::prefetch_primary (C++ function)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4NK3svs12quantization3lvq10LVQDataset25primary_dataset_alignmentEv">svs::quantization::lvq::LVQDataset::primary_dataset_alignment (C++ function)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4N3svs12quantization3lvq6ReloadE">svs::quantization::lvq::Reload (C++ struct)</a>
+</li>
+      <li><a href="cpp/quantization/lvq.html#_CPPv4N3svs12quantization3lvq6Reload6ReloadERKNSt10filesystem4pathE">svs::quantization::lvq::Reload::Reload (C++ function)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4I0EN3svs11QueryResultE">svs::QueryResult (C++ type)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4I0I0E0EN3svs15QueryResultImplE">svs::QueryResultImpl (C++ class)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl8distanceE6size_t6size_t">svs::QueryResultImpl::distance (C++ function)</a>, <a href="cpp/core/query_result.html#_CPPv4NK3svs15QueryResultImpl8distanceE6size_t6size_t">[1]</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl9distancesEv">svs::QueryResultImpl::distances (C++ function)</a>, <a href="cpp/core/query_result.html#_CPPv4NK3svs15QueryResultImpl9distancesEv">[1]</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl5indexE6size_t6size_t">svs::QueryResultImpl::index (C++ function)</a>, <a href="cpp/core/query_result.html#_CPPv4NK3svs15QueryResultImpl5indexE6size_t6size_t">[1]</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl7indicesEv">svs::QueryResultImpl::indices (C++ function)</a>, <a href="cpp/core/query_result.html#_CPPv4NK3svs15QueryResultImpl7indicesEv">[1]</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4NK3svs15QueryResultImpl11n_neighborsEv">svs::QueryResultImpl::n_neighbors (C++ function)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4NK3svs15QueryResultImpl9n_queriesEv">svs::QueryResultImpl::n_queries (C++ function)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl15QueryResultImplE5ArrayI3IdxE5ArrayIfE">svs::QueryResultImpl::QueryResultImpl (C++ function)</a>, <a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl15QueryResultImplE6size_t6size_t">[1]</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl9save_vecsERKNSt6stringE">svs::QueryResultImpl::save_vecs (C++ function)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4N3svs15QueryResultImpl4viewEv">svs::QueryResultImpl::view (C++ function)</a>
+</li>
+      <li><a href="cpp/core/query_result.html#_CPPv4I0EN3svs15QueryResultViewE">svs::QueryResultView (C++ type)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs6VamanaE">svs::Vamana (C++ class)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana8assembleE6VamanaRKNSt10filesystem4pathERK15GraphLoaderTypeRR10DataLoaderRK8Distance6size_t">svs::Vamana::assemble (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance6size_tRK9Allocator">svs::Vamana::build (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana18can_change_threadsEv">svs::Vamana::can_change_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana10dimensionsEv">svs::Vamana::dimensions (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana9get_alphaEv">svs::Vamana::get_alpha (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana18get_max_candidatesEv">svs::Vamana::get_max_candidates (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana15get_num_threadsEv">svs::Vamana::get_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana11query_typesEv">svs::Vamana::query_types (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs6Vamana4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE">svs::Vamana::save (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs6Vamana22search_parameters_typeE">svs::Vamana::search_parameters_type (C++ type)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4N3svs6Vamana15set_num_threadsE6size_t">svs::Vamana::set_num_threads (C++ function)</a>
+</li>
+      <li><a href="cpp/index/vamana.html#_CPPv4NK3svs6Vamana4sizeEv">svs::Vamana::size (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE">svs::VectorDataLoader (C++ class)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs16VectorDataLoader8get_pathEv">svs::VectorDataLoader::get_path (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4NK3svs16VectorDataLoader4loadEv">svs::VectorDataLoader::load (C++ function)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs16VectorDataLoader11return_typeE">svs::VectorDataLoader::return_type (C++ type)</a>
+</li>
+      <li><a href="cpp/core/data.html#_CPPv4N3svs16VectorDataLoader16VectorDataLoaderERKNSt10filesystem4pathERK9Allocator">svs::VectorDataLoader::VectorDataLoader (C++ function)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.timing_iterations">timing_iterations (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.train_prefetchers">train_prefetchers (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/upgrader.html#svs.upgrader.upgrade">upgrade() (svs.upgrader method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.use_existing_parameter_values">use_existing_parameter_values (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="cpp/concepts/data.html#_CPPv4I_12HasValueTypeE12value_type_t">value_type_t (C++ type)</a>
+</li>
+      <li><a href="python/vamana.html#svs.Vamana">Vamana (class in svs)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaBuildParameters">VamanaBuildParameters (class in svs)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaCalibrationParameters">VamanaCalibrationParameters (class in svs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/vamana.html#svs.VamanaSearchBufferOptimization">VamanaSearchBufferOptimization (class in svs)</a>
+</li>
+      <li><a href="python/vamana.html#svs.VamanaSearchParameters">VamanaSearchParameters (class in svs)</a>
+</li>
+      <li><a href="python/loaders.html#svs.VectorDataLoader">VectorDataLoader (class in svs)</a>
+</li>
+      <li><a href="python/dynamic.html#svs.DynamicVamana.visited_set_enabled">visited_set_enabled (svs.DynamicVamana property)</a>
+
+      <ul>
+        <li><a href="python/vamana.html#svs.Vamana.visited_set_enabled">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/common.html#svs.write_vecs">write_vecs() (in module svs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

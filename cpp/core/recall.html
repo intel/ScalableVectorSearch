@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Recall Computation &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Logging API" href="logging.html" />
+    <link rel="prev" title="Query Result" href="query_result.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Components</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.html">In-Memory Representation of Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph.html">Graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="distance.html">Built-In Distance Functors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_result.html">Query Result</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Recall Computation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I00E13k_recall_at_ndRK11GroundtruthRK7Results6size_t6size_t"><code class="docutils literal notranslate"><span class="pre">k_recall_at_n()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#argument-conversion">Argument Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data"><code class="docutils literal notranslate"><span class="pre">recall_convert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE"><code class="docutils literal notranslate"><span class="pre">recall_convert()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE"><code class="docutils literal notranslate"><span class="pre">recall_convert()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Core Components</a></li>
+      <li class="breadcrumb-item active">Recall Computation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/core/recall.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="recall-computation">
+<span id="cpp-core-recall"></span><h1>Recall Computation<a class="headerlink" href="#recall-computation" title="Link to this heading"></a></h1>
+<p>Documentation for computing the <code class="docutils literal notranslate"><span class="pre">k</span></code> recall at <code class="docutils literal notranslate"><span class="pre">n</span></code> metric.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00E13k_recall_at_ndRK11GroundtruthRK7Results6size_t6size_t">
+<span id="_CPPv3I00E13k_recall_at_nRK11GroundtruthRK7Results6size_t6size_t"></span><span id="_CPPv2I00E13k_recall_at_nRK11GroundtruthRK7Results6size_t6size_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Groundtruth</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Results</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__core__recall__top_1gac5dd7fe6679b2cc86d0ac4e51e4e84d9"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">k_recall_at_n</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00E13k_recall_at_ndRK11GroundtruthRK7Results6size_t6size_t" title="k_recall_at_n::Groundtruth"><span class="n"><span class="pre">Groundtruth</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">groundtruth</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00E13k_recall_at_ndRK11GroundtruthRK7Results6size_t6size_t" title="k_recall_at_n::Results"><span class="n"><span class="pre">Results</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">results</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">k</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00E13k_recall_at_ndRK11GroundtruthRK7Results6size_t6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Compute the <code class="docutils literal notranslate"><span class="pre">k-recall&#64;n</span></code> for <code class="docutils literal notranslate"><span class="pre">results</span></code> with respect to <code class="docutils literal notranslate"><span class="pre">groundtruth</span></code></p>
+<p>
+Computes and returns the average of the <code class="docutils literal notranslate"><span class="pre">k</span></code> actual nearest neighbors found in the groundtruth with the <code class="docutils literal notranslate"><span class="pre">n</span></code> top entries in <code class="docutils literal notranslate"><span class="pre">results</span></code>.</p>
+<p>If the parameters <code class="docutils literal notranslate"><span class="pre">k</span></code> and <code class="docutils literal notranslate"><span class="pre">n</span></code> are left off, this defaults to computing the <code class="docutils literal notranslate"><span class="pre">n-recall&#64;n</span></code> where <code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">==</span> <span class="pre">results.dimensions()</span></code>.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">groundtruth.size()</span> <span class="pre">==</span> <span class="pre">results.size()</span></code>. Same number of groundtruth elements as result elements.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">&lt;=</span> <span class="pre">groundtruth.dimensions()</span></code>. If <code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">==</span> <span class="pre">0</span></code>, then <code class="docutils literal notranslate"><span class="pre">results.dimensions()</span> <span class="pre">&lt;=</span> <span class="pre">groundtruth.dimensions()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n</span> <span class="pre">&lt;=</span> <span class="pre">results.dimensions()</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">&lt;=</span> <span class="pre">n</span></code>.</p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>groundtruth</strong> – The groundtruth of nearest neighbors. </p></li>
+<li><p><strong>results</strong> – The actual computed results. </p></li>
+<li><p><strong>k</strong> – The number of groundtruth neighbors to consider (optional). Defaults to <code class="docutils literal notranslate"><span class="pre">results.dimensions()</span></code>. </p></li>
+<li><p><strong>n</strong> – The number of results to consider (optional). Defaults to <code class="docutils literal notranslate"><span class="pre">results.dimensions()</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The average <code class="docutils literal notranslate"><span class="pre">k-recall&#64;n</span></code> for all entries pairwise matchings in <code class="docutils literal notranslate"><span class="pre">groundtruth</span></code> and <code class="docutils literal notranslate"><span class="pre">results</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="argument-conversion">
+<h2>Argument Conversion<a class="headerlink" href="#argument-conversion" title="Link to this heading"></a></h2>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data">
+<span id="_CPPv3I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4Data"></span><span id="_CPPv2I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4Data"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ImmutableMemoryDataset</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Data</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__core__recall__public_1ga0371679281dbcae6d7ebb717c7b72316"></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data" title="recall_convert::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">recall_convert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data" title="recall_convert::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data" title="Link to this definition"></a><br /></dt>
+<dd><p>Placeholder for conversion to a <code class="docutils literal notranslate"><a class="reference internal" href="../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code>. </p>
+<p>Classes already implementing <code class="docutils literal notranslate"><a class="reference internal" href="../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code> are passed through by default unless a more specialized overload exists.</p>
+<p>The element types of the values inside the dataset must be integers. Otherwise, a compile-time exception will be thrown. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE">
+<span id="_CPPv3I_NSt8integralE00E14recall_convertRK10DenseArrayI1T4Dims4BaseE"></span><span id="_CPPv2I_NSt8integralE00E14recall_convertRK10DenseArrayI1T4Dims4BaseE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">integral</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dims</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Base</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__core__recall__public_1ga5e2ae5c92c3ef9a4d8835e1d276a30c8"></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ConstSimpleDataView</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE" title="recall_convert::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">recall_convert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">DenseArray</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE" title="recall_convert::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE" title="recall_convert::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE" title="recall_convert::Base"><span class="n"><span class="pre">Base</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE" title="Link to this definition"></a><br /></dt>
+<dd><p>Create a <code class="docutils literal notranslate"><span class="pre">data::ConstSimpleDataView</span></code> aliasing the contents of matrix <code class="docutils literal notranslate"><span class="pre">x</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The matrix to alias.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A <code class="docutils literal notranslate"><span class="pre">data::ConstSimpleDataView</span></code> aliasing the memory owned by <code class="docutils literal notranslate"><span class="pre">x</span></code>. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE">
+<span id="_CPPv3I_NSt8integralEI0E0E14recall_convertRK15QueryResultImplI3Idx5ArrayE"></span><span id="_CPPv2I_NSt8integralEI0E0E14recall_convertRK15QueryResultImplI3Idx5ArrayE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">integral</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Idx</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Array</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__core__recall__public_1ga27bbf7e453165db68a9edaac71aacb71"></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ConstSimpleDataView</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE" title="recall_convert::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">recall_convert</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">QueryResultImpl</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE" title="recall_convert::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE" title="recall_convert::Array"><span class="n"><span class="pre">Array</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE" title="Link to this definition"></a><br /></dt>
+<dd><p>Extract the <code class="docutils literal notranslate"><span class="pre">ids</span></code> in the query result as a <code class="docutils literal notranslate"><span class="pre">data::ConstSimpleDataView</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The query result to view. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="query_result.html" class="btn btn-neutral float-left" title="Query Result" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="logging.html" class="btn btn-neutral float-right" title="Logging API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

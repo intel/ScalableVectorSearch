@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>In-Memory Representation of Data &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Graphs" href="graph.html" />
+    <link rel="prev" title="Core Components" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Components</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">In-Memory Representation of Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE"><code class="docutils literal notranslate"><span class="pre">SimpleData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData14allocator_typeE"><code class="docutils literal notranslate"><span class="pre">SimpleData::allocator_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData12element_typeE"><code class="docutils literal notranslate"><span class="pre">SimpleData::element_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData10value_typeE"><code class="docutils literal notranslate"><span class="pre">SimpleData::value_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData16const_value_typeE"><code class="docutils literal notranslate"><span class="pre">SimpleData::const_value_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData13get_allocatorEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::get_allocator()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData10SimpleDataE14AnonymousArrayIXL2EEE"><code class="docutils literal notranslate"><span class="pre">SimpleData::SimpleData()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData4sizeEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::size()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData8capacityEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::capacity()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::dimensions()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData9get_datumE6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleData::get_datum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData9get_datumE6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleData::get_datum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData8prefetchE6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleData::prefetch()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data10SimpleData9set_datumEv6size_tNSt4spanI1U1NEE"><code class="docutils literal notranslate"><span class="pre">SimpleData::set_datum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData4dataEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData4dataEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::data()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData5cviewEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::cview()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs4data10SimpleData4viewEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::view()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData4viewEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::view()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData6resizeE6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleData::resize()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData13shrink_to_fitEv"><code class="docutils literal notranslate"><span class="pre">SimpleData::shrink_to_fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData4loadERKN3lib9LoadTableERK14allocator_type"><code class="docutils literal notranslate"><span class="pre">SimpleData::load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData4loadERKNSt10filesystem4pathERK14allocator_type"><code class="docutils literal notranslate"><span class="pre">SimpleData::load()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData6extentE"><code class="docutils literal notranslate"><span class="pre">SimpleData::extent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData24is_memory_map_compatibleE"><code class="docutils literal notranslate"><span class="pre">SimpleData::is_memory_map_compatible</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData7is_viewE"><code class="docutils literal notranslate"><span class="pre">SimpleData::is_view</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData8is_constE"><code class="docutils literal notranslate"><span class="pre">SimpleData::is_const</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE"><code class="docutils literal notranslate"><span class="pre">ConstSimpleDataView</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE"><code class="docutils literal notranslate"><span class="pre">SimpleDataView</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-loading">Data Loading</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE"><code class="docutils literal notranslate"><span class="pre">VectorDataLoader</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="graph.html">Graphs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="distance.html">Built-In Distance Functors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_result.html">Query Result</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recall.html">Recall Computation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Core Components</a></li>
+      <li class="breadcrumb-item active">In-Memory Representation of Data</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/core/data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="in-memory-representation-of-data">
+<span id="cpp-core-data"></span><h1>In-Memory Representation of Data<a class="headerlink" href="#in-memory-representation-of-data" title="Link to this heading"></a></h1>
+<p>Vector data is at the core of the SVS similarity search library.
+Several specific classes are provided to implement in-memory vector datasets with different semantics.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::data::SimpleData</span></code></a> - General allocator-aware dense representation of embedding vectors.</p></li>
+<li><p><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView"><code class="xref cpp cpp-type docutils literal notranslate"><span class="pre">svs::data::SimpleDataView</span></code></a> - Non-owning view over a dense representation of embedding vectors.</p></li>
+<li><p><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView"><code class="xref cpp cpp-type docutils literal notranslate"><span class="pre">svs::data::ConstSimpleDataView</span></code></a> - Constant version of <a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView"><code class="xref cpp cpp-type docutils literal notranslate"><span class="pre">svs::data::SimpleDataView</span></code></a>.
+Useful for crossing virtual function boundaries where templates can’t be used.</p></li>
+</ul>
+<p>Detailed documentation for these classes is given below.</p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_t0EN3svs4data10SimpleDataE">
+<span id="_CPPv3I0_6size_t0EN3svs4data10SimpleDataE"></span><span id="_CPPv2I0_6size_t0EN3svs4data10SimpleDataE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Extent</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../internal/lib/public.html#_CPPv47Dynamic" title="Dynamic"><span class="n"><span class="pre">Dynamic</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Alloc</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Allocator</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1data_1_1SimpleData"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SimpleData</span></span></span><a class="headerlink" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="Link to this definition"></a><br /></dt>
+<dd><p>The following properties hold:<ul class="simple">
+<li><p>Vectors are stored contiguously in memory.</p></li>
+<li><p>All vectors have the same length. </p></li>
+</ul>
+</p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData14allocator_typeE">
+<span id="_CPPv3N3svs4data10SimpleData14allocator_typeE"></span><span id="_CPPv2N3svs4data10SimpleData14allocator_typeE"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1ab611c621602a0ce74742e3234456ae76"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">allocator_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Alloc"><span class="n"><span class="pre">Alloc</span></span></a><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData14allocator_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The allocator type used for this instance. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData12element_typeE">
+<span id="_CPPv3N3svs4data10SimpleData12element_typeE"></span><span id="_CPPv2N3svs4data10SimpleData12element_typeE"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a3d6c87e7200359df582a06f3d41ffb56"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">element_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData12element_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The data type used to encode each dimension of the stored vectors. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData10value_typeE">
+<span id="_CPPv3N3svs4data10SimpleData10value_typeE"></span><span id="_CPPv2N3svs4data10SimpleData10value_typeE"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a0c7fe9d30e18b8e6a74c5eee696f5947"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">value_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData12element_typeE" title="svs::data::SimpleData::element_type"><span class="n"><span class="pre">element_type</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData10value_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type used to return a mutable handle to stored vectors. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData16const_value_typeE">
+<span id="_CPPv3N3svs4data10SimpleData16const_value_typeE"></span><span id="_CPPv2N3svs4data10SimpleData16const_value_typeE"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a4b7ae87bad83c68898d3d72d9491758f"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">const_value_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData12element_typeE" title="svs::data::SimpleData::element_type"><span class="n"><span class="pre">element_type</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData16const_value_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type used to return a constant handle to stored vectors. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData13get_allocatorEv">
+<span id="_CPPv3NK3svs4data10SimpleData13get_allocatorEv"></span><span id="_CPPv2NK3svs4data10SimpleData13get_allocatorEv"></span><span id="svs::data::SimpleData::get_allocatorC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a2cb02843a4ee0ba6b99c45142a29c26b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData14allocator_typeE" title="svs::data::SimpleData::allocator_type"><span class="n"><span class="pre">allocator_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_allocator</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData13get_allocatorEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the underlying allocator. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData10SimpleDataE14AnonymousArrayIXL2EEE">
+<span id="_CPPv3N3svs4data10SimpleData10SimpleDataE14AnonymousArrayIXL2EEE"></span><span id="_CPPv2N3svs4data10SimpleData10SimpleDataE14AnonymousArrayIX2EE"></span><span id="svs::data::SimpleData::SimpleData__AnonymousArray:2:"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a9a72115b72d0b2946a64138be0f92e14"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SimpleData</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">AnonymousArray</span></span><span class="p"><span class="pre">&lt;</span></span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">array</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData10SimpleDataE14AnonymousArrayIXL2EEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a view over the array using a checked cast. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData4sizeEv">
+<span id="_CPPv3NK3svs4data10SimpleData4sizeEv"></span><span id="_CPPv2NK3svs4data10SimpleData4sizeEv"></span><span id="svs::data::SimpleData::sizeC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1ac22d487e6f77b35b048c7bd9fdfbb568"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of entries in the dataset. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData8capacityEv">
+<span id="_CPPv3NK3svs4data10SimpleData8capacityEv"></span><span id="_CPPv2NK3svs4data10SimpleData8capacityEv"></span><span id="svs::data::SimpleData::capacityC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1aa5ff0c5bbfa25cb3f5921b673bb49155"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">capacity</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData8capacityEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the maximum number of entries this dataset can hold. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData10dimensionsEv">
+<span id="_CPPv3NK3svs4data10SimpleData10dimensionsEv"></span><span id="_CPPv2NK3svs4data10SimpleData10dimensionsEv"></span><span id="svs::data::SimpleData::dimensionsC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a280b6d475f6c203b106b88488853c9d1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dimensions</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData10dimensionsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of dimensions for each entry in the dataset. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData9get_datumE6size_t">
+<span id="_CPPv3NK3svs4data10SimpleData9get_datumE6size_t"></span><span id="_CPPv2NK3svs4data10SimpleData9get_datumE6size_t"></span><span id="svs::data::SimpleData::get_datum__sC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1ae94c26745e792ffb32423613a2456c90"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData16const_value_typeE" title="svs::data::SimpleData::const_value_type"><span class="n"><span class="pre">const_value_type</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_datum</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData9get_datumE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a constant handle to vector stored as position <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">i</span> <span class="pre">&lt;</span> <a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1ac22d487e6f77b35b048c7bd9fdfbb568"><span class="std std-ref"><span class="pre">size()</span></span></a></code></p></li>
+</ul>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData9get_datumE6size_t">
+<span id="_CPPv3N3svs4data10SimpleData9get_datumE6size_t"></span><span id="_CPPv2N3svs4data10SimpleData9get_datumE6size_t"></span><span id="svs::data::SimpleData::get_datum__s"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1ab26f2b54103519f9056b34159df982eb"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData10value_typeE" title="svs::data::SimpleData::value_type"><span class="n"><span class="pre">value_type</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_datum</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData9get_datumE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a mutable handle to vector stored as position <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p><strong>NOTE</strong>: Mutating the returned value directly may have unintended consequences. Perform with care.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">i</span> <span class="pre">&lt;</span> <a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1ac22d487e6f77b35b048c7bd9fdfbb568"><span class="std std-ref"><span class="pre">size()</span></span></a></code></p></li>
+</ul>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData8prefetchE6size_t">
+<span id="_CPPv3NK3svs4data10SimpleData8prefetchE6size_t"></span><span id="_CPPv2NK3svs4data10SimpleData8prefetchE6size_t"></span><span id="svs::data::SimpleData::prefetch__sC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a39379e064c515d6f60018583977a9a56"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">prefetch</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData8prefetchE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Prefetch the vector at position <code class="docutils literal notranslate"><span class="pre">i</span></code> into the L1 cache. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_tEN3svs4data10SimpleData9set_datumEv6size_tNSt4spanI1U1NEE">
+<span id="_CPPv3I0_6size_tEN3svs4data10SimpleData9set_datumE6size_tNSt4spanI1U1NEE"></span><span id="_CPPv2I0_6size_tEN3svs4data10SimpleData9set_datumE6size_tNSt4spanI1U1NEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">U</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">N</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1data_1_1SimpleData_1a67f2e46742f186f68422d64567908718"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_datum</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data10SimpleData9set_datumEv6size_tNSt4spanI1U1NEE" title="svs::data::SimpleData::set_datum::U"><span class="n"><span class="pre">U</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data10SimpleData9set_datumEv6size_tNSt4spanI1U1NEE" title="svs::data::SimpleData::set_datum::N"><span class="n"><span class="pre">N</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">datum</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0_6size_tEN3svs4data10SimpleData9set_datumEv6size_tNSt4spanI1U1NEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Overwrite the contents of the vector at position <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p>
+If <code class="docutils literal notranslate"><span class="pre">U</span></code> is the same type as <code class="docutils literal notranslate"><span class="pre">element_type</span></code>, then this operation is simply a memory copy. Otherwise, <code class="docutils literal notranslate"><span class="pre">lib::narrow</span></code> will be used to convert each element of <code class="docutils literal notranslate"><span class="pre">datum</span></code> which may error if the conversion is not exact.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">datum.size()</span> <span class="pre">==</span> <a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1a280b6d475f6c203b106b88488853c9d1"><span class="std std-ref"><span class="pre">dimensions()</span></span></a></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">i</span> <span class="pre">&lt;</span> <a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1ac22d487e6f77b35b048c7bd9fdfbb568"><span class="std std-ref"><span class="pre">size()</span></span></a></code></p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>i</strong> – The index at which to store the new data. </p></li>
+<li><p><strong>datum</strong> – The new vector in R^n to store.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData4dataEv">
+<span id="_CPPv3NK3svs4data10SimpleData4dataEv"></span><span id="_CPPv2NK3svs4data10SimpleData4dataEv"></span><span id="svs::data::SimpleData::dataC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a2c6ad40cc50fac8ef93713b7af42d8af"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData4dataEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the base pointer to the data. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData4dataEv">
+<span id="_CPPv3N3svs4data10SimpleData4dataEv"></span><span id="_CPPv2N3svs4data10SimpleData4dataEv"></span><span id="svs::data::SimpleData::data"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1aac29a04bbe7ae4695489b1eea51bc214"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData4dataEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the base pointer to the data. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData5cviewEv">
+<span id="_CPPv3NK3svs4data10SimpleData5cviewEv"></span><span id="_CPPv2NK3svs4data10SimpleData5cviewEv"></span><span id="svs::data::SimpleData::cviewC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a83580827e7f71c8e317871315895429f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView"><span class="n"><span class="pre">ConstSimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cview</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData5cviewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a ConstSimpleDataView over this data. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4data10SimpleData4viewEv">
+<span id="_CPPv3NK3svs4data10SimpleData4viewEv"></span><span id="_CPPv2NK3svs4data10SimpleData4viewEv"></span><span id="svs::data::SimpleData::viewC"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1ad6188ac074ee05c026e48b1bd47f04d5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView"><span class="n"><span class="pre">ConstSimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">view</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4data10SimpleData4viewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a ConstSimpleDataView over this data. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData4viewEv">
+<span id="_CPPv3N3svs4data10SimpleData4viewEv"></span><span id="_CPPv2N3svs4data10SimpleData4viewEv"></span><span id="svs::data::SimpleData::view"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1ab3f5b18f73eb19d52d5c48fdf663dc7d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView"><span class="n"><span class="pre">SimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">view</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData4viewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a SimpleDataView over this data. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData6resizeE6size_t">
+<span id="_CPPv3N3svs4data10SimpleData6resizeE6size_t"></span><span id="_CPPv2N3svs4data10SimpleData6resizeE6size_t"></span><span id="svs::data::SimpleData::resize__s"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a27c8951281bc20530563f0b4494d7ac8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">resize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">new_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData6resizeE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Resize the dataset to the new size. </p>
+<p>Causes a reallocation if <code class="docutils literal notranslate"><span class="pre">new_size</span> <span class="pre">&gt;</span> <a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1aa5ff0c5bbfa25cb3f5921b673bb49155"><span class="std std-ref"><span class="pre">capacity()</span></span></a></code>. Growing and shrinking are performed at the end the valid range.</p>
+<p><strong>NOTE</strong>: Resizing that triggers a reallocation will invalidate <em>all</em> previously obtained pointers!. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData13shrink_to_fitEv">
+<span id="_CPPv3N3svs4data10SimpleData13shrink_to_fitEv"></span><span id="_CPPv2N3svs4data10SimpleData13shrink_to_fitEv"></span><span id="svs::data::SimpleData::shrink_to_fit"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1aabb06b0b77619b4f8b113f4116c1ebd5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">shrink_to_fit</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData13shrink_to_fitEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Requests the removal of unused capacity. </p>
+<p>It is a non-binding request to reduce <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1aa5ff0c5bbfa25cb3f5921b673bb49155"><span class="std std-ref"><span class="pre">capacity()</span></span></a></code> to <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1data_1_1SimpleData_1ac22d487e6f77b35b048c7bd9fdfbb568"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. If relocation occurs, all iterators and previously obtained datums are invalidated. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData4loadERKN3lib9LoadTableERK14allocator_type">
+<span id="_CPPv3N3svs4data10SimpleData4loadERKN3lib9LoadTableERK14allocator_type"></span><span id="_CPPv2N3svs4data10SimpleData4loadERKN3lib9LoadTableERK14allocator_type"></span><span id="svs::data::SimpleData::load__lib::LoadTableCR.allocator_typeCR"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a34105e4e722850cd956df31d5840a144"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><span class="n"><span class="pre">SimpleData</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">load</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">LoadTable</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">table</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData14allocator_typeE" title="svs::data::SimpleData::allocator_type"><span class="n"><span class="pre">allocator_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">allocator</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData4loadERKN3lib9LoadTableERK14allocator_type" title="Link to this definition"></a><br /></dt>
+<dd><p>Reload a previously saved dataset. </p>
+<p>
+This method is implicitly called when using <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_from_disk</span><span class="o">&lt;</span><span class="n">svs</span><span class="o">::</span><span class="n">data</span><span class="o">::</span><span class="n">SimpleData</span><span class="o">&lt;</span><span class="n">T</span><span class="p">,</span><span class="w"> </span><span class="n">Extent</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="s">&quot;directory&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+ </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>table</strong> – The table containing saved hyper parameters. </p></li>
+<li><p><strong>allocator</strong> – Allocator instance to use upon reloading.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData4loadERKNSt10filesystem4pathERK14allocator_type">
+<span id="_CPPv3N3svs4data10SimpleData4loadERKNSt10filesystem4pathERK14allocator_type"></span><span id="_CPPv2N3svs4data10SimpleData4loadERKNSt10filesystem4pathERK14allocator_type"></span><span id="svs::data::SimpleData::load__std::filesystem::pathCR.allocator_typeCR"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a144a38662862b9cce7a2ee113298f58f"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><span class="n"><span class="pre">SimpleData</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">load</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">path</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4data10SimpleData14allocator_typeE" title="svs::data::SimpleData::allocator_type"><span class="n"><span class="pre">allocator_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">allocator</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData4loadERKNSt10filesystem4pathERK14allocator_type" title="Link to this definition"></a><br /></dt>
+<dd><p>Try to automatically load the dataset. </p>
+<p>
+The argument <code class="docutils literal notranslate"><span class="pre">path</span></code> can point to:<ul class="simple">
+<li><p>The directory previously used to save a dataset (or the config file of such a directory).</p></li>
+<li><p>A “.[f/b/i]vecs” file. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – The filepath to a dataset on disk. </p></li>
+<li><p><strong>allocator</strong> – The allocator instance to use when constructing this class.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData6extentE">
+<span id="_CPPv3N3svs4data10SimpleData6extentE"></span><span id="_CPPv2N3svs4data10SimpleData6extentE"></span><span id="svs::data::SimpleData::extent__s"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a9af7fb1c6da8a72f191a4e2d418b1a13"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">extent</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Extent"><span class="n"><span class="pre">Extent</span></span></a><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData6extentE" title="Link to this definition"></a><br /></dt>
+<dd><p>The static dimensionality of the underlying data. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData24is_memory_map_compatibleE">
+<span id="_CPPv3N3svs4data10SimpleData24is_memory_map_compatibleE"></span><span id="_CPPv2N3svs4data10SimpleData24is_memory_map_compatibleE"></span><span id="svs::data::SimpleData::is_memory_map_compatible__b"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a05f39e201a548d213a160f820d26223b"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_memory_map_compatible</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData24is_memory_map_compatibleE" title="Link to this definition"></a><br /></dt>
+<dd><p>The various instantiations of <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1data_1_1SimpleData"><span class="std std-ref"><span class="pre">SimpleData</span></span></a></code> are expected to have dense layouts. Therefore, they are directly memory map compatible from appropriate files.</p>
+<p>However, some specializations (such as the blocked dataset) are not necessarily memory map compatible. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData7is_viewE">
+<span id="_CPPv3N3svs4data10SimpleData7is_viewE"></span><span id="_CPPv2N3svs4data10SimpleData7is_viewE"></span><span id="svs::data::SimpleData::is_view__b"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a1f2e8a798ba54d341eccd4bc32c8ee13"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_view</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">is_view_type_v</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::Alloc"><span class="n"><span class="pre">Alloc</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData7is_viewE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether or not this is a non-owning view of the underlying data. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4data10SimpleData8is_constE">
+<span id="_CPPv3N3svs4data10SimpleData8is_constE"></span><span id="_CPPv2N3svs4data10SimpleData8is_constE"></span><span id="svs::data::SimpleData::is_const__b"></span><span class="target" id="classsvs_1_1data_1_1SimpleData_1a79f76000d72a120c0e041c1673d96d1a"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_const</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">is_const_v</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs4data10SimpleData8is_constE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether or not this class is allowed to mutate its backing data. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE">
+<span id="_CPPv3I0_6size_tEN3svs4data19ConstSimpleDataViewE"></span><span id="_CPPv2I0_6size_tEN3svs4data19ConstSimpleDataViewE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Extent</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../internal/lib/public.html#_CPPv47Dynamic" title="Dynamic"><span class="n"><span class="pre">Dynamic</span></span></a><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1data_1aa1fc8168a9c502560cc7baab76f8d18f"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">ConstSimpleDataView</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><span class="n"><span class="pre">SimpleData</span></span></a><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">View</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE">
+<span id="_CPPv3I0_6size_tEN3svs4data14SimpleDataViewE"></span><span id="_CPPv2I0_6size_tEN3svs4data14SimpleDataViewE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Extent</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../internal/lib/public.html#_CPPv47Dynamic" title="Dynamic"><span class="n"><span class="pre">Dynamic</span></span></a><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1data_1a8c087111bf0c40c1b6ab2263412fcd17"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">SimpleDataView</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><span class="n"><span class="pre">SimpleData</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">View</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<section id="data-loading">
+<h2>Data Loading<a class="headerlink" href="#data-loading" title="Link to this heading"></a></h2>
+<p>The <a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a> class provides a way to instantiate a <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::data::SimplePolymorphicData</span></code> object from multiple different kinds of file types.</p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE">
+<span id="_CPPv3I0_6size_t0EN3svs16VectorDataLoaderE"></span><span id="_CPPv2I0_6size_t0EN3svs16VectorDataLoaderE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Extent</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../internal/lib/public.html#_CPPv47Dynamic" title="Dynamic"><span class="n"><span class="pre">Dynamic</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Allocator</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../internal/allocators.html#_CPPv4I0EN3svs17HugepageAllocatorE" title="svs::HugepageAllocator"><span class="n"><span class="pre">HugepageAllocator</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1VectorDataLoader"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VectorDataLoader</span></span></span><a class="headerlink" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="Link to this definition"></a><br /></dt>
+<dd><p>Loader for uncompressed vector datasets. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>T</strong> – The element type of the encoded vectors. Typically, this will be a floating point type like <code class="docutils literal notranslate"><span class="pre">float</span></code> or <code class="docutils literal notranslate"><span class="pre">svs::Float16</span></code> but may be an integer type as well for certain datsets. </p></li>
+<li><p><strong>Extent</strong> – The compile-time dimensionality of the vectors to be read. May provide a performance boost if given. Default: <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code>. </p></li>
+<li><p><strong>Allocator</strong> – The allocator to use for the memory backing the data when loaded. </p></li>
+</ul>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs16VectorDataLoader11return_typeE">
+<span id="_CPPv3N3svs16VectorDataLoader11return_typeE"></span><span id="_CPPv2N3svs16VectorDataLoader11return_typeE"></span><span class="target" id="classsvs_1_1VectorDataLoader_1a1a6c95de456b97a60be652f0c8a03e64"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">return_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><span class="n"><span class="pre">SimpleData</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader::Allocator"><span class="n"><span class="pre">Allocator</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs16VectorDataLoader11return_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The full type of the loaded dataset. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs16VectorDataLoader16VectorDataLoaderERKNSt10filesystem4pathERK9Allocator">
+<span id="_CPPv3N3svs16VectorDataLoader16VectorDataLoaderERKNSt10filesystem4pathERK9Allocator"></span><span id="_CPPv2N3svs16VectorDataLoader16VectorDataLoaderERKNSt10filesystem4pathERK9Allocator"></span><span id="svs::VectorDataLoader::VectorDataLoader__std::filesystem::pathCR.AllocatorCR"></span><span class="target" id="classsvs_1_1VectorDataLoader_1a0f665180ca5321424da6fcdf172379da"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VectorDataLoader</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">path</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader::Allocator"><span class="n"><span class="pre">Allocator</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">allocator</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs16VectorDataLoader16VectorDataLoaderERKNSt10filesystem4pathERK9Allocator" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#classsvs_1_1VectorDataLoader"><span class="std std-ref">VectorDataLoader</span></a>. </p>
+<p>
+Typically, <code class="docutils literal notranslate"><span class="pre">path</span></code> should point to a directory generated by one of the index save methods. This will provide the most error checking. However, the path can also point directly to the following files:</p>
+<p><ul class="simple">
+<li><p>Any “*.svs” file, which is the native file path used by the SVS library.</p></li>
+<li><p>Any “[f/b/i]vecs” file typically used by similarity search libraries. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – The path to the dataset on disk. See detailed notes. </p></li>
+<li><p><strong>allocator</strong> – The allocator to be used.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs16VectorDataLoader4loadEv">
+<span id="_CPPv3NK3svs16VectorDataLoader4loadEv"></span><span id="_CPPv2NK3svs16VectorDataLoader4loadEv"></span><span id="svs::VectorDataLoader::loadC"></span><span class="target" id="classsvs_1_1VectorDataLoader_1ac5286a5ee605441578736de1874a6e58"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs16VectorDataLoader11return_typeE" title="svs::VectorDataLoader::return_type"><span class="n"><span class="pre">return_type</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">load</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs16VectorDataLoader4loadEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Load the dataset from disk. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs16VectorDataLoader8get_pathEv">
+<span id="_CPPv3NK3svs16VectorDataLoader8get_pathEv"></span><span id="_CPPv2NK3svs16VectorDataLoader8get_pathEv"></span><span id="svs::VectorDataLoader::get_pathC"></span><span class="target" id="classsvs_1_1VectorDataLoader_1a22a62ce1cb078a05ab84ecaacae069ca"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_path</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs16VectorDataLoader8get_pathEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the file path given when this class was constructed. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The various data implementations given above are all instances of the more general concept <a class="reference internal" href="../concepts/data.html#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="svs::data::ImmutableMemoryDataset"><code class="xref cpp cpp-concept docutils literal notranslate"><span class="pre">svs::data::ImmutableMemoryDataset</span></code></a>.
+Where possible, this concept is use to constrain template arguments, allowing for future custom implementations.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Core Components" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="graph.html" class="btn btn-neutral float-right" title="Graphs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

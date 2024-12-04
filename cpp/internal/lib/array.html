@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-dimensional Array &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Algorithms" href="algorithms.html" />
+    <link rel="prev" title="Public Library Components" href="public.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Library Components</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="public.html">Public Library Components</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Multi-dimensional Array</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE"><code class="docutils literal notranslate"><span class="pre">DenseArray</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#type-deducing-constructors">Type-deducing constructors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="saveload.html">Data Structure Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dispatcher.html">Dynamic Dispatcher</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../index_impl/index.html">Index Data Structures</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Library Components</a></li>
+      <li class="breadcrumb-item active">Multi-dimensional Array</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/lib/array.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="multi-dimensional-array">
+<span id="cpp-lib-array"></span><h1>Multi-dimensional Array<a class="headerlink" href="#multi-dimensional-array" title="Link to this heading"></a></h1>
+<p>Many of the data structures in the library are backed by a multi-dimensional array class.</p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I000EN3svs10DenseArrayE">
+<span id="_CPPv3I000EN3svs10DenseArrayE"></span><span id="_CPPv2I000EN3svs10DenseArrayE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dims</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Alloc</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Allocator</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DenseArray</span></span></span><a class="headerlink" href="#_CPPv4I000EN3svs10DenseArrayE" title="Link to this definition"></a><br /></dt>
+<dd><p>A N-dimensional array class supporting compile-time dimensionality. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>T</strong> – The value type of the array. Must be a trivial type. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray4dimsEv">
+<span id="_CPPv3NK3svs10DenseArray4dimsEv"></span><span id="_CPPv2NK3svs10DenseArray4dimsEv"></span><span id="svs::DenseArray::dimsCCE"></span><span class="target" id="classsvs_1_1DenseArray_1afac1dcb419937134384658d3647c5742"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs10DenseArray5ndimsEv" title="svs::DenseArray::ndims"><span class="n"><span class="pre">ndims</span></span></a><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dims</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray4dimsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>The dimensions of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray4sizeEv">
+<span id="_CPPv3NK3svs10DenseArray4sizeEv"></span><span id="_CPPv2NK3svs10DenseArray4sizeEv"></span><span id="svs::DenseArray::sizeCCE"></span><span class="target" id="classsvs_1_1DenseArray_1a986ec5499ddba4afda34e97c52f474a0"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the total number of elements contained in the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray5bytesEv">
+<span id="_CPPv3NK3svs10DenseArray5bytesEv"></span><span id="_CPPv2NK3svs10DenseArray5bytesEv"></span><span id="svs::DenseArray::bytesCCE"></span><span class="target" id="classsvs_1_1DenseArray_1a00eef363f8fa33fd9734f002a79b09ad"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bytes</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray5bytesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the memory footprint of the array in bytes. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_6size_tENK3svs10DenseArray7getsizeE6size_tv">
+<span id="_CPPv3I_6size_tENK3svs10DenseArray7getsizeEv"></span><span id="_CPPv2I_6size_tENK3svs10DenseArray7getsizeEv"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1a8ceb5b95f4f37342e866dcbca428b639"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">getsize</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I_6size_tENK3svs10DenseArray7getsizeE6size_tv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the value of the <code class="docutils literal notranslate"><span class="pre">i</span></code>th dimension. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>i</strong> – The dimensions to query. Must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a><span class="pre">]</span></code>. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpEN3svs10DenseArray2atE9referenceDpRR2Is">
+<span id="_CPPv3IDpEN3svs10DenseArray2atEDpRR2Is"></span><span id="_CPPv2IDpEN3svs10DenseArray2atEDpRR2Is"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Is</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1ab961674e9da6e2eecf6f52a50d073062"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">reference</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">at</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4IDpEN3svs10DenseArray2atE9referenceDpRR2Is" title="svs::DenseArray::at::Is"><span class="n"><span class="pre">Is</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">indices</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4IDpEN3svs10DenseArray2atE9referenceDpRR2Is" title="Link to this definition"></a><br /></dt>
+<dd><p>Access the specified element. </p>
+<p>
+It is the callers responsibility to ensure that all indices are inbounds. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>indices</strong> – The indices to access. Must satisfy <code class="docutils literal notranslate"><span class="pre">sizeof...(indices)</span> <span class="pre">==</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpENK3svs10DenseArray2atE15const_referenceDpRR2Is">
+<span id="_CPPv3IDpENK3svs10DenseArray2atEDpRR2Is"></span><span id="_CPPv2IDpENK3svs10DenseArray2atEDpRR2Is"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Is</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1a41e293cef5b9c97cc22d9826cd485ead"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">const_reference</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">at</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4IDpENK3svs10DenseArray2atE15const_referenceDpRR2Is" title="svs::DenseArray::at::Is"><span class="n"><span class="pre">Is</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">indices</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4IDpENK3svs10DenseArray2atE15const_referenceDpRR2Is" title="Link to this definition"></a><br /></dt>
+<dd><p>Access the specified element.   </p>
+<p>
+It is the callers responsibility to ensure that all indices are inbounds.   </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>indices</strong> – The indices to access. Must satisfy <code class="docutils literal notranslate"><span class="pre">sizeof...(indices)</span> <span class="pre">==</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray5firstEv">
+<span id="_CPPv3NK3svs10DenseArray5firstEv"></span><span id="_CPPv2NK3svs10DenseArray5firstEv"></span><span id="svs::DenseArray::firstCCE"></span><span class="target" id="classsvs_1_1DenseArray_1a19b52b3bb25291b5d9f9c1f9cb9060a5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">const_reference</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">first</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray5firstEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a const reference to the first element of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray4lastEv">
+<span id="_CPPv3NK3svs10DenseArray4lastEv"></span><span id="_CPPv2NK3svs10DenseArray4lastEv"></span><span id="svs::DenseArray::lastCCE"></span><span class="target" id="classsvs_1_1DenseArray_1a5b40ab990187d66d98c120e537a064b4"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">const_reference</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">last</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray4lastEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a const reference to the last element of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpEN3svs10DenseArray5sliceE4spanDpRR2Is">
+<span id="_CPPv3IDpEN3svs10DenseArray5sliceEDpRR2Is"></span><span id="_CPPv2IDpEN3svs10DenseArray5sliceEDpRR2Is"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Is</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1ac6d70921d6667f945089574990ce961a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">span</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">slice</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4IDpEN3svs10DenseArray5sliceE4spanDpRR2Is" title="svs::DenseArray::slice::Is"><span class="n"><span class="pre">Is</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">indices</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4IDpEN3svs10DenseArray5sliceE4spanDpRR2Is" title="Link to this definition"></a><br /></dt>
+<dd><p>Obtain a <code class="docutils literal notranslate"><span class="pre">std::span</span></code> over the requested row. </p>
+<p>
+The returned span will have the same extent as the last dimension of the array. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>indices</strong> – The indices specifying the row to access. Must satisfy <code class="docutils literal notranslate"><span class="pre">sizeof...(indices)</span> <span class="pre">==</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a> <span class="pre">-</span> <span class="pre">1</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpENK3svs10DenseArray5sliceE10const_spanDpRR2Is">
+<span id="_CPPv3IDpENK3svs10DenseArray5sliceEDpRR2Is"></span><span id="_CPPv2IDpENK3svs10DenseArray5sliceEDpRR2Is"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Is</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1a779715c9b9066c2d07784e370df86aa1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">const_span</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">slice</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4IDpENK3svs10DenseArray5sliceE10const_spanDpRR2Is" title="svs::DenseArray::slice::Is"><span class="n"><span class="pre">Is</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">indices</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4IDpENK3svs10DenseArray5sliceE10const_spanDpRR2Is" title="Link to this definition"></a><br /></dt>
+<dd><p>Obtain a <code class="docutils literal notranslate"><span class="pre">std::span</span></code> over the requested row.   </p>
+<p>
+The returned span will have the same extent as the last dimension of the array.   </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>indices</strong> – The indices specifying the row to access. Must satisfy <code class="docutils literal notranslate"><span class="pre">sizeof...(indices)</span> <span class="pre">==</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a> <span class="pre">-</span> <span class="pre">1</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs10DenseArray5beginEv">
+<span id="_CPPv3N3svs10DenseArray5beginEv"></span><span id="_CPPv2N3svs10DenseArray5beginEv"></span><span id="svs::DenseArray::begin"></span><span class="target" id="classsvs_1_1DenseArray_1ac7a197e29543a7e29dafec8d7c2e6d24"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">pointer</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">begin</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs10DenseArray5beginEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a random access iterator to the beginning of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray5beginEv">
+<span id="_CPPv3NK3svs10DenseArray5beginEv"></span><span id="_CPPv2NK3svs10DenseArray5beginEv"></span><span id="svs::DenseArray::beginC"></span><span class="target" id="classsvs_1_1DenseArray_1a1be470d1d3f2f080ee31b46a13ebfefa"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">const_pointer</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">begin</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray5beginEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a random access iterator to the beginning of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs10DenseArray3endEv">
+<span id="_CPPv3N3svs10DenseArray3endEv"></span><span id="_CPPv2N3svs10DenseArray3endEv"></span><span id="svs::DenseArray::end"></span><span class="target" id="classsvs_1_1DenseArray_1a5727fa0a04c01c41e4ab775547864c65"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">pointer</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">end</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs10DenseArray3endEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return A random access iterator to the end of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray3endEv">
+<span id="_CPPv3NK3svs10DenseArray3endEv"></span><span id="_CPPv2NK3svs10DenseArray3endEv"></span><span id="svs::DenseArray::endC"></span><span class="target" id="classsvs_1_1DenseArray_1aeb59a5f8e4bebfa45d89d220166c12dc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">const_pointer</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">end</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray3endEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return A random access iterator to the end of the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs10DenseArray4viewEv">
+<span id="_CPPv3N3svs10DenseArray4viewEv"></span><span id="_CPPv2N3svs10DenseArray4viewEv"></span><span id="svs::DenseArray::view"></span><span class="target" id="classsvs_1_1DenseArray_1a88224cf41d83b83543581892a7f71399"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray"><span class="n"><span class="pre">DenseArray</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">View</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">view</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs10DenseArray4viewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a mutable view over the memory of this array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray5cviewEv">
+<span id="_CPPv3NK3svs10DenseArray5cviewEv"></span><span id="_CPPv2NK3svs10DenseArray5cviewEv"></span><span id="svs::DenseArray::cviewC"></span><span class="target" id="classsvs_1_1DenseArray_1a1cb5f53b08e0edd8625aa8d12e80af8b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray"><span class="n"><span class="pre">DenseArray</span></span></a><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">View</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cview</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray5cviewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a constant view over the memory of this array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs10DenseArray4viewEv">
+<span id="_CPPv3NK3svs10DenseArray4viewEv"></span><span id="_CPPv2NK3svs10DenseArray4viewEv"></span><span id="svs::DenseArray::viewC"></span><span class="target" id="classsvs_1_1DenseArray_1ad4d6e3fd6e3e8f29ababf4b7950ebd86"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray"><span class="n"><span class="pre">DenseArray</span></span></a><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">View</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">view</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs10DenseArray4viewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a constant view over the memory of this array. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs10DenseArray6extentEv">
+<span id="_CPPv3N3svs10DenseArray6extentEv"></span><span id="_CPPv2N3svs10DenseArray6extentEv"></span><span id="svs::DenseArray::extentCE"></span><span class="target" id="classsvs_1_1DenseArray_1a237d5804c61eff3f7edfa94ecf3494c0"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">extent</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs10DenseArray6extentEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the extent of the span returned for <code class="docutils literal notranslate"><span class="pre">slice</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs10DenseArray5ndimsEv">
+<span id="_CPPv3N3svs10DenseArray5ndimsEv"></span><span id="_CPPv2N3svs10DenseArray5ndimsEv"></span><span id="svs::DenseArray::ndimsCE"></span><span class="target" id="classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ndims</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs10DenseArray5ndimsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>The number of dimensions for the array. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_6size_tEN3svs10DenseArray9getextentE6size_tv">
+<span id="_CPPv3I_6size_tEN3svs10DenseArray9getextentEv"></span><span id="_CPPv2I_6size_tEN3svs10DenseArray9getextentEv"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1a2272fbdfdfea9b17f6a560c2a109f9e1"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">getextent</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_6size_tEN3svs10DenseArray9getextentE6size_tv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the extent (compiletime value) of the <code class="docutils literal notranslate"><span class="pre">i</span></code>th dimension. </p>
+<p>
+If the queried dimension is dynamically sized, returns <code class="docutils literal notranslate"><span class="pre">svs::Dyanmic</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>i</strong> – The dimensions to query. Must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a><span class="pre">]</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<section id="type-deducing-constructors">
+<h2>Type-deducing constructors<a class="headerlink" href="#type-deducing-constructors" title="Link to this heading"></a></h2>
+<p>The family of <code class="docutils literal notranslate"><span class="pre">svs::make_dense_array</span></code> methods assist in array construction.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0_DpN6detail5IsDimEE16make_dense_arrayDaDp4Dims">
+<span id="_CPPv3I0_DpN6detail5IsDimEE16make_dense_arrayDp4Dims"></span><span id="_CPPv2I0_DpN6detail5IsDimEE16make_dense_arrayDp4Dims"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">IsDim</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dims</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__make__dense__array__family_1ga31b8c6c29f5d010bbcd9c34617a1f3a4"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">make_dense_array</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0_DpN6detail5IsDimEE16make_dense_arrayDaDp4Dims" title="make_dense_array::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">dims</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0_DpN6detail5IsDimEE16make_dense_arrayDaDp4Dims" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct an uninitialized <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1DenseArray"><span class="std std-ref"><span class="pre">DenseArray</span></span></a></code>. </p>
+<p>The number of dimensions is inferred from the number of arguments.</p>
+<p>Each argument must be either convertible to <code class="docutils literal notranslate"><span class="pre">size_t</span></code> or a `<code class="docutils literal notranslate"><a class="reference internal" href="public.html#classsvs_1_1lib_1_1Val"><span class="std std-ref"><span class="pre">svs::lib::Val</span></span></a></code>. In the latter case, the corresponding dimension of the result array will be static.   </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dims</strong> – The (potentially static) dimensions of the resulting array.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00_DpN6detail5IsDimEE16make_dense_arrayDaRK5AllocDp4Dims">
+<span id="_CPPv3I00_DpN6detail5IsDimEE16make_dense_arrayRK5AllocDp4Dims"></span><span id="_CPPv2I00_DpN6detail5IsDimEE16make_dense_arrayRK5AllocDp4Dims"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Alloc</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">IsDim</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dims</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__make__dense__array__family_1gae23cfadf95caa21278e7b9485f0b0141"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">make_dense_array</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00_DpN6detail5IsDimEE16make_dense_arrayDaRK5AllocDp4Dims" title="make_dense_array::Alloc"><span class="n"><span class="pre">Alloc</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">allocator</span></span>, <a class="reference internal" href="#_CPPv4I00_DpN6detail5IsDimEE16make_dense_arrayDaRK5AllocDp4Dims" title="make_dense_array::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">dims</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00_DpN6detail5IsDimEE16make_dense_arrayDaRK5AllocDp4Dims" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1DenseArray"><span class="std std-ref"><span class="pre">DenseArray</span></span></a></code> using the given allocator. </p>
+<p>The number of dimensions is inferred from the number of arguments.</p>
+<p>Each argument must be either convertible to <code class="docutils literal notranslate"><span class="pre">size_t</span></code> or a `<code class="docutils literal notranslate"><a class="reference internal" href="public.html#classsvs_1_1lib_1_1Val"><span class="std std-ref"><span class="pre">svs::lib::Val</span></span></a></code>. In the latter case, the corresponding dimension of the result array will be static.   </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>allocator</strong> – The allocator to use for memory. </p></li>
+<li><p><strong>dims</strong> – The (potentially static) dimensions of the resulting array.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="public.html" class="btn btn-neutral float-left" title="Public Library Components" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="algorithms.html" class="btn btn-neutral float-right" title="Algorithms" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

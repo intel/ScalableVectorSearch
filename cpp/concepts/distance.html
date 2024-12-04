@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Distance Computation &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Abstract Datasets" href="data.html" />
+    <link rel="prev" title="Core Concepts" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Concepts</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Distance Computation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#argument-fixing">Argument Fixing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#api-documentation">API Documentation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0E9compare_t"><code class="docutils literal notranslate"><span class="pre">compare_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I00E18maybe_fix_argumentvR1F1A"><code class="docutils literal notranslate"><span class="pre">maybe_fix_argument()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B"><code class="docutils literal notranslate"><span class="pre">compute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0E10comparator9compare_tI1TERK1T"><code class="docutils literal notranslate"><span class="pre">comparator()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0E24implicitly_broadcastablebv"><code class="docutils literal notranslate"><span class="pre">implicitly_broadcastable()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs8distance17BroadcastDistanceE"><code class="docutils literal notranslate"><span class="pre">BroadcastDistance</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="data.html">Abstract Datasets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph.html">Abstract Graphs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Core Concepts</a></li>
+      <li class="breadcrumb-item active">Distance Computation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/concepts/distance.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="distance-computation">
+<span id="distance-concept"></span><h1>Distance Computation<a class="headerlink" href="#distance-computation" title="Link to this heading"></a></h1>
+<p>Functor are used to implement and tailor distance computations in a number of ways.
+The library uses functors (i.e., structs) for a number of reasons summarised below.
+In general, the function <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::distance::compute()</span></code> is used to compute the similarity between queries on the left and dataset elements on the right.</p>
+<ul class="simple">
+<li><p>Often, distance computation needs to perform some pre-processing per query inorder to
+execute efficiently. Using structs allows for this behavior.</p></li>
+<li><p>If structs are empty, than the extra overhead introduced (e.g., space overhead) by them
+is negligible compared to function references or pointers.</p></li>
+<li><p>Overloading operations for structs is easier than function references.</p></li>
+<li><p>Using functors allows for fancier options like type-erasure to reduce generated code if
+desired.</p></li>
+</ul>
+<p>In particular, bullet point (1) deserves a little explanation.
+An efficient implementation for similarity metric such as cosine-similarity may involve either computing the norm of the query (externally supplied vector) or normalizing the vector.
+Both cases require some local scratch space for either storing the computed norm or the normalized query (to maintain const-correctness of the externally supplied query).
+Using a distance functor allows this scratch space to exist.
+A single struct can then be re-used to process multiple queries in series or copied to process queries in parallel.</p>
+<p>On the other hand, not all distance implementations (such as L-p distances or inner-product) may not require such state.
+This leads to the idea of argument fixing.</p>
+<p>This is a test <a class="reference internal" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B" title="compute"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">compute()</span></code></a> of cross referencing.</p>
+<section id="argument-fixing">
+<h2>Argument Fixing<a class="headerlink" href="#argument-fixing" title="Link to this heading"></a></h2>
+<p>To support functors both requiring and not needing query preprocessing, the function <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::distance::maybe_fix_argument()</span></code> should be called on a query <code class="docutils literal notranslate"><span class="pre">a</span></code> before any distance computations requiring <code class="docutils literal notranslate"><span class="pre">a</span></code> as the left-hand argument.
+Note that the right-hand argument <code class="docutils literal notranslate"><span class="pre">b</span></code> can vary at will.</p>
+<p>A distance function <code class="docutils literal notranslate"><span class="pre">MyFunctor</span></code> may opt-in to argument fixing by defining the method <code class="docutils literal notranslate"><span class="pre">fix_argument</span></code> as follows:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">MyStruct</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Boiler-plate</span>
+<span class="w">    </span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">QueryType</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="kt">void</span><span class="w"> </span><span class="n">fix_argument</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">QueryType</span><span class="o">&amp;</span><span class="w"> </span><span class="n">query</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/*impl*/</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>The possible values of <code class="docutils literal notranslate"><span class="pre">QueryType</span></code> should be restricted as appropriate.</p>
+</section>
+<section id="api-documentation">
+<h2>API Documentation<a class="headerlink" href="#api-documentation" title="Link to this heading"></a></h2>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4I0E9compare_t">
+<span id="_CPPv3I0E9compare_t"></span><span id="_CPPv2I0E9compare_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__public_1ga93f8ca41f34d712c52ec2264b63cb7cf"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compare_t</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0E9compare_t" title="compare_t::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">compare</span></span><a class="headerlink" href="#_CPPv4I0E9compare_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Obtain the type of the comparator used for the distance functor <code class="docutils literal notranslate"><span class="pre">T</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00E18maybe_fix_argumentvR1F1A">
+<span id="_CPPv3I00E18maybe_fix_argumentR1F1A"></span><span id="_CPPv2I00E18maybe_fix_argumentR1F1A"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">A</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__public_1ga9a1bd41718015b285ddb5c105d393c35"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maybe_fix_argument</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I00E18maybe_fix_argumentvR1F1A" title="maybe_fix_argument::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">f</span></span>, <a class="reference internal" href="#_CPPv4I00E18maybe_fix_argumentvR1F1A" title="maybe_fix_argument::A"><span class="n"><span class="pre">A</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">a</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00E18maybe_fix_argumentvR1F1A" title="Link to this definition"></a><br /></dt>
+<dd><p>Perform an argument fixing of query <code class="docutils literal notranslate"><span class="pre">a</span></code> for the distance functor <code class="docutils literal notranslate"><span class="pre">f</span></code>. This provides a hook mechanism allowing distance functors to preprocess the query before performing any distance computations if desired.</p>
+<p>This should be called before calling <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga0d7c02d8bdb902c17d79f5c7e3b808ea"><span class="std std-ref"><span class="pre">svs::distance::compute</span></span></a></code> where <code class="docutils literal notranslate"><span class="pre">b</span></code> is allowed to vary but <code class="docutils literal notranslate"><span class="pre">a</span></code> is not.</p>
+<p>Modifications to <code class="docutils literal notranslate"><span class="pre">a</span></code> require a new call to <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga9a1bd41718015b285ddb5c105d393c35"><span class="std std-ref"><span class="pre">distance::maybe_fix_argument</span></span></a></code>.</p>
+<p>If distance functors wish to opt-in to argument fixing, the must define a member function <code class="docutils literal notranslate"><span class="pre">fix_argument(A)</span></code> which will be automatically called by <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga9a1bd41718015b285ddb5c105d393c35"><span class="std std-ref"><span class="pre">distance::maybe_fix_argument</span></span></a></code>.</p>
+<p>If distance functors do not define such a member function, then <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga9a1bd41718015b285ddb5c105d393c35"><span class="std std-ref"><span class="pre">distance::maybe_fix_argument</span></span></a></code> becomes a no-op unless <code class="docutils literal notranslate"><span class="pre">f</span></code> defines the static member variable <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">must_fix_argument</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+</pre></div>
+</div>
+ in which case, missing overloads to <code class="docutils literal notranslate"><span class="pre">f.fix_argument(A)</span></code> become compiler errors. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B">
+<span id="_CPPv3I00_16HasOneArgComputeI1BEE7computeR1F1A1B"></span><span id="_CPPv2I00_16HasOneArgComputeI1BEE7computeR1F1A1B"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">A</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">B</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">HasOneArgCompute</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B" title="compute::B"><span class="n"><span class="pre">B</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__public_1ga0d7c02d8bdb902c17d79f5c7e3b808ea"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compute</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B" title="compute::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">f</span></span>, <a class="reference internal" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B" title="compute::A"><span class="n"><span class="pre">A</span></span></a>, <a class="reference internal" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B" title="compute::B"><span class="n"><span class="pre">B</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">b</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00_16HasOneArgComputeI1BEE7computefR1F1A1B" title="Link to this definition"></a><br /></dt>
+<dd><p>Perform a distance computation with the distance functor <code class="docutils literal notranslate"><span class="pre">f</span></code>, query <code class="docutils literal notranslate"><span class="pre">a</span></code> and element <code class="docutils literal notranslate"><span class="pre">b</span></code>.</p>
+<p>Functors <code class="docutils literal notranslate"><span class="pre">f</span></code> can opt-in to this method in one of three ways:<ul class="simple">
+<li><p>Direct overloading of <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga0d7c02d8bdb902c17d79f5c7e3b808ea"><span class="std std-ref"><span class="pre">distance::compute</span></span></a></code>. This can be used to extend the behavior of existing functors without modification.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">f</span></code> does not implement argument fixing for this combination of types, then <code class="docutils literal notranslate"><span class="pre">f</span></code> may implement a member function <code class="docutils literal notranslate"><span class="pre">f.compute(a,</span> <span class="pre">b)</span></code> which will be called automatically.</p></li>
+<li><p>if <code class="docutils literal notranslate"><span class="pre">f</span></code> <strong>does</strong> implement argument fixing for this type combination, then <code class="docutils literal notranslate"><span class="pre">f</span></code> may implement a single argument member function <code class="docutils literal notranslate"><span class="pre">f.compute(b)</span></code> which will be called.</p></li>
+</ul>
+</p>
+<p>Argument fixing is implied if <code class="docutils literal notranslate"><span class="pre">f.fix_argument(a)</span></code> is valid. In order to apply to all distance functors, <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga9a1bd41718015b285ddb5c105d393c35"><span class="std std-ref"><span class="pre">distance::maybe_fix_argument</span></span></a></code> should be called each time the value of <code class="docutils literal notranslate"><span class="pre">a</span></code> changes. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0E10comparator9compare_tI1TERK1T">
+<span id="_CPPv3I0E10comparatorRK1T"></span><span id="_CPPv2I0E10comparatorRK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__public_1ga456e121f1861a9ac53aa43f598e98f9a"></span><a class="reference internal" href="#_CPPv4I0E9compare_t" title="compare_t"><span class="n"><span class="pre">compare_t</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0E10comparator9compare_tI1TERK1T" title="comparator::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">comparator</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0E10comparator9compare_tI1TERK1T" title="comparator::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0E10comparator9compare_tI1TERK1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a comparison functgor for distance functors <code class="docutils literal notranslate"><span class="pre">T</span></code>. For example, distance functors that wish to minimize distances may return <code class="docutils literal notranslate"><span class="pre">std::less&lt;&gt;</span></code> while those those wishing to maximize may return <code class="docutils literal notranslate"><span class="pre">std::greater&lt;&gt;</span></code>.</p>
+<p>
+Custom types can provide support for <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga456e121f1861a9ac53aa43f598e98f9a"><span class="std std-ref"><span class="pre">distance::comparator</span></span></a></code> in one of three ways:<ul class="simple">
+<li><p>Direct overloading of <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga456e121f1861a9ac53aa43f598e98f9a"><span class="std std-ref"><span class="pre">distance::comparator</span></span></a></code>.</p></li>
+<li><p>If the desired comparison functor is default constructible, providing a type alias <code class="docutils literal notranslate"><span class="pre">T::compare</span></code>.</p></li>
+<li><p>Providing a member function <code class="docutils literal notranslate"><span class="pre">x.compare()</span></code> returning the functor.</p></li>
+</ul>
+</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">T</span></code> defines both a member function and a type alias, the member function takes precedence. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The distance functor to obtain the comparison functor for. </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A comparison functor <code class="docutils literal notranslate"><span class="pre">f</span></code> with an overloaded <code class="docutils literal notranslate"><span class="pre">operator()</span></code> such that <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f</span><span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</pre></div>
+</div>
+ is valid.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0E24implicitly_broadcastablebv">
+<span id="_CPPv3I0E24implicitly_broadcastablev"></span><span id="_CPPv2I0E24implicitly_broadcastablev"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__public_1ga1554c1f7ed64e6d327c58cb7dedb66a0"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">implicitly_broadcastable</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0E24implicitly_broadcastablebv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether distance functors of type <code class="docutils literal notranslate"><span class="pre">T</span></code> are implicitly broadcastable.</p>
+<p>To be implicitly broadcastable, must not require argument fixing. In other words, it must be safe to call <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga0d7c02d8bdb902c17d79f5c7e3b808ea"><span class="std std-ref"><span class="pre">distance::compute</span></span></a></code> with varying left and right-hand arguments without needing to call <code class="docutils literal notranslate"><span class="pre">maybe_fix_argument</span></code>.</p>
+<p>To opt into implicit broadcasting, classes should implement a constexpr static boolean member <code class="docutils literal notranslate"><span class="pre">implicit_broadcast</span> <span class="pre">=</span> <span class="pre">true</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs8distance17BroadcastDistanceE">
+<span id="_CPPv3I0EN3svs8distance17BroadcastDistanceE"></span><span id="_CPPv2I0EN3svs8distance17BroadcastDistanceE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1distance_1_1BroadcastDistance"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">BroadcastDistance</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs8distance17BroadcastDistanceE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/concepts/distance.h&gt;</em></div>
+<p>Efficiently create copies of the distance functor <code class="docutils literal notranslate"><span class="pre">f</span></code> of type <code class="docutils literal notranslate"><span class="pre">T</span></code> to allow batch distance computations involving multiple queries.</p>
+<p>Be default, this is done by invoking the copy constructor the necessary number of times. However, if explicit copies of the functor <code class="docutils literal notranslate"><span class="pre">f</span></code> are not needed for correctness (i.e., <code class="docutils literal notranslate"><a class="reference internal" href="#group__distance__public_1ga1554c1f7ed64e6d327c58cb7dedb66a0"><span class="std std-ref"><span class="pre">distance::implicitly_broadcastable</span></span></a><span class="pre">&lt;T&gt;()</span> <span class="pre">==</span> <span class="pre">true</span></code>, than these copies will not be made resulting in a slightly more efficient implementation.</p>
+<p>Invariants:</p>
+<p><ul>
+<li><p><code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1distance_1_1BroadcastDistance_1a62e9410200d55100be06db86a7a5af8f"><span class="std std-ref"><span class="pre">size()</span></span></a></code> cannot be zero. This is because distance functions requiring broadcasting are often stateful and may have some shared (usually read-only) state.</p>
+<p>If the underlying storage for this class ever becomes empty, we lose that storage. </p>
+</li>
+</ul>
+</p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance17BroadcastDistance17BroadcastDistanceE1T6size_t">
+<span id="_CPPv3N3svs8distance17BroadcastDistance17BroadcastDistanceE1T6size_t"></span><span id="_CPPv2N3svs8distance17BroadcastDistance17BroadcastDistanceE1T6size_t"></span><span id="svs::distance::BroadcastDistance::BroadcastDistance__T.s"></span><span class="target" id="classsvs_1_1distance_1_1BroadcastDistance_1a71a7873ea7c438eda319239b0616e7d5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">BroadcastDistance</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0EN3svs8distance17BroadcastDistanceE" title="svs::distance::BroadcastDistance::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ncopies</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs8distance17BroadcastDistance17BroadcastDistanceE1T6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct <code class="docutils literal notranslate"><span class="pre">ncopies</span></code> of the distance functor <code class="docutils literal notranslate"><span class="pre">distance</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance17BroadcastDistanceixE6size_t">
+<span id="_CPPv3N3svs8distance17BroadcastDistanceixE6size_t"></span><span id="_CPPv2N3svs8distance17BroadcastDistanceixE6size_t"></span><span id="svs::distance::BroadcastDistance::subscript-operator__s"></span><span class="target" id="classsvs_1_1distance_1_1BroadcastDistance_1a7cb828b0c52c6f88d7813e18bad28b42"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs8distance17BroadcastDistanceE" title="svs::distance::BroadcastDistance::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">[]</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs8distance17BroadcastDistanceixE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Retrieve the <code class="docutils literal notranslate"><span class="pre">i</span></code>th distance functor. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs8distance17BroadcastDistance4sizeEv">
+<span id="_CPPv3NK3svs8distance17BroadcastDistance4sizeEv"></span><span id="_CPPv2NK3svs8distance17BroadcastDistance4sizeEv"></span><span id="svs::distance::BroadcastDistance::sizeC"></span><span class="target" id="classsvs_1_1distance_1_1BroadcastDistance_1a62e9410200d55100be06db86a7a5af8f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs8distance17BroadcastDistance4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of distance functors. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance17BroadcastDistance6resizeE6size_t">
+<span id="_CPPv3N3svs8distance17BroadcastDistance6resizeE6size_t"></span><span id="_CPPv2N3svs8distance17BroadcastDistance6resizeE6size_t"></span><span id="svs::distance::BroadcastDistance::resize__s"></span><span class="target" id="classsvs_1_1distance_1_1BroadcastDistance_1a9bee1b870726648820fef2106c3f1441"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">resize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">new_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs8distance17BroadcastDistance6resizeE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Resize the number of stored distance functors. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Core Concepts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data.html" class="btn btn-neutral float-right" title="Abstract Datasets" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

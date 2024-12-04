@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Common Python API &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Loaders" href="loaders.html" />
+    <link rel="prev" title="Logging" href="../logging.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Common Python API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#memory-allocators">Memory Allocators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#svs.DRAM"><code class="docutils literal notranslate"><span class="pre">DRAM</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#enums">Enums</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#svs.DistanceType"><code class="docutils literal notranslate"><span class="pre">DistanceType</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.DataType"><code class="docutils literal notranslate"><span class="pre">DataType</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#helper-functions">Helper Functions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#svs.read_vecs"><code class="docutils literal notranslate"><span class="pre">read_vecs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.write_vecs"><code class="docutils literal notranslate"><span class="pre">write_vecs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.read_svs"><code class="docutils literal notranslate"><span class="pre">read_svs()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.convert_fvecs_to_float16"><code class="docutils literal notranslate"><span class="pre">convert_fvecs_to_float16()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.generate_test_dataset"><code class="docutils literal notranslate"><span class="pre">generate_test_dataset()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.convert_vecs_to_svs"><code class="docutils literal notranslate"><span class="pre">convert_vecs_to_svs()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Common Python API</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/python/common.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="common-python-api">
+<span id="python-common"></span><h1>Common Python API<a class="headerlink" href="#common-python-api" title="Link to this heading"></a></h1>
+<section id="memory-allocators">
+<h2>Memory Allocators<a class="headerlink" href="#memory-allocators" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.DRAM">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">DRAM</span></span><a class="headerlink" href="#svs.DRAM" title="Link to this definition"></a></dt>
+<dd><p>Small class for an allocator capable of using huge pages. Prioritizes page use in the order:
+1~GiB, 2~MiB, 4~KiB. See <a class="reference internal" href="../performance/hugepages.html#hugepages"><span class="std std-ref">Huge Pages</span></a> for more information on what huge pages are
+and how to allocate them on your system.</p>
+</dd></dl>
+
+</section>
+<section id="enums">
+<h2>Enums<a class="headerlink" href="#enums" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.DistanceType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">DistanceType</span></span><a class="headerlink" href="#svs.DistanceType" title="Link to this definition"></a></dt>
+<dd><p>Select which distance function to use</p>
+<p>Members:</p>
+<blockquote>
+<div><p>L2 : Euclidean Distance (minimize)</p>
+<p>MIP : Maximum Inner Product (maximize)</p>
+<p>Cosine : Cosine similarity (maximize)</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.DataType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">DataType</span></span><a class="headerlink" href="#svs.DataType" title="Link to this definition"></a></dt>
+<dd><p>Datatype Selector</p>
+<p>Members:</p>
+<blockquote>
+<div><p>uint8 : 8-bit unsigned integer.</p>
+<p>uint16 : 16-bit unsigned integer.</p>
+<p>uint32 : 32-bit unsigned integer.</p>
+<p>uint64 : 64-bit unsigned integer.</p>
+<p>int8 : 8-bit signed integer.</p>
+<p>int16 : 16-bit signed integer.</p>
+<p>int32 : 32-bit signed integer.</p>
+<p>int64 : 64-bit signed integer.</p>
+<p>float16 : 16-bit IEEE floating point.</p>
+<p>float32 : 32-bit IEEE floating point.</p>
+<p>float64 : 64-bit IEEE floating point.</p>
+</div></blockquote>
+</dd></dl>
+
+</section>
+<section id="helper-functions">
+<span id="python-common-helpers"></span><h2>Helper Functions<a class="headerlink" href="#helper-functions" title="Link to this heading"></a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="svs.read_vecs">
+<span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">read_vecs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.read_vecs" title="Link to this definition"></a></dt>
+<dd><p>Read a file in the <cite>bvecs/fvecs/ivecs</cite> format and return a NumPy array with the results.</p>
+<p>The data type of the returned array is determined by the file extension with the
+following mapping:</p>
+<ul class="simple">
+<li><p><cite>bvecs</cite>: 8-bit unsigned integers.</p></li>
+<li><p><cite>fvecs</cite>: 32-bit floating point numbers.</p></li>
+<li><p><cite>ivecs</cite>: 32-bit signed integers.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>filename</strong> (<em>str</em>) – The file to read.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Numpy array with the results.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="svs.write_vecs">
+<span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">write_vecs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_check</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.write_vecs" title="Link to this definition"></a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>array</strong> (<em>array</em>) – The raw array to save.</p></li>
+<li><p><strong>filename</strong> (<em>str</em>) – The file where the results will be saved.</p></li>
+<li><p><strong>skip_check</strong> (<em>bool</em>) – <p>Be default, this function will check if the file extension for the vecs
+file is appropriate for the given array (see list below).</p>
+<p>Passing <cite>skip_check = True</cite> overrides this logic and forces creation of the
+file.</p>
+</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Result:</dt><dd><p>The array is saved to the requested file.</p>
+</dd>
+</dl>
+<p>File extention to array element type:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>fvecs: np.float32</p></li>
+<li><p>hvecs: np.float16</p></li>
+<li><p>ivecs: np.uint32</p></li>
+<li><p>bvecs: np.uint8</p></li>
+</ul>
+</div></blockquote>
+</dd></dl>
+
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>The user must specify the file extension corresponding to the desired file format in the <code class="docutils literal notranslate"><span class="pre">filename</span></code> argument of
+<a class="reference internal" href="#svs.write_vecs" title="svs.write_vecs"><code class="xref py py-func docutils literal notranslate"><span class="pre">svs.write_vecs()</span></code></a>.</p>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="svs.read_svs">
+<span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">read_svs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype=&lt;class</span> <span class="pre">'numpy.float32'&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.read_svs" title="Link to this definition"></a></dt>
+<dd><p>Read the svs native data file as a numpy array.
+<em>Note</em>: As of no, now type checking is performed. Make sure the requested type actually
+matches the contents of the file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – The file to read.</p></li>
+<li><p><strong>dtype</strong> – The data type of the encoded vectors in the file.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>Result:</dt><dd><p>A numpy matrix with the results.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="svs.convert_fvecs_to_float16">
+<span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">convert_fvecs_to_float16</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">destination_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.convert_fvecs_to_float16" title="Link to this definition"></a></dt>
+<dd><p>Convert the <cite>fvecs</cite> file on disk with 32-bit floating point entries to a <cite>fvecs</cite> file with
+16-bit floating point entries.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>source_file</strong> – The source file path to convert.</p></li>
+<li><p><strong>destination_file</strong> – The destination file to generate.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="svs.generate_test_dataset">
+<span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">generate_test_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nvectors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nqueries</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ndims</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_seed=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_seed=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_threads=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_neighbors=100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance=&lt;DistanceType.L2:</span> <span class="pre">0&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.generate_test_dataset" title="Link to this definition"></a></dt>
+<dd><p>Generate a sample dataset consisting of the base data, queries, and groundtruth all in
+the standard <code class="docutils literal notranslate"><span class="pre">*vecs</span></code> form.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nvectors</strong> (<em>int</em>) – The number of base vectors in the generated dataset.</p></li>
+<li><p><strong>nqueries</strong> (<em>int</em>) – The number of query vectors in the generated dataset.</p></li>
+<li><p><strong>ndims</strong> (<em>int</em>) – The number of dimensions per vector in the dataset.</p></li>
+<li><p><strong>directory</strong> (<em>str</em>) – The directory in which to generate the dataset.</p></li>
+<li><p><strong>data_seed</strong> (<em>optional</em>) – The seed to use for random number generation in the dataset.</p></li>
+<li><p><strong>query_seed</strong> (<em>optional</em>) – The seed to use for random number generation for the queries.</p></li>
+<li><p><strong>num_threads</strong> (<em>optional</em>) – Number of threads to use to generate the groundtruth.</p></li>
+<li><p><strong>num_neighbors</strong> (<em>int</em>) – The number of neighbors to compute for the groundtruth.</p></li>
+<li><p><strong>distance</strong> (<em>optional</em>) – The distance metric to use for groundtruth generation.</p></li>
+</ul>
+</dd>
+</dl>
+<p>Creates <code class="docutils literal notranslate"><span class="pre">directory</span></code> if it didn’t already exist. The following files are generated:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">$(directory)/data.fvecs</span></code>: The dataset encoded using float32 in as fvecs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">$(directory)/queries.fvecs</span></code>: The queries encoded using float32 as fvecs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">$(directory)/groundtruth.ivecs</span></code>: The computed <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code> nearest
+neighbors of the queries in the dataset with respect to the provided distance.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="svs.convert_vecs_to_svs">
+<span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">convert_vecs_to_svs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vecs_file:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">svs_file:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">9&gt;</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.convert_vecs_to_svs" title="Link to this definition"></a></dt>
+<dd><p>Convert the vecs file (containing the specified element types) to the svs native format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vecs_file</strong> – The source [f/h/i/b]vecs file.</p></li>
+<li><p><strong>svs_file</strong> – The destination native file.</p></li>
+<li><p><strong>dtype</strong> – The svs.DataType of the vecs file. Supported types: (float32, float16, uint32, and uint8).</p></li>
+</ul>
+</dd>
+</dl>
+<p>File extension type map:</p>
+<ul class="simple">
+<li><p>fvecs = svs.DataType.float32</p></li>
+<li><p>hvecs = svs.DataType.float16</p></li>
+<li><p>ivecs = svs.DataType.uint32</p></li>
+<li><p>bvecs = svs.DataType.uint8</p></li>
+</ul>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../logging.html" class="btn btn-neutral float-left" title="Logging" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="loaders.html" class="btn btn-neutral float-right" title="Loaders" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

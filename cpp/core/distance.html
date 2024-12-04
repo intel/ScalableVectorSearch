@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Built-In Distance Functors &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Query Result" href="query_result.html" />
+    <link rel="prev" title="Graphs" href="graph.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Components</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.html">In-Memory Representation of Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph.html">Graphs</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Built-In Distance Functors</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N3svs8distance10DistanceL2E"><code class="docutils literal notranslate"><span class="pre">DistanceL2</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance10DistanceL27compareE"><code class="docutils literal notranslate"><span class="pre">DistanceL2::compare</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance10DistanceL218implicit_broadcastE"><code class="docutils literal notranslate"><span class="pre">DistanceL2::implicit_broadcast</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N3svs8distance10DistanceIPE"><code class="docutils literal notranslate"><span class="pre">DistanceIP</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance10DistanceIP7compareE"><code class="docutils literal notranslate"><span class="pre">DistanceIP::compare</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance10DistanceIP18implicit_broadcastE"><code class="docutils literal notranslate"><span class="pre">DistanceIP::implicit_broadcast</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4N3svs8distance24DistanceCosineSimilarityE"><code class="docutils literal notranslate"><span class="pre">DistanceCosineSimilarity</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance24DistanceCosineSimilarity7compareE"><code class="docutils literal notranslate"><span class="pre">DistanceCosineSimilarity::compare</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentEvRKNSt4spanI1T6ExtentEE"><code class="docutils literal notranslate"><span class="pre">DistanceCosineSimilarity::fix_argument()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance24DistanceCosineSimilarity17must_fix_argumentE"><code class="docutils literal notranslate"><span class="pre">DistanceCosineSimilarity::must_fix_argument</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs8distance24DistanceCosineSimilarity18implicit_broadcastE"><code class="docutils literal notranslate"><span class="pre">DistanceCosineSimilarity::implicit_broadcast</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#built-in-distance-overloads">Built-in Distance Overloads</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"><code class="docutils literal notranslate"><span class="pre">compute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"><code class="docutils literal notranslate"><span class="pre">compute()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"><code class="docutils literal notranslate"><span class="pre">compute()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#public-distance-utilities">Public Distance Utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs12DistanceTypeE"><code class="docutils literal notranslate"><span class="pre">DistanceType</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs15distance_type_vE"><code class="docutils literal notranslate"><span class="pre">distance_type_v</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs18DistanceDispatcherE"><code class="docutils literal notranslate"><span class="pre">DistanceDispatcher</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="query_result.html">Query Result</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recall.html">Recall Computation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Core Components</a></li>
+      <li class="breadcrumb-item active">Built-In Distance Functors</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/core/distance.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="built-in-distance-functors">
+<span id="cpp-core-distance"></span><h1>Built-In Distance Functors<a class="headerlink" href="#built-in-distance-functors" title="Link to this heading"></a></h1>
+<p>This section describes concrete implementations of distance functors.
+For utilities and concepts related to abstract distance computation, refer to <a class="reference internal" href="../concepts/distance.html#distance-concept"><span class="std std-ref">distance concepts</span></a>.</p>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance10DistanceL2E">
+<span id="_CPPv3N3svs8distance10DistanceL2E"></span><span id="_CPPv2N3svs8distance10DistanceL2E"></span><span id="svs::distance::DistanceL2"></span><span class="target" id="structsvs_1_1distance_1_1DistanceL2"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DistanceL2</span></span></span><a class="headerlink" href="#_CPPv4N3svs8distance10DistanceL2E" title="Link to this definition"></a><br /></dt>
+<dd><p>Functor for computing the square Euclidean distance. </p>
+<p>This is the primary functor for implementing the square Euclidean distance between two vectors in R^n. This functor uses the externally defined <a class="reference internal" href="#group__distance__overload_1compute_distancel2"><span class="std std-ref">compute</span></a> method and is thus capable of being extended externally. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance10DistanceL27compareE">
+<span id="_CPPv3N3svs8distance10DistanceL27compareE"></span><span id="_CPPv2N3svs8distance10DistanceL27compareE"></span><span class="target" id="structsvs_1_1distance_1_1DistanceL2_1a9258c6f9e105b332787e6be0561aa6b0"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compare</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">less</span></span><span class="p"><span class="pre">&lt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs8distance10DistanceL27compareE" title="Link to this definition"></a><br /></dt>
+<dd><p>Vectors are more similar if their distance is smaller. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance10DistanceL218implicit_broadcastE">
+<span id="_CPPv3N3svs8distance10DistanceL218implicit_broadcastE"></span><span id="_CPPv2N3svs8distance10DistanceL218implicit_broadcastE"></span><span id="svs::distance::DistanceL2::implicit_broadcast__b"></span><span class="target" id="structsvs_1_1distance_1_1DistanceL2_1aaf364f81c566859e771fd76a84efaa0d"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">implicit_broadcast</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N3svs8distance10DistanceL218implicit_broadcastE" title="Link to this definition"></a><br /></dt>
+<dd><p>This functor does not use any local scratch space to assist in computation and thus may be shared across threads and queries safely. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance10DistanceIPE">
+<span id="_CPPv3N3svs8distance10DistanceIPE"></span><span id="_CPPv2N3svs8distance10DistanceIPE"></span><span id="svs::distance::DistanceIP"></span><span class="target" id="structsvs_1_1distance_1_1DistanceIP"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DistanceIP</span></span></span><a class="headerlink" href="#_CPPv4N3svs8distance10DistanceIPE" title="Link to this definition"></a><br /></dt>
+<dd><p>Functor for computing the Inner Product. </p>
+<p>This is the primary functor for implementing the Inner Product similarity between two vectors in R^n. This functor uses the externally defined <a class="reference internal" href="#group__distance__overload_1compute_distanceip"><span class="std std-ref">compute</span></a> method and is thus capable of being extended externally. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance10DistanceIP7compareE">
+<span id="_CPPv3N3svs8distance10DistanceIP7compareE"></span><span id="_CPPv2N3svs8distance10DistanceIP7compareE"></span><span class="target" id="structsvs_1_1distance_1_1DistanceIP_1adadaf9c75b6e6b19b99cac4c943f4f97"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compare</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">greater</span></span><span class="p"><span class="pre">&lt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs8distance10DistanceIP7compareE" title="Link to this definition"></a><br /></dt>
+<dd><p>Vectors are more similar if their similarity is greater. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance10DistanceIP18implicit_broadcastE">
+<span id="_CPPv3N3svs8distance10DistanceIP18implicit_broadcastE"></span><span id="_CPPv2N3svs8distance10DistanceIP18implicit_broadcastE"></span><span id="svs::distance::DistanceIP::implicit_broadcast__b"></span><span class="target" id="structsvs_1_1distance_1_1DistanceIP_1a695a030a0a658cc48426462448b73e0d"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">implicit_broadcast</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N3svs8distance10DistanceIP18implicit_broadcastE" title="Link to this definition"></a><br /></dt>
+<dd><p>This functor does not use any local scratch space to assist in computation and thus may be shared across threads and queries safely. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance24DistanceCosineSimilarityE">
+<span id="_CPPv3N3svs8distance24DistanceCosineSimilarityE"></span><span id="_CPPv2N3svs8distance24DistanceCosineSimilarityE"></span><span id="svs::distance::DistanceCosineSimilarity"></span><span class="target" id="structsvs_1_1distance_1_1DistanceCosineSimilarity"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DistanceCosineSimilarity</span></span></span><a class="headerlink" href="#_CPPv4N3svs8distance24DistanceCosineSimilarityE" title="Link to this definition"></a><br /></dt>
+<dd><p>Functor for computing Cosine Similarity. </p>
+<p>This is the primary functor for implementing the Cosine similarity between two vectors in R^n. This functor uses the externally defined <a class="reference internal" href="#group__distance__overload_1compute_distancecosine"><span class="std std-ref">compute</span></a> method and is thus capable of being extended externally. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance24DistanceCosineSimilarity7compareE">
+<span id="_CPPv3N3svs8distance24DistanceCosineSimilarity7compareE"></span><span id="_CPPv2N3svs8distance24DistanceCosineSimilarity7compareE"></span><span class="target" id="structsvs_1_1distance_1_1DistanceCosineSimilarity_1ad671764c34b13be75059db41879e537b"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compare</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">greater</span></span><span class="p"><span class="pre">&lt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs8distance24DistanceCosineSimilarity7compareE" title="Link to this definition"></a><br /></dt>
+<dd><p>Vectors are more similar if their similarity is greater. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentEvRKNSt4spanI1T6ExtentEE">
+<span id="_CPPv3I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentERKNSt4spanI1T6ExtentEE"></span><span id="_CPPv2I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentERKNSt4spanI1T6ExtentEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Extent</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structsvs_1_1distance_1_1DistanceCosineSimilarity_1af87795f594eecba1b2c4409d8615fdf5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fix_argument</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentEvRKNSt4spanI1T6ExtentEE" title="svs::distance::DistanceCosineSimilarity::fix_argument::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentEvRKNSt4spanI1T6ExtentEE" title="svs::distance::DistanceCosineSimilarity::fix_argument::Extent"><span class="n"><span class="pre">Extent</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0_6size_tEN3svs8distance24DistanceCosineSimilarity12fix_argumentEvRKNSt4spanI1T6ExtentEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Compute and store the norm of <code class="docutils literal notranslate"><span class="pre">x</span></code></p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance24DistanceCosineSimilarity17must_fix_argumentE">
+<span id="_CPPv3N3svs8distance24DistanceCosineSimilarity17must_fix_argumentE"></span><span id="_CPPv2N3svs8distance24DistanceCosineSimilarity17must_fix_argumentE"></span><span id="svs::distance::DistanceCosineSimilarity::must_fix_argument__b"></span><span class="target" id="structsvs_1_1distance_1_1DistanceCosineSimilarity_1a51a135474341f87b858f25f3d49bfc31"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">must_fix_argument</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N3svs8distance24DistanceCosineSimilarity17must_fix_argumentE" title="Link to this definition"></a><br /></dt>
+<dd><p>Fix-argument is required. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs8distance24DistanceCosineSimilarity18implicit_broadcastE">
+<span id="_CPPv3N3svs8distance24DistanceCosineSimilarity18implicit_broadcastE"></span><span id="_CPPv2N3svs8distance24DistanceCosineSimilarity18implicit_broadcastE"></span><span id="svs::distance::DistanceCosineSimilarity::implicit_broadcast__bC"></span><span class="target" id="structsvs_1_1distance_1_1DistanceCosineSimilarity_1ad1f5311880e5d1b541749ec4e28ef2bb"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">implicit_broadcast</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><a class="headerlink" href="#_CPPv4N3svs8distance24DistanceCosineSimilarity18implicit_broadcastE" title="Link to this definition"></a><br /></dt>
+<dd><p>This functor uses <code class="docutils literal notranslate"><span class="pre">fix_argument</span></code> to compute the norm of the left-hand argument. As such, it is stateful and not implicitly broadcastable. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<section id="built-in-distance-overloads">
+<h2>Built-in Distance Overloads<a class="headerlink" href="#built-in-distance-overloads" title="Link to this heading"></a></h2>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE">
+<span id="_CPPv3I_10Arithmetic_10Arithmetic_6size_t_6size_tE7compute24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"></span><span id="_CPPv2I_10Arithmetic_10Arithmetic_6size_t_6size_tE7compute24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Ea</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Eb</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Da</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Db</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__overload_1ga0a634c430ef18c563ffd105c45404bad"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compute</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">DistanceCosineSimilarity</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Ea"><span class="n"><span class="pre">Ea</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Da"><span class="n"><span class="pre">Da</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">a</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Eb"><span class="n"><span class="pre">Eb</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Db"><span class="n"><span class="pre">Db</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">b</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef24DistanceCosineSimilarityNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Compute the Cosine simmilarity between two vectors in R^n. </p>
+<p><span class="target" id="group__distance__overload_1compute_distancecosine"></span></p>
+<p>
+The base pointers for <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> need not be aligned. Mixed types for <code class="docutils literal notranslate"><span class="pre">Ea</span></code> and <code class="docutils literal notranslate"><span class="pre">Eb</span></code> are supported.</p>
+<p><em>Performance Tips</em><ul class="simple">
+<li><p>Specifying the size parameters <code class="docutils literal notranslate"><span class="pre">Da</span></code> and <code class="docutils literal notranslate"><span class="pre">Db</span></code> can greatly improve performance.</p></li>
+<li><p>Compiling and executing on an Intel(R) AVX-512 system will improve performance. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Ea</strong> – The element type for each component of the left-hand argument. </p></li>
+<li><p><strong>Eb</strong> – The element type for each component of the right-hand argument. </p></li>
+<li><p><strong>Da</strong> – The compile-time length of left-hand argument. May be <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code> if this is to be discovered during runtime. </p></li>
+<li><p><strong>Db</strong> – The compile-time length of right-hand argument. May be <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code> if this is to be discovered during runtime.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>distance</strong> – The cosine similarity distance functor. Must have had <code class="docutils literal notranslate"><span class="pre">fix_argument</span></code> called previously with left-hand argument <code class="docutils literal notranslate"><span class="pre">a</span></code>. </p></li>
+<li><p><strong>a</strong> – The left-hand vector. Typically, this position is used for the query. </p></li>
+<li><p><strong>b</strong> – The right-hand vector. Typically, this position is used for a dataset vector.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE">
+<span id="_CPPv3I_10Arithmetic_10Arithmetic_6size_t_6size_tE7compute10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"></span><span id="_CPPv2I_10Arithmetic_10Arithmetic_6size_t_6size_tE7compute10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Ea</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Eb</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Da</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Db</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__overload_1ga2ec2a114be6556a729715206faa30bbe"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compute</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">DistanceL2</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Ea"><span class="n"><span class="pre">Ea</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Da"><span class="n"><span class="pre">Da</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">a</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Eb"><span class="n"><span class="pre">Eb</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Db"><span class="n"><span class="pre">Db</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">b</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceL2NSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Compute the squared Euclidean distance between two vectors in R^n. </p>
+<p><span class="target" id="group__distance__overload_1compute_distancel2"></span></p>
+<p>
+The base pointers for <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> need not be aligned. Mixed types for <code class="docutils literal notranslate"><span class="pre">Ea</span></code> and <code class="docutils literal notranslate"><span class="pre">Eb</span></code> are supported.</p>
+<p><em>Performance Tips</em><ul class="simple">
+<li><p>Specifying the size parameters <code class="docutils literal notranslate"><span class="pre">Da</span></code> and <code class="docutils literal notranslate"><span class="pre">Db</span></code> can greatly improve performance.</p></li>
+<li><p>Compiling and executing on an Intel(R) AVX-512 system will improve performance. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Ea</strong> – The element type for each component of the left-hand argument. </p></li>
+<li><p><strong>Eb</strong> – The element type for each component of the right-hand argument. </p></li>
+<li><p><strong>Da</strong> – The compile-time length of left-hand argument. May be <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code> if this is to be discovered during runtime. </p></li>
+<li><p><strong>Db</strong> – The compile-time length of right-hand argument. May be <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code> if this is to be discovered during runtime.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>a</strong> – The left-hand vector. Typically, this position is used for the query. </p></li>
+<li><p><strong>b</strong> – The right-hand vector. Typically, this position is used for a dataset vector.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE">
+<span id="_CPPv3I_10Arithmetic_10Arithmetic_6size_t_6size_tE7compute10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"></span><span id="_CPPv2I_10Arithmetic_10Arithmetic_6size_t_6size_tE7compute10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Ea</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Eb</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Da</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Db</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__distance__overload_1ga8b23a9795e57ed3ab3e74da0cb2d761f"></span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">compute</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">DistanceIP</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Ea"><span class="n"><span class="pre">Ea</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Da"><span class="n"><span class="pre">Da</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">a</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Eb"><span class="n"><span class="pre">Eb</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="compute::Db"><span class="n"><span class="pre">Db</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">b</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_10Arithmetic_10Arithmetic_6size_t_6size_tE7computef10DistanceIPNSt4spanI2Ea2DaEENSt4spanI2Eb2DbEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Compute the Inner Product similarity between two vectors in R^n. </p>
+<p><span class="target" id="group__distance__overload_1compute_distanceip"></span></p>
+<p>
+The base pointers for <code class="docutils literal notranslate"><span class="pre">a</span></code> and <code class="docutils literal notranslate"><span class="pre">b</span></code> need not be aligned. Mixed types for <code class="docutils literal notranslate"><span class="pre">Ea</span></code> and <code class="docutils literal notranslate"><span class="pre">Eb</span></code> are supported.</p>
+<p><em>Performance Tips</em><ul class="simple">
+<li><p>Specifying the size parameters <code class="docutils literal notranslate"><span class="pre">Da</span></code> and <code class="docutils literal notranslate"><span class="pre">Db</span></code> can greatly improve performance.</p></li>
+<li><p>Compiling and executing on an Intel(R) AVX-512 system will improve performance. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Ea</strong> – The element type for each component of the left-hand argument. </p></li>
+<li><p><strong>Eb</strong> – The element type for each component of the right-hand argument. </p></li>
+<li><p><strong>Da</strong> – The compile-time length of left-hand argument. May be <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code> if this is to be discovered during runtime. </p></li>
+<li><p><strong>Db</strong> – The compile-time length of right-hand argument. May be <code class="docutils literal notranslate"><a class="reference internal" href="../internal/lib/public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code> if this is to be discovered during runtime.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>a</strong> – The left-hand vector. Typically, this position is used for the query. </p></li>
+<li><p><strong>b</strong> – The right-hand vector. Typically, this position is used for a dataset vector.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="public-distance-utilities">
+<h2>Public Distance Utilities<a class="headerlink" href="#public-distance-utilities" title="Link to this heading"></a></h2>
+<dl class="cpp enum">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12DistanceTypeE">
+<span id="_CPPv3N3svs12DistanceTypeE"></span><span id="_CPPv2N3svs12DistanceTypeE"></span><span class="target" id="namespacesvs_1a7be31fc4a4ee6a5229d61aef6ac530df"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">DistanceType</span></span></span><a class="headerlink" href="#_CPPv4N3svs12DistanceTypeE" title="Link to this definition"></a><br /></dt>
+<dd><p>Runtime selector for built-in distance functions. </p>
+<p><em>Values:</em></p>
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12DistanceType2L2E">
+<span id="_CPPv3N3svs12DistanceType2L2E"></span><span id="_CPPv2N3svs12DistanceType2L2E"></span><span class="target" id="namespacesvs_1a7be31fc4a4ee6a5229d61aef6ac530dfaa4d6596e21749896408ed5b2e12dbe4c"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">L2</span></span></span><a class="headerlink" href="#_CPPv4N3svs12DistanceType2L2E" title="Link to this definition"></a><br /></dt>
+<dd><p>Minimize squared L2 distance. See: <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1distance_1_1DistanceL2"><span class="std std-ref"><span class="pre">svs::distance::DistanceL2</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12DistanceType3MIPE">
+<span id="_CPPv3N3svs12DistanceType3MIPE"></span><span id="_CPPv2N3svs12DistanceType3MIPE"></span><span class="target" id="namespacesvs_1a7be31fc4a4ee6a5229d61aef6ac530dfa15ff0d1afbcf1976e13514346cfaf1e2"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MIP</span></span></span><a class="headerlink" href="#_CPPv4N3svs12DistanceType3MIPE" title="Link to this definition"></a><br /></dt>
+<dd><p>Maximize inner product. See: <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1distance_1_1DistanceIP"><span class="std std-ref"><span class="pre">svs::distance::DistanceIP</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12DistanceType6CosineE">
+<span id="_CPPv3N3svs12DistanceType6CosineE"></span><span id="_CPPv2N3svs12DistanceType6CosineE"></span><span class="target" id="namespacesvs_1a7be31fc4a4ee6a5229d61aef6ac530dfa69cc593364a65f28ec39106add5b4b60"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Cosine</span></span></span><a class="headerlink" href="#_CPPv4N3svs12DistanceType6CosineE" title="Link to this definition"></a><br /></dt>
+<dd><p>Minimize cosine similarity. See: <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1distance_1_1DistanceCosineSimilarity"><span class="std std-ref"><span class="pre">svs::distance::DistanceCosineSimilarity</span></span></a></code>. </p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs15distance_type_vE">
+<span id="_CPPv3I0EN3svs15distance_type_vE"></span><span id="_CPPv2I0EN3svs15distance_type_vE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1a1fdd8d51e7aaa08c0e3ddeb08e353cfa"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs12DistanceTypeE" title="svs::DistanceType"><span class="n"><span class="pre">DistanceType</span></span></a><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">distance_type_v</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DistanceTypeEnumMap</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0EN3svs15distance_type_vE" title="svs::distance_type_v::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">value</span></span><a class="headerlink" href="#_CPPv4I0EN3svs15distance_type_vE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the runtime enum for the built-in distance functor. </p>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs18DistanceDispatcherE">
+<span id="_CPPv3N3svs18DistanceDispatcherE"></span><span id="_CPPv2N3svs18DistanceDispatcherE"></span><span id="svs::DistanceDispatcher"></span><span class="target" id="classsvs_1_1DistanceDispatcher"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DistanceDispatcher</span></span></span><a class="headerlink" href="#_CPPv4N3svs18DistanceDispatcherE" title="Link to this definition"></a><br /></dt>
+<dd><p>Dynamically dispatch from an distance enum to a distance functor. </p>
+<p>Most methods in the library require a distance functor to be given directly. However, the decision of which functor to use is often a runtime decision.</p>
+<p>This class provides a method of converting a <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1a7be31fc4a4ee6a5229d61aef6ac530df"><span class="std std-ref"><span class="pre">svs::DistanceType</span></span></a></code> enum to one of the built-in functor types.</p>
+<p><strong>NOTE</strong>: Using a <a class="reference internal" href="#classsvs_1_1DistanceDispatcher"><span class="std std-ref">DistanceDispatcher</span></a> will instantiate code-paths for all built-in functors, which may have an impact on compile-time and binary size. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs18DistanceDispatcher18DistanceDispatcherE12DistanceType">
+<span id="_CPPv3N3svs18DistanceDispatcher18DistanceDispatcherE12DistanceType"></span><span id="_CPPv2N3svs18DistanceDispatcher18DistanceDispatcherE12DistanceType"></span><span id="svs::DistanceDispatcher::DistanceDispatcher__DistanceType"></span><span class="target" id="classsvs_1_1DistanceDispatcher_1a930f4a3529e7a86ef55d4d6ddf4caefa"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DistanceDispatcher</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3svs12DistanceTypeE" title="svs::DistanceType"><span class="n"><span class="pre">DistanceType</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance_type</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs18DistanceDispatcher18DistanceDispatcherE12DistanceType" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#classsvs_1_1DistanceDispatcher"><span class="std std-ref">DistanceDispatcher</span></a>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>distance_type</strong> – The distance type to use. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0DpEN3svs18DistanceDispatcherclEDaRR1FDpRR4Args">
+<span id="_CPPv3I0DpEN3svs18DistanceDispatcherclERR1FDpRR4Args"></span><span id="_CPPv2I0DpEN3svs18DistanceDispatcherclERR1FDpRR4Args"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Args</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DistanceDispatcher_1a451ee0a1ad1b15c4a8cfba7ebb19b7ff"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">()</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0DpEN3svs18DistanceDispatcherclEDaRR1FDpRR4Args" title="svs::DistanceDispatcher::operator()::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">f</span></span>, <a class="reference internal" href="#_CPPv4I0DpEN3svs18DistanceDispatcherclEDaRR1FDpRR4Args" title="svs::DistanceDispatcher::operator()::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0DpEN3svs18DistanceDispatcherclEDaRR1FDpRR4Args" title="Link to this definition"></a><br /></dt>
+<dd><p>Dynamically dispatch to the correct distance functor. </p>
+<p>
+All other arguments will be forwarded to <code class="docutils literal notranslate"><span class="pre">f</span></code> beginning at argument position 2. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> – A function who takes distance functor for its first argument. The dispatcher will call <code class="docutils literal notranslate"><span class="pre">f</span></code> with the functor corresponding to the enum used to construct the dispatcher.</p></li>
+<li><p><strong>args</strong> – Arguements to forward to <code class="docutils literal notranslate"><span class="pre">f</span></code>. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="graph.html" class="btn btn-neutral float-left" title="Graphs" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="query_result.html" class="btn btn-neutral float-right" title="Query Result" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

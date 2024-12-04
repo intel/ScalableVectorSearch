@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Large Scale Benchmarks &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="System Utilization" href="system_utilization.html" />
+    <link rel="prev" title="Small Scale Benchmarks" href="small_scale_benchs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Benchmarks</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Benchmarks for Static Indexing</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../latest.html">Latest Results</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../previous.html">Previous Results</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="experimental_method.html">Experimental Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="small_scale_benchs.html">Small Scale Benchmarks</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Large Scale Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="system_utilization.html">System Utilization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../dynamic.html">Benchmarks for Dynamic Indexing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ablation.html">Ablation Studies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Benchmarks</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Benchmarks for Static Indexing</a></li>
+          <li class="breadcrumb-item"><a href="../previous.html">Previous Results</a></li>
+      <li class="breadcrumb-item active">Large Scale Benchmarks</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/benchs/static/previous/large_scale_benchs.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="large-scale-benchmarks">
+<span id="large-scale-benchs"></span><h1>Large Scale Benchmarks<a class="headerlink" href="#large-scale-benchmarks" title="Link to this heading"></a></h1>
+<p>We present here the results of an exhaustive evaluation, comparing SVS to other implementations as well as evaluating
+the performance of different SVS flavors (with different data types, vector compression) for large scale datasets.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#system-setup-and-datasets" id="id21">System Setup and Datasets</a></p></li>
+<li><p><a class="reference internal" href="#comparison-to-other-implementations" id="id22">Comparison to Other Implementations</a></p>
+<ul>
+<li><p><a class="reference internal" href="#search-with-reduced-memory-footprint" id="id23">Search with Reduced Memory Footprint</a></p></li>
+<li><p><a class="reference internal" href="#high-throughput-regime" id="id24">High-throughput Regime</a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="system-setup-and-datasets">
+<span id="system-setup-large-scale-benchs"></span><h2><a class="toc-backref" href="#id21" role="doc-backlink">System Setup and Datasets</a><a class="headerlink" href="#system-setup-and-datasets" title="Link to this heading"></a></h2>
+<p>We run our experiments on a 3rd generation Intel® Xeon® Platinum 8380 CPU &#64;2.30GHz with
+40 cores (single socket), equipped with 1TB DDR4 memory per socket &#64;3200MT/s speed,  running Ubuntu 22.04. <a class="footnote-reference brackets" href="#ft1" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> <a class="footnote-reference brackets" href="#ft3" id="id2" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a></p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">numactl</span></code> to ran all experiments in a single socket (see <a class="reference internal" href="../../../performance/numa.html#numa"><span class="std std-ref">NUMA Systems</span></a> for details).</p>
+<p>We use the <code class="docutils literal notranslate"><span class="pre">hugeadm</span></code> Linux utility to <a class="reference internal" href="../../../performance/hugepages.html#hugepages"><span class="std std-ref">preallocate a sufficient number of 1GB huge pages</span></a> for each algorithm.
+SVS explicitly uses huge pages to reduce the virtual memory overheads.
+For a fair comparison, we run other methods with system flags enabled to automatically use huge pages for large allocations.</p>
+<p>We consider datasets that are large scale because of their total footprint (see <a class="reference internal" href="experimental_method.html#datasets"><span class="std std-ref">Datasets</span></a> for details):</p>
+<ul class="simple">
+<li><p>deep-96-1B (96 dimensions, 1 billion points)</p></li>
+<li><p>sift-128-1B (128 dimensions, 1 billion points)</p></li>
+<li><p>t2i-200-100M (200 dimensions, 100 million points)</p></li>
+</ul>
+</section>
+<section id="comparison-to-other-implementations">
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Comparison to Other Implementations</a><a class="headerlink" href="#comparison-to-other-implementations" title="Link to this heading"></a></h2>
+<nav class="contents local" id="id3">
+<ul class="simple">
+<li><p><a class="reference internal" href="#search-with-reduced-memory-footprint" id="id25">Search with Reduced Memory Footprint</a></p></li>
+<li><p><a class="reference internal" href="#high-throughput-regime" id="id26">High-throughput Regime</a></p></li>
+</ul>
+</nav>
+<section id="search-with-reduced-memory-footprint">
+<span id="search-with-reduced-memory-benchs"></span><h3><a class="toc-backref" href="#id25" role="doc-backlink">Search with Reduced Memory Footprint</a><a class="headerlink" href="#search-with-reduced-memory-footprint" title="Link to this heading"></a></h3>
+<p>In large-scale scenarios, the memory requirement grows quickly, in particular for graph-based methods. This makes these
+methods expensive, as the system cost is dominated by the total DRAM price. We compare here the performance, for different
+memory footprint regimes, of SVS vs. four widely adopted approaches: Vamana <a class="reference internal" href="../../../features.html#sdsk19" id="id4"><span>[SDSK19]</span></a>, HSNWlib <a class="reference internal" href="../../../features.html#maya18" id="id5"><span>[MaYa18]</span></a>, FAISS-IVFPQfs
+<a class="reference internal" href="../../../features.html#jodj19" id="id6"><span>[JoDJ19]</span></a>, and ScaNN <a class="reference internal" href="../../../features.html#gslg20" id="id7"><span>[GSLG20]</span></a>. <a class="footnote-reference brackets" href="#ft2" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> See <a class="reference internal" href="#param-setting-bench-large-scale-low-memory-regime"><span class="std std-ref">Parameters Setting</span></a> for details on
+the evaluated configurations and the version of the code used for each method.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<a class="reference internal image-reference" href="../../../_images/SVS_performance_memoryfootprint.png"><img alt="SVS performance vs memory footprint." class="align-center" src="../../../_images/SVS_performance_memoryfootprint.png" style="width: 600px;" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p>SVS exploits the power of graph-based similarity search and vector compression <a class="reference internal" href="../../../features.html#abht23" id="id9"><span>[ABHT23]</span></a> to enable high-throughput and
+high-accuracy with a small memory footprint. The figure shows the results for a standard billion scale dataset
+(<a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">Deep-1B</a>, 1 billion 96-dimensional vectors) for a search accuracy of 0.9
+10-recall at 10. For graph-based methods, the memory footprint is a function of the <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> (R in the figure)
+and the vector footprint.</p>
+<p>With a memory footprint of only 245 GiB, SVS delivers 126k queries-per-second, that is 2.3x, 2.2x, 20.7x, and 43.6x more
+throughput with 3.0x, 3.3x, 1.7x, and 1.8x lower memory than the current leaders,
+Vamana, HSNWlib, FAISS-IVFPQfs, and ScaNN respectively. With the highest-throughput
+configuration, SVS achieves 336k queries-per-second outperforming the second-highest by 5.8x with a 1.4x lower memory footprint (596GiB).</p>
+<section id="parameters-setting">
+<span id="param-setting-bench-large-scale-low-memory-regime"></span><h4>Parameters Setting<a class="headerlink" href="#parameters-setting" title="Link to this heading"></a></h4>
+<p>We used the following versions of each method:
+SVS <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/commit/ad821d8c94cb69a67c8744b98ee1c79d3e3a299c">commit ad821d8</a>,
+Vamana <a class="reference external" href="https://github.com/microsoft/DiskANN/commit/647f68fe5aa7b45124ae298c219fe909d46a1834">commit 647f68f</a>,
+HNSWlib <a class="reference external" href="https://github.com/nmslib/hnswlib/commit/4b2cb72c3c1bbddee55535ec6f360a0b2e40a81e">commmit 4b2cb72</a>,
+ScaNN <a class="reference external" href="https://github.com/google-research/google-research/commit/d170ac58ce1d071614b2813b056afa292f5e490c">commit d170ac5</a>,
+and FAISS-IVFPQfs <a class="reference external" href="https://github.com/facebookresearch/faiss/commit/19f7696deedc93615c3ee0ff4de22284b53e0243">commit 19f7696</a>.</p>
+<p>For <strong>SVS</strong> and <strong>Vamana</strong>, we build Vamana graphs with: <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 32, 64, 126 and <code class="docutils literal notranslate"><span class="pre">alpha</span></code> = 1.2. SVS
+is used with LVQ-8 compressed vectors, with vectors padded to half cache lines (<code class="docutils literal notranslate"><span class="pre">padding</span></code> = 32,
+see <a class="reference internal" href="../../../howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for details).
+For <strong>HSNWlib</strong>, we build graphs with a window search size of 200 and <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 32, 64, 96 (this corresponds
+to M=16, 32, 48 in HSNW notation). We had to reduce <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> from 128 to 96 to fit the working set size in
+1TB memory.</p>
+<p>For <strong>FAISS-IVFPQfs</strong>, we use <code class="docutils literal notranslate"><span class="pre">nlist</span></code> = 32768 and <code class="docutils literal notranslate"><span class="pre">nbins</span></code> <span class="math notranslate nohighlight">\(=48\)</span>.
+Re-ranking is enabled, and at runtime we sweep <code class="docutils literal notranslate"><span class="pre">nprobe</span></code> <span class="math notranslate nohighlight">\(=[1,5,10,50,100,200]\)</span> and  <code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">for</span> <span class="pre">re-ranking</span></code> <span class="math notranslate nohighlight">\(= [0,10,100,1000]\)</span>.
+For <strong>ScaNN</strong>, we use the recommended parameters setting: <code class="docutils literal notranslate"><span class="pre">n_leaves</span></code> = <span class="math notranslate nohighlight">\(\sqrt{n}\)</span>, <code class="docutils literal notranslate"><span class="pre">avq_threshold</span></code> = 0.2,
+<code class="docutils literal notranslate"><span class="pre">dims_per_block</span></code> = 2 (where <span class="math notranslate nohighlight">\(n\)</span> is the number of vectors in the dataset), as that is the best among several
+evaluated settings and vary the runtime parameters (<code class="docutils literal notranslate"><span class="pre">leaves_to_search</span></code> = [2-1000], <code class="docutils literal notranslate"><span class="pre">reorder</span></code> = [20-1000]).
+For FAISS-IVFPQfs and ScaNN, which follow the same index design, the memory footprint is almost constant for different
+considered parameter settings.</p>
+</section>
+</section>
+<section id="high-throughput-regime">
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">High-throughput Regime</a><a class="headerlink" href="#high-throughput-regime" title="Link to this heading"></a></h3>
+<p>In the high-throughput regime, all methods are set assuming high throughput is the main priority and memory availability
+is not a major issue. We compare SVS to four widely adopted approaches: Vamana <a class="reference internal" href="../../../features.html#sdsk19" id="id10"><span>[SDSK19]</span></a>, HSNWlib <a class="reference internal" href="../../../features.html#maya18" id="id11"><span>[MaYa18]</span></a>, FAISS-IVFPQfs
+<a class="reference internal" href="../../../features.html#jodj19" id="id12"><span>[JoDJ19]</span></a>, and ScaNN <a class="reference internal" href="../../../features.html#gslg20" id="id13"><span>[GSLG20]</span></a>. <a class="footnote-reference brackets" href="#ft2" id="id14" role="doc-noteref"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></a> See <a class="reference internal" href="#param-setting-bench-large-scale-high-throughput-regime"><span class="std std-ref">Parameters Setting</span></a>
+for details on the evaluated configurations and the version of the code used for each method.</p>
+<p>Results summary:</p>
+<ul>
+<li><p><strong>SVS shows a large performance advantage across recall values for billion scale datasets</strong> with Euclidean distance
+(see results for deep-96-1B and sift-128-1B below).</p></li>
+<li><p>For high-dimensional datasets that require inner product, SVS has a significant performance advantage across recall values
+for query batch size 128, and up to recall 0.95 for batch size 10k (see results for t2i-200-100M below).</p></li>
+<li><p>For a search accuracy of 0.9 10-recall at 10, SVS achieves</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>6.5x and 5.4x higher throughput</strong> over the closest competitor for <strong>deep-96-1B</strong> with query batch sizes 10k and 128 respectively.</p></li>
+<li><p><strong>3.4x and 4.0x higher throughput</strong> over the closest competitor for <strong>sift-128-1B</strong> (uint8-valued vectors) with query batch sizes 10k and 128 respectively.</p></li>
+<li><p><strong>2.0x higher throughput</strong> over the closest competitor for <strong>t2i-200-100M</strong>.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p><strong>Click on the triangles</strong> to see the throughput vs recall curves for each dataset.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="e75ac124-8632-4acc-a627-adc42c91a668" name="e75ac124-8632-4acc-a627-adc42c91a668" type="checkbox"><label class="sphinx_collapse__label" for="e75ac124-8632-4acc-a627-adc42c91a668"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-1B dataset</p>
+<a class="reference internal image-reference" href="../../../_images/bench_largeScale_bothBatchSz_deep-1B.png"><img alt="deep-96-1B benchmarking results" src="../../../_images/bench_largeScale_bothBatchSz_deep-1B.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="bd1429f6-17f7-4349-8534-815f74dd84f3" name="bd1429f6-17f7-4349-8534-815f74dd84f3" type="checkbox"><label class="sphinx_collapse__label" for="bd1429f6-17f7-4349-8534-815f74dd84f3"><i class="sphinx_collapse__icon"></i>sift-128-1B</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the sift-128-1B dataset</p>
+<a class="reference internal image-reference" href="../../../_images/bench_largeScale_bothBatchSz_bigann-1B.png"><img alt="sift-128-1B benchmarking results" src="../../../_images/bench_largeScale_bothBatchSz_bigann-1B.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="87db5661-61eb-4afa-8e24-a0afb32e567d" name="87db5661-61eb-4afa-8e24-a0afb32e567d" type="checkbox"><label class="sphinx_collapse__label" for="87db5661-61eb-4afa-8e24-a0afb32e567d"><i class="sphinx_collapse__icon"></i>t2i-200-100M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the t2i-200-100M dataset</p>
+<a class="reference internal image-reference" href="../../../_images/bench_largeScale_bothBatchSz_text2image-100M.png"><img alt="t2i-200-100M benchmarking results" src="../../../_images/bench_largeScale_bothBatchSz_text2image-100M.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<section id="param-setting-bench-large-scale-high-throughput-regime">
+<span id="id15"></span><h4>Parameters Setting<a class="headerlink" href="#param-setting-bench-large-scale-high-throughput-regime" title="Link to this heading"></a></h4>
+<p>We used the following versions of each method:
+Vamana <a class="reference external" href="https://github.com/microsoft/DiskANN/commit/647f68fe5aa7b45124ae298c219fe909d46a1834">commit 647f68f</a>,
+HNSWlib <a class="reference external" href="https://github.com/nmslib/hnswlib/commit/4b2cb72c3c1bbddee55535ec6f360a0b2e40a81e">commmit 4b2cb72</a>,
+ScaNN <a class="reference external" href="https://github.com/google-research/google-research/commit/d170ac58ce1d071614b2813b056afa292f5e490c">commit d170ac5</a>,
+and FAISS-IVFPQfs <a class="reference external" href="https://github.com/facebookresearch/faiss/commit/19f7696deedc93615c3ee0ff4de22284b53e0243">commit 19f7696</a>.</p>
+<p>For <strong>SVS</strong> and <strong>Vamana</strong>, we use the following parameter setting to build Vamana graphs for all the datasets:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128 (we use <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 126 for deep-96-1B),</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha</span></code> = 1.2 and <code class="docutils literal notranslate"><span class="pre">alpha</span></code> =  0.95 for Euclidean distance and inner product respectively.</p></li>
+</ul>
+<p>For SVS, we include various LVQ settings (LVQ-8, LVQ-4x4, LVQ-4x8, and LVQ8x8) as well as float16 and float32 encodings.
+LVQ-compressed vectors are padded to half cache lines (<code class="docutils literal notranslate"><span class="pre">padding</span></code> = 32).</p>
+<p>For <strong>HSNWlib</strong>, we build all graphs with a window search size of 200 and <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128 (this corresponds
+to M=64 in HSNW notation), except deep-96-1B for which we must reduce <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> to 96 to fit the
+working set size in 1TB memory.</p>
+<p>For <strong>FAISS-IVFPQfs</strong>, we pre-build indices with <code class="docutils literal notranslate"><span class="pre">nlist</span></code> = 32768 and <code class="docutils literal notranslate"><span class="pre">nbins</span></code> <span class="math notranslate nohighlight">\(=d/2\)</span> (where <span class="math notranslate nohighlight">\(d\)</span> is the dataset dimensionality)
+for the 1 billion scale datasets deep-96-1B and sift-128-1B. For t2i-200-100M, indices are built on the fly
+with combinations of <code class="docutils literal notranslate"><span class="pre">nlist</span></code> <span class="math notranslate nohighlight">\(=[512, 1024, 4096, 8192]\)</span> and <code class="docutils literal notranslate"><span class="pre">nbins</span></code> <span class="math notranslate nohighlight">\(=[d/4, d/2, d]\)</span>.
+Re-ranking is enabled, and at runtime we sweep <code class="docutils literal notranslate"><span class="pre">nprobe</span></code> <span class="math notranslate nohighlight">\(=[1,5,10,50,100,20]\)</span> and  <code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">for</span> <span class="pre">re-ranking</span></code> <span class="math notranslate nohighlight">\(= [0,10,100,1000]\)</span>.</p>
+<p>For <strong>ScaNN</strong>, we use the recommended parameters setting: <code class="docutils literal notranslate"><span class="pre">n_leaves</span></code> = <span class="math notranslate nohighlight">\(\sqrt{n}\)</span>, <code class="docutils literal notranslate"><span class="pre">avq_threshold</span></code> = 0.2,
+<code class="docutils literal notranslate"><span class="pre">dims_per_block</span></code> = 2 (where <span class="math notranslate nohighlight">\(n\)</span> is the number of vectors in the dataset) for the billion scale datasets
+(deep-96-1B and sift-128-1B), as that is the best among several evaluated settings. For t2i-200-100M we evaluate
+different parameter settings (see Table below). For all dataests we vary the runtime parameters
+(<code class="docutils literal notranslate"><span class="pre">leaves_to_search</span></code> = [2-1000], <code class="docutils literal notranslate"><span class="pre">reorder</span></code> = [20-1000]).</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td colspan="3"><p><strong>ScaNN parameter setting</strong></p></td>
+</tr>
+<tr class="row-even"><td colspan="3"><p><strong>t2i-200-100M</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>n_leaves</strong></p></td>
+<td><p><strong>avq_threshold</strong></p></td>
+<td><p><strong>dims_per_block</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>2000</p></td>
+<td><p>0.2</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p>5000</p></td>
+<td><p>0.15</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-even"><td><p>10000</p></td>
+<td><p>0.2</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-odd"><td><p>20000</p></td>
+<td><p>0.2</p></td>
+<td><p>2</p></td>
+</tr>
+</tbody>
+</table>
+<p>In all cases where several parameter settings are evaluated, the results show the corresponding Pareto lines.</p>
+<p class="rubric">Footnotes</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="ft1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>Performance varies by use, configuration and other factors. Learn more at <a class="reference external" href="www.Intel.com/PerformanceIndex/">www.Intel.com/PerformanceIndex</a>.
+Performance results are based on testing as of dates shown in configurations and may not reflect all publicly
+available updates. No product or component can be absolutely secure. Your costs and results may vary. Intel
+technologies may require enabled hardware, software or service activation. © Intel Corporation.  Intel,
+the Intel logo, and other Intel marks are trademarks of Intel Corporation or its subsidiaries.  Other names and
+brands may be claimed as the property of others.</p>
+</aside>
+<aside class="footnote brackets" id="ft3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id2">2</a><span class="fn-bracket">]</span></span>
+<p>All experimental results were completed by April 30th 2023.</p>
+</aside>
+<aside class="footnote brackets" id="ft2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span>3<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id8">1</a>,<a role="doc-backlink" href="#id14">2</a>)</span>
+<p>NGT <a class="reference internal" href="../../../features.html#iwmi18" id="id20"><span>[IwMi18]</span></a> is included in the <a class="reference internal" href="small_scale_benchs.html#small-scale-benchs"><span class="std std-ref">Small Scale Benchmarks</span></a> and not in the large scale evaluation because the algorithm designed for
+large-scale datasets (NGT-QBG) achieves  low accuracy saturating at 0.86 recall even for a small 1-million vectors dataset.</p>
+</aside>
+</aside>
+</section>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="small_scale_benchs.html" class="btn btn-neutral float-left" title="Small Scale Benchmarks" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="system_utilization.html" class="btn btn-neutral float-right" title="System Utilization" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

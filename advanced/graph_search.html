@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Graph-based similarity search &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Benchmarks" href="../benchs/index.html" />
+    <link rel="prev" title="Library Building" href="build.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Advanced Topics</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="lowermem.html">Searching with a small memory footprint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="build.html">Library Building</a></li>
+<li class="toctree-l2"><a class="reference internal" href="static_dimensionality.html">Static Dimensionality</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Graph-based similarity search</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#how-does-the-graph-search-work">How does the graph search work?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#how-does-graph-building-work">How does graph building work?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Advanced Topics</a></li>
+      <li class="breadcrumb-item active">Graph-based similarity search</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/advanced/graph_search.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="graph-based-similarity-search">
+<span id="graph-search"></span><h1>Graph-based similarity search<a class="headerlink" href="#graph-based-similarity-search" title="Link to this heading"></a></h1>
+<p>Graph-based methods use proximity graphs, where nodes represent data vectors and two nodes are connected if they fulfill
+a defined property or neighborhood criterion, building on the structure inherent in the data. Search involves starting
+at a designated entry point and traversing the graph to get closer and closer to the nearest neighbor with each hop. We
+follow the Vamana <a class="reference internal" href="../features.html#sdsk19" id="id1"><span>[SDSK19]</span></a> algorithm for graph building and search.</p>
+<section id="how-does-the-graph-search-work">
+<span id="graph-search-details"></span><h2>How does the graph search work?<a class="headerlink" href="#how-does-the-graph-search-work" title="Link to this heading"></a></h2>
+<p>The simplest way to traverse the graph to find 1 approximate nearest neighbor is to do a <strong>greedy search</strong>. At each hop,
+the distances from the query to all the neighbors of the current node (i.e., vectors in the current node’s adjacency
+list) are computed and the closest point is chosen as the next point to be explored. The search ends when the distance to
+the query cannot be further reduced by jumping to any of the neighbors of the current node.</p>
+<p><strong>How do we find k neighbors?</strong> To improve the search accuracy and be able to find k nearest neighbors, this greedy search is combined with a <strong>priority
+queue</strong>. While traversing the graph, we keep track of the distance from the query to the <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code>
+closest points seen so far (where <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> is the length of the priority queue). At each hop, we choose to
+explore next the closest point in the priority queue that has not been visited yet. The search ends when all the
+neighbors of the current node are further from the query than the furthest point in the priority queue. This prevents
+the search path to diverge too far from the query. A larger <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> implies exploring a larger volume,
+improving the accuracy at the cost of a longer search path.</p>
+</section>
+<section id="how-does-graph-building-work">
+<span id="graph-building-details"></span><h2>How does graph building work?<a class="headerlink" href="#how-does-graph-building-work" title="Link to this heading"></a></h2>
+<p>First, we <a class="reference internal" href="../howtos.html#graph-build-param-setting"><span class="std std-ref">set the hyper-parameters</span></a> required to build the graph: <code class="docutils literal notranslate"><span class="pre">alpha</span></code>,
+<code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code>, <code class="docutils literal notranslate"><span class="pre">window_size</span></code>, <code class="docutils literal notranslate"><span class="pre">max_candidate_pool_size</span></code> (see <a class="reference internal" href="../python/vamana.html#svs.VamanaBuildParameters" title="svs.VamanaBuildParameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VamanaBuildParameters</span></code></a> and
+<a class="reference internal" href="../cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE" title="svs::index::vamana::VamanaBuildParameters"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::index::vamana::VamanaBuildParameters</span></code></a> for more details).</p>
+<p id="graph-building-pseudocode">Then, the graph is built following the Vamana indexing algorithm <a class="reference internal" href="../features.html#sdsk19" id="id2"><span>[SDSK19]</span></a> as follows:</p>
+<ol class="arabic simple">
+<li><p>Start from an uninitialized graph <strong>G</strong>.</p></li>
+<li><p>Iterate through all nodes in a random order.</p>
+<ol class="loweralpha simple">
+<li><p>Run the search for node <strong>x</strong> on the current <strong>G</strong>, with the search window size set to <code class="docutils literal notranslate"><span class="pre">window_size</span></code>, and save the list of visited nodes <strong>C</strong>.</p></li>
+<li><p>Update <strong>G</strong> by <a class="reference internal" href="#graph-pruning"><span class="std std-ref">pruning</span></a> <strong>C</strong> to determine the new set of <strong>x</strong>’s neighbors.</p></li>
+<li><p>Add backward edges (<strong>x</strong>, <strong>x*</strong>) for all <strong>x*</strong> in <strong>x</strong>’s out neighbors and prune <strong>x*</strong>’ edges.</p></li>
+</ol>
+</li>
+<li><p>Make two passes over the dataset, the first one with the pruning parameter <cite>alpha</cite> =1 and the second one with <cite>alpha</cite> = <code class="docutils literal notranslate"><span class="pre">alpha</span></code>.</p></li>
+<li><p>Return graph <strong>G</strong> to be used by the search algorithm.</p></li>
+</ol>
+<p>The <strong>pruning rule</strong> limits <strong>x</strong>’s out-neighbors <strong>N</strong> to a maximum of <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> as follows:</p>
+<ol class="arabic simple" id="graph-pruning">
+<li><p>Set the list of neighbors candidates <strong>C</strong> = <strong>C</strong> U <strong>N</strong> \ { <strong>x</strong> }</p></li>
+<li><p>Sort <strong>C</strong> in ascending distance from <strong>x</strong>, and limit <strong>C</strong> to the closest <code class="docutils literal notranslate"><span class="pre">max_candidate_pool_size</span></code> neighbors.</p></li>
+<li><p>Initialize <strong>N</strong> to null</p></li>
+<li><p>While <strong>C</strong> is not empty do:</p>
+<ol class="loweralpha simple">
+<li><p>Find <strong>x*</strong> the closest point to <strong>x</strong> in <strong>C</strong>.</p></li>
+<li><p>Add <strong>x*</strong> to <strong>x</strong>’s out-neighbors list <strong>N</strong>.</p></li>
+<li><p>If <em>length</em> ( <strong>N</strong> ) &gt; <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> then break; else remove all points from <strong>C</strong> that are closer to <strong>x*</strong> than <strong>x</strong> by a factor <cite>alpha</cite>.</p></li>
+</ol>
+</li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="build.html" class="btn btn-neutral float-left" title="Library Building" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../benchs/index.html" class="btn btn-neutral float-right" title="Benchmarks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

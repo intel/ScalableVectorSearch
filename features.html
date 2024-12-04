@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Library Features &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="How-Tos" href="howtos.html" />
+    <link rel="prev" title="Getting started with C++" href="start_cpp.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Library Features</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#index-types">Index Types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#graphs-for-static-datasets">Graphs for static datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#graphs-for-streaming-data">Graphs for streaming data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#flat-index">Flat Index</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#distance-functions">Distance functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-types">Data types</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#vector-compression">Vector compression</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#search-with-compressed-vectors">Search with compressed vectors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#graph-building-with-compressed-vectors">Graph building with compressed vectors</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Library Features</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/features.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="library-features">
+<span id="features"></span><h1>Library Features<a class="headerlink" href="#library-features" title="Link to this heading"></a></h1>
+<p>Here we present the main library features, including the supported index types, distance functions and data types.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#index-types" id="id7">Index Types</a></p></li>
+<li><p><a class="reference internal" href="#distance-functions" id="id8">Distance functions</a></p></li>
+<li><p><a class="reference internal" href="#data-types" id="id9">Data types</a></p></li>
+<li><p><a class="reference internal" href="#vector-compression" id="id10">Vector compression</a></p></li>
+</ul>
+</nav>
+<section id="index-types">
+<span id="index-constructors"></span><h2><a class="toc-backref" href="#id7" role="doc-backlink">Index Types</a><a class="headerlink" href="#index-types" title="Link to this heading"></a></h2>
+<p>SVS supports the following index types:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#static-graph-index"><span class="std std-ref">Graphs for static datasets</span></a></p></li>
+<li><p><a class="reference internal" href="#dynamic-graph-index"><span class="std std-ref">Graphs for streaming data</span></a></p></li>
+<li><p><a class="reference internal" href="#flat-index"><span class="std std-ref">Flat index</span></a></p></li>
+</ul>
+<section id="graphs-for-static-datasets">
+<span id="static-graph-index"></span><h3>Graphs for static datasets<a class="headerlink" href="#graphs-for-static-datasets" title="Link to this heading"></a></h3>
+<p>The Vamana graph (<a class="reference internal" href="python/vamana.html#vamana-api"><span class="std std-ref">in Python</span></a>, <a class="reference internal" href="cpp/index/vamana.html#cpp-orchestrators-vamana"><span class="std std-ref">in C++</span></a>) enables fast in-memory
+<a class="reference internal" href="advanced/graph_search.html#graph-search"><span class="std std-ref">graph-based</span></a> similarity search with high accuracy for static databases, where the database
+is fixed and never updated.</p>
+</section>
+<section id="graphs-for-streaming-data">
+<span id="dynamic-graph-index"></span><h3>Graphs for streaming data<a class="headerlink" href="#graphs-for-streaming-data" title="Link to this heading"></a></h3>
+<p>The DynamicVamana graph (<a class="reference internal" href="python/dynamic.html#dynamic-vamana-api"><span class="std std-ref">in Python</span></a>, <a class="reference internal" href="cpp/index/dynamic_vamana.html#cpp-orchestrators-dynamic-vamana"><span class="std std-ref">in C++</span></a>) enables fast in-memory
+<a class="reference internal" href="advanced/graph_search.html#graph-search"><span class="std std-ref">graph-based</span></a> similarity search with high accuracy for streaming data, where the database is built
+dynamically by adding and removing vectors.</p>
+</section>
+<section id="flat-index">
+<span id="id1"></span><h3>Flat Index<a class="headerlink" href="#flat-index" title="Link to this heading"></a></h3>
+<p>The flat index (<a class="reference internal" href="python/flat.html#flat-api"><span class="std std-ref">in Python</span></a>, <a class="reference internal" href="cpp/internal/index_impl/flat.html#flat"><span class="std std-ref">in C++</span></a>) can be used to run exhaustive search, e.g., useful to compute
+the ground-truth nearest neighbors for a dataset.</p>
+</section>
+</section>
+<section id="distance-functions">
+<span id="supported-distance-functions"></span><h2><a class="toc-backref" href="#id8" role="doc-backlink">Distance functions</a><a class="headerlink" href="#distance-functions" title="Link to this heading"></a></h2>
+<p>SVS supports the distance functions listed in <a class="reference internal" href="cpp/core/distance.html#cpp-core-distance"><span class="std std-ref">Built-In Distance Functors</span></a> (see <a class="reference internal" href="python/common.html#svs.DistanceType" title="svs.DistanceType"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.DistanceType</span></code></a> for the corresponding
+Python classes). The distance function is specified when the index is created by the corresponding <a class="reference internal" href="#index-constructors"><span class="std std-ref">index constructors</span></a>. In the
+case of the Vamana index, it must also be specified when the graph is built (see <a class="reference internal" href="python/vamana.html#svs.Vamana.build" title="svs.Vamana.build"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana.build</span></code></a> and
+<a class="reference internal" href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance6size_tRK9Allocator" title="svs::Vamana::build"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::build()</span></code></a> for details).</p>
+</section>
+<section id="data-types">
+<span id="supported-data-types"></span><h2><a class="toc-backref" href="#id9" role="doc-backlink">Data types</a><a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
+<p>The supported data types are: <em>float32</em>, <em>float16</em>, <em>int8</em> and <em>uint8</em>. Other data types might work but performance has not been tested.</p>
+<p>The data type can be set <strong>independently</strong> for the <strong>database vectors</strong> and the <strong>query vector</strong>. For example, one could compress
+the database vectors to float16, which allows for a 2x storage reduction often with negligible accuracy loss, and keep
+the query in float32.</p>
+<p><strong>In Python</strong></p>
+<p>The data type for the <strong>database vectors</strong> is specified by the <code class="docutils literal notranslate"><span class="pre">data_type</span></code> argument when the vectors are loaded with
+<a class="reference internal" href="python/loaders.html#svs.VectorDataLoader" title="svs.VectorDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code></a>. The data type for the
+<strong>query vectors</strong> is specified in the <code class="docutils literal notranslate"><span class="pre">query_type</span></code> argument for the corresponding index constructors
+(<a class="reference internal" href="python/vamana.html#svs.Vamana" title="svs.Vamana"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana</span></code></a>, <a class="reference internal" href="python/flat.html#svs.Flat" title="svs.Flat"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Flat</span></code></a>).</p>
+<p><strong>In C++</strong></p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="b5fb75cb-15be-42cd-a749-0dc1d77b928f" name="b5fb75cb-15be-42cd-a749-0dc1d77b928f" type="checkbox"><label class="sphinx_collapse__label" for="b5fb75cb-15be-42cd-a749-0dc1d77b928f"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<p>The database vectors data type is specified in the template argument of the <a class="reference internal" href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a>.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;data_f32.svs&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For details on setting the query vectors data type see <a class="reference internal" href="cpp/index/index.html#cpp-orchestrators"><span class="std std-ref">Indexes</span></a>.</p>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This will not perform any dataset conversion. If a dataset was saved to disk as float16 data, for example,
+then it must be loaded with <code class="docutils literal notranslate"><span class="pre">data_type</span> <span class="pre">=</span> <span class="pre">svs.DataType.float16</span></code> in Python or
+<code class="docutils literal notranslate"><span class="pre">svs::Float16</span></code> in C++.</p>
+</div>
+<p>The supported data type combinations for (<em>queries</em>, <em>database vectors</em>) are: (<em>float32</em>, <em>float32</em>), (<em>float32</em>, <em>float16</em>),
+(<em>uint8</em>, <em>uint8</em>), (<em>int8</em>, <em>int8</em>), among others.</p>
+</section>
+<section id="vector-compression">
+<span id="id2"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">Vector compression</a><a class="headerlink" href="#vector-compression" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source</a> SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ <a class="reference internal" href="#abht23" id="id3"><span>[ABHT23]</span></a> and Leanvec <a class="reference internal" href="#tbah24" id="id4"><span>[TBAH24]</span></a>. These techniques are closed-source and supported exclusively on Intel hardware. We provide <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/releases">shared library</a> and <a class="reference external" href="https://pypi.org/project/scalable-vs/">PyPI package</a> to enable these vector compression techniques in C++ and Python, respectively.</p>
+</div>
+<p>The memory footprint can be reduced and the search performance improved by combining the graph-search with the
+Locally-adaptive Vector Quantization (LVQ) <a class="reference internal" href="#abht23" id="id5"><span>[ABHT23]</span></a> approach.
+The library has support for <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">performing online vector compression with LVQ</span></a> or
+for <a class="reference internal" href="start.html#loading-compressed-indices"><span class="std std-ref">loading an index with a previously compressed dataset</span></a>.
+See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for more details about LVQ and how to set its parameters.</p>
+<section id="search-with-compressed-vectors">
+<h3>Search with compressed vectors<a class="headerlink" href="#search-with-compressed-vectors" title="Link to this heading"></a></h3>
+<p>See <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">Search using vector compression</span></a> for details on how to use LVQ for search.</p>
+</section>
+<section id="graph-building-with-compressed-vectors">
+<span id="building-with-compressed-vectors"></span><h3>Graph building with compressed vectors<a class="headerlink" href="#graph-building-with-compressed-vectors" title="Link to this heading"></a></h3>
+<p>LVQ-compressed vectors can be used to build the graph, thus reducing the memory footprint not only for search but also
+for indexing. Depending on the dataset, the search accuracy can be almost unchanged even when the graph is built with
+highly compressed vectors using LVQ-4 or LVQ-8, that is, using only 4 or 8 bits per vector component <a class="reference internal" href="#abht23" id="id6"><span>[ABHT23]</span></a>.</p>
+<p>To build the graph using compressed vectors we just need to follow the same procedure we did for <a class="reference internal" href="start.html#graph-building-code"><span class="std std-ref">graph building</span></a>.
+First, define the building parameters,</p>
+<p><strong>In Python</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Now, we can build a graph index over the data set.</span>
+<span class="n">parameters</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VamanaBuildParameters</span><span class="p">(</span>
+    <span class="n">graph_max_degree</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="n">window_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>In C++</strong></p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="e1222626-7ccc-4646-847d-2a2ae0faa3db" name="e1222626-7ccc-4646-847d-2a2ae0faa3db" type="checkbox"><label class="sphinx_collapse__label" for="e1222626-7ccc-4646-847d-2a2ae0faa3db"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
+<span class="w">    </span><span class="mf">1.2</span><span class="p">,</span><span class="w">  </span><span class="c1">// alpha</span>
+<span class="w">    </span><span class="mi">64</span><span class="p">,</span><span class="w">   </span><span class="c1">// graph max degree</span>
+<span class="w">    </span><span class="mi">128</span><span class="p">,</span><span class="w">  </span><span class="c1">// search window size</span>
+<span class="w">    </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="c1">// max candidate pool size</span>
+<span class="w">    </span><span class="mi">60</span><span class="p">,</span><span class="w">   </span><span class="c1">// prune to degree</span>
+<span class="w">    </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="c1">// full search history</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p>then load the dataset, using the loader (<a class="reference internal" href="python/loaders.html#python-api-loaders"><span class="std std-ref">details for Python</span></a>,
+<a class="reference internal" href="cpp/quantization/lvq.html#cpp-quantization-lvq"><span class="std std-ref">details for C++</span></a>) corresponding to the chosen compression type,</p>
+<p><strong>In Python</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">data_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span>  <span class="c1"># Uncompressed data</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="mi">128</span>    <span class="c1"># Passing dimensionality is optional</span>
+<span class="p">)</span>
+<span class="n">B1</span> <span class="o">=</span> <span class="mi">4</span>    <span class="c1"># Number of bits for the first level LVQ quantization</span>
+<span class="n">B2</span> <span class="o">=</span> <span class="mi">8</span>    <span class="c1"># Number of bits for the residuals quantization</span>
+<span class="n">padding</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQStrategy</span><span class="o">.</span><span class="n">Turbo</span>
+<span class="n">compressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQLoader</span><span class="p">(</span><span class="n">data_loader</span><span class="p">,</span>
+    <span class="n">primary</span><span class="o">=</span><span class="n">B1</span><span class="p">,</span>
+    <span class="n">residual</span><span class="o">=</span><span class="n">B2</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span> <span class="c1"># Passing the strategy is optional.</span>
+    <span class="n">padding</span><span class="o">=</span><span class="n">padding</span> <span class="c1"># Passing padding is optional.</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>In C++</strong></p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="28f491b6-d603-44a1-8451-7efd84ca38b3" name="28f491b6-d603-44a1-8451-7efd84ca38b3" type="checkbox"><label class="sphinx_collapse__label" for="28f491b6-d603-44a1-8451-7efd84ca38b3"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Quantization</span>
+<span class="kt">size_t</span><span class="w"> </span><span class="n">padding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
+<span class="k">namespace</span><span class="w"> </span><span class="nn">lvq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">svs</span><span class="o">::</span><span class="nn">quantization</span><span class="o">::</span><span class="nn">lvq</span><span class="p">;</span>
+
+<span class="c1">// Wrap the compressor object in a lazy functor.</span>
+<span class="c1">// This will defer loading and compression of the LVQ dataset until the threadpool</span>
+<span class="c1">// used in the index has been created.</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">compressor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Lazy</span><span class="p">([</span><span class="o">=</span><span class="p">](</span><span class="n">svs</span><span class="o">::</span><span class="n">threads</span><span class="o">::</span><span class="n">ThreadPool</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">threadpool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">).</span><span class="n">load</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">lvq</span><span class="o">::</span><span class="n">LVQDataset</span><span class="o">&lt;</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;::</span><span class="n">compress</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">threadpool</span><span class="p">,</span><span class="w"> </span><span class="n">padding</span><span class="p">);</span>
+<span class="p">});</span>
+<span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">()</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p>and finally call the build function with the chosen compression loader</p>
+<p><strong>In Python</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build the index.</span>
+<span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">,</span>
+    <span class="n">compressed_loader</span><span class="p">,</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>In C++</strong></p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="f3b1cf65-5e97-47a6-9564-c6c75126ac85" name="f3b1cf65-5e97-47a6-9564-c6c75126ac85" type="checkbox"><label class="sphinx_collapse__label" for="f3b1cf65-5e97-47a6-9564-c6c75126ac85"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Compressed building</span>
+<span class="n">index</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">build</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">(),</span><span class="w"> </span><span class="n">num_threads</span><span class="p">);</span>
+<span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed Build&quot;</span><span class="p">);</span>
+<span class="n">check</span><span class="p">(</span><span class="mf">0.8212</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p class="rubric">References</p>
+<div role="list" class="citation-list">
+<div class="citation" id="sdsk19" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>SDSK19<span class="fn-bracket">]</span></span>
+<p>Subramanya, S.J.; Devvrit, F.; Simhadri, H.V.; Krishnawamy, R.; Kadekodi, R..: Diskann: Fast accurate billion-point nearest neighbor search on a single node. In: Advances in Neural Information Processing Systems 32 (2019).</p>
+</div>
+<div class="citation" id="abht23" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>ABHT23<span class="fn-bracket">]</span></span>
+<span class="backrefs">(<a role="doc-backlink" href="#id3">1</a>,<a role="doc-backlink" href="#id5">2</a>,<a role="doc-backlink" href="#id6">3</a>)</span>
+<p>Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T..: Similarity search in the blink of an eye with compressed indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)</p>
+</div>
+<div class="citation" id="ahbw24" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>AHBW24<span class="fn-bracket">]</span></span>
+<p>Aguerrebere, C.; Hildebrand M.; Bhati I.; Willke T.; Tepper M..: Locally-adaptive Quantization for Streaming Vector Search. In: arxiv preprint arXiv:2402.02044 (2024)</p>
+</div>
+<div class="citation" id="maya18" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>MaYa18<span class="fn-bracket">]</span></span>
+<p>Malkov, Y. A. and Yashunin, D. A..: Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs. In: IEEE transactions on pattern analysis and machine intelligence 42, 4 (2018), 824–836.</p>
+</div>
+<div class="citation" id="jodj19" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>JoDJ19<span class="fn-bracket">]</span></span>
+<p>Johnson, J.; Douze, M.; Jégou, H..: Billion-scale similarity search with GPUs. In: IEEE Transactions on Big Data 7, 3 (2019), 535–547.</p>
+</div>
+<div class="citation" id="gslg20" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>GSLG20<span class="fn-bracket">]</span></span>
+<p>Guo, R.; Sun, P.; Lindgren, E.; Geng, Q.; Simcha, D.; Chern, F.; Kumar, S..: Accelerating large-scale inference with anisotropic vector quantization. In International Conference on Machine Learning. PMLR, 3887-3896 (2020)</p>
+</div>
+<div class="citation" id="iwmi18" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>IwMi18<span class="fn-bracket">]</span></span>
+<p>Iwasaki, M. and Miyazaki, D..: Nearest Neighbor Search with Neighborhood Graph and Tree for High-dimensional Data. <a class="reference external" href="https://github.com/yahoojapan/NGT">https://github.com/yahoojapan/NGT</a> (2018)</p>
+</div>
+<div class="citation" id="aubf20" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>AuBF20<span class="fn-bracket">]</span></span>
+<p>Aumüller, M.; Bernhardsson, E.; Faithfull, A..: ANN-Benchmarks: A benchmarking tool for approximate nearest neighbor algorithms. In: Information Systems 87 (2020), 101374. <a class="reference external" href="https://doi.org/10.1016/j.is.2019.02.006">https://doi.org/10.1016/j.is.2019.02.006</a></p>
+</div>
+<div class="citation" id="qdll21" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>QDLL21<span class="fn-bracket">]</span></span>
+<p>Qu, Y.; Ding, Y.; Liu, J.; Liu, K.; Ren, R.; Zhao, W. X.; Dong, D.; Wu, H. and Wang, H..: RocketQA: An optimized training approach to dense passage retrieval for open-domain question answering. In: Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies. 5835–5847. (2021)</p>
+</div>
+<div class="citation" id="ssks21" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>SSKS21<span class="fn-bracket">]</span></span>
+<p>Singh, A.; Subramanya, S.J.; Krishnaswamy, R.; Simhadri, H.V..: FreshDiskANN: A Fast and Accurate Graph-Based ANN Index for Streaming Similarity Search. In: arxiv preprint arXiv:2105.09613 (2021)</p>
+</div>
+<div class="citation" id="dgdj24" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span>DGDJ24<span class="fn-bracket">]</span></span>
+<p>Douze, M.; Guzhva, A.; Deng, C.; Johnson, J.; Szilvasy, G.; Mazaré, P.E.; Lomeli, M.; Hosseini, L.; Jégou, H.: The Faiss library. In: arxiv preprint arXiv:2401.08281 (2024)</p>
+</div>
+<div class="citation" id="tbah24" role="doc-biblioentry">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id4">TBAH24</a><span class="fn-bracket">]</span></span>
+<p>Tepper M.; Bhati I.; Aguerrebere, C.; Hildebrand M.; Willke T.: LeanVec: Search your vectors faster by making them fit. In: Transactions on Machine Learning Research(TMLR), ISSN, 2835 - 8856. (2024)</p>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="start_cpp.html" class="btn btn-neutral float-left" title="Getting started with C++" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="howtos.html" class="btn btn-neutral float-right" title="How-Tos" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

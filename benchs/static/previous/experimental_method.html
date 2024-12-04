@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Experimental Setup &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Small Scale Benchmarks" href="small_scale_benchs.html" />
+    <link rel="prev" title="Previous Results" href="../previous.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Benchmarks</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Benchmarks for Static Indexing</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../latest.html">Latest Results</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="../previous.html">Previous Results</a><ul class="current">
+<li class="toctree-l4 current"><a class="current reference internal" href="#">Experimental Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="small_scale_benchs.html">Small Scale Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="large_scale_benchs.html">Large Scale Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="system_utilization.html">System Utilization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../dynamic.html">Benchmarks for Dynamic Indexing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ablation.html">Ablation Studies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Benchmarks</a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Benchmarks for Static Indexing</a></li>
+          <li class="breadcrumb-item"><a href="../previous.html">Previous Results</a></li>
+      <li class="breadcrumb-item active">Experimental Setup</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/benchs/static/previous/experimental_method.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="experimental-setup">
+<span id="experimental-methodology"></span><h1>Experimental Setup<a class="headerlink" href="#experimental-setup" title="Link to this heading"></a></h1>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#datasets" id="id3">Datasets</a></p></li>
+<li><p><a class="reference internal" href="#evaluation-metrics" id="id4">Evaluation Metrics</a></p></li>
+<li><p><a class="reference internal" href="#query-batch-size" id="id5">Query Batch Size</a></p></li>
+</ul>
+</nav>
+<section id="datasets">
+<span id="id1"></span><h2><a class="toc-backref" href="#id3" role="doc-backlink">Datasets</a><a class="headerlink" href="#datasets" title="Link to this heading"></a></h2>
+<p>To cover a wide range of use cases, we evaluate SVS on standard datasets of diverse dimensionalities (<span class="math notranslate nohighlight">\(d=25\)</span>
+to <span class="math notranslate nohighlight">\(d=768\)</span>), number of elements (<span class="math notranslate nohighlight">\(n=10^6\)</span> to <span class="math notranslate nohighlight">\(n=10^9\)</span>), data types and metrics as described in the table below.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><strong>Dataset</strong></p></td>
+<td><p><strong>d</strong></p></td>
+<td><p><strong>n</strong></p></td>
+<td><p><strong>Encoding</strong></p></td>
+<td><p><strong>Similarity</strong></p></td>
+<td><p><strong>n queries</strong></p></td>
+<td><p><strong>Space (GiB)</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="http://corpus-texmex.irisa.fr/">gist-960-1M</a></p></td>
+<td><p>960</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>L2</p></td>
+<td><p>1000</p></td>
+<td><p>3.6</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="http://corpus-texmex.irisa.fr/">sift-128-1M</a></p></td>
+<td><p>128</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>L2</p></td>
+<td><p>10000</p></td>
+<td><p>0.5</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-10M</a></p></td>
+<td><p>96</p></td>
+<td><p>10M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>3.6</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://nlp.stanford.edu/projects/glove/">glove-50-1.2M</a></p></td>
+<td><p>50</p></td>
+<td><p>1.2M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>0.2</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://nlp.stanford.edu/projects/glove/">glove-25-1.2M</a></p></td>
+<td><p>25</p></td>
+<td><p>1.2M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>0.1</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://research.yandex.com/blog/benchmarks-for-billion-scale-similarity-search">t2i-200-100M</a></p></td>
+<td><p>200</p></td>
+<td><p>100M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>74.5</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-100M</a></p></td>
+<td><p>96</p></td>
+<td><p>100M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>35.8</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-1B</a></p></td>
+<td><p>96</p></td>
+<td><p>1B</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>257.6</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="http://corpus-texmex.irisa.fr/">sift-128-1B</a></p></td>
+<td><p>128</p></td>
+<td><p>1B</p></td>
+<td><p>uint8</p></td>
+<td><p>L2</p></td>
+<td><p>10000</p></td>
+<td><p>119.2</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="evaluation-metrics">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Evaluation Metrics</a><a class="headerlink" href="#evaluation-metrics" title="Link to this heading"></a></h2>
+<p>In all benchmarks and experimental results, search accuracy is measured by k-recall at k, defined by
+<span class="math notranslate nohighlight">\(| S \cap G_t | / k\)</span>, where <span class="math notranslate nohighlight">\(S\)</span> are the ids of the <span class="math notranslate nohighlight">\(k\)</span> retrieved neighbors and
+<span class="math notranslate nohighlight">\(G_t\)</span> is the ground-truth. We use <span class="math notranslate nohighlight">\(k=10\)</span> in all experiments.
+Search performance is measured by queries per second (QPS).</p>
+</section>
+<section id="query-batch-size">
+<span id="id2"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">Query Batch Size</a><a class="headerlink" href="#query-batch-size" title="Link to this heading"></a></h2>
+<p>The size of the query batch, which will depend on the use case, can have a big impact on performance. Therefore,
+we evaluate batch sizes: 1 (one query at a time or single query), 128 (typical batch size for deep learning training
+and inference) and full batch (determined by the number of queries in the dataset, see <a class="reference internal" href="#datasets"><span class="std std-ref">Datasets</span></a>).</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../previous.html" class="btn btn-neutral float-left" title="Previous Results" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="small_scale_benchs.html" class="btn btn-neutral float-right" title="Small Scale Benchmarks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flat Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Vamana Graph Index" href="vamana.html" />
+    <link rel="prev" title="Loaders" href="loaders.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="loaders.html">Loaders</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Flat Index</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#svs.Flat"><code class="docutils literal notranslate"><span class="pre">Flat</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.__init__"><code class="docutils literal notranslate"><span class="pre">Flat.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.dimensions"><code class="docutils literal notranslate"><span class="pre">Flat.dimensions</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.num_threads"><code class="docutils literal notranslate"><span class="pre">Flat.num_threads</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.query_types"><code class="docutils literal notranslate"><span class="pre">Flat.query_types</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.search"><code class="docutils literal notranslate"><span class="pre">Flat.search()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.search_parameters"><code class="docutils literal notranslate"><span class="pre">Flat.search_parameters</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.size"><code class="docutils literal notranslate"><span class="pre">Flat.size</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Flat Index</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/python/flat.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="flat-index">
+<span id="flat-api"></span><h1>Flat Index<a class="headerlink" href="#flat-index" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.Flat">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">Flat</span></span><a class="headerlink" href="#svs.Flat" title="Link to this definition"></a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="svs.Flat.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.__init__" title="Link to this definition"></a></dt>
+<dd><p>Overloaded function.</p>
+<ol class="arabic simple">
+<li><p>__init__(self: svs::python.Flat, data_loader: Union[svs::python.VectorDataLoader, svs::python.LVQLoader], distance: svs::python.DistanceType = &lt;DistanceType.L2: 0&gt;, query_type: svs::python.DataType = &lt;DataType.float32: 9&gt;, num_threads: int = 1) -&gt; None</p></li>
+</ol>
+<p>Load a Flat index from data stored on disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_loader</strong> – The loader for the dataset.</p></li>
+<li><p><strong>distance</strong> – The distance function to use.</p></li>
+<li><p><strong>query_type</strong> – The data type of the queries.</p></li>
+<li><p><strong>num_threads</strong> – The number of threads to use for queries (can be changed after loading).</p></li>
+</ul>
+</dd>
+</dl>
+<p>The top level type is an abstract type backed by various specialized backends that will
+be instantiated based on their applicability to the particular problem instance.</p>
+<p>The arguments upon which specialization is conducted are:</p>
+<ul class="simple">
+<li><p><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type,
+quantization type, and number of dimensions.</p></li>
+<li><p><cite>distance</cite>: The distance measure being used.</p></li>
+</ul>
+<p>Specializations compiled into the binary are listed below.</p>
+<dl class="simple">
+<dt>Method 0:</dt><dd><ul class="simple">
+<li><p>data_loader: VectorDataLoader with element type float32 and any dimension – (union alternative 0)</p></li>
+<li><p>distance: all values</p></li>
+</ul>
+</dd>
+<dt>Method 1:</dt><dd><ul class="simple">
+<li><p>data_loader: VectorDataLoader with element type float16 and any dimension – (union alternative 0)</p></li>
+<li><p>distance: all values</p></li>
+</ul>
+</dd>
+<dt>Method 2:</dt><dd><ul class="simple">
+<li><p>data_loader: VectorDataLoader with element type uint8 and any dimension – (union alternative 0)</p></li>
+<li><p>distance: all values</p></li>
+</ul>
+</dd>
+<dt>Method 3:</dt><dd><ul class="simple">
+<li><p>data_loader: VectorDataLoader with element type int8 and any dimension – (union alternative 0)</p></li>
+<li><p>distance: all values</p></li>
+</ul>
+</dd>
+<dt>Method 4:</dt><dd><ul class="simple">
+<li><p>data_loader: LVQLoader 4x4 (sequential) with any dimensions – (union alternative 1)</p></li>
+<li><p>distance: L2</p></li>
+</ul>
+</dd>
+<dt>Method 5:</dt><dd><ul class="simple">
+<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions – (union alternative 1)</p></li>
+<li><p>distance: L2</p></li>
+</ul>
+</dd>
+<dt>Method 6:</dt><dd><ul class="simple">
+<li><p>data_loader: LVQLoader 4x4 (sequential) with any dimensions – (union alternative 1)</p></li>
+<li><p>distance: MIP</p></li>
+</ul>
+</dd>
+<dt>Method 7:</dt><dd><ul class="simple">
+<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions – (union alternative 1)</p></li>
+<li><p>distance: MIP</p></li>
+</ul>
+</dd>
+</dl>
+<ol class="arabic simple" start="2">
+<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[float16], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+</ol>
+<p>Construct a Flat index over the given data, returning a searchable index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The dataset to index. <strong>NOTE</strong>: SVS will maintain an internal copy of the
+dataset. This may change in future releases.</p></li>
+<li><p><strong>distance</strong> – The distance type to use for this dataset.</p></li>
+<li><p><strong>num_threads</strong> – The number of threads to use for searching. This value can also be
+changed after the index is constructed.</p></li>
+</ul>
+</dd>
+</dl>
+<ol class="arabic simple" start="3">
+<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[numpy.float32], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+</ol>
+<p>Construct a Flat index over the given data, returning a searchable index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The dataset to index. <strong>NOTE</strong>: SVS will maintain an internal copy of the
+dataset. This may change in future releases.</p></li>
+<li><p><strong>distance</strong> – The distance type to use for this dataset.</p></li>
+<li><p><strong>num_threads</strong> – The number of threads to use for searching. This value can also be
+changed after the index is constructed.</p></li>
+</ul>
+</dd>
+</dl>
+<ol class="arabic simple" start="4">
+<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[numpy.uint8], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+</ol>
+<p>Construct a Flat index over the given data, returning a searchable index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The dataset to index. <strong>NOTE</strong>: SVS will maintain an internal copy of the
+dataset. This may change in future releases.</p></li>
+<li><p><strong>distance</strong> – The distance type to use for this dataset.</p></li>
+<li><p><strong>num_threads</strong> – The number of threads to use for searching. This value can also be
+changed after the index is constructed.</p></li>
+</ul>
+</dd>
+</dl>
+<ol class="arabic simple" start="5">
+<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[numpy.int8], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+</ol>
+<p>Construct a Flat index over the given data, returning a searchable index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> – The dataset to index. <strong>NOTE</strong>: SVS will maintain an internal copy of the
+dataset. This may change in future releases.</p></li>
+<li><p><strong>distance</strong> – The distance type to use for this dataset.</p></li>
+<li><p><strong>num_threads</strong> – The number of threads to use for searching. This value can also be
+changed after the index is constructed.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.Flat.dimensions">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.Flat.dimensions" title="Link to this definition"></a></dt>
+<dd><p>Return the logical number of dimensions for each vector in the dataset.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.Flat.num_threads">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.Flat.num_threads" title="Link to this definition"></a></dt>
+<dd><p>Get and set the number of threads used to process queries.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Read/Write (int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.Flat.query_types">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.Flat.query_types" title="Link to this definition"></a></dt>
+<dd><p>Return the query element types this index is specialized for.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.Flat.search">
+<span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.search" title="Link to this definition"></a></dt>
+<dd><p>Overloaded function.</p>
+<ol class="arabic simple">
+<li><p>search(self: svs::python.Flat, queries: numpy.ndarray[numpy.float32], n_neighbors: int) -&gt; tuple</p></li>
+</ol>
+<p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>queries</strong> – Numpy Vector or Matrix representing the queries.
+If the argument is a vector, it will be treated as a single query.
+If the argument is a matrix, individual queries are assumed to the rows of the
+matrix. Returned results will have a position-wise correspondence
+with the queries. That is, the <cite>N</cite>-th row of the returned IDs and distances will
+correspond to the <cite>N</cite>-th row in the query matrix.</p></li>
+<li><p><strong>n_neighbors</strong> – The number of neighbors to return for this search job.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A tuple <cite>(I, D)</cite> where <cite>I</cite> contains the <cite>n_neighbors</cite> approximate (or exact) nearest
+neighbors to the queries and <cite>D</cite> contains the approximate distances.</p>
+<p>Note: This form is returned regardless of whether the given query was a vector or a
+matrix.</p>
+</p>
+</dd>
+</dl>
+<ol class="arabic simple" start="2">
+<li><p>search(self: svs::python.Flat, queries: numpy.ndarray[numpy.uint8], n_neighbors: int) -&gt; tuple</p></li>
+</ol>
+<p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>queries</strong> – Numpy Vector or Matrix representing the queries.
+If the argument is a vector, it will be treated as a single query.
+If the argument is a matrix, individual queries are assumed to the rows of the
+matrix. Returned results will have a position-wise correspondence
+with the queries. That is, the <cite>N</cite>-th row of the returned IDs and distances will
+correspond to the <cite>N</cite>-th row in the query matrix.</p></li>
+<li><p><strong>n_neighbors</strong> – The number of neighbors to return for this search job.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A tuple <cite>(I, D)</cite> where <cite>I</cite> contains the <cite>n_neighbors</cite> approximate (or exact) nearest
+neighbors to the queries and <cite>D</cite> contains the approximate distances.</p>
+<p>Note: This form is returned regardless of whether the given query was a vector or a
+matrix.</p>
+</p>
+</dd>
+</dl>
+<ol class="arabic simple" start="3">
+<li><p>search(self: svs::python.Flat, queries: numpy.ndarray[numpy.int8], n_neighbors: int) -&gt; tuple</p></li>
+</ol>
+<p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>queries</strong> – Numpy Vector or Matrix representing the queries.
+If the argument is a vector, it will be treated as a single query.
+If the argument is a matrix, individual queries are assumed to the rows of the
+matrix. Returned results will have a position-wise correspondence
+with the queries. That is, the <cite>N</cite>-th row of the returned IDs and distances will
+correspond to the <cite>N</cite>-th row in the query matrix.</p></li>
+<li><p><strong>n_neighbors</strong> – The number of neighbors to return for this search job.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>A tuple <cite>(I, D)</cite> where <cite>I</cite> contains the <cite>n_neighbors</cite> approximate (or exact) nearest
+neighbors to the queries and <cite>D</cite> contains the approximate distances.</p>
+<p>Note: This form is returned regardless of whether the given query was a vector or a
+matrix.</p>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.Flat.search_parameters">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.Flat.search_parameters" title="Link to this definition"></a></dt>
+<dd><p>Get/set the current search parameters for the
+index. These parameters modify and non-algorthmic properties of search (affecting
+queries-per-second).</p>
+<p>See also: <cite>svs.FlatSearchParameters</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>“Read/Write (svs.FlatSearchParameters)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.Flat.size">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.Flat.size" title="Link to this definition"></a></dt>
+<dd><p>Return the number of elements in the indexed dataset.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="loaders.html" class="btn btn-neutral float-left" title="Loaders" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vamana.html" class="btn btn-neutral float-right" title="Vamana Graph Index" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

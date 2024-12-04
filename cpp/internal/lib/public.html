@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Public Library Components &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Multi-dimensional Array" href="array.html" />
+    <link rel="prev" title="Library Components" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Library Components</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Public Library Components</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#exceptions">Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#data-types">Data Types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#static-and-dynamic-dimensionality">Static and Dynamic Dimensionality</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#types">Types</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#memory-management">Memory Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#reading-and-writing-to-streams">Reading and Writing to Streams</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="array.html">Multi-dimensional Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="saveload.html">Data Structure Saving and Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dispatcher.html">Dynamic Dispatcher</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../index_impl/index.html">Index Data Structures</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Library Components</a></li>
+      <li class="breadcrumb-item active">Public Library Components</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/lib/public.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="public-library-components">
+<span id="cpp-lib-public"></span><h1>Public Library Components<a class="headerlink" href="#public-library-components" title="Link to this heading"></a></h1>
+<section id="exceptions">
+<h2>Exceptions<a class="headerlink" href="#exceptions" title="Link to this heading"></a></h2>
+<p>ALl exceptions thrown by this library that aren’t part of the STL’s suite of exceptions will be of the type <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::ANNException</span></code> described below.</p>
+<dl class="cpp macro">
+<dt class="sig sig-object cpp" id="c.ANNEXCEPTION">
+<span class="target" id="group__lib__exception_1ga8f6d34532fcaf0f5610b2b4857be32a0"></span><span class="sig-name descname"><span class="n"><span class="pre">ANNEXCEPTION</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">format</span></span>, <span class="p"><span class="pre">...</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.ANNEXCEPTION" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct an exception with line information. </p>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib12ANNExceptionE">
+<span id="_CPPv3N3svs3lib12ANNExceptionE"></span><span id="_CPPv2N3svs3lib12ANNExceptionE"></span><span id="svs::lib::ANNException"></span><span class="target" id="classsvs_1_1lib_1_1ANNException"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ANNException</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">runtime_error</span></span><a class="headerlink" href="#_CPPv4N3svs3lib12ANNExceptionE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/lib/exception.h&gt;</em></div>
+<p>Generic exception thrown by routines within htelibrary. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib12ANNException12ANNExceptionERKNSt6stringE">
+<span id="_CPPv3N3svs3lib12ANNException12ANNExceptionERKNSt6stringE"></span><span id="_CPPv2N3svs3lib12ANNException12ANNExceptionERKNSt6stringE"></span><span id="svs::lib::ANNException::ANNException__ssCR"></span><span class="target" id="classsvs_1_1lib_1_1ANNException_1ac5eb643a146729728c061d4e7c0bca5a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ANNException</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">message</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib12ANNException12ANNExceptionERKNSt6stringE" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new excpetion with the given error message. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="data-types">
+<h2>Data Types<a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
+<dl class="cpp enum-class">
+<dt class="sig sig-object cpp" id="_CPPv48DataType">
+<span id="_CPPv38DataType"></span><span id="_CPPv28DataType"></span><span class="target" id="group__lib__public__datatype_1ga736be754d35645e1becf64bef92d7056"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataType</span></span></span><a class="headerlink" href="#_CPPv48DataType" title="Link to this definition"></a><br /></dt>
+<dd><p>Enum aliases for dense vector element types. </p>
+<p><em>Values:</em></p>
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType5uint8E">
+<span id="_CPPv3N8DataType5uint8E"></span><span id="_CPPv2N8DataType5uint8E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a5f423e669d0a8f4ab7c4c3e6da27161a"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">uint8</span></span></span><a class="headerlink" href="#_CPPv4N8DataType5uint8E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType6uint16E">
+<span id="_CPPv3N8DataType6uint16E"></span><span id="_CPPv2N8DataType6uint16E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056aa00ef2ef85ff67b7b39339886f19044f"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">uint16</span></span></span><a class="headerlink" href="#_CPPv4N8DataType6uint16E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType6uint32E">
+<span id="_CPPv3N8DataType6uint32E"></span><span id="_CPPv2N8DataType6uint32E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a3de84ad0700f2a1571f633d399e1900e"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">uint32</span></span></span><a class="headerlink" href="#_CPPv4N8DataType6uint32E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType6uint64E">
+<span id="_CPPv3N8DataType6uint64E"></span><span id="_CPPv2N8DataType6uint64E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a2e8d31865e5d4b9d8611e1b991baed07"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">uint64</span></span></span><a class="headerlink" href="#_CPPv4N8DataType6uint64E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType4int8E">
+<span id="_CPPv3N8DataType4int8E"></span><span id="_CPPv2N8DataType4int8E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a27c006cc56b1ba88f960cf8b5144fcac"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">int8</span></span></span><a class="headerlink" href="#_CPPv4N8DataType4int8E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType5int16E">
+<span id="_CPPv3N8DataType5int16E"></span><span id="_CPPv2N8DataType5int16E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056ace80d5ec65b1d2a2f1049eadc100db23"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">int16</span></span></span><a class="headerlink" href="#_CPPv4N8DataType5int16E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType5int32E">
+<span id="_CPPv3N8DataType5int32E"></span><span id="_CPPv2N8DataType5int32E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a0241adbbd83925f051b694d40f02747f"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">int32</span></span></span><a class="headerlink" href="#_CPPv4N8DataType5int32E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType5int64E">
+<span id="_CPPv3N8DataType5int64E"></span><span id="_CPPv2N8DataType5int64E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056aff9b3f96d37353c528517bc3656a00a8"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">int64</span></span></span><a class="headerlink" href="#_CPPv4N8DataType5int64E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType7float16E">
+<span id="_CPPv3N8DataType7float16E"></span><span id="_CPPv2N8DataType7float16E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a098e7844282e240fdee28a9dac11c1c6"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">float16</span></span></span><a class="headerlink" href="#_CPPv4N8DataType7float16E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType7float32E">
+<span id="_CPPv3N8DataType7float32E"></span><span id="_CPPv2N8DataType7float32E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056ad33ec2b0bbea6d471a4706cea030e1e3"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">float32</span></span></span><a class="headerlink" href="#_CPPv4N8DataType7float32E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType7float64E">
+<span id="_CPPv3N8DataType7float64E"></span><span id="_CPPv2N8DataType7float64E"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056afb7fa22ede616c04c68a7663d0f81e92"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">float64</span></span></span><a class="headerlink" href="#_CPPv4N8DataType7float64E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType4byteE">
+<span id="_CPPv3N8DataType4byteE"></span><span id="_CPPv2N8DataType4byteE"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056a40ea57d3ee3c07bf1c102b466e1c3091"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">byte</span></span></span><a class="headerlink" href="#_CPPv4N8DataType4byteE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N8DataType5undefE">
+<span id="_CPPv3N8DataType5undefE"></span><span id="_CPPv2N8DataType5undefE"></span><span class="target" id="group__lib__public__datatype_1gga736be754d35645e1becf64bef92d7056af31ee5e3824f1f5e5d206bdf3029f22b"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">undef</span></span></span><a class="headerlink" href="#_CPPv4N8DataType5undefE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4I_8DataTypeE10cpp_type_t">
+<span id="_CPPv3I_8DataTypeE10cpp_type_t"></span><span id="_CPPv2I_8DataTypeE10cpp_type_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Type</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__datatype_1ga4b03c58e92f2384d748449c0a96b0144"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cpp_type_t</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">CppType</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_8DataTypeE10cpp_type_t" title="cpp_type_t::Type"><span class="n"><span class="pre">Type</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">type</span></span><a class="headerlink" href="#_CPPv4I_8DataTypeE10cpp_type_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Convert an DataType to its corresponding C++ type. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4I0E10datatype_v">
+<span id="_CPPv3I0E10datatype_v"></span><span id="_CPPv2I0E10datatype_v"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__datatype_1gace693a86abfcb9df6d244fae3f7e5762"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">datatype_v</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">datatype_v</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">decay_t</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0E10datatype_v" title="datatype_v::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4I0E10datatype_v" title="Link to this definition"></a><br /></dt>
+<dd><p>Convert a C++ type into its corresponding DataType. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4I0E14has_datatype_v">
+<span id="_CPPv3I0E14has_datatype_v"></span><span id="_CPPv2I0E14has_datatype_v"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__datatype_1ga960ed4aea2a9e61142f83ff2a19fae14"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">has_datatype_v</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4I0E10datatype_v" title="datatype_v"><span class="n"><span class="pre">datatype_v</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0E14has_datatype_v" title="has_datatype_v::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="o"><span class="pre">!=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N8DataType5undefE" title="DataType::undef"><span class="n"><span class="pre">undef</span></span></a><span class="p"><span class="pre">)</span></span><a class="headerlink" href="#_CPPv4I0E14has_datatype_v" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether the type <code class="docutils literal notranslate"><span class="pre">T</span></code> has a corresponding <code class="docutils literal notranslate"><a class="reference internal" href="#group__lib__public__datatype_1ga736be754d35645e1becf64bef92d7056"><span class="std std-ref"><span class="pre">svs::DataType</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_8DataTypeE4nameNSt11string_viewEv">
+<span id="_CPPv3I_8DataTypeE4namev"></span><span id="_CPPv2I_8DataTypeE4namev"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Type</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__datatype_1gaa0f02f5e28b12ddb57c38143c98797fc"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">name</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_8DataTypeE4nameNSt11string_viewEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a descriptive name for the corresponding datatype. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv44name8DataType">
+<span id="_CPPv34name8DataType"></span><span id="_CPPv24name8DataType"></span><span id="name__DataTypeCE"></span><span class="target" id="group__lib__public__datatype_1gaf2ff1a5cd12c9440daba1c2fd4bc1035"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">name</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">type</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv44name8DataType" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a descriptive string for the corresponding datatype. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv46formatRKNSt6vectorI8DataTypeEE">
+<span id="_CPPv36formatRKNSt6vectorI8DataTypeEE"></span><span id="_CPPv26formatRKNSt6vectorI8DataTypeEE"></span><span id="format__std::vector:DataType:CR"></span><span class="target" id="group__lib__public__datatype_1ga7efb3fbff73541cba1a4691c357e4772"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">format</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">types</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv46formatRKNSt6vectorI8DataTypeEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Create a formatted string of all data types present. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>types</strong> – Collection of data types to create a string for. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="static-and-dynamic-dimensionality">
+<h2>Static and Dynamic Dimensionality<a class="headerlink" href="#static-and-dynamic-dimensionality" title="Link to this heading"></a></h2>
+<p>Vector abstractions in the library often come with the ability to statically type dimensionality (i.e., the number of elements in a vector).
+When static dimensionality is used, the compiler/library can often generate better code resulting in substantial speedups.
+Unfortunately, there is no free lunch as specializing functions for specific dimensionalities results in extra compilation time and code generation.
+Therefore, we include the option for both static (compile time) and dynamic (run time) dimensionality for internal vectors.</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv47Dynamic">
+<span id="_CPPv37Dynamic"></span><span id="_CPPv27Dynamic"></span><span id="Dynamic__sC"></span><span class="target" id="group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dynamic</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">dynamic_extent</span></span><a class="headerlink" href="#_CPPv47Dynamic" title="Link to this definition"></a><br /></dt>
+<dd><p>Special value representing run-time dimensionality. </p>
+<p>Throughout the code base, static size information for various vector types can be passed to potentially improve the quality of generated code.</p>
+<p>While this can be beneficial at runtime, it does come at the cost of increased compilation time and the need to dispatch to specialized implementations if they exist.</p>
+<p>When run-time dimensionality is desired instead, the use of the sentinel value <code class="docutils literal notranslate"><span class="pre">Dynamic</span></code> can be used. </p>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I_6size_tEN3svs3lib3ValE">
+<span id="_CPPv3I_6size_tEN3svs3lib3ValE"></span><span id="_CPPv2I_6size_tEN3svs3lib3ValE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">N</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1Val"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Val</span></span></span><a class="headerlink" href="#_CPPv4I_6size_tEN3svs3lib3ValE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/lib/meta.h&gt;</em></div>
+<p>Compile-time dimensionality. </p>
+<p>
+If dynamic (i.e. runtime) dimensionality is required, set <code class="docutils literal notranslate"><span class="pre">N</span> <span class="pre">=</span> <a class="reference internal" href="#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>N</strong> – - The static number of dimensions.</p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib3Val3ValEv">
+<span id="_CPPv3N3svs3lib3Val3ValEv"></span><span id="_CPPv2N3svs3lib3Val3ValEv"></span><span id="svs::lib::Val::ValCE"></span><span class="target" id="classsvs_1_1lib_1_1Val_1abfb1e5f6a69645b2870a47909e970135"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Val</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">default</span></span><a class="headerlink" href="#_CPPv4N3svs3lib3Val3ValEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#classsvs_1_1lib_1_1Val"><span class="std std-ref">Val</span></a> instance. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib3Val5valueE">
+<span id="_CPPv3N3svs3lib3Val5valueE"></span><span id="_CPPv2N3svs3lib3Val5valueE"></span><span id="svs::lib::Val::value__s"></span><span class="target" id="classsvs_1_1lib_1_1Val_1a207c75b55ce8de7da7a63b0c4a279b88"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">value</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_6size_tEN3svs3lib3ValE" title="svs::lib::Val::N"><span class="n"><span class="pre">N</span></span></a><a class="headerlink" href="#_CPPv4N3svs3lib3Val5valueE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the value parameter <code class="docutils literal notranslate"><span class="pre">N</span></code>. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="types">
+<h2>Types<a class="headerlink" href="#types" title="Link to this heading"></a></h2>
+<p>The library has support for passing either types or lists of types explicitly to some functions.
+Often, this works better than relying on positional type parameters of those respective functions as these classes can be passed for any argument and are generally more flexible.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0DpE2inb5TypesIDp2TsE">
+<span id="_CPPv3I0DpE2in5TypesIDp2TsE"></span><span id="_CPPv2I0DpE2in5TypesIDp2TsE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Ts</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__types_1ga28ff13734899c764e8691a9bf9f393fb"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">in</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">Types</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0DpE2inb5TypesIDp2TsE" title="in::Ts"><span class="n"><span class="pre">Ts</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">typelist</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0DpE2inb5TypesIDp2TsE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether the requested type is in the type list. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4IDpE2inb8DataType5TypesIDp2TsE">
+<span id="_CPPv3IDpE2in8DataType5TypesIDp2TsE"></span><span id="_CPPv2IDpE2in8DataType5TypesIDp2TsE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Ts</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__types_1ga9577066c1716ca85faaa9c92abfc2ad5"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">in</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">datatype</span></span>, <span class="n"><span class="pre">Types</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4IDpE2inb8DataType5TypesIDp2TsE" title="in::Ts"><span class="n"><span class="pre">Ts</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">typelist</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4IDpE2inb8DataType5TypesIDp2TsE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether the requested runtime type is in the compiletime type list. </p>
+<p>
+Requires that elements in the type list have a know corresponding data type. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>datatype</strong> – The runtime data type. </p></li>
+<li><p><strong>typelist</strong> – The list of accepted types.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0DpE13for_each_typev5TypesIDp2TsERR1F">
+<span id="_CPPv3I0DpE13for_each_type5TypesIDp2TsERR1F"></span><span id="_CPPv2I0DpE13for_each_type5TypesIDp2TsERR1F"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Ts</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__lib__public__types_1ga592caeb4c726b626d552874d99841eda"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">for_each_type</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">Types</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0DpE13for_each_typev5TypesIDp2TsERR1F" title="for_each_type::Ts"><span class="n"><span class="pre">Ts</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">types</span></span>, <a class="reference internal" href="#_CPPv4I0DpE13for_each_typev5TypesIDp2TsERR1F" title="for_each_type::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0DpE13for_each_typev5TypesIDp2TsERR1F" title="Link to this definition"></a><br /></dt>
+<dd><p>Generator helper for each type. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>types</strong> – - The list of types to pass to the functor <code class="docutils literal notranslate"><span class="pre">f</span></code>. </p></li>
+<li><p><strong>f</strong> – - Functor accepting a single argument <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1lib_1_1Type"><span class="std std-ref"><span class="pre">Type</span></span></a><span class="pre">&lt;T&gt;</span></code> called once for each <code class="docutils literal notranslate"><span class="pre">T</span></code> in <code class="docutils literal notranslate"><span class="pre">types</span></code>. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib4TypeE">
+<span id="_CPPv3I0EN3svs3lib4TypeE"></span><span id="_CPPv2I0EN3svs3lib4TypeE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structsvs_1_1lib_1_1Type"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Type</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs3lib4TypeE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/lib/meta.h&gt;</em></div>
+<p>Empty struct for reasoning about types. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>T</strong> – - The C++ type this struct refers to. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib4Type4typeE">
+<span id="_CPPv3N3svs3lib4Type4typeE"></span><span id="_CPPv2N3svs3lib4Type4typeE"></span><span class="target" id="structsvs_1_1lib_1_1Type_1abb6ee321529401347ed50916609f748e"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib4TypeE" title="svs::lib::Type::T"><span class="n"><span class="pre">T</span></span></a><a class="headerlink" href="#_CPPv4N3svs3lib4Type4typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type this struct is representing. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib4Typecv8DataTypeEv">
+<span id="_CPPv3N3svs3lib4Typecv8DataTypeEv"></span><span id="_CPPv2N3svs3lib4Typecv8DataTypeEv"></span><span id="svs::lib::Type::castto-DataType-operatorCE"></span><span class="target" id="structsvs_1_1lib_1_1Type_1afac8ad5dafdc5b015a016a3fe605092e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv48DataType" title="DataType"><span class="n"><span class="pre">DataType</span></span></a></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib4Typecv8DataTypeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Implicit conversion for special types. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4IDpEN3svs3lib5TypesE">
+<span id="_CPPv3IDpEN3svs3lib5TypesE"></span><span id="_CPPv2IDpEN3svs3lib5TypesE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Ts</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structsvs_1_1lib_1_1Types"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Types</span></span></span><a class="headerlink" href="#_CPPv4IDpEN3svs3lib5TypesE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/lib/meta.h&gt;</em></div>
+<p>A list of types. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib5Types10data_typesEv">
+<span id="_CPPv3N3svs3lib5Types10data_typesEv"></span><span id="_CPPv2N3svs3lib5Types10data_typesEv"></span><span id="svs::lib::Types::data_typesCE"></span><span class="target" id="structsvs_1_1lib_1_1Types_1aed774770130a2ead6f268ea598451eb6"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DataType</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">sizeof</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4IDpEN3svs3lib5TypesE" title="svs::lib::Types::Ts"><span class="n"><span class="pre">Ts</span></span></a><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">data_types</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib5Types10data_typesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return an array of the type enums. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib5Types4sizeE">
+<span id="_CPPv3N3svs3lib5Types4sizeE"></span><span id="_CPPv2N3svs3lib5Types4sizeE"></span><span id="svs::lib::Types::size__s"></span><span class="target" id="structsvs_1_1lib_1_1Types_1ac14c06934249a24ed7d1f935eace0f40"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">sizeof</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4IDpEN3svs3lib5TypesE" title="svs::lib::Types::Ts"><span class="n"><span class="pre">Ts</span></span></a><span class="p"><span class="pre">)</span></span><a class="headerlink" href="#_CPPv4N3svs3lib5Types4sizeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The number of types in the list. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h3>
+<p>An example of using types is given below.</p>
+<div class="docutils container">
+<dd><p>In this example, we’ll show usage of <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1lib_1_1Types"><span class="std std-ref"><span class="pre">svs::lib::Types</span></span></a></code> and <code class="docutils literal notranslate"><a class="reference internal" href="#group__lib__public__types_1ga592caeb4c726b626d552874d99841eda"><span class="std std-ref"><span class="pre">svs::lib::for_each_type</span></span></a></code>.</p>
+<p>First, we include the appropriate headers: <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/datatype.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/float16.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/meta.h&quot;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cstdint&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+</pre></div>
+</div>
+</p>
+<p>The “svs” headers include the following:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">datatype.h</span></code>: Type enums and naming for common C++ data types.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">meta.h</span></code>: Defines the <code class="docutils literal notranslate"><span class="pre">Types</span></code> class</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">float16.h</span></code>: Support for 16-bit floating point.</p></li>
+</ul>
+</p>
+<p>With those included, we can define our main function. <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">types</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Types</span><span class="o">&lt;</span><span class="kt">int64_t</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Float16</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">// Print out the name of each type.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">for_each_type</span><span class="p">(</span><span class="n">types</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="cm">/*svs_type*/</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Print out the name of the data type.</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">name</span><span class="o">&lt;</span><span class="n">svs</span><span class="o">::</span><span class="n">datatype_v</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p>
+<p>We first construct the variable <code class="docutils literal notranslate"><span class="pre">types</span></code> as a type list with three parameters. Then, we invoke <code class="docutils literal notranslate"><a class="reference internal" href="#group__lib__public__types_1ga592caeb4c726b626d552874d99841eda"><span class="std std-ref"><span class="pre">svs::lib::for_each_type</span></span></a></code> on the resulting object. To this function, we also pass a lambda accepting a single argument of type 8 <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1lib_1_1Type"><span class="std std-ref"><span class="pre">svs::lib::Type</span></span></a></code>. This lambda is called for each type in <code class="docutils literal notranslate"><span class="pre">types</span></code>’ parameter pack. The resulting output will be: <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">int64</span>
+<span class="n">float32</span>
+<span class="n">float16</span>
+</pre></div>
+</div>
+</p>
+<p>The full code example is given below. <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/datatype.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/float16.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/meta.h&quot;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;cstdint&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;iostream&gt;</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">types</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Types</span><span class="o">&lt;</span><span class="kt">int64_t</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Float16</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="c1">// Print out the name of each type.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">for_each_type</span><span class="p">(</span><span class="n">types</span><span class="p">,</span><span class="w"> </span><span class="p">[]</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="cm">/*svs_type*/</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Print out the name of the data type.</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">cout</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">name</span><span class="o">&lt;</span><span class="n">svs</span><span class="o">::</span><span class="n">datatype_v</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="sc">&#39;\n&#39;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p>
+</dd></div>
+</section>
+</section>
+<section id="memory-management">
+<h2>Memory Management<a class="headerlink" href="#memory-management" title="Link to this heading"></a></h2>
+</section>
+<section id="reading-and-writing-to-streams">
+<h2>Reading and Writing to Streams<a class="headerlink" href="#reading-and-writing-to-streams" title="Link to this heading"></a></h2>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib12write_binaryE6size_tR6StreamRK1T">
+<span id="_CPPv3I00EN3svs3lib12write_binaryER6StreamRK1T"></span><span id="_CPPv2I00EN3svs3lib12write_binaryER6StreamRK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Stream</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a83aacac7e887b58a85ca5d0fab5cd4d6"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">write_binary</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I00EN3svs3lib12write_binaryE6size_tR6StreamRK1T" title="svs::lib::write_binary::Stream"><span class="n"><span class="pre">Stream</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">stream</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs3lib12write_binaryE6size_tR6StreamRK1T" title="svs::lib::write_binary::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs3lib12write_binaryE6size_tR6StreamRK1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Write the canonical binary representation of <code class="docutils literal notranslate"><span class="pre">val</span></code> to the output stream. </p>
+<p>
+Writing will occur sequentially on each byte beginning from the least significant byte.</p>
+<p>Accepted types:</p>
+<p><ul class="simple">
+<li><p>Any <code class="docutils literal notranslate"><span class="pre">std::is_trivially_copyable</span></code> type.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">std::vector</span></code> or <code class="docutils literal notranslate"><span class="pre">std::span</span></code> of such types. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stream</strong> – A <code class="docutils literal notranslate"><span class="pre">std::basic_ostream</span></code> compatible object.j:wa </p></li>
+<li><p><strong>val</strong> – The value to write.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The number of bytes written to the stream.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00E11read_binaryvR6StreamR1T">
+<span id="_CPPv3I00E11read_binaryR6StreamR1T"></span><span id="_CPPv2I00E11read_binaryR6StreamR1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Stream</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__read__binary__group_1gace90757ed9cc4ea929d173129a8c7d11"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">read_binary</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I00E11read_binaryvR6StreamR1T" title="read_binary::Stream"><span class="n"><span class="pre">Stream</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">stream</span></span>, <a class="reference internal" href="#_CPPv4I00E11read_binaryvR6StreamR1T" title="read_binary::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00E11read_binaryvR6StreamR1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Read the canonical binary representation of <code class="docutils literal notranslate"><span class="pre">T</span></code> and store the results in <code class="docutils literal notranslate"><span class="pre">x</span></code>. </p>
+<p>
+Accepted types <code class="docutils literal notranslate"><span class="pre">T</span></code>:</p>
+<p><ul class="simple">
+<li><p>Any type satisfying <code class="docutils literal notranslate"><span class="pre">std::is_trivially_copyable</span></code>. Parameter <code class="docutils literal notranslate"><span class="pre">x</span></code> will the be populated as if by <code class="docutils literal notranslate"><span class="pre">std::memcpy</span></code>.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">std::vector</span></code> of such types. Each element of the vector will be populated as if by recursively calling <code class="docutils literal notranslate"><a class="reference internal" href="#group__read__binary__group_1gace90757ed9cc4ea929d173129a8c7d11"><span class="std std-ref"><span class="pre">svs::lib::read_binary</span></span></a></code> on each element beginning from the beginning. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stream</strong> – A <code class="docutils literal notranslate"><span class="pre">std::istream</span></code> compatible object. </p></li>
+<li><p><strong>x</strong> – The destination to store the result.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00E11read_binary1TR6Stream">
+<span id="_CPPv3I00E11read_binaryR6Stream"></span><span id="_CPPv2I00E11read_binaryR6Stream"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Stream</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__read__binary__group_1ga185bdc00f967148c87e28a8f648f6c4b"></span><a class="reference internal" href="#_CPPv4I00E11read_binary1TR6Stream" title="read_binary::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">read_binary</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I00E11read_binary1TR6Stream" title="read_binary::Stream"><span class="n"><span class="pre">Stream</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">stream</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00E11read_binary1TR6Stream" title="Link to this definition"></a><br /></dt>
+<dd><p>Read the canonical binary representation of <code class="docutils literal notranslate"><span class="pre">T</span></code>. </p>
+<p>
+Read the canonical binary representation of <code class="docutils literal notranslate"><span class="pre">T</span></code> as if by <code class="docutils literal notranslate"><span class="pre">std::memcpy</span></code>. Requires that <code class="docutils literal notranslate"><span class="pre">T</span></code> satisfies <code class="docutils literal notranslate"><span class="pre">std::is_trivially_copyable</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>T</strong> – The type to read from the stream.</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>stream</strong> – A <code class="docutils literal notranslate"><span class="pre">std::istream</span></code> compatible object.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Library Components" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="array.html" class="btn btn-neutral float-right" title="Multi-dimensional Array" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

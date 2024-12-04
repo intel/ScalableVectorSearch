@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Indexes &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Vamana Index" href="vamana.html" />
+    <link rel="prev" title="C++ Library" href="../top.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Indexes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#contents">Contents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html">Flat Orchestrator</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#compatible-loaders">Compatible Loaders</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Indexes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/index/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="indexes">
+<span id="cpp-orchestrators"></span><h1>Indexes<a class="headerlink" href="#indexes" title="Link to this heading"></a></h1>
+<p>The main index interfaces are listed here and in the next sections.
+Refer to this table when making decisions about which index to use.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="vamana.html#_CPPv4N3svs6VamanaE" title="svs::Vamana"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::Vamana</span></code></a> - A graph-based similarity search engine suitable for high recall, high throughput, and low latency.</p></li>
+<li><p><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamanaE" title="svs::DynamicVamana"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::DynamicVamana</span></code></a> - A dynamic graph-based similarity search engine suitable for high recall, high throughput, and low latency.</p></li>
+<li><p><a class="reference internal" href="flat.html#_CPPv4N3svs4FlatE" title="svs::Flat"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::Flat</span></code></a> - An exhaustive search engine.
+Provides precise results at the expense of low throughput and high latency for large datasets.</p></li>
+</ul>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="vamana.html">Vamana Index</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="vamana.html#_CPPv4N3svs6VamanaE"><code class="docutils literal notranslate"><span class="pre">Vamana</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">Vamana::search_parameters_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana9get_alphaEv"><code class="docutils literal notranslate"><span class="pre">Vamana::get_alpha()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana18get_max_candidatesEv"><code class="docutils literal notranslate"><span class="pre">Vamana::get_max_candidates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE"><code class="docutils literal notranslate"><span class="pre">Vamana::save()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana4sizeEv"><code class="docutils literal notranslate"><span class="pre">Vamana::size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">Vamana::dimensions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana11query_typesEv"><code class="docutils literal notranslate"><span class="pre">Vamana::query_types()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana18can_change_threadsEv"><code class="docutils literal notranslate"><span class="pre">Vamana::can_change_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">Vamana::get_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana15set_num_threadsE6size_t"><code class="docutils literal notranslate"><span class="pre">Vamana::set_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana8assembleE6VamanaRKNSt10filesystem4pathERK15GraphLoaderTypeRR10DataLoaderRK8Distance6size_t"><code class="docutils literal notranslate"><span class="pre">Vamana::assemble()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance6size_tRK9Allocator"><code class="docutils literal notranslate"><span class="pre">Vamana::build()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vamana.html#helper-classes">Helper Classes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters5alphaE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::alpha</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters16graph_max_degreeE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::graph_max_degree</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters11window_sizeE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::window_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23max_candidate_pool_sizeE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::max_candidate_pool_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters8prune_toE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::prune_to</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23use_full_search_historyE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::use_full_search_history</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14buffer_config_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::buffer_config_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters26search_buffer_visited_set_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::search_buffer_visited_set_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters19prefetch_lookahead_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::prefetch_lookahead_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14prefetch_step_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::prefetch_step_</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vamana.html#example">Example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#preamble">Preamble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#building-and-index">Building and Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#searching-the-index">Searching the Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#saving-the-index">Saving the Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#reloading-a-saved-index">Reloading a Saved Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#using-vector-compression">Using Vector Compression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#building-using-vector-compression">Building using Vector Compression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#entire-example">Entire Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamanaE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::search_parameters_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana13DynamicVamanaENSt10unique_ptrIN7manager16ManagerInterfaceI22DynamicVamanaInterfaceEEEE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::DynamicVamana()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22set_search_window_sizeE6size_t"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::set_search_window_size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana22get_search_window_sizeEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::get_search_window_size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana6has_idE6size_t"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::has_id()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana7all_idsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::all_ids()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::reconstruct_at()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana4sizeEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::dimensions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana11query_typesEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::query_types()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana18can_change_threadsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::can_change_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::get_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana15set_num_threadsE6size_t"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::set_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana11AssembleTagE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::AssembleTag</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="flat.html">Flat Orchestrator</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="flat.html#_CPPv4N3svs4FlatE"><code class="docutils literal notranslate"><span class="pre">Flat</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">Flat::search_parameters_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat4sizeEv"><code class="docutils literal notranslate"><span class="pre">Flat::size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">Flat::dimensions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat11query_typesEv"><code class="docutils literal notranslate"><span class="pre">Flat::query_types()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat18can_change_threadsEv"><code class="docutils literal notranslate"><span class="pre">Flat::can_change_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">Flat::get_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat15set_num_threadsE6size_t"><code class="docutils literal notranslate"><span class="pre">Flat::set_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t"><code class="docutils literal notranslate"><span class="pre">Flat::assemble()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat11AssembleTagE"><code class="docutils literal notranslate"><span class="pre">Flat::AssembleTag</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="compatible-loaders">
+<h2>Compatible Loaders<a class="headerlink" href="#compatible-loaders" title="Link to this heading"></a></h2>
+<p>The table below lists the compatibility between different index and the different kinds of dataset (e.g., uncompressed, lvq etc).</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Index and Loader Compatibility Matrix</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>Loader / Right: Index</p></th>
+<th class="head"><p><a class="reference internal" href="vamana.html#_CPPv4N3svs6VamanaE" title="svs::Vamana"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::Vamana</span></code></a></p></th>
+<th class="head"><p><a class="reference internal" href="flat.html#_CPPv4N3svs4FlatE" title="svs::Flat"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::Flat</span></code></a></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="reference internal" href="../core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a></p></td>
+<td><p>Build and Search</p></td>
+<td><p>Search Only</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../quantization/lvq.html#_CPPv4I_6size_t_6size_t_6size_t_18LVQPackingStrategy0EN3svs12quantization3lvq10LVQDatasetE" title="svs::quantization::lvq::LVQDataset"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::quantization::lvq::LVQDataset</span></code></a></p></td>
+<td><p>Build and Search</p></td>
+<td><p>Search Only</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>As an implementation detail, the indexes here are type-erased instances of more specialized, heavily templated implementations.
+These low level implementations generally have a similar API to the top level indexes and can be more expressive as functions calls do not have to cross a virtual function boundary.
+However, this specialization results in a different concrete type for each implementation which can be undesireable.
+More documentation regarding the low level implementation will be available in the future.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../top.html" class="btn btn-neutral float-left" title="C++ Library" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vamana.html" class="btn btn-neutral float-right" title="Vamana Index" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

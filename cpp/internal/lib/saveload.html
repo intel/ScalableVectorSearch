@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Structure Saving and Loading &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Dynamic Dispatcher" href="dispatcher.html" />
+    <link rel="prev" title="Algorithms" href="algorithms.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Library Components</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="public.html">Public Library Components</a></li>
+<li class="toctree-l3"><a class="reference internal" href="array.html">Multi-dimensional Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Data Structure Saving and Loading</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#context-free-saving-and-loading">Context Free Saving and Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#contextual-saving-and-loading">Contextual Saving and Loading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#general-guidelines">General Guidelines</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#stl-support">STL Support</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#advanced-features">Advanced Features</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dispatcher.html">Dynamic Dispatcher</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../index_impl/index.html">Index Data Structures</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Library Components</a></li>
+      <li class="breadcrumb-item active">Data Structure Saving and Loading</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/lib/saveload.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="data-structure-saving-and-loading">
+<span id="cpp-lib-saveload"></span><h1>Data Structure Saving and Loading<a class="headerlink" href="#data-structure-saving-and-loading" title="Link to this heading"></a></h1>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>This section is out-dated and needs to be rewritten!</p>
+</div>
+<p>This section describes the data structure saving and loading support and infrastructure.
+We use the <cite>toml++ &lt;https://https://github.com/marzer/tomlplusplus&gt;</cite> library to assist with object saving and reloading.
+Objects opt into this infrastructure by providing a special <cite>save()</cite> and <cite>static load()</cite> member functions.
+The expected signatures and semantics of these functions will be described in this section with an API reference at the bottom.</p>
+<section id="context-free-saving-and-loading">
+<h2>Context Free Saving and Loading<a class="headerlink" href="#context-free-saving-and-loading" title="Link to this heading"></a></h2>
+<p>Many classes to be saved are simple enough that they may be stored entirely inside a TOML table.
+We call these classes “context free” because their saving format does not depend on the directory in which an object is being saved.
+The example below demonstrates a simple class implementing context free loading and saving.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">ContextFreeSaveable</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Members</span>
+<span class="w">  </span><span class="k">private</span><span class="o">:</span>
+<span class="w">    </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">a_</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">b_</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">public</span><span class="o">:</span>
+<span class="w">    </span><span class="n">ContextFreeSaveable</span><span class="p">(</span><span class="kt">int64_t</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">int64_t</span><span class="w"> </span><span class="n">b</span><span class="p">)</span>
+<span class="w">        </span><span class="o">:</span><span class="w"> </span><span class="n">a_</span><span class="p">{</span><span class="n">a</span><span class="p">}</span>
+<span class="w">        </span><span class="p">,</span><span class="w"> </span><span class="n">b_</span><span class="p">{</span><span class="n">b</span><span class="p">}</span><span class="w"> </span><span class="p">{}</span>
+
+<span class="w">    </span><span class="k">friend</span><span class="w"> </span><span class="kt">bool</span>
+<span class="w">    </span><span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">ContextFreeSaveable</span><span class="o">&amp;</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">ContextFreeSaveable</span><span class="o">&amp;</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// The version number used for saving and loading.</span>
+<span class="w">    </span><span class="c1">// This can be used to detect and reload older versions of the data structure in a</span>
+<span class="w">    </span><span class="c1">// backwards compatible way.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Version</span><span class="w"> </span><span class="n">save_version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Version</span><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">};</span>
+
+<span class="w">    </span><span class="c1">// Serialized objects need a schema as well, which is essentially a unique name</span>
+<span class="w">    </span><span class="c1">// associated with the serialized TOML table.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// The combination of schema and name allow speculative loading code some guarentee</span>
+<span class="w">    </span><span class="c1">// as to the expected contents and types of a table.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">serialization_schema</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;example_context_free&quot;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Save the object.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveTable</span><span class="w"> </span><span class="nf">save</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Load the object.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">ContextFreeSaveable</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ContextFreeLoadTable</span><span class="o">&amp;</span><span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>There are several things to note.
+First, each class is expected to supply a named schema and version (in the form of an <code class="docutils literal notranslate"><span class="pre">svs::lib::Version</span></code>) information along with its serialization form.
+This enables classes to evolve while maintaining backwards compatibility with previously saved versions.
+Furthermore, the combination of schema and version enables reasoning about reloaded <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> files, providing mechanisms like auto-loading and object detection.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Once SVS matures, it is expected that object saving will <strong>not</strong> make backwards
+incompatible changes to their saved format without incrementing the major version
+of the library!</p>
+<p>Making a breaking change to a class’ saved format will also break all classes that
+transitively use this class.</p>
+</div>
+<p>Next, the object returned from the <code class="docutils literal notranslate"><span class="pre">save()</span></code> method is a <code class="docutils literal notranslate"><span class="pre">svs::lib::SaveTable</span></code>, which in practice is a thin wrapper around a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>.
+The table should contain the relevant data required to reconstruct the object upon loading.
+Library facilities will take care of storing the version information.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> class stored entries as key-value pairs.
+Keys beginning with two underscores “__” are reserved by the SVS saving infrastructure.
+Outside of that, classes are free to use whatever names they like.</p>
+</div>
+<p>Finally, loading is expected to take a <code class="docutils literal notranslate"><span class="pre">svs::lib::LoadTable</span></code> - also a thin wrapper around a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>.
+The table given to <code class="docutils literal notranslate"><span class="pre">load</span></code> will match that given by <code class="docutils literal notranslate"><span class="pre">save</span></code>, potentially with the addition of some reserved names (see the note above).</p>
+<section id="implementing-save-and-load">
+<h3>Implementing Save and Load<a class="headerlink" href="#implementing-save-and-load" title="Link to this heading"></a></h3>
+<p>The implementation of <code class="docutils literal notranslate"><span class="pre">save</span></code> is given below.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// The `svs::lib::SaveTable` is a pair consisting of a `toml::table` and a version</span>
+<span class="c1">// number.</span>
+<span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveTable</span><span class="w"> </span><span class="nf">ContextFreeSaveable::save</span><span class="p">()</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveTable</span><span class="p">(</span>
+<span class="w">        </span><span class="n">serialization_schema</span><span class="p">,</span><span class="w"> </span><span class="n">save_version</span><span class="p">,</span><span class="w"> </span><span class="p">{{</span><span class="s">&quot;a&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save</span><span class="p">(</span><span class="n">a_</span><span class="p">)},</span><span class="w"> </span><span class="n">SVS_LIST_SAVE_</span><span class="p">(</span><span class="n">b</span><span class="p">)}</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>There is not much too it.
+Each member of <code class="docutils literal notranslate"><span class="pre">ContextFreeSaveable</span></code> is stored as a key-value pair <code class="docutils literal notranslate"><span class="pre">svs::lib::SaveTable</span></code>.
+The version is passed as the first argument to the constructor of <code class="docutils literal notranslate"><span class="pre">svs::lib::SaveTable</span></code> and the entries are passed as a <code class="docutils literal notranslate"><span class="pre">std::initializer_list</span></code> of key-value pairs.
+Keys are string-like and values should be obtained through calls to <code class="docutils literal notranslate"><span class="pre">svs::lib::save()</span></code>.
+The example shows two equivalent ways of calling <code class="docutils literal notranslate"><span class="pre">svs::lib::save()</span></code>.
+First is a direct invocation that specified the key name (“a”) and passes the member <code class="docutils literal notranslate"><span class="pre">a_</span></code> to <code class="docutils literal notranslate"><span class="pre">svs::lib::save()</span></code>.
+The other uses the convenience macro <code class="docutils literal notranslate"><span class="pre">SVS_LIST_SAVE_</span></code> to automatically derive the key based on the member name.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>When using the <code class="docutils literal notranslate"><span class="pre">SVS_LIST_SAVE_</span></code> and <code class="docutils literal notranslate"><span class="pre">SVS_MEMBER_LOAD_AT_</span></code> helper macros that end in underscores, a trailing underscore will be automatically appended to the target variable name.</p>
+</div>
+<p>Loading is also straightforward.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Loading takes the items produced by `save()` and should yield an instance of the</span>
+<span class="c1">// associated class.</span>
+<span class="n">ContextFreeSaveable</span><span class="w"> </span><span class="nf">ContextFreeSaveable::load</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ContextFreeLoadTable</span><span class="o">&amp;</span><span class="w"> </span><span class="n">table</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Perform a version check.</span>
+<span class="w">    </span><span class="c1">// This class is only compatible with one version.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// This check is also not needed as it is performed automatically by the loading</span>
+<span class="w">    </span><span class="c1">// infrastructure.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">table</span><span class="p">.</span><span class="n">version</span><span class="p">()</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">save_version</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">runtime_error</span><span class="p">(</span><span class="s">&quot;Version Mismatch!&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Retrieve the saved values from the table.</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">ContextFreeSaveable</span><span class="p">(</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_at</span><span class="o">&lt;</span><span class="kt">int64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;a&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">SVS_LOAD_MEMBER_AT_</span><span class="p">(</span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">)</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">svs::lib::load_at</span></code> method is used to extract the element from the table at a specific key.
+Alternatively, the macro <code class="docutils literal notranslate"><span class="pre">SVS_LOAD_MEMBER_AT_</span></code> can be used to automatically determine the type of the object to load.</p>
+<p>While we did not perform an explicit version check, one happens behind the scenes.
+To expand, if a class does not define a static method <code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">check_load_compatibility(std::string_view</span> <span class="pre">schema,</span> <span class="pre">svs::lib::Version</span> <span class="pre">version)</span></code>, the loading infrastructure will check the loaded schema and version against <code class="docutils literal notranslate"><span class="pre">ContextFreeSaveable::serialization_schema</span></code> and <code class="docutils literal notranslate"><span class="pre">ContextFreeSaveable::save_version</span></code> respectively.
+Later, we will show how to customize this compatibility check.</p>
+</section>
+<section id="using-save-and-load">
+<h3>Using Save and Load<a class="headerlink" href="#using-save-and-load" title="Link to this heading"></a></h3>
+<p>Saving and restoring and object to/from disk is easy.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">// Construct an object, save it to disk, and reload it.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">context_free</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ContextFreeSaveable</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">saved</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save</span><span class="p">(</span><span class="n">context_free</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">context_free_reloaded</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load</span><span class="o">&lt;</span><span class="n">ContextFreeSaveable</span><span class="o">&gt;</span><span class="p">(</span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">node_view</span><span class="p">(</span><span class="n">saved</span><span class="p">));</span>
+
+<span class="w">    </span><span class="c1">// Check that saving and reloading was successful</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">context_free</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">context_free_reloaded</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Context free reloading in-memory failed!&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// We also get saving and reloading from disk for free.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save_to_disk</span><span class="p">(</span><span class="n">context_free</span><span class="p">,</span><span class="w"> </span><span class="n">dir</span><span class="p">);</span>
+<span class="w">    </span><span class="n">context_free_reloaded</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_from_disk</span><span class="o">&lt;</span><span class="n">ContextFreeSaveable</span><span class="o">&gt;</span><span class="p">(</span><span class="n">dir</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">context_free</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">context_free_reloaded</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Context free reloading to-disk failed!&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The example above shows constructing a <code class="docutils literal notranslate"><span class="pre">ContextFreeSavable</span></code>, saving it to a serialized form using <code class="docutils literal notranslate"><span class="pre">svs::lib::save</span></code>, and reloading it with <code class="docutils literal notranslate"><span class="pre">svs::lib::load</span></code>.
+It further shows that we can save and reload the data structure to disk using <code class="docutils literal notranslate"><span class="pre">svs::lib::save_to_disk</span></code> and <code class="docutils literal notranslate"><span class="pre">svs::lib::load_from_disk</span></code> respectively.
+Note that a directory is required instead of a simple <code class="docutils literal notranslate"><span class="pre">.toml</span></code> file because in the next section, we will discuss contextual saving, which may require multiple files.
+By storing the saved object in a directory, we maintain the same API.</p>
+<p>One advantage of context free saving is that we can save an entire object inside a TOML table.
+This allows usage like the following example, which can be used to construct more advanced object saving in testing and benchmarking pipelines.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">// Construct an object, save it to a table and reload.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">context_free</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ContextFreeSaveable</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">table</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save_to_table</span><span class="p">(</span><span class="n">context_free</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">context_free_reloaded</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load</span><span class="o">&lt;</span><span class="n">ContextFreeSaveable</span><span class="o">&gt;</span><span class="p">(</span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">node_view</span><span class="p">(</span><span class="n">table</span><span class="p">));</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">context_free</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">context_free_reloaded</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Context free reloading failed!&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="contextual-saving-and-loading">
+<h2>Contextual Saving and Loading<a class="headerlink" href="#contextual-saving-and-loading" title="Link to this heading"></a></h2>
+<p>Context free saving and loading is great for small key-value-like data structures.
+However, larger data structures like datasets and graphs can carry significant binary state unsuitable for storage in a TOML file.
+Instead, it is preferable to store this state in one or more auxiliary binary files that are rediscovered from the TOML configuration when loading.
+These data structures are “contextual” because they require run-time context in the form of the directory being processed in addition to the TOML format.</p>
+<p>The example class definition below shows a class that implements contextual saving and loading.
+The motivation for contextual loading is the existence of the <code class="docutils literal notranslate"><span class="pre">std::vector&lt;float&gt;</span> <span class="pre">data_</span></code> member.
+If the size of this vector is large, saving it in a TOML file is space and time inefficient.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Saveable</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">private</span><span class="o">:</span>
+<span class="w">    </span><span class="c1">// We have a member that is also a saveable object.</span>
+<span class="w">    </span><span class="n">ContextFreeSaveable</span><span class="w"> </span><span class="n">member_</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// The `data_` member may be arbitrarily long and is thus not necessarily suitable</span>
+<span class="w">    </span><span class="c1">// for storage in a `toml::table`.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="w"> </span><span class="n">data_</span><span class="p">;</span>
+
+<span class="w">  </span><span class="k">public</span><span class="o">:</span>
+<span class="w">    </span><span class="n">Saveable</span><span class="p">(</span><span class="n">ContextFreeSaveable</span><span class="w"> </span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="w"> </span><span class="n">data</span><span class="p">)</span>
+<span class="w">        </span><span class="o">:</span><span class="w"> </span><span class="n">member_</span><span class="p">{</span><span class="n">member</span><span class="p">}</span>
+<span class="w">        </span><span class="p">,</span><span class="w"> </span><span class="n">data_</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">data</span><span class="p">)}</span><span class="w"> </span><span class="p">{}</span>
+
+<span class="w">    </span><span class="k">friend</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">Saveable</span><span class="o">&amp;</span><span class="p">,</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">Saveable</span><span class="o">&amp;</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">default</span><span class="p">;</span>
+
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Version</span><span class="w"> </span><span class="n">save_version</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Version</span><span class="p">{</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">};</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">serialization_schema</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;example_saveable&quot;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Customized compatibility check.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">bool</span>
+<span class="w">    </span><span class="nf">check_load_compatibility</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">schema</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Version</span><span class="w"> </span><span class="n">version</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Backwards compatible with version `v0.0.0`.</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">schema</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">serialization_schema</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">version</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">save_version</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Contextual saving.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveTable</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span>
+<span class="w">    </span><span class="c1">// Contextual loading.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Saveable</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">LoadTable</span><span class="o">&amp;</span><span class="w"> </span><span class="n">table</span><span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Objects implementing contextual saving and loading have “save” and “load” methods.
+However, this time they require a <a class="reference internal" href="#_CPPv4N3svs3lib11SaveContextE" title="svs::lib::SaveContext"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::SaveContext</span></code></a> and <a class="reference internal" href="#_CPPv4N3svs3lib11LoadContextE" title="svs::lib::LoadContext"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::LoadContext</span></code></a> respectively.
+The <a class="reference internal" href="#_CPPv4N3svs3lib11SaveContextE" title="svs::lib::SaveContext"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::SaveContext</span></code></a> class provides a way of obtaining the saving directory as well as facilities to generate unique filenames to avoid name clashing.
+The <a class="reference internal" href="#_CPPv4N3svs3lib11LoadContextE" title="svs::lib::LoadContext"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::LoadContext</span></code></a> provides the working directory when loading.
+Together, these classes facilitate the generation of saved objects in a relocatable manner.</p>
+<p>Additionally, this example shows the definition of a <code class="docutils literal notranslate"><span class="pre">check_load_compatibility</span></code> method.
+This provides a way for the class to declare its compatibility with older serialization versions and will be called if provided.</p>
+<section id="implementing-contextual-saving-and-loading">
+<h3>Implementing Contextual Saving and Loading<a class="headerlink" href="#implementing-contextual-saving-and-loading" title="Link to this heading"></a></h3>
+<p>The code snippet below shows the implementation of the contextual save method.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveTable</span><span class="w"> </span><span class="nf">Saveable::save</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">ctx</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Generate a unique name for the file where we will save the associated binary</span>
+<span class="w">    </span><span class="c1">// data.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// This filename will be unique in the directory generated for saving this object.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">fullpath</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ctx</span><span class="p">.</span><span class="n">generate_name</span><span class="p">(</span><span class="s">&quot;data&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;bin&quot;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Open the file and store the contents of the vector into that file in a dense</span>
+<span class="w">        </span><span class="c1">// binary form.</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">ostream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">open_write</span><span class="p">(</span><span class="n">fullpath</span><span class="p">);</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">write_binary</span><span class="p">(</span><span class="n">ostream</span><span class="p">,</span><span class="w"> </span><span class="n">data_</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Generate a table to save the object.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">table</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">SaveTable</span><span class="p">(</span><span class="n">serialization_schema</span><span class="p">,</span><span class="w"> </span><span class="n">save_version</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Use `save` to save the sub-object into a sub-table.</span>
+<span class="w">    </span><span class="c1">// Even though `ContextFreeSaveable` is context free, we can still pass the</span>
+<span class="w">    </span><span class="c1">// context variable if desired.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// The library infrastructure will call the correct member function.</span>
+<span class="w">    </span><span class="n">SVS_INSERT_SAVE_</span><span class="p">(</span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="n">member</span><span class="p">,</span><span class="w"> </span><span class="n">ctx</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Also store the size of the vector we&#39;re going to save.</span>
+<span class="w">    </span><span class="c1">// Since integers of type `size_t` are not natively saveable in a</span>
+<span class="w">    </span><span class="c1">// `toml::table`, we use the overload set `svs::save` to safely convert it.</span>
+<span class="w">    </span><span class="n">table</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="s">&quot;data_size&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save</span><span class="p">(</span><span class="n">data_</span><span class="p">.</span><span class="n">size</span><span class="p">()));</span>
+
+<span class="w">    </span><span class="c1">// Store only the relative portion of the path to make the saved object</span>
+<span class="w">    </span><span class="c1">// relocatable.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// Again, we need to use `svs::save` to convert `std::filesystem::path`</span>
+<span class="w">    </span><span class="c1">// to a string-like type for the `toml::table`.</span>
+<span class="w">    </span><span class="n">table</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="s">&quot;data_file&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save</span><span class="p">(</span><span class="n">fullpath</span><span class="p">.</span><span class="n">filename</span><span class="p">()));</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">table</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>To save the <code class="docutils literal notranslate"><span class="pre">data_</span></code> member, the <code class="docutils literal notranslate"><span class="pre">generate_name()</span></code> method is used to generate a unique file name in the saving directory.
+The contents of the vector are then saved directly to this file.
+We need to find this file when reloading the data structure.
+However, the variable <code class="docutils literal notranslate"><span class="pre">fullpath</span></code> returned by <code class="docutils literal notranslate"><span class="pre">generate_name()</span></code> is an absolute path.
+When we store this filepath in the TOML table, we need to ensure that we only store the final filename.
+When reloading, the full path will be recreated using the <a class="reference internal" href="#_CPPv4N3svs3lib11LoadContextE" title="svs::lib::LoadContext"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::LoadContext</span></code></a>.</p>
+<p>This example also demonstrates another important concept: recursive saving.
+The <code class="docutils literal notranslate"><span class="pre">Saveable</span></code> class has a <code class="docutils literal notranslate"><span class="pre">ContextFreeMember</span></code>.
+To save the member, <code class="docutils literal notranslate"><span class="pre">svs::lib::save</span></code> is used, which will perform all the necessary steps to save that member class and return its generated TOML table, which can then be nested inside the <code class="docutils literal notranslate"><span class="pre">Saveable</span></code>’s TOML table.</p>
+<p>Reloading is similar.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">Saveable</span><span class="w"> </span><span class="nf">Saveable::load</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">LoadTable</span><span class="o">&amp;</span><span class="w"> </span><span class="n">table</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Obtain the file path and the size of the stored vector.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">full_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">table</span><span class="p">.</span><span class="n">resolve_at</span><span class="p">(</span><span class="s">&quot;data_file&quot;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Provide compatibility with older methods where `old_data_size` was used instead</span>
+<span class="w">    </span><span class="c1">// of `data_sizze`.</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">data_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">table</span><span class="p">.</span><span class="n">version</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Version</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">data_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_at</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;old_data_size&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">data_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_at</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;data_size&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Allocate a sufficiently sized vector and</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">data_size</span><span class="p">);</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">istream</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">open_read</span><span class="p">(</span><span class="n">full_path</span><span class="p">);</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">read_binary</span><span class="p">(</span><span class="n">istream</span><span class="p">,</span><span class="w"> </span><span class="n">data</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Finish constructing the object by recursively loading the `member_` subobject.</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">Saveable</span><span class="p">(</span><span class="n">SVS_LOAD_MEMBER_AT_</span><span class="p">(</span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="n">member</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">data</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here we see the directory obtained from the load context combined with the file name stored in the TOML table to recreate the full filepath for the saved binary data.
+The function <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::lib::load()</span></code> is used to load the saveable subobject.</p>
+<p>End to end saving is shown below.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="c1">// Initialize the data vector.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">iota</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Construct, save, and reload.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">context_required</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Saveable</span><span class="p">(</span><span class="n">ContextFreeSaveable</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">),</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">data</span><span class="p">));</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save_to_disk</span><span class="p">(</span><span class="n">context_required</span><span class="p">,</span><span class="w"> </span><span class="n">dir</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">context_required_reloaded</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_from_disk</span><span class="o">&lt;</span><span class="n">Saveable</span><span class="o">&gt;</span><span class="p">(</span><span class="n">dir</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Ensure that the reloaded object equals the original.</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">context_required</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">context_required_reloaded</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Context required reloading failed!&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="general-guidelines">
+<h2>General Guidelines<a class="headerlink" href="#general-guidelines" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Prefer context-free loading and saving if possible.
+It is more flexible and allows for more uses than contextual saving.</p></li>
+<li><p>Use <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::lib::save()</span></code> and <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::lib::load()</span></code> to save and reload saveable sub-objects.</p></li>
+</ul>
+</section>
+<section id="stl-support">
+<h2>STL Support<a class="headerlink" href="#stl-support" title="Link to this heading"></a></h2>
+<p>The saving and loading infrastructure has support for several built-in types, including <code class="docutils literal notranslate"><span class="pre">std::vector</span></code>.
+The example below demonstrates the use of <code class="docutils literal notranslate"><span class="pre">std::vector</span></code>.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Saveable</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">        </span><span class="p">{</span><span class="n">Saveable</span><span class="p">(</span><span class="n">ContextFreeSaveable</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">),</span><span class="w"> </span><span class="p">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">}),</span>
+<span class="w">         </span><span class="n">Saveable</span><span class="p">(</span><span class="n">ContextFreeSaveable</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">),</span><span class="w"> </span><span class="p">{</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">6</span><span class="p">})}</span>
+<span class="w">    </span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">save_to_disk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">dir</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">reloaded</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">load_from_disk</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">Saveable</span><span class="o">&gt;&gt;</span><span class="p">(</span><span class="n">dir</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">reloaded</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">data</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Reloading vector failed!&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+</pre></div>
+</div>
+<p>The list of built-in types is:</p>
+<table class="docutils align-default" id="id1" style="width: 100">
+<caption><span class="caption-text">STL Support</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<tbody>
+<tr class="row-odd"><td><p>Type Class</p></td>
+<td><p>Notes</p></td>
+</tr>
+<tr class="row-even"><td><p>Integers</p></td>
+<td><p>Will error if the conversion from TOML’s <code class="docutils literal notranslate"><span class="pre">int64_t</span></code> type is lossy.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Booleans</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">double</span></code></p></td>
+<td><p>Lossy conversion allowed for <code class="docutils literal notranslate"><span class="pre">float</span></code> to support literals like “1.2”.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">std::string</span></code>, <code class="docutils literal notranslate"><span class="pre">std::filesystem::path</span></code></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">std::vector&lt;T,</span> <span class="pre">Alloc&gt;</span></code></p></td>
+<td><p>Can optionally take an allocator as the first non-context argument. Loading is contextual if <code class="docutils literal notranslate"><span class="pre">T</span></code> is contextual.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="advanced-features">
+<h2>Advanced Features<a class="headerlink" href="#advanced-features" title="Link to this heading"></a></h2>
+<section id="load-helpers">
+<h3>Load Helpers<a class="headerlink" href="#load-helpers" title="Link to this heading"></a></h3>
+<p>Until now, it has been assumed that the class to be loaded implements a static <code class="docutils literal notranslate"><span class="pre">load</span></code> method.
+However, this is not always convenient nor least verbose.
+All of the load methods described so far can take an instance of a class for the first argument.
+As long as this object has an appropriate <code class="docutils literal notranslate"><span class="pre">load()</span></code> method as described above, it can be used.
+In fact, the return type is not constrained, so this “load helper” may be used to create any other class.</p>
+</section>
+<section id="load-argument-forwarding">
+<h3>Load Argument Forwarding<a class="headerlink" href="#load-argument-forwarding" title="Link to this heading"></a></h3>
+<p>For all loading methods, an arbitrary number of trailing arguments can be appended to any call
+These arguments will be forwarded to the final <code class="docutils literal notranslate"><span class="pre">load()</span></code> method.
+This allows run-time context that isn’t necessary to be saveable or that can change from run to run (for example: allocator) to be given.</p>
+</section>
+<section id="load-and-save-override">
+<h3>Load and Save Override<a class="headerlink" href="#load-and-save-override" title="Link to this heading"></a></h3>
+<p>It is occasionally useful to use a lambda to implement ad-hoc loading and saving of some sub-components of a larger class.
+This can be be done by passing the lambda to the <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::SaveOverride</span></code> and <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::LoadOverride</span></code> classes respectively and passing these to the various saving and loading methods.</p>
+</section>
+<section id="power-user-functionality">
+<h3>Power-User Functionality<a class="headerlink" href="#power-user-functionality" title="Link to this heading"></a></h3>
+<p>Saving and loading plumbing for a class <code class="docutils literal notranslate"><span class="pre">T</span></code> passes through <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::Saver</span></code> and <code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::lib::Loader</span></code> proxy classes.
+If <code class="docutils literal notranslate"><span class="pre">T</span></code> implements member <code class="docutils literal notranslate"><span class="pre">save</span></code> and <code class="docutils literal notranslate"><span class="pre">load</span></code> methods, then the default definition for these proxy classes will “do the right thing” and call those methods.
+Alternatively, classes may chose to explicitly specialize these classes.</p>
+<p>See the documentation on those classes for details.
+API Reference
+————-</p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib11SaveContextE">
+<span id="_CPPv3N3svs3lib11SaveContextE"></span><span id="_CPPv2N3svs3lib11SaveContextE"></span><span id="svs::lib::SaveContext"></span><span class="target" id="classsvs_1_1lib_1_1SaveContext"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SaveContext</span></span></span><a class="headerlink" href="#_CPPv4N3svs3lib11SaveContextE" title="Link to this definition"></a><br /></dt>
+<dd><div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib11SaveContext11SaveContextENSt10filesystem4pathERK7Version">
+<span id="_CPPv3N3svs3lib11SaveContext11SaveContextENSt10filesystem4pathERK7Version"></span><span id="_CPPv2N3svs3lib11SaveContext11SaveContextENSt10filesystem4pathERK7Version"></span><span id="svs::lib::SaveContext::SaveContext__std::filesystem::path.VersionCR"></span><span class="target" id="classsvs_1_1lib_1_1SaveContext_1a10724f38ac7234ba9e30a8e1d08a47ee"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SaveContext</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">directory</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">Version</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">version</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">CURRENT_SAVE_VERSION</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib11SaveContext11SaveContextENSt10filesystem4pathERK7Version" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new SaveContext in the current directory. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>directory</strong> – The directory where the data structure will be saved. </p></li>
+<li><p><strong>version</strong> – The saving version (leave at the default). </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib11SaveContext13get_directoryEv">
+<span id="_CPPv3NK3svs3lib11SaveContext13get_directoryEv"></span><span id="_CPPv2NK3svs3lib11SaveContext13get_directoryEv"></span><span id="svs::lib::SaveContext::get_directoryC"></span><span class="target" id="classsvs_1_1lib_1_1SaveContext_1ab68e4a4099cd7d97977f29e2e5904eab"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_directory</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib11SaveContext13get_directoryEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current directory where intermediate files will be saved. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib11SaveContext13generate_nameENSt11string_viewENSt11string_viewE">
+<span id="_CPPv3NK3svs3lib11SaveContext13generate_nameENSt11string_viewENSt11string_viewE"></span><span id="_CPPv2NK3svs3lib11SaveContext13generate_nameENSt11string_viewENSt11string_viewE"></span><span id="svs::lib::SaveContext::generate_name__std::string_view.std::string_viewC"></span><span class="target" id="classsvs_1_1lib_1_1SaveContext_1a2abe288f00c5e135d2fd8b175146a265"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">generate_name</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">prefix</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">extension</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="s"><span class="pre">&quot;svs&quot;</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib11SaveContext13generate_nameENSt11string_viewENSt11string_viewE" title="Link to this definition"></a><br /></dt>
+<dd><p>Generate a unique filename in the saving directory. </p>
+<p>
+Note that the returned <code class="docutils literal notranslate"><span class="pre">std::filesystem::path</span></code> is an absolute path to the saving directory and as such, should not be stored directly in any configuration table in order for the resulting saved object to be relocatable.</p>
+<p>Instead, use the <code class="docutils literal notranslate"><span class="pre">.filepath()</span></code> member function to obtain a relative path to the saving directory. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>prefix</strong> – An identifiable prefix for the file. </p></li>
+<li><p><strong>extension</strong> – The desired file extension.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib11LoadContextE">
+<span id="_CPPv3N3svs3lib11LoadContextE"></span><span id="_CPPv2N3svs3lib11LoadContextE"></span><span id="svs::lib::LoadContext"></span><span class="target" id="classsvs_1_1lib_1_1LoadContext"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">LoadContext</span></span></span><a class="headerlink" href="#_CPPv4N3svs3lib11LoadContextE" title="Link to this definition"></a><br /></dt>
+<dd><p>Context used when loading aggregate objects. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib11LoadContext13get_directoryEv">
+<span id="_CPPv3NK3svs3lib11LoadContext13get_directoryEv"></span><span id="_CPPv2NK3svs3lib11LoadContext13get_directoryEv"></span><span id="svs::lib::LoadContext::get_directoryC"></span><span class="target" id="classsvs_1_1lib_1_1LoadContext_1aae82a65e53aff8546d3a7ea445917a69"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_directory</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib11LoadContext13get_directoryEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current directory where intermediate files will be saved. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib11LoadContext7resolveERKNSt10filesystem4pathE">
+<span id="_CPPv3NK3svs3lib11LoadContext7resolveERKNSt10filesystem4pathE"></span><span id="_CPPv2NK3svs3lib11LoadContext7resolveERKNSt10filesystem4pathE"></span><span id="svs::lib::LoadContext::resolve__std::filesystem::pathCRC"></span><span class="target" id="classsvs_1_1lib_1_1LoadContext_1ac488186a768d6b6ee31b8674d1420fa4"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">resolve</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">relative</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib11LoadContext7resolveERKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the given relative path as a full path in the loading directory. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib11LoadContext7versionEv">
+<span id="_CPPv3NK3svs3lib11LoadContext7versionEv"></span><span id="_CPPv2NK3svs3lib11LoadContext7versionEv"></span><span id="svs::lib::LoadContext::versionC"></span><span class="target" id="classsvs_1_1lib_1_1LoadContext_1afad96c6e06b0ba8bd1dd8275f05e3c96"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">Version</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">version</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib11LoadContext7versionEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current global loading version scheme. </p>
+<p>Saving and loading should prefer to implement their own versioning instead of relying on the global version. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib9SaveTableE">
+<span id="_CPPv3N3svs3lib9SaveTableE"></span><span id="_CPPv2N3svs3lib9SaveTableE"></span><span id="svs::lib::SaveTable"></span><span class="target" id="classsvs_1_1lib_1_1SaveTable"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SaveTable</span></span></span><a class="headerlink" href="#_CPPv4N3svs3lib9SaveTableE" title="Link to this definition"></a><br /></dt>
+<dd><p>Versioned table use when saving classes. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7Version">
+<span id="_CPPv3N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7Version"></span><span id="_CPPv2N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7Version"></span><span id="svs::lib::SaveTable::SaveTable__std::string_view.VersionCR"></span><span class="target" id="classsvs_1_1lib_1_1SaveTable_1a9d67c0d9bd37d842ddce26edb6f1ac1a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SaveTable</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">schema</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">Version</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">version</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7Version" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct an empty table with the given version. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7VersionNSt16initializer_listIN4toml4impl15table_init_pairEEE">
+<span id="_CPPv3N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7VersionNSt16initializer_listIN4toml4impl15table_init_pairEEE"></span><span id="_CPPv2N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7VersionNSt16initializer_listIN4toml4impl15table_init_pairEEE"></span><span id="svs::lib::SaveTable::SaveTable__std::string_view.VersionCR.std::initializer_list:toml::impl::table_init_pair:"></span><span class="target" id="classsvs_1_1lib_1_1SaveTable_1a09aa60041062e538e60441e07e9d6a0c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SaveTable</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">key</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">Version</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">version</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">initializer_list</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">toml</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">impl</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">table_init_pair</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">init</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib9SaveTable9SaveTableENSt11string_viewERK7VersionNSt16initializer_listIN4toml4impl15table_init_pairEEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a table using an initializer list of key-value pairs. </p>
+<p>Generally, values of the key-value pairs should be the return values from further calls to <code class="docutils literal notranslate"><a class="reference internal" href="#group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"><span class="std std-ref"><span class="pre">svs::lib::save()</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib9SaveTable6insertEvNSt11string_viewERR1T">
+<span id="_CPPv3I0EN3svs3lib9SaveTable6insertENSt11string_viewERR1T"></span><span id="_CPPv2I0EN3svs3lib9SaveTable6insertENSt11string_viewERR1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1SaveTable_1a2fd6efb124beeb2dab4b00911cb42459"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">insert</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">key</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs3lib9SaveTable6insertEvNSt11string_viewERR1T" title="svs::lib::SaveTable::insert::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib9SaveTable6insertEvNSt11string_viewERR1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Insert a new value into the table with the provided key. </p>
+<p>The argument <code class="docutils literal notranslate"><span class="pre">value</span></code> should generally be obtained directly from a call to <code class="docutils literal notranslate"><a class="reference internal" href="#group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"><span class="std std-ref"><span class="pre">svs::lib::save()</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib9SaveTable8containsENSt11string_viewE">
+<span id="_CPPv3NK3svs3lib9SaveTable8containsENSt11string_viewE"></span><span id="_CPPv2NK3svs3lib9SaveTable8containsENSt11string_viewE"></span><span id="svs::lib::SaveTable::contains__std::string_viewC"></span><span class="target" id="classsvs_1_1lib_1_1SaveTable_1acf2fe0d3a43b2f7f26cf7dec7242359c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">contains</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">key</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib9SaveTable8containsENSt11string_viewE" title="Link to this definition"></a><br /></dt>
+<dd><p>Checks if the container contains an element with the specified key. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="saving-related-methods">
+<h3>Saving Related Methods<a class="headerlink" href="#saving-related-methods" title="Link to this heading"></a></h3>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0E4saveDaRK1TRK11SaveContext">
+<span id="_CPPv3I0E4saveRK1TRK11SaveContext"></span><span id="_CPPv2I0E4saveRK1TRK11SaveContext"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">save</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0E4saveDaRK1TRK11SaveContext" title="save::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">SaveContext</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">ctx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0E4saveDaRK1TRK11SaveContext" title="Link to this definition"></a><br /></dt>
+<dd><p>Save a class. </p>
+<p>
+When saving member classes, use <code class="docutils literal notranslate"><a class="reference internal" href="#group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"><span class="std std-ref"><span class="pre">svs::lib::save</span></span></a></code> rather than directly invoking the member <code class="docutils literal notranslate"><span class="pre">save</span></code> method.</p>
+<p>Furthermore, the results should generally not be relied on directly. Rather, they should be forwarded directly as the values of the initialer list when constructing a <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable"><span class="std std-ref"><span class="pre">svs::lib::SaveTable</span></span></a></code> or when using <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable_1a2fd6efb124beeb2dab4b00911cb42459"><span class="std std-ref"><span class="pre">svs::lib::SaveTable::insert()</span></span></a></code>.</p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> is needed, use <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a4e54879fad824a13ab7a688333be14e9"><span class="std std-ref"><span class="pre">svs::lib::save_to_table()</span></span></a></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> – The class to save. </p></li>
+<li><p><strong>ctx</strong> – The current save context.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A post processed table representation any data and metadata associated with saving <code class="docutils literal notranslate"><span class="pre">x</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0E4saveDaRK1T">
+<span id="_CPPv3I0E4saveRK1T"></span><span id="_CPPv2I0E4saveRK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__save__group_1gac54b9e38b9ebc7781da9967d63f8bb17"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">save</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0E4saveDaRK1T" title="save::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0E4saveDaRK1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Save a class. </p>
+<p>
+When saving member classes, use <code class="docutils literal notranslate"><a class="reference internal" href="#group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"><span class="std std-ref"><span class="pre">svs::lib::save</span></span></a></code> rather than directly invoking the member <code class="docutils literal notranslate"><span class="pre">save</span></code> method.</p>
+<p>Furthermore, the results should generally not be relied on directly. Rather, they should be forwarded directly as the values of the initialer list when constructing a <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable"><span class="std std-ref"><span class="pre">svs::lib::SaveTable</span></span></a></code> or when using <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable_1a2fd6efb124beeb2dab4b00911cb42459"><span class="std std-ref"><span class="pre">svs::lib::SaveTable::insert()</span></span></a></code>.</p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> is needed, use <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a4e54879fad824a13ab7a688333be14e9"><span class="std std-ref"><span class="pre">svs::lib::save_to_table()</span></span></a></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The class to save.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A post processed table representation any data and metadata associated with saving <code class="docutils literal notranslate"><span class="pre">x</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T">
+<span id="_CPPv3I0EN3svs3lib13save_to_tableERK1T"></span><span id="_CPPv2I0EN3svs3lib13save_to_tableERK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a4e54879fad824a13ab7a688333be14e9"></span><span class="n"><span class="pre">toml</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">table</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">save_to_table</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T" title="svs::lib::save_to_table::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Save a class to a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>. </p>
+<p>
+Requires the class to implment context-free saving. Ensures that the return type is a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The class to save.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE">
+<span id="_CPPv3I0EN3svs3lib12save_to_diskERK1TRKNSt10filesystem4pathE"></span><span id="_CPPv2I0EN3svs3lib12save_to_diskERK1TRKNSt10filesystem4pathE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a8836275ea8204a3975d1d53c7f5b5b76"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">save_to_disk</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE" title="svs::lib::save_to_disk::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">dir</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
+<dd><p>Save the object into the given directory. </p>
+<p>
+As part of saving the object, multiple auxiliary files may be created in the directory. It is the caller’s responsibility to ensure that no existing data in the given directory will be destroyed.</p>
+<p>On the other hand, if during the saving of the object, any files are generated <em>outside</em> of this directory, that should be considered a bug. Please report such instances to the project maintainer.</p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>svs::lib::save_to_file</p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> – The object to save to disk. </p></li>
+<li><p><strong>dir</strong> – The directory where the object should be saved.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="algorithms.html" class="btn btn-neutral float-left" title="Algorithms" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dispatcher.html" class="btn btn-neutral float-right" title="Dynamic Dispatcher" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

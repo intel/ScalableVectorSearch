@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Graphs &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Built-In Distance Functors" href="distance.html" />
+    <link rel="prev" title="In-Memory Representation of Data" href="data.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Components</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="data.html">In-Memory Representation of Data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Graphs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph10index_typeE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::index_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph9referenceE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::reference</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph15const_referenceE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::const_reference</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::SimpleGraph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph8get_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::get_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::has_edge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::get_node_degree()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::prefetch_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph10clear_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::clear_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph5resetEv"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::reset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::replace_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::replace_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::add_edge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph10max_degreeEv"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::max_degree()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph7n_nodesEv"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::n_nodes()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#graph-loading">Graph Loading</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs11GraphLoaderE"><code class="docutils literal notranslate"><span class="pre">GraphLoader</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="distance.html">Built-In Distance Functors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="query_result.html">Query Result</a></li>
+<li class="toctree-l2"><a class="reference internal" href="recall.html">Recall Computation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="logging.html">Logging API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Core Components</a></li>
+      <li class="breadcrumb-item active">Graphs</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/core/graph.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="graphs">
+<span id="cpp-core-graph"></span><h1>Graphs<a class="headerlink" href="#graphs" title="Link to this heading"></a></h1>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE">
+<span id="_CPPv3I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE"></span><span id="_CPPv2I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">unsigned_integral</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Idx</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Alloc</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../internal/allocators.html#_CPPv4I0EN3svs17HugepageAllocatorE" title="svs::HugepageAllocator"><span class="n"><span class="pre">HugepageAllocator</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1graphs_1_1SimpleGraph"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SimpleGraph</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">graphs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">SimpleGraphBase</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="data.html#_CPPv4I0_6size_t0EN3svs4data10SimpleDataE" title="svs::data::SimpleData"><span class="n"><span class="pre">SimpleData</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../internal/lib/public.html#_CPPv47Dynamic" title="Dynamic"><span class="n"><span class="pre">Dynamic</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../internal/allocators.html#_CPPv4I0EN3svs17HugepageAllocatorE" title="svs::HugepageAllocator"><span class="n"><span class="pre">HugepageAllocator</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="Link to this definition"></a><br /></dt>
+<dd><p>Simple graph representation. </p>
+<p>
+This data structure represents a graph using a single large allocation and a set maximum degree. Accessing adjacency lists takes <code class="docutils literal notranslate"><span class="pre">O(1)</span></code> time. Only out-bound edges are stored. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Idx</strong> – The integer type used to encode vertices in this graph.</p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph10index_typeE">
+<span id="_CPPv3N3svs6graphs11SimpleGraph10index_typeE"></span><span id="_CPPv2N3svs6graphs11SimpleGraph10index_typeE"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1adca197e2074791abc812c41e3ff15b28"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">index_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph10index_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The integer representation used to represent vertices in this graph. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph9referenceE">
+<span id="_CPPv3N3svs6graphs11SimpleGraph9referenceE"></span><span id="_CPPv2N3svs6graphs11SimpleGraph9referenceE"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1abc1e2315a34757d950b09658c0e4162b"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reference</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph9referenceE" title="Link to this definition"></a><br /></dt>
+<dd><p>Type used to represent mutable adjacency lists externally. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph15const_referenceE">
+<span id="_CPPv3N3svs6graphs11SimpleGraph15const_referenceE"></span><span id="_CPPv2N3svs6graphs11SimpleGraph15const_referenceE"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1af4a6efc3e89aaf8270fda8d98adc0551"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">const_reference</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph15const_referenceE" title="Link to this definition"></a><br /></dt>
+<dd><p>Type used to represent constant adjacency lists externally. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t">
+<span id="_CPPv3N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"></span><span id="_CPPv2N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"></span><span id="svs::graphs::SimpleGraph::SimpleGraph__s.s"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraph_1ad4aa9f43e73701f755c63101e81acdaa"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SimpleGraph</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_nodes</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">max_degree</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Consturct a new empty graph. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>num_nodes</strong> – The number of nodes in the graph. </p></li>
+<li><p><strong>max_degree</strong> – The maximum allowable degree in the graph. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs6graphs11SimpleGraph8get_nodeE3Idx">
+<span id="_CPPv3NK3svs6graphs11SimpleGraph8get_nodeE3Idx"></span><span id="_CPPv2NK3svs6graphs11SimpleGraph8get_nodeE3Idx"></span><span id="svs::graphs::SimpleGraph::get_node__IdxC"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a4e417f323aa6a3c57101c6a1cb7b467b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph15const_referenceE" title="svs::graphs::SimpleGraph::const_reference"><span class="n"><span class="pre">const_reference</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_node</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs6graphs11SimpleGraph8get_nodeE3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the outward adjacency list for vertex <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>i</strong> – The vertex to get the ID for. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx">
+<span id="_CPPv3NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx"></span><span id="_CPPv2NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx"></span><span id="svs::graphs::SimpleGraph::has_edge__Idx.IdxC"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1aa796d634d00b62d1194366599853eb8d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">has_edge</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">src</span></span>, <a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">dst</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether or not the adjacency list has an edge from <code class="docutils literal notranslate"><span class="pre">src</span></code> to <code class="docutils literal notranslate"><span class="pre">dst</span></code>. </p>
+<p>Complexity: Linear in the maximum degree. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx">
+<span id="_CPPv3NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx"></span><span id="_CPPv2NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx"></span><span id="svs::graphs::SimpleGraph::get_node_degree__IdxC"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a770a506ec0f7c1294b753b58b1923c5a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_node_degree</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current out degree of vertex <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx">
+<span id="_CPPv3NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx"></span><span id="_CPPv2NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx"></span><span id="svs::graphs::SimpleGraph::prefetch_node__IdxC"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a83e64d0dcdd72c322e2eb12ec944d9bf"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">prefetch_node</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Prefetch the adjacency list for node <code class="docutils literal notranslate"><span class="pre">i</span></code> into the L1 cache. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph10clear_nodeE3Idx">
+<span id="_CPPv3N3svs6graphs11SimpleGraph10clear_nodeE3Idx"></span><span id="_CPPv2N3svs6graphs11SimpleGraph10clear_nodeE3Idx"></span><span id="svs::graphs::SimpleGraph::clear_node__Idx"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a79a8ae0a51c87c6fed60d8e601588da1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">clear_node</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph10clear_nodeE3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Remove all outgoing neighbors from node <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p><em>Note</em>: As an implementation detail, this method doesn’t mutate the actual adjacency list. Instead, it simply sets the number of neighbors to zero.</p>
+<p>The complexity of this operation is <code class="docutils literal notranslate"><span class="pre">O(1)</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph5resetEv">
+<span id="_CPPv3N3svs6graphs11SimpleGraph5resetEv"></span><span id="_CPPv2N3svs6graphs11SimpleGraph5resetEv"></span><span id="svs::graphs::SimpleGraph::reset"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a34e2543835fb2c4bb95dab87a9aacba4"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reset</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph5resetEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Remove all edges from the graph. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE">
+<span id="_CPPv3N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE"></span><span id="_CPPv2N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE"></span><span id="svs::graphs::SimpleGraph::replace_node__Idx.std::vector:Idx:CR"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1ab1a8c9a76ef39052ad045e8f6f9e91fe"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">replace_node</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">new_neighbors</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Replace the adjacency list for vertex <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p>
+Takes at most <code class="docutils literal notranslate"><span class="pre">max_degree()</span></code> elements from <code class="docutils literal notranslate"><span class="pre">new_neighbors</span></code>. May silently drop any excess neighbors.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p>All elements of <code class="docutils literal notranslate"><span class="pre">new_neighbors</span></code> must be between 0 and <code class="docutils literal notranslate"><span class="pre">n_nodes()</span></code></p></li>
+<li><p>All elements of <code class="docutils literal notranslate"><span class="pre">new_neighbors</span></code> must be unique. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>i</strong> – The vertex whose adjacency list is being modified. </p></li>
+<li><p><strong>new_neighbors</strong> – The new adjacency list for vertex <code class="docutils literal notranslate"><span class="pre">i</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE">
+<span id="_CPPv3N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE"></span><span id="_CPPv2N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE"></span><span id="svs::graphs::SimpleGraph::replace_node__Idx.std::span:IdxC:"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a7e3e5dbc9269bd5893a2326f0e559265"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">replace_node</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">new_neighbors</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Replace the adjacency list for vertex <code class="docutils literal notranslate"><span class="pre">i</span></code>.   </p>
+<p>
+Takes at most <code class="docutils literal notranslate"><span class="pre">max_degree()</span></code> elements from <code class="docutils literal notranslate"><span class="pre">new_neighbors</span></code>. May silently drop any excess neighbors.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p>All elements of <code class="docutils literal notranslate"><span class="pre">new_neighbors</span></code> must be between 0 and <code class="docutils literal notranslate"><span class="pre">n_nodes()</span></code></p></li>
+<li><p>All elements of <code class="docutils literal notranslate"><span class="pre">new_neighbors</span></code> must be unique.   </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>i</strong> – The vertex whose adjacency list is being modified. </p></li>
+<li><p><strong>new_neighbors</strong> – The new adjacency list for vertex <code class="docutils literal notranslate"><span class="pre">i</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx">
+<span id="_CPPv3N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx"></span><span id="_CPPv2N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx"></span><span id="svs::graphs::SimpleGraph::add_edge__Idx.Idx"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1ac9ca34df8ae75f490d1dcd1054f1407e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">add_edge</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">src</span></span>, <a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE" title="svs::graphs::SimpleGraph::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">dst</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Add an edge from vertex <code class="docutils literal notranslate"><span class="pre">src</span></code> to vertex <code class="docutils literal notranslate"><span class="pre">dst</span></code>. </p>
+<p>
+The adjacency list of <code class="docutils literal notranslate"><span class="pre">src</span></code> will be left unchanged if:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">src</span> <span class="pre">==</span> <span class="pre">dst</span></code> (no self assignment)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_node_degree(src)</span> <span class="pre">==</span> <span class="pre">max_degree()</span></code> (adjacency list is already full)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dst</span></code> is already an out-neighbor of <code class="docutils literal notranslate"><span class="pre">src</span></code>. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>src</strong> – The source vertex. </p></li>
+<li><p><strong>dst</strong> – The destination vertex.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The number of out neighbors of <code class="docutils literal notranslate"><span class="pre">src</span></code> after <code class="docutils literal notranslate"><span class="pre">dst</span></code> is inserted.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs6graphs11SimpleGraph10max_degreeEv">
+<span id="_CPPv3NK3svs6graphs11SimpleGraph10max_degreeEv"></span><span id="_CPPv2NK3svs6graphs11SimpleGraph10max_degreeEv"></span><span id="svs::graphs::SimpleGraph::max_degreeC"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a709aa9368b52869abcb826255d8ac66c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">max_degree</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs6graphs11SimpleGraph10max_degreeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the maximum out-degree this graph is capable of containing. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs6graphs11SimpleGraph7n_nodesEv">
+<span id="_CPPv3NK3svs6graphs11SimpleGraph7n_nodesEv"></span><span id="_CPPv2NK3svs6graphs11SimpleGraph7n_nodesEv"></span><span id="svs::graphs::SimpleGraph::n_nodesC"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraphBase_1a49224e42843ee9be4cec1f61ab3ba37e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">n_nodes</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs6graphs11SimpleGraph7n_nodesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of vertices currently in the graph. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<section id="graph-loading">
+<h2>Graph Loading<a class="headerlink" href="#graph-loading" title="Link to this heading"></a></h2>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs11GraphLoaderE">
+<span id="_CPPv3I0EN3svs11GraphLoaderE"></span><span id="_CPPv2I0EN3svs11GraphLoaderE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Idx</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structsvs_1_1GraphLoader"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GraphLoader</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs11GraphLoaderE" title="Link to this definition"></a><br /></dt>
+<dd><p>Loader for SVS graphs. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Idx</strong> – The type used to encode nodes in the graph. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs11GraphLoader11GraphLoaderERKNSt10filesystem4pathE">
+<span id="_CPPv3N3svs11GraphLoader11GraphLoaderERKNSt10filesystem4pathE"></span><span id="_CPPv2N3svs11GraphLoader11GraphLoaderERKNSt10filesystem4pathE"></span><span id="svs::GraphLoader::GraphLoader__std::filesystem::pathCR"></span><span class="target" id="structsvs_1_1GraphLoader_1a37aae803f9e793ed7da8574899eadae2"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GraphLoader</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">path</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs11GraphLoader11GraphLoaderERKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#structsvs_1_1GraphLoader"><span class="std std-ref">GraphLoader</span></a>. </p>
+<p>
+The saved graph directory will generally be created when saving a graph based index. The <code class="docutils literal notranslate"><span class="pre">path</span></code> argument should be this directory. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>path</strong> – The file path to the graph directory on disk.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs11GraphLoader4loadEv">
+<span id="_CPPv3NK3svs11GraphLoader4loadEv"></span><span id="_CPPv2NK3svs11GraphLoader4loadEv"></span><span id="svs::GraphLoader::loadC"></span><span class="target" id="structsvs_1_1GraphLoader_1a447fd8327a46b1da17e7ea1bcec54cf7"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">return_type</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">load</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs11GraphLoader4loadEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Load the graph into memory. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The various graph implementations given above are all instances of the more general concept <a class="reference internal" href="../concepts/graph.html#_CPPv4I0EN3svs6graphs20ImmutableMemoryGraphE" title="svs::graphs::ImmutableMemoryGraph"><code class="xref cpp cpp-concept docutils literal notranslate"><span class="pre">svs::graphs::ImmutableMemoryGraph</span></code></a>.
+Where possible, this concept is use to constrain template arguments, allowing for future custom implementations.</p>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="data.html" class="btn btn-neutral float-left" title="In-Memory Representation of Data" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="distance.html" class="btn btn-neutral float-right" title="Built-In Distance Functors" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

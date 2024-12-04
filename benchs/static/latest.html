@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Latest Results &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Previous Results" href="previous.html" />
+    <link rel="prev" title="Benchmarks for Static Indexing" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Benchmarks</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Benchmarks for Static Indexing</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Latest Results</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#single-query">Single Query</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#datasets">Datasets</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#system-setup">System Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#parameters-setting">Parameters Setting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#evaluation-metrics">Evaluation Metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="previous.html">Previous Results</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../dynamic.html">Benchmarks for Dynamic Indexing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ablation.html">Ablation Studies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Benchmarks</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Benchmarks for Static Indexing</a></li>
+      <li class="breadcrumb-item active">Latest Results</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/benchs/static/latest.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="latest-results">
+<span id="benchs-static-latest"></span><h1>Latest Results<a class="headerlink" href="#latest-results" title="Link to this heading"></a></h1>
+<p>We compare SVS to the widely adopted implementations HNSWlib <a class="reference internal" href="../../features.html#maya18" id="id1"><span>[MaYa18]</span></a> and FAISS’s IVFPQfs <a class="reference internal" href="../../features.html#dgdj24" id="id2"><span>[DGDJ24]</span></a> on various datasets
+covering a wide variety of practical scenarios, including different scales (<span class="math notranslate nohighlight">\(n=10^6\)</span> to <span class="math notranslate nohighlight">\(n=10^9\)</span>),
+dimensionalities (<span class="math notranslate nohighlight">\(d=96, 200, 512, 768\)</span>), and deep learning modalities (texts,
+images, and multimodal). A summary of the experimental setup is presented below.</p>
+<p><strong>Results summary:</strong></p>
+<ul>
+<li><p>At <strong>very large scale</strong> (over 10M vectors, up to 768-dimensional), <strong>SVS outperforms its competitors in terms of QPS</strong> by up to</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>13.5x</strong> for large query batch size (10k),</p></li>
+<li><p><strong>8.1x</strong> for small query batch size (10),</p></li>
+<li><p><strong>4.4x</strong> for single query.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>At <strong>million scale</strong>, <strong>SVS outperforms its competitors in terms of QPS</strong> by up to</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>6.5x</strong> for large query batch size (10k),</p></li>
+<li><p><strong>9.6x</strong> for small query batch size (10),</p></li>
+<li><p><strong>4.3x</strong> for single query.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>Values reported for a <strong>search accuracy of 0.9 10 recall at 10</strong>.</p>
+<p>The table below summarizes the QPS boost with respect to SVS closest competitor for different query batch sizes for a search accuracy of 0.9 10 recall at 10.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td></td>
+<td colspan="2"><p><strong>Query batch size = 10</strong></p></td>
+<td colspan="2"><p><strong>Query batch size = 10k</strong></p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td></td>
+<td><p><strong>SVS QPS</strong></p></td>
+<td><p><strong>QPS w.r.t. 2nd</strong></p></td>
+<td><p><strong>SVS QPS</strong></p></td>
+<td><p><strong>QPS w.r.t. 2nd</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Over million scale</strong></p></td>
+<td><p><strong>deep-96-1B</strong></p></td>
+<td><p>95931</p></td>
+<td><p>7.0x</p></td>
+<td><p>473771</p></td>
+<td><p>5.6x</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><strong>deep-96-100M</strong></p></td>
+<td><p>140505</p></td>
+<td><p>4.5x</p></td>
+<td><p>728430</p></td>
+<td><p>4.7x</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><strong>t2i-200-10M</strong></p></td>
+<td><p>47148</p></td>
+<td><p>3.2x</p></td>
+<td><p>276725</p></td>
+<td><p>3.8x</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><strong>open-images-512-13M</strong></p></td>
+<td><p>79507</p></td>
+<td><p>3.3x</p></td>
+<td><p>406301</p></td>
+<td><p>4.9x</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><strong>rqa-768-10M-OOD</strong></p></td>
+<td><p>23296</p></td>
+<td><p>8.1x</p></td>
+<td><p>111263</p></td>
+<td><p>13.5x</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Million scale</strong></p></td>
+<td><p><strong>deep-96-1M</strong></p></td>
+<td><p>385542</p></td>
+<td><p>3.4x</p></td>
+<td><p>2504286</p></td>
+<td><p>3.2x</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><strong>t2i-200-1M</strong></p></td>
+<td><p>117024</p></td>
+<td><p>3.1x</p></td>
+<td><p>712564</p></td>
+<td><p>3.7x</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><strong>open-images-512-1M</strong></p></td>
+<td><p>121425</p></td>
+<td><p>2.7x</p></td>
+<td><p>675808</p></td>
+<td><p>2.8x</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><strong>rqa-768-1M-OOD</strong></p></td>
+<td><p>50138</p></td>
+<td><p>9.6x</p></td>
+<td><p>240732</p></td>
+<td><p>6.5x</p></td>
+</tr>
+</tbody>
+</table>
+<p>The figure below shows the QPS vs recall curves for the <a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-10M-OOD</a>
+dataset (10M 768-dimensional embeddings generated with the dense passage retriever model RocketQA <a class="reference internal" href="../../features.html#qdll21" id="id3"><span>[QDLL21]</span></a> with out-of-distribution queries).</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_rqa-10M.svg"><img alt="SVS similarity search results for the rqa-768-10M-OOD dataset." class="align-center" src="../../_images/bench_SPR_rqa-10M.svg" width="700" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p><strong>Click on the triangles</strong> to see the QPS vs recall curves for the other datasets.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="8ea27728-8d75-4ad4-bce9-c0562a31dc47" name="8ea27728-8d75-4ad4-bce9-c0562a31dc47" type="checkbox"><label class="sphinx_collapse__label" for="8ea27728-8d75-4ad4-bce9-c0562a31dc47"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-1B dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_deep-1B.svg"><img alt="SVS similarity search results for the deep-96-1B dataset." src="../../_images/bench_SPR_deep-1B.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="4d03739a-a503-40ee-a0e3-1c7cb2ba224f" name="4d03739a-a503-40ee-a0e3-1c7cb2ba224f" type="checkbox"><label class="sphinx_collapse__label" for="4d03739a-a503-40ee-a0e3-1c7cb2ba224f"><i class="sphinx_collapse__icon"></i>deep-96-100M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-100M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_deep-100M.svg"><img alt="SVS similarity search results for the deep-96-100M dataset." src="../../_images/bench_SPR_deep-100M.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="3df90543-3b7a-45d4-9d1a-e0f17ee2c72a" name="3df90543-3b7a-45d4-9d1a-e0f17ee2c72a" type="checkbox"><label class="sphinx_collapse__label" for="3df90543-3b7a-45d4-9d1a-e0f17ee2c72a"><i class="sphinx_collapse__icon"></i>deep-96-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-1M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_deep-1M.svg"><img alt="SVS similarity search results for the deep-96-1M dataset." src="../../_images/bench_SPR_deep-1M.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="c582132e-74cc-4c57-82f0-f20fddd273f8" name="c582132e-74cc-4c57-82f0-f20fddd273f8" type="checkbox"><label class="sphinx_collapse__label" for="c582132e-74cc-4c57-82f0-f20fddd273f8"><i class="sphinx_collapse__icon"></i>open-images-512-13M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the open-images-512-13M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_oi-13M.svg"><img alt="SVS similarity search results for the open-images-13M dataset." src="../../_images/bench_SPR_oi-13M.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="d1c0959d-42cd-4c94-86a5-22c8b871b57e" name="d1c0959d-42cd-4c94-86a5-22c8b871b57e" type="checkbox"><label class="sphinx_collapse__label" for="d1c0959d-42cd-4c94-86a5-22c8b871b57e"><i class="sphinx_collapse__icon"></i>open-images-512-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the open-images-512-1M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_oi-1M.svg"><img alt="SVS similarity search results for the open-images-1M dataset." src="../../_images/bench_SPR_oi-1M.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="0588ec5d-d9ff-431d-ae32-d48eb101c818" name="0588ec5d-d9ff-431d-ae32-d48eb101c818" type="checkbox"><label class="sphinx_collapse__label" for="0588ec5d-d9ff-431d-ae32-d48eb101c818"><i class="sphinx_collapse__icon"></i>rqa-768-1M-OOD</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the rqa-768-1M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_rqa-1M.svg"><img alt="SVS similarity search results for the rqa-768-1M-OOD dataset." src="../../_images/bench_SPR_rqa-1M.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="26f23f14-d700-4299-b799-be51231dda7f" name="26f23f14-d700-4299-b799-be51231dda7f" type="checkbox"><label class="sphinx_collapse__label" for="26f23f14-d700-4299-b799-be51231dda7f"><i class="sphinx_collapse__icon"></i>t2i-200-10M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the t2i-200-10M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_text2image-10M.svg"><img alt="SVS similarity search results for the t2i-200-10M dataset." src="../../_images/bench_SPR_text2image-10M.svg" width="700" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="380ec995-8b0e-4303-9d40-07d990c456d4" name="380ec995-8b0e-4303-9d40-07d990c456d4" type="checkbox"><label class="sphinx_collapse__label" for="380ec995-8b0e-4303-9d40-07d990c456d4"><i class="sphinx_collapse__icon"></i>t2i-200-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the t2i-200-1M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_text2image-1M.svg"><img alt="SVS similarity search results for the t2i-200-1M dataset." src="../../_images/bench_SPR_text2image-1M.svg" width="700" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<section id="single-query">
+<h2>Single Query<a class="headerlink" href="#single-query" title="Link to this heading"></a></h2>
+<p>We ran the benchmarking for the single query case (query batch size = 1) for a representative subset of the datasets.
+The table below summarizes the QPS boost with respect to SVS closest competitor for a search accuracy of 0.9 10 recall at 10.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p><strong>Query batch size = 1</strong></p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><strong>SVS QPS</strong></p></td>
+<td><p><strong>QPS w.r.t. 2nd</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>deep-96-100M</strong></p></td>
+<td><p>17561</p></td>
+<td><p>4.3x</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>open-images-512-13M</strong></p></td>
+<td><p>9757</p></td>
+<td><p>3.2x</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>rqa-768-10M-OOD</strong></p></td>
+<td><p>1620</p></td>
+<td><p>4.4x</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>open-images-512-1M</strong></p></td>
+<td><p>15370</p></td>
+<td><p>2.6x</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>rqa-768-1M-OOD</strong></p></td>
+<td><p>2928</p></td>
+<td><p>4.3x</p></td>
+</tr>
+</tbody>
+</table>
+<p>The figure below shows the QPS vs recall curves for the <a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-10M-OOD</a>
+dataset (10M 768-dimensional embeddings generated with the dense passage retriever model RocketQA <a class="reference internal" href="../../features.html#qdll21" id="id5"><span>[QDLL21]</span></a> with out-of-distribution queries).</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_singleQuery_rqa-10M.svg"><img alt="SVS similarity search results for the rqa-768-10M-OOD dataset." class="align-center" src="../../_images/bench_SPR_singleQuery_rqa-10M.svg" width="500" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p><strong>Click on the triangles</strong> to see the QPS vs recall curves for the other datasets.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="38e34f5b-3a99-4bb3-9e69-1ed86e28b752" name="38e34f5b-3a99-4bb3-9e69-1ed86e28b752" type="checkbox"><label class="sphinx_collapse__label" for="38e34f5b-3a99-4bb3-9e69-1ed86e28b752"><i class="sphinx_collapse__icon"></i>deep-96-100M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-100M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_singleQuery_deep-100M.svg"><img alt="SVS similarity search results for the deep-96-100M dataset." src="../../_images/bench_SPR_singleQuery_deep-100M.svg" width="500" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="40befc20-d414-4e4c-8bda-b72a4514e561" name="40befc20-d414-4e4c-8bda-b72a4514e561" type="checkbox"><label class="sphinx_collapse__label" for="40befc20-d414-4e4c-8bda-b72a4514e561"><i class="sphinx_collapse__icon"></i>open-images-512-13M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the open-images-512-13M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_singleQuery_oi-13M.svg"><img alt="SVS similarity search results for the open-images-13M dataset." src="../../_images/bench_SPR_singleQuery_oi-13M.svg" width="500" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="4146c0ef-1669-454c-b151-b39eb1b31aa7" name="4146c0ef-1669-454c-b151-b39eb1b31aa7" type="checkbox"><label class="sphinx_collapse__label" for="4146c0ef-1669-454c-b151-b39eb1b31aa7"><i class="sphinx_collapse__icon"></i>open-images-512-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the open-images-512-1M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_singleQuery_oi-1M.svg"><img alt="SVS similarity search results for the open-images-1M dataset." src="../../_images/bench_SPR_singleQuery_oi-1M.svg" width="500" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="1f8affdf-1896-4b35-91de-1d35a8ec9e03" name="1f8affdf-1896-4b35-91de-1d35a8ec9e03" type="checkbox"><label class="sphinx_collapse__label" for="1f8affdf-1896-4b35-91de-1d35a8ec9e03"><i class="sphinx_collapse__icon"></i>rqa-768-1M-OOD</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the rqa-768-1M dataset</p>
+<a class="reference internal image-reference" href="../../_images/bench_SPR_singleQuery_rqa-1M.svg"><img alt="SVS similarity search results for the rqa-768-1M-OOD dataset." src="../../_images/bench_SPR_singleQuery_rqa-1M.svg" width="500" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</section>
+<section id="datasets">
+<h2>Datasets<a class="headerlink" href="#datasets" title="Link to this heading"></a></h2>
+<p>To cover a wide range of use cases, we evaluate SVS on standard datasets of diverse dimensionalities (<span class="math notranslate nohighlight">\(d=96\)</span>
+to <span class="math notranslate nohighlight">\(d=768\)</span>), number of elements (<span class="math notranslate nohighlight">\(n=10^6\)</span> to <span class="math notranslate nohighlight">\(n=10^9\)</span>), and metrics as described in the table below.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><strong>Dataset</strong></p></td>
+<td><p><strong>d</strong></p></td>
+<td><p><strong>n</strong></p></td>
+<td><p><strong>Encoding</strong></p></td>
+<td><p><strong>Similarity</strong></p></td>
+<td><p><strong>n queries</strong></p></td>
+<td><p><strong>Space (GiB)</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-1B</a></p></td>
+<td><p>96</p></td>
+<td><p>1B</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>257.6</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-100M</a></p></td>
+<td><p>96</p></td>
+<td><p>100M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>35.8</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-1M</a></p></td>
+<td><p>96</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>0.36</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://research.yandex.com/blog/benchmarks-for-billion-scale-similarity-search">t2i-200-10M</a></p></td>
+<td><p>200</p></td>
+<td><p>10M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>7.5</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://research.yandex.com/blog/benchmarks-for-billion-scale-similarity-search">t2i-200-1M</a></p></td>
+<td><p>200</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>0.75</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/openimages/README.md">open-images-512-13M</a></p></td>
+<td><p>512</p></td>
+<td><p>13M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>24.8</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/openimages/README.md">open-images-512-1M</a></p></td>
+<td><p>512</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>2.5</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-10M-OOD</a></p></td>
+<td><p>768</p></td>
+<td><p>10M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>28.6</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-1M-OOD</a></p></td>
+<td><p>768</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>2.9</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="system-setup">
+<span id="benchs-static-latest-system-setup"></span><h2>System Setup<a class="headerlink" href="#system-setup" title="Link to this heading"></a></h2>
+<p>We run our experiments (except dataset deep-96-1B) on a 2-socket 4th generation Intel® Xeon® Platinum 8480L CPU with
+56 cores per socket, equipped with 512GB DDR4 memory per socket &#64;4800MT/s speed,  running Ubuntu 22.04. <a class="footnote-reference brackets" href="#ft1" id="id7" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> <a class="footnote-reference brackets" href="#ft3" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a>
+For the deep-96-1B, dataset we use a server with the same characteristics except that it is equipped with 1TB DDR4 memory
+per socket &#64;4400MT/s speed.</p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">numactl</span></code> to ran all experiments in a single socket (see <a class="reference internal" href="../../performance/numa.html#numa"><span class="std std-ref">NUMA Systems</span></a> for details).</p>
+<p>We use the <code class="docutils literal notranslate"><span class="pre">hugeadm</span></code> Linux utility to <a class="reference internal" href="../../performance/hugepages.html#hugepages"><span class="std std-ref">preallocate a sufficient number of 1GB huge pages</span></a> for each algorithm.
+SVS explicitly uses huge pages to reduce the virtual memory overheads.
+For a fair comparison, we run other methods with system flags enabled to automatically use huge pages for large allocations.
+For the deep-96-1B dataset, we were not able to use huge pages for the other methods as this causes an out-of-memory issue.</p>
+<p>The large query batch size experiments (batch size = 10k) are run using 112 threads (hyper threading enabled in a single socket), whereas the small query batch size
+(batch size = 10) is run using 10 threads. Using fewer threads benefits all methods for the small query batch size case.</p>
+</section>
+<section id="parameters-setting">
+<h2>Parameters Setting<a class="headerlink" href="#parameters-setting" title="Link to this heading"></a></h2>
+<p>We run different parameter settings for each method and generate Pareto curves with the best QPS for each recall value.</p>
+<p>For <strong>SVS</strong>, we build graphs with: <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128 and <code class="docutils literal notranslate"><span class="pre">alpha</span></code> = 1.2 or 0.95 if using Euclidean distance
+or inner product, respectively.
+For <strong>HSNWlib</strong>, we build graphs with <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 32, 64, 128 (this corresponds
+to M=16, 32, 64 in HSNW notation), except for the deep-96-1B dataset for which we use <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 64 (M=32)
+to be able to fit the working set size in 1TB memory.</p>
+<p>For <strong>FAISS-IVFPQfs</strong>, we use <code class="docutils literal notranslate"><span class="pre">nlist</span></code> = 4096, 8192, 16384 and <code class="docutils literal notranslate"><span class="pre">nbins</span></code> <span class="math notranslate nohighlight">\(=48\)</span> (and <code class="docutils literal notranslate"><span class="pre">nbins</span></code> <span class="math notranslate nohighlight">\(=96\)</span> for <code class="docutils literal notranslate"><span class="pre">nlist</span></code> = 8192) for
+all datasets except deep-96-1B for which we use <code class="docutils literal notranslate"><span class="pre">nlist</span></code> = 32768 and <code class="docutils literal notranslate"><span class="pre">nbins</span></code> <span class="math notranslate nohighlight">\(=48\)</span>. Re-ranking is enabled, and
+at runtime we sweep <code class="docutils literal notranslate"><span class="pre">nprobe</span></code> <span class="math notranslate nohighlight">\(=[1,5,10,50,100,200]\)</span> and  <code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">for</span> <span class="pre">re-ranking</span></code> <span class="math notranslate nohighlight">\(= [0,10,100,1000]\)</span>.</p>
+<p>We used the following versions of each method:
+SVS <a class="reference external" href="https://github.com/IntelLabs/ScalableVectorSearch/commit/a43c9024cc361f7e9d1cd8d1fb0a6dc0bb3f5f02">commit a43c902</a>,
+HNSWlib Python version hnswlib-0.8.0, and for FAISS-IVFPQfs faiss-cpu version 1.8.0.</p>
+</section>
+<section id="evaluation-metrics">
+<h2>Evaluation Metrics<a class="headerlink" href="#evaluation-metrics" title="Link to this heading"></a></h2>
+<p>In all benchmarks and experimental results, search accuracy is measured by k-recall at k, defined by
+<span class="math notranslate nohighlight">\(| S \cap G_t | / k\)</span>, where <span class="math notranslate nohighlight">\(S\)</span> are the ids of the <span class="math notranslate nohighlight">\(k\)</span> retrieved neighbors and
+<span class="math notranslate nohighlight">\(G_t\)</span> is the ground-truth. We use <span class="math notranslate nohighlight">\(k=10\)</span> in all experiments.
+Search performance is measured by queries per second (QPS).</p>
+<p class="rubric">Footnotes</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="ft1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id7">1</a><span class="fn-bracket">]</span></span>
+<p>Performance varies by use, configuration and other factors. Learn more at <a class="reference external" href="www.Intel.com/PerformanceIndex/">www.Intel.com/PerformanceIndex</a>.
+Performance results are based on testing as of dates shown in configurations and may not reflect all publicly
+available updates. No product or component can be absolutely secure. Your costs and results may vary. Intel
+technologies may require enabled hardware, software or service activation. © Intel Corporation.  Intel,
+the Intel logo, and other Intel marks are trademarks of Intel Corporation or its subsidiaries.  Other names and
+brands may be claimed as the property of others.</p>
+</aside>
+<aside class="footnote brackets" id="ft3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">2</a><span class="fn-bracket">]</span></span>
+<p>All experimental results were completed by April 1st 2024.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Benchmarks for Static Indexing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="previous.html" class="btn btn-neutral float-right" title="Previous Results" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

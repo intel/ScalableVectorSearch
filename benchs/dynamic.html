@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benchmarks for Dynamic Indexing &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Ablation Studies" href="ablation.html" />
+    <link rel="prev" title="System Utilization" href="static/previous/system_utilization.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Benchmarks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="static/index.html">Benchmarks for Static Indexing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Benchmarks for Dynamic Indexing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#streaming-protocol">Streaming Protocol</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#datasets">Datasets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#system-setup">System Setup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameters-setting">Parameters Setting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluation-metrics">Evaluation Metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ablation.html">Ablation Studies</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Benchmarks</a></li>
+      <li class="breadcrumb-item active">Benchmarks for Dynamic Indexing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/benchs/dynamic.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="benchmarks-for-dynamic-indexing">
+<span id="benchs-streaming"></span><h1>Benchmarks for Dynamic Indexing<a class="headerlink" href="#benchmarks-for-dynamic-indexing" title="Link to this heading"></a></h1>
+<p>This section presents the benchmarking results for dynamic indexing, that is, when the vectors in the database evolve
+over time as new elements are added and existing elements are deleted.</p>
+<p>We compare SVS to the state-of-the-art technique for streaming similarity search FreshVamana <a class="reference internal" href="../features.html#ssks21" id="id1"><span>[SSKS21]</span></a> and the widely
+adopted HNSWlib <a class="reference internal" href="../features.html#maya18" id="id2"><span>[MaYa18]</span></a> on various datasets covering a wide variety of practical scenarios, including different scales
+(<span class="math notranslate nohighlight">\(n=10^6\)</span> to <span class="math notranslate nohighlight">\(n=10^8\)</span>), dimensionalities (<span class="math notranslate nohighlight">\(d=96, 512, 768\)</span>), and deep learning modalities (texts,
+images, and multimodal). A summary of the experimental setup is presented below, for more details see <a class="reference internal" href="../features.html#ahbw24" id="id3"><span>[AHBW24]</span></a>.</p>
+<p><strong>Results summary:</strong></p>
+<ul class="simple">
+<li><p><strong>SVS outperforms its competitors in terms of QPS</strong> by up to <strong>9.4x</strong> and <strong>4.6x</strong> for small (1M vectors) and large scale (over 10M vectors) datasets, respectively, for a search accuracy of 0.9 10 recall at 10.</p></li>
+<li><p><strong>SVS addition and delete-consolidation times</strong> outclass the competition by up to <strong>3.6x</strong> and <strong>17.7x</strong>, respectively, for a search accuracy of 0.9 10 recall at 10 (see <a class="reference internal" href="#streaming-metrics"><span class="std std-ref">note</span></a> below about delete-consolidation times for HNSWlib).</p></li>
+<li><p><strong>SVS manges to keep a stable search recall over time</strong>.</p></li>
+</ul>
+<p>The figure below shows the different evaluated <a class="reference internal" href="#streaming-metrics"><span class="std std-ref">metrics</span></a> over time for the <a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-10M</a>
+dataset (10M 768-dimensional embeddings generated with the dense passage retriever model RocketQA <a class="reference internal" href="../features.html#qdll21" id="id4"><span>[QDLL21]</span></a>).
+As explained in the <a class="reference internal" href="#streaming-protocol"><span class="std std-ref">protocol</span></a> below, at each iteration vectors are randomly deleted and added to the index.</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<a class="reference internal image-reference" href="../_images/bench_iid_over_time_rqa-10M.svg"><img alt="SVS streaming similarity search for the rqa-768-10M dataset." class="align-center" src="../_images/bench_iid_over_time_rqa-10M.svg" width="500" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p><strong>Click on the triangles</strong> to see the results for the other datasets.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="eac6ea23-033c-4f61-8915-498344ff1f21" name="eac6ea23-033c-4f61-8915-498344ff1f21" type="checkbox"><label class="sphinx_collapse__label" for="eac6ea23-033c-4f61-8915-498344ff1f21"><i class="sphinx_collapse__icon"></i>deep-96-100M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-100M dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_iid_over_time_deep100M.svg"><img alt="SVS streaming similarity search for the deep-96-100M dataset." src="../_images/bench_iid_over_time_deep100M.svg" width="500" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="f5489844-3829-4364-8ad4-888216d3f300" name="f5489844-3829-4364-8ad4-888216d3f300" type="checkbox"><label class="sphinx_collapse__label" for="f5489844-3829-4364-8ad4-888216d3f300"><i class="sphinx_collapse__icon"></i>open-images-512-13M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the open-images-512-13M dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_iid_over_time_open-images-13M.svg"><img alt="SVS streaming similarity search for the open-images-13M dataset." src="../_images/bench_iid_over_time_open-images-13M.svg" width="500" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="baaa87f2-8724-4e68-b0bd-69925f54f81e" name="baaa87f2-8724-4e68-b0bd-69925f54f81e" type="checkbox"><label class="sphinx_collapse__label" for="baaa87f2-8724-4e68-b0bd-69925f54f81e"><i class="sphinx_collapse__icon"></i>open-images-512-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the open-images-512-1M dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_iid_over_time_open-images-1M.svg"><img alt="SVS streaming similarity search for the open-images-1M dataset." src="../_images/bench_iid_over_time_open-images-1M.svg" width="500" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="8764ec8b-c163-44be-9927-f39fa8b2e1e3" name="8764ec8b-c163-44be-9927-f39fa8b2e1e3" type="checkbox"><label class="sphinx_collapse__label" for="8764ec8b-c163-44be-9927-f39fa8b2e1e3"><i class="sphinx_collapse__icon"></i>rqa-768-1M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the rqa-768-1M dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_iid_over_time_rqa-1M.svg"><img alt="SVS streaming similarity search for the rqa-768-1M dataset." src="../_images/bench_iid_over_time_rqa-1M.svg" width="500" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<section id="streaming-protocol">
+<span id="id5"></span><h2>Streaming Protocol<a class="headerlink" href="#streaming-protocol" title="Link to this heading"></a></h2>
+<p>The graph index is initialized with a random sample containing 70% of the dataset vectors. At each iteration, we delete
+1% of the vectors in the index and add 1% of the vectors that are not indexed. The vectors to be added and deleted are chosen
+at random. For the indices that perform delete consolitations, they are done every every 5 iterations. For more details see
+<a class="reference internal" href="../features.html#ahbw24" id="id6"><span>[AHBW24]</span></a>.</p>
+</section>
+<section id="datasets">
+<h2>Datasets<a class="headerlink" href="#datasets" title="Link to this heading"></a></h2>
+<p>To cover a wide range of use cases, we evaluate SVS on standard datasets of diverse dimensionalities (<span class="math notranslate nohighlight">\(d=96\)</span>
+to <span class="math notranslate nohighlight">\(d=768\)</span>), number of elements (<span class="math notranslate nohighlight">\(n=10^6\)</span> to <span class="math notranslate nohighlight">\(n=10^8\)</span>), and metrics as described in the table below.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td colspan="2"><p><strong>Dataset</strong></p></td>
+<td><p><strong>d</strong></p></td>
+<td><p><strong>n</strong></p></td>
+<td><p><strong>Encoding</strong></p></td>
+<td><p><strong>Similarity</strong></p></td>
+<td><p><strong>n queries</strong></p></td>
+<td><p><strong>Space (GiB)</strong></p></td>
+</tr>
+<tr class="row-even"><td colspan="2"><p><a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">deep-96-100M</a></p></td>
+<td><p>96</p></td>
+<td><p>100M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>35.8</p></td>
+</tr>
+<tr class="row-odd"><td colspan="2"><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/openimages/README.md">open-images-512-13M</a></p></td>
+<td><p>512</p></td>
+<td><p>13M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>24.8</p></td>
+</tr>
+<tr class="row-even"><td colspan="2"><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/openimages/README.md">open-images-512-1M</a></p></td>
+<td><p>512</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>cosine similarity</p></td>
+<td><p>10000</p></td>
+<td><p>2.5</p></td>
+</tr>
+<tr class="row-odd"><td colspan="2"><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-10M</a></p></td>
+<td><p>768</p></td>
+<td><p>10M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>28.6</p></td>
+</tr>
+<tr class="row-even"><td colspan="2"><p><a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-1M</a></p></td>
+<td><p>768</p></td>
+<td><p>1M</p></td>
+<td><p>float32</p></td>
+<td><p>inner product</p></td>
+<td><p>10000</p></td>
+<td><p>2.9</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="system-setup">
+<h2>System Setup<a class="headerlink" href="#system-setup" title="Link to this heading"></a></h2>
+<p>We run our experiments on a 2-socket 3rd generation Intel® Xeon® Platinum 8360Y CPU &#64;2.40GHz with
+36 cores (single socket), equipped with 256GB DDR4 memory per socket &#64;2933MT/s speed,  running Ubuntu 22.04. <a class="footnote-reference brackets" href="#ft1" id="id8" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a> <a class="footnote-reference brackets" href="#ft3" id="id9" role="doc-noteref"><span class="fn-bracket">[</span>2<span class="fn-bracket">]</span></a></p>
+<p>We use <code class="docutils literal notranslate"><span class="pre">numactl</span></code> to ran all experiments in a single socket (see <a class="reference internal" href="../performance/numa.html#numa"><span class="std std-ref">NUMA Systems</span></a> for details).</p>
+<p>We use the <code class="docutils literal notranslate"><span class="pre">hugeadm</span></code> Linux utility to <a class="reference internal" href="../performance/hugepages.html#hugepages"><span class="std std-ref">preallocate a sufficient number of 1GB huge pages</span></a> for each algorithm.
+SVS explicitly uses huge pages to reduce the virtual memory overheads.
+For a fair comparison, we run other methods with system flags enabled to automatically use huge pages for large allocations.
+We run all methods with and without huge pages and report the best result.</p>
+</section>
+<section id="parameters-setting">
+<h2>Parameters Setting<a class="headerlink" href="#parameters-setting" title="Link to this heading"></a></h2>
+<p>For SVS and FreshVamana, we use the following parameter setting for graph building: <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 64 and
+<code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128 for datasets with 1M and over 10M vectors, respectively; <code class="docutils literal notranslate"><span class="pre">alpha</span></code> = 1.2 and <code class="docutils literal notranslate"><span class="pre">alpha</span></code> = 0.95
+for Euclidean distance and inner product, respectively; and a search window size for building of 200. For HNSWlib, we
+use the same <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> setting as for the other methods (this corresponds to M = 32 and M = 64 in HNSW
+parameter notation), and a search window size for building of 500.</p>
+</section>
+<section id="evaluation-metrics">
+<span id="streaming-metrics"></span><h2>Evaluation Metrics<a class="headerlink" href="#evaluation-metrics" title="Link to this heading"></a></h2>
+<p>In all benchmarks and experimental results, search accuracy is measured by k-recall at k, defined by
+<span class="math notranslate nohighlight">\(| S \cap G_t | / k\)</span>, where <span class="math notranslate nohighlight">\(S\)</span> are the ids of the <span class="math notranslate nohighlight">\(k\)</span> retrieved neighbors and
+<span class="math notranslate nohighlight">\(G_t\)</span> is the ground-truth. We use <span class="math notranslate nohighlight">\(k=10\)</span> in all experiments.
+Search performance is measured by queries per second (QPS). We also report the time taken by the addition and delete
+consolidations of vectors from the database.</p>
+<p>HNSWlib supports delete requests by adding them to a blacklist and removing the deleted vectors from the retrieved
+nearest neighbors. The slots in the delete list will be used for future vectors, but there is not a proper notion of
+delete consolidation like the FreshVamana algorithm has. Therefore, the reported consolidation time is zero for HNSWlib.
+This causes a search recall degradation over time for HNSWlib, as shown in the experimental results.
+The time taken by deletions is not reported as it is negligible compared to the other tasks for all methods.</p>
+<p class="rubric">Footnotes</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="ft1" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id8">1</a><span class="fn-bracket">]</span></span>
+<p>Performance varies by use, configuration and other factors. Learn more at <a class="reference external" href="www.Intel.com/PerformanceIndex/">www.Intel.com/PerformanceIndex</a>.
+Performance results are based on testing as of dates shown in configurations and may not reflect all publicly
+available updates. No product or component can be absolutely secure. Your costs and results may vary. Intel
+technologies may require enabled hardware, software or service activation. © Intel Corporation.  Intel,
+the Intel logo, and other Intel marks are trademarks of Intel Corporation or its subsidiaries.  Other names and
+brands may be claimed as the property of others.</p>
+</aside>
+<aside class="footnote brackets" id="ft3" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id9">2</a><span class="fn-bracket">]</span></span>
+<p>All experimental results were completed by February 1st 2024.</p>
+</aside>
+</aside>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="static/previous/system_utilization.html" class="btn btn-neutral float-left" title="System Utilization" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ablation.html" class="btn btn-neutral float-right" title="Ablation Studies" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

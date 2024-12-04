@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Static Dimensionality &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="NUMA Systems" href="../performance/numa.html" />
+    <link rel="prev" title="Multithreading" href="../performance/multithreading.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../performance/index.html">Performance Tuning</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../performance/avx512.html">Intel(R) AVX-512</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../performance/hugepages.html">Huge Pages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../performance/using_compression.html">Vector Compression</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../performance/multithreading.html">Multithreading</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Static Dimensionality</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#uncompressed-data">Uncompressed data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#lvq-compressed-data">LVQ compressed data</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../performance/numa.html">NUMA Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../performance/index.html">Performance Tuning</a></li>
+      <li class="breadcrumb-item active">Static Dimensionality</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/advanced/static_dimensionality.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="static-dimensionality">
+<span id="static-dim"></span><h1>Static Dimensionality<a class="headerlink" href="#static-dimensionality" title="Link to this heading"></a></h1>
+<p>SVS supports the option of setting the dimensionality at compile time (static) versus at runtime (dynamic).
+Setting it statically is a notable optimization because, as the dimensionality of a dataset is fixed, it presents no
+detrimental aspects and it boosts performance by improving the compiler’s ability to unroll loops in the similarity
+function kernel more extensively. For example, for the standard 96-dimensional dataset <a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">Deep</a>,
+we observe up to a 32% performance speedup when using static versus dynamic dimensionality to search on 100 million points <a class="reference internal" href="../features.html#abht23" id="id1"><span>[ABHT23]</span></a>.</p>
+<section id="uncompressed-data">
+<h2>Uncompressed data<a class="headerlink" href="#uncompressed-data" title="Link to this heading"></a></h2>
+<p><strong>In Python</strong>, to add support to the svs module for static dimensionality for the <a class="reference internal" href="../python/vamana.html#vamana-api"><span class="std std-ref">Vamana graph index</span></a>:</p>
+<ol class="arabic">
+<li><p>Define the desired dimensionality specialization in the <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/tree/main/bindings/python/include/svs/python/vamana.h">vamana.h</a> file by adding the corresponding line to the <code class="docutils literal notranslate"><span class="pre">for_standard_specializations</span></code> template
+indicating the desired query data type, vector data type and dimensionality (see <a class="reference internal" href="../features.html#supported-data-types"><span class="std std-ref">supported data types</span></a>).</p>
+<p>For example, to add static dimensionality support for the 96-dimensional dataset <a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">Deep</a>,
+for float32-valued queries and base vectors, add the following line:</p>
+</li>
+</ol>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">XN</span><span class="p">(</span><span class="kt">float</span><span class="p">,</span><span class="w">   </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">96</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Or use the following if also want to enable graph building directly from a Numpy array.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="w"> </span><span class="p">(</span><span class="kt">float</span><span class="p">,</span><span class="w">   </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">96</span><span class="p">,</span><span class="w"> </span><span class="n">EnableBuild</span><span class="o">::</span><span class="n">FromFileAndArray</span><span class="p">);</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><a class="reference internal" href="../start.html#install-svs"><span class="std std-ref">Install svs</span></a>.</p></li>
+</ol>
+<p>For the <a class="reference internal" href="../python/dynamic.html#dynamic-vamana-api"><span class="std std-ref">Dynamic</span></a> and <a class="reference internal" href="../python/flat.html#flat-api"><span class="std std-ref">Flat</span></a> indices follow the same procedure with the
+<a class="reference external" href="https://github.com/intel/ScalableVectorSearch/tree/main/bindings/python/include/svs/python/dynamic_vamana.h">dynamic_vamana.h</a> and <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/tree/main/bindings/python/src/flat.cpp">flat.cpp</a> files respectively.</p>
+<p><strong>In C++</strong></p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="17cb784d-2cd7-4600-a34c-c32bab14c3ca" name="17cb784d-2cd7-4600-a34c-c32bab14c3ca" type="checkbox"><label class="sphinx_collapse__label" for="17cb784d-2cd7-4600-a34c-c32bab14c3ca"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<p>When building or loading an index, the <code class="docutils literal notranslate"><span class="pre">Extent</span></code> template argument of the <a class="reference internal" href="../cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a> needs to
+be set to the specified dimensionality.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">96</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;data_f32.svs&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</section>
+<section id="lvq-compressed-data">
+<span id="static-dim-for-lvq"></span><h2>LVQ compressed data<a class="headerlink" href="#lvq-compressed-data" title="Link to this heading"></a></h2>
+<p><strong>In Python</strong>, to add support for static dimensionality for the <a class="reference internal" href="../python/vamana.html#vamana-api"><span class="std std-ref">Vamana graph index</span></a>
+when using LVQ compression:</p>
+<ol class="arabic">
+<li><p>Define the desired dimensionality specialization in the <code class="docutils literal notranslate"><span class="pre">vamana.h</span></code> file by adding the corresponding line to the
+<code class="docutils literal notranslate"><span class="pre">lvq_specialize_B1xB2</span></code> template, where <cite>B1</cite> and <cite>B2</cite> are the number of bits in the primary and secondary LVQ levels.
+Indicate the desired distance type (Euclidean distance and inner product are currently supported), dimensionality,
+implementation <a class="reference internal" href="../howtos.html#lvq-strategy"><span class="std std-ref">strategy</span></a> (Turbo or Sequential), and whether graph building with compressed
+vectors is to be enabled for that setting.</p>
+<p>For example, to add static dimensionality support for a 512-dimensional dataset, with LVQ using 4 and 8 bits in the
+primary and secondary levels respectively, using Turbo, for inner product, with graph building enabled,
+add the following line to the <code class="docutils literal notranslate"><span class="pre">lvq_specialize_4x8</span></code> template:</p>
+</li>
+</ol>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="p">(</span><span class="n">DistanceIP</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">512</span><span class="p">,</span><span class="w"> </span><span class="n">Turbo</span><span class="p">,</span><span class="w"> </span><span class="nb">true</span><span class="p">);</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p>Add the corresponding template to the <code class="docutils literal notranslate"><span class="pre">compressed_specializations</span></code> template in the same file.</p></li>
+<li><p><a class="reference internal" href="../start.html#install-svs"><span class="std std-ref">Install svs</span></a>.</p></li>
+</ol>
+<p>For the <a class="reference internal" href="../python/dynamic.html#dynamic-vamana-api"><span class="std std-ref">DynamicVamana graph index</span></a>:</p>
+<ol class="arabic">
+<li><p>Define the desired dimensionality specialization in the <code class="docutils literal notranslate"><span class="pre">dynamic_vamana.h</span></code> file by adding the corresponding line to the
+<code class="docutils literal notranslate"><span class="pre">for_compressed_specializations</span></code> template,
+indicating the desired distance type (Euclidean distance and inner product are currently supported),
+the number of bits in the primary and secondary LVQ levels, the
+implementation <a class="reference internal" href="../howtos.html#lvq-strategy"><span class="std std-ref">strategy</span></a> (Turbo or Sequential), and the dimensionality.</p>
+<p>For example, to add static dimensionality support for a 512-dimensional dataset, with LVQ using 4 and 8 bits in the
+primary and secondary levels respectively, using Turbo, for inner product add the following line:</p>
+</li>
+</ol>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">X</span><span class="p">(</span><span class="n">DistanceIP</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="n">Turbo</span><span class="p">,</span><span class="w"> </span><span class="mi">512</span><span class="p">);</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="2">
+<li><p><a class="reference internal" href="../start.html#install-svs"><span class="std std-ref">Install svs</span></a>.</p></li>
+</ol>
+<p>For the <a class="reference internal" href="../python/flat.html#flat-api"><span class="std std-ref">Flat index</span></a> follow the same procedure with the <code class="docutils literal notranslate"><span class="pre">flat.cpp</span></code> file.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../performance/multithreading.html" class="btn btn-neutral float-left" title="Multithreading" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../performance/numa.html" class="btn btn-neutral float-right" title="NUMA Systems" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

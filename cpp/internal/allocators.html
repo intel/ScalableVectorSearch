@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>High Level Allocators &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Index Data Structures" href="index_impl/index.html" />
+    <link rel="prev" title="Dynamic Dispatcher" href="lib/dispatcher.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Internals</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="lib/index.html">Library Components</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">High Level Allocators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#standard-allocators">Standard Allocators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs17HugepageAllocatorE"><code class="docutils literal notranslate"><span class="pre">HugepageAllocator</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs12MemoryMapperE"><code class="docutils literal notranslate"><span class="pre">MemoryMapper</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#helpers">Helpers</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs7MMapPtrE"><code class="docutils literal notranslate"><span class="pre">MMapPtr</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index_impl/index.html">Index Data Structures</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Internals</a></li>
+      <li class="breadcrumb-item active">High Level Allocators</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/internal/allocators.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="high-level-allocators">
+<span id="allocators"></span><h1>High Level Allocators<a class="headerlink" href="#high-level-allocators" title="Link to this heading"></a></h1>
+<p>Many of the large data structures used in the library to store graphs or large blocks of dense data support using different allocators to provide their memory.
+This enables easy use of hugepages for large allocations or for direct memory mapping of files if the on-disk representation of the file is suitable.</p>
+<p>Algorithms designed to accomodate multiple allocators are templated on the allocator type.</p>
+<section id="standard-allocators">
+<h2>Standard Allocators<a class="headerlink" href="#standard-allocators" title="Link to this heading"></a></h2>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs17HugepageAllocatorE">
+<span id="_CPPv3I0EN3svs17HugepageAllocatorE"></span><span id="_CPPv2I0EN3svs17HugepageAllocatorE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1HugepageAllocator"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">HugepageAllocator</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs17HugepageAllocatorE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/core/allocator.h&gt;</em></div>
+<p>Allocator class to use hugepages to back memory allocations. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs17HugepageAllocator17HugepageAllocatorEv">
+<span id="_CPPv3N3svs17HugepageAllocator17HugepageAllocatorEv"></span><span id="_CPPv2N3svs17HugepageAllocator17HugepageAllocatorEv"></span><span id="svs::HugepageAllocator::HugepageAllocator"></span><span class="target" id="classsvs_1_1HugepageAllocator_1ad33957839330d02eba29ca8c6645b206"></span><span class="sig-name descname"><span class="n"><span class="pre">HugepageAllocator</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">default</span></span><a class="headerlink" href="#_CPPv4N3svs17HugepageAllocator17HugepageAllocatorEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new allocator. </p>
+<p>When default construction is used, the resulting allocator will be configured to use normal pages if sufficient huge pages are not available to fulfill an allocation. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs17HugepageAllocator17HugepageAllocatorEb">
+<span id="_CPPv3N3svs17HugepageAllocator17HugepageAllocatorEb"></span><span id="_CPPv2N3svs17HugepageAllocator17HugepageAllocatorEb"></span><span id="svs::HugepageAllocator::HugepageAllocator__b"></span><span class="target" id="classsvs_1_1HugepageAllocator_1af83dad3210c92fcdb6f8012e2308a49f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">HugepageAllocator</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">force</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs17HugepageAllocator17HugepageAllocatorEb" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#classsvs_1_1HugepageAllocator"><span class="std std-ref">HugepageAllocator</span></a>. </p>
+<p>
+If <code class="docutils literal notranslate"><span class="pre">false</span></code>, than normal 4 KiB will be used if huge pages are not available. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>force</strong> – - If <code class="docutils literal notranslate"><span class="pre">true</span></code>, ensure that memory allocations are fulfilled with hugepages, throwing an exception if not enough pages are available.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapperE">
+<span id="_CPPv3N3svs12MemoryMapperE"></span><span id="_CPPv2N3svs12MemoryMapperE"></span><span id="svs::MemoryMapper"></span><span class="target" id="classsvs_1_1MemoryMapper"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MemoryMapper</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapperE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/core/allocator.h&gt;</em></div>
+<p>Allocate memory for a data collection directly from a file using memory mapping. </p>
+<p>Used by more file-aware allocators. Shouldn’t be invoked directly. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp enum">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper6PolicyE">
+<span id="_CPPv3N3svs12MemoryMapper6PolicyE"></span><span id="_CPPv2N3svs12MemoryMapper6PolicyE"></span><span class="target" id="classsvs_1_1MemoryMapper_1a0ebdc03b28e7d486f664211a3331a5c2"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Policy</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper6PolicyE" title="Link to this definition"></a><br /></dt>
+<dd><p>Policy for file memory mapping. </p>
+<p><em>Values:</em></p>
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper6Policy15MustUseExistingE">
+<span id="_CPPv3N3svs12MemoryMapper6Policy15MustUseExistingE"></span><span id="_CPPv2N3svs12MemoryMapper6Policy15MustUseExistingE"></span><span class="target" id="classsvs_1_1MemoryMapper_1a0ebdc03b28e7d486f664211a3331a5c2abbb9d950e57897a77dcbace0ca720ea4"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MustUseExisting</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper6Policy15MustUseExistingE" title="Link to this definition"></a><br /></dt>
+<dd><p>Memory mapping must use an existing file. A new file will not be created. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper6Policy10MustCreateE">
+<span id="_CPPv3N3svs12MemoryMapper6Policy10MustCreateE"></span><span id="_CPPv2N3svs12MemoryMapper6Policy10MustCreateE"></span><span class="target" id="classsvs_1_1MemoryMapper_1a0ebdc03b28e7d486f664211a3331a5c2acd37ba8dcc3e911d98412b22f83e00dc"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MustCreate</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper6Policy10MustCreateE" title="Link to this definition"></a><br /></dt>
+<dd><p>Memory mapping must create a new file. An existing file cannot be used. </p>
+</dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper6Policy9MayCreateE">
+<span id="_CPPv3N3svs12MemoryMapper6Policy9MayCreateE"></span><span id="_CPPv2N3svs12MemoryMapper6Policy9MayCreateE"></span><span class="target" id="classsvs_1_1MemoryMapper_1a0ebdc03b28e7d486f664211a3331a5c2ac6b3222a4918a869527f003675b46483"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MayCreate</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper6Policy9MayCreateE" title="Link to this definition"></a><br /></dt>
+<dd><p>Memory mapping may either create a new file or use an existing one. </p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="cpp enum">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper10PermissionE">
+<span id="_CPPv3N3svs12MemoryMapper10PermissionE"></span><span id="_CPPv2N3svs12MemoryMapper10PermissionE"></span><span class="target" id="classsvs_1_1MemoryMapper_1aad7f38c28430397ebd8e333318de558f"></span><span class="k"><span class="pre">enum</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Permission</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper10PermissionE" title="Link to this definition"></a><br /></dt>
+<dd><p>Permissions for the memory map. </p>
+<p><em>Values:</em></p>
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper10Permission8ReadOnlyE">
+<span id="_CPPv3N3svs12MemoryMapper10Permission8ReadOnlyE"></span><span id="_CPPv2N3svs12MemoryMapper10Permission8ReadOnlyE"></span><span class="target" id="classsvs_1_1MemoryMapper_1aad7f38c28430397ebd8e333318de558fa83140165129816735ccb50d672920bb4"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ReadOnly</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper10Permission8ReadOnlyE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp enumerator">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper10Permission9ReadWriteE">
+<span id="_CPPv3N3svs12MemoryMapper10Permission9ReadWriteE"></span><span id="_CPPv2N3svs12MemoryMapper10Permission9ReadWriteE"></span><span class="target" id="classsvs_1_1MemoryMapper_1aad7f38c28430397ebd8e333318de558fa4621f8f5cf26c583f8f110624be0ac57"></span><span class="k"><span class="pre">enumerator</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ReadWrite</span></span></span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper10Permission9ReadWriteE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs12MemoryMapper12MemoryMapperE10Permission6Policy">
+<span id="_CPPv3N3svs12MemoryMapper12MemoryMapperE10Permission6Policy"></span><span id="_CPPv2N3svs12MemoryMapper12MemoryMapperE10Permission6Policy"></span><span id="svs::MemoryMapper::MemoryMapper__Permission.Policy"></span><span class="target" id="classsvs_1_1MemoryMapper_1ae28f0d848a9d0e2a4f70a1b079bde2dd"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MemoryMapper</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3svs12MemoryMapper10PermissionE" title="svs::MemoryMapper::Permission"><span class="n"><span class="pre">Permission</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">permission</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs12MemoryMapper10Permission8ReadOnlyE" title="svs::MemoryMapper::ReadOnly"><span class="n"><span class="pre">ReadOnly</span></span></a>, <a class="reference internal" href="#_CPPv4N3svs12MemoryMapper6PolicyE" title="svs::MemoryMapper::Policy"><span class="n"><span class="pre">Policy</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">policy</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs12MemoryMapper6Policy15MustUseExistingE" title="svs::MemoryMapper::MustUseExisting"><span class="n"><span class="pre">MustUseExisting</span></span></a><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs12MemoryMapper12MemoryMapperE10Permission6Policy" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#classsvs_1_1MemoryMapper"><span class="std std-ref">MemoryMapper</span></a>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>permission</strong> – The permission for the file </p></li>
+<li><p><strong>policy</strong> – The policy to use when memory mapping. If a situation arises that goes against the policy, an ANNException will be thrown when allocation is performed. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="helpers">
+<h2>Helpers<a class="headerlink" href="#helpers" title="Link to this heading"></a></h2>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs7MMapPtrE">
+<span id="_CPPv3I0EN3svs7MMapPtrE"></span><span id="_CPPv2I0EN3svs7MMapPtrE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1MMapPtr"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MMapPtr</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs7MMapPtrE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/core/allocator.h&gt;</em></div>
+<p>A memory mapped smart pointer. </p>
+<p>Contains the memory for an array of objects of type <code class="docutils literal notranslate"><span class="pre">T</span></code>. The memory pointed to will be freed when this object’s destructor is run. Objects of type <code class="docutils literal notranslate"><span class="pre">T</span></code> must be trivially default constructible and trivially copyable.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>T</strong> – The element type of the array. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs7MMapPtr4dataEv">
+<span id="_CPPv3N3svs7MMapPtr4dataEv"></span><span id="_CPPv2N3svs7MMapPtr4dataEv"></span><span id="svs::MMapPtr::data"></span><span class="target" id="classsvs_1_1MMapPtr_1a76219190800066e4a64db20b4fe6c3cf"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs7MMapPtrE" title="svs::MMapPtr::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N3svs7MMapPtr4dataEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a pointer to the start of valid memory held by the pointer. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs7MMapPtr4dataEv">
+<span id="_CPPv3NK3svs7MMapPtr4dataEv"></span><span id="_CPPv2NK3svs7MMapPtr4dataEv"></span><span id="svs::MMapPtr::dataC"></span><span class="target" id="classsvs_1_1MMapPtr_1a6d47a657c1f94e624dfc9965305c59c1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs7MMapPtrE" title="svs::MMapPtr::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK3svs7MMapPtr4dataEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a pointer to the start of valid memory held by the pointer.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs7MMapPtr4baseEv">
+<span id="_CPPv3N3svs7MMapPtr4baseEv"></span><span id="_CPPv2N3svs7MMapPtr4baseEv"></span><span id="svs::MMapPtr::base"></span><span class="target" id="classsvs_1_1MMapPtr_1a46a567b1a3195ce73c407f377839dfad"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">base</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4N3svs7MMapPtr4baseEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the first addresses owned by the pointer. </p>
+<p>This is not necessarily the start of the data region as instances are free to use an arbitrary amount of leading space in memory maps. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs7MMapPtr4baseEv">
+<span id="_CPPv3NK3svs7MMapPtr4baseEv"></span><span id="_CPPv2NK3svs7MMapPtr4baseEv"></span><span id="svs::MMapPtr::baseC"></span><span class="target" id="classsvs_1_1MMapPtr_1a8d419562df0eeb87573a6a906c58432f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">base</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK3svs7MMapPtr4baseEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the first addresses owned by the pointer.   </p>
+<p>This is not necessarily the start of the data region as instances are free to use an arbitrary amount of leading space in memory maps.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs7MMapPtr4sizeEv">
+<span id="_CPPv3NK3svs7MMapPtr4sizeEv"></span><span id="_CPPv2NK3svs7MMapPtr4sizeEv"></span><span id="svs::MMapPtr::sizeC"></span><span class="target" id="classsvs_1_1MMapPtr_1a0f8a6d63e1bc79429fc361a258c833d9"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="k"><span class="pre">noexcept</span></span><a class="headerlink" href="#_CPPv4NK3svs7MMapPtr4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the size (in bytes) of the total memory mapping. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs7MMapPtr9setoffsetE6size_t">
+<span id="_CPPv3N3svs7MMapPtr9setoffsetE6size_t"></span><span id="_CPPv2N3svs7MMapPtr9setoffsetE6size_t"></span><span id="svs::MMapPtr::setoffset__s"></span><span class="target" id="classsvs_1_1MMapPtr_1aa6a8951c6836a483c227083e6fbd558d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setoffset</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs7MMapPtr9setoffsetE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Configure the offset. </p>
+<p>This sets the difference between <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1MMapPtr_1a76219190800066e4a64db20b4fe6c3cf"><span class="std std-ref"><span class="pre">data()</span></span></a></code> and <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1MMapPtr_1a46a567b1a3195ce73c407f377839dfad"><span class="std std-ref"><span class="pre">base()</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs7MMapPtr7MMapPtrEP1TPv6size_t">
+<span id="_CPPv3N3svs7MMapPtr7MMapPtrEP1TPv6size_t"></span><span id="_CPPv2N3svs7MMapPtr7MMapPtrEP1TPv6size_t"></span><span id="svs::MMapPtr::MMapPtr__TP.voidP.s"></span><span class="target" id="classsvs_1_1MMapPtr_1ac16a1db7d800756b480822013ede4dff"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MMapPtr</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0EN3svs7MMapPtrE" title="svs::MMapPtr::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">ptr</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">base</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs7MMapPtr7MMapPtrEP1TPv6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1MMapPtr"><span class="std std-ref"><span class="pre">MMapPtr</span></span></a></code> around raw pointers. </p>
+<p>
+The base pointer must have been obtained from a memory mapping. In other words, calling <code class="docutils literal notranslate"><span class="pre">munmap</span></code> on it must be valid. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ptr</strong> – A pointer to the start of the valid (non-header) data for the mapping. </p></li>
+<li><p><strong>base</strong> – The pointer returned by the memory mapping. </p></li>
+<li><p><strong>size</strong> – The size (in bytes) of the total memory mapping (measured from <code class="docutils literal notranslate"><span class="pre">base</span></code>).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs7MMapPtr7MMapPtrEPv6size_t">
+<span id="_CPPv3N3svs7MMapPtr7MMapPtrEPv6size_t"></span><span id="_CPPv2N3svs7MMapPtr7MMapPtrEPv6size_t"></span><span id="svs::MMapPtr::MMapPtr__voidP.s"></span><span class="target" id="classsvs_1_1MMapPtr_1a5243f590cbf697360fa505a8fa974650"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MMapPtr</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">base</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs7MMapPtr7MMapPtrEPv6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new pointer with no data/base offset. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="lib/dispatcher.html" class="btn btn-neutral float-left" title="Dynamic Dispatcher" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="index_impl/index.html" class="btn btn-neutral float-right" title="Index Data Structures" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

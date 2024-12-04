@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting started with C++ &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Library Features" href="features.html" />
+    <link rel="prev" title="Getting started with Python" href="start.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Getting started with Python</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting started with C++</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#building">Building</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cmake-build">CMake build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#verifying-the-build">Verifying the build</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#svs-search-example">SVS search example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-data">Example data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-the-index">Building the index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#searching-the-index">Searching the index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#saving-the-index">Saving the index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reloading-a-saved-index">Reloading a saved index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#search-using-vector-compression">Search using vector compression</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#saving-an-index-with-compressed-vectors">Saving an index with compressed vectors</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#entire-example">Entire example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Getting started with C++</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/start_cpp.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="getting-started-with-c">
+<span id="start-cpp"></span><h1>Getting started with C++<a class="headerlink" href="#getting-started-with-c" title="Link to this heading"></a></h1>
+<p>This tutorial will show you how to install SVS and run your first search with it!</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#building" id="id4">Building</a></p>
+<ul>
+<li><p><a class="reference internal" href="#prerequisites" id="id5">Prerequisites</a></p></li>
+<li><p><a class="reference internal" href="#cmake-build" id="id6">CMake build</a></p></li>
+<li><p><a class="reference internal" href="#verifying-the-build" id="id7">Verifying the build</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#svs-search-example" id="id8">SVS search example</a></p></li>
+<li><p><a class="reference internal" href="#example-data" id="id9">Example data</a></p></li>
+<li><p><a class="reference internal" href="#building-the-index" id="id10">Building the index</a></p></li>
+<li><p><a class="reference internal" href="#searching-the-index" id="id11">Searching the index</a></p></li>
+<li><p><a class="reference internal" href="#saving-the-index" id="id12">Saving the index</a></p></li>
+<li><p><a class="reference internal" href="#reloading-a-saved-index" id="id13">Reloading a saved index</a></p></li>
+<li><p><a class="reference internal" href="#search-using-vector-compression" id="id14">Search using vector compression</a></p>
+<ul>
+<li><p><a class="reference internal" href="#saving-an-index-with-compressed-vectors" id="id15">Saving an index with compressed vectors</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#entire-example" id="id16">Entire example</a></p></li>
+</ul>
+</nav>
+<section id="building">
+<span id="build-svs-cpp"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">Building</a><a class="headerlink" href="#building" title="Link to this heading"></a></h2>
+<p>Building SVS should be relatively straight-forward. We test on Ubuntu 22.04 LTS, but any Linux distribution should work.</p>
+<section id="prerequisites">
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">Prerequisites</a><a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h3>
+<ul>
+<li><p>A C++20 capable compiler:</p>
+<ul class="simple">
+<li><p>GCC &gt;= 11.0</p></li>
+<li><p>Clang &gt;= 13.0</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html">OneMKL</a></p>
+<ul class="simple">
+<li><p>Make sure you set the OneMKL environment variables, e.g., <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">/opt/intel/oneapi/setvars.sh</span></code>.</p></li>
+</ul>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="6fa53bf7-859d-4f01-9248-09c8c578627f" name="6fa53bf7-859d-4f01-9248-09c8c578627f" type="checkbox"><label class="sphinx_collapse__label" for="6fa53bf7-859d-4f01-9248-09c8c578627f"><i class="sphinx_collapse__icon"></i>Click to expand installation details</label><div class="sphinx_collapse__content docutils container">
+<p><a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html">OneMKL</a> can be installed as part of the
+<a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html#gs.8u2swh">Intel oneAPI Base Toolkit</a>
+by following one of the methods indicated in the <a class="reference external" href="https://www.intel.com/content/www/us/en/docs/oneapi/installation-guide-linux/2024-1/installation.html">oneAPI docs</a>
+.</p>
+<p>For example, the following commands show how to install the OneMKL component of the Intel oneAPI Base Toolkit on a Linux
+system using the <a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html">offline installer</a>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>wget<span class="w"> </span><span class="o">[</span>link<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>offline<span class="w"> </span>installer<span class="o">]</span>
+sudo<span class="w"> </span>sh<span class="w"> </span><span class="o">[</span>downloaded<span class="w"> </span>installer<span class="w"> </span>script<span class="o">]</span><span class="w"> </span>-a<span class="w"> </span>--components<span class="w"> </span>intel.oneapi.lin.mkl.devel<span class="w"> </span>--action<span class="w"> </span>install<span class="w"> </span>--eula<span class="w"> </span>accept<span class="w"> </span>-s
+<span class="nb">source</span><span class="w"> </span>/opt/intel/oneapi/setvars.sh
+</pre></div>
+</div>
+</div>
+</div>
+</li>
+</ul>
+</section>
+<section id="cmake-build">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">CMake build</a><a class="headerlink" href="#cmake-build" title="Link to this heading"></a></h3>
+<p>To build SVS and the included examples, use the following:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
+cmake<span class="w"> </span>..<span class="w"> </span>-DSVS_BUILD_EXAMPLES<span class="o">=</span>YES
+cmake<span class="w"> </span>--build<span class="w"> </span>.<span class="w"> </span>-j<span class="k">$(</span>nproc<span class="k">)</span>
+</pre></div>
+</div>
+</section>
+<section id="verifying-the-build">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Verifying the build</a><a class="headerlink" href="#verifying-the-build" title="Link to this heading"></a></h3>
+<p>Run the following command to verify that SVS was successfully installed. It should print some types, like <code class="docutils literal notranslate"><span class="pre">float32</span></code>.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>examples/cpp/types
+</pre></div>
+</div>
+</section>
+</section>
+<section id="svs-search-example">
+<h2><a class="toc-backref" href="#id8" role="doc-backlink">SVS search example</a><a class="headerlink" href="#svs-search-example" title="Link to this heading"></a></h2>
+<p>In this tutorial we will showcase the most important features of SVS. The
+<a class="reference internal" href="#entire-example-cpp"><span class="std std-ref">full example</span></a> is available at the end of this
+tutorial. You can run it with the following command:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>examples/cpp/vamana<span class="w"> </span>../data/test_dataset/data_f32.fvecs<span class="w"> </span>../data/test_dataset/queries_f32.fvecs<span class="w"> </span>../data/test_dataset/groundtruth_euclidean.ivecs
+</pre></div>
+</div>
+</section>
+<section id="example-data">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">Example data</a><a class="headerlink" href="#example-data" title="Link to this heading"></a></h2>
+<p>We will use the random dataset included in SVS for testing in <code class="docutils literal notranslate"><span class="pre">data/test_dataset</span></code>.</p>
+</section>
+<section id="building-the-index">
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Building the index</a><a class="headerlink" href="#building-the-index" title="Link to this heading"></a></h2>
+<p>Before searching, we need to construct an index over that data.
+The index is a graph connecting related data vectors in such a way that searching for nearest neighbors yields good results.
+The first step is to define the hyper-parameters of the graph we wish to construct.
+Don’t worry too much about selecting the correct values for these hyper-parameters right now.
+This usually involves a bit of experimentation and is dataset dependent. See <a class="reference internal" href="howtos.html#graph-build-param-setting"><span class="std std-ref">How to Choose Graph Building Hyper-parameters</span></a> for details.</p>
+<p>This is done by creating an instance of <a class="reference internal" href="cpp/index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE" title="svs::index::vamana::VamanaBuildParameters"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::index::vamana::VamanaBuildParameters</span></code></a>.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
+<span class="w">    </span><span class="mf">1.2</span><span class="p">,</span><span class="w">  </span><span class="c1">// alpha</span>
+<span class="w">    </span><span class="mi">64</span><span class="p">,</span><span class="w">   </span><span class="c1">// graph max degree</span>
+<span class="w">    </span><span class="mi">128</span><span class="p">,</span><span class="w">  </span><span class="c1">// search window size</span>
+<span class="w">    </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="c1">// max candidate pool size</span>
+<span class="w">    </span><span class="mi">60</span><span class="p">,</span><span class="w">   </span><span class="c1">// prune to degree</span>
+<span class="w">    </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="c1">// full search history</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Now that we have established our hyper-parameters, it is time to build the index.
+Passing the <code class="docutils literal notranslate"><span class="pre">dims</span></code> is optional, but may <a class="reference internal" href="advanced/static_dimensionality.html#static-dim"><span class="std std-ref">yield performance benefits if given</span></a>.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">size_t</span><span class="w"> </span><span class="n">num_threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">build</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">    </span><span class="n">parameters</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">data_vecs</span><span class="p">),</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">(),</span><span class="w"> </span><span class="n">num_threads</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<p>Note the use of <a class="reference internal" href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a> to indicate both the path to the dataset file <code class="docutils literal notranslate"><span class="pre">data_vecs</span></code> and the
+<a class="reference internal" href="features.html#supported-data-types"><span class="std std-ref">data type</span></a> of the file on disk (see <a class="reference internal" href="io.html#io"><span class="std std-ref">I/O and Conversion Tools</span></a> for supported file formats).
+See <a class="reference internal" href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance6size_tRK9Allocator" title="svs::Vamana::build"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::build()</span></code></a> for details about the build function.</p>
+</section>
+<section id="searching-the-index">
+<h2><a class="toc-backref" href="#id11" role="doc-backlink">Searching the index</a><a class="headerlink" href="#searching-the-index" title="Link to this heading"></a></h2>
+<p>The graph is now built and we can perform queries over the graph.
+First, we load the queries from a file on disk.</p>
+<p>After searching, we compare the search results with ground truth results which
+we also load from the SVS test dataset.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Load the queries and ground truth.</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">queries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">load_data</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">query_vecs</span><span class="p">);</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">groundtruth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">load_data</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">groundtruth_vecs</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Performing queries is easy.
+First establish a base-line search window size. This provides a parameter by which performance and accuracy can be traded.
+The larger <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> is, the higher the accuracy but the lower the performance.
+Note that <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> must be at least as large as the desired number of neighbors.
+See <a class="reference internal" href="howtos.html#search-window-size-setting"><span class="std std-ref">How to Set the Search Window Size</span></a> for details.</p>
+<p>We use the search function to find the 10 approximate nearest neighbors to each query.
+See <code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::search()</span></code> for details about the search function.
+Then, we compute the 10-recall at 10 of the returned neighbors, checking to confirm
+the accuracy against the ground truth.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">index</span><span class="p">.</span><span class="n">set_search_window_size</span><span class="p">(</span><span class="mi">30</span><span class="p">);</span>
+<span class="n">svs</span><span class="o">::</span><span class="n">QueryResult</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
+<span class="kt">double</span><span class="w"> </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">k_recall_at_n</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">);</span>
+<span class="n">check</span><span class="p">(</span><span class="mf">0.8215</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+</pre></div>
+</div>
+</section>
+<section id="saving-the-index">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Saving the index</a><a class="headerlink" href="#saving-the-index" title="Link to this heading"></a></h2>
+<p>If you are satisfied with the performance of the generated index, you can save it to disk to avoid rebuilding it in the future.</p>
+<p>See <a class="reference internal" href="cpp/index/vamana.html#_CPPv4N3svs6Vamana4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE" title="svs::Vamana::save"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::save()</span></code></a> for details about the save function.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">index</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="s">&quot;example_config&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;example_graph&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;example_data&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The save index function currently uses three folders for saving.
+All three are needed to be able to reload the index.</p>
+<ul class="simple">
+<li><p>One folder for the graph.</p></li>
+<li><p>One folder for the data.</p></li>
+<li><p>One folder for metadata.</p></li>
+</ul>
+<p>This is subject to change in the future.</p>
+</div>
+</section>
+<section id="reloading-a-saved-index">
+<h2><a class="toc-backref" href="#id13" role="doc-backlink">Reloading a saved index</a><a class="headerlink" href="#reloading-a-saved-index" title="Link to this heading"></a></h2>
+<p>To reload the index from file, use the corresponding constructor with the three folder names used to save the index.
+Note that the second argument, the one corresponding to the file for the data, requires a <a class="reference internal" href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a> and
+the corresponding data type.</p>
+<p>After reloading, performing queries is identical to before.
+See the <a class="reference internal" href="#entire-example-cpp"><span class="std std-ref">entire example code</span></a> for details about
+the <code class="docutils literal notranslate"><span class="pre">run_recall</span></code> function used to check the search results against ground
+truth.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// We can reload an index from a previously saved set of files.</span>
+<span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceType</span><span class="o">::</span><span class="n">L2</span><span class="p">,</span>
+<span class="w">    </span><span class="mi">4</span><span class="w"> </span><span class="c1">// num_threads</span>
+<span class="p">);</span>
+
+<span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Reload&quot;</span><span class="p">);</span>
+<span class="n">check</span><span class="p">(</span><span class="mf">0.8215</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+</pre></div>
+</div>
+</section>
+<section id="search-using-vector-compression">
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">Search using vector compression</a><a class="headerlink" href="#search-using-vector-compression" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source</a> SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ <a class="reference internal" href="features.html#abht23" id="id2"><span>[ABHT23]</span></a> and Leanvec <a class="reference internal" href="features.html#tbah24" id="id3"><span>[TBAH24]</span></a>. These techniques are closed-source and supported exclusively on Intel hardware. We provide <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/releases">shared library</a> and <a class="reference external" href="https://pypi.org/project/scalable-vs/">PyPI package</a> to enable these vector compression techniques in C++ and Python, respectively.</p>
+</div>
+<p><a class="reference internal" href="features.html#vector-compression"><span class="std std-ref">Vector compression</span></a> can be used to speed up search. It can be done with a <a class="reference internal" href="cpp/quantization/lvq.html#_CPPv4I_6size_t_6size_t_6size_t_18LVQPackingStrategy0EN3svs12quantization3lvq10LVQDatasetE" title="svs::quantization::lvq::LVQDataset"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::quantization::lvq::LVQDataset</span></code></a>.</p>
+<p>See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for details on setting the compression parameters.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Quantization</span>
+<span class="kt">size_t</span><span class="w"> </span><span class="n">padding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
+<span class="k">namespace</span><span class="w"> </span><span class="nn">lvq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">svs</span><span class="o">::</span><span class="nn">quantization</span><span class="o">::</span><span class="nn">lvq</span><span class="p">;</span>
+
+<span class="c1">// Wrap the compressor object in a lazy functor.</span>
+<span class="c1">// This will defer loading and compression of the LVQ dataset until the threadpool</span>
+<span class="c1">// used in the index has been created.</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">compressor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Lazy</span><span class="p">([</span><span class="o">=</span><span class="p">](</span><span class="n">svs</span><span class="o">::</span><span class="n">threads</span><span class="o">::</span><span class="n">ThreadPool</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">threadpool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">).</span><span class="n">load</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">lvq</span><span class="o">::</span><span class="n">LVQDataset</span><span class="o">&lt;</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;::</span><span class="n">compress</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">threadpool</span><span class="p">,</span><span class="w"> </span><span class="n">padding</span><span class="p">);</span>
+<span class="p">});</span>
+<span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">    </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">()</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed Load&quot;</span><span class="p">);</span>
+<span class="n">check</span><span class="p">(</span><span class="mf">0.8215</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Vector compression is usually accompanied by an accuracy loss for the same search window size and may require
+increasing the window size to compensate.</p>
+</div>
+<section id="saving-an-index-with-compressed-vectors">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Saving an index with compressed vectors</a><a class="headerlink" href="#saving-an-index-with-compressed-vectors" title="Link to this heading"></a></h3>
+<p>SVS has support to save and load indices with a previously compressed dataset.
+The saving and loading procedures are the same as with uncompressed vectors.</p>
+</section>
+</section>
+<section id="entire-example">
+<span id="entire-example-cpp"></span><h2><a class="toc-backref" href="#id16" role="doc-backlink">Entire example</a><a class="headerlink" href="#entire-example" title="Link to this heading"></a></h2>
+<p>This ends the example demonstrating the features of the Vamana index.
+The entire executable code is shown below.
+Please reach out with any questions.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">//! [Example All]</span>
+
+<span class="c1">//! [Includes]</span>
+<span class="c1">// SVS Dependencies</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/orchestrators/vamana.h&quot;</span><span class="c1">  // bulk of the dependencies required.</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/core/recall.h&quot;</span><span class="c1">           // Convenient k-recall@n computation.</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/extensions/vamana/lvq.h&quot;</span><span class="c1"> // LVQ extensions for the Vamana index.</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/quantization/lvq/impl/lvq_impl.h&quot;</span><span class="c1"> // LVQ implementation.</span>
+
+<span class="c1">// Alternative main definition</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svsmain.h&quot;</span>
+
+<span class="c1">// stl</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;map&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string_view&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
+<span class="c1">//! [Includes]</span>
+
+<span class="c1">//! [Helper Utilities]</span>
+<span class="kt">double</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">&amp;</span><span class="w"> </span><span class="n">index</span><span class="p">,</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">data</span><span class="o">::</span><span class="n">SimpleData</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">data</span><span class="o">::</span><span class="n">SimpleData</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">search_window_size</span><span class="p">,</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">num_neighbors</span><span class="p">,</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">index</span><span class="p">.</span><span class="n">set_search_window_size</span><span class="p">(</span><span class="n">search_window_size</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">num_neighbors</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">k_recall_at_n</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">,</span><span class="w"> </span><span class="n">num_neighbors</span><span class="p">,</span><span class="w"> </span><span class="n">num_neighbors</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">message</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;[{}] &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Windowsize = {}, Recall = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">search_window_size</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">recall</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">const</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">DEBUG</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="kt">double</span><span class="w"> </span><span class="n">expected</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">got</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="w"> </span><span class="n">eps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.001</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">diff</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">abs</span><span class="p">(</span><span class="n">expected</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">got</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="p">(</span><span class="n">DEBUG</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Expected {}. Got {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">expected</span><span class="p">,</span><span class="w"> </span><span class="n">got</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">diff</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">eps</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Expected &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">expected</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;. Got &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">got</span><span class="p">,</span><span class="w"> </span><span class="sc">&#39;!&#39;</span><span class="p">);</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">//! [Helper Utilities]</span>
+
+<span class="c1">// Alternative main definition</span>
+<span class="kt">int</span><span class="w"> </span><span class="nf">svs_main</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//! [Argument Extraction]</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">nargs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">nargs</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">4</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Expected 3 arguments. Instead, got &quot;</span><span class="p">,</span><span class="w"> </span><span class="n">nargs</span><span class="p">,</span><span class="w"> </span><span class="sc">&#39;!&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">data_vecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">query_vecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">groundtruth_vecs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Argument Extraction]</span>
+
+<span class="w">    </span><span class="c1">// Building the index</span>
+
+<span class="w">    </span><span class="c1">//! [Build Parameters]</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
+<span class="w">        </span><span class="mf">1.2</span><span class="p">,</span><span class="w">  </span><span class="c1">// alpha</span>
+<span class="w">        </span><span class="mi">64</span><span class="p">,</span><span class="w">   </span><span class="c1">// graph max degree</span>
+<span class="w">        </span><span class="mi">128</span><span class="p">,</span><span class="w">  </span><span class="c1">// search window size</span>
+<span class="w">        </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="c1">// max candidate pool size</span>
+<span class="w">        </span><span class="mi">60</span><span class="p">,</span><span class="w">   </span><span class="c1">// prune to degree</span>
+<span class="w">        </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="c1">// full search history</span>
+<span class="w">    </span><span class="p">};</span>
+<span class="w">    </span><span class="c1">//! [Build Parameters]</span>
+
+<span class="w">    </span><span class="c1">//! [Index Build]</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">num_threads</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">;</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">build</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">        </span><span class="n">parameters</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">data_vecs</span><span class="p">),</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">(),</span><span class="w"> </span><span class="n">num_threads</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Index Build]</span>
+
+<span class="w">    </span><span class="c1">// Searching the index</span>
+
+<span class="w">    </span><span class="c1">//! [Load Aux]</span>
+<span class="w">    </span><span class="c1">// Load the queries and ground truth.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">queries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">load_data</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">query_vecs</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">groundtruth</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">load_data</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">groundtruth_vecs</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Load Aux]</span>
+
+<span class="w">    </span><span class="c1">//! [Perform Queries]</span>
+<span class="w">    </span><span class="n">index</span><span class="p">.</span><span class="n">set_search_window_size</span><span class="p">(</span><span class="mi">30</span><span class="p">);</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">QueryResult</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">index</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
+<span class="w">    </span><span class="kt">double</span><span class="w"> </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">k_recall_at_n</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">);</span>
+<span class="w">    </span><span class="n">check</span><span class="p">(</span><span class="mf">0.8215</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Perform Queries]</span>
+
+<span class="w">    </span><span class="c1">//! [Search Window Size]</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">expected_recall</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="o">&gt;</span><span class="p">({{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5509</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mf">0.7281</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8215</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8788</span><span class="p">}});</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="w"> </span><span class="n">windowsize</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="n">windowsize</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Sweep&quot;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">check</span><span class="p">(</span><span class="n">expected_recall</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="n">windowsize</span><span class="p">),</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">//! [Search Window Size]</span>
+
+<span class="w">    </span><span class="c1">// Saving the index</span>
+
+<span class="w">    </span><span class="c1">//! [Saving]</span>
+<span class="w">    </span><span class="n">index</span><span class="p">.</span><span class="n">save</span><span class="p">(</span><span class="s">&quot;example_config&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;example_graph&quot;</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;example_data&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Saving]</span>
+
+<span class="w">    </span><span class="c1">// Reloading a saved index</span>
+
+<span class="w">    </span><span class="c1">//! [Loading]</span>
+<span class="w">    </span><span class="c1">// We can reload an index from a previously saved set of files.</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceType</span><span class="o">::</span><span class="n">L2</span><span class="p">,</span>
+<span class="w">        </span><span class="mi">4</span><span class="w"> </span><span class="c1">// num_threads</span>
+<span class="w">    </span><span class="p">);</span>
+
+<span class="w">    </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Reload&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">check</span><span class="p">(</span><span class="mf">0.8215</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Loading]</span>
+
+<span class="w">    </span><span class="c1">// Search using vector compression</span>
+
+<span class="w">    </span><span class="c1">//! [Compressed Loader]</span>
+<span class="w">    </span><span class="c1">// Quantization</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">padding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
+<span class="w">    </span><span class="k">namespace</span><span class="w"> </span><span class="nn">lvq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">svs</span><span class="o">::</span><span class="nn">quantization</span><span class="o">::</span><span class="nn">lvq</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Wrap the compressor object in a lazy functor.</span>
+<span class="w">    </span><span class="c1">// This will defer loading and compression of the LVQ dataset until the threadpool</span>
+<span class="w">    </span><span class="c1">// used in the index has been created.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">compressor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Lazy</span><span class="p">([</span><span class="o">=</span><span class="p">](</span><span class="n">svs</span><span class="o">::</span><span class="n">threads</span><span class="o">::</span><span class="n">ThreadPool</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">threadpool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">).</span><span class="n">load</span><span class="p">();</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">lvq</span><span class="o">::</span><span class="n">LVQDataset</span><span class="o">&lt;</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;::</span><span class="n">compress</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">threadpool</span><span class="p">,</span><span class="w"> </span><span class="n">padding</span><span class="p">);</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">()</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Compressed Loader]</span>
+
+<span class="w">    </span><span class="c1">//! [Search Compressed]</span>
+<span class="w">    </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed Load&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">check</span><span class="p">(</span><span class="mf">0.8215</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Search Compressed]</span>
+
+<span class="w">    </span><span class="c1">//! [Build Index Compressed]</span>
+<span class="w">    </span><span class="c1">// Compressed building</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">build</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">(),</span><span class="w"> </span><span class="n">num_threads</span><span class="p">);</span>
+<span class="w">    </span><span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed Build&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">check</span><span class="p">(</span><span class="mf">0.8212</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Build Index Compressed]</span>
+
+<span class="w">    </span><span class="c1">//! [Only Loading]</span>
+<span class="w">    </span><span class="c1">// We can reload an index from a previously saved set of files.</span>
+<span class="w">    </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">),</span>
+<span class="w">        </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceType</span><span class="o">::</span><span class="n">L2</span><span class="p">,</span>
+<span class="w">        </span><span class="mi">4</span><span class="w"> </span><span class="c1">// num_threads</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Only Loading]</span>
+
+<span class="w">    </span><span class="c1">//! [Set n-threads]</span>
+<span class="w">    </span><span class="n">index</span><span class="p">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="mi">4</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Set n-threads]</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Special main providing some helpful utilties.</span>
+<span class="n">SVS_DEFINE_MAIN</span><span class="p">();</span>
+<span class="c1">//! [Example All]</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="start.html" class="btn btn-neutral float-left" title="Getting started with Python" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="features.html" class="btn btn-neutral float-right" title="Library Features" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

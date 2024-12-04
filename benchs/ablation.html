@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ablation Studies &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Roadmap" href="../roadmap.html" />
+    <link rel="prev" title="Benchmarks for Dynamic Indexing" href="dynamic.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Benchmarks</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="static/index.html">Benchmarks for Static Indexing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dynamic.html">Benchmarks for Dynamic Indexing</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Ablation Studies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#dimensionality-reduction-and-turbo-lvq">Dimensionality reduction and Turbo LVQ</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vector-compression">Vector Compression</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#large-scale">Large Scale</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#small-scale">Small Scale</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Benchmarks</a></li>
+      <li class="breadcrumb-item active">Ablation Studies</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/benchs/ablation.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ablation-studies">
+<span id="benchs-ablation"></span><h1>Ablation Studies<a class="headerlink" href="#ablation-studies" title="Link to this heading"></a></h1>
+<section id="dimensionality-reduction-and-turbo-lvq">
+<h2>Dimensionality reduction and Turbo LVQ<a class="headerlink" href="#dimensionality-reduction-and-turbo-lvq" title="Link to this heading"></a></h2>
+<p>In this section we present an ablation study highlighting the speed-up introduced by our latest features:</p>
+<ul class="simple">
+<li><p><strong>TurboLVQ</strong>, a novel optimized low level implementation strategy for LVQ <a class="reference internal" href="../features.html#ahbw24" id="id1"><span>[AHBW24]</span></a></p></li>
+<li><p><strong>LeanVec</strong>, a novel dimensionality reduction technique with support for out-of-distribution (OOD) queries <a class="reference internal" href="../features.html#tbah24" id="id2"><span>[TBAH24]</span></a> (currently with experimental support in SVS)</p></li>
+</ul>
+<p>The system setup is described <a class="reference internal" href="static/latest.html#benchs-static-latest-system-setup"><span class="std std-ref">here</span></a>.</p>
+<p>The figures below show the QPS vs recall curves for the <a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-10M-OOD</a>
+and <a class="reference external" href="https://github.com/IntelLabs/VectorSearchDatasets/blob/main/rqa/README.md">rqa-768-1M-OOD</a>
+datasets (10M 768-dimensional embeddings generated with the dense passage retriever model RocketQA <a class="reference internal" href="../features.html#qdll21" id="id3"><span>[QDLL21]</span></a> with out-of-distribution queries), showing the
+speed-ups achieved by each of the introduced new features for different query batch sizes (10 and 10k).</p>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<p>Results for the <strong>rqa-768-10M-OOD</strong> dataset</p>
+<a class="reference internal image-reference" href="../_images/ablation_SPR_rqa-10M.svg"><img alt="SVS ablation results for the rqa-768-10M-OOD dataset." class="align-center" src="../_images/ablation_SPR_rqa-10M.svg" width="800" /></a>
+<p>Results for the <strong>rqa-768-1M-OOD</strong> dataset</p>
+<a class="reference internal image-reference" href="../_images/ablation_SPR_rqa-1M.svg"><img alt="SVS ablation results for the rqa-768-1M-OOD dataset." class="align-center" src="../_images/ablation_SPR_rqa-1M.svg" width="800" /></a>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</section>
+<section id="vector-compression">
+<h2>Vector Compression<a class="headerlink" href="#vector-compression" title="Link to this heading"></a></h2>
+<section id="large-scale">
+<span id="benchs-compression-evaluation"></span><h3>Large Scale<a class="headerlink" href="#large-scale" title="Link to this heading"></a></h3>
+<p>We show here how the <a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">LVQ</span></a> vector compression can boost SVS performance relative to using float32 or float16 encoded vectors.
+The <a class="reference internal" href="../howtos.html#compression-setting"><span class="std std-ref">best LVQ flavor</span></a> (whether one or two levels, and the number of bits used to encode each level) depends on the dataset and
+the memory footprint restrictions. The results below can serve as reference for datasets of similar dimensionality / cardinality.
+The system setup is described <a class="reference internal" href="static/previous/large_scale_benchs.html#system-setup-large-scale-benchs"><span class="std std-ref">here</span></a>.</p>
+<p>The memory-footprint ratio (MR) measures the space occupied by the graph (with <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128) and the
+float32-valued vectors relative to the space occupied by the graph and the LVQ-compressed vectors. As shown in the table below,
+for larger dimensionalities, LVQ highly reduces the memory requirements achieving a large MR,
+and the additional bandwidth reduction from LVQ-4x4 and LVQ-4x8 provides a significant performance boost over LVQ-8.</p>
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td colspan="2"><p><strong>deep-96-1B</strong></p></td>
+<td colspan="2"><p><strong>t2i-200-100M</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>w.r.t. float32</strong></p></td>
+<td><p><strong>QPS</strong></p></td>
+<td><p><strong>MR</strong></p></td>
+<td><p><strong>QPS</strong></p></td>
+<td><p><strong>MR</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>float16</strong></p></td>
+<td><p>2.1x</p></td>
+<td><p>1.3x</p></td>
+<td><p>1.9x</p></td>
+<td><p>1.4x</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>LVQ-8</strong></p></td>
+<td><p><strong>2.6x</strong></p></td>
+<td><p><strong>1.4x</strong></p></td>
+<td><p>2.9x</p></td>
+<td><p><strong>1.8x</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>LVQ-4x4</strong></p></td>
+<td><p>2.3x</p></td>
+<td><p><strong>1.4x</strong></p></td>
+<td><p>2.2x</p></td>
+<td><p><strong>1.8x</strong></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>LVQ-4x8</strong></p></td>
+<td><p>2.5x</p></td>
+<td><p>1.3x</p></td>
+<td><p><strong>3.1x</strong></p></td>
+<td><p>1.6x</p></td>
+</tr>
+</tbody>
+</table>
+<section id="ablation-results">
+<h4>Ablation Results<a class="headerlink" href="#ablation-results" title="Link to this heading"></a></h4>
+<p><strong>Click on the triangles</strong> to see the throughput vs recall curves comparing SVS with several LVQ settings, as well as float32
+and float16 encodings, for each dataset.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="5f3c36fb-7e68-4f06-9898-1782938c3dcd" name="5f3c36fb-7e68-4f06-9898-1782938c3dcd" type="checkbox"><label class="sphinx_collapse__label" for="5f3c36fb-7e68-4f06-9898-1782938c3dcd"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-1B dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_deep-1B.png"><img alt="deep-96-1B compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_deep-1B.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="4bffe760-de0b-4e9d-bace-15bba90e0f1c" name="4bffe760-de0b-4e9d-bace-15bba90e0f1c" type="checkbox"><label class="sphinx_collapse__label" for="4bffe760-de0b-4e9d-bace-15bba90e0f1c"><i class="sphinx_collapse__icon"></i>deep-96-100M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-100M dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_deep-100M.png"><img alt="deep-96-100M compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_deep-100M.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="e27b3188-0ffa-4658-b6bb-d5b17debd795" name="e27b3188-0ffa-4658-b6bb-d5b17debd795" type="checkbox"><label class="sphinx_collapse__label" for="e27b3188-0ffa-4658-b6bb-d5b17debd795"><i class="sphinx_collapse__icon"></i>t2i-200-100M</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the t2i-200-100M dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_text2image-100M.png"><img alt="t2i-200-100M compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_text2image-100M.png" style="width: 800px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</section>
+<section id="ablation-comparison-to-other-methods">
+<h4>Ablation + comparison to other methods<a class="headerlink" href="#ablation-comparison-to-other-methods" title="Link to this heading"></a></h4>
+<p><strong>Click on the triangles</strong> to see the throughput vs recall curves comparing the highest performing SVS-LVQ setting
+(a Pareto curve built with results from LVQ-8, LVQ-4x4, LVQ4x8 and LVQ8x8), SVS using float32 and float16 encodings,
+as well as other methods for each dataset.</p>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="23e8beed-04a5-4504-b510-c2357efe6c5d" name="23e8beed-04a5-4504-b510-c2357efe6c5d" type="checkbox"><label class="sphinx_collapse__label" for="23e8beed-04a5-4504-b510-c2357efe6c5d"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<p>Results for the deep-96-1B dataset</p>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_ablation_and_other_methods_deep-1B.png"><img alt="deep-96-1B compression evaluation results" src="../_images/bench_largeScale_ablation_and_other_methods_deep-1B.png" style="width: 700px;" /></a>
+</div>
+</div>
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+</section>
+</section>
+<section id="small-scale">
+<span id="benchs-compression-evaluation-small-scale"></span><h3>Small Scale<a class="headerlink" href="#small-scale" title="Link to this heading"></a></h3>
+<p>Memory footprint reduction is often not relevant for small scale datasets as their overall memory requirements are easily
+satisfied by most low-end servers. However, we show here that for high-dimensional datasets, the performance boost achieved
+by LVQ makes it very relevant even for datasets with a few million points. The system setup is described <a class="reference internal" href="static/previous/small_scale_benchs.html#system-setup-small-scale-benchs"><span class="std std-ref">here</span></a>.</p>
+<a class="reference internal image-reference" href="../_images/bench_smallScale_SVS_ablation_gist-960-euclidean.png"><img alt="gist-960-1M compression ablation results." class="align-center" src="../_images/bench_smallScale_SVS_ablation_gist-960-euclidean.png" style="width: 800px;" /></a>
+<p>The figure compares search performance for different LVQ settings, as well as using float32 and float16 encoded
+vectors, for the 960-dimensional <a class="reference internal" href="static/previous/experimental_method.html#datasets"><span class="std std-ref">gist-960-1M</span></a> dataset (graph built with <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128).
+LVQ-compressed vectors are padded to half cache lines (<code class="docutils literal notranslate"><span class="pre">padding</span></code> = 32).</p>
+<p>For a search accuracy of 0.9 10 recall at 10, <strong>SVS with LVQ-4x4</strong> compressed vectors has a <strong>4.3x</strong> and a <strong>4.5x higher
+QPS</strong> than its float32 counterpart for batch sizes 1k and 128 respectively. Similar performance gains are achieved by
+LVQ-4x8, with a slighter higher memory footprint.</p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dynamic.html" class="btn btn-neutral float-left" title="Benchmarks for Dynamic Indexing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../roadmap.html" class="btn btn-neutral float-right" title="Roadmap" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

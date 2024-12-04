@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Abstract Datasets &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Abstract Graphs" href="graph.html" />
+    <link rel="prev" title="Distance Computation" href="distance.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="distance.html">Distance Computation</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Abstract Datasets</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#main-concepts">Main Concepts</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE"><code class="docutils literal notranslate"><span class="pre">ImmutableMemoryDataset</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs4data13MemoryDatasetE"><code class="docutils literal notranslate"><span class="pre">MemoryDataset</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#public-api">Public API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs4data12HasValueTypeE"><code class="docutils literal notranslate"><span class="pre">HasValueType</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_12HasValueTypeE12value_type_t"><code class="docutils literal notranslate"><span class="pre">value_type_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I_12HasValueTypeE18const_value_type_t"><code class="docutils literal notranslate"><span class="pre">const_value_type_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="graph.html">Abstract Graphs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Core Concepts</a></li>
+      <li class="breadcrumb-item active">Abstract Datasets</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/concepts/data.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="abstract-datasets">
+<span id="data-concept"></span><h1>Abstract Datasets<a class="headerlink" href="#abstract-datasets" title="Link to this heading"></a></h1>
+<p>The concepts <a class="reference internal" href="#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="svs::data::ImmutableMemoryDataset"><code class="xref cpp cpp-concept docutils literal notranslate"><span class="pre">svs::data::ImmutableMemoryDataset</span></code></a> and <a class="reference internal" href="#_CPPv4I0EN3svs4data13MemoryDatasetE" title="svs::data::MemoryDataset"><code class="xref cpp cpp-concept docutils literal notranslate"><span class="pre">svs::data::MemoryDataset</span></code></a> are used to encapsulate the expected behavior of classes implementing datasets.
+These concepts are described below.
+Concrete implementations of these concepts can be found <a class="reference internal" href="../core/data.html#cpp-core-data"><span class="std std-ref">here</span></a>.</p>
+<section id="main-concepts">
+<h2>Main Concepts<a class="headerlink" href="#main-concepts" title="Link to this heading"></a></h2>
+<p>This sub-section highlights the main exported concepts that are expected to be used by this logical grouping of code.</p>
+<dl class="cpp concept">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE">
+<span id="_CPPv3I0EN3svs4data22ImmutableMemoryDatasetE"></span><span id="_CPPv2I0EN3svs4data22ImmutableMemoryDatasetE"></span><span class="target" id="conceptsvs_1_1data_1_1ImmutableMemoryDataset"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="k"><span class="pre">concept</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ImmutableMemoryDataset</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/concepts/data.h&gt;</em></div>
+<p>Compatibility interface for methods working with datasets. </p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">concept</span><span class="w"> </span><span class="nc">ImmutableMemoryDataset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HasValueType</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">requires</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">T</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Return the number of valid entries in the dataset.</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// @brief Return the number of dimensions for each entry in the dataset.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// **Note**: The existence of this method is targeted for deprecation. It assumes</span>
+<span class="w">    </span><span class="c1">// that // all elements in the dataset have uniform dimensionality, which may not be</span>
+<span class="w">    </span><span class="c1">// the case in future workloads.</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">dimensions</span><span class="p">()</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">convertible_to</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Return a constant handl to the element at index ``i``.</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">get_datum</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">const_value_type_t</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Performance optimization. Prefetch the data at index ``i``.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// This may be implemented as a no-op if it is too difficult for a particular</span>
+<span class="w">    </span><span class="c1">// dataset instance. However, a correctly implemented ``prefetch`` can greatly</span>
+<span class="w">    </span><span class="c1">// improve performance.</span>
+<span class="w">    </span><span class="n">a</span><span class="p">.</span><span class="n">prefetch</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="cpp concept">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs4data13MemoryDatasetE">
+<span id="_CPPv3I0EN3svs4data13MemoryDatasetE"></span><span id="_CPPv2I0EN3svs4data13MemoryDatasetE"></span><span class="target" id="conceptsvs_1_1data_1_1MemoryDataset"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="k"><span class="pre">concept</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MemoryDataset</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs4data13MemoryDatasetE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/concepts/data.h&gt;</em></div>
+<p>Compatibility interface for working with mutable datasets. </p>
+<p><p>Mutable datasets aren’t required to be resizeable. Mutability here simply means “the</p>
+<p>element values may change”.</p>
+</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">concept</span><span class="w"> </span><span class="nc">MemoryDataset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ImmutableMemoryDataset</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+<span class="o">&amp;&amp;</span><span class="w"> </span><span class="k">requires</span><span class="p">(</span><span class="n">T</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">const_value_type_t</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="w"> </span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Return a (potentially) mutable handle to the entry at index ``i``.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// **Note**: This method is targeted for deprecation. This is because data-sets</span>
+<span class="w">    </span><span class="c1">// may require more contextual information for writing or overwriting contents</span>
+<span class="w">    </span><span class="c1">// and updating a mutable reference may not be sufficient.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// (From Mark): I don&#39;t **think** any functions in the library use this</span>
+<span class="w">    </span><span class="c1">// particular method, instead opting to use the more power ``set_datum``.</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">get_datum</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">same_as</span><span class="o">&lt;</span><span class="n">value_type_t</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Overwrite the contents of the index ``i`` with ``v``.</span>
+<span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="n">a</span><span class="p">.</span><span class="n">set_datum</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="public-api">
+<h2>Public API<a class="headerlink" href="#public-api" title="Link to this heading"></a></h2>
+<dl class="cpp concept">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs4data12HasValueTypeE">
+<span id="_CPPv3I0EN3svs4data12HasValueTypeE"></span><span id="_CPPv2I0EN3svs4data12HasValueTypeE"></span><span class="target" id="conceptsvs_1_1data_1_1HasValueType"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="k"><span class="pre">concept</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">HasValueType</span></span></span><a class="headerlink" href="#_CPPv4I0EN3svs4data12HasValueTypeE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/concepts/data.h&gt;</em></div>
+<p>Require the type aliases <code class="docutils literal notranslate"><span class="pre">value_type</span></code> and <code class="docutils literal notranslate"><span class="pre">const_value_type</span></code>. </p>
+<p>The members and inline documentation are given in the code snippet below.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">&gt;</span>
+<span class="k">concept</span><span class="w"> </span><span class="nc">HasValueType</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">requires</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="c1">// Require that ``T`` has the type alias ``T::value_type``.</span>
+<span class="w">   </span><span class="c1">//</span>
+<span class="w">   </span><span class="c1">// Note that the the alias does not necessarily need to be a &quot;value_type&quot; in the</span>
+<span class="w">   </span><span class="c1">// sence of C++ value type. In other words, it can (and probably should be for</span>
+<span class="w">   </span><span class="c1">// performance reasons be a reference).</span>
+<span class="w">   </span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">::</span><span class="n">value_type</span><span class="p">;</span>
+
+<span class="w">   </span><span class="c1">// Require that ``T`` has the type alias ``T::const_value_type``.</span>
+<span class="w">   </span><span class="c1">//</span>
+<span class="w">   </span><span class="c1">// Note that the the alias does not necessarily need to be a &quot;value_type&quot; in the</span>
+<span class="w">   </span><span class="c1">// sence of C++ value type. In other words, it can (and probably should be for</span>
+<span class="w">   </span><span class="c1">// performance reasons be a reference).</span>
+<span class="w">   </span><span class="k">typename</span><span class="w"> </span><span class="nc">T</span><span class="o">::</span><span class="n">const_value_type</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4I_12HasValueTypeE12value_type_t">
+<span id="_CPPv3I_12HasValueTypeE12value_type_t"></span><span id="_CPPv2I_12HasValueTypeE12value_type_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">HasValueType</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__data__concept__public_1ga592f2645303d198fe61a6b0ab8c634ba"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">value_type_t</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_12HasValueTypeE12value_type_t" title="value_type_t::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">value_type</span></span><a class="headerlink" href="#_CPPv4I_12HasValueTypeE12value_type_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the <code class="docutils literal notranslate"><span class="pre">value_type</span></code> of <code class="docutils literal notranslate"><span class="pre">T</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4I_12HasValueTypeE18const_value_type_t">
+<span id="_CPPv3I_12HasValueTypeE18const_value_type_t"></span><span id="_CPPv2I_12HasValueTypeE18const_value_type_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">HasValueType</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group__data__concept__public_1gae7c23bd224940ae119b1c0a4beb89eea"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">const_value_type_t</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_12HasValueTypeE18const_value_type_t" title="const_value_type_t::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">const_value_type</span></span><a class="headerlink" href="#_CPPv4I_12HasValueTypeE18const_value_type_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the <code class="docutils literal notranslate"><span class="pre">const_value_type</span></code> of <code class="docutils literal notranslate"><span class="pre">T</span></code>. </p>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="distance.html" class="btn btn-neutral float-left" title="Distance Computation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="graph.html" class="btn btn-neutral float-right" title="Abstract Graphs" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

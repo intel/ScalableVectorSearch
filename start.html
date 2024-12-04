@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Getting started with Python &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting started with C++" href="start_cpp.html" />
+    <link rel="prev" title="Introduction" href="intro.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Getting started with Python</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#building-and-installing">Building and installing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#verifying-the-installation">Verifying the installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#svs-search-example">SVS search example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#generating-test-data">Generating test data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-the-index">Building the index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#searching-the-index">Searching the index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#saving-the-index">Saving the index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#reloading-a-saved-index">Reloading a saved index</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#search-using-vector-compression">Search using vector compression</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#saving-an-index-with-compressed-vectors">Saving an index with compressed vectors</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#entire-example">Entire example</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Getting started with Python</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/start.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="getting-started-with-python">
+<span id="start"></span><h1>Getting started with Python<a class="headerlink" href="#getting-started-with-python" title="Link to this heading"></a></h1>
+<p>This tutorial will show you how to install SVS and run your first search with it! Tutorials for running
+<a class="reference internal" href="howtos.html#how-to-run-dynamic-indexing"><span class="std std-ref">dynamic indexing</span></a>, setting <a class="reference internal" href="howtos.html#graph-build-param-setting"><span class="std std-ref">index</span></a> and
+<a class="reference internal" href="howtos.html#search-window-size-setting"><span class="std std-ref">search</span></a> parameters, <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">using vector compression</span></a>, as well as
+more <a class="reference internal" href="advanced/build.html#build"><span class="std std-ref">advanced installation options</span></a> are also available.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#installation" id="id5">Installation</a></p>
+<ul>
+<li><p><a class="reference internal" href="#prerequisites" id="id6">Prerequisites</a></p></li>
+<li><p><a class="reference internal" href="#building-and-installing" id="id7">Building and installing</a></p></li>
+<li><p><a class="reference internal" href="#verifying-the-installation" id="id8">Verifying the installation</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#svs-search-example" id="id9">SVS search example</a></p></li>
+<li><p><a class="reference internal" href="#generating-test-data" id="id10">Generating test data</a></p></li>
+<li><p><a class="reference internal" href="#building-the-index" id="id11">Building the index</a></p></li>
+<li><p><a class="reference internal" href="#searching-the-index" id="id12">Searching the index</a></p></li>
+<li><p><a class="reference internal" href="#saving-the-index" id="id13">Saving the index</a></p></li>
+<li><p><a class="reference internal" href="#reloading-a-saved-index" id="id14">Reloading a saved index</a></p></li>
+<li><p><a class="reference internal" href="#search-using-vector-compression" id="id15">Search using vector compression</a></p>
+<ul>
+<li><p><a class="reference internal" href="#saving-an-index-with-compressed-vectors" id="id16">Saving an index with compressed vectors</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#entire-example" id="id17">Entire example</a></p></li>
+</ul>
+</nav>
+<section id="installation">
+<span id="install-svs"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">Installation</a><a class="headerlink" href="#installation" title="Link to this heading"></a></h2>
+<p>Building and installing SVS should be relatively straight-forward. We test on Ubuntu 22.04 LTS, but any Linux distribution should work.</p>
+<section id="prerequisites">
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Prerequisites</a><a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Python &gt;= 3.9</p></li>
+</ul>
+<ul>
+<li><p>A C++20 capable compiler:</p>
+<ul class="simple">
+<li><p>GCC &gt;= 11.0</p></li>
+<li><p>Clang &gt;= 13.0</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html">OneMKL</a></p>
+<ul class="simple">
+<li><p>Make sure you set the OneMKL environment variables, e.g., <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">/opt/intel/oneapi/setvars.sh</span></code>.</p></li>
+</ul>
+<div class="sphinx_collapse docutils container">
+<input class="sphinx_collapse__input" id="edd86c18-e40f-419f-a7ca-8c3fa31a7d97" name="edd86c18-e40f-419f-a7ca-8c3fa31a7d97" type="checkbox"><label class="sphinx_collapse__label" for="edd86c18-e40f-419f-a7ca-8c3fa31a7d97"><i class="sphinx_collapse__icon"></i>Click to expand installation details</label><div class="sphinx_collapse__content docutils container">
+<p><a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html">OneMKL</a> can be installed as part of the
+<a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit.html#gs.8u2swh">Intel oneAPI Base Toolkit</a>
+by following one of the methods indicated in the <a class="reference external" href="https://www.intel.com/content/www/us/en/docs/oneapi/installation-guide-linux/2024-1/installation.html">oneAPI docs</a>
+.</p>
+<p>For example, the following commands show how to install the OneMKL component of the Intel oneAPI Base Toolkit on a Linux
+system using the <a class="reference external" href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html">offline installer</a>:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>wget<span class="w"> </span><span class="o">[</span>link<span class="w"> </span>to<span class="w"> </span>the<span class="w"> </span>offline<span class="w"> </span>installer<span class="o">]</span>
+sudo<span class="w"> </span>sh<span class="w"> </span><span class="o">[</span>downloaded<span class="w"> </span>installer<span class="w"> </span>script<span class="o">]</span><span class="w"> </span>-a<span class="w"> </span>--components<span class="w"> </span>intel.oneapi.lin.mkl.devel<span class="w"> </span>--action<span class="w"> </span>install<span class="w"> </span>--eula<span class="w"> </span>accept<span class="w"> </span>-s
+<span class="nb">source</span><span class="w"> </span>/opt/intel/oneapi/setvars.sh
+</pre></div>
+</div>
+</div>
+</div>
+</li>
+</ul>
+</section>
+<section id="building-and-installing">
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Building and installing</a><a class="headerlink" href="#building-and-installing" title="Link to this heading"></a></h3>
+<p>To build and install the SVS Python module, clone the repo and run the following pip install command.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone the repository</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/intel/ScalableVectorSearch
+<span class="nb">cd</span><span class="w"> </span>ScalableVectorSearch
+
+<span class="c1"># Install svs using pip</span>
+pip<span class="w"> </span>install<span class="w"> </span>bindings/python
+</pre></div>
+</div>
+<p>If you encounter any issues with the pip install command, please follow the <a class="reference internal" href="advanced/build.html#building-python-library"><span class="std std-ref">advanced installation instructions</span></a>.</p>
+</section>
+<section id="verifying-the-installation">
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">Verifying the installation</a><a class="headerlink" href="#verifying-the-installation" title="Link to this heading"></a></h3>
+<p>Run the following command to verify that SVS was successfully installed. It should print <code class="docutils literal notranslate"><span class="pre">['native']</span></code>.</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import svs; print(svs.available_backends())&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="svs-search-example">
+<h2><a class="toc-backref" href="#id9" role="doc-backlink">SVS search example</a><a class="headerlink" href="#svs-search-example" title="Link to this heading"></a></h2>
+<p>In this tutorial we will showcase the most important features of SVS. The <a class="reference internal" href="#entire-example"><span class="std std-ref">full example</span></a> is available at the end of this tutorial.
+You can run it with the following commands:</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>examples/python
+python3<span class="w"> </span>example_vamana.py
+</pre></div>
+</div>
+</section>
+<section id="generating-test-data">
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Generating test data</a><a class="headerlink" href="#generating-test-data" title="Link to this heading"></a></h2>
+<p>We generate a sample dataset using the <a class="reference internal" href="python/common.html#svs.generate_test_dataset" title="svs.generate_test_dataset"><code class="xref py py-func docutils literal notranslate"><span class="pre">svs.generate_test_dataset()</span></code></a> generation function.
+This function generates a data file, a query file, and the ground truth. Note that this is randomly generated data,
+with no semantic meaning for the elements within it.</p>
+<p>We first load svs and the os module also required for this example.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">svs</span>
+</pre></div>
+</div>
+<p>Then proceed to generate the test dataset.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create a test dataset.</span>
+<span class="c1"># This will create a directory &quot;example_data_vamana&quot; and populate it with three</span>
+<span class="c1"># entries:</span>
+<span class="c1"># - data.fvecs: The test dataset.</span>
+<span class="c1"># - queries.fvecs: The test queries.</span>
+<span class="c1"># - groundtruth.ivecs: The groundtruth.</span>
+<span class="n">test_data_dir</span> <span class="o">=</span> <span class="s2">&quot;./example_data_vamana&quot;</span>
+<span class="n">svs</span><span class="o">.</span><span class="n">generate_test_dataset</span><span class="p">(</span>
+    <span class="mi">10000</span><span class="p">,</span>                      <span class="c1"># Create 10000 vectors in the dataset.</span>
+    <span class="mi">1000</span><span class="p">,</span>                       <span class="c1"># Generate 1000 query vectors.</span>
+    <span class="mi">128</span><span class="p">,</span>                        <span class="c1"># Set the vector dimensionality to 128.</span>
+    <span class="n">test_data_dir</span><span class="p">,</span>              <span class="c1"># The directory where results will be generated.</span>
+    <span class="n">data_seed</span> <span class="o">=</span> <span class="mi">1234</span><span class="p">,</span>           <span class="c1"># Random number seed for reproducibility.</span>
+    <span class="n">query_seed</span> <span class="o">=</span> <span class="mi">5678</span><span class="p">,</span>          <span class="c1"># Random number seed for reproducibility.</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>            <span class="c1"># Number of threads to use.</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>   <span class="c1"># The distance type to use.</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="building-the-index">
+<span id="graph-building-code"></span><h2><a class="toc-backref" href="#id11" role="doc-backlink">Building the index</a><a class="headerlink" href="#building-the-index" title="Link to this heading"></a></h2>
+<p>Now that data has been generated, we need to construct an index over that data.
+The index is a graph connecting related data vectors in such a way that searching for nearest neighbors yields good results.
+The first step is to define the hyper-parameters of the graph we wish to construct.
+Don’t worry too much about selecting the correct values for these hyper-parameters right now.
+This usually involves a bit of experimentation and is dataset dependent. See <a class="reference internal" href="howtos.html#graph-build-param-setting"><span class="std std-ref">How to Choose Graph Building Hyper-parameters</span></a> for details.</p>
+<p>This is done by creating an instance of <a class="reference internal" href="python/vamana.html#svs.VamanaBuildParameters" title="svs.VamanaBuildParameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VamanaBuildParameters</span></code></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Now, we can build a graph index over the data set.</span>
+<span class="n">parameters</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VamanaBuildParameters</span><span class="p">(</span>
+    <span class="n">graph_max_degree</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="n">window_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Now that we’ve established our hyper-parameters, it is time to construct the index.
+Passing the <code class="docutils literal notranslate"><span class="pre">dims</span></code> is optional, but may <a class="reference internal" href="advanced/static_dimensionality.html#static-dim"><span class="std std-ref">yield performance benefits if given</span></a>.</p>
+<p>We can build the index directly from the dataset file on disk</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build the index.</span>
+<span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">,</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;data.fvecs&quot;</span><span class="p">),</span> <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+    <span class="p">),</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>or from a Numpy array</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build the index.</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;data.fvecs&quot;</span><span class="p">))</span>
+<span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">,</span>
+    <span class="n">data</span><span class="p">,</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Note the use of <a class="reference internal" href="python/loaders.html#svs.VectorDataLoader" title="svs.VectorDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code></a> to indicate both the file path and the <a class="reference internal" href="features.html#supported-data-types"><span class="std std-ref">data type</span></a>
+of the <code class="docutils literal notranslate"><span class="pre">fvecs</span></code> file on disk (see <a class="reference internal" href="io.html#io"><span class="std std-ref">I/O and Conversion Tools</span></a> for supported file formats). See <a class="reference internal" href="python/vamana.html#svs.Vamana.build" title="svs.Vamana.build"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana.build</span></code></a>
+for details about the build function.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="python/vamana.html#svs.Vamana.build" title="svs.Vamana.build"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana.build</span></code></a> supports building from Numpy arrays with dtypes float32, float16, int8 and uint8.</p>
+</div>
+</section>
+<section id="searching-the-index">
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Searching the index</a><a class="headerlink" href="#searching-the-index" title="Link to this heading"></a></h2>
+<p>The graph is now built and we can perform queries over the graph.
+First, we load the queries for our example dataset.
+After searching, we compare the search results with ground truth results which
+we also load from the dataset.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Load the queries and ground truth.</span>
+<span class="n">queries</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;queries.fvecs&quot;</span><span class="p">))</span>
+<span class="n">groundtruth</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;groundtruth.ivecs&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Performing queries is easy.
+First establish a base-line search window size. This provides a parameter by which performance and accuracy can be traded.
+The larger <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> is, the higher the accuracy but the lower the performance.
+Note that <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> must be at least as large as the desired number of neighbors.
+See <a class="reference internal" href="howtos.html#search-window-size-setting"><span class="std std-ref">How to Set the Search Window Size</span></a> for details.</p>
+<p>We use the search function to find the 10 approximate nearest neighbors to each query.
+Then, we compute the 10-recall at 10 of the returned neighbors, checking to confirm
+the accuracy.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set the search window size of the index and perform queries.</span>
+<span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+<span class="c1"># Compare with the groundtruth.</span>
+<span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="python/vamana.html#svs.Vamana.search" title="svs.Vamana.search"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana.search</span></code></a> for details about the search function.</p>
+</section>
+<section id="saving-the-index">
+<span id="index-saving"></span><h2><a class="toc-backref" href="#id13" role="doc-backlink">Saving the index</a><a class="headerlink" href="#saving-the-index" title="Link to this heading"></a></h2>
+<p>If you are satisfied with the performance of the generated index, you can save it to disk to avoid rebuilding it in the future.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Finally, we can save the results.</span>
+<span class="n">index</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">),</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="python/vamana.html#svs.Vamana.save" title="svs.Vamana.save"><code class="xref py py-func docutils literal notranslate"><span class="pre">svs.Vamana.save()</span></code></a> for details about the save function.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The save index function currently uses three folders for saving.
+All three are needed to be able to reload the index.</p>
+<ul class="simple">
+<li><p>One folder for the graph.</p></li>
+<li><p>One folder for the data.</p></li>
+<li><p>One folder for metadata.</p></li>
+</ul>
+<p>This is subject to change in the future.</p>
+</div>
+</section>
+<section id="reloading-a-saved-index">
+<span id="index-loading"></span><h2><a class="toc-backref" href="#id14" role="doc-backlink">Reloading a saved index</a><a class="headerlink" href="#reloading-a-saved-index" title="Link to this heading"></a></h2>
+<p>To reload the index from file, use the corresponding constructor with the three folder names used to save the index.
+Performing queries is identical to before.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We can reload an index from a previously saved set of files.</span>
+<span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">GraphLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">)),</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span> <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+    <span class="p">),</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># We can rerun the queries to ensure everything works properly.</span>
+<span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+<span class="c1"># Compare with the groundtruth.</span>
+<span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that the second argument, the one corresponding to the file for the data, requires a <a class="reference internal" href="python/loaders.html#svs.VectorDataLoader" title="svs.VectorDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code></a> and
+the corresponding data type.</p>
+</section>
+<section id="search-using-vector-compression">
+<span id="search-with-compression"></span><h2><a class="toc-backref" href="#id15" role="doc-backlink">Search using vector compression</a><a class="headerlink" href="#search-using-vector-compression" title="Link to this heading"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source</a> SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ <a class="reference internal" href="features.html#abht23" id="id2"><span>[ABHT23]</span></a> and Leanvec <a class="reference internal" href="features.html#tbah24" id="id3"><span>[TBAH24]</span></a>. These techniques are closed-source and supported exclusively on Intel hardware. We provide <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/releases">shared library</a> and <a class="reference external" href="https://pypi.org/project/scalable-vs/">PyPI package</a> to enable these vector compression techniques in C++ and Python, respectively.</p>
+</div>
+<p><a class="reference internal" href="features.html#vector-compression"><span class="std std-ref">Vector compression</span></a> can be used to speed up the search. It can be done on the fly by loading
+the index with a <a class="reference internal" href="python/loaders.html#svs.LVQLoader" title="svs.LVQLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">LVQLoader</span></code></a> (<a class="reference internal" href="python/loaders.html#python-api-loaders"><span class="std std-ref">details for Python</span></a>)
+or by <a class="reference internal" href="#loading-compressed-indices"><span class="std std-ref">loading an index with a previously compressed dataset</span></a>.</p>
+<p>See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for details on setting the compression parameters.</p>
+<p>First, specify the compression loader. Specifying <code class="docutils literal notranslate"><span class="pre">dims</span></code> in <a class="reference internal" href="python/loaders.html#svs.VectorDataLoader" title="svs.VectorDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code></a> is optional and
+<a class="reference internal" href="advanced/static_dimensionality.html#static-dim"><span class="std std-ref">can boost performance considerably</span></a> (<a class="reference internal" href="advanced/static_dimensionality.html#static-dim-for-lvq"><span class="std std-ref">see</span></a> for details on how to enable
+this functionality).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">data_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span>  <span class="c1"># Uncompressed data</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="mi">128</span>    <span class="c1"># Passing dimensionality is optional</span>
+<span class="p">)</span>
+<span class="n">B1</span> <span class="o">=</span> <span class="mi">4</span>    <span class="c1"># Number of bits for the first level LVQ quantization</span>
+<span class="n">B2</span> <span class="o">=</span> <span class="mi">8</span>    <span class="c1"># Number of bits for the residuals quantization</span>
+<span class="n">padding</span> <span class="o">=</span> <span class="mi">32</span>
+<span class="n">strategy</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQStrategy</span><span class="o">.</span><span class="n">Turbo</span>
+<span class="n">compressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQLoader</span><span class="p">(</span><span class="n">data_loader</span><span class="p">,</span>
+    <span class="n">primary</span><span class="o">=</span><span class="n">B1</span><span class="p">,</span>
+    <span class="n">residual</span><span class="o">=</span><span class="n">B2</span><span class="p">,</span>
+    <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span> <span class="c1"># Passing the strategy is optional.</span>
+    <span class="n">padding</span><span class="o">=</span><span class="n">padding</span> <span class="c1"># Passing padding is optional.</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Then load the index and run the search as usual.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">GraphLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">)),</span>
+    <span class="n">compressed_loader</span><span class="p">,</span>
+    <span class="c1"># Optional keyword arguments</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span>
+<span class="p">)</span>
+
+<span class="c1"># Compare with the groundtruth..</span>
+<span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+<span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed recall: </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8223</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Vector compression is usually accompanied by an accuracy loss for the same search window size and may require
+increasing the window size to compensate.</p>
+</div>
+<section id="saving-an-index-with-compressed-vectors">
+<span id="loading-compressed-indices"></span><h3><a class="toc-backref" href="#id16" role="doc-backlink">Saving an index with compressed vectors</a><a class="headerlink" href="#saving-an-index-with-compressed-vectors" title="Link to this heading"></a></h3>
+<p>SVS has support to save and load indices with a previously compressed dataset.
+The saving and loading procedures are the same as with uncompressed vectors.</p>
+</section>
+</section>
+<section id="entire-example">
+<span id="id4"></span><h2><a class="toc-backref" href="#id17" role="doc-backlink">Entire example</a><a class="headerlink" href="#entire-example" title="Link to this heading"></a></h2>
+<p>This ends the example demonstrating the features of the Vamana index.
+The entire executable code is shown below.
+Please reach out with any questions.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Import `unittest` to allow for automated testing.</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="c1"># [imports]</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">svs</span>
+<span class="c1"># [imports]</span>
+
+<span class="n">DEBUG_MODE</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">def</span> <span class="nf">assert_equal</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">DEBUG_MODE</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> == </span><span class="si">{</span><span class="n">rhs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span>
+
+<span class="k">def</span> <span class="nf">run_test_float</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">10</span><span class="p">:</span> <span class="mf">0.5664</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">:</span> <span class="mf">0.7397</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">:</span> <span class="mf">0.8288</span><span class="p">,</span>
+        <span class="mi">40</span><span class="p">:</span> <span class="mf">0.8837</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">window_size</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
+        <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="n">window_size</span>
+        <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">assert_equal</span><span class="p">(</span>
+            <span class="n">recall</span><span class="p">,</span> <span class="n">expected</span><span class="p">[</span><span class="n">window_size</span><span class="p">],</span> <span class="sa">f</span><span class="s2">&quot;Standard Search Check (</span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">run_test_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">10</span><span class="p">:</span> <span class="mf">0.5482</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">:</span> <span class="mf">0.7294</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">:</span> <span class="mf">0.8223</span><span class="p">,</span>
+        <span class="mi">40</span><span class="p">:</span> <span class="mf">0.8756</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">window_size</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
+        <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="n">window_size</span>
+        <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">assert_equal</span><span class="p">(</span>
+            <span class="n">recall</span><span class="p">,</span> <span class="n">expected</span><span class="p">[</span><span class="n">window_size</span><span class="p">],</span> <span class="sa">f</span><span class="s2">&quot;Compressed Search Check (</span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">run_test_build_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
+    <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">10</span><span class="p">:</span> <span class="mf">0.5484</span><span class="p">,</span>
+        <span class="mi">20</span><span class="p">:</span> <span class="mf">0.7295</span><span class="p">,</span>
+        <span class="mi">30</span><span class="p">:</span> <span class="mf">0.8221</span><span class="p">,</span>
+        <span class="mi">40</span><span class="p">:</span> <span class="mf">0.8758</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">window_size</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
+        <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="n">window_size</span>
+        <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">assert_equal</span><span class="p">(</span>
+            <span class="n">recall</span><span class="p">,</span> <span class="n">expected</span><span class="p">[</span><span class="n">window_size</span><span class="p">],</span> <span class="sa">f</span><span class="s2">&quot;Compressed Search Check (</span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">)&quot;</span>
+        <span class="p">)</span>
+
+<span class="c1"># Shadow this as a global to make it available to the test-case clean-up.</span>
+<span class="n">test_data_dir</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">def</span> <span class="nf">run</span><span class="p">():</span>
+
+    <span class="c1"># ###</span>
+    <span class="c1"># Generating test data</span>
+    <span class="c1"># ###</span>
+
+    <span class="c1"># [generate-dataset]</span>
+    <span class="c1"># Create a test dataset.</span>
+    <span class="c1"># This will create a directory &quot;example_data_vamana&quot; and populate it with three</span>
+    <span class="c1"># entries:</span>
+    <span class="c1"># - data.fvecs: The test dataset.</span>
+    <span class="c1"># - queries.fvecs: The test queries.</span>
+    <span class="c1"># - groundtruth.ivecs: The groundtruth.</span>
+    <span class="n">test_data_dir</span> <span class="o">=</span> <span class="s2">&quot;./example_data_vamana&quot;</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">generate_test_dataset</span><span class="p">(</span>
+        <span class="mi">10000</span><span class="p">,</span>                      <span class="c1"># Create 10000 vectors in the dataset.</span>
+        <span class="mi">1000</span><span class="p">,</span>                       <span class="c1"># Generate 1000 query vectors.</span>
+        <span class="mi">128</span><span class="p">,</span>                        <span class="c1"># Set the vector dimensionality to 128.</span>
+        <span class="n">test_data_dir</span><span class="p">,</span>              <span class="c1"># The directory where results will be generated.</span>
+        <span class="n">data_seed</span> <span class="o">=</span> <span class="mi">1234</span><span class="p">,</span>           <span class="c1"># Random number seed for reproducibility.</span>
+        <span class="n">query_seed</span> <span class="o">=</span> <span class="mi">5678</span><span class="p">,</span>          <span class="c1"># Random number seed for reproducibility.</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>            <span class="c1"># Number of threads to use.</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>   <span class="c1"># The distance type to use.</span>
+    <span class="p">)</span>
+    <span class="c1"># [generate-dataset]</span>
+
+
+    <span class="c1"># ###</span>
+    <span class="c1"># Building the index</span>
+    <span class="c1"># ###</span>
+
+    <span class="c1"># [build-parameters]</span>
+    <span class="c1"># Now, we can build a graph index over the data set.</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VamanaBuildParameters</span><span class="p">(</span>
+        <span class="n">graph_max_degree</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="n">window_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># [build-parameters]</span>
+
+    <span class="c1"># [build-index]</span>
+    <span class="c1"># Build the index.</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+        <span class="n">parameters</span><span class="p">,</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;data.fvecs&quot;</span><span class="p">),</span> <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># [build-index]</span>
+
+    <span class="c1"># [build-index-fromNumpyArray]</span>
+    <span class="c1"># Build the index.</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;data.fvecs&quot;</span><span class="p">))</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+        <span class="n">parameters</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># [build-index-fromNumpyArray]</span>
+
+
+    <span class="c1"># ###</span>
+    <span class="c1"># Searching the index</span>
+    <span class="c1"># ###</span>
+
+    <span class="c1"># [load-aux]</span>
+    <span class="c1"># Load the queries and ground truth.</span>
+    <span class="n">queries</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;queries.fvecs&quot;</span><span class="p">))</span>
+    <span class="n">groundtruth</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;groundtruth.ivecs&quot;</span><span class="p">))</span>
+    <span class="c1"># [load-aux]</span>
+
+    <span class="c1"># [perform-queries]</span>
+    <span class="c1"># Set the search window size of the index and perform queries.</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="c1"># Compare with the groundtruth.</span>
+    <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+    <span class="c1"># [perform-queries]</span>
+
+    <span class="c1"># [search-window-size]</span>
+    <span class="c1"># We can vary the search window size to demonstrate the trade off in accuracy.</span>
+    <span class="k">for</span> <span class="n">window_size</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">10</span><span class="p">):</span>
+        <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="n">window_size</span>
+        <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Window size = </span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">, Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="c1"># [search-window-size]</span>
+
+    <span class="c1">##### Begin Test</span>
+    <span class="n">run_test_float</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">)</span>
+    <span class="c1">##### End Test</span>
+
+
+    <span class="c1"># ###</span>
+    <span class="c1"># Saving the index</span>
+    <span class="c1"># ###</span>
+
+    <span class="c1"># [saving-results]</span>
+    <span class="c1"># Finally, we can save the results.</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">),</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># [saving-results]</span>
+
+
+    <span class="c1"># ###</span>
+    <span class="c1"># Reloading a saved index</span>
+    <span class="c1"># ###</span>
+
+    <span class="c1"># [loading]</span>
+    <span class="c1"># We can reload an index from a previously saved set of files.</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">GraphLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">)),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span> <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># We can rerun the queries to ensure everything works properly.</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="c1"># Compare with the groundtruth.</span>
+    <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+    <span class="c1"># [loading]</span>
+
+    <span class="c1">##### Begin Test</span>
+    <span class="n">run_test_float</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">)</span>
+    <span class="c1">##### End Test</span>
+
+    <span class="c1"># [only-loading]</span>
+    <span class="c1"># We can reload an index from a previously saved set of files.</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">GraphLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">)),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span> <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># [only-loading]</span>
+
+    <span class="c1"># [runtime-nthreads]</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="c1"># [runtime-nthreads]</span>
+
+
+    <span class="c1"># ###</span>
+    <span class="c1"># Search using vector compression</span>
+    <span class="c1"># ###</span>
+
+    <span class="c1"># [search-compressed-loader]</span>
+    <span class="n">data_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span>  <span class="c1"># Uncompressed data</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="mi">128</span>    <span class="c1"># Passing dimensionality is optional</span>
+    <span class="p">)</span>
+    <span class="n">B1</span> <span class="o">=</span> <span class="mi">4</span>    <span class="c1"># Number of bits for the first level LVQ quantization</span>
+    <span class="n">B2</span> <span class="o">=</span> <span class="mi">8</span>    <span class="c1"># Number of bits for the residuals quantization</span>
+    <span class="n">padding</span> <span class="o">=</span> <span class="mi">32</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQStrategy</span><span class="o">.</span><span class="n">Turbo</span>
+    <span class="n">compressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQLoader</span><span class="p">(</span><span class="n">data_loader</span><span class="p">,</span>
+        <span class="n">primary</span><span class="o">=</span><span class="n">B1</span><span class="p">,</span>
+        <span class="n">residual</span><span class="o">=</span><span class="n">B2</span><span class="p">,</span>
+        <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span> <span class="c1"># Passing the strategy is optional.</span>
+        <span class="n">padding</span><span class="o">=</span><span class="n">padding</span> <span class="c1"># Passing padding is optional.</span>
+    <span class="p">)</span>
+    <span class="c1"># [search-compressed-loader]</span>
+
+    <span class="c1"># [search-compressed]</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_config&quot;</span><span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">GraphLoader</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_graph&quot;</span><span class="p">)),</span>
+        <span class="n">compressed_loader</span><span class="p">,</span>
+        <span class="c1"># Optional keyword arguments</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Compare with the groundtruth..</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed recall: </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8223</span><span class="p">)</span>
+    <span class="c1"># [search-compressed]</span>
+
+    <span class="c1">##### Begin Test</span>
+    <span class="n">run_test_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">)</span>
+    <span class="c1">##### End Test</span>
+
+    <span class="c1"># [build-index-compressed]</span>
+    <span class="c1"># Build the index.</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+        <span class="n">parameters</span><span class="p">,</span>
+        <span class="n">compressed_loader</span><span class="p">,</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span>
+    <span class="p">)</span>
+    <span class="c1"># [build-index-compressed]</span>
+
+    <span class="c1"># 1. Building Uncompressed</span>
+    <span class="c1"># 2. Loading Uncompressed</span>
+    <span class="c1"># 3. Loading with a recompressor</span>
+
+    <span class="c1"># We can rerun the queries to ensure everything works properly.</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">search_window_size</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="c1"># Compare with the groundtruth.</span>
+    <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8221</span><span class="p">)</span>
+    <span class="c1"># [loading]</span>
+
+    <span class="c1">##### Begin Test</span>
+    <span class="n">run_test_build_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">)</span>
+    <span class="c1">##### End Test</span>
+
+<span class="c1">#####</span>
+<span class="c1">##### Main Executable</span>
+<span class="c1">#####</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">run</span><span class="p">()</span>
+
+<span class="c1">#####</span>
+<span class="c1">##### As a unit test.</span>
+<span class="c1">#####</span>
+
+<span class="k">class</span> <span class="nc">VamanaExampleTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">test_data_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing temporary directory </span><span class="si">{</span><span class="n">test_data_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">rmdir</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">test_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="intro.html" class="btn btn-neutral float-left" title="Introduction" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="start_cpp.html" class="btn btn-neutral float-right" title="Getting started with C++" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

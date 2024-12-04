@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Using LeanVec &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="prev" title="Testing" href="../../cpp/testing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Using LeanVec</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#preamble">Preamble</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#constructing-a-leanvec-loader">Constructing a LeanVec Loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#index-building-and-searching">Index Building and Searching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#entire-example">Entire Example</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Using LeanVec</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/python/experimental/leanvec.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="using-leanvec">
+<span id="python-example-leanvec-vamana"></span><h1>Using LeanVec<a class="headerlink" href="#using-leanvec" title="Link to this heading"></a></h1>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This data structure in its current state is experimental.
+It can and will change and/or be removed without deprecations.
+Use at your own risk.
+If you are interested in robust support, please contact the library authors or maintainers.</p>
+</div>
+<p><a class="reference external" href="https://arxiv.org/abs/2312.16335">LeanVec</a> is a performance acceleration strategy that
+uses linear transformations to reduce the dimensionality of a given dataset.</p>
+<p>For graph search, the LeanVec implementation uses two datasets:</p>
+<ul class="simple">
+<li><p>Primary: A version of the data with reduced dimensionality.
+Graph searches are done over this primary dataset.
+Because of the reduced dimensionality, distance computations are faster and memory bandwidth requirements are decreased.</p></li>
+<li><p>Secondary: A version of the data with full dimensionality.
+The primary graph search yields a collection of candidate nearest neighbors.
+These candidates are then refined using the full-precision secondary dataset.</p></li>
+</ul>
+<section id="preamble">
+<h2>Preamble<a class="headerlink" href="#preamble" title="Link to this heading"></a></h2>
+<p>We first need to setup the example environment.
+Following the <a class="reference internal" href="../vamana.html#python-vamana-inline-example"><span class="std std-ref">basic Vamana example</span></a>, we import <code class="docutils literal notranslate"><span class="pre">svs</span></code> and other required modules.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">svs</span>
+</pre></div>
+</div>
+<p>Next, we create an example dataset.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create a test dataset.</span>
+<span class="c1"># This will create a directory &quot;example_data_vamana&quot; and populate it with three</span>
+<span class="c1"># entries:</span>
+<span class="c1"># - data.fvecs: The test dataset.</span>
+<span class="c1"># - queries.fvecs: The test queries.</span>
+<span class="c1"># - groundtruth.fvecs: The groundtruth.</span>
+<span class="n">test_data_dir</span> <span class="o">=</span> <span class="s2">&quot;./example_data_vamana&quot;</span>
+<span class="n">svs</span><span class="o">.</span><span class="n">generate_test_dataset</span><span class="p">(</span>
+    <span class="mi">1000</span><span class="p">,</span>                       <span class="c1"># Create 1000 vectors in the dataset.</span>
+    <span class="mi">100</span><span class="p">,</span>                        <span class="c1"># Generate 100 query vectors.</span>
+    <span class="mi">256</span><span class="p">,</span>                        <span class="c1"># Set the vector dimensionality to 256.</span>
+    <span class="n">test_data_dir</span><span class="p">,</span>              <span class="c1"># The directory where results will be generated.</span>
+    <span class="n">data_seed</span> <span class="o">=</span> <span class="mi">1234</span><span class="p">,</span>           <span class="c1"># Random number seed for reproducibility.</span>
+    <span class="n">query_seed</span> <span class="o">=</span> <span class="mi">5678</span><span class="p">,</span>          <span class="c1"># Random number seed for reproducibility.</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>            <span class="c1"># Number of threads to use.</span>
+    <span class="n">distance</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">MIP</span><span class="p">,</span>   <span class="c1"># The distance type to use.</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="constructing-a-leanvec-loader">
+<h2>Constructing a LeanVec Loader<a class="headerlink" href="#constructing-a-leanvec-loader" title="Link to this heading"></a></h2>
+<p>As with the <a class="reference internal" href="../loaders.html#svs.LVQLoader" title="svs.LVQLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code></a>, the <a class="reference internal" href="../loaders.html#svs.LeanVecLoader" title="svs.LeanVecLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code></a> can perform dynamic compression of uncompressed vectors.
+An example is shown below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We are going to construct a LeanVec dataset on-the-fly from uncompressed data.</span>
+<span class="c1"># First, we construct a loader for the uncompressed data.</span>
+<span class="n">uncompressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;data.fvecs&quot;</span><span class="p">),</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+<span class="p">)</span>
+
+<span class="c1"># Next - we construct a LeanVecLoader.</span>
+<span class="c1"># This loader is configured to perform the following:</span>
+<span class="c1"># - Reduce dimensionality of the primary dataset to 256 dimensions.</span>
+<span class="c1"># - Use LVQ8 for the primary dataset.</span>
+<span class="c1"># - Use Float16 for the secondary, unreduced dataset.</span>
+<span class="n">leanvec_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LeanVecLoader</span><span class="p">(</span>
+    <span class="n">uncompressed_loader</span><span class="p">,</span>
+    <span class="mi">128</span><span class="p">,</span>                                         <span class="c1"># The reduced number of dimensions.</span>
+    <span class="n">primary_kind</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LeanVecKind</span><span class="o">.</span><span class="n">lvq8</span><span class="p">,</span>       <span class="c1"># The encoding of the primary dataset.</span>
+    <span class="n">secondary_kind</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LeanVecKind</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span>  <span class="c1"># The encoding of the secondary dataset.</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>In this example, we construct a <a class="reference internal" href="../loaders.html#svs.LeanVecLoader" title="svs.LeanVecLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code></a> with a reduced dimensionality of 128.
+This means that the bulk of the graph search will be done using a 128-dimensional transformation of the 256 dimensional dataset we just generated.
+Furthermore, we can choose the encodings of the primary and secondary dataset.
+The example demonstrates using LVQ8 for the primary dataset and <code class="docutils literal notranslate"><span class="pre">float16</span></code> for the full-dimensional secondary dataset.</p>
+</section>
+<section id="index-building-and-searching">
+<h2>Index Building and Searching<a class="headerlink" href="#index-building-and-searching" title="Link to this heading"></a></h2>
+<p>Index construction and search are done exactly as <a class="reference internal" href="../vamana.html#python-vamana-inline-example"><span class="std std-ref">before</span></a>, with the minor caveat of using an alpha value less than 1 since we are using the inner product distance function.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># An index can be constructed using a LeanVec dataset.</span>
+<span class="c1"># Use an alpha less than 1 since we are using the Inner Product distance.</span>
+<span class="n">parameters</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VamanaBuildParameters</span><span class="p">(</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span>
+    <span class="n">graph_max_degree</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+    <span class="n">prune_to</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="n">window_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+    <span class="n">parameters</span><span class="p">,</span>
+    <span class="n">leanvec_loader</span><span class="p">,</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">MIP</span><span class="p">,</span>
+    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Load queries and ground-truth.</span>
+<span class="n">queries</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;queries.fvecs&quot;</span><span class="p">))</span>
+<span class="n">groundtruth</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;groundtruth.ivecs&quot;</span><span class="p">))</span>
+
+<span class="c1"># Set the search window size of the index and perform queries.</span>
+<span class="n">p</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search_parameters</span>
+<span class="n">p</span><span class="o">.</span><span class="n">buffer_config</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">SearchBufferConfig</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+<span class="n">index</span><span class="o">.</span><span class="n">search_parameters</span> <span class="o">=</span> <span class="n">p</span>
+<span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+<span class="c1"># Compare with the groundtruth.</span>
+<span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.86</span><span class="p">,</span> <span class="s2">&quot;initial recall&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="entire-example">
+<h2>Entire Example<a class="headerlink" href="#entire-example" title="Link to this heading"></a></h2>
+<p>The entire code for this example is shown below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Import `unittest` to allow for auotmated testing.</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
+
+<span class="c1"># [imports]</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">svs</span>
+<span class="c1"># [imports]</span>
+
+<span class="n">DEBUG_MODE</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="k">def</span> <span class="nf">assert_equal</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">DEBUG_MODE</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> == </span><span class="si">{</span><span class="n">rhs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span>
+
+<span class="n">test_data_dir</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">def</span> <span class="nf">run</span><span class="p">():</span>
+    <span class="c1"># [generate-dataset]</span>
+    <span class="c1"># Create a test dataset.</span>
+    <span class="c1"># This will create a directory &quot;example_data_vamana&quot; and populate it with three</span>
+    <span class="c1"># entries:</span>
+    <span class="c1"># - data.fvecs: The test dataset.</span>
+    <span class="c1"># - queries.fvecs: The test queries.</span>
+    <span class="c1"># - groundtruth.fvecs: The groundtruth.</span>
+    <span class="n">test_data_dir</span> <span class="o">=</span> <span class="s2">&quot;./example_data_vamana&quot;</span>
+    <span class="n">svs</span><span class="o">.</span><span class="n">generate_test_dataset</span><span class="p">(</span>
+        <span class="mi">1000</span><span class="p">,</span>                       <span class="c1"># Create 1000 vectors in the dataset.</span>
+        <span class="mi">100</span><span class="p">,</span>                        <span class="c1"># Generate 100 query vectors.</span>
+        <span class="mi">256</span><span class="p">,</span>                        <span class="c1"># Set the vector dimensionality to 256.</span>
+        <span class="n">test_data_dir</span><span class="p">,</span>              <span class="c1"># The directory where results will be generated.</span>
+        <span class="n">data_seed</span> <span class="o">=</span> <span class="mi">1234</span><span class="p">,</span>           <span class="c1"># Random number seed for reproducibility.</span>
+        <span class="n">query_seed</span> <span class="o">=</span> <span class="mi">5678</span><span class="p">,</span>          <span class="c1"># Random number seed for reproducibility.</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>            <span class="c1"># Number of threads to use.</span>
+        <span class="n">distance</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">MIP</span><span class="p">,</span>   <span class="c1"># The distance type to use.</span>
+    <span class="p">)</span>
+    <span class="c1"># [generate-dataset]</span>
+
+    <span class="c1"># [create-loader]</span>
+    <span class="c1"># We are going to construct a LeanVec dataset on-the-fly from uncompressed data.</span>
+    <span class="c1"># First, we construct a loader for the uncompressed data.</span>
+    <span class="n">uncompressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;data.fvecs&quot;</span><span class="p">),</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Next - we construct a LeanVecLoader.</span>
+    <span class="c1"># This loader is configured to perform the following:</span>
+    <span class="c1"># - Reduce dimensionality of the primary dataset to 256 dimensions.</span>
+    <span class="c1"># - Use LVQ8 for the primary dataset.</span>
+    <span class="c1"># - Use Float16 for the secondary, unreduced dataset.</span>
+    <span class="n">leanvec_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LeanVecLoader</span><span class="p">(</span>
+        <span class="n">uncompressed_loader</span><span class="p">,</span>
+        <span class="mi">128</span><span class="p">,</span>                                         <span class="c1"># The reduced number of dimensions.</span>
+        <span class="n">primary_kind</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LeanVecKind</span><span class="o">.</span><span class="n">lvq8</span><span class="p">,</span>       <span class="c1"># The encoding of the primary dataset.</span>
+        <span class="n">secondary_kind</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LeanVecKind</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span>  <span class="c1"># The encoding of the secondary dataset.</span>
+    <span class="p">)</span>
+    <span class="c1"># [create-loader]</span>
+
+    <span class="c1"># [build-and-search-index]</span>
+    <span class="c1"># An index can be constructed using a LeanVec dataset.</span>
+    <span class="c1"># Use an alpha less than 1 since we are using the Inner Product distance.</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VamanaBuildParameters</span><span class="p">(</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">,</span>
+        <span class="n">graph_max_degree</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="n">prune_to</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span>
+        <span class="n">window_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+        <span class="n">parameters</span><span class="p">,</span>
+        <span class="n">leanvec_loader</span><span class="p">,</span>
+        <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">MIP</span><span class="p">,</span>
+        <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Load queries and ground-truth.</span>
+    <span class="n">queries</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;queries.fvecs&quot;</span><span class="p">))</span>
+    <span class="n">groundtruth</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">read_vecs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;groundtruth.ivecs&quot;</span><span class="p">))</span>
+
+    <span class="c1"># Set the search window size of the index and perform queries.</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search_parameters</span>
+    <span class="n">p</span><span class="o">.</span><span class="n">buffer_config</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">SearchBufferConfig</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+    <span class="n">index</span><span class="o">.</span><span class="n">search_parameters</span> <span class="o">=</span> <span class="n">p</span>
+    <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+
+    <span class="c1"># Compare with the groundtruth.</span>
+    <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.86</span><span class="p">,</span> <span class="s2">&quot;initial recall&quot;</span><span class="p">)</span>
+    <span class="c1"># [build-and-search-index]</span>
+
+<span class="c1">#####</span>
+<span class="c1">##### Main Executable</span>
+<span class="c1">#####</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">run</span><span class="p">()</span>
+
+<span class="c1">#####</span>
+<span class="c1">##### As a unit test.</span>
+<span class="c1">#####</span>
+
+<span class="k">class</span> <span class="nc">VamanaExampleTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">test_data_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing temporary directory </span><span class="si">{</span><span class="n">test_data_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">rmdir</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">test_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../../cpp/testing.html" class="btn btn-neutral float-left" title="Testing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

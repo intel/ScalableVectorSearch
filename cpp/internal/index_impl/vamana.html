@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vamana Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Dynamic Vamana Index" href="dynamic_vamana.html" />
+    <link rel="prev" title="Index Data Structures" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../lib/index.html">Library Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Index Data Structures</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Vamana Index</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#main-vamana-class">Main Vamana Class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vamana-entry-point">Vamana Entry Point</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html">Flat Index</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Index Data Structures</a></li>
+      <li class="breadcrumb-item active">Vamana Index</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/index_impl/vamana.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vamana-index">
+<span id="vamana"></span><h1>Vamana Index<a class="headerlink" href="#vamana-index" title="Link to this heading"></a></h1>
+<section id="main-vamana-class">
+<h2>Main Vamana Class<a class="headerlink" href="#main-vamana-class" title="Link to this heading"></a></h2>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE">
+<span id="_CPPv3I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE"></span><span id="_CPPv2I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">graphs</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../concepts/graph.html#_CPPv4I0EN3svs6graphs20ImmutableMemoryGraphE" title="svs::graphs::ImmutableMemoryGraph"><span class="n"><span class="pre">ImmutableMemoryGraph</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Graph</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../concepts/data.html#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="svs::data::ImmutableMemoryDataset"><span class="n"><span class="pre">ImmutableMemoryDataset</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Data</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dist</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VamanaIndex</span></span></span><a class="headerlink" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="Link to this definition"></a><br /></dt>
+<dd><p>Implementation of the static <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> index. </p>
+<p>
+The mid-level implementation of the static <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> graph-based index.</p>
+<p>We can’t enforce any constraints on <code class="docutils literal notranslate"><span class="pre">Dist</span></code> because at construction time, we don’t necessarily know what the query type is going to be (since it need not be the same as the dataset elements).</p>
+<p>Checking of the full concept is done when the <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex"><span class="std std-ref"><span class="pre">VamanaIndex</span></span></a></code> is embedded inside some kind of searcher (and in the test suite). </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Graph</strong> – The full type of the graph being used to conduct searches. </p></li>
+<li><p><strong>Data</strong> – The full type of the dataset being indexed. </p></li>
+<li><p><strong>Dist</strong> – The distance functor used to compare queries with elements of the dataset. </p></li>
+<li><p><strong>PostOp</strong> – The cleanup operation that is performed after the initial graph search. This may be included to perform operations like reranking for quantized datasets.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex3IdxE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex3IdxE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex3IdxE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a962c1859990eefd66d44863c00feb70f"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Idx</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Graph"><span class="n"><span class="pre">Graph</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index_type</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex3IdxE" title="Link to this definition"></a><br /></dt>
+<dd><p>The integer type used to encode entries in the graph. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex10value_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex10value_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex10value_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a33b5b547c8fa6c8f6296f97d198954dd"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">value_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">value_type</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex10value_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of entries in the dataset. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex16const_value_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex16const_value_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex16const_value_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1af4d1254b85682967703fe1761b3b3502"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">const_value_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">const_value_type</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex16const_value_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of constant entries in the dataset. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex13distance_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex13distance_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex13distance_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a4e3ce76786073e223e3eede0d5e8ffb6"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">distance_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex13distance_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>Type of the distance functor. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex10graph_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex10graph_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex10graph_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a78a749ffe23c4f4ea2b66527398ca3cb"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">graph_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Graph"><span class="n"><span class="pre">Graph</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex10graph_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>Type of the graph. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex9data_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex9data_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex9data_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a1b18bea3d453a0809d738e6cc11ea2d1"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">data_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex9data_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>Type of the dataset. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex22search_parameters_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex22search_parameters_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex22search_parameters_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a7161dfa7036b20c10ff4e680ea105354"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">search_parameters_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE" title="svs::index::vamana::VamanaSearchParameters"><span class="n"><span class="pre">VamanaSearchParameters</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex22search_parameters_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of the configurable search parameters. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex18inner_scratch_typeE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex18inner_scratch_typeE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex18inner_scratch_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a9134ec6b0d46594f4a8c909f5c3fb141"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">inner_scratch_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">tag_t</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">extensions</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">single_search_setup</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">result_t</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex18inner_scratch_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of the search resource used for external threading. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex12get_distanceEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex12get_distanceEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex12get_distanceEv"></span><span id="svs::index::vamana::VamanaIndex::get_distanceC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a023760e8d7941b757e99eb3b08deb04f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana11VamanaIndex13distance_typeE" title="svs::index::vamana::VamanaIndex::distance_type"><span class="n"><span class="pre">distance_type</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_distance</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex12get_distanceEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a copy of the primary distance functor used by the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex11VamanaIndexE5Graph4Data3Idx4DistN7threads16NativeThreadPoolE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex11VamanaIndexE5Graph4Data3Idx4DistN7threads16NativeThreadPoolE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex11VamanaIndexE5Graph4Data3Idx4DistN7threads16NativeThreadPoolE"></span><span id="svs::index::vamana::VamanaIndex::VamanaIndex__Graph.Data.Idx.Dist.threads::NativeThreadPool"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a2ee389c99e022a8f08647252eee940ff"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VamanaIndex</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Graph"><span class="n"><span class="pre">Graph</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">graph</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <a class="reference internal" href="#_CPPv4N3svs5index6vamana11VamanaIndex3IdxE" title="svs::index::vamana::VamanaIndex::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">entry_point</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance_function</span></span>, <span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">NativeThreadPool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex11VamanaIndexE5Graph4Data3Idx4DistN7threads16NativeThreadPoolE" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a <a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex"><span class="std std-ref">VamanaIndex</span></a> from constituent parts. </p>
+<p>
+This is a lower-level function that is meant to take a collection of instantiated components and assemble the final index. For a more “hands-free” approach, see the factory methods.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">graph.n_nodes()</span> <span class="pre">==</span> <span class="pre">data.size()</span></code>: Graph and data should have the same number of entries.</p></li>
+</ul>
+</p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#namespacesvs_1_1index_1_1vamana_1a25162278ca134974958eda18110d6b85"><span class="std std-ref">auto_assemble</span></a></p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>graph</strong> – An existing graph over <code class="docutils literal notranslate"><span class="pre">data</span></code> that has been previously constructed. </p></li>
+<li><p><strong>data</strong> – The dataset being indexed. </p></li>
+<li><p><strong>entry_point</strong> – The entry-point into the graph to begin searches. </p></li>
+<li><p><strong>distance_function</strong> – The distance function used to compare queries and elements of the dataset. </p></li>
+<li><p><strong>threadpool</strong> – The threadpool to use to conduct searches.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex11VamanaIndexERK21VamanaBuildParameters5Graph4Data3Idx4DistN7threads16NativeThreadPoolE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex11VamanaIndexERK21VamanaBuildParameters5Graph4Data3Idx4DistN7threads16NativeThreadPoolE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex11VamanaIndexERK21VamanaBuildParameters5Graph4Data3Idx4DistN7threads16NativeThreadPoolE"></span><span id="svs::index::vamana::VamanaIndex::VamanaIndex__VamanaBuildParametersCR.Graph.Data.Idx.Dist.threads::NativeThreadPool"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1af363ffb96937e4422fee316279efcb2b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VamanaIndex</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE" title="svs::index::vamana::VamanaBuildParameters"><span class="n"><span class="pre">VamanaBuildParameters</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">parameters</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Graph"><span class="n"><span class="pre">Graph</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">graph</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <a class="reference internal" href="#_CPPv4N3svs5index6vamana11VamanaIndex3IdxE" title="svs::index::vamana::VamanaIndex::Idx"><span class="n"><span class="pre">Idx</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">entry_point</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance_function</span></span>, <span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">NativeThreadPool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex11VamanaIndexERK21VamanaBuildParameters5Graph4Data3Idx4DistN7threads16NativeThreadPoolE" title="Link to this definition"></a><br /></dt>
+<dd><p>Build a <a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex"><span class="std std-ref">VamanaIndex</span></a> over the given dataset. </p>
+<p>
+This is a lower-level function that is meant to take a dataset and construct the graph-based index over the dataset. For a more “hands-free” approach, see the factory methods.</p>
+<p><strong>Preconditions:</strong></p>
+<p><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">graph.n_nodes()</span> <span class="pre">==</span> <span class="pre">data.size()</span></code>: Graph and data should have the same number of entries.</p></li>
+</ul>
+</p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#namespacesvs_1_1index_1_1vamana_1a734c1af2f40c7fd8add2652ff2b7d29c"><span class="std std-ref">auto_build</span></a></p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parameters</strong> – The build parameters used to construct the graph. </p></li>
+<li><p><strong>graph</strong> – An unpopulated graph with the same size as <code class="docutils literal notranslate"><span class="pre">data</span></code>. This graph will be populated as part of the constructor operation. </p></li>
+<li><p><strong>data</strong> – The dataset to be indexed indexed. </p></li>
+<li><p><strong>entry_point</strong> – The entry-point into the graph to begin searches. </p></li>
+<li><p><strong>distance_function</strong> – The distance function used to compare queries and elements of the dataset. </p></li>
+<li><p><strong>threadpool</strong> – The threadpool to use to conduct searches.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex5applyERK21VamanaIndexParameters">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex5applyERK21VamanaIndexParameters"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex5applyERK21VamanaIndexParameters"></span><span id="svs::index::vamana::VamanaIndex::apply__VamanaIndexParametersCR"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1aa50dd001900ccc1aeab5ff51c0883fcc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">apply</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">VamanaIndexParameters</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">parameters</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex5applyERK21VamanaIndexParameters" title="Link to this definition"></a><br /></dt>
+<dd><p>Apply the given configuration parameters to the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex12scratchspaceERK22VamanaSearchParameters">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex12scratchspaceERK22VamanaSearchParameters"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex12scratchspaceERK22VamanaSearchParameters"></span><span id="svs::index::vamana::VamanaIndex::scratchspace__VamanaSearchParametersCRC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a5a5ad51fc1848d1edbc80203a58f1e4b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">scratchspace_type</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">scratchspace</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE" title="svs::index::vamana::VamanaSearchParameters"><span class="n"><span class="pre">VamanaSearchParameters</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">sp</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex12scratchspaceERK22VamanaSearchParameters" title="Link to this definition"></a><br /></dt>
+<dd><p>Return scratch space resources for external threading. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex12scratchspaceEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex12scratchspaceEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex12scratchspaceEv"></span><span id="svs::index::vamana::VamanaIndex::scratchspaceC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1ad755a774532fdc134b8ab418ad12648c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">scratchspace_type</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">scratchspace</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex12scratchspaceEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return scratch-space resources for external threading with default parameters. </p>
+<p>The default parameters can be accessed using <code class="docutils literal notranslate"><span class="pre">get_search_parameters</span></code> and <code class="docutils literal notranslate"><span class="pre">set_search_parameters</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0ENK3svs5index6vamana11VamanaIndex6searchEvRK5QueryR17scratchspace_typeRKN3lib16DefaultPredicateE">
+<span id="_CPPv3I0ENK3svs5index6vamana11VamanaIndex6searchERK5QueryR17scratchspace_typeRKN3lib16DefaultPredicateE"></span><span id="_CPPv2I0ENK3svs5index6vamana11VamanaIndex6searchERK5QueryR17scratchspace_typeRKN3lib16DefaultPredicateE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Query</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a7841b08af015ff1eb49cabdbc792733a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">search</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0ENK3svs5index6vamana11VamanaIndex6searchEvRK5QueryR17scratchspace_typeRKN3lib16DefaultPredicateE" title="svs::index::vamana::VamanaIndex::search::Query"><span class="n"><span class="pre">Query</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">query</span></span>, <span class="n"><span class="pre">scratchspace_type</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">scratch</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DefaultPredicate</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">cancel</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I0ENK3svs5index6vamana11VamanaIndex6searchEvRK5QueryR17scratchspace_typeRKN3lib16DefaultPredicateE" title="Link to this definition"></a><br /></dt>
+<dd><p>Perform a nearest neighbor search for query using the provided scratch space. </p>
+<p>Operations performed:<ul class="simple">
+<li><p>Graph search to obtain k-nearest neighbors.</p></li>
+<li><p>Search result reranking (if needed).</p></li>
+</ul>
+</p>
+<p>Results will be present in the data structures contained inside <code class="docutils literal notranslate"><span class="pre">scratch</span></code>. Extraction should pull out the search buffer for extra post-processing.</p>
+<p><strong>Note</strong>: It is the caller’s responsibility to ensure that the scratch space has been initialized properly to return the requested number of neighbors. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchEv15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE">
+<span id="_CPPv3I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchE15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE"></span><span id="_CPPv2I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchE15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">I</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../concepts/data.html#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="svs::data::ImmutableMemoryDataset"><span class="n"><span class="pre">ImmutableMemoryDataset</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Queries</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1ae94d4b442608566bce8bb8e959fb0cd7"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">search</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="../../core/query_result.html#_CPPv4I0EN3svs15QueryResultViewE" title="svs::QueryResultView"><span class="n"><span class="pre">QueryResultView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchEv15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE" title="svs::index::vamana::VamanaIndex::search::I"><span class="n"><span class="pre">I</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">result</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchEv15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE" title="svs::index::vamana::VamanaIndex::search::Queries"><span class="n"><span class="pre">Queries</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">queries</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana11VamanaIndex22search_parameters_typeE" title="svs::index::vamana::VamanaIndex::search_parameters_type"><span class="n"><span class="pre">search_parameters_type</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">search_parameters</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DefaultPredicate</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">cancel</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0_N4data22ImmutableMemoryDatasetEEN3svs5index6vamana11VamanaIndex6searchEv15QueryResultViewI1IERK7QueriesRK22search_parameters_typeRKN3lib16DefaultPredicateE" title="Link to this definition"></a><br /></dt>
+<dd><p>Fill the result with the <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code> nearest neighbors for each query. </p>
+<p>
+After the initial graph search, a post-operation defined by the <code class="docutils literal notranslate"><span class="pre">PostOp</span></code> type parameter will be conducted which may conduct refinement on the candidates.</p>
+<p>If the current value of <code class="docutils literal notranslate"><span class="pre">get_search_window_size()</span></code> is less than <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code>, it will temporarily be set to <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code>.</p>
+<p><strong>Preconditions:</strong></p>
+<p>The following pre-conditions must hold. Otherwise, the behavior is undefined.<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">result.n_queries()</span> <span class="pre">==</span> <span class="pre">queries.size()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">result.n_neighbors()</span> <span class="pre">==</span> <span class="pre">num_neighbors</span></code>.</p></li>
+<li><p>The value type of <code class="docutils literal notranslate"><span class="pre">queries</span></code> is compatible with the value type of the index dataset with respect to the stored distance functor. </p></li>
+</ul>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>I</strong> – The integer type used to encode neighbors in the QueryResult. </p></li>
+<li><p><strong>QueryType</strong> – The element of the queries.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>result</strong> – The result data structure to populate. Row <code class="docutils literal notranslate"><span class="pre">i</span></code> in the result corresponds to the neighbors for the <code class="docutils literal notranslate"><span class="pre">i</span></code>th query. Neighbors within each row are ordered from nearest to furthest. <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code> is computed from the number of columns in <code class="docutils literal notranslate"><span class="pre">result</span></code>. </p></li>
+<li><p><strong>queries</strong> – A dense collection of queries in R^n. </p></li>
+<li><p><strong>search_parameters</strong> – search parameters to use for the search. </p></li>
+<li><p><strong>cancel</strong> – A predicate called during the search to determine if the search should be cancelled. Perform a multi-threaded graph search over the index, overwriting the contents of <code class="docutils literal notranslate"><span class="pre">result</span></code> with the results of search.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex4sizeEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex4sizeEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex4sizeEv"></span><span id="svs::index::vamana::VamanaIndex::sizeC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1ad6a552af175ac5c25e3715ae040bd877"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of vectors in the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex10dimensionsEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex10dimensionsEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex10dimensionsEv"></span><span id="svs::index::vamana::VamanaIndex::dimensionsC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a957f49b73e71fffb69aae9edf6c7310d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dimensions</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex10dimensionsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the logical number aLf dimensions of the indexed vectors. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE">
+<span id="_CPPv3I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEN4data14SimpleDataViewI1TEENSt4spanIK1IEE"></span><span id="_CPPv2I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEN4data14SimpleDataViewI1TEENSt4spanIK1IEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">unsigned_integral</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">I</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1adc8a86d20adaa1f90c56c68129d0b824"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconstruct_at</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/data.html#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView"><span class="n"><span class="pre">SimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE" title="svs::index::vamana::VamanaIndex::reconstruct_at::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">dst</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE" title="svs::index::vamana::VamanaIndex::reconstruct_at::I"><span class="n"><span class="pre">I</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana11VamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Reconstruct vectors. </p>
+<p>Reconstruct each vector indexed by an external ID and store the results into <code class="docutils literal notranslate"><span class="pre">dst</span></code>.</p>
+<p>Preconditions:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ids.size()</span> <span class="pre">==</span> <span class="pre">svs::getsize&lt;0&gt;(dst)</span></code>: Each ID has a corresponding entry in the destination array.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0</span> <span class="pre">&lt;=</span> <span class="pre">i</span> <span class="pre">&lt;</span> <a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex_1ad6a552af175ac5c25e3715ae040bd877"><span class="std std-ref"><span class="pre">size()</span></span></a></code> for all <code class="docutils literal notranslate"><span class="pre">i</span></code> in <code class="docutils literal notranslate"><span class="pre">ids</span></code>: Each ID is in-bounds.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">svs::getsize&lt;1&gt;(dst)</span> <span class="pre">==</span> <a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a957f49b73e71fffb69aae9edf6c7310d"><span class="std std-ref"><span class="pre">dimensions()</span></span></a></code>: The space allocated for each vector in <code class="docutils literal notranslate"><span class="pre">dst</span></code> is correct.</p></li>
+</ul>
+</p>
+<p>An exception will be thrown if any of these pre-conditions does not hold. If such an exception is thrown, the argument <code class="docutils literal notranslate"><span class="pre">dst</span></code> will be left unmodified. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex15get_num_threadsEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex15get_num_threadsEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex15get_num_threadsEv"></span><span id="svs::index::vamana::VamanaIndex::get_num_threadsC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a4aea6e64ff1e63b339608e9fa08c4062"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_num_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex15get_num_threadsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current number of threads used for search. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a48bd9b713fe951f5e856199338ddcdd8"><span class="std std-ref">set_num_threads</span></a></p>
+</div>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex15set_num_threadsE6size_t">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex15set_num_threadsE6size_t"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex15set_num_threadsE6size_t"></span><span id="svs::index::vamana::VamanaIndex::set_num_threads__s"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a48bd9b713fe951f5e856199338ddcdd8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_num_threads</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex15set_num_threadsE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Set the number of threads used for search. </p>
+<p>
+Implementation note: The number of threads cannot be zero. If zero is passed to this method, it will be silently changed to 1.</p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a4aea6e64ff1e63b339608e9fa08c4062"><span class="std std-ref">get_num_threads</span></a></p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num_threads</strong> – The new number of threads to use.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex17borrow_threadpoolEv">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex17borrow_threadpoolEv"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex17borrow_threadpoolEv"></span><span id="svs::index::vamana::VamanaIndex::borrow_threadpool"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a5e514c067598715afa0efccb7326e20e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">NativeThreadPool</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">borrow_threadpool</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex17borrow_threadpoolEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Obtain the underlying threadpool. </p>
+<p>N.B.: Jobs may be run on the thread pool but it may not be resized safely. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex21get_search_parametersEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex21get_search_parametersEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex21get_search_parametersEv"></span><span id="svs::index::vamana::VamanaIndex::get_search_parametersC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a2969cfa6c989aacd51fe44b62d1512cd"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE" title="svs::index::vamana::VamanaSearchParameters"><span class="n"><span class="pre">VamanaSearchParameters</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_search_parameters</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex21get_search_parametersEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current search parameters stored by the index. </p>
+<p>These parameters include </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex28reset_performance_parametersEv">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex28reset_performance_parametersEv"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex28reset_performance_parametersEv"></span><span id="svs::index::vamana::VamanaIndex::reset_performance_parameters"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a80f18bed407675ce78c5c5a5579e020d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reset_performance_parameters</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex28reset_performance_parametersEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Reset performance parameters to their default values for this index. </p>
+<p>Parameters affected are only those that modify throughput on a given architecture. Accuracy results should not change as a side-effect of calling this function. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex9get_alphaEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex9get_alphaEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex9get_alphaEv"></span><span id="svs::index::vamana::VamanaIndex::get_alphaC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1ac313c0e2636cd4c8e31c2cd636d4cba1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_alpha</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex9get_alphaEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the value of <code class="docutils literal notranslate"><span class="pre">alpha</span></code> used during graph construction. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex18get_max_candidatesEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex18get_max_candidatesEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex18get_max_candidatesEv"></span><span id="svs::index::vamana::VamanaIndex::get_max_candidatesC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1ae45568d228e6611e342bb39a96627b7a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_max_candidates</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex18get_max_candidatesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the max candidate pool size that was used for graph construction. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex28get_construction_window_sizeEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex28get_construction_window_sizeEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex28get_construction_window_sizeEv"></span><span id="svs::index::vamana::VamanaIndex::get_construction_window_sizeC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1aaee2c057c18cff284dc639067863e2a0"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_construction_window_size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex28get_construction_window_sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the search window size that was used for graph construction. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex23set_full_search_historyEb">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex23set_full_search_historyEb"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex23set_full_search_historyEb"></span><span id="svs::index::vamana::VamanaIndex::set_full_search_history__b"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a7fed75d44da3a06e079b7ae7ce47a0bc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_full_search_history</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">enable</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex23set_full_search_historyEb" title="Link to this definition"></a><br /></dt>
+<dd><p>Enable using the full search history for candidate generation while building. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex23get_full_search_historyEv">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex23get_full_search_historyEv"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex23get_full_search_historyEv"></span><span id="svs::index::vamana::VamanaIndex::get_full_search_historyC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a88ba8404dc437dac847d771cc9437f77"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_full_search_history</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex23get_full_search_historyEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether the full search history is being used for index construction. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana11VamanaIndex4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE">
+<span id="_CPPv3NK3svs5index6vamana11VamanaIndex4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE"></span><span id="_CPPv2NK3svs5index6vamana11VamanaIndex4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE"></span><span id="svs::index::vamana::VamanaIndex::save__std::filesystem::pathCR.std::filesystem::pathCR.std::filesystem::pathCRC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a4fcfc36da988bc81e1aab4a12eefbc23"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">save</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">config_directory</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">graph_directory</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_directory</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana11VamanaIndex4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
+<dd><p>Save the whole index to disk to enable reloading in the future. </p>
+<p>
+In general, the save locations must be directories since each data structure (config, graph, and data) may require an arbitrary number of auxiliary files in order to by completely saved to disk. The given directories must be different.</p>
+<p>Each directory may be created as a side-effect of this method call provided that the parent directory exists. Data in existing directories will be overwritten without warning.</p>
+<p>The choice to use a multi-directory structure is to enable design-space exploration with different data quantization techniques or graph implementations. That is, the save format for the different components is designed to be orthogonal to allow mixing and matching of different types upon reloading. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config_directory</strong> – Directory where the index metadata will be saved. The contents of the metadata include the configured search window size, entry point etc. </p></li>
+<li><p><strong>graph_directory</strong> – Directory where the graph will be saved. </p></li>
+<li><p><strong>data_directory</strong> – Directory where the vector dataset will be saved.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex18can_change_threadsEv">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex18can_change_threadsEv"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex18can_change_threadsEv"></span><span id="svs::index::vamana::VamanaIndex::can_change_threads"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a90ebd56d83833f0597c224be354bfe2f"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">can_change_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex18can_change_threadsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether this implementation can dynamically change the number of threads. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana11VamanaIndex6extentE">
+<span id="_CPPv3N3svs5index6vamana11VamanaIndex6extentE"></span><span id="_CPPv2N3svs5index6vamana11VamanaIndex6extentE"></span><span id="svs::index::vamana::VamanaIndex::extent__s"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1VamanaIndex_1a346317fa62af342272de7d39b1a73e1d"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">extent</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs20ImmutableMemoryGraphE_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana11VamanaIndexE" title="svs::index::vamana::VamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">extent</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana11VamanaIndex6extentE" title="Link to this definition"></a><br /></dt>
+<dd><p>The static dimensionality of the dataset. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="vamana-entry-point">
+<h2>Vamana Entry Point<a class="headerlink" href="#vamana-entry-point" title="Link to this heading"></a></h2>
+<p>Instantiating an instance of the VamanaIndex can be tricky and has many different pieces that need to come together correctly.
+To assist with this operation, the factor methods are supplied that can handle many different (both documented and documented) combinations of data set types, graph types, and distances.
+These methods are documented below.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto">
+<span id="_CPPv3I0000EN3svs5index6vamana13auto_assembleERKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto"></span><span id="_CPPv2I0000EN3svs5index6vamana13auto_assembleERKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GraphProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1index_1_1vamana_1a25162278ca134974958eda18110d6b85"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vamana</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">auto_assemble</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">config_path</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto" title="svs::index::vamana::auto_assemble::GraphProto"><span class="n"><span class="pre">GraphProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">graph_loader</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto" title="svs::index::vamana::auto_assemble::DataProto"><span class="n"><span class="pre">DataProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data_proto</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto" title="svs::index::vamana::auto_assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto" title="svs::index::vamana::auto_assemble::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0000EN3svs5index6vamana13auto_assembleEDaRKNSt10filesystem4pathE10GraphProto9DataProto8Distance15ThreadPoolProto" title="Link to this definition"></a><br /></dt>
+<dd><p>Entry point for loading a <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> graph-index from disk. </p>
+<p>
+This method provides much of the heavy lifting for instantiating a <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> index from a collection of files on disk (or perhaps a mix-and-match of existing data in-memory and on disk).</p>
+<p>Refer to the examples for use of this interface. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>config_path</strong> – The directory where the index configuration file resides. </p></li>
+<li><p><strong>graph_loader</strong> – A <code class="docutils literal notranslate"><a class="reference internal" href="../../core/graph.html#structsvs_1_1GraphLoader"><span class="std std-ref"><span class="pre">svs::GraphLoader</span></span></a></code> for loading the graph. </p></li>
+<li><p><strong>data_proto</strong> – A dispatch loadable class yielding a dataset. </p></li>
+<li><p><strong>distance</strong> – The distance <strong>functor</strong> to use to compare queries with elements of the dataset. </p></li>
+<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be a threadpool instance of an integer specifying the number of threads to use.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator">
+<span id="_CPPv3I0000EN3svs5index6vamana10auto_buildERK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator"></span><span id="_CPPv2I0000EN3svs5index6vamana10auto_buildERK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadpoolProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Allocator</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../allocators.html#_CPPv4I0EN3svs17HugepageAllocatorE" title="svs::HugepageAllocator"><span class="n"><span class="pre">HugepageAllocator</span></span></a><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">uint32_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1index_1_1vamana_1a734c1af2f40c7fd8add2652ff2b7d29c"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vamana</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">auto_build</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE" title="svs::index::vamana::VamanaBuildParameters"><span class="n"><span class="pre">VamanaBuildParameters</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">parameters</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator" title="svs::index::vamana::auto_build::DataProto"><span class="n"><span class="pre">DataProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data_proto</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator" title="svs::index::vamana::auto_build::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator" title="svs::index::vamana::auto_build::ThreadpoolProto"><span class="n"><span class="pre">ThreadpoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator" title="svs::index::vamana::auto_build::Allocator"><span class="n"><span class="pre">Allocator</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">graph_allocator</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0000EN3svs5index6vamana10auto_buildEDaRK21VamanaBuildParameters9DataProto8Distance15ThreadpoolProtoRK9Allocator" title="Link to this definition"></a><br /></dt>
+<dd><p>Entry point for loading a <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> graph-index from disk. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parameters</strong> – The parameters to use for graph construction. </p></li>
+<li><p><strong>data_proto</strong> – A dispatch loadable class yielding a dataset. </p></li>
+<li><p><strong>distance</strong> – The distance <strong>functor</strong> to use to compare queries with elements of the dataset. </p></li>
+<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be a threadpool instance of an integer specifying the number of threads to use. </p></li>
+<li><p><strong>graph_allocator</strong> – The allocator to use for the graph data structure. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Index Data Structures" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="dynamic_vamana.html" class="btn btn-neutral float-right" title="Dynamic Vamana Index" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

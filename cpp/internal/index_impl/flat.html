@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flat Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Testing" href="../../testing.html" />
+    <link rel="prev" title="Dynamic Vamana Index" href="dynamic_vamana.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../lib/index.html">Library Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Index Data Structures</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Flat Index</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#main-flat-class">Main Flat Class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#flat-entry-point">Flat Entry Point</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Index Data Structures</a></li>
+      <li class="breadcrumb-item active">Flat Index</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/index_impl/flat.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="flat-index">
+<span id="flat"></span><h1>Flat Index<a class="headerlink" href="#flat-index" title="Link to this heading"></a></h1>
+<section id="main-flat-class">
+<h2>Main Flat Class<a class="headerlink" href="#main-flat-class" title="Link to this heading"></a></h2>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE">
+<span id="_CPPv3I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE"></span><span id="_CPPv2I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../concepts/data.html#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="svs::data::ImmutableMemoryDataset"><span class="n"><span class="pre">ImmutableMemoryDataset</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Data</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dist</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Ownership</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">OwnsMembers</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">FlatIndex</span></span></span><a class="headerlink" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="Link to this definition"></a><br /></dt>
+<dd><p>Implementation of the <a class="reference internal" href="../../index/flat.html#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> index. </p>
+<p>
+The mid-level implementation for the flat index that uses exhaustive search to find the exact nearest neighbors (within the limitations of possibly quantization error for the dataset or floating-point error for some distance functors).</p>
+<p><strong>NOTE</strong>: This method is not as performant as other index methods. It is meant to return the exact rather than approximate nearest neighbors and thus must exhaustively search the whole dataset. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Data</strong> – The full type of the dataset being indexed. </p></li>
+<li><p><strong>Dist</strong> – The distance functor used to compare queries with the elements of the dataset. </p></li>
+<li><p><strong>Ownership</strong> – Implementation detail and may be ommitted for most use cases.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex13distance_typeE">
+<span id="_CPPv3N3svs5index4flat9FlatIndex13distance_typeE"></span><span id="_CPPv2N3svs5index4flat9FlatIndex13distance_typeE"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1ae489220aa7986c3be6337eb2bebf3fe6"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">distance_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex13distance_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of the distance functor. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex9data_typeE">
+<span id="_CPPv3N3svs5index4flat9FlatIndex9data_typeE"></span><span id="_CPPv2N3svs5index4flat9FlatIndex9data_typeE"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a2f17190e13e864e4aa6f930f5a50af90"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">data_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Data"><span class="n"><span class="pre">Data</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex9data_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of dataset. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto">
+<span id="_CPPv3I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto"></span><span id="_CPPv2I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1abc8caddcfecafbe17ed349f29bd852ca"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">FlatIndex</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto" title="svs::index::flat::FlatIndex::FlatIndex::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">threadpool_proto</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new index from constituent parts. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ThreadPoolProto</strong> – The type of the threadpool proto type. See notes on the corresponding parameter below.</p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>data</strong> – The data to use for the index. The resulting index will take ownership of the passed argument. </p></li>
+<li><p><strong>distance</strong> – The distance functor to use to compare queries with dataset elements. </p></li>
+<li><p><strong>threadpool_proto</strong> – Something that can be used to build a threadpool using <code class="docutils literal notranslate"><span class="pre">threads::as_threadpool</span></code>. In practice, this means that <code class="docutils literal notranslate"><span class="pre">threapool_proto</span></code> can be either a threadpool directly, or an integer. In the latter case, a new threadpool will be constructed using <code class="docutils literal notranslate"><span class="pre">threadpool_proto</span></code> as the number of threads to create. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index4flat9FlatIndex4sizeEv">
+<span id="_CPPv3NK3svs5index4flat9FlatIndex4sizeEv"></span><span id="_CPPv2NK3svs5index4flat9FlatIndex4sizeEv"></span><span id="svs::index::flat::FlatIndex::sizeC"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a5e540cc2c450f06c4c60de5f2c61e166"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index4flat9FlatIndex4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of independent entries in the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index4flat9FlatIndex10dimensionsEv">
+<span id="_CPPv3NK3svs5index4flat9FlatIndex10dimensionsEv"></span><span id="_CPPv2NK3svs5index4flat9FlatIndex10dimensionsEv"></span><span id="svs::index::flat::FlatIndex::dimensionsC"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1aeb7da3635c09057052d069a0c67dd173"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dimensions</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index4flat9FlatIndex10dimensionsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the logical number of dimensions of the indexed vectors. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs5index4flat9FlatIndex6searchEv15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred">
+<span id="_CPPv3I00EN3svs5index4flat9FlatIndex6searchE15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred"></span><span id="_CPPv2I00EN3svs5index4flat9FlatIndex6searchE15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryType</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Pred</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">true</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a43b61070e9356d2223e9b6d5b9a373d5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">search</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="../../core/query_result.html#_CPPv4I0EN3svs15QueryResultViewE" title="svs::QueryResultView"><span class="n"><span class="pre">QueryResultView</span></span></a><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">result</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/data.html#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView"><span class="n"><span class="pre">ConstSimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I00EN3svs5index4flat9FlatIndex6searchEv15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred" title="svs::index::flat::FlatIndex::search::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">queries</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">search_parameters_type</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">search_parameters</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DefaultPredicate</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">cancel</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">)</span></span>, <a class="reference internal" href="#_CPPv4I00EN3svs5index4flat9FlatIndex6searchEv15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred" title="svs::index::flat::FlatIndex::search::Pred"><span class="n"><span class="pre">Pred</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">predicate</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">true</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs5index4flat9FlatIndex6searchEv15QueryResultViewI6size_tERKN4data19ConstSimpleDataViewI9QueryTypeEERK22search_parameters_typeRKN3lib16DefaultPredicateE4Pred" title="Link to this definition"></a><br /></dt>
+<dd><p>Fill the result with the <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code> nearest neighbors for each query. </p>
+<p><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1flat_class_search_mutating"></span></p>
+<p><strong>Preconditions:</strong></p>
+<p>The following pre-conditions must hold. Otherwise, the behavior is undefined.<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">result.n_queries()</span> <span class="pre">==</span> <span class="pre">queries.size()</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">result.n_neighbors()</span> <span class="pre">==</span> <span class="pre">num_neighbors</span></code>.</p></li>
+<li><p>The value type of <code class="docutils literal notranslate"><span class="pre">queries</span></code> is compatible with the value type of the index dataset with respect to the stored distance functor.</p></li>
+</ul>
+</p>
+<p><strong>Implementation Details</strong></p>
+<p>The internal call stack looks something like this.</p>
+<p><div class="highlight-default notranslate"><div class="highlight"><pre><span></span>search: Prepare scratch space and perform tiling over the dataset.
+  |
+  +-&gt; search_subset: multi-threaded search of all queries over the current subset
+      of the dataset. Partitions up the queries according to query batch size
+      and dynamically load balances query partition among worker threads.
+        |
+        +-&gt; search_patch: Bottom level routine meant to run on a single thread.
+            Compute the distances between a subset of the queries and a subset
+            of the data and maintines the `num_neighbors` best results seen so far.
+</pre></div>
+</div>
+{} </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Queries</strong> – The full type of the queries. </p></li>
+<li><p><strong>Pred</strong> – The type of the optional predicate.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>result</strong> – The result data structure to populate. Row <code class="docutils literal notranslate"><span class="pre">i</span></code> in the result corresponds to the neighbors for the <code class="docutils literal notranslate"><span class="pre">i</span></code>th query. Neighbors within each row are ordered from nearest to furthest. <code class="docutils literal notranslate"><span class="pre">num_neighbors</span></code> is computed from the number of columns in <code class="docutils literal notranslate"><span class="pre">result</span></code>. </p></li>
+<li><p><strong>queries</strong> – A dense collection of queries in R^n. </p></li>
+<li><p><strong>search_parameters</strong> – search parameters to use for the search. </p></li>
+<li><p><strong>cancel</strong> – A predicate called during the search to determine if the search should be cancelled. </p></li>
+<li><p><strong>predicate</strong> – A predicate functor that can be used to exclude certain dataset elements from consideration. This functor must implement <code class="docutils literal notranslate"><span class="pre">bool</span> <span class="pre">operator()(size_t)</span></code> where the <code class="docutils literal notranslate"><span class="pre">size_t</span></code> argument is an index in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">data.size())</span></code>. If the predicate returns <code class="docutils literal notranslate"><span class="pre">true</span></code>, that dataset element will be considered.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index4flat9FlatIndex15get_num_threadsEv">
+<span id="_CPPv3NK3svs5index4flat9FlatIndex15get_num_threadsEv"></span><span id="_CPPv2NK3svs5index4flat9FlatIndex15get_num_threadsEv"></span><span id="svs::index::flat::FlatIndex::get_num_threadsC"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a87a8c0a315bae70bccfbb8d8ba41c9f3"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_num_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index4flat9FlatIndex15get_num_threadsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current number of threads used for search. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#classsvs_1_1index_1_1flat_1_1FlatIndex_1a1fca8fc625c0030e83876b2a0b95de6b"><span class="std std-ref">set_num_threads</span></a></p>
+</div>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex15set_num_threadsE6size_t">
+<span id="_CPPv3N3svs5index4flat9FlatIndex15set_num_threadsE6size_t"></span><span id="_CPPv2N3svs5index4flat9FlatIndex15set_num_threadsE6size_t"></span><span id="svs::index::flat::FlatIndex::set_num_threads__s"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a1fca8fc625c0030e83876b2a0b95de6b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_num_threads</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex15set_num_threadsE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Set the number of threads used for search. </p>
+<p>
+Implementation note: The number of threads cannot be zero. If zero is passed to this method, it will be silently changed to 1.</p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#classsvs_1_1index_1_1flat_1_1FlatIndex_1a87a8c0a315bae70bccfbb8d8ba41c9f3"><span class="std std-ref">get_num_threads</span></a></p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num_threads</strong> – The new number of threads to use.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex18can_change_threadsEv">
+<span id="_CPPv3N3svs5index4flat9FlatIndex18can_change_threadsEv"></span><span id="_CPPv2N3svs5index4flat9FlatIndex18can_change_threadsEv"></span><span id="svs::index::flat::FlatIndex::can_change_threads"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1ad2c9d745092d4297fe9ae6a98bff6d46"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">can_change_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex18can_change_threadsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether this implementation can dynamically change the number of threads. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="flat-entry-point">
+<h2>Flat Entry Point<a class="headerlink" href="#flat-entry-point" title="Link to this heading"></a></h2>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto">
+<span id="_CPPv3I000EN3svs5index4flat13auto_assembleERR9DataProto8Distance15ThreadPoolProto"></span><span id="_CPPv2I000EN3svs5index4flat13auto_assembleERR9DataProto8Distance15ThreadPoolProto"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1index_1_1flat_1a1b05a01ad95c4b98d93086db0a659cc0"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">flat</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">auto_assemble</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="svs::index::flat::auto_assemble::DataProto"><span class="n"><span class="pre">DataProto</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_proto</span></span>, <a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="svs::index::flat::auto_assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="svs::index::flat::auto_assemble::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="Link to this definition"></a><br /></dt>
+<dd><p>Entry point for loading a <a class="reference internal" href="../../index/flat.html#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> index. </p>
+<p>
+This method provides much of the heavy lifting for constructing a <a class="reference internal" href="../../index/flat.html#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> index from a data file on disk or a dataset in memory.</p>
+<section id="classhidden__flat__auto__assemble_1autotoc_md1">
+<h3>data_loader<a class="headerlink" href="#classhidden__flat__auto__assemble_1autotoc_md1" title="Link to this heading"></a></h3>
+<p id="classhidden__flat__auto__assemble_1autotoc_md1">The data loader should be any object loadable via <code class="docutils literal notranslate"><span class="pre">svs::detail::dispatch_load</span></code> returning a <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> compatible dataset. Concrete examples include:</p>
+<p><ul class="simple">
+<li><p>An instance of <code class="docutils literal notranslate"><a class="reference internal" href="../../core/data.html#classsvs_1_1VectorDataLoader"><span class="std std-ref"><span class="pre">VectorDataLoader</span></span></a></code>.</p></li>
+<li><p>An implementation of <code class="docutils literal notranslate"><a class="reference internal" href="../../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code> (passed by value).   </p></li>
+</ul>
+</p>
+</section>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_proto</strong> – Data prototype. See expanded notes. </p></li>
+<li><p><strong>distance</strong> – The distance <strong>functor</strong> to use to compare queries with elements of the dataset. </p></li>
+<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be a threadpool instance of an integer specifying the number of threads to use.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dynamic_vamana.html" class="btn btn-neutral float-left" title="Dynamic Vamana Index" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../testing.html" class="btn btn-neutral float-right" title="Testing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

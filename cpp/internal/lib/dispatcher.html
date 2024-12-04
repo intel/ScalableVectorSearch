@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dynamic Dispatcher &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="High Level Allocators" href="../allocators.html" />
+    <link rel="prev" title="Data Structure Saving and Loading" href="saveload.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Library Components</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="public.html">Public Library Components</a></li>
+<li class="toctree-l3"><a class="reference internal" href="array.html">Multi-dimensional Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="algorithms.html">Algorithms</a></li>
+<li class="toctree-l3"><a class="reference internal" href="saveload.html">Data Structure Saving and Loading</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Dynamic Dispatcher</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#example-with-exposition">Example with Exposition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#api-documentation">API Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#full-example">Full Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../index_impl/index.html">Index Data Structures</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Library Components</a></li>
+      <li class="breadcrumb-item active">Dynamic Dispatcher</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/lib/dispatcher.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dynamic-dispatcher">
+<span id="cpp-lib-dispatcher"></span><h1>Dynamic Dispatcher<a class="headerlink" href="#dynamic-dispatcher" title="Link to this heading"></a></h1>
+<p>A driving philosophy behind SVS is to allow compile-time specialization on as many features
+as possible, while still providing generic fallbacks.</p>
+<p>This has an interesting interaction with the type-erasure techniques used throughout the
+library, namely:</p>
+<ul class="simple">
+<li><p>How to we gather the available specializations for a given type-erased together in one
+place?</p></li>
+<li><p>Given a collection of argument values, how do we pick the “best” specialization?</p></li>
+</ul>
+<p>The solution to this is the <code class="docutils literal notranslate"><span class="pre">svs::lib::Dispatcher</span></code>.</p>
+<section id="example-with-exposition">
+<h2>Example with Exposition<a class="headerlink" href="#example-with-exposition" title="Link to this heading"></a></h2>
+<section id="motivation">
+<h3>Motivation<a class="headerlink" href="#motivation" title="Link to this heading"></a></h3>
+<p>We begin with a motivating example.
+Suppose we have a generic method</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">Converted</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">value_</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">generic</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentTag</span><span class="o">&lt;</span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">extent_tag</span><span class="p">),</span>
+<span class="w">    </span><span class="n">Converted</span><span class="w"> </span><span class="n">converted</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;Generic: {}, {}, {} with arg </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">        </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">        </span><span class="n">format_extent</span><span class="p">(</span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="p">),</span>
+<span class="w">        </span><span class="n">converted</span><span class="p">.</span><span class="n">value_</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>That operates on dynamic types <code class="docutils literal notranslate"><span class="pre">a_type</span></code> and <code class="docutils literal notranslate"><span class="pre">b_type</span></code>, a dynamically determined extent
+(vector dimension), and takes some type <code class="docutils literal notranslate"><span class="pre">Converted</span></code> as the final argument.</p>
+<p>Next, suppose we can do better if we hoist <code class="docutils literal notranslate"><span class="pre">a_type</span></code> and <code class="docutils literal notranslate"><span class="pre">b_type</span></code> into the type domain
+for some select types of interest, and perhaps propagate some static extent as well.
+So, we define a specialization:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// A specialized method.</span>
+<span class="c1">// SVS defines the dispatch conversion from `svs::DataType` to `svs::lib::Type`.</span>
+<span class="c1">// This overload takes an additional `std::string` argument type.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">B</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">N</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">specialized</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentTag</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">extent_tag</span><span class="p">),</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Convert `svs::lib::Type` to `svs::DataType`.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;Specialized with string: {}, {}, {} with arg </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">format_extent</span><span class="p">(</span><span class="n">N</span><span class="p">),</span><span class="w"> </span><span class="n">arg</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Finally, maybe we can do <em>even</em> better if we can specialize the final argument on a boolean
+instead of a string:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">B</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">N</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">specialized_alternative</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentTag</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">extent_tag</span><span class="p">),</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">flag</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Convert `svs::lib::Type` to `svs::DataType`.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;Specialized with flag: {}, {}, {} with arg </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">format_extent</span><span class="p">(</span><span class="n">N</span><span class="p">),</span><span class="w"> </span><span class="n">flag</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>At this point, we have three methods: a generic fallback and two specialized templates.
+In our final program, we cannot instantiate our specialized implementations for all possible
+types and values as that either would bloat the final binary significantly or simply be
+unfeasible.</p>
+<p>In an ideal world, we could define a list of selected specializations in a centralized
+location, invoke those when our run-time parameters match those specializations, and
+invoke the fallback otherwise.</p>
+<p>This is where the <code class="docutils literal notranslate"><span class="pre">svs::lib::Dispatcher</span></code> comes into play.</p>
+</section>
+<section id="dispatcher">
+<h3>Dispatcher<a class="headerlink" href="#dispatcher" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// A variant of types given for the last argument of the methods we wish to dispatch to.</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Variant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="c1">// A dispatcher wrapping and dispatching to functions that return void and whose arguments</span>
+<span class="c1">// are constructible using dispatcher conversion from the remaining types.</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Dispatcher</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Dispatcher</span><span class="o">&lt;</span><span class="kt">void</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="p">,</span><span class="w"> </span><span class="n">Variant</span><span class="o">&gt;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Above, we see the definition of a <code class="docutils literal notranslate"><span class="pre">std::variant</span></code> (corresponding to the final
+<code class="docutils literal notranslate"><span class="pre">std::string</span></code> or <code class="docutils literal notranslate"><span class="pre">bool</span></code> arguments of our specializations.
+Next, there is the definition of a dispatcher taking four arguments and returning <code class="docutils literal notranslate"><span class="pre">void</span></code>.</p>
+<p>With this dispatcher, we can register our specializations and generic fallback:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">Dispatcher</span><span class="w"> </span><span class="nf">build_and_register</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Default construction for a dispatcher.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">dispatcher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Dispatcher</span><span class="p">{};</span>
+
+<span class="w">    </span><span class="c1">// When registering methods, argument documentation can be requested using this tag.</span>
+<span class="w">    </span><span class="c1">// Note dispatch rules are not required to implement documentation, in which case</span>
+<span class="w">    </span><span class="c1">// default documentation will be provided.</span>
+<span class="w">    </span><span class="k">constexpr</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">build_docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">dispatcher_build_docs</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Register the desired specializations.</span>
+<span class="w">    </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">specialized</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="o">&gt;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">dispatcher</span>
+<span class="w">        </span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">specialized_alternative</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="o">&gt;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">specialized</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint8_t</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Register the dynamic fallback.</span>
+<span class="w">    </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">generic</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">dispatcher</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">const</span><span class="w"> </span><span class="n">Dispatcher</span><span class="o">&amp;</span><span class="w"> </span><span class="nf">get_dispatcher</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Only allocated and populate the dispatcher once.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Dispatcher</span><span class="w"> </span><span class="n">dispatcher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">build_and_register</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">dispatcher</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In the above snippet, we see target registration by passing a reference to the
+fully-instantiated specializations and a single instance of the generic method.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Passing C++ functions by reference is an acceptable way to pass the desired dispatch
+target. Mechanically, a method representing the full specialization will be compiled and
+the function reference will decay to a function pointer to this specialization.</p>
+<p>It is also acceptable to pass a lambda directly by value.</p>
+<p>When passing a lambda, it is crucial to ensure that any value captured by reference
+properly outlives the life of the dispatcher.</p>
+</div>
+<p>Upon registration, SVS will check that all source argument types of the dispatcher are
+convertible to the argument types of the target by checking for a specialization of
+<code class="docutils literal notranslate"><span class="pre">svs::lib::DispatcherConverter</span></code>.
+The converter defines match suitability (whether a conversion from source value to
+destination type is possible and if so, how “good” that conversion is) and the actual
+argument conversion.</p>
+<p>SVS already contains rules for converting <code class="docutils literal notranslate"><span class="pre">svs::DataType</span></code> to <code class="docutils literal notranslate"><span class="pre">svs::lib::Type</span></code>, rules
+for recursively matching <code class="docutils literal notranslate"><span class="pre">std::variant</span></code> types, and conversions between different
+applicable reference qualifiers of the same type.</p>
+<p>To hook in the custom <code class="docutils literal notranslate"><span class="pre">Converted</span></code> type into this system, we can define our own conversion
+rules:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Define full-specializations for converting `std::string` and `bool` to `Converted`.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">DispatchConverter</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span><span class="w"> </span><span class="n">Converted</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Return ``true`` if this is a match. Otherwise, return false.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// To provide finer-grained control, an ``int64_t`` can be returned instead, where</span>
+<span class="w">    </span><span class="c1">// negative values indicate an invalid match (a method that has an invalid match for</span>
+<span class="w">    </span><span class="c1">// any argument must be discarded), and positive values indicate degree of matches</span>
+<span class="w">    </span><span class="c1">// with lower numbers having higher priority.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">match</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// This argument is called when a method has been selected and we&#39;re ready to convert</span>
+<span class="w">    </span><span class="c1">// the source argument to the destination argument and invoke the registered target.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Converted</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">Converted</span><span class="p">{</span><span class="n">arg</span><span class="p">};</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Provide documentation regarding the values accepted by this conversion.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="nf">description</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;all-string-values&quot;</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">DispatchConverter</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">Converted</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">match</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Converted</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">Converted</span><span class="p">{</span><span class="n">fmt</span><span class="o">::</span><span class="n">format</span><span class="p">(</span><span class="s">&quot;boolean {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span><span class="p">)};</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="nf">description</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;all-boolean-values&quot;</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>With these rules defined, SVS fill figure out how to convert each alternative in the
+variant into a <code class="docutils literal notranslate"><span class="pre">Converted</span></code> if needed.</p>
+</section>
+<section id="example-runs">
+<h3>Example Runs<a class="headerlink" href="#example-runs" title="Link to this heading"></a></h3>
+<p>Now, a main function can be defined that parses commandline arguments into the dispatch
+types and invokes the overload resolution logic in the dispatcher.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="nf">svs_main</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Perform some very basic</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">nargs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">requested_help</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">any_of</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span><span class="w"> </span><span class="p">[](</span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--help&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;help&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">nargs</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">requested_help</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">print_help</span><span class="p">();</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Parse the argument types.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">type_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_datatype</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">type_b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_datatype</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">2</span><span class="p">));</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="w"> </span><span class="n">extent_arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_extent_arg</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span><span class="w"> </span><span class="n">parse_bool</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">4</span><span class="p">)));</span>
+
+<span class="w">    </span><span class="c1">// Construct a variant according to the value of `arg`.</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">maybe_bool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_bool_nothrow</span><span class="p">(</span><span class="n">arg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">]()</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Variant</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">maybe_bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">maybe_bool</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">arg</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}();</span>
+
+<span class="w">    </span><span class="c1">// Instantiate the dispatcher and dispatch to the best fitting method.</span>
+<span class="w">    </span><span class="n">get_dispatcher</span><span class="p">().</span><span class="n">invoke</span><span class="p">(</span><span class="n">type_a</span><span class="p">,</span><span class="w"> </span><span class="n">type_b</span><span class="p">,</span><span class="w"> </span><span class="n">extent_arg</span><span class="p">,</span><span class="w"> </span><span class="n">variant</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Possible runs may look like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span><span class="p">:</span> <span class="n">float16</span> <span class="n">float16</span> <span class="mi">128</span> <span class="n">false</span> <span class="n">hello</span>
+<span class="n">Output</span><span class="p">:</span> <span class="n">Generic</span><span class="p">:</span> <span class="n">float16</span><span class="p">,</span> <span class="n">float16</span><span class="p">,</span> <span class="n">dynamic</span> <span class="k">with</span> <span class="n">arg</span> <span class="s2">&quot;hello&quot;</span>
+
+<span class="n">Input</span><span class="p">:</span> <span class="n">float16</span> <span class="n">float16</span> <span class="mi">128</span> <span class="n">false</span> <span class="n">true</span>
+<span class="n">Output</span><span class="p">:</span> <span class="n">Generic</span><span class="p">:</span> <span class="n">float16</span><span class="p">,</span> <span class="n">float16</span><span class="p">,</span> <span class="n">dynamic</span> <span class="k">with</span> <span class="n">arg</span> <span class="s2">&quot;boolean true&quot;</span>
+
+<span class="n">Input</span><span class="p">:</span> <span class="n">float16</span> <span class="n">float16</span> <span class="mi">128</span> <span class="n">true</span> <span class="n">true</span>
+<span class="n">Output</span><span class="p">:</span> <span class="n">ANNException</span> <span class="p">(</span><span class="n">no</span> <span class="n">match</span> <span class="n">found</span><span class="p">)</span>
+
+<span class="n">Input</span><span class="p">:</span> <span class="n">uint32</span> <span class="n">uint8</span> <span class="mi">128</span> <span class="n">true</span> <span class="n">hello</span>
+<span class="n">Output</span><span class="p">:</span> <span class="n">Specialized</span> <span class="k">with</span> <span class="n">string</span><span class="p">:</span> <span class="n">uint32</span><span class="p">,</span> <span class="n">uint8</span><span class="p">,</span> <span class="mi">128</span> <span class="k">with</span> <span class="n">arg</span> <span class="s2">&quot;hello&quot;</span>
+
+<span class="n">Input</span><span class="p">:</span> <span class="n">float32</span> <span class="n">float32</span> <span class="mi">100</span> <span class="n">false</span> <span class="n">false</span>
+<span class="n">Output</span><span class="p">:</span> <span class="n">Specialized</span> <span class="k">with</span> <span class="n">flag</span><span class="p">:</span> <span class="n">float32</span><span class="p">,</span> <span class="n">float32</span><span class="p">,</span> <span class="n">dynamic</span> <span class="k">with</span> <span class="n">arg</span> <span class="s2">&quot;false&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="automatic-documentation-generation">
+<h3>Automatic Documentation Generation<a class="headerlink" href="#automatic-documentation-generation" title="Link to this heading"></a></h3>
+<p>One advantage of grouping all methods together in a single place is that we can use the
+documentation feature of the dispatcher to describe all registered methods. The code for
+the help message for our example executable is show below</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="kt">void</span><span class="w"> </span><span class="nf">print_help</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">constexpr</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">help_template</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sa">R</span><span class="s">&quot;</span><span class="dl">(</span>
+<span class="s">Usage:</span>
+<span class="s">    (1) dispatcher type_a type_b dims enforce_dims arg</span>
+<span class="s">    (2) dispatcher --help</span>
+
+<span class="s">1. Run the dispatcher example.</span>
+<span class="s">   * type_a and type_b: must be parseable as s `svs::DataType`.</span>
+<span class="s">   * dims: The number of dimensions to dispatch on. Can either be an integer or the string</span>
+<span class="s">     &quot;dynamic&quot;</span>
+<span class="s">   * enforce_dims: Whether or not relaxation to dynamic dimensionality is allowed. Must</span>
+<span class="s">     either be &quot;true&quot; or &quot;false&quot;</span>
+<span class="s">   * arg: An additional string argument. If arg is either &quot;true&quot; or &quot;false&quot;, it will be</span>
+<span class="s">     parsed as a boolean. Otherwise, it will remain as a string and be forwarded to the</span>
+<span class="s">     appropriate overload.</span>
+
+<span class="s">2. Print this help message.</span>
+
+<span class="s">Registered Specializations</span>
+<span class="s">--------------------------</span>
+<span class="s">{{ type A, type B, Extent, Last Argument }}</span>
+
+<span class="s">{}</span>
+<span class="dl">)</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">dispatcher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_dispatcher</span><span class="p">();</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">method_docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">nargs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Dispatcher</span><span class="o">::</span><span class="n">num_args</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">imax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">imax</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">arg_docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">nargs</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">arg_docs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">dispatcher</span><span class="p">.</span><span class="n">description</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">method_docs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">fmt</span><span class="o">::</span><span class="n">format</span><span class="p">(</span><span class="s">&quot;{{ {} }}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">::</span><span class="n">join</span><span class="p">(</span><span class="n">arg_docs</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;, &quot;</span><span class="p">)));</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="n">help_template</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">::</span><span class="n">join</span><span class="p">(</span><span class="n">method_docs</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The generated help message might look something like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Registered</span> <span class="n">Specializations</span>
+<span class="o">--------------------------</span>
+<span class="p">{</span> <span class="nb">type</span> <span class="n">A</span><span class="p">,</span> <span class="nb">type</span> <span class="n">B</span><span class="p">,</span> <span class="n">Extent</span><span class="p">,</span> <span class="n">Last</span> <span class="n">Argument</span> <span class="p">}</span>
+
+<span class="p">{</span> <span class="n">float32</span><span class="p">,</span> <span class="n">float32</span><span class="p">,</span> <span class="nb">any</span><span class="p">,</span> <span class="nb">all</span> <span class="n">values</span> <span class="o">--</span> <span class="p">(</span><span class="n">union</span> <span class="n">alternative</span> <span class="mi">1</span><span class="p">)</span> <span class="p">}</span>
+<span class="p">{</span> <span class="n">float32</span><span class="p">,</span> <span class="n">float32</span><span class="p">,</span> <span class="nb">any</span><span class="p">,</span> <span class="nb">all</span> <span class="n">values</span> <span class="o">--</span> <span class="p">(</span><span class="n">union</span> <span class="n">alternative</span> <span class="mi">0</span><span class="p">)</span> <span class="p">}</span>
+<span class="p">{</span> <span class="n">uint32</span><span class="p">,</span> <span class="n">uint8</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="nb">all</span> <span class="n">values</span> <span class="o">--</span> <span class="p">(</span><span class="n">union</span> <span class="n">alternative</span> <span class="mi">1</span><span class="p">)</span> <span class="p">}</span>
+<span class="p">{</span> <span class="nb">all</span> <span class="n">values</span><span class="p">,</span> <span class="nb">all</span> <span class="n">values</span><span class="p">,</span> <span class="nb">any</span><span class="p">,</span> <span class="nb">all</span><span class="o">-</span><span class="n">boolean</span><span class="o">-</span><span class="n">values</span> <span class="n">OR</span> <span class="nb">all</span><span class="o">-</span><span class="n">string</span><span class="o">-</span><span class="n">values</span> <span class="o">--</span> <span class="p">(</span><span class="n">union</span> <span class="n">alternatives</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="api-documentation">
+<h2>API Documentation<a class="headerlink" href="#api-documentation" title="Link to this heading"></a></h2>
+<section id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Link to this heading"></a></h3>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0DpEN3svs3lib10DispatcherE">
+<span id="_CPPv3I0DpEN3svs3lib10DispatcherE"></span><span id="_CPPv2I0DpEN3svs3lib10DispatcherE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Ret</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Args</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1Dispatcher"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dispatcher</span></span></span><a class="headerlink" href="#_CPPv4I0DpEN3svs3lib10DispatcherE" title="Link to this definition"></a><br /></dt>
+<dd><p>A dynamic, multi-method dispatcher for registering specializations. </p>
+<p>
+Multiple target methods can be registered with the dispatcher, provided that each target method has the same number of arguments and dispatch conversion between each target argument type and its corresponding member in <code class="docutils literal notranslate"><span class="pre">Args</span></code> is defined.</p>
+<p>When invoked, the dispatcher will find the most applicable registered target by applying <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a0460d329b29ea469ebfc787e372b0a40"><span class="std std-ref"><span class="pre">svs::lib::dispatch_match</span></span></a></code> on its arguments and the argument types of each registered method.</p>
+<p>The most specific applicable method will then be invoked by calling <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a9d2dc5e7b61b16b2e38b25cf7744758b"><span class="std std-ref"><span class="pre">svs::lib::dispatch_convert</span></span></a></code> on each argument to its corresponding target type. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Ret</strong> – The return type of invoking ai contained method. </p></li>
+<li><p><strong>Args</strong> – The run-time arguments to dispatch over.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib10Dispatcher10match_typeE">
+<span id="_CPPv3N3svs3lib10Dispatcher10match_typeE"></span><span id="_CPPv2N3svs3lib10Dispatcher10match_typeE"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1a9fa6d897ed14290116096e98d46f7cde"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">match_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">int64_t</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">sizeof</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib10DispatcherE" title="svs::lib::Dispatcher::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs3lib10Dispatcher10match_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type used to represent method matches for scoring. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib10Dispatcher10DispatcherEv">
+<span id="_CPPv3N3svs3lib10Dispatcher10DispatcherEv"></span><span id="_CPPv2N3svs3lib10Dispatcher10DispatcherEv"></span><span id="svs::lib::Dispatcher::Dispatcher"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1aef523d028446151e64d7d6813949e56d"></span><span class="sig-name descname"><span class="n"><span class="pre">Dispatcher</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">default</span></span><a class="headerlink" href="#_CPPv4N3svs3lib10Dispatcher10DispatcherEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct an empty dispatcher. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib10Dispatcher4sizeEv">
+<span id="_CPPv3NK3svs3lib10Dispatcher4sizeEv"></span><span id="_CPPv2NK3svs3lib10Dispatcher4sizeEv"></span><span id="svs::lib::Dispatcher::sizeC"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1a313e48c0bc9213c491fae1415208af99"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib10Dispatcher4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of registered candidates. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv1F">
+<span id="_CPPv3I0EN3svs3lib10Dispatcher15register_targetE1F"></span><span id="_CPPv2I0EN3svs3lib10Dispatcher15register_targetE1F"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1a15c85808c214e85d3fc107024bb2f2b5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">register_target</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv1F" title="svs::lib::Dispatcher::register_target::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv1F" title="Link to this definition"></a><br /></dt>
+<dd><p>Register a callable with the dispatcher. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv12BuildDocsTag1F">
+<span id="_CPPv3I0EN3svs3lib10Dispatcher15register_targetE12BuildDocsTag1F"></span><span id="_CPPv2I0EN3svs3lib10Dispatcher15register_targetE12BuildDocsTag1F"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1a1662d1764049880a96cff6a3f8cad8a1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">register_target</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">BuildDocsTag</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">build_docs</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv12BuildDocsTag1F" title="svs::lib::Dispatcher::register_target::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib10Dispatcher15register_targetEv12BuildDocsTag1F" title="Link to this definition"></a><br /></dt>
+<dd><p>Register a callable with the dispatcher with conversion documentation. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib10Dispatcher10best_matchEDpRKNSt14remove_cvref_tI4ArgsEE">
+<span id="_CPPv3NK3svs3lib10Dispatcher10best_matchEDpRKNSt14remove_cvref_tI4ArgsEE"></span><span id="_CPPv2NK3svs3lib10Dispatcher10best_matchEDpRKNSt14remove_cvref_tI4ArgsEE"></span><span id="svs::lib::Dispatcher::best_match__std::remove_cvref_t:Args:CRDpC"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1ad77596e8bd98440ddebe65c4fc80cd55"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">pair</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">optional</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs3lib10Dispatcher10match_typeE" title="svs::lib::Dispatcher::match_type"><span class="n"><span class="pre">match_type</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">best_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">remove_cvref_t</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib10DispatcherE" title="svs::lib::Dispatcher::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib10Dispatcher10best_matchEDpRKNSt14remove_cvref_tI4ArgsEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the index and the score of the best match. </p>
+<p>If no match is found, then the optional in the return value will be empty. In this case, the contents of the <code class="docutils literal notranslate"><span class="pre">match_type</span></code> is undefined. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib10Dispatcher9has_matchEDpRKNSt14remove_cvref_tI4ArgsEE">
+<span id="_CPPv3NK3svs3lib10Dispatcher9has_matchEDpRKNSt14remove_cvref_tI4ArgsEE"></span><span id="_CPPv2NK3svs3lib10Dispatcher9has_matchEDpRKNSt14remove_cvref_tI4ArgsEE"></span><span id="svs::lib::Dispatcher::has_match__std::remove_cvref_t:Args:CRDpC"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1abab9523abc11225333d4556a6dbf67cc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">has_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">remove_cvref_t</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib10DispatcherE" title="svs::lib::Dispatcher::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib10Dispatcher9has_matchEDpRKNSt14remove_cvref_tI4ArgsEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether or not the given collection of arguments can be matched with any method registered in the dispatcher. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib10Dispatcher6invokeEDp4Args">
+<span id="_CPPv3NK3svs3lib10Dispatcher6invokeEDp4Args"></span><span id="_CPPv2NK3svs3lib10Dispatcher6invokeEDp4Args"></span><span id="svs::lib::Dispatcher::invoke__ArgsDpC"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1afd88533100d0261458799cd38fffb176"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib10DispatcherE" title="svs::lib::Dispatcher::Ret"><span class="n"><span class="pre">Ret</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">invoke</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib10DispatcherE" title="svs::lib::Dispatcher::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib10Dispatcher6invokeEDp4Args" title="Link to this definition"></a><br /></dt>
+<dd><p>Invoke the best matching method and return the result. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib10Dispatcher11descriptionE6size_t6size_t">
+<span id="_CPPv3NK3svs3lib10Dispatcher11descriptionE6size_t6size_t"></span><span id="_CPPv2NK3svs3lib10Dispatcher11descriptionE6size_t6size_t"></span><span id="svs::lib::Dispatcher::description__s.sC"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1ae47122d13b0925e9e5a323db1d2acdde"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">description</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">method</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">argument</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib10Dispatcher11descriptionE6size_t6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Return dispatch documentation for the given method and argument. </p>
+<p>Throws an <code class="docutils literal notranslate"><span class="pre">svs::ANNException</span></code> if <code class="docutils literal notranslate"><span class="pre">method</span> <span class="pre">&gt;=</span> <a class="reference internal" href="#classsvs_1_1lib_1_1Dispatcher_1a313e48c0bc9213c491fae1415208af99"><span class="std std-ref"><span class="pre">size()</span></span></a></code> or <code class="docutils literal notranslate"><span class="pre">argument</span> <span class="pre">&gt;=</span> <a class="reference internal" href="#classsvs_1_1lib_1_1Dispatcher_1ad98b191ec0f42e2061191fe909b6c71a"><span class="std std-ref"><span class="pre">num_args()</span></span></a></code>. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib10Dispatcher8num_argsEv">
+<span id="_CPPv3N3svs3lib10Dispatcher8num_argsEv"></span><span id="_CPPv2N3svs3lib10Dispatcher8num_argsEv"></span><span id="svs::lib::Dispatcher::num_argsCE"></span><span class="target" id="classsvs_1_1lib_1_1Dispatcher_1ad98b191ec0f42e2061191fe909b6c71a"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">num_args</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib10Dispatcher8num_argsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of arguments the dispatcher expects to receive. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I0DpEN3svs3lib14DispatchTargetE">
+<span id="_CPPv3I0DpEN3svs3lib14DispatchTargetE"></span><span id="_CPPv2I0DpEN3svs3lib14DispatchTargetE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Ret</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Args</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1DispatchTarget"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DispatchTarget</span></span></span><a class="headerlink" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="Link to this definition"></a><br /></dt>
+<dd><p>Method wrapper for the target of a dispatch operation. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>Ret</strong> – The return type of the method. </p></li>
+<li><p><strong>Args</strong> – The dispatch argument types of the method. </p></li>
+</ul>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib14DispatchTarget14signature_typeE">
+<span id="_CPPv3N3svs3lib14DispatchTarget14signature_typeE"></span><span id="_CPPv2N3svs3lib14DispatchTarget14signature_typeE"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1ac1ac4e1d5aca7d2de940cefa2edd8527"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">signature_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Signature</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Ret"><span class="n"><span class="pre">Ret</span></span></a><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs3lib14DispatchTarget14signature_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The full signature of the dispatch arguments. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib14DispatchTarget18arg_signature_typeE">
+<span id="_CPPv3N3svs3lib14DispatchTarget18arg_signature_typeE"></span><span id="_CPPv2N3svs3lib14DispatchTarget18arg_signature_typeE"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1a94ddb23981720ed8f8a90771def08233"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">arg_signature_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">detail</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Signature</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs3lib14DispatchTarget18arg_signature_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The signature of the dispatch objects without a return type. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib14DispatchTarget10match_typeE">
+<span id="_CPPv3N3svs3lib14DispatchTarget10match_typeE"></span><span id="_CPPv2N3svs3lib14DispatchTarget10match_typeE"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1a8a6d2476a5c49f01e245ce53bd42968e"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">match_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">int64_t</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs3lib14DispatchTarget8num_argsE" title="svs::lib::DispatchTarget::num_args"><span class="n"><span class="pre">num_args</span></span></a><span class="p"><span class="pre">&gt;</span></span><a class="headerlink" href="#_CPPv4N3svs3lib14DispatchTarget10match_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type encoding a match based on dispatch values. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE9NoDocsTag8Callable">
+<span id="_CPPv3I0EN3svs3lib14DispatchTarget14DispatchTargetE9NoDocsTag8Callable"></span><span id="_CPPv2I0EN3svs3lib14DispatchTarget14DispatchTargetE9NoDocsTag8Callable"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Callable</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1a1151ffb149fb1bb3ed193d6e6a28ced0"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DispatchTarget</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">NoDocsTag</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">tag</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE9NoDocsTag8Callable" title="svs::lib::DispatchTarget::DispatchTarget::Callable"><span class="n"><span class="pre">Callable</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE9NoDocsTag8Callable" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a <a class="reference internal" href="#classsvs_1_1lib_1_1DispatchTarget"><span class="std std-ref">DispatchTarget</span></a> around the callable <code class="docutils literal notranslate"><span class="pre">f</span></code> with no documentation. </p>
+<p>
+The following requirements must hold:</p>
+<p><ol class="lowerroman simple">
+<li><p>The argument types of <code class="docutils literal notranslate"><span class="pre">f</span></code> must be deducible (in other words, <code class="docutils literal notranslate"><span class="pre">f</span></code> cannot have an overloaded call operator nor can its call operator be templated).</p></li>
+<li><p>The number of arguments of <code class="docutils literal notranslate"><span class="pre">f</span></code> must match <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1Dispatcher_1ad98b191ec0f42e2061191fe909b6c71a"><span class="std std-ref"><span class="pre">Dispatcher::num_args</span></span></a></code>.</p></li>
+<li><p>Furthermore, dispatch conversion must be defined between each dispatch argument and its corresponding argument in <code class="docutils literal notranslate"><span class="pre">f</span></code>.</p></li>
+</ol>
+</p>
+<p>If any of these requirements fails, this method should not compile. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tag</strong> – Indicate no argument conversion documention is required. </p></li>
+<li><p><strong>f</strong> – The function to wrap for dispatch. The wrapped functor must have a const-qualified call operator and <em>no</em> non-const-qualified call operator.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE12BuildDocsTag8Callable">
+<span id="_CPPv3I0EN3svs3lib14DispatchTarget14DispatchTargetE12BuildDocsTag8Callable"></span><span id="_CPPv2I0EN3svs3lib14DispatchTarget14DispatchTargetE12BuildDocsTag8Callable"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Callable</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1af43ecc54750bf90cc0e7702fefe423ad"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DispatchTarget</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">BuildDocsTag</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">tag</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE12BuildDocsTag8Callable" title="svs::lib::DispatchTarget::DispatchTarget::Callable"><span class="n"><span class="pre">Callable</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">f</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib14DispatchTarget14DispatchTargetE12BuildDocsTag8Callable" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a <a class="reference internal" href="#classsvs_1_1lib_1_1DispatchTarget"><span class="std std-ref">DispatchTarget</span></a> around the callable <code class="docutils literal notranslate"><span class="pre">f</span></code> with documentation. </p>
+<p>
+The following requirements must hold:</p>
+<p><ol class="lowerroman simple">
+<li><p>The argument types of <code class="docutils literal notranslate"><span class="pre">f</span></code> must be deducible (in other words, <code class="docutils literal notranslate"><span class="pre">f</span></code> cannot have an overloaded call operator nor can its call operator be templated).</p></li>
+<li><p>The number of arguments of <code class="docutils literal notranslate"><span class="pre">f</span></code> must match <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1Dispatcher_1ad98b191ec0f42e2061191fe909b6c71a"><span class="std std-ref"><span class="pre">Dispatcher::num_args</span></span></a></code>.</p></li>
+<li><p>Furthermore, dispatch conversion must be defined between each dispatch argument and its corresponding argument in <code class="docutils literal notranslate"><span class="pre">f</span></code>.</p></li>
+</ol>
+</p>
+<p>If any of these requirements fails, this method should not compile. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tag</strong> – Indicate argument conversion documention is required. </p></li>
+<li><p><strong>f</strong> – The function to wrap for dispatch. The wrapped functor must have a const-qualified call operator and <em>no</em> non-const-qualified call operator.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib14DispatchTarget11check_matchEDpRKNSt14remove_cvref_tI4ArgsEE">
+<span id="_CPPv3NK3svs3lib14DispatchTarget11check_matchEDpRKNSt14remove_cvref_tI4ArgsEE"></span><span id="_CPPv2NK3svs3lib14DispatchTarget11check_matchEDpRKNSt14remove_cvref_tI4ArgsEE"></span><span id="svs::lib::DispatchTarget::check_match__std::remove_cvref_t:Args:CRDpC"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1ad6167b0557e8ae261e746aad5e39017b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs3lib14DispatchTarget10match_typeE" title="svs::lib::DispatchTarget::match_type"><span class="n"><span class="pre">match_type</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">check_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">remove_cvref_t</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib14DispatchTarget11check_matchEDpRKNSt14remove_cvref_tI4ArgsEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the result of matching each argument with the wrapped method. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib14DispatchTarget6invokeEDpRR4Args">
+<span id="_CPPv3NK3svs3lib14DispatchTarget6invokeEDpRR4Args"></span><span id="_CPPv2NK3svs3lib14DispatchTarget6invokeEDpRR4Args"></span><span id="svs::lib::DispatchTarget::invoke__ArgsRRDpC"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1acfe974ee3e812c2dff1d5b187b849be6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Ret"><span class="n"><span class="pre">Ret</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">invoke</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">args</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib14DispatchTarget6invokeEDpRR4Args" title="Link to this definition"></a><br /></dt>
+<dd><p>Invoke the wrapped method by dispatch-converting each argument. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs3lib14DispatchTarget11descriptionE6size_t">
+<span id="_CPPv3NK3svs3lib14DispatchTarget11descriptionE6size_t"></span><span id="_CPPv2NK3svs3lib14DispatchTarget11descriptionE6size_t"></span><span id="svs::lib::DispatchTarget::description__sC"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1a782d2524ddd9eb968f5c8c1ac390d39d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">description</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs3lib14DispatchTarget11descriptionE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Return dispatch documentation for argument <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p>If <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">&gt;=</span> <span class="pre">num_args</span></code>, throws <code class="docutils literal notranslate"><span class="pre">svs::ANNException</span></code> indicating a bounds error. If the <a class="reference internal" href="#classsvs_1_1lib_1_1DispatchTarget"><span class="std std-ref">DispatchTarget</span></a> was constructed without documentation, then this function returns the string “unknown”&gt; </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-attributes">Public Static Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib14DispatchTarget8num_argsE">
+<span id="_CPPv3N3svs3lib14DispatchTarget8num_argsE"></span><span id="_CPPv2N3svs3lib14DispatchTarget8num_argsE"></span><span id="svs::lib::DispatchTarget::num_args__s"></span><span class="target" id="classsvs_1_1lib_1_1DispatchTarget_1ae432fedae96944e90641587c45f41ee6"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">num_args</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">sizeof</span></span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4I0DpEN3svs3lib14DispatchTargetE" title="svs::lib::DispatchTarget::Args"><span class="n"><span class="pre">Args</span></span></a><span class="p"><span class="pre">)</span></span><a class="headerlink" href="#_CPPv4N3svs3lib14DispatchTarget8num_argsE" title="Link to this definition"></a><br /></dt>
+<dd><p>The number of arguments this method accepts. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="dispatch-api">
+<h3>Dispatch API<a class="headerlink" href="#dispatch-api" title="Link to this heading"></a></h3>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib17DispatchConverterE">
+<span id="_CPPv3I00EN3svs3lib17DispatchConverterE"></span><span id="_CPPv2I00EN3svs3lib17DispatchConverterE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">From</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structsvs_1_1lib_1_1DispatchConverter"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DispatchConverter</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">false_type</span></span><a class="headerlink" href="#_CPPv4I00EN3svs3lib17DispatchConverterE" title="Link to this definition"></a><br /></dt>
+<dd><p>Customization point for defining dispatch conversion rules. </p>
+<p>Expected API: <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">template</span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">DispatchConverter</span><span class="o">&lt;</span><span class="n">From</span><span class="p">,</span><span class="w"> </span><span class="n">To</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Return a score for matching arguments of type `From` to type `To`.</span>
+<span class="w">    </span><span class="c1">// * Negative values indicate an invalid match (cannot convert).</span>
+<span class="w">    </span><span class="c1">// * Non-negative values are scored with lower values given higher priority.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">int64_t</span><span class="w"> </span><span class="nf">match</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">remove_cvref_t</span><span class="o">&lt;</span><span class="n">From</span><span class="o">&gt;&amp;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Perform a dispatch conversion.</span>
+<span class="w">    </span><span class="c1">// This behavior of this function is undefined if `match` returns an invalid score.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">To</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="n">From</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// An optional method describing the acceptable value for this conversion.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="nf">description</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</p>
+<p>Note that specialization requires full cv-ref qualification of the <code class="docutils literal notranslate"><span class="pre">From</span></code> and <code class="docutils literal notranslate"><span class="pre">To</span></code> types in order to be applicable. </p>
+</dd></dl>
+
+<dl class="cpp concept">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib19DispatchConvertibleE">
+<span id="_CPPv3I00EN3svs3lib19DispatchConvertibleE"></span><span id="_CPPv2I00EN3svs3lib19DispatchConvertibleE"></span><span class="target" id="conceptsvs_1_1lib_1_1DispatchConvertible"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">From</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="k"><span class="pre">concept</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DispatchConvertible</span></span></span><a class="headerlink" href="#_CPPv4I00EN3svs3lib19DispatchConvertibleE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/lib/dispatcher.h&gt;</em></div>
+<p>Concept indicating whether a specialization of <code class="docutils literal notranslate"><span class="pre">DispatchConverter</span></code> e xists for this combination of arguments - implying that dispatcher conversion is well-defined. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib14dispatch_matchE7int64_tRKNSt14remove_cvref_tI4FromEE">
+<span id="_CPPv3I00EN3svs3lib14dispatch_matchERKNSt14remove_cvref_tI4FromEE"></span><span id="_CPPv2I00EN3svs3lib14dispatch_matchERKNSt14remove_cvref_tI4FromEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">From</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a0460d329b29ea469ebfc787e372b0a40"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">dispatch_match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">remove_cvref_t</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I00EN3svs3lib14dispatch_matchE7int64_tRKNSt14remove_cvref_tI4FromEE" title="svs::lib::dispatch_match::From"><span class="n"><span class="pre">From</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs3lib14dispatch_matchE7int64_tRKNSt14remove_cvref_tI4FromEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the matching score of an instance of type <code class="docutils literal notranslate"><span class="pre">From</span></code> to the type <code class="docutils literal notranslate"><span class="pre">To</span></code>. </p>
+<p>
+All non-negative results should be considered with a lower number having a higher priority. So <code class="docutils literal notranslate"><span class="pre">0</span></code> has the highest priority, followed by <code class="docutils literal notranslate"><span class="pre">1</span></code>, then <code class="docutils literal notranslate"><span class="pre">2</span></code> etc.</p>
+<p>Internally, this method calls <code class="docutils literal notranslate"><span class="pre">svs:lib::</span><a class="reference internal" href="#structsvs_1_1lib_1_1DispatchConverter"><span class="std std-ref"><span class="pre">DispatchConverter</span></span></a><span class="pre">&lt;From,</span> <span class="pre">To&gt;::match</span></code> and forward the result. However, if the <code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1lib_1_1DispatchConverter"><span class="std std-ref"><span class="pre">DispatchConverter</span></span></a></code> returns a <code class="docutils literal notranslate"><span class="pre">bool</span></code>, then the return value will be converted to the canonical <code class="docutils literal notranslate"><span class="pre">int64_t</span></code> representation appropriately. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> – The value being dispatched on.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An signed integer score. Scores less than 0 imply invalid match and the entire method being considered should be discarded.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib16dispatch_convertE2ToRR4From">
+<span id="_CPPv3I00EN3svs3lib16dispatch_convertERR4From"></span><span id="_CPPv2I00EN3svs3lib16dispatch_convertERR4From"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">From</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a9d2dc5e7b61b16b2e38b25cf7744758b"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs3lib16dispatch_convertE2ToRR4From" title="svs::lib::dispatch_convert::To"><span class="n"><span class="pre">To</span></span></a><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">dispatch_convert</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I00EN3svs3lib16dispatch_convertE2ToRR4From" title="svs::lib::dispatch_convert::From"><span class="n"><span class="pre">From</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs3lib16dispatch_convertE2ToRR4From" title="Link to this definition"></a><br /></dt>
+<dd><p>Use dispatch conversion to convert a value of type <code class="docutils literal notranslate"><span class="pre">From</span></code> to <code class="docutils literal notranslate"><span class="pre">To</span></code>. </p>
+<p>It is undefined behavior to call this method if <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a0460d329b29ea469ebfc787e372b0a40"><span class="std std-ref"><span class="pre">svs::lib::dispatch_match</span></span></a><span class="pre">&lt;From,</span> <span class="pre">To&gt;(x)</span></code> is invalid. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib20dispatch_descriptionENSt6stringEv">
+<span id="_CPPv3I00EN3svs3lib20dispatch_descriptionEv"></span><span id="_CPPv2I00EN3svs3lib20dispatch_descriptionEv"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">From</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a8bc5fa2d73d41a0617282063d0519266"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">dispatch_description</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="o"><span class="pre">-&gt;</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><a class="headerlink" href="#_CPPv4I00EN3svs3lib20dispatch_descriptionENSt6stringEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return documentation for a dispatch conversion, if available. </p>
+<p>If Such conversion is not available (<code class="docutils literal notranslate"><a class="reference internal" href="#structsvs_1_1lib_1_1DispatchConverter"><span class="std std-ref"><span class="pre">svs::lib::DispatchConverter</span></span></a><span class="pre">&lt;From,</span> <span class="pre">To&gt;::description()</span></code> was not defined), then returns the sentinel string “unknown”. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib21dispatcher_build_docsE">
+<span id="_CPPv3N3svs3lib21dispatcher_build_docsE"></span><span id="_CPPv2N3svs3lib21dispatcher_build_docsE"></span><span id="svs::lib::dispatcher_build_docs__BuildDocsTag"></span><span class="target" id="namespacesvs_1_1lib_1a03181a1c8df4fe6813f0fe9e9d9a4412"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">BuildDocsTag</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">dispatcher_build_docs</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N3svs3lib21dispatcher_build_docsE" title="Link to this definition"></a><br /></dt>
+<dd><p>Tag to build argument-conversion documentation. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib18dispatcher_no_docsE">
+<span id="_CPPv3N3svs3lib18dispatcher_no_docsE"></span><span id="_CPPv2N3svs3lib18dispatcher_no_docsE"></span><span id="svs::lib::dispatcher_no_docs__NoDocsTag"></span><span class="target" id="namespacesvs_1_1lib_1ad1e2337e21d18bb4842e8fb8ee1c4dcb"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">NoDocsTag</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">dispatcher_no_docs</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N3svs3lib18dispatcher_no_docsE" title="Link to this definition"></a><br /></dt>
+<dd><p>Tag to suppress argument-conversion documentation. </p>
+</dd></dl>
+
+</section>
+<section id="predefined-scores">
+<h3>Predefined Scores<a class="headerlink" href="#predefined-scores" title="Link to this heading"></a></h3>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib13invalid_matchE">
+<span id="_CPPv3N3svs3lib13invalid_matchE"></span><span id="_CPPv2N3svs3lib13invalid_matchE"></span><span id="svs::lib::invalid_match__int64_t"></span><span class="target" id="namespacesvs_1_1lib_1a10406cd01233db177fd81b4e57730fb5"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">invalid_match</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><a class="headerlink" href="#_CPPv4N3svs3lib13invalid_matchE" title="Link to this definition"></a><br /></dt>
+<dd><p>The worst possible invalid match. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib13perfect_matchE">
+<span id="_CPPv3N3svs3lib13perfect_matchE"></span><span id="_CPPv2N3svs3lib13perfect_matchE"></span><span id="svs::lib::perfect_match__int64_t"></span><span class="target" id="namespacesvs_1_1lib_1ab15e056f727331d7c50eed7c0c411182"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">perfect_match</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N3svs3lib13perfect_matchE" title="Link to this definition"></a><br /></dt>
+<dd><p>The best possible match. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib15imperfect_matchE">
+<span id="_CPPv3N3svs3lib15imperfect_matchE"></span><span id="_CPPv2N3svs3lib15imperfect_matchE"></span><span id="svs::lib::imperfect_match__int64_t"></span><span class="target" id="namespacesvs_1_1lib_1ad5b642a93bc41842b3dc2bbdb2dfef49"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">imperfect_match</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">1</span></span><a class="headerlink" href="#_CPPv4N3svs3lib15imperfect_matchE" title="Link to this definition"></a><br /></dt>
+<dd><p>The next best possible match. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib14implicit_matchE">
+<span id="_CPPv3N3svs3lib14implicit_matchE"></span><span id="_CPPv2N3svs3lib14implicit_matchE"></span><span id="svs::lib::implicit_match__int64_t"></span><span class="target" id="namespacesvs_1_1lib_1a9e83d0199cba8f98cdaeb09647cc4ed1"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">implicit_match</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">10000</span></span><a class="headerlink" href="#_CPPv4N3svs3lib14implicit_matchE" title="Link to this definition"></a><br /></dt>
+<dd><p>Match was found using an implicit conversion. </p>
+<p>This conversion is performed on arguments with the same type (or ref-compatible types). Use a non-zero value to allow specializations to provide better matches than the type identity. </p>
+</dd></dl>
+
+</section>
+<section id="helpers">
+<h3>Helpers<a class="headerlink" href="#helpers" title="Link to this heading"></a></h3>
+<dl class="cpp concept">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs3lib29ImplicitlyDispatchConvertibleE">
+<span id="_CPPv3I00EN3svs3lib29ImplicitlyDispatchConvertibleE"></span><span id="_CPPv2I00EN3svs3lib29ImplicitlyDispatchConvertibleE"></span><span class="target" id="conceptsvs_1_1lib_1_1ImplicitlyDispatchConvertible"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">From</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="k"><span class="pre">concept</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ImplicitlyDispatchConvertible</span></span></span><a class="headerlink" href="#_CPPv4I00EN3svs3lib29ImplicitlyDispatchConvertibleE" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;svs/lib/dispatcher.h&gt;</em></div>
+<p>Two types are considered dispatcher convertible if:<ul class="simple">
+<li><p>Removing cv-ref qualifiers from <code class="docutils literal notranslate"><span class="pre">From</span></code> and <code class="docutils literal notranslate"><span class="pre">To</span></code> yields the same type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">From</span></code> and be forwarded to <code class="docutils literal notranslate"><span class="pre">To</span></code> without invoking a copy constructor.</p></li>
+</ul>
+</p>
+<p>For a type non-reference type <code class="docutils literal notranslate"><span class="pre">T</span></code> the following implicit conversion are allowed:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">-&gt;</span> <span class="pre">T</span></code> (using move construction), <code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">-&gt;</span> <span class="pre">const</span> <span class="pre">T&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">T&amp;&amp;</span> <span class="pre">-&gt;</span> <span class="pre">const</span> <span class="pre">T&amp;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">T&amp;</span> <span class="pre">-&gt;</span> <span class="pre">T&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">T&amp;</span> <span class="pre">-&gt;</span> <span class="pre">const</span> <span class="pre">T&amp;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">T&amp;</span> <span class="pre">-&gt;</span> <span class="pre">const</span> <span class="pre">T&amp;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">T&amp;&amp;</span> <span class="pre">-&gt;</span> <span class="pre">T</span></code>, <code class="docutils literal notranslate"><span class="pre">T&amp;&amp;</span> <span class="pre">-&gt;</span> <span class="pre">const</span> <span class="pre">T&amp;</span></code>, <code class="docutils literal notranslate"><span class="pre">T&amp;&amp;</span> <span class="pre">-&gt;</span> <span class="pre">T&amp;&amp;</span></code></p></li>
+</ul>
+</p>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE">
+<span id="_CPPv3I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE"></span><span id="_CPPv2I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">DispatchCategory</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Cat</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">To</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="sig-name descname"><span class="n"><span class="pre">Ts</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structsvs_1_1lib_1_1variant_1_1VariantDispatcher"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VariantDispatcher</span></span></span><a class="headerlink" href="#_CPPv4I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE" title="Link to this definition"></a><br /></dt>
+<dd><p>Match all applicable alternatives of a variant to the destination type. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib7variant17VariantDispatcher5matchERKNSt7variantIDp2TsEE">
+<span id="_CPPv3N3svs3lib7variant17VariantDispatcher5matchERKNSt7variantIDp2TsEE"></span><span id="_CPPv2N3svs3lib7variant17VariantDispatcher5matchERKNSt7variantIDp2TsEE"></span><span id="svs::lib::variant::VariantDispatcher::match__std::variant:TsDp:CRCE"></span><span class="target" id="structsvs_1_1lib_1_1variant_1_1VariantDispatcher_1a6feb7cb3f88895ba987cf2bf84bba012"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">match</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">variant</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE" title="svs::lib::variant::VariantDispatcher::Ts"><span class="n"><span class="pre">Ts</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib7variant17VariantDispatcher5matchERKNSt7variantIDp2TsEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Match the current alternative in the variant to <code class="docutils literal notranslate"><span class="pre">To</span></code>. </p>
+<p>If an alternative type is not <code class="docutils literal notranslate"><a class="reference internal" href="#conceptsvs_1_1lib_1_1DispatchConvertible"><span class="std std-ref"><span class="pre">svs::lib::DispatchConvertible</span></span></a></code> with <code class="docutils literal notranslate"><span class="pre">To</span></code>, then return <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a10406cd01233db177fd81b4e57730fb5"><span class="std std-ref"><span class="pre">svs::lib::invalid_match</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib7variant17VariantDispatcher7convertE12variant_type">
+<span id="_CPPv3N3svs3lib7variant17VariantDispatcher7convertE12variant_type"></span><span id="_CPPv2N3svs3lib7variant17VariantDispatcher7convertE12variant_type"></span><span id="svs::lib::variant::VariantDispatcher::convert__variant_typeCE"></span><span class="target" id="structsvs_1_1lib_1_1variant_1_1VariantDispatcher_1a9be69dfe481a5dea7ed8edec9cecfbb6"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_16DispatchCategory0DpEN3svs3lib7variant17VariantDispatcherE" title="svs::lib::variant::VariantDispatcher::To"><span class="n"><span class="pre">To</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">convert</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">variant_type</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib7variant17VariantDispatcher7convertE12variant_type" title="Link to this definition"></a><br /></dt>
+<dd><p>Dispatch convert the current alternative in the variant to the type <code class="docutils literal notranslate"><span class="pre">To</span></code>. </p>
+<p>Throws <code class="docutils literal notranslate"><span class="pre">svs::ANNException</span></code> if such a conversion is undefined. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs3lib7variant17VariantDispatcher11descriptionEv">
+<span id="_CPPv3N3svs3lib7variant17VariantDispatcher11descriptionEv"></span><span id="_CPPv2N3svs3lib7variant17VariantDispatcher11descriptionEv"></span><span id="svs::lib::variant::VariantDispatcher::description"></span><span class="target" id="structsvs_1_1lib_1_1variant_1_1VariantDispatcher_1ad5a415f032011051f42fee47c19ef18f"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">description</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs3lib7variant17VariantDispatcher11descriptionEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Document all possible conversion from the variant to <code class="docutils literal notranslate"><span class="pre">To</span></code>. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+</section>
+<section id="full-example">
+<h2>Full Example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<p>The full example described at the beginning is given below.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/lib/dispatcher.h&quot;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/third-party/fmt.h&quot;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svsmain.h&quot;</span>
+
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string_view&gt;</span>
+
+<span class="k">namespace</span><span class="w"> </span><span class="p">{</span>
+
+<span class="n">std</span><span class="o">::</span><span class="n">optional</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="w"> </span><span class="n">parse_bool_nothrow</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;true&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;false&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nb">false</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">nullopt</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">/// Parse a string as a boolean.</span>
+<span class="c1">///</span>
+<span class="c1">/// Throws a ``svs::ANNException`` if parsing fails.</span>
+<span class="kt">bool</span><span class="w"> </span><span class="n">parse_bool</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_bool_nothrow</span><span class="p">(</span><span class="n">arg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">v</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span>
+<span class="w">            </span><span class="s">&quot;Cannot parse </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;</span><span class="s"> as a boolean value! Expected either </span><span class="se">\&quot;</span><span class="s">true</span><span class="se">\&quot;</span><span class="s"> or &quot;</span>
+<span class="w">            </span><span class="s">&quot;</span><span class="se">\&quot;</span><span class="s">false</span><span class="se">\&quot;</span><span class="s">.&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="n">arg</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">v</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="c1">/// Parse a string as a valid ``svs::DataType``.</span>
+<span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">parse_datatype</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">parse_datatype</span><span class="p">(</span><span class="n">arg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">type</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="o">::</span><span class="n">undef</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">ANNEXCEPTION</span><span class="p">(</span><span class="s">&quot;Cannot parse {} as an SVS datatype!&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">type</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">type</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">/// Parse a string as an extent.</span>
+<span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="w"> </span><span class="n">parse_extent_arg</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">extent</span><span class="p">,</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="n">enforce</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">extent</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;dynamic&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="p">{</span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="p">,</span><span class="w"> </span><span class="n">enforce</span><span class="p">};</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="c1">// Try to parse as an integer.</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="p">{</span><span class="n">std</span><span class="o">::</span><span class="n">stoull</span><span class="p">(</span><span class="n">extent</span><span class="p">),</span><span class="w"> </span><span class="n">enforce</span><span class="p">};</span>
+<span class="p">}</span>
+
+<span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">format_extent</span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">(</span><span class="s">&quot;dynamic&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">fmt</span><span class="o">::</span><span class="n">format</span><span class="p">(</span><span class="s">&quot;{}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">//! [specialization-1]</span>
+<span class="c1">// A specialized method.</span>
+<span class="c1">// SVS defines the dispatch conversion from `svs::DataType` to `svs::lib::Type`.</span>
+<span class="c1">// This overload takes an additional `std::string` argument type.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">B</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">N</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">specialized</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentTag</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">extent_tag</span><span class="p">),</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Convert `svs::lib::Type` to `svs::DataType`.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;Specialized with string: {}, {}, {} with arg </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">format_extent</span><span class="p">(</span><span class="n">N</span><span class="p">),</span><span class="w"> </span><span class="n">arg</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">//! [specialization-1]</span>
+
+<span class="c1">//! [specialization-2]</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;</span><span class="k">typename</span><span class="w"> </span><span class="nc">A</span><span class="p">,</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">B</span><span class="p">,</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">N</span><span class="o">&gt;</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">specialized_alternative</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">A</span><span class="o">&gt;</span><span class="w"> </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Type</span><span class="o">&lt;</span><span class="n">B</span><span class="o">&gt;</span><span class="w"> </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentTag</span><span class="o">&lt;</span><span class="n">N</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">extent_tag</span><span class="p">),</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">flag</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Convert `svs::lib::Type` to `svs::DataType`.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b_type</span><span class="p">;</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;Specialized with flag: {}, {}, {} with arg </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">format_extent</span><span class="p">(</span><span class="n">N</span><span class="p">),</span><span class="w"> </span><span class="n">flag</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">//! [specialization-2]</span>
+
+<span class="c1">//! [generic-fallback]</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">Converted</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="w"> </span><span class="n">value_</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">generic</span><span class="p">(</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentTag</span><span class="o">&lt;</span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">extent_tag</span><span class="p">),</span>
+<span class="w">    </span><span class="n">Converted</span><span class="w"> </span><span class="n">converted</span>
+<span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span>
+<span class="w">        </span><span class="s">&quot;Generic: {}, {}, {} with arg </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;\n</span><span class="s">&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="n">a_type</span><span class="p">,</span>
+<span class="w">        </span><span class="n">b_type</span><span class="p">,</span>
+<span class="w">        </span><span class="n">format_extent</span><span class="p">(</span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="p">),</span>
+<span class="w">        </span><span class="n">converted</span><span class="p">.</span><span class="n">value_</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">//! [generic-fallback]</span>
+
+<span class="p">}</span><span class="w"> </span><span class="c1">// namespace</span>
+
+<span class="c1">//! [converted-dispatch-conversion-rules]</span>
+<span class="c1">// Define full-specializations for converting `std::string` and `bool` to `Converted`.</span>
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">DispatchConverter</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="p">,</span><span class="w"> </span><span class="n">Converted</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Return ``true`` if this is a match. Otherwise, return false.</span>
+<span class="w">    </span><span class="c1">//</span>
+<span class="w">    </span><span class="c1">// To provide finer-grained control, an ``int64_t`` can be returned instead, where</span>
+<span class="w">    </span><span class="c1">// negative values indicate an invalid match (a method that has an invalid match for</span>
+<span class="w">    </span><span class="c1">// any argument must be discarded), and positive values indicate degree of matches</span>
+<span class="w">    </span><span class="c1">// with lower numbers having higher priority.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">match</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// This argument is called when a method has been selected and we&#39;re ready to convert</span>
+<span class="w">    </span><span class="c1">// the source argument to the destination argument and invoke the registered target.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Converted</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">Converted</span><span class="p">{</span><span class="n">arg</span><span class="p">};</span><span class="w"> </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Provide documentation regarding the values accepted by this conversion.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="nf">description</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;all-string-values&quot;</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+
+<span class="k">template</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">DispatchConverter</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">Converted</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="nf">match</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">arg</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="nb">true</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Converted</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="n">Converted</span><span class="p">{</span><span class="n">fmt</span><span class="o">::</span><span class="n">format</span><span class="p">(</span><span class="s">&quot;boolean {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">arg</span><span class="p">)};</span><span class="w"> </span><span class="p">}</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="nf">description</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="s">&quot;all-boolean-values&quot;</span><span class="p">;</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
+<span class="c1">//! [converted-dispatch-conversion-rules]</span>
+
+<span class="k">namespace</span><span class="w"> </span><span class="p">{</span>
+
+<span class="c1">//! [dispatcher-definition]</span>
+<span class="c1">// A variant of types given for the last argument of the methods we wish to dispatch to.</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Variant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">variant</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">;</span>
+
+<span class="c1">// A dispatcher wrapping and dispatching to functions that return void and whose arguments</span>
+<span class="c1">// are constructible using dispatcher conversion from the remaining types.</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Dispatcher</span><span class="w"> </span><span class="o">=</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Dispatcher</span><span class="o">&lt;</span><span class="kt">void</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="p">,</span><span class="w"> </span><span class="n">Variant</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="c1">//! [dispatcher-definition]</span>
+
+<span class="c1">//! [register-methods]</span>
+<span class="n">Dispatcher</span><span class="w"> </span><span class="nf">build_and_register</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Default construction for a dispatcher.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">dispatcher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Dispatcher</span><span class="p">{};</span>
+
+<span class="w">    </span><span class="c1">// When registering methods, argument documentation can be requested using this tag.</span>
+<span class="w">    </span><span class="c1">// Note dispatch rules are not required to implement documentation, in which case</span>
+<span class="w">    </span><span class="c1">// default documentation will be provided.</span>
+<span class="w">    </span><span class="k">constexpr</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">build_docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">dispatcher_build_docs</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Register the desired specializations.</span>
+<span class="w">    </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">specialized</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="o">&gt;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">dispatcher</span>
+<span class="w">        </span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">specialized_alternative</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Dynamic</span><span class="o">&gt;</span><span class="p">);</span>
+<span class="w">    </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">specialized</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="p">,</span><span class="w"> </span><span class="kt">uint8_t</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Register the dynamic fallback.</span>
+<span class="w">    </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">register_target</span><span class="p">(</span><span class="n">build_docs</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">generic</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">dispatcher</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">const</span><span class="w"> </span><span class="n">Dispatcher</span><span class="o">&amp;</span><span class="w"> </span><span class="nf">get_dispatcher</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Only allocated and populate the dispatcher once.</span>
+<span class="w">    </span><span class="k">static</span><span class="w"> </span><span class="n">Dispatcher</span><span class="w"> </span><span class="n">dispatcher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">build_and_register</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">dispatcher</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">//! [register-methods]</span>
+
+<span class="p">}</span><span class="w"> </span><span class="c1">// namespace</span>
+
+<span class="c1">//! [print-help]</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">print_help</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">constexpr</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">help_template</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="sa">R</span><span class="s">&quot;</span><span class="dl">(</span>
+<span class="s">Usage:</span>
+<span class="s">    (1) dispatcher type_a type_b dims enforce_dims arg</span>
+<span class="s">    (2) dispatcher --help</span>
+
+<span class="s">1. Run the dispatcher example.</span>
+<span class="s">   * type_a and type_b: must be parseable as s `svs::DataType`.</span>
+<span class="s">   * dims: The number of dimensions to dispatch on. Can either be an integer or the string</span>
+<span class="s">     &quot;dynamic&quot;</span>
+<span class="s">   * enforce_dims: Whether or not relaxation to dynamic dimensionality is allowed. Must</span>
+<span class="s">     either be &quot;true&quot; or &quot;false&quot;</span>
+<span class="s">   * arg: An additional string argument. If arg is either &quot;true&quot; or &quot;false&quot;, it will be</span>
+<span class="s">     parsed as a boolean. Otherwise, it will remain as a string and be forwarded to the</span>
+<span class="s">     appropriate overload.</span>
+
+<span class="s">2. Print this help message.</span>
+
+<span class="s">Registered Specializations</span>
+<span class="s">--------------------------</span>
+<span class="s">{{ type A, type B, Extent, Last Argument }}</span>
+
+<span class="s">{}</span>
+<span class="dl">)</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">dispatcher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">get_dispatcher</span><span class="p">();</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">method_docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="k">constexpr</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">nargs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Dispatcher</span><span class="o">::</span><span class="n">num_args</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">imax</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">dispatcher</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">imax</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">arg_docs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">j</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">nargs</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">j</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">arg_docs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">dispatcher</span><span class="p">.</span><span class="n">description</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">j</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="n">method_docs</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">fmt</span><span class="o">::</span><span class="n">format</span><span class="p">(</span><span class="s">&quot;{{ {} }}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">::</span><span class="n">join</span><span class="p">(</span><span class="n">arg_docs</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;, &quot;</span><span class="p">)));</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="n">help_template</span><span class="p">,</span><span class="w"> </span><span class="n">fmt</span><span class="o">::</span><span class="n">join</span><span class="p">(</span><span class="n">method_docs</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">));</span>
+<span class="p">}</span>
+<span class="c1">//! [print-help]</span>
+
+<span class="c1">//! [main]</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">svs_main</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">args</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Perform some very basic</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="kt">size_t</span><span class="w"> </span><span class="n">nargs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+<span class="w">    </span><span class="kt">bool</span><span class="w"> </span><span class="n">requested_help</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">any_of</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">begin</span><span class="p">(),</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">end</span><span class="p">(),</span><span class="w"> </span><span class="p">[](</span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;--help&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s">&quot;help&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="p">});</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">nargs</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="n">requested_help</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">print_help</span><span class="p">();</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Parse the argument types.</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">type_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_datatype</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">1</span><span class="p">));</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DataType</span><span class="w"> </span><span class="n">type_b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_datatype</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">2</span><span class="p">));</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ExtentArg</span><span class="w"> </span><span class="n">extent_arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_extent_arg</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span><span class="w"> </span><span class="n">parse_bool</span><span class="p">(</span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">4</span><span class="p">)));</span>
+
+<span class="w">    </span><span class="c1">// Construct a variant according to the value of `arg`.</span>
+<span class="w">    </span><span class="k">const</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">arg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">args</span><span class="p">.</span><span class="n">at</span><span class="p">(</span><span class="mi">5</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">maybe_bool</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">parse_bool_nothrow</span><span class="p">(</span><span class="n">arg</span><span class="p">);</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">variant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">]()</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">Variant</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">maybe_bool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="n">maybe_bool</span><span class="p">.</span><span class="n">value</span><span class="p">();</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">arg</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}();</span>
+
+<span class="w">    </span><span class="c1">// Instantiate the dispatcher and dispatch to the best fitting method.</span>
+<span class="w">    </span><span class="n">get_dispatcher</span><span class="p">().</span><span class="n">invoke</span><span class="p">(</span><span class="n">type_a</span><span class="p">,</span><span class="w"> </span><span class="n">type_b</span><span class="p">,</span><span class="w"> </span><span class="n">extent_arg</span><span class="p">,</span><span class="w"> </span><span class="n">variant</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">//! [main]</span>
+
+<span class="c1">// Main helper.</span>
+<span class="n">SVS_DEFINE_MAIN</span><span class="p">();</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="saveload.html" class="btn btn-neutral float-left" title="Data Structure Saving and Loading" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../allocators.html" class="btn btn-neutral float-right" title="High Level Allocators" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

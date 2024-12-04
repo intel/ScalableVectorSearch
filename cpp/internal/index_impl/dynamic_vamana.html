@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dynamic Vamana Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Flat Index" href="flat.html" />
+    <link rel="prev" title="Vamana Index" href="vamana.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Internals</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../lib/index.html">Library Components</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../allocators.html">High Level Allocators</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Index Data Structures</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Dynamic Vamana Index</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#main-dynamic-vamana-class">Main Dynamic Vamana Class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#dynamic-vamana-entry-point">Dynamic Vamana Entry Point</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html">Flat Index</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Internals</a></li>
+          <li class="breadcrumb-item"><a href="index.html">Index Data Structures</a></li>
+      <li class="breadcrumb-item active">Dynamic Vamana Index</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../../_sources/cpp/internal/index_impl/dynamic_vamana.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dynamic-vamana-index">
+<span id="dynamic-vamana"></span><h1>Dynamic Vamana Index<a class="headerlink" href="#dynamic-vamana-index" title="Link to this heading"></a></h1>
+<section id="main-dynamic-vamana-class">
+<h2>Main Dynamic Vamana Class<a class="headerlink" href="#main-dynamic-vamana-class" title="Link to this heading"></a></h2>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE">
+<span id="_CPPv3I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE"></span><span id="_CPPv2I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">graphs</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../concepts/graph.html#_CPPv4I0EN3svs6graphs11MemoryGraphE" title="svs::graphs::MemoryGraph"><span class="n"><span class="pre">MemoryGraph</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Graph</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Data</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dist</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MutableVamanaIndex</span></span></span><a class="headerlink" href="#_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE" title="Link to this definition"></a><br /></dt>
+<dd><div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana18MutableVamanaIndex22search_parameters_typeE">
+<span id="_CPPv3N3svs5index6vamana18MutableVamanaIndex22search_parameters_typeE"></span><span id="_CPPv2N3svs5index6vamana18MutableVamanaIndex22search_parameters_typeE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a76e56b2c84af3b6cdb06fb4ca001b28a"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">search_parameters_type</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE" title="svs::index::vamana::VamanaSearchParameters"><span class="n"><span class="pre">VamanaSearchParameters</span></span></a><a class="headerlink" href="#_CPPv4N3svs5index6vamana18MutableVamanaIndex22search_parameters_typeE" title="Link to this definition"></a><br /></dt>
+<dd><p>The type of the configurable search parameters. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaBuildParameters4DataRK11ExternalIds4Dist6size_t">
+<span id="_CPPv3I0EN3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaBuildParameters4DataRK11ExternalIds4Dist6size_t"></span><span id="_CPPv2I0EN3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaBuildParameters4DataRK11ExternalIds4Dist6size_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ExternalIds</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a253df0db343fd994a9db92c3c352e923"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MutableVamanaIndex</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="../../index/vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE" title="svs::index::vamana::VamanaBuildParameters"><span class="n"><span class="pre">VamanaBuildParameters</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">parameters</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE" title="svs::index::vamana::MutableVamanaIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaBuildParameters4DataRK11ExternalIds4Dist6size_t" title="svs::index::vamana::MutableVamanaIndex::MutableVamanaIndex::ExternalIds"><span class="n"><span class="pre">ExternalIds</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">external_ids</span></span>, <a class="reference internal" href="#_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE" title="svs::index::vamana::MutableVamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance_function</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaBuildParameters4DataRK11ExternalIds4Dist6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Build a graph from scratch. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaIndexParameters9data_type10graph_typeRK4Dist12IDTranslatorN7threads16NativeThreadPoolE">
+<span id="_CPPv3N3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaIndexParameters9data_type10graph_typeRK4Dist12IDTranslatorN7threads16NativeThreadPoolE"></span><span id="_CPPv2N3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaIndexParameters9data_type10graph_typeRK4Dist12IDTranslatorN7threads16NativeThreadPoolE"></span><span id="svs::index::vamana::MutableVamanaIndex::MutableVamanaIndex__VamanaIndexParametersCR.data_type.graph_type.DistCR.IDTranslator.threads::NativeThreadPool"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1ae8cc0b30f023511d94c00f2bbcad4319"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">MutableVamanaIndex</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">VamanaIndexParameters</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">config</span></span>, <span class="n"><span class="pre">data_type</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <span class="n"><span class="pre">graph_type</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">graph</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE" title="svs::index::vamana::MutableVamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">distance_function</span></span>, <span class="n"><span class="pre">IDTranslator</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">translator</span></span>, <span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">NativeThreadPool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana18MutableVamanaIndex18MutableVamanaIndexERK21VamanaIndexParameters9data_type10graph_typeRK4Dist12IDTranslatorN7threads16NativeThreadPoolE" title="Link to this definition"></a><br /></dt>
+<dd><p>Post re-load constructor. </p>
+<p>Preconditions</p>
+<p><ul class="simple">
+<li><p>data.size() == graph.n_nodes(): The graph and the data have the same number of entries.</p></li>
+<li><p>The data and graph were saved with no “holes”. In otherwords, the index was consolidated and compacted prior to saving.</p></li>
+<li><p>The span of internal ID’s in translator covers exactly <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">data.size())</span></code>. </p></li>
+</ul>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex9get_alphaEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex9get_alphaEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex9get_alphaEv"></span><span id="svs::index::vamana::MutableVamanaIndex::get_alphaC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1abc5cb57867da306e7d078cdecdd28840"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_alpha</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex9get_alphaEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the alpha value used for pruning while mutating the graph. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>set_alpha, get_construction_window_size, set_construction_window_size </p>
+</div>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana18MutableVamanaIndex9set_alphaEf">
+<span id="_CPPv3N3svs5index6vamana18MutableVamanaIndex9set_alphaEf"></span><span id="_CPPv2N3svs5index6vamana18MutableVamanaIndex9set_alphaEf"></span><span id="svs::index::vamana::MutableVamanaIndex::set_alpha__float"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a85fb2eca45598e3899b3a27acf34716f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_alpha</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">alpha</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana18MutableVamanaIndex9set_alphaEf" title="Link to this definition"></a><br /></dt>
+<dd><p>Set the alpha value used for pruning while mutating the graph. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>get_alpha, get_construction_window_size, set_construction_window_size </p>
+</div>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex28get_construction_window_sizeEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex28get_construction_window_sizeEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex28get_construction_window_sizeEv"></span><span id="svs::index::vamana::MutableVamanaIndex::get_construction_window_sizeC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1af312e5b59e7b0b82515b0fcd5ce23edb"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_construction_window_size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex28get_construction_window_sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the window size used the mutating the graph. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>set_construction_window_size, get_alpha, set_alpha </p>
+</div>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana18MutableVamanaIndex28set_construction_window_sizeE6size_t">
+<span id="_CPPv3N3svs5index6vamana18MutableVamanaIndex28set_construction_window_sizeE6size_t"></span><span id="_CPPv2N3svs5index6vamana18MutableVamanaIndex28set_construction_window_sizeE6size_t"></span><span id="svs::index::vamana::MutableVamanaIndex::set_construction_window_size__s"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a85cc3cc83f911a9f59b0f1a0eb2698d2"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_construction_window_size</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">window_size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana18MutableVamanaIndex28set_construction_window_sizeE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Set the window size used the mutating the graph. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>get_construction_window_size, get_alpha, set_alpha </p>
+</div>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex21translate_external_idE6size_t">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex21translate_external_idE6size_t"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex21translate_external_idE6size_t"></span><span id="svs::index::vamana::MutableVamanaIndex::translate_external_id__sC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a547761ea5b92bfb587dc54a46269db15"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">Idx</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">translate_external_id</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">e</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex21translate_external_idE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the internal ID mapped to be <code class="docutils literal notranslate"><span class="pre">e</span></code>. </p>
+<p>
+Requires that mapping for <code class="docutils literal notranslate"><span class="pre">e</span></code> exists. Otherwise, all bets are off.</p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>has_id, translate_internal_id </p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>e</strong> – The external ID to translate to an internal ID.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex6has_idE6size_t">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex6has_idE6size_t"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex6has_idE6size_t"></span><span id="svs::index::vamana::MutableVamanaIndex::has_id__sC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1afdb658dbe7a3c2215868acc2e75c4309"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">has_id</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">e</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex6has_idE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Check whether the external ID <code class="docutils literal notranslate"><span class="pre">e</span></code> exists in the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex21translate_internal_idE3Idx">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex21translate_internal_idE3Idx"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex21translate_internal_idE3Idx"></span><span id="svs::index::vamana::MutableVamanaIndex::translate_internal_id__IdxC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a267cfd32107d9c6e4d71ae02319567ea"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">translate_internal_id</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">Idx</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">i</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex21translate_internal_idE3Idx" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the external ID mapped to be <code class="docutils literal notranslate"><span class="pre">i</span></code>. </p>
+<p>
+Requires that mapping for <code class="docutils literal notranslate"><span class="pre">i</span></code> exists. Otherwise, all bets are off. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>i</strong> – The internal ID to translate to an external ID.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0ENK3svs5index6vamana18MutableVamanaIndex6on_idsEvRR1F">
+<span id="_CPPv3I0ENK3svs5index6vamana18MutableVamanaIndex6on_idsERR1F"></span><span id="_CPPv2I0ENK3svs5index6vamana18MutableVamanaIndex6on_idsERR1F"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">F</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a5ad042150994b42fb3df5437dee6b49e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">on_ids</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0ENK3svs5index6vamana18MutableVamanaIndex6on_idsEvRR1F" title="svs::index::vamana::MutableVamanaIndex::on_ids::F"><span class="n"><span class="pre">F</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">f</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I0ENK3svs5index6vamana18MutableVamanaIndex6on_idsEvRR1F" title="Link to this definition"></a><br /></dt>
+<dd><p>Call the functor with all external IDs in the index. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>f</strong> – A functor with an overloaded <code class="docutils literal notranslate"><span class="pre">operator()(size_t)</span></code> method. Called on each external ID in the index. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex12external_idsEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex12external_idsEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex12external_idsEv"></span><span id="svs::index::vamana::MutableVamanaIndex::external_idsC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1ae4046504b459722ef344dac58801b785"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">external_ids</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex12external_idsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a vector of all valid external IDs present in the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex4sizeEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex4sizeEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex4sizeEv"></span><span id="svs::index::vamana::MutableVamanaIndex::sizeC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a71270d09179184481a1acb4ce759c706"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of <strong>valid</strong> (non-deleted) entries in the index. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalEvR10DenseArrayI6size_t4Dims4BaseE">
+<span id="_CPPv3I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalER10DenseArrayI6size_t4Dims4BaseE"></span><span id="_CPPv2I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalER10DenseArrayI6size_t4Dims4BaseE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Dims</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Base</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a2b0d5d2c8c2307a28847777b078256df"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">translate_to_external</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="../lib/array.html#_CPPv4I000EN3svs10DenseArrayE" title="svs::DenseArray"><span class="n"><span class="pre">DenseArray</span></span></a><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalEvR10DenseArrayI6size_t4Dims4BaseE" title="svs::index::vamana::MutableVamanaIndex::translate_to_external::Dims"><span class="n"><span class="pre">Dims</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalEvR10DenseArrayI6size_t4Dims4BaseE" title="svs::index::vamana::MutableVamanaIndex::translate_to_external::Base"><span class="n"><span class="pre">Base</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex21translate_to_externalEvR10DenseArrayI6size_t4Dims4BaseE" title="Link to this definition"></a><br /></dt>
+<dd><p>Translate in-place a collection of internal IDs to external IDs. </p>
+<p>
+Modifies each entry in <code class="docutils literal notranslate"><span class="pre">ids</span></code> in place, assumes that entry is an internal ID and remaps it to its external ID.</p>
+<p>This is used as a post-processing step following search to return the correct external neighbors to the caller, allowing inner search routines to simply return local IDs.</p>
+<p>Several implementation notes: (1) This is definitely not safe to call multiple times on the same array for obvious reasons.</p>
+<p>(2) All entries in <code class="docutils literal notranslate"><span class="pre">ids</span></code> should have valid translations. Otherwise, this function’s behavior is undefined. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ids</strong> – The <code class="docutils literal notranslate"><a class="reference internal" href="../lib/array.html#classsvs_1_1DenseArray"><span class="std std-ref"><span class="pre">DenseArray</span></span></a></code> of internal IDs to modify.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex9get_datumE6size_t">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex9get_datumE6size_t"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex9get_datumE6size_t"></span><span id="svs::index::vamana::MutableVamanaIndex::get_datum__sC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a4f1c80a2264d060408a8dd2c5b8c92d1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_datum</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">e</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex9get_datumE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the raw data for external id <code class="docutils literal notranslate"><span class="pre">e</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex10dimensionsEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex10dimensionsEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex10dimensionsEv"></span><span id="svs::index::vamana::MutableVamanaIndex::dimensionsC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1ab34a134c13cfc17dc04ba10f8e045cc8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dimensions</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex10dimensionsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the dimensionality of the stored dataset. </p>
+<p>TODO (MH): This somewhat limits us to using only R^n type datasets. I’d like to see this generalized somewhat. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex17distance_functionEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex17distance_functionEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex17distance_functionEv"></span><span id="svs::index::vamana::MutableVamanaIndex::distance_functionC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1aa7c12aa84094ecd08e45c90feaaf23e1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N6graphs11MemoryGraphE00EN3svs5index6vamana18MutableVamanaIndexE" title="svs::index::vamana::MutableVamanaIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">distance_function</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex17distance_functionEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a unique instance of the distance function. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchEvRKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE">
+<span id="_CPPv3I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchERKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE"></span><span id="_CPPv2I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchERKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryType</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">I</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a8a0246f63967bab4e1b20aa012d4b91c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">exhaustive_search</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/data.html#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE" title="svs::data::ConstSimpleDataView"><span class="n"><span class="pre">ConstSimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchEvRKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE" title="svs::index::vamana::MutableVamanaIndex::exhaustive_search::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">queries</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_neighbors</span></span>, <a class="reference internal" href="../../core/query_result.html#_CPPv4I0EN3svs15QueryResultViewE" title="svs::QueryResultView"><span class="n"><span class="pre">QueryResultView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchEvRKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE" title="svs::index::vamana::MutableVamanaIndex::exhaustive_search::I"><span class="n"><span class="pre">I</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">result</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs5index6vamana18MutableVamanaIndex17exhaustive_searchEvRKN4data19ConstSimpleDataViewI9QueryTypeEE6size_t15QueryResultViewI1IE" title="Link to this definition"></a><br /></dt>
+<dd><p>Perform an exhaustive search on the current state of the index. Useful to understand how well the graph search is doing after index mutation. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex4nameEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex4nameEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex4nameEv"></span><span id="svs::index::vamana::MutableVamanaIndex::nameCCE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a38d0750d1b248753ad2a507ba8ac5feb"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">string_view</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">name</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex4nameEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Descriptive Name </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_NSt8integralEEN3svs5index6vamana18MutableVamanaIndex11clear_listsEvRKNSt6vectorI1IEE">
+<span id="_CPPv3I_NSt8integralEEN3svs5index6vamana18MutableVamanaIndex11clear_listsERKNSt6vectorI1IEE"></span><span id="_CPPv2I_NSt8integralEEN3svs5index6vamana18MutableVamanaIndex11clear_listsERKNSt6vectorI1IEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">integral</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">I</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1ab66d26b3257b8b9fded1946fc508f611"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">clear_lists</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt8integralEEN3svs5index6vamana18MutableVamanaIndex11clear_listsEvRKNSt6vectorI1IEE" title="svs::index::vamana::MutableVamanaIndex::clear_lists::I"><span class="n"><span class="pre">I</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">local_ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_NSt8integralEEN3svs5index6vamana18MutableVamanaIndex11clear_listsEvRKNSt6vectorI1IEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Clear the adjacency lists for the given local ids. </p>
+<p>This ensures that during the rebuild-phase, we don’t get any zombie (previously deleted nodes) occuring in the new adjacency lists. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsENSt6vectorI6size_tEERK6PointsRK11ExternalIds">
+<span id="_CPPv3I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsERK6PointsRK11ExternalIds"></span><span id="_CPPv2I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsERK6PointsRK11ExternalIds"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../concepts/data.html#_CPPv4I0EN3svs4data22ImmutableMemoryDatasetE" title="svs::data::ImmutableMemoryDataset"><span class="n"><span class="pre">ImmutableMemoryDataset</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Points</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ExternalIds</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1aaa96e7cb50d929d497494dfc5aba4ca2"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">add_points</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsENSt6vectorI6size_tEERK6PointsRK11ExternalIds" title="svs::index::vamana::MutableVamanaIndex::add_points::Points"><span class="n"><span class="pre">Points</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">points</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsENSt6vectorI6size_tEERK6PointsRK11ExternalIds" title="svs::index::vamana::MutableVamanaIndex::add_points::ExternalIds"><span class="n"><span class="pre">ExternalIds</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">external_ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE0EN3svs5index6vamana18MutableVamanaIndex10add_pointsENSt6vectorI6size_tEERK6PointsRK11ExternalIds" title="Link to this definition"></a><br /></dt>
+<dd><p>Add the points with the given external IDs to the dataset. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>points</strong> – Dataset of points to add. </p></li>
+<li><p><strong>external_ids</strong> – The external IDs of the corresponding points. Must be a container implementing forward iteration. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex14delete_entriesEvRK1T">
+<span id="_CPPv3I0EN3svs5index6vamana18MutableVamanaIndex14delete_entriesERK1T"></span><span id="_CPPv2I0EN3svs5index6vamana18MutableVamanaIndex14delete_entriesERK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a0fc6b98d259064d061739ced21cbd50f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">delete_entries</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex14delete_entriesEvRK1T" title="svs::index::vamana::MutableVamanaIndex::delete_entries::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs5index6vamana18MutableVamanaIndex14delete_entriesEvRK1T" title="Link to this definition"></a><br /></dt>
+<dd><p>Delete all IDs stored in the random-access container <code class="docutils literal notranslate"><span class="pre">ids</span></code>.</p>
+<p>Pre-conditions:<ul class="simple">
+<li><p>All indices present in <code class="docutils literal notranslate"><span class="pre">ids</span></code> belong to valid slots.</p></li>
+</ul>
+</p>
+<p>Post-conditions:<ul class="simple">
+<li><p>Deleted slots will not be returned in future calls <code class="docutils literal notranslate"><span class="pre">search</span></code>.</p></li>
+</ul>
+</p>
+<p>Implementation Nodes:<ul>
+<li><p>The deletion that happens is a “soft” deletion. This means that the corresponding entries are still present in both the dataset and the graph, and will be navigated through during searched.</p>
+<p>However, entries marked as <code class="docutils literal notranslate"><span class="pre">deleted</span></code> will not be returned from searches.</p>
+</li>
+<li><p>Delete consolidation should happen once a large enough percentage of slots have been soft deleted.</p>
+<p>Delete consolidation performs the actual removal of deleted entries from the graph. </p>
+</li>
+</ul>
+</p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex18nonmissing_indicesEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex18nonmissing_indicesEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex18nonmissing_indicesEv"></span><span id="svs::index::vamana::MutableVamanaIndex::nonmissing_indicesC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a80838c3df3117ad4679a789084f85e93"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vector</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">Idx</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">nonmissing_indices</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex18nonmissing_indicesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return all the non-missing internal IDs. </p>
+<p>This includes both valid and soft-deleted entries. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp">
+<span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a7c286ba9b31ad1ca17c64dab4f53d6e6"></span><span class="sig-name descname"><span class="pre">inline</span> <span class="pre">void</span> <span class="pre">compact</span> <span class="pre">(Idx</span> <span class="pre">batch_size=1</span> <span class="pre">'000)</span></span></dt>
+<dd><p>Compact the data and the graph. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>batch_size</strong> – Granularity at which points are shuffled. Setting this higher can improve performance but requires more working memory. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana18MutableVamanaIndex28reset_performance_parametersEv">
+<span id="_CPPv3N3svs5index6vamana18MutableVamanaIndex28reset_performance_parametersEv"></span><span id="_CPPv2N3svs5index6vamana18MutableVamanaIndex28reset_performance_parametersEv"></span><span id="svs::index::vamana::MutableVamanaIndex::reset_performance_parameters"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a412960509812c4e90b733c9ed82d44f9"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reset_performance_parameters</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana18MutableVamanaIndex28reset_performance_parametersEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Reset performance parameters to their default values for this index. </p>
+<p>Parameters affected are only those that modify throughput on a given architecture. Accuracy results should not change as a side-effect of calling this function. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE">
+<span id="_CPPv3I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEN4data14SimpleDataViewI1TEENSt4spanIK1IEE"></span><span id="_CPPv2I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEN4data14SimpleDataViewI1TEENSt4spanIK1IEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">unsigned_integral</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">I</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Arithmetic</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a6af09afa4ea5a82d9af9021fe4cd0913"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconstruct_at</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/data.html#_CPPv4I0_6size_tEN3svs4data14SimpleDataViewE" title="svs::data::SimpleDataView"><span class="n"><span class="pre">SimpleDataView</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE" title="svs::index::vamana::MutableVamanaIndex::reconstruct_at::T"><span class="n"><span class="pre">T</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">dst</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE" title="svs::index::vamana::MutableVamanaIndex::reconstruct_at::I"><span class="n"><span class="pre">I</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_NSt17unsigned_integralE_N3svs10ArithmeticEEN3svs5index6vamana18MutableVamanaIndex14reconstruct_atEvN4data14SimpleDataViewI1TEENSt4spanIK1IEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Reconstruct vectors. </p>
+<p>Reconstruct each vector indexed by an external ID and store the results into <code class="docutils literal notranslate"><span class="pre">dst</span></code>.</p>
+<p>Preconditions:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ids.size()</span> <span class="pre">==</span> <span class="pre">svs::getsize&lt;0&gt;(dst)</span></code>: Each ID has a corresponding entry in the destination array.</p></li>
+<li><p>All indices are valid external IDs for this index.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">svs::getsize&lt;1&gt;(dst)</span> <span class="pre">==</span> <span class="pre">dimensions()</span></code>: The space allocated for each vector in <code class="docutils literal notranslate"><span class="pre">dst</span></code> is correct.</p></li>
+</ul>
+</p>
+<p>An exception will be thrown if any of these pre-conditions does not hold. If such an exception is thrown, the argument <code class="docutils literal notranslate"><span class="pre">dst</span></code> will be left unmodified. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex22debug_check_invariantsEb">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex22debug_check_invariantsEb"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex22debug_check_invariantsEb"></span><span id="svs::index::vamana::MutableVamanaIndex::debug_check_invariants__bC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1ad46303c828ac8ba37e898f6dc82a73cc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">debug_check_invariants</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">allow_deleted</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex22debug_check_invariantsEb" title="Link to this definition"></a><br /></dt>
+<dd><p>Verify the invariants of this data structure. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>allow_deleted</strong> – Enable or disable deleted entries. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex16debug_check_sizeEv">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex16debug_check_sizeEv"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex16debug_check_sizeEv"></span><span id="svs::index::vamana::MutableVamanaIndex::debug_check_sizeC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a77e623d0184152646d4abaf84e7bfbac"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">debug_check_size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex16debug_check_sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Make sure that the capacities of the main data structures (graph, data, metadata) agree. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana18MutableVamanaIndex29debug_check_graph_consistencyEb">
+<span id="_CPPv3NK3svs5index6vamana18MutableVamanaIndex29debug_check_graph_consistencyEb"></span><span id="_CPPv2NK3svs5index6vamana18MutableVamanaIndex29debug_check_graph_consistencyEb"></span><span id="svs::index::vamana::MutableVamanaIndex::debug_check_graph_consistency__bC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1MutableVamanaIndex_1a6a902591928cf7becb3035e01b3f4ff6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">debug_check_graph_consistency</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">allow_deleted</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana18MutableVamanaIndex29debug_check_graph_consistencyEb" title="Link to this definition"></a><br /></dt>
+<dd><p>Ensure the graph is in a consistent state. </p>
+<p>
+In this case, consistency means the that the adjacency lists for all non-deleted vertices contain only non-deleted vertices.</p>
+<p>This operation should be run after <code class="docutils literal notranslate"><span class="pre">debug_check_size()</span></code> to ensure that the sizes of the underlying data structures are consistent. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>allow_deleted</strong> – Flag to indicate if nodes marked as <code class="docutils literal notranslate"><span class="pre">Deleted</span></code> are okay for consideration. Following a consolidation, this should be <code class="docutils literal notranslate"><span class="pre">false</span></code>. Otherwise, this should be <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="dynamic-vamana-entry-point">
+<h2>Dynamic Vamana Entry Point<a class="headerlink" href="#dynamic-vamana-entry-point" title="Link to this heading"></a></h2>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleEDaRKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb">
+<span id="_CPPv3I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleERKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb"></span><span id="_CPPv2I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleERKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">LazyInvocable</span></span><span class="p"><span class="pre">&lt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GraphLoader</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataLoader</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1index_1_1vamana_1a2cb9f37120a3707d9cc4affd74ffe191"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vamana</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">auto_dynamic_assemble</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">config_path</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleEDaRKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb" title="svs::index::vamana::auto_dynamic_assemble::GraphLoader"><span class="n"><span class="pre">GraphLoader</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">graph_loader</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleEDaRKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb" title="svs::index::vamana::auto_dynamic_assemble::DataLoader"><span class="n"><span class="pre">DataLoader</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_loader</span></span>, <a class="reference internal" href="#_CPPv4I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleEDaRKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb" title="svs::index::vamana::auto_dynamic_assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">debug_load_from_static</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_N3lib13LazyInvocableIEE00EN3svs5index6vamana21auto_dynamic_assembleEDaRKNSt10filesystem4pathERK11GraphLoaderRK10DataLoader8Distance6size_tb" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="vamana.html" class="btn btn-neutral float-left" title="Vamana Index" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="flat.html" class="btn btn-neutral float-right" title="Flat Index" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
