@@ -18,6 +18,7 @@
 
 // svs-benchmark
 #include "svs-benchmark/index_traits.h"
+#include "svs-benchmark/vamana/search.h"
 
 // svs
 #include "svs/orchestrators/vamana.h"
@@ -29,6 +30,7 @@
 namespace svsbenchmark {
 
 template <> struct IndexTraits<svs::Vamana> {
+    using index_type = svs::Vamana;
     using config_type = svs::index::vamana::VamanaSearchParameters;
     using state_type = svsbenchmark::vamana::VamanaState;
     using calibration_constructor =
@@ -61,13 +63,13 @@ template <> struct IndexTraits<svs::Vamana> {
     static std::string name() { return "static vamana index (type erased)"; }
 
     // Configuration Space.
-    static void apply_config(svs::Vamana& index, const config_type& config) {
+    static void apply_config(index_type& index, const config_type& config) {
         index.set_search_parameters(config);
     }
 
     template <svs::data::ImmutableMemoryDataset Queries>
     static auto search(
-        svs::Vamana& index,
+        index_type& index,
         const Queries& queries,
         size_t num_neighbors,
         const config_type& config
@@ -76,12 +78,12 @@ template <> struct IndexTraits<svs::Vamana> {
         return index.search(queries, num_neighbors);
     }
 
-    static state_type report_state(const svs::Vamana& index) { return state_type(index); }
+    static state_type report_state(const index_type& index) { return state_type(index); }
 
     // Calibrate from scratch
     template <svs::data::ImmutableMemoryDataset Queries, typename Groundtruth>
     static config_type calibrate(
-        svs::Vamana& index,
+        index_type& index,
         const Queries& queries,
         const Groundtruth& groundtruth,
         size_t num_neighbors,
@@ -104,7 +106,7 @@ template <> struct IndexTraits<svs::Vamana> {
     // Calibrate with hint.
     template <svs::data::ImmutableMemoryDataset Queries, typename Groundtruth>
     static config_type calibrate_with_hint(
-        svs::Vamana& index,
+        index_type& index,
         const Queries& queries,
         const Groundtruth& groundtruth,
         size_t num_neighbors,
@@ -133,5 +135,4 @@ template <> struct IndexTraits<svs::Vamana> {
         );
     }
 };
-
 } // namespace svsbenchmark

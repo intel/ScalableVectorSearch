@@ -41,6 +41,7 @@ namespace svs::index::vamana {
 template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
   public:
     // Type Aliases
+    using index_type = Idx;
     using value_type = PredicatedSearchNeighbor<Idx>;
     using reference = value_type&;
     using const_reference = const value_type&;
@@ -133,13 +134,26 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     ///
     /// @param config The new configuration for the buffer.
     ///
+    /// Post conditions:
+    /// - The target valid capacity for the search buffer will be set to the new capacity.
+    /// - The actual size (number of contained elements both valid and invalid) will be the
+    ///   minimum of the current size and the new capacity.
+    ///
     void change_maxsize(SearchBufferConfig config) {
         // Use temporary variables to ensure the given configuration is valid before
         // committing.
+        //
+        // `lib::narrow` may throw.
         uint16_t target_valid_temp = lib::narrow<uint16_t>(config.get_search_window_size());
         uint16_t valid_capacity_temp = lib::narrow<uint16_t>(config.get_total_capacity());
 
-        candidates_.resize(valid_capacity_temp + 1);
+        // If the new capacity is lower then the current size, shrink the buffer to fit.
+        if (valid_capacity_temp < candidates_.size()) {
+            candidates_.resize(valid_capacity_temp);
+        }
+
+        // Commit the new sizes. Integer assignment is `noexcept`, so we don't need to worry
+        // about an exception breaking class invariants.
         target_valid_ = target_valid_temp;
         valid_capacity_ = valid_capacity_temp;
     }
@@ -157,6 +171,24 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             visited_->reset();
         }
     }
+
+    void soft_clear() {
+        bool use_visited_set = visited_set_enabled();
+        if (use_visited_set) {
+            visited_->reset();
+        }
+
+        for (auto& neighbor : candidates_) {
+            neighbor.clear_visited();
+            if (use_visited_set) {
+                visited_->emplace(neighbor.id());
+            }
+        }
+
+        best_unvisited_ = 0;
+    }
+
+    size_t capacity() const { return candidates_.capacity(); }
 
     /// @brief Return the number of valid elements currently contained in the buffer.
     size_t valid() const { return valid_; }
@@ -498,6 +530,15 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     void enable_visited_set() {
         if (!visited_set_enabled()) {
             visited_.emplace();
+        }
+    }
+
+    /// @brief Enable or disable the visited set based on the argument.
+    void configure_visited_set(bool enable) {
+        if (enable) {
+            enable_visited_set();
+        } else {
+            disable_visited_set();
         }
     }
 

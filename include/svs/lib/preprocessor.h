@@ -102,6 +102,9 @@ consteval bool is_one_or_zero(const char* ptr) {
         return std::move(*this);                     \
     }
 
+// Temporary measure to disable the BatchIterator for not supported types.
+#define SVS_TEMPORARY_DISABLE_SINGLE_SEARCH
+
 /////
 ///// Intel(R) AVX extensions
 /////

@@ -28,29 +28,6 @@
 #include <type_traits>
 #include <vector>
 
-///// Test Setup
-namespace {
-
-struct ScopeGuardCallback {
-  public:
-    ScopeGuardCallback() = default;
-
-    // Disable copy constructors.
-    ScopeGuardCallback(const ScopeGuardCallback&) = delete;
-    ScopeGuardCallback& operator=(const ScopeGuardCallback&) = delete;
-
-    ScopeGuardCallback(ScopeGuardCallback&&) = default;
-    ScopeGuardCallback& operator=(ScopeGuardCallback&&) = default;
-    ~ScopeGuardCallback() = default;
-
-    void operator()() noexcept { ++call_count; }
-
-  public:
-    size_t call_count = 0;
-};
-
-} // namespace
-
 CATCH_TEST_CASE("Misc", "[core][misc]") {
     CATCH_SECTION("As Span") {
         auto x = std::vector<float>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
@@ -242,84 +219,6 @@ CATCH_TEST_CASE("Misc", "[core][misc]") {
         b = {1, 1, 2, 2, 2, 2, 3, 3, 4, 4};
         CATCH_REQUIRE(svs::lib::count_intersect(a, b) == 3);
         CATCH_REQUIRE(svs::lib::count_intersect(b, a) == 3);
-    }
-
-    CATCH_SECTION("ScopeGuard") {
-        // Static tests
-        static_assert(std::is_same_v<
-                      svs::lib::detail::deduce_scopeguard_parameter_t<size_t&&>,
-                      size_t>);
-        static_assert(std::is_same_v<
-                      svs::lib::detail::deduce_scopeguard_parameter_t<size_t&>,
-                      size_t&>);
-        static_assert(std::is_same_v<
-                      svs::lib::detail::deduce_scopeguard_parameter_t<const size_t&>,
-                      const size_t&>);
-
-        // Make sure the special member functions are deleted.
-        using T = svs::lib::ScopeGuard<ScopeGuardCallback>;
-        static_assert(
-            !std::is_copy_constructible_v<T>, "Expected copy constructor to be deleted!"
-        );
-        static_assert(
-            !std::is_move_constructible_v<T>, "Expected move constructor to be deleted!"
-        );
-        static_assert(
-            !std::is_copy_assignable_v<T>,
-            "Expected copy assignment operator to be deleted!"
-        );
-        static_assert(
-            !std::is_move_assignable_v<T>,
-            "Expected move assignment operator to be deleted!"
-        );
-
-        // Trivial constructor should be deleted.
-        static_assert(
-            !std::is_default_constructible_v<T>,
-            "ScopeGuard should not be default constructible!"
-        );
-
-        // Cannot construct a non-reference scope-guard from an lvalue reference.
-        static_assert(
-            !std::is_constructible_v<T, ScopeGuardCallback&>,
-            "ScopeGuard should not attempt to copy its arguments!"
-        );
-        static_assert(
-            !std::is_constructible_v<T, const ScopeGuardCallback&>,
-            "ScopeGuard should not attempt to copy its arguments!"
-        );
-
-        CATCH_SECTION("Reference Type") {
-            auto x = ScopeGuardCallback();
-            CATCH_REQUIRE(x.call_count == 0);
-            { auto g = svs::lib::ScopeGuard<ScopeGuardCallback&>(x); }
-            CATCH_REQUIRE(x.call_count == 1);
-            // Use the deducing path.
-            {
-                auto g = svs::lib::make_scope_guard(x);
-                using gT = decltype(g);
-                static_assert(std::is_same_v<
-                              typename gT::callback_type,
-                              ScopeGuardCallback&>);
-                static_assert(gT::is_reference);
-            }
-            CATCH_REQUIRE(x.call_count == 2);
-
-            // This should at least work.
-            auto y = ScopeGuardCallback();
-            { auto g = svs::lib::make_scope_guard(std::move(y)); }
-        }
-
-        CATCH_SECTION("Value Type") {
-            size_t call_count = 0;
-            {
-                auto g =
-                    svs::lib::make_scope_guard([&call_count]() noexcept { ++call_count; });
-                using gT = decltype(g);
-                static_assert(!gT::is_reference);
-            }
-            CATCH_REQUIRE(call_count == 1);
-        }
     }
 
     CATCH_SECTION("Percent") {

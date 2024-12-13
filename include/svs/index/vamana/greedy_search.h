@@ -50,6 +50,54 @@ struct GreedySearchPrefetchParameters {
 };
 
 /////
+///// Initialization Customization.
+/////
+
+/// A greedy search initializer that resets the provided search buffer and appends
+/// entry-points to the buffer.
+///
+/// This feature is low-level and should not be customized lightly.
+///
+/// This is the default initializer for greedy search.
+template <std::integral I> struct EntryPointInitializer {
+    template <
+        typename Buffer,
+        typename Computer,
+        graphs::ImmutableMemoryGraph Graph,
+        typename Builder,
+        typename Tracker>
+    void operator()(
+        Buffer& buffer,
+        const Computer& computer,
+        const Graph& graph,
+        const Builder& builder,
+        Tracker& tracker
+    ) const {
+        using Idx = typename Buffer::index_type;
+
+        // Reset the buffer for a new search.
+        buffer.clear();
+        // Add all entry points to the buffer.
+        for (I id : entry_points_) {
+            auto dist = computer(id);
+            buffer.push_back(builder(id, dist));
+            graph.prefetch_node(id);
+            tracker.visited(Neighbor<Idx>{id, dist}, 1);
+        }
+        // We've added all the entry points.
+        // Finish initializing the search buffer by sorting and preparing for a new run.
+        buffer.sort();
+    }
+
+    ///// Members
+    std::span<const I> entry_points_;
+};
+
+// Deduction Guide
+template <std::integral I>
+EntryPointInitializer(std::span<const I>) -> EntryPointInitializer<I>;
+
+/////
 ///// Greedy Search
 /////
 
@@ -70,7 +118,7 @@ template <
     typename QueryType,
     distance::Distance<QueryType, typename Dataset::const_value_type> Dist,
     typename Buffer,
-    typename Ep,
+    typename Initializer,
     typename Builder,
     GreedySearchTracker<typename Graph::index_type> Tracker>
 void greedy_search(
@@ -80,7 +128,7 @@ void greedy_search(
     const QueryType& query,
     Dist& distance_function,
     Buffer& search_buffer,
-    const Ep& entry_points,
+    const Initializer& initializer,
     const Builder& builder,
     Tracker& search_tracker,
     GreedySearchPrefetchParameters prefetch_parameters = {},
@@ -91,22 +139,17 @@ void greedy_search(
     // Fix the query if needed by the distance function.
     distance::maybe_fix_argument(distance_function, query);
 
-    // Initialize entry points.
-    for (const auto& id : entry_points) {
-        accessor.prefetch(dataset, id);
-    }
-
-    // Populate initial points.
-    search_buffer.clear();
-    for (const auto& id : entry_points) {
-        auto dist = distance::compute(distance_function, query, accessor(dataset, id));
-        search_buffer.push_back(builder(id, dist));
-        graph.prefetch_node(id);
-        search_tracker.visited(Neighbor<I>{id, dist}, 1);
+    // Initialize the search buffer.
+    {
+        // A lambda that wraps the distance computation to avoid propagating everything
+        // into the initializer.
+        auto computer = [&](std::integral auto id) {
+            return distance::compute(distance_function, query, accessor(dataset, id));
+        };
+        initializer(search_buffer, computer, graph, builder, search_tracker);
     }
 
     // Main search routine.
-    search_buffer.sort();
     while (!search_buffer.done()) {
         // Check if request to cancel the search
         if (cancel()) {
@@ -168,7 +211,7 @@ template <
     typename QueryType,
     distance::Distance<QueryType, typename Dataset::const_value_type> Dist,
     typename Buffer,
-    typename Ep,
+    typename Initializer,
     typename Builder = NeighborBuilder>
 void greedy_search(
     const Graph& graph,
@@ -177,7 +220,7 @@ void greedy_search(
     QueryType query,
     Dist& distance_function,
     Buffer& search_buffer,
-    const Ep& entry_points,
+    const Initializer& initializer,
     const Builder& builder = NeighborBuilder(),
     GreedySearchPrefetchParameters prefetch_parameters = {},
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
@@ -190,7 +233,7 @@ void greedy_search(
         query,
         distance_function,
         search_buffer,
-        entry_points,
+        initializer,
         builder,
         null_tracker,
         prefetch_parameters,

@@ -107,9 +107,12 @@ class MutableVamanaIndex {
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
     static constexpr bool supports_saving = true;
+    static constexpr bool needs_id_translation = true;
 
     // Type Aliases
     using Idx = typename Graph::index_type;
+    using internal_id_type = Idx;
+    using external_id_type = size_t;
     using value_type = typename Data::value_type;
     using const_value_type = typename Data::const_value_type;
     static constexpr size_t extent = Data::extent;
@@ -122,6 +125,9 @@ class MutableVamanaIndex {
     using entry_point_type = std::vector<Idx>;
     /// The type of the configurable search parameters.
     using search_parameters_type = VamanaSearchParameters;
+    using inner_scratch_type =
+        svs::tag_t<extensions::single_search_setup>::result_t<Data, Dist>;
+    using scratchspace_type = SearchScratchspace<search_buffer_type, inner_scratch_type>;
 
     // Members
   private:
@@ -152,6 +158,13 @@ class MutableVamanaIndex {
 
     // Methods
   public:
+    // This is because some dataset may not yet support single-searching, which is required
+    // by the BatchIterator.
+    SVS_TEMPORARY_DISABLE_SINGLE_SEARCH static constexpr bool
+    temporary_disable_batch_iterator() {
+        return extensions::temporary_disable_single_search<data_type>();
+    }
+
     // Constructors
     template <typename ExternalIds>
     MutableVamanaIndex(
@@ -263,6 +276,20 @@ class MutableVamanaIndex {
         , prune_to_{config.build_parameters.prune_to}
         , alpha_{config.build_parameters.alpha}
         , use_full_search_history_{config.build_parameters.use_full_search_history} {}
+
+    ///// Scratchspace
+    scratchspace_type scratchspace(const search_parameters_type& sp) const {
+        return scratchspace_type{
+            search_buffer_type(
+                sp.buffer_config_,
+                distance::comparator(distance_),
+                sp.search_buffer_visited_set_
+            ),
+            extensions::single_search_setup(data_, distance_),
+            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+    }
+
+    scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
 
     ///// Accessors
 
@@ -407,7 +434,14 @@ class MutableVamanaIndex {
     ///
     size_t dimensions() const { return data_.dimensions(); }
 
-    auto greedy_search_closure(GreedySearchPrefetchParameters prefetch_parameters, const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) const {
+    // Return a `greedy_search` compatible builder for this index.
+    // This is an internal method, mostly used to help implement the batch iterator.
+    ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
+
+    auto greedy_search_closure(
+        GreedySearchPrefetchParameters prefetch_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
         return [&, prefetch_parameters](
                    const auto& query, auto& accessor, auto& distance, auto& buffer
                ) {
@@ -419,8 +453,8 @@ class MutableVamanaIndex {
                 query,
                 distance,
                 buffer,
-                entry_point_,
-                ValidBuilder{status_},
+                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                internal_search_builder(),
                 prefetch_parameters,
                 cancel
             );
@@ -428,6 +462,18 @@ class MutableVamanaIndex {
             // might remain.
             buffer.cleanup();
         };
+    }
+
+    // Single Search
+    template <typename Query>
+    void search(const Query& query, scratchspace_type& scratch) const {
+        extensions::single_search(
+            data_,
+            scratch.buffer,
+            scratch.scratch,
+            query,
+            greedy_search_closure(scratch.prefetch_parameters)
+        );
     }
 
     template <typename I, data::ImmutableMemoryDataset Queries>
@@ -586,8 +632,12 @@ class MutableVamanaIndex {
 
             // Graph resizing marked as un-safe because graph contain internal references
             // and thus it's not a good idea to go around shrinking the graph without care.
+            //
+            // However, we are only growing here, so resizing will not change any
+            // invariants.
             graph_.unsafe_resize(new_size);
             status_.resize(new_size, SlotMetadata::Empty);
+
             // Append the correct number of extra slots.
             threads::UnitRange<size_t> extra_points{current_size, current_size + needed};
             slots.insert(slots.end(), extra_points.begin(), extra_points.end());
@@ -1013,6 +1063,15 @@ class MutableVamanaIndex {
         threads::run(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
     }
 
+    /// Invoke the provided callable with constant references to the contained graph, data,
+    /// and entry points.
+    ///
+    /// This function is meant to provide a means for implementing experimental algorithms
+    /// on the contained data structures.
+    template <typename F> void experimental_escape_hatch(F&& f) const {
+        std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
+    }
+
     /////
     ///// Debug
     /////
@@ -1149,11 +1208,11 @@ struct VamanaStateLoader {
 } // namespace detail
 
 // Assembly
-template <lib::LazyInvocable<> GraphLoader, typename DataLoader, typename Distance>
+template <typename GraphLoader, typename DataLoader, typename Distance>
 auto auto_dynamic_assemble(
     const std::filesystem::path& config_path,
-    const GraphLoader& graph_loader,
-    const DataLoader& data_loader,
+    GraphLoader&& graph_loader,
+    DataLoader&& data_loader,
     Distance distance,
     size_t num_threads,
     // Set this to `true` to use the identity map for ID translation.
@@ -1165,10 +1224,10 @@ auto auto_dynamic_assemble(
 ) {
     // Load the dataset
     auto threadpool = threads::NativeThreadPool(num_threads);
-    auto data = svs::detail::dispatch_load(data_loader, threadpool);
+    auto data = svs::detail::dispatch_load(SVS_FWD(data_loader), threadpool);
 
     // Load the graph.
-    auto graph = graph_loader();
+    auto graph = svs::detail::dispatch_load(SVS_FWD(graph_loader), threadpool);
 
     // Make sure the data and the graph have the same size.
     auto datasize = data.size();

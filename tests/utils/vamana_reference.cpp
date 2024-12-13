@@ -43,4 +43,34 @@ const toml::table& parse_expected() {
     static toml::table expected = toml::parse_file(reference_path().native());
     return expected;
 }
+
+svs::index::vamana::VamanaIndex<
+    svs::graphs::SimpleGraph<uint32_t>,
+    svs::data::SimpleData<float>,
+    svs::DistanceL2>
+load_test_index() {
+    return svs::index::vamana::auto_assemble(
+        test_dataset::vamana_config_file(),
+        test_dataset::graph(),
+        test_dataset::data_f32(),
+        svs::DistanceL2(),
+        1
+    );
+}
+
+svs::index::vamana::MutableVamanaIndex<
+    svs::graphs::SimpleGraph<uint32_t>,
+    svs::data::SimpleData<float>,
+    svs::DistanceL2>
+load_dynamic_test_index() {
+    return svs::index::vamana::auto_dynamic_assemble(
+        test_dataset::vamana_config_file(),
+        test_dataset::graph(),
+        test_dataset::data_f32(),
+        svs::DistanceL2(),
+        1,
+        true // debug_load_from_static
+    );
+}
+
 } // namespace test_dataset::vamana

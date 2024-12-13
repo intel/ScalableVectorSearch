@@ -77,6 +77,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/readwrite.cpp
     ${TEST_DIR}/svs/lib/saveload.cpp
     ${TEST_DIR}/svs/lib/saveload/load.cpp
+    ${TEST_DIR}/svs/lib/scopeguard.cpp
     ${TEST_DIR}/svs/lib/spinlock.cpp
     ${TEST_DIR}/svs/lib/static.cpp
     ${TEST_DIR}/svs/lib/timing.cpp
@@ -132,7 +133,9 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
     ${TEST_DIR}/svs/index/vamana/search_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
-    ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
+    ${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp
+    ${TEST_DIR}/svs/index/vamana/iterator_example.cpp
+    ${TEST_DIR}/svs/index/vamana/iterator.cpp
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
 

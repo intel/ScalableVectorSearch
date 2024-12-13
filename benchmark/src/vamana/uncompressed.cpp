@@ -21,6 +21,7 @@
 #include "svs-benchmark/vamana/build.h"
 #include "svs-benchmark/vamana/common.h"
 #include "svs-benchmark/vamana/dynamic_traits.h"
+#include "svs-benchmark/vamana/iterator.h"
 #include "svs-benchmark/vamana/static_traits.h"
 
 // svs
@@ -45,9 +46,9 @@ template <typename F> void for_standard_specializations(F&& f) {
         X(int8_t, int8_t, svs::distance::DistanceL2, 100);      // spacev
         X(float, svs::Float16, svs::distance::DistanceIP, 200); // text2image
         X(float, svs::Float16, svs::distance::DistanceIP, 768); // dpr
-        // // Generic fallbacks
+        // Generic fallbacks
         // X(float, float, svs::distance::DistanceL2, svs::Dynamic);
-        // X(float, svs::Float16, svs::distance::DistanceL2, svs::Dynamic);
+        X(float, svs::Float16, svs::distance::DistanceL2, svs::Dynamic);
     }
 }
 
@@ -107,6 +108,35 @@ toml::table run_static_search(
         IndexTraits<svs::Vamana>::regression_optimization()
     );
     return svs::lib::save_to_table(results);
+}
+
+// Iterator
+template <typename Q, typename T, typename D, size_t N>
+toml::table run_iterator_search(
+    // dispatch arguments
+    svsbenchmark::TypedUncompressed<T> SVS_UNUSED(dataset_type),
+    svsbenchmark::DispatchType<Q> SVS_UNUSED(query_type),
+    D distance,
+    svs::lib::ExtentTag<N> SVS_UNUSED(extent),
+    // feed-forward arguments
+    const svsbenchmark::Checkpoint& checkpointer,
+    const svsbenchmark::vamana::IteratorSearch& job
+) {
+    auto index = svs::Vamana::assemble<Q>(
+        job.config_,
+        svs::GraphLoader{job.graph_},
+        svs::data::SimpleData<T, N, svs::HugepageAllocator<T>>::load(job.data_),
+        distance,
+        1
+    );
+
+    auto queries = svs::data::SimpleData<Q>::load(job.queries_);
+    auto groundtruth = svs::data::SimpleData<uint32_t>::load(job.groundtruth_);
+
+    auto query_set = vamana::subsample(
+        queries.cview(), groundtruth.cview(), job.parameters_.query_subsample_
+    );
+    return vamana::tune_and_search_iterator(index, job, query_set, checkpointer);
 }
 
 // Static build and search
@@ -314,6 +344,15 @@ void register_uncompressed_static_search(vamana::StaticSearchDispatcher& dispatc
     for_standard_search_specializations(
         [&dispatcher]<typename Q, typename T, typename D, size_t N>() {
             auto method = &run_static_search<Q, T, D, N>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
+
+void register_uncompressed_iterator_search(vamana::IteratorDispatcher& dispatcher) {
+    for_standard_search_specializations(
+        [&dispatcher]<typename Q, typename T, typename D, size_t N>() {
+            auto method = &run_iterator_search<Q, T, D, N>;
             dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
         }
     );

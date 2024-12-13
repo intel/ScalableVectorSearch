@@ -36,6 +36,7 @@ endfunction()
 # Examples
 create_simple_example(saveload test_saveload saveload.cpp)
 create_simple_example(types test_types types.cpp)
+create_simple_example(vamana_iterator test_vamana_iterator vamana_iterator.cpp)
 
 ## More complicated examples involving more extensive setup.
 

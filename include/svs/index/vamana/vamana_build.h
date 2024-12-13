@@ -346,7 +346,7 @@ class VamanaBuilder {
                         graph_search_query,
                         graph_search_distance,
                         search_buffer,
-                        entry_points,
+                        vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
                         NeighborBuilder(),
                         tracker,
                         prefetch_hint_
