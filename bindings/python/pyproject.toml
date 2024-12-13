@@ -14,12 +14,12 @@
 
 [build-system]
 requires = [
-    "setuptools>=42",
-    "scikit-build",
-    "cmake>=3.21",      # Keep in-sync with `CMakeLists.txt`
-    "numpy>=2.2, <3",    # Keep in-sync with `setup.py`
-    "archspec>=0.2.0",  # Keep in-sync with `setup.py`
-    "toml>=0.10.2",     # Keep in-sync with `setup.py` required for the tests
+    "setuptools==68.0.0",
+    "scikit-build==0.18.1",
+    "cmake==3.27.0",      # Keep in-sync with `CMakeLists.txt`
+    "numpy==2.0.2",    # Keep in-sync with `setup.py`
+    "archspec==0.2.0",  # Keep in-sync with `setup.py`
+    "toml==0.10.2" ,     # Keep in-sync with `setup.py` required for the tests
     #"pybind11",        # Installed in CMakeLists.txt
 ]
 
