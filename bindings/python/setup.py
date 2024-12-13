@@ -1,3 +1,17 @@
+# Copyright 2023 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from skbuild import setup
 import archspec.cpu as cpu
 import os
@@ -63,7 +77,7 @@ setup(
         "archspec>=0.2.0", # keep in-sync with `pyproject.toml`
         "toml>=0.10.2",    # keep in-sync with `pyproject.toml` required for the tests
     ],
-    license="GNU Affero General Public License v3 or later (AGPLv3+)",
+    license="Apache License, Version 2.0",
     license_files=[
         os.path.join(base_dir, "LICENSE"),
         os.path.join(base_dir, "THIRD-PARTY-PROGRAMS"),
@@ -80,7 +94,7 @@ setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "Intended Audience :: Other Audience",
-        "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+        "License :: OSI Approved :: Apache License, Version 2.0",
         "Topic :: Scientific/Engineering",
         "Topic :: System",
         "Topic :: Software Development",
