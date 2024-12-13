@@ -561,6 +561,12 @@ template <typename Alloc> class Blocked {
         : parameters_{parameters}
         , allocator_{alloc} {}
 
+    // Enable rebinding of allocators.
+    template <typename U> friend class Blocked;
+    template <typename U>
+    Blocked(const Blocked<U>& other)
+        : parameters_{other.parameters_} {}
+
   private:
     BlockingParameters parameters_{};
     Alloc allocator_{};
