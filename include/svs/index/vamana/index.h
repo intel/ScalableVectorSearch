@@ -192,7 +192,6 @@ template <typename Buffer, typename Scratch> struct SearchScratchspace {
     Scratch scratch;
     GreedySearchPrefetchParameters prefetch_parameters;
 
-  public:
     // Constructors
     SearchScratchspace(
         Buffer buffer_, Scratch scratch_, GreedySearchPrefetchParameters prefetch_parameters
@@ -200,6 +199,28 @@ template <typename Buffer, typename Scratch> struct SearchScratchspace {
         : buffer{std::move(buffer_)}
         , scratch{std::move(scratch_)}
         , prefetch_parameters{prefetch_parameters} {}
+
+    // Apply the provided search parameters to the existing scratchspace.
+    // In particular, the underlying buffer is modified according to the following rules:
+    //
+    // * If the new buffer capacity ``N`` is *less* than the old capacity ``O``, than the
+    //   first ``N`` elements in the buffer will remain unchanged.
+    //
+    //   Further, the size (in terms of number of contained elements) of the underlying
+    //   buffer will be the minimum of the previous size and the new capacity.
+    //
+    // * If the new buffer caspacity ``N`` is *greater* then the old capacity ``O``, then
+    //   the first ``O`` elements in the buffer will remain unchanged with the contents of
+    //   the remaining ``N - 0`` elements being undefined.
+    //
+    //   The size (in terms of number of contained elements) of the underlying buffer will
+    //   be the previous size.
+    SearchScratchspace& apply(const vamana::VamanaSearchParameters& p) {
+        buffer.change_maxsize(p.buffer_config_);
+        buffer.configure_visited_set(p.search_buffer_visited_set_);
+        prefetch_parameters = {p.prefetch_lookahead_, p.prefetch_step_};
+        return *this;
+    }
 };
 
 // Construct the default search parameters for this index.
@@ -241,11 +262,16 @@ class VamanaIndex {
     static constexpr bool supports_insertions = false;
     static constexpr bool supports_deletions = false;
     static constexpr bool supports_saving = true;
+    static constexpr bool needs_id_translation = false;
 
     ///// Type Aliases
 
     /// The integer type used to encode entries in the graph.
-    using Idx = typename Graph::index_type;
+    using Idx = typename Graph::index_type; // Todo (MH): deprecate?
+    /// The integer type used internally for IDs.
+    using internal_id_type = Idx;
+    /// The integer type used for external IDs.
+    using external_id_type = Idx;
     /// The type of entries in the dataset.
     using value_type = typename Data::value_type;
     /// The type of constant entries in the dataset.
@@ -278,6 +304,13 @@ class VamanaIndex {
     VamanaBuildParameters build_parameters_{};
 
   public:
+    // This is because some datasets may not yet support single-searching, which is required
+    // by the BatchIterator.
+    SVS_TEMPORARY_DISABLE_SINGLE_SEARCH static constexpr bool
+    temporary_disable_batch_iterator() {
+        return extensions::temporary_disable_single_search<data_type>();
+    }
+
     /// The type of the search resource used for external threading.
     using inner_scratch_type =
         svs::tag_t<extensions::single_search_setup>::result_t<Data, Dist>;
@@ -382,6 +415,7 @@ class VamanaIndex {
             threadpool_,
             extensions::estimate_prefetch_parameters(data_)
         );
+
         builder.construct(1.0F, entry_point_[0]);
         builder.construct(parameters.alpha, entry_point_[0]);
     }
@@ -413,6 +447,10 @@ class VamanaIndex {
     /// ``set_search_parameters``.
     scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
 
+    // Return a `greedy_search` compatible builder for this index.
+    // This is an internal method, mostly used to help implement the batch iterator.
+    static NeighborBuilder internal_search_builder() { return NeighborBuilder(); }
+
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
@@ -427,8 +465,8 @@ class VamanaIndex {
                 query,
                 distance,
                 buffer,
-                entry_point_,
-                NeighborBuilder(),
+                vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
+                internal_search_builder(),
                 prefetch_parameters,
                 cancel
             );
@@ -795,6 +833,17 @@ class VamanaIndex {
         );
         set_search_parameters(p);
         return p;
+    }
+
+    ///// Experimental Methods
+
+    /// Invoke the provided callable with constant references to the contained graph, data,
+    /// and entry points.
+    ///
+    /// This function is meant to provide a means for implementing experimental algorithms
+    /// on the contained data structures.
+    template <typename F> void experimental_escape_hatch(F&& f) const {
+        std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
     }
 };
 

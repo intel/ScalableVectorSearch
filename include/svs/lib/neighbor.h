@@ -198,6 +198,7 @@ struct Visited {
         : visited_{visited} {}
     constexpr bool visited() const { return visited_; }
     constexpr void set_visited() { visited_ = true; }
+    constexpr void clear_visited() { visited_ = false; }
 
     // members
     bool visited_;
@@ -232,6 +233,7 @@ class ValidVisit {
         : value_{valid ? valid_mask : uint8_t{0x0}} {}
 
     constexpr void set_visited() { value_ |= visited_mask; }
+    constexpr void clear_visited() { value_ &= ~visited_mask; }
     constexpr bool visited() const { return (value_ & visited_mask) != 0; }
     constexpr bool valid() const { return (value_ & valid_mask) != 0; }
 

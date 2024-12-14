@@ -19,6 +19,7 @@
 #include "svs-benchmark/datasets.h"
 // vamana
 #include "svs-benchmark/vamana/build.h"
+#include "svs-benchmark/vamana/iterator.h"
 #include "svs-benchmark/vamana/search.h"
 #include "svs-benchmark/vamana/test.h"
 // inverted
@@ -39,6 +40,7 @@ svsbenchmark::ExecutableDispatcher build_dispatcher() {
     dispatcher.register_executable(svsbenchmark::vamana::static_workflow());
     dispatcher.register_executable(svsbenchmark::vamana::dynamic_workflow());
     dispatcher.register_executable(svsbenchmark::vamana::test_generator());
+    dispatcher.register_executable(svsbenchmark::vamana::iterator_benchmark());
     // inverted
     svsbenchmark::inverted::register_executables(dispatcher);
     // documentation

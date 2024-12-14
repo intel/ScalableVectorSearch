@@ -269,6 +269,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     const data_type& get_data() const { return data_; }
     data_type& get_data() { return data_; }
 
+    // Resizeable API
+    void unsafe_resize(size_t new_size) { data_.resize(new_size); }
+    void add_node() { unsafe_resize(n_nodes() + 1); }
+
     ///// Saving
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
     static constexpr std::string_view serialization_schema = "default_graph";
@@ -394,10 +398,6 @@ class SimpleBlockedGraph
 
     explicit SimpleBlockedGraph(parent_type&& parent)
         : parent_type(std::move(parent)) {}
-
-    // Resizeable API
-    void unsafe_resize(size_t new_size) { (parent_type::data_).resize(new_size); }
-    void add_node() { unsafe_resize(parent_type::n_nodes() + 1); }
 
     ///// Loading
     static constexpr SimpleBlockedGraph load(const lib::LoadTable& table) {

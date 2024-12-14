@@ -28,7 +28,7 @@ struct dispatcher {
         requires requires(Tag&& tag, Args&&... args) {
                      svs_invoke(SVS_FWD(tag), SVS_FWD(args)...);
                  }
-    SVS_FORCE_INLINE auto operator()(Tag&& tag, Args&&... args) const
+    SVS_FORCE_INLINE constexpr auto operator()(Tag&& tag, Args&&... args) const
         noexcept(noexcept(svs_invoke(SVS_FWD(tag), SVS_FWD(args)...)))
             -> decltype(svs_invoke(SVS_FWD(tag), SVS_FWD(args)...)) {
         return svs_invoke(SVS_FWD(tag), SVS_FWD(args)...);

@@ -26,8 +26,9 @@ template <typename Index> struct IndexTraits; //{
 //
 ///// Search Requirements
 // template<svs::data::ImmutableMemoryDataset Queries>
-// static auto search(index_type&, const Queries&, size_t num_neighbors, const
-// config_type&);
+// static auto search(
+//     index_type&, const Queries&, size_t num_neighbors, const config_type&
+// );
 //
 // template<svs::data::ImmutableMemoryDataset Queries, typename GroundTruth>
 // static config_type calibrate(
@@ -45,8 +46,9 @@ template <typename Index> struct IndexTraits; //{
 ///// Dynamic Build Requirements
 //
 // template<svs::data::ImmutableMemoryDataset Points>
-// static void add_points(index_type&, const Points& points, const std::vector<size_t>&
-// ids);
+// static void add_points(
+//     index_type&, const Points& points, const std::vector<size_t>& ids
+// );
 //
 // static void delete_points(index_type&, const std::vector<size_t>& ids);
 //

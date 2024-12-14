@@ -18,6 +18,7 @@
 
 // svs-benchmark
 #include "svs-benchmark/vamana/build.h"
+#include "svs-benchmark/vamana/iterator.h"
 #include "svs-benchmark/vamana/search.h"
 #include "svs-benchmark/vamana/test.h"
 
@@ -29,6 +30,9 @@ namespace svsbenchmark::vamana {
 ///// target-registration
 // search
 void register_uncompressed_static_search(vamana::StaticSearchDispatcher&);
+
+// iterator
+void register_uncompressed_iterator_search(vamana::IteratorDispatcher&);
 
 // build
 void register_uncompressed_static_build(vamana::StaticBuildDispatcher&);

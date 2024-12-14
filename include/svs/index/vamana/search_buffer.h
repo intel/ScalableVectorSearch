@@ -66,6 +66,17 @@ class SearchBufferConfig {
               BypassInvariantCheckTag(), search_window_size, search_window_size
           ) {}
 
+    // Increment both the window size and capacity.
+    void increment(size_t by) {
+        search_window_size_ += by;
+        total_capacity_ += by;
+    }
+
+    void increment(SearchBufferConfig by) {
+        search_window_size_ += by.search_window_size_;
+        total_capacity_ += by.total_capacity_;
+    }
+
     // Read-only accessors.
     size_t get_search_window_size() const { return search_window_size_; }
     size_t get_total_capacity() const { return total_capacity_; }
@@ -93,6 +104,7 @@ class SearchBufferConfig {
 template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
   public:
     // External type aliases
+    using index_type = Idx;
     using value_type = SearchNeighbor<Idx>;
     using reference = value_type&;
     using const_reference = const value_type&;
@@ -169,9 +181,9 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     ///
     /// @param new_size The new number of elements to return.
     ///
-    /// Post conditions
+    /// Post conditions:
     /// - The capacity of the search buffer will be set to the new size.
-    /// - The actual size (number of valid elements) will be the minimum of the current
+    /// - The actual size (number of contained elements) will be the minimum of the current
     ///   size and the new size.
     ///
     void change_maxsize(size_t new_size) {
@@ -186,10 +198,16 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     ///
     /// @param config The new configuration for the buffer.
     ///
+    /// Post conditions:
+    /// - The capacity of the search buffer will be set to the new capacity.
+    /// - The actual size (number of contained elements) will be the minimum of the current
+    ///   size and the new size.
+    ///
     void change_maxsize(SearchBufferConfig config) {
         search_window_size_ = config.get_search_window_size();
         capacity_ = config.get_total_capacity();
         candidates_.resize(capacity_ + 1);
+        size_ = std::min(size_, capacity_);
     }
 
     ///
@@ -201,6 +219,27 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
         if (visited_set_enabled()) {
             visited_->reset();
         }
+    }
+
+    void soft_clear() {
+        bool use_visited_set = visited_set_enabled();
+        if (use_visited_set) {
+            visited_->reset();
+        }
+
+        // Mark all neighbors as no longer visited.
+        // Use a loop over `[0, size_)` since this is likely called after growing the buffer
+        // and the contents of the extended elements are invalid.
+        for (size_t i = 0; i < size_; ++i) {
+            auto& neighbor = candidates_[i];
+            neighbor.clear_visited();
+            if (use_visited_set) {
+                visited_->emplace(neighbor.id());
+            }
+        }
+
+        // Reset the best unvisited back to the beginning.
+        best_unvisited_ = 0;
     }
 
     /// @brief Return the current number of valid elements in the buffer.
@@ -393,6 +432,15 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     void disable_visited_set() {
         if (visited_set_enabled()) {
             visited_.reset();
+        }
+    }
+
+    /// @brief Enable or disable the visited set based on the argument.
+    void configure_visited_set(bool enable) {
+        if (enable) {
+            enable_visited_set();
+        } else {
+            disable_visited_set();
         }
     }
 

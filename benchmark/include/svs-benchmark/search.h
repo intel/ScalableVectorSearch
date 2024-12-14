@@ -144,11 +144,25 @@ template <typename T, std::integral I> struct QuerySet {
     }
 
     QuerySet(
-        const dataset_type& queries,
-        const groundtruth_type& groundtruth,
+        const svs::data::SimpleData<T>& queries,
+        const svs::data::SimpleData<I>& groundtruth,
+        size_t number_of_training_elements
+    )
+        : QuerySet{queries.cview(), groundtruth.cview(), number_of_training_elements} {}
+
+    QuerySet(
+        const svs::data::ConstSimpleDataView<T>& queries,
+        const svs::data::ConstSimpleDataView<I>& groundtruth,
         size_t number_of_training_elements
     ) {
-        assert(queries.size() == groundtruth.size());
+        size_t nqueries = queries.size();
+        if (nqueries != groundtruth.size()) {
+            throw ANNEXCEPTION(
+                "Query size ({}) and groundtruth size ({}) do not match!",
+                nqueries,
+                groundtruth.size()
+            );
+        }
         if (number_of_training_elements >= queries.size()) {
             throw ANNEXCEPTION(
                 "Number of elements to pull out into the training ({}) is greater than the "

@@ -1,0 +1,102 @@
+# Copyright 2024 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[[vamana_iterator_v1]]
+__schema__ = 'svsbenchmark_vamana_iterator'
+__version__ = 'v0.0.0'
+config = '/export/data/datasets/indexes/dpr-1m/config/'
+data = '/export/data/datasets/indexes/dpr-1m/data/'
+distance = 'MIP'
+graph = '/export/data/datasets/indexes/dpr-1m/graph/'
+groundtruth = '/export/data/datasets/dpr/dpr_1m_groundtruth_ip_10k_1000neighors.ivecs'
+ndims = 768
+queries = '/export/data/datasets/dpr/dpr_queries_10k_f32.fvecs'
+query_type = 'float32'
+
+    [vamana_iterator_v1.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [vamana_iterator_v1.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
+    [vamana_iterator_v1.parameters]
+    __schema__ = 'svsbenchamrk_isp'
+    __version__ = 'v0.0.0'
+    num_batches = 10
+    query_subsample = 1000
+    target_recalls = [ 0.9 ]
+
+        [[vamana_iterator_v1.parameters.schedules]]
+        __schema__ = 'svsbench_vamana_iter_schedule'
+        __version__ = 'v0.0.0'
+        batch_size_start = 10
+        enable_filter_after = -1
+        scale_batch_size = 0
+        scale_buffer_capacity = 10
+        scale_search_window = 10
+        restart_searches = true
+
+        [[vamana_iterator_v1.parameters.schedules]]
+        __schema__ = 'svsbench_vamana_iter_schedule'
+        __version__ = 'v0.0.0'
+        batch_size_start = 10
+        enable_filter_after = -1
+        scale_batch_size = 0
+        scale_buffer_capacity = 10
+        scale_search_window = 10
+        restart_searches = false
+
+        [[vamana_iterator_v1.parameters.schedules]]
+        __schema__ = 'svsbench_vamana_iter_schedule'
+        __version__ = 'v0.0.0'
+        batch_size_start = 10
+        enable_filter_after = 0
+        scale_batch_size = 0
+        scale_buffer_capacity = 10
+        scale_search_window = 10
+        restart_searches = false
+
+        [[vamana_iterator_v1.parameters.schedules]]
+        __schema__ = 'svsbench_vamana_iter_schedule'
+        __version__ = 'v0.0.0'
+        batch_size_start = 10
+        enable_filter_after = 1
+        scale_batch_size = 0
+        scale_buffer_capacity = 10
+        scale_search_window = 10
+        restart_searches = false
+
+        [[vamana_iterator_v1.parameters.schedules]]
+        __schema__ = 'svsbench_vamana_iter_schedule'
+        __version__ = 'v0.0.0'
+        batch_size_start = 10
+        enable_filter_after = 2
+        scale_batch_size = 0
+        scale_buffer_capacity = 10
+        scale_search_window = 10
+        restart_searches = false
+
+        [[vamana_iterator_v1.parameters.schedules]]
+        __schema__ = 'svsbench_vamana_iter_schedule'
+        __version__ = 'v0.0.0'
+        batch_size_start = 10
+        enable_filter_after = 3
+        scale_batch_size = 0
+        scale_buffer_capacity = 10
+        scale_search_window = 10
+        restart_searches = false

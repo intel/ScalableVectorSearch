@@ -16,9 +16,13 @@
 
 #pragma once
 
+// svs-test
+#include "tests/utils/test_dataset.h"
+
 // svsbenchmark
 #include "svs-benchmark/datasets.h"
 #include "svs-benchmark/vamana/test.h"
+#include "svs/index/vamana/dynamic_index.h"
 
 // svs
 #include "svs/core/distance.h"
@@ -76,6 +80,50 @@ expected_search_results(svs::DistanceType distance, const T& dataset) {
         throw ANNEXCEPTION("Got {} results when only one was expected!", results.size());
     }
     return results[0];
+}
+
+/// Load a test index with default contained types.
+svs::index::vamana::VamanaIndex<
+    svs::graphs::SimpleGraph<uint32_t>,
+    svs::data::SimpleData<float>,
+    svs::DistanceL2>
+load_test_index();
+
+/// Load a test index with a custom distance functor.
+template <typename Distance>
+svs::index::vamana::
+    VamanaIndex<svs::graphs::SimpleGraph<uint32_t>, svs::data::SimpleData<float>, Distance>
+    load_test_index(const Distance& distance) {
+    return svs::index::vamana::auto_assemble(
+        test_dataset::vamana_config_file(),
+        test_dataset::graph(),
+        test_dataset::data_f32(),
+        distance,
+        1
+    );
+}
+
+/// Load a test index with default contained types.
+svs::index::vamana::MutableVamanaIndex<
+    svs::graphs::SimpleGraph<uint32_t>,
+    svs::data::SimpleData<float>,
+    svs::DistanceL2>
+load_dynamic_test_index();
+
+template <typename Distance>
+svs::index::vamana::MutableVamanaIndex<
+    svs::graphs::SimpleGraph<uint32_t>,
+    svs::data::SimpleData<float>,
+    Distance>
+load_dynamic_test_index(const Distance& distance) {
+    return svs::index::vamana::auto_dynamic_assemble(
+        test_dataset::vamana_config_file(),
+        test_dataset::graph(),
+        test_dataset::data_f32(),
+        distance,
+        1,
+        true // debug_load_from_static
+    );
 }
 
 } // namespace test_dataset::vamana

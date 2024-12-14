@@ -27,9 +27,11 @@
 #include "svs/core/medioid.h"
 #include "svs/index/vamana/index.h"
 #include "svs/index/vamana/vamana_build.h"
+#include "svs/lib/datatype.h"
 #include "svs/lib/readwrite.h"
 #include "svs/lib/threads.h"
 #include "svs/orchestrators/manager.h"
+#include "svs/orchestrators/vamana_iterator.h"
 
 // stdlib
 #include <filesystem>
@@ -65,6 +67,11 @@ class VamanaInterface {
     // TODO: Allow threadpools to be const-invocable.
     virtual void
     reconstruct_at(data::SimpleDataView<float> dst, std::span<const uint64_t> ids) = 0;
+
+    ///// Iterator
+    virtual VamanaIterator batch_iterator(
+        svs::AnonymousArray<1> query, svs::index::vamana::AbstractIteratorSchedule schedule
+    ) const = 0;
 
     ///// Calibrations
     virtual index::vamana::VamanaSearchParameters experimental_calibrate(
@@ -147,8 +154,30 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
         impl().reconstruct_at(data, ids);
     }
 
-    ///// Calibration
+    ///// Iterator
+    SVS_TEMPORARY_DISABLE_SINGLE_SEARCH VamanaIterator batch_iterator(
+        svs::AnonymousArray<1> query, svs::index::vamana::AbstractIteratorSchedule schedule
+    ) const override {
+        if constexpr (!Impl::temporary_disable_batch_iterator()) {
+            // Match the query type.
+            return svs::lib::match(
+                QueryTypes{},
+                query.type(),
+                [&]<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                    return VamanaIterator{
+                        impl(),
+                        std::span<const T>(svs::get<T>(query), query.size(0)),
+                        std::move(schedule)};
+                }
+            );
+        } else {
+            // TODO: Enable single-search for LeanVec to remove this run-time error.
+            throw ANNEXCEPTION("The current index backend does not support batch iteration."
+            );
+        }
+    }
 
+    ///// Calibration
     VamanaSearchParameters experimental_calibrate(
         ConstErasedPointer queries,
         size_t query_size_0,
@@ -418,6 +447,22 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 graph_allocator
             );
         }
+    }
+
+    ///// Iterator
+
+    /// @brief Return a new batch iterator for the query using the provided schedule.
+    ///
+    /// The parameter `QueryType` must be an element of  ``svs::Vamana::query_types()``.
+    ///
+    /// The returned iterator will maintain an internal copy of the query.
+    template <typename QueryType, size_t N, svs::index::vamana::IteratorSchedule Schedule>
+    svs::VamanaIterator
+    batch_iterator(std::span<const QueryType, N> query, Schedule schedule) const {
+        return impl_->batch_iterator(
+            svs::AnonymousArray<1>(query.data(), query.size()),
+            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule))
+        );
     }
 
     ///// Experimental Calibration

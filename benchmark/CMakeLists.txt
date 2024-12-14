@@ -37,6 +37,7 @@ set(SHARED_LIBRARY_FILES
     src/vamana/search.cpp
     src/vamana/build.cpp
     src/vamana/test.cpp
+    src/vamana/iterator.cpp
     # inverted
     src/inverted/inverted.cpp
     src/inverted/memory/common.cpp

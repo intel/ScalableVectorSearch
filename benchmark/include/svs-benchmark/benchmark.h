@@ -222,8 +222,7 @@ class ExecutableDispatcher {
 // In general, index builds can take a long time and it may be beneficial to two things:
 //
 // (1) Regularly save checkpoints of results as they are generated so that if the
-// application
-//     fails, we do not lose all of our data.
+// application fails, we do not lose all of our data.
 // (2) Provide results in as near real-time as we can so we can monitor currently running
 //     processes to determine as early as possible if something has gone wrong.
 //
