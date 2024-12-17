@@ -306,7 +306,7 @@ class VamanaBuilder {
 
         update_type updates{threadpool_.size()};
         auto main = timer.push_back("main");
-        threads::run(threadpool_, range, [&](const auto& local_indices, uint64_t tid) {
+        threads::parallel_for(threadpool_, range, [&](const auto& local_indices, uint64_t tid) {
             // Thread local variables
             auto& thread_local_updates = updates.at(tid);
 
@@ -436,7 +436,7 @@ class VamanaBuilder {
 
         // Apply updates.
         auto update = timer.push_back("updates");
-        threads::run(threadpool_, [&](uint64_t tid) {
+        threads::parallel_for(threadpool_, [&](uint64_t tid) {
             const auto& thread_local_updates = updates.at(tid);
             for (auto [node_id, update] : thread_local_updates) {
                 graph_.replace_node(node_id, update);
@@ -455,7 +455,7 @@ class VamanaBuilder {
         auto backedge_timer = timer.push_back("backedge generation");
         auto range = threads::StaticPartition{indices};
         backedge_buffer_.reset();
-        threads::run(threadpool_, range, [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
+        threads::parallel_for(threadpool_, range, [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
             for (auto node_id : is) {
                 for (auto other_id : graph_.get_node(node_id)) {
                     std::lock_guard lock{vertex_locks_[other_id]};
@@ -475,7 +475,7 @@ class VamanaBuilder {
         //
         // Take care to avoid duplicate entries.
         auto prune_timer = timer.push_back("pruning backedges");
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{backedge_buffer_.buckets(), 1},
             [&](auto& buckets, uint64_t SVS_UNUSED(tid)) {

@@ -297,7 +297,7 @@ class VamanaIndex {
     // Base distance type.
     distance_type distance_;
     // Thread-pool for batch queries.
-    threads::NativeThreadPool threadpool_;
+    threads::ThreadPoolHandle threadpool_;
     // Search Parameters (protected for multiple readers and writers).
     lib::ReadWriteProtected<VamanaSearchParameters> default_search_parameters_{};
     // Construction parameters
@@ -328,7 +328,10 @@ class VamanaIndex {
     /// @param entry_point The entry-point into the graph to begin searches.
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
-    /// @param threadpool The threadpool to use to conduct searches.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
+    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
+    ///     threads to create.
     ///
     /// This is a lower-level function that is meant to take a collection of
     /// instantiated components and assemble the final index. For a more "hands-free"
@@ -341,28 +344,24 @@ class VamanaIndex {
     ///
     /// @sa auto_assemble
     ///
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
+    ///
+    template <typename ThreadPoolProto>
     VamanaIndex(
         Graph graph,
         Data data,
         Idx entry_point,
         Dist distance_function,
-        threads::NativeThreadPool threadpool
+        ThreadPoolProto threadpool_proto
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
         , distance_{std::move(distance_function)}
-        , threadpool_{std::move(threadpool)}
-        , default_search_parameters_{construct_default_search_parameters(data_)} {}
-
-    VamanaIndex(
-        Graph graph, Data data, Idx entry_point, Dist distance_function, size_t num_threads
-    )
-        : graph_{std::move(graph)}
-        , data_{std::move(data)}
-        , entry_point_{entry_point}
-        , distance_{std::move(distance_function)}
-        , threadpool_{num_threads}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , default_search_parameters_{construct_default_search_parameters(data_)} {}
 
     ///
@@ -375,7 +374,7 @@ class VamanaIndex {
     /// @param entry_point The entry-point into the graph to begin searches.
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
-    /// @param threadpool The threadpool to use to conduct searches.
+    /// @param threadpool The acceptable threadpool to use to conduct searches.
     ///
     /// This is a lower-level function that is meant to take a dataset and construct
     /// the graph-based index over the dataset. For a more "hands-free" approach, see
@@ -388,13 +387,14 @@ class VamanaIndex {
     ///
     /// @sa auto_build
     ///
+    template <threads::ThreadPool Pool>
     VamanaIndex(
         const VamanaBuildParameters& parameters,
         Graph graph,
         Data data,
         Idx entry_point,
         Dist distance_function,
-        threads::NativeThreadPool threadpool
+        Pool threadpool
     )
         : VamanaIndex{
               std::move(graph),
@@ -543,7 +543,7 @@ class VamanaIndex {
         const search_parameters_type& search_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
@@ -647,13 +647,10 @@ class VamanaIndex {
                 dst.set_datum(i, accessor(data_, id));
             }
         };
-        threads::run(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
+        threads::parallel_for(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
     }
 
     ///// Threading Interface
-
-    /// Return whether this implementation can dynamically change the number of threads.
-    static bool can_change_threads() { return true; }
 
     ///
     /// @brief Return the current number of threads used for search.
@@ -661,27 +658,29 @@ class VamanaIndex {
     /// @sa set_num_threads
     size_t get_num_threads() const { return threadpool_.size(); }
 
-    ///
-    /// @brief Set the number of threads used for search.
-    ///
-    /// @param num_threads The new number of threads to use.
-    ///
-    /// Implementation note: The number of threads cannot be zero. If zero is passed to
-    /// this method, it will be silently changed to 1.
-    ///
-    /// @sa get_num_threads
-    ///
-    void set_num_threads(size_t num_threads) {
-        num_threads = std::max(num_threads, size_t(1));
-        threadpool_.resize(num_threads);
+    void set_threadpool(threads::ThreadPoolHandle threadpool) {
+        threadpool_ = std::move(threadpool);
     }
 
     ///
-    /// @brief Obtain the underlying threadpool.
+    /// @brief Destroy the original thread pool and set to the provided one.
     ///
-    /// N.B.: Jobs may be run on the thread pool but it may not be resized safely.
+    /// @param threadpool An acceptable thread pool.
     ///
-    threads::NativeThreadPool& borrow_threadpool() { return threadpool_; }
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
+    ///
+    template <threads::ThreadPool Pool>
+    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+        set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
+    }
+
+    ///
+    /// @brief Return the current thread pool handle.
+    ///
+    threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
     ///// Search Parameter Setting
 
@@ -864,20 +863,28 @@ class VamanaIndex {
 /// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///     the dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be a
-///     threadpool instance of an integer specifying the number of threads to use.
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+///     instance or an integer specifying the number of threads to use. In the latter case, a new
+///     default thread pool will be constructed using ``threadpool_proto`` as the number of
+///     threads to create.
 /// @param graph_allocator The allocator to use for the graph data structure.
+///
+/// The thread pool should implement two functions:
+/// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+/// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. 
+///    Here, ``f(i)`` represents a task on the ``i^th`` partition, and ``n`` represents the number of partitions
+///    that need to be executed.
 ///
 template <
     typename DataProto,
     typename Distance,
-    typename ThreadpoolProto,
+    typename ThreadPoolProto,
     typename Allocator = HugepageAllocator<uint32_t>>
 auto auto_build(
     const VamanaBuildParameters& parameters,
     DataProto data_proto,
     Distance distance,
-    ThreadpoolProto threadpool_proto,
+    ThreadPoolProto threadpool_proto,
     const Allocator& graph_allocator = {}
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -904,14 +911,19 @@ auto auto_build(
 /// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///        the dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be a
-///        threadpool instance of an integer specifying the number of threads to use.
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable
+///        threadpool instance or an integer specifying the number of threads to use.
 ///
 /// This method provides much of the heavy lifting for instantiating a Vamana index from
 /// a collection of files on disk (or perhaps a mix-and-match of existing data in-memory
 /// and on disk).
 ///
 /// Refer to the examples for use of this interface.
+///
+/// The thread pool should implement two functions:
+/// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+/// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+/// and ``n`` represents the number of partitions that need to be executed.
 ///
 template <
     typename GraphProto,
@@ -925,7 +937,7 @@ auto auto_assemble(
     Distance distance,
     ThreadPoolProto threadpool_proto
 ) {
-    auto threadpool = threads::as_threadpool(threadpool_proto);
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
     auto graph = svs::detail::dispatch_load(std::move(graph_loader), threadpool);
 

@@ -318,7 +318,7 @@ class GraphConsolidator {
             // Generate updates.
             update_buffer.prepare();
             threads::UnitRange global_ids{start, stop};
-            threads::run(
+            threads::parallel_for(
                 threadpool_,
                 threads::DynamicPartition{global_ids.eachindex(), thread_batch_size},
                 [&](const auto& local_ids, uint64_t tid) {
@@ -334,7 +334,7 @@ class GraphConsolidator {
             );
 
             // Write back results.
-            threads::run(
+            threads::parallel_for(
                 threadpool_,
                 threads::DynamicPartition{global_ids.eachindex(), thread_batch_size},
                 [&](const auto& local_ids, uint64_t /*tid*/) {

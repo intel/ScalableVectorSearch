@@ -87,23 +87,33 @@ class Flat : public manager::IndexManager<FlatInterface> {
     ///
     /// @param data_loader A compatible class capable of load data. See expanded notes.
     /// @param distance A distance functor to use or a ``svs::DistanceType`` enum.
-    /// @param num_threads The number of threads to use for index searches.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
+    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
+    ///     threads to create.
     ///
     /// @copydoc hidden_flat_auto_assemble
+    ///
+    ///
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename DataLoader,
-        typename Distance>
-    static Flat assemble(DataLoader&& data_loader, Distance distance, size_t num_threads) {
+        typename Distance,
+        typename ThreadPoolProto>
+    static Flat assemble(DataLoader&& data_loader, Distance distance, ThreadPoolProto threadpool_proto) {
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher{distance};
-            return dispatcher([&, num_threads](auto distance_function) {
+            return dispatcher([&](auto distance_function) {
                 return make_flat<manager::as_typelist<QueryTypes>>(
                     AssembleTag(),
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
-                    num_threads
+                    threads::as_threadpool(std::move(threadpool_proto))
                 );
             });
         } else {
@@ -111,7 +121,7 @@ class Flat : public manager::IndexManager<FlatInterface> {
                 AssembleTag(),
                 std::forward<DataLoader>(data_loader),
                 std::move(distance),
-                num_threads
+                threads::as_threadpool(std::move(threadpool_proto))
             );
         }
     }

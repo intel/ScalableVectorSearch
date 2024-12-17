@@ -248,7 +248,7 @@ std::vector<double> op_pairwise(
 
     // Threaded run.
     threads::SequentialTLS<Op> tls{op.similar(), threadpool.size()};
-    threads::run(
+    threads::parallel_for(
         threadpool,
         threads::DynamicPartition(data.size(), batchsize),
         [&](const auto& indices, uint64_t tid) {
@@ -306,7 +306,7 @@ size_t find_medioid(
         type_traits::sentinel_v<Neighbor<size_t>, std::less<>>, threadpool.size()
     );
 
-    threads::run(
+    threads::parallel_for(
         threadpool,
         threads::StaticPartition{data.size()},
         [&](const auto& ids, uint64_t tid) {
@@ -348,7 +348,7 @@ size_t find_medioid(
 ///
 template <data::ImmutableMemoryDataset Data, typename... Args>
 size_t find_medioid(const Data& data, size_t num_threads, Args&&... args) {
-    auto threadpool = threads::NativeThreadPool(num_threads);
+    auto threadpool = threads::DefaultThreadPool(num_threads);
     return find_medioid(data, threadpool, std::forward<Args>(args)...);
 }
 

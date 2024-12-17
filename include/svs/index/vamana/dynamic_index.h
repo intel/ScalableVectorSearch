@@ -146,7 +146,7 @@ class MutableVamanaIndex {
 
     // Thread local data structures.
     distance_type distance_;
-    threads::NativeThreadPool threadpool_;
+    threads::ThreadPoolHandle threadpool_;
     lib::ReadWriteProtected<VamanaSearchParameters> search_parameters_;
 
     // Configurations
@@ -166,14 +166,14 @@ class MutableVamanaIndex {
     }
 
     // Constructors
-    template <typename ExternalIds>
+    template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
         Graph graph,
         Data data,
         Idx entry_point,
         Dist distance_function,
         const ExternalIds& external_ids,
-        threads::NativeThreadPool threadpool
+        ThreadPoolProto threadpool_proto
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -181,40 +181,22 @@ class MutableVamanaIndex {
         , status_(data_.size(), SlotMetadata::Valid)
         , translator_()
         , distance_{std::move(distance_function)}
-        , threadpool_{std::move(threadpool)}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
         , construction_window_size_{2 * graph.max_degree()} {
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
-    template <typename ExternalIds>
-    MutableVamanaIndex(
-        Graph graph,
-        Data data,
-        Idx entry_point,
-        Dist distance_function,
-        const ExternalIds& external_ids,
-        size_t num_threads
-    )
-        : MutableVamanaIndex(
-              std::move(graph),
-              std::move(data),
-              entry_point,
-              std::move(distance_function),
-              external_ids,
-              threads::NativeThreadPool(num_threads)
-          ) {}
-
     ///
     /// Build a graph from scratch.
     ///
-    template <typename ExternalIds>
+    template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
         const VamanaBuildParameters& parameters,
         Data data,
         const ExternalIds& external_ids,
         Dist distance_function,
-        size_t num_threads
+        ThreadPoolProto threadpool_proto
     )
         : graph_(Graph{data.size(), parameters.graph_max_degree})
         , data_(std::move(data))
@@ -222,7 +204,7 @@ class MutableVamanaIndex {
         , status_(data_.size(), SlotMetadata::Valid)
         , translator_()
         , distance_(std::move(distance_function))
-        , threadpool_(num_threads)
+        , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
         , search_parameters_(vamana::construct_default_search_parameters(data_))
         , construction_window_size_(parameters.window_size)
         , max_candidates_(parameters.max_candidate_pool_size)
@@ -255,13 +237,14 @@ class MutableVamanaIndex {
     /// * The data and graph were saved with no "holes". In otherwords, the index was
     ///   consolidated and compacted prior to saving.
     /// * The span of internal ID's in translator covers exactly ``[0, data.size())``.
+    template <threads::ThreadPool Pool>
     MutableVamanaIndex(
         const VamanaIndexParameters& config,
         data_type data,
         graph_type graph,
         const Dist& distance_function,
         IDTranslator translator,
-        threads::NativeThreadPool threadpool
+        Pool threadpool
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -403,7 +386,7 @@ class MutableVamanaIndex {
         requires(std::tuple_size_v<Dims> == 2)
     void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
         // N.B.: lib::narrow_cast should be valid because the origin of the IDs is internal.
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition{getsize<0>(ids)},
             [&](const auto is, uint64_t /*tid*/) {
@@ -483,7 +466,7 @@ class MutableVamanaIndex {
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
@@ -538,7 +521,7 @@ class MutableVamanaIndex {
         size_t num_neighbors,
         QueryResultView<I> result
     ) {
-        auto temp_index = temporary_flat_index(data_, distance_, threadpool_);
+        auto temp_index = temporary_flat_index(data_, distance_, threads::ThreadPoolReferenceWrapper(threadpool_));
         temp_index.search(queries, num_neighbors, result, [&](size_t i) {
             return getindex(status_, i) == SlotMetadata::Valid;
         });
@@ -559,7 +542,7 @@ class MutableVamanaIndex {
     template <data::ImmutableMemoryDataset Points>
     void copy_points(const Points& points, const std::vector<size_t>& slots) {
         assert(points.size() == slots.size());
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition{slots.size()},
             [&](auto is, auto SVS_UNUSED(tid)) {
@@ -577,7 +560,7 @@ class MutableVamanaIndex {
     /// deleted nodes) occuring in the new adjacency lists.
     ///
     template <std::integral I> void clear_lists(const std::vector<I>& local_ids) {
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition(local_ids),
             [&](const auto& thread_local_ids, uint64_t /*tid*/) {
@@ -772,7 +755,7 @@ class MutableVamanaIndex {
             auto this_batch = batch_to_new_id_map.eachindex();
 
             // Copy the graph into the temporary buffer and remap the IDs.
-            threads::run(
+            threads::parallel_for(
                 threadpool_,
                 threads::StaticPartition(this_batch),
                 [&](const auto& batch_ids, uint64_t /*tid*/) {
@@ -800,7 +783,7 @@ class MutableVamanaIndex {
             );
 
             // Copy the entries in the temporary graph to the original graph.
-            threads::run(
+            threads::parallel_for(
                 threadpool_,
                 threads::StaticPartition(this_batch),
                 [&](const auto& batch_ids, uint64_t /*tid*/) {
@@ -841,12 +824,35 @@ class MutableVamanaIndex {
     }
 
     ///// Threading Interface
-    static bool can_change_threads() { return true; }
+
+    /// @brief Return the current number of threads used for search.
+    ///
+    /// @sa set_num_threads
     size_t get_num_threads() const { return threadpool_.size(); }
-    void set_num_threads(size_t num_threads) {
-        num_threads = std::max(num_threads, size_t(1));
-        threadpool_.resize(num_threads);
+
+    void set_threadpool(threads::ThreadPoolHandle threadpool) {
+        threadpool_ = std::move(threadpool);
     }
+
+    ///
+    /// @brief Destroy the original thread pool and set to the provided one.
+    ///
+    /// @param threadpool An acceptable thread pool.
+    ///
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
+    ///
+    template <threads::ThreadPool Pool>
+    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+        set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
+    }
+
+    ///
+    /// @brief Return the current thread pool handle.
+    ///
+    threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
     ///// Window Interface
     VamanaSearchParameters get_search_parameters() const {
@@ -1060,7 +1066,7 @@ class MutableVamanaIndex {
                 dst.set_datum(i, accessor(data_, id));
             }
         };
-        threads::run(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
+        threads::parallel_for(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
     }
 
     /// Invoke the provided callable with constant references to the contained graph, data,
@@ -1173,6 +1179,10 @@ template <typename Data, typename Dist, typename ExternalIds>
 MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, size_t)
     -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
+MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, Pool)
+    -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+
 namespace detail {
 
 struct VamanaStateLoader {
@@ -1208,13 +1218,13 @@ struct VamanaStateLoader {
 } // namespace detail
 
 // Assembly
-template <typename GraphLoader, typename DataLoader, typename Distance>
+template <typename GraphLoader, typename DataLoader, typename Distance, typename ThreadPoolProto>
 auto auto_dynamic_assemble(
     const std::filesystem::path& config_path,
     GraphLoader&& graph_loader,
     DataLoader&& data_loader,
     Distance distance,
-    size_t num_threads,
+    ThreadPoolProto threadpool_proto,
     // Set this to `true` to use the identity map for ID translation.
     // This allows us to read files generated by the static index construction routines
     // to easily benchmark the static versus dynamic implementation.
@@ -1223,7 +1233,7 @@ auto auto_dynamic_assemble(
     bool debug_load_from_static = false
 ) {
     // Load the dataset
-    auto threadpool = threads::NativeThreadPool(num_threads);
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(SVS_FWD(data_loader), threadpool);
 
     // Load the graph.

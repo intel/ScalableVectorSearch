@@ -32,8 +32,8 @@ namespace svs::threads {
 /// This function returns a default generic threadpool. If more specialized behavior is
 /// desired, manually construct the necessary thread pool.
 ///
-inline NativeThreadPool as_threadpool(size_t num_threads) {
-    return NativeThreadPool(num_threads);
+inline DefaultThreadPool as_threadpool(size_t num_threads) {
+    return DefaultThreadPool(num_threads);
 }
 
 ///
@@ -41,7 +41,7 @@ inline NativeThreadPool as_threadpool(size_t num_threads) {
 ///
 /// @param threadpool The thread pool to forward.
 ///
-template <threads::ThreadPool Pool> Pool&& as_threadpool(Pool&& threadpool) {
+template <ThreadPool Pool> Pool&& as_threadpool(Pool&& threadpool) {
     return std::forward<Pool>(threadpool);
 }
 

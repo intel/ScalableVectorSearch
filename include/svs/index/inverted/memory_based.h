@@ -337,11 +337,12 @@ template <typename Index, typename Cluster> class InvertedIndex {
     using translator_type = std::vector<index_type, lib::Allocator<index_type>>;
     using search_parameters_type = InvertedSearchParameters;
 
+    template <threads::ThreadPool Pool>
     InvertedIndex(
         Index index,
         Cluster cluster,
         translator_type index_local_to_global,
-        threads::NativeThreadPool threadpool
+        Pool threadpool
     )
         : index_{std::move(index)}
         , cluster_{std::move(cluster)}
@@ -349,15 +350,41 @@ template <typename Index, typename Cluster> class InvertedIndex {
         , threadpool_{std::move(threadpool)} {
         // Clear out the threadpool in the inner index - prefer to handle threading
         // ourselves.
-        index_.set_num_threads(1);
+        index_.set_threadpool(threads::SequentialThreadPool());
     }
 
     ///// Threading
-    static constexpr bool can_change_threads() { return true; }
-    size_t get_num_threads() const { return threadpool_.size(); }
-    void set_num_threads(size_t num_threads) {
-        threadpool_.resize(std::max<size_t>(num_threads, 1));
+
+    ///
+    /// @brief Return the current number of threads used for search.
+    ///
+    size_t get_num_threads() const {
+        return threadpool_.size();
     }
+
+    void set_threadpool(threads::ThreadPoolHandle threadpool) {
+        threadpool_ = std::move(threadpool);
+    }
+
+    ///
+    /// @brief Destroy the original thread pool and set to the provided one.
+    ///
+    /// @param threadpool An acceptable thread pool.
+    ///
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
+    ///
+    template <threads::ThreadPool Pool>
+    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+        set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
+    }
+
+    ///
+    /// @brief Return the current thread pool handle.
+    ///
+    threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
     size_t size() const {
         // TODO: Fix
@@ -384,7 +411,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
         const search_parameters_type& search_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition(queries.size()),
             [&](auto is, auto SVS_UNUSED(tid)) {
@@ -481,7 +508,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
     translator_type index_local_to_global_;
 
     // Transient parameters.
-    threads::NativeThreadPool threadpool_;
+    threads::ThreadPoolHandle threadpool_;
 };
 
 struct PickRandomly {
@@ -515,7 +542,7 @@ inline constexpr ClusteringPostOp no_clustering_post_op{};
 template <
     typename DataProto,
     typename Distance,
-    typename ThreadpoolProto,
+    typename ThreadPoolProto,
     StorageStrategy Strategy = SparseStrategy,
     typename CentroidPicker = PickRandomly,
     typename ClusteringOp = ClusteringPostOp>
@@ -523,7 +550,7 @@ auto auto_build(
     const inverted::InvertedBuildParameters& parameters,
     DataProto data_proto,
     Distance distance,
-    ThreadpoolProto threadpool_proto,
+    ThreadPoolProto threadpool_proto,
     // Customizations
     Strategy strategy = {},
     CentroidPicker centroid_picker = {},
@@ -532,7 +559,6 @@ auto auto_build(
     // Perform clustering.
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
-    size_t num_threads = threadpool.size();
 
     // Select Centroids.
     auto centroids =
@@ -557,15 +583,19 @@ auto auto_build(
     clustering_op(clustering);
 
     // Put together the final pieces.
+    // Note:
+    // We could move the primary threadpool to InvertedIndex.
+    // That thread pool will be reset in InvertedIndex anyway.
+    auto primary_threadpool = std::move(index.get_threadpool_handle());
     return InvertedIndex{
         std::move(index),
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
-        threads::NativeThreadPool(num_threads)};
+        std::move(primary_threadpool)};
 }
 
 ///// Auto Assembling.
-template <typename DataProto, typename Distance, StorageStrategy Strategy>
+template <typename DataProto, typename Distance, StorageStrategy Strategy, typename ThreadPoolProto>
 auto assemble_from_clustering(
     const std::filesystem::path& clustering_path,
     DataProto data_proto,
@@ -573,9 +603,9 @@ auto assemble_from_clustering(
     Strategy strategy,
     const std::filesystem::path& index_config,
     const std::filesystem::path& graph,
-    size_t num_threads
+    ThreadPoolProto threadpool_proto
 ) {
-    auto threadpool = threads::as_threadpool(num_threads);
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto original = svs::detail::dispatch_load(std::move(data_proto), threadpool);
     auto clustering = lib::load_from_disk<Clustering<uint32_t>>(clustering_path);
     auto ids = clustering.sorted_centroids();

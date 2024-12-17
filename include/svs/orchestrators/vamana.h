@@ -376,8 +376,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     See the documentation below for details.
     /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
     ///     similarity search computations.
-    /// @param num_threads The number of threads to use to process queries.
-    ///     May be changed at run-time.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
+    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
+    ///     threads to create.
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
     /// returning a Vamana compatible dataset. Concrete examples include:
@@ -385,34 +387,41 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// * An instance of ``VectorDataLoader``.
     /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
+    ///
     /// @sa save, build
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename GraphLoaderType,
         typename DataLoader,
-        typename Distance>
+        typename Distance,
+        typename ThreadPoolProto>
     static Vamana assemble(
         const std::filesystem::path& config_path,
         const GraphLoaderType& graph_loader,
         DataLoader&& data_loader,
         const Distance& distance,
-        size_t num_threads = 1
+        ThreadPoolProto threadpool_proto
     ) {
         // If given an `enum` for the distance type, than we need to dispatch over that
         // enum.
         //
         // Otherwise, we can directly forward the provided distance function.
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         if constexpr (std::is_same_v<Distance, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
-            return dispatcher([&, num_threads](auto distance_function) {
+            return dispatcher([&](auto distance_function) {
                 return make_vamana<manager::as_typelist<QueryTypes>>(
                     AssembleTag(),
                     config_path,
                     graph_loader,
                     std::forward<DataLoader>(data_loader),
                     distance_function,
-                    num_threads
+                    std::move(threadpool)
                 );
             });
         } else {
@@ -422,7 +431,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 graph_loader,
                 std::forward<DataLoader>(data_loader),
                 distance,
-                num_threads
+                std::move(threadpool)
             );
         }
     }
@@ -437,8 +446,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @param data_loader Either a data loader from disk or a dataset by value.
     ///     See detailed notes below.
     /// @param distance The distance functor to use or a ``svs::DistanceType`` enum.
-    /// @param num_threads The number of threads to use for query processing (may be
-    ///     changed after class construction).
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
+    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
+    ///     threads to create.
     /// @param graph_allocator The allocator to use for the backing graph.
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
@@ -447,20 +458,27 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// * An instance of ``VectorDataLoader``.
     /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
+    /// The thread pool should implement two functions:
+    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
+    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
+    /// and ``n`` represents the number of partitions that need to be executed.
+    ///
     /// @sa assemble, save
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename DataLoader,
         typename Distance,
+        typename ThreadPoolProto = size_t,
         typename Allocator = HugepageAllocator<uint32_t>>
     static Vamana build(
         const index::vamana::VamanaBuildParameters& parameters,
         DataLoader&& data_loader,
         Distance distance,
-        size_t num_threads = 1,
+        ThreadPoolProto threadpool_proto = 1,
         const Allocator& graph_allocator = {}
     ) {
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
@@ -469,7 +487,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     parameters,
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
-                    num_threads,
+                    std::move(threadpool),
                     graph_allocator
                 );
             });
@@ -479,7 +497,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 parameters,
                 std::forward<DataLoader>(data_loader),
                 distance,
-                num_threads,
+                std::move(threadpool),
                 graph_allocator
             );
         }

@@ -72,7 +72,7 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
         // Reset and go again, this time with two threads.
         sequential_fill(data);
         CATCH_REQUIRE(check_sequential(data));
-        auto tpool = svs::threads::NativeThreadPool(2);
+        auto tpool = svs::threads::DefaultThreadPool(2);
         data.compact(svs::lib::as_const_span(new_to_old), tpool);
         for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
             auto val = new_to_old.at(i);
@@ -118,7 +118,7 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
         // Multi-threaded version.
         sequential_fill(data);
         CATCH_REQUIRE(check_sequential(data));
-        auto tpool = svs::threads::NativeThreadPool(2);
+        auto tpool = svs::threads::DefaultThreadPool(2);
         data.compact(svs::lib::as_const_span(new_to_old), tpool, 20);
         for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
             auto val = new_to_old.at(i);
