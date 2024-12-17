@@ -390,7 +390,7 @@ class SimpleBlockedGraph
     using data_type = typename parent_type::data_type;
 
     // Constructors
-    SimpleBlockedGraph(size_t max_degree, size_t num_nodes)
+    SimpleBlockedGraph(size_t num_nodes, size_t max_degree)
         : parent_type{num_nodes, max_degree} {}
 
     explicit SimpleBlockedGraph(data_type data)

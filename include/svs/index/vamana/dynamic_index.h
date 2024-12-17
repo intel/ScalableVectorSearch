@@ -216,7 +216,7 @@ class MutableVamanaIndex {
         Dist distance_function,
         size_t num_threads
     )
-        : graph_(Graph{parameters.graph_max_degree, data.size()})
+        : graph_(Graph{data.size(), parameters.graph_max_degree})
         , data_(std::move(data))
         , entry_point_{}
         , status_(data_.size(), SlotMetadata::Valid)
