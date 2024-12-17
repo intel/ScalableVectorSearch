@@ -87,18 +87,14 @@ class Flat : public manager::IndexManager<FlatInterface> {
     ///
     /// @param data_loader A compatible class capable of load data. See expanded notes.
     /// @param distance A distance functor to use or a ``svs::DistanceType`` enum.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
     ///     instance or an integer specifying the number of threads to use. In the latter case, a new
     ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
     ///     threads to create.
     ///
     /// @copydoc hidden_flat_auto_assemble
     ///
-    ///
-    /// The thread pool should implement two functions:
-    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
-    /// and ``n`` represents the number of partitions that need to be executed.
+    /// @copydoc threadpool_requirements
     ///
     template <
         manager::QueryTypeDefinition QueryTypes,
