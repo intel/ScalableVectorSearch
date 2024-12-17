@@ -124,8 +124,8 @@ void stress_test() {
     };
 
     // Run all jobs.
-    auto threadpool = svs::threads::NativeThreadPool(num_writers + num_readers);
-    threadpool.run(svs::threads::FunctionRef{job});
+    auto threadpool = svs::threads::DefaultThreadPool(num_writers + num_readers);
+    threadpool.parallel_for(std::move(job), threadpool.size());
 
     // Make sure the final results make sense.
     // * Final count is correct.

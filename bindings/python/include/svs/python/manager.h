@@ -82,11 +82,12 @@ Returns:
 
 template <typename Manager>
 void add_threading_interface(pybind11::class_<Manager>& manager) {
-    manager.def_property_readonly("can_change_threads", &Manager::can_change_threads);
     manager.def_property(
         "num_threads",
         &Manager::get_num_threads,
-        &Manager::set_num_threads,
+        [](Manager& self, int num_threads) {
+            self.set_threadpool(svs::threads::DefaultThreadPool(num_threads));
+        },
         "Read/Write (int): Get and set the number of threads used to process queries."
     );
 }

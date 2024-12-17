@@ -91,7 +91,7 @@ CATCH_TEST_CASE("KMeans Clustering", "[core][kmeans]") {
             }
         }
 
-        auto threadpool = svs::threads::NativeThreadPool(4);
+        auto threadpool = svs::threads::DefaultThreadPool(4);
         double mse = svs::mean_squared_error(data, centroids, threadpool);
         double expected_mse = centroids.dimensions() * ((0.5 * 0.5) + (1.5 * 1.5)) / 2;
         CATCH_REQUIRE(mse == expected_mse);

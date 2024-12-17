@@ -29,41 +29,27 @@
 namespace svs {
 namespace threads {
 
-using FunctionType = void (*)(void*, size_t);
-
-/// @brief A function pointer-like object that can point to capturing lambdas.
-struct FunctionRef {
-  public:
-    FunctionType fn = nullptr;
-    void* arg = nullptr;
-
-  public:
-    FunctionRef() = default;
-
-    // N.B.: Need to constrain the argument to not be a `FunctionRef` (otherwise, this
-    // seems to have higher precedence than the copy constructor).
-    template <typename F>
-        requires(!std::is_same_v<std::remove_const_t<F>, FunctionRef>)
-    explicit FunctionRef(F& f)
-        : fn{+[](void* arg, size_t tid) { static_cast<F*>(arg)->operator()(tid); }}
-        , arg{static_cast<void*>(&f)} {}
-
-    void operator()(size_t tid) const { fn(arg, tid); }
-    constexpr friend bool operator==(FunctionRef, FunctionRef) = default;
+// Move on Copy
+template <typename T>
+struct MoC {
+    MoC(T&& rhs): obj(std::move(rhs)) {}
+    MoC(const MoC& other): obj(std::move(other.obj)) {}
+    T& get() { return obj; }
+    mutable T obj;
 };
 
 struct ThreadFunctionRef {
   public:
-    FunctionRef fn{};
+    const std::function<void(size_t)>* fn{nullptr};
     size_t thread_id = 0;
 
   public:
     ThreadFunctionRef() = default;
-    ThreadFunctionRef(FunctionRef fn_, size_t thread_id_)
+    ThreadFunctionRef(const std::function<void(size_t)>* fn_, size_t thread_id_)
         : fn{fn_}
         , thread_id{thread_id_} {}
 
-    void operator()() const { fn(thread_id); }
+    void operator()() const { (*fn)(thread_id); }
 };
 
 /////
@@ -105,11 +91,12 @@ template <typename F, typename I> struct Thunk<F, StaticPartition<I>> {
 // Dynamic partition
 template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
     static auto wrap(ThreadCount SVS_UNUSED(nthreads), F& f, DynamicPartition<I> space) {
-        return [&f, space, count = std::atomic<uint64_t>(0)](uint64_t tid) mutable {
+        auto count_ = std::make_unique<std::atomic<uint64_t>>(0); // workaround for atomic being not copyable and movable
+        return [&f, space, count=MoC(std::move(count_))](uint64_t tid) mutable {
             size_t grainsize = space.grainsize;
             size_t iterator_size = space.size();
             for (;;) {
-                uint64_t i = count.fetch_add(1, std::memory_order_relaxed);
+                uint64_t i = count.get()->fetch_add(1, std::memory_order_relaxed);
                 auto start = grainsize * i;
                 if (start >= iterator_size) {
                     return;

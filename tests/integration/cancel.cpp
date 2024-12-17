@@ -101,7 +101,7 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         auto groundtruth_all = test_dataset::load_groundtruth(svs::L2);
         auto groundtruth = test_dataset::get_test_set(groundtruth_all, queries_in_test_set);
         index.set_search_parameters(expected.search_parameters_);
-        index.set_num_threads(num_threads);
+        index.set_threadpool(svs::threads::DefaultThreadPool(num_threads));
         auto results = index.search(queries, expected.num_neighbors_, timeout);
         auto recall = svs::k_recall_at_n(
             groundtruth, results, expected.num_neighbors_, expected.recall_k_
