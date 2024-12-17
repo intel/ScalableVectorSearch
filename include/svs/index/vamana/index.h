@@ -328,7 +328,7 @@ class VamanaIndex {
     /// @param entry_point The entry-point into the graph to begin searches.
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
     ///     instance or an integer specifying the number of threads to use. In the latter case, a new
     ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
     ///     threads to create.
@@ -342,12 +342,9 @@ class VamanaIndex {
     /// * `graph.n_nodes() == data.size()`: Graph and data should have the same number
     /// of entries.
     ///
-    /// @sa auto_assemble
+    /// @copydoc threadpool_requirements
     ///
-    /// The thread pool should implement two functions:
-    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
-    /// and ``n`` represents the number of partitions that need to be executed.
+    /// @sa auto_assemble
     ///
     template <typename ThreadPoolProto>
     VamanaIndex(
@@ -667,10 +664,7 @@ class VamanaIndex {
     ///
     /// @param threadpool An acceptable thread pool.
     ///
-    /// The thread pool should implement two functions:
-    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
-    /// and ``n`` represents the number of partitions that need to be executed.
+    /// @copydoc threadpool_requirements
     ///
     template <threads::ThreadPool Pool>
     void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
@@ -863,17 +857,13 @@ class VamanaIndex {
 /// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///     the dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
 ///     instance or an integer specifying the number of threads to use. In the latter case, a new
 ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
 ///     threads to create.
 /// @param graph_allocator The allocator to use for the graph data structure.
 ///
-/// The thread pool should implement two functions:
-/// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-/// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. 
-///    Here, ``f(i)`` represents a task on the ``i^th`` partition, and ``n`` represents the number of partitions
-///    that need to be executed.
+/// @copydoc threadpool_requirements
 ///
 template <
     typename DataProto,
@@ -912,7 +902,7 @@ auto auto_build(
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///        the dataset.
 /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable
-///        threadpool instance or an integer specifying the number of threads to use.
+///        thread pool instance or an integer specifying the number of threads to use.
 ///
 /// This method provides much of the heavy lifting for instantiating a Vamana index from
 /// a collection of files on disk (or perhaps a mix-and-match of existing data in-memory
@@ -920,10 +910,7 @@ auto auto_build(
 ///
 /// Refer to the examples for use of this interface.
 ///
-/// The thread pool should implement two functions:
-/// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-/// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
-/// and ``n`` represents the number of partitions that need to be executed.
+/// @copydoc threadpool_requirements
 ///
 template <
     typename GraphProto,

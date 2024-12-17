@@ -376,7 +376,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     See the documentation below for details.
     /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
     ///     similarity search computations.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
     ///     instance or an integer specifying the number of threads to use. In the latter case, a new
     ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
     ///     threads to create.
@@ -387,10 +387,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// * An instance of ``VectorDataLoader``.
     /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
-    /// The thread pool should implement two functions:
-    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
-    /// and ``n`` represents the number of partitions that need to be executed.
+    /// @copydoc threadpool_requirements
     ///
     /// @sa save, build
     ///
@@ -446,7 +443,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @param data_loader Either a data loader from disk or a dataset by value.
     ///     See detailed notes below.
     /// @param distance The distance functor to use or a ``svs::DistanceType`` enum.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable threadpool
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
     ///     instance or an integer specifying the number of threads to use. In the latter case, a new
     ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
     ///     threads to create.
@@ -458,10 +455,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// * An instance of ``VectorDataLoader``.
     /// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
     ///
-    /// The thread pool should implement two functions:
-    /// 1) ``size_t size()`` This method should return the number of workers (threads) used in the thread pool.
-    /// 2) ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition,
-    /// and ``n`` represents the number of partitions that need to be executed.
+    /// @copydoc threadpool_requirements
     ///
     /// @sa assemble, save
     ///
