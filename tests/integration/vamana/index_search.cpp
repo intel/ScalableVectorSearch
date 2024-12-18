@@ -279,6 +279,10 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         index.set_construction_window_size(456);
         index.set_max_candidates(1001);
 
+        auto max_degree = index.get_graph_max_degree();
+        index.set_prune_to(max_degree - 2);
+        index.set_full_search_history(false);
+
         auto config_dir = temp_dir / "config";
         auto graph_dir = temp_dir / "graph";
         auto data_dir = temp_dir / "data";
@@ -299,6 +303,9 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         CATCH_REQUIRE(index.get_alpha() == 1.2f);
         CATCH_REQUIRE(index.get_construction_window_size() == 456);
         CATCH_REQUIRE(index.get_max_candidates() == 1001);
+        CATCH_REQUIRE(index.get_graph_max_degree() == max_degree);
+        CATCH_REQUIRE(index.get_prune_to() == max_degree - 2);
+        CATCH_REQUIRE(index.get_full_search_history() == false);
 
         index.set_num_threads(2);
         run_tests(index, queries, groundtruth, expected_results.config_and_recall_);

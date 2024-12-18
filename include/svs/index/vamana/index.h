@@ -718,34 +718,42 @@ class VamanaIndex {
 
     ///// Parameter manipulation.
 
-    /// @brief Return the value of ``alpha`` used during graph construction.
+    /// @brief Get the value of ``alpha`` used during graph construction.
     float get_alpha() const { return build_parameters_.alpha; }
+    /// @brief Set the value of ``alpha`` to be used during graph construction.
     void set_alpha(float alpha) { build_parameters_.alpha = alpha; }
 
-    /// @brief Return the max candidate pool size that was used for graph construction.
+    /// @brief Get the ``graph_max_degree`` that was used for graph construction.
+    size_t get_graph_max_degree() const { return graph_.max_degree(); }
+
+    /// @brief Get the max candidate pool size that was used for graph construction.
     size_t get_max_candidates() const { return build_parameters_.max_candidate_pool_size; }
+    /// @brief Set the max candidate pool size to be used for graph construction.
     void set_max_candidates(size_t max_candidates) {
         build_parameters_.max_candidate_pool_size = max_candidates;
     }
 
-    /// @brief Return the search window size that was used for graph construction.
+    /// @brief Get the prune_to value that was used for graph construction.
+    size_t get_prune_to() const { return build_parameters_.prune_to; }
+    /// @brief Set the prune_to value to be used for graph construction.
+    void set_prune_to(size_t prune_to) { build_parameters_.prune_to = prune_to; }
+
+    /// @brief Get the search window size that was used for graph construction.
     size_t get_construction_window_size() const { return build_parameters_.window_size; }
+    /// @brief Set the search window size to be used for graph construction.
     void set_construction_window_size(size_t construction_window_size) {
         build_parameters_.window_size = construction_window_size;
-    }
-
-    ///
-    /// @brief Enable using the full search history for candidate generation while
-    /// building.
-    ///
-    void set_full_search_history(bool enable) {
-        build_parameters_.use_full_search_history = enable;
     }
 
     /// @brief Return whether the full search history is being used for index
     /// construction.
     bool get_full_search_history() const {
         return build_parameters_.use_full_search_history;
+    }
+    /// @brief Enable using the full search history for candidate generation while
+    /// building.
+    void set_full_search_history(bool enable) {
+        build_parameters_.use_full_search_history = enable;
     }
 
     ///// Saving

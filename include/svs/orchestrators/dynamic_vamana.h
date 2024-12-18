@@ -160,14 +160,34 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     }
 
     // Accessors
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::get_alpha
     float get_alpha() const { return impl_->get_alpha(); }
     void set_alpha(size_t alpha) { impl_->set_alpha(alpha); }
+
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::get_graph_max_degree
+    size_t get_graph_max_degree() const { return impl_->get_graph_max_degree(); }
+
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::set_construction_window_size
     size_t get_construction_window_size() const {
         return impl_->get_construction_window_size();
     }
     void set_construction_window_size(size_t window_size) {
         impl_->set_construction_window_size(window_size);
     }
+
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::get_max_candidates
+    size_t get_max_candidates() const { return impl_->get_max_candidates(); }
+    void set_max_candidates(size_t max_candidates) {
+        impl_->set_max_candidates(max_candidates);
+    }
+
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::get_prune_to
+    size_t get_prune_to() const { return impl_->get_prune_to(); }
+    void set_prune_to(size_t prune_to) { impl_->set_prune_to(prune_to); }
+
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::get_full_search_history
+    bool get_full_search_history() const { return impl_->get_full_search_history(); }
+    void set_full_search_history(bool enable) { impl_->set_full_search_history(enable); }
 
     // Backend String
     std::string experimental_backend_string() const {

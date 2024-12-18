@@ -486,6 +486,11 @@ void wrap(py::module& m) {
         .def_readwrite(
             "max_candidate_pool_size",
             &svs::index::vamana::VamanaBuildParameters::max_candidate_pool_size
+        )
+        .def_readwrite("prune_to", &svs::index::vamana::VamanaBuildParameters::prune_to)
+        .def_readwrite(
+            "use_full_search_history",
+            &svs::index::vamana::VamanaBuildParameters::use_full_search_history
         );
 
     ///
