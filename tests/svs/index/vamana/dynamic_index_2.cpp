@@ -305,12 +305,14 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
 
-    // Verify that we can get and set alpha and the construction window size.
+    // Verify that we can get and set build parameters.
     CATCH_REQUIRE(index.get_alpha() == alpha);
     index.set_alpha(1.0);
     CATCH_REQUIRE(index.get_alpha() == 1.0);
     index.set_alpha(alpha);
     CATCH_REQUIRE(index.get_alpha() == alpha);
+
+    CATCH_REQUIRE(index.get_graph_max_degree() == max_degree);
 
     const size_t expected_construction_window = 2 * max_degree;
     CATCH_REQUIRE(index.get_construction_window_size() == expected_construction_window);
@@ -318,6 +320,18 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     CATCH_REQUIRE(index.get_construction_window_size() == 10);
     index.set_construction_window_size(expected_construction_window);
     CATCH_REQUIRE(index.get_construction_window_size() == expected_construction_window);
+
+    CATCH_REQUIRE(index.get_max_candidates() == 1000);
+    index.set_max_candidates(750);
+    CATCH_REQUIRE(index.get_max_candidates() == 750);
+
+    CATCH_REQUIRE(index.get_prune_to() == max_degree - 4);
+    index.set_prune_to(max_degree - 2);
+    CATCH_REQUIRE(index.get_prune_to() == max_degree - 2);
+
+    CATCH_REQUIRE(index.get_full_search_history() == true);
+    index.set_full_search_history(false);
+    CATCH_REQUIRE(index.get_full_search_history() == false);
 
     reference.configure_extra_checks(true);
     CATCH_REQUIRE(reference.extra_checks_enabled());
@@ -348,10 +362,13 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
 
     // Make sure parameters were saved across the saving.
     CATCH_REQUIRE(index.get_alpha() == reloaded.get_alpha());
+    CATCH_REQUIRE(index.get_graph_max_degree() == reloaded.get_graph_max_degree());
     CATCH_REQUIRE(index.get_max_candidates() == reloaded.get_max_candidates());
     CATCH_REQUIRE(
         index.get_construction_window_size() == reloaded.get_construction_window_size()
     );
+    CATCH_REQUIRE(index.get_prune_to() == reloaded.get_prune_to());
+    CATCH_REQUIRE(index.get_full_search_history() == reloaded.get_full_search_history());
     CATCH_REQUIRE(index.size() == reloaded.size());
     // ID's preserved across runs.
     index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
