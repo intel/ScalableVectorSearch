@@ -33,7 +33,12 @@
 
 namespace {
 
-template <typename E, typename Distance, typename ClusterStrategy, svs::threads::ThreadPool Pool, size_t D = svs::Dynamic>
+template <
+    typename E,
+    typename Distance,
+    typename ClusterStrategy,
+    svs::threads::ThreadPool Pool,
+    size_t D = svs::Dynamic>
 svs::Inverted build_index(
     const svs::index::inverted::InvertedBuildParameters& build_parameters,
     const std::filesystem::path& data_path,
@@ -96,7 +101,8 @@ void run_test(const Queries& queries, ThreadPoolProto threadpool_proto) {
             );
             CATCH_REQUIRE(recall > expected.recall_ - epsilon);
             CATCH_REQUIRE(recall < expected.recall_ + epsilon);
-            auto& threadpool = index.get_threadpool_handle().get<svs::threads::DefaultThreadPool>();
+            auto& threadpool =
+                index.get_threadpool_handle().get<svs::threads::DefaultThreadPool>();
             threadpool.resize(3);
             CATCH_REQUIRE(index.get_num_threads() == 3);
         }
@@ -108,8 +114,14 @@ void run_test(const Queries& queries, ThreadPoolProto threadpool_proto) {
 CATCH_TEST_CASE("Test Inverted Building", "[integration][build][inverted]") {
     auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
     run_test<svs::DistanceL2, svs::index::inverted::SparseStrategy>(queries, 2);
-    run_test<svs::DistanceL2, svs::index::inverted::DenseStrategy>(queries, svs::threads::DefaultThreadPool(2));
+    run_test<svs::DistanceL2, svs::index::inverted::DenseStrategy>(
+        queries, svs::threads::DefaultThreadPool(2)
+    );
     run_test<svs::DistanceIP, svs::index::inverted::SparseStrategy>(queries, 3);
-    run_test<svs::DistanceIP, svs::index::inverted::DenseStrategy>(queries, svs::threads::CppAsyncThreadPool(3));
-    run_test<svs::DistanceIP, svs::index::inverted::SparseStrategy>(queries, svs::threads::QueueThreadPoolWrapper(2));
+    run_test<svs::DistanceIP, svs::index::inverted::DenseStrategy>(
+        queries, svs::threads::CppAsyncThreadPool(3)
+    );
+    run_test<svs::DistanceIP, svs::index::inverted::SparseStrategy>(
+        queries, svs::threads::QueueThreadPoolWrapper(2)
+    );
 }

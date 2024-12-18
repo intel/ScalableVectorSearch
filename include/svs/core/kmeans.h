@@ -48,10 +48,11 @@ Neighbor<size_t> find_nearest(const Query& query, const Data& data) {
     return nearest;
 }
 
-template <data::ImmutableMemoryDataset Data, data::ImmutableMemoryDataset Centroids, threads::ThreadPool Pool>
-double mean_squared_error(
-    const Data& data, const Centroids& centroids, Pool& threadpool
-) {
+template <
+    data::ImmutableMemoryDataset Data,
+    data::ImmutableMemoryDataset Centroids,
+    threads::ThreadPool Pool>
+double mean_squared_error(const Data& data, const Centroids& centroids, Pool& threadpool) {
     threads::SequentialTLS<double> sums(0, threadpool.size());
     threads::parallel_for(
         threadpool,
@@ -143,7 +144,10 @@ void process_batch(
     adjust_centroids.finish();
 }
 
-template <data::ImmutableMemoryDataset Data, typename Callback = lib::donothing, threads::ThreadPool Pool>
+template <
+    data::ImmutableMemoryDataset Data,
+    typename Callback = lib::donothing,
+    threads::ThreadPool Pool>
 data::SimpleData<float> train_impl(
     const KMeansParameters& parameters,
     const Data& data,
@@ -215,8 +219,7 @@ data::SimpleData<float> train(
     ThreadPoolProto threadpool_proto,
     Callback&& post_epoch_callback = lib::donothing()
 ) {
-    auto threadpool =
-        threads::as_threadpool(std::move(threadpool_proto));
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return train_impl(
         parameters, data, threadpool, std::forward<Callback>(post_epoch_callback)
     );

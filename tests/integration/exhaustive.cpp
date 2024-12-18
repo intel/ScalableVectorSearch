@@ -66,7 +66,11 @@ void test_predicate(Index& index, const Queries& queries) {
     }
 }
 
-template <typename Index, typename Queries, typename GroundTruth, svs::threads::ThreadPool Pool = svs::threads::DefaultThreadPool>
+template <
+    typename Index,
+    typename Queries,
+    typename GroundTruth,
+    svs::threads::ThreadPool Pool = svs::threads::DefaultThreadPool>
 void test_flat(Index& index, const Queries& queries, const GroundTruth& groundtruth) {
     CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
     CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
@@ -137,7 +141,9 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
         {
             auto threadpool = svs::threads::DefaultThreadPool(4);
             auto temp = svs::index::flat::temporary_flat_index(
-                data, svs::distance::DistanceL2(), svs::threads::ThreadPoolReferenceWrapper(threadpool)
+                data,
+                svs::distance::DistanceL2(),
+                svs::threads::ThreadPoolReferenceWrapper(threadpool)
             );
             test_flat(temp, queries, groundtruth);
         }
@@ -172,29 +178,52 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
     CATCH_SECTION("Flat Index With CppAyncThreadPool - IP") {
         auto groundtruth = test_dataset::groundtruth_mip();
         auto index = svs::index::flat::FlatIndex(
-            std::move(data), svs::distance::DistanceIP{}, svs::threads::CppAsyncThreadPool(2)
+            std::move(data),
+            svs::distance::DistanceIP{},
+            svs::threads::CppAsyncThreadPool(2)
         );
-        test_flat<decltype(index), decltype(queries), decltype(groundtruth), svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
-        auto& threadpool = index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(groundtruth),
+            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
+        auto& threadpool =
+            index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
         threadpool.resize(3);
         CATCH_REQUIRE(index.get_num_threads() == 3);
-        test_flat<decltype(index), decltype(queries), decltype(groundtruth), svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(groundtruth),
+            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
     }
 
     CATCH_SECTION("Flat Index With QueueThreadPoolWrapper - Cosine") {
         auto groundtruth = test_dataset::groundtruth_cosine();
         auto index = svs::index::flat::FlatIndex(
-            std::move(data), svs::distance::DistanceCosineSimilarity{}, svs::threads::QueueThreadPoolWrapper(2)
+            std::move(data),
+            svs::distance::DistanceCosineSimilarity{},
+            svs::threads::QueueThreadPoolWrapper(2)
         );
-        test_flat<decltype(index), decltype(queries), decltype(groundtruth), svs::threads::QueueThreadPoolWrapper>(index, queries, groundtruth);
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(groundtruth),
+            svs::threads::QueueThreadPoolWrapper>(index, queries, groundtruth);
     }
 
     CATCH_SECTION("Flat Index With Different Thread Pools - Cosine") {
         auto groundtruth = test_dataset::groundtruth_cosine();
         auto index = svs::index::flat::FlatIndex(
-            std::move(data), svs::distance::DistanceCosineSimilarity{}, svs::threads::QueueThreadPoolWrapper(2)
+            std::move(data),
+            svs::distance::DistanceCosineSimilarity{},
+            svs::threads::QueueThreadPoolWrapper(2)
         );
-        test_flat<decltype(index), decltype(queries), decltype(groundtruth), svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(groundtruth),
+            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
         test_flat(index, queries, groundtruth);
     }
 }
@@ -264,30 +293,71 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
 
     CATCH_SECTION("Cosine With Different Thread Pools From File") {
         svs::Flat index = svs::Flat::assemble<float>(
-            svs::VectorDataLoader<float>(test_dataset::data_svs_file()), svs::Cosine, svs::threads::CppAsyncThreadPool(2)
+            svs::VectorDataLoader<float>(test_dataset::data_svs_file()),
+            svs::Cosine,
+            svs::threads::CppAsyncThreadPool(2)
         );
         CATCH_REQUIRE(index.get_num_threads() == 2);
 
-        auto& threadpool = index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
+        auto& threadpool =
+            index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
         threadpool.resize(3);
         CATCH_REQUIRE(index.get_num_threads() == 3);
-        test_flat<decltype(index), decltype(queries), decltype(test_dataset::groundtruth_cosine()), svs::threads::CppAsyncThreadPool>(index, queries, test_dataset::groundtruth_cosine());
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::CppAsyncThreadPool>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
 
         index.set_threadpool(svs::threads::DefaultThreadPool(3));
-        test_flat<decltype(index), decltype(queries), decltype(test_dataset::groundtruth_cosine()), svs::threads::DefaultThreadPool>(index, queries, test_dataset::groundtruth_cosine());
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::DefaultThreadPool>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
 
-        test_flat<decltype(index), decltype(queries), decltype(test_dataset::groundtruth_cosine()), svs::threads::QueueThreadPoolWrapper>(index, queries, test_dataset::groundtruth_cosine());
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::QueueThreadPoolWrapper>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
     }
 
     CATCH_SECTION("Cosine With Different Thread Pools From Data") {
-        svs::Flat index = svs::Flat::assemble<float>(std::move(data), svs::Cosine, svs::threads::QueueThreadPoolWrapper(3));
+        svs::Flat index = svs::Flat::assemble<float>(
+            std::move(data), svs::Cosine, svs::threads::QueueThreadPoolWrapper(3)
+        );
         CATCH_REQUIRE(index.get_num_threads() == 3);
-        test_flat<decltype(index), decltype(queries), decltype(test_dataset::groundtruth_cosine()), svs::threads::QueueThreadPoolWrapper>(index, queries, test_dataset::groundtruth_cosine());
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::QueueThreadPoolWrapper>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
 
         index.set_threadpool(svs::threads::CppAsyncThreadPool(2));
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        test_flat<decltype(index), decltype(queries), decltype(test_dataset::groundtruth_cosine()), svs::threads::CppAsyncThreadPool>(index, queries, test_dataset::groundtruth_cosine());
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::CppAsyncThreadPool>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
 
-        test_flat<decltype(index), decltype(queries), decltype(test_dataset::groundtruth_cosine()), svs::threads::DefaultThreadPool>(index, queries, test_dataset::groundtruth_cosine());
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::DefaultThreadPool>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
     }
 }

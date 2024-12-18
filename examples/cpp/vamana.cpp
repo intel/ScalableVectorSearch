@@ -18,8 +18,8 @@
 
 //! [Includes]
 // SVS Dependencies
-#include "svs/orchestrators/vamana.h"  // bulk of the dependencies required.
-#include "svs/core/recall.h"           // Convenient k-recall@n computation.
+#include "svs/orchestrators/vamana.h" // bulk of the dependencies required.
+#include "svs/core/recall.h"          // Convenient k-recall@n computation.
 
 // Alternative main definition
 #include "svsmain.h"

@@ -204,12 +204,15 @@ Args:
 
     // Intel(R) MKL
     m.def(
-        "have_mkl", &svs::python::have_mkl, "Return whether or not svs is linked with Intel(R) MKL."
+        "have_mkl",
+        &svs::python::have_mkl,
+        "Return whether or not svs is linked with Intel(R) MKL."
     );
     m.def(
         "mkl_num_threads",
         &svs::python::mkl_num_threads,
-        "Return the number of threads used by Intel(R) MKL, or None if svs is not linked with Intel(R) MKL."
+        "Return the number of threads used by Intel(R) MKL, or None if svs is not linked "
+        "with Intel(R) MKL."
     );
 
     ///// Indexes

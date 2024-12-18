@@ -203,7 +203,8 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
         index.consolidate();
         index.debug_check_graph_consistency(false);
 
-        auto& threadpool = index.get_threadpool_handle().get<threads::CppAsyncThreadPool>.get();
+        auto& threadpool =
+            index.get_threadpool_handle().get<threads::CppAsyncThreadPool>.get();
         threadpool.resize(3);
         CATCH_REQUIRE(index.get_num_threads() == 3);
         threadpool.resize(num_threads);

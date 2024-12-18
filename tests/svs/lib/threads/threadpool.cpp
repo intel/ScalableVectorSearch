@@ -157,24 +157,24 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
         ///// Sequential
         /////
         CATCH_SECTION("Sequential") {
-          start_time = std::chrono::steady_clock::now();
-          for (size_t i = 0; i < v.size(); ++i) {
-              v[i] = 1;
-          }
-          stop_time = std::chrono::steady_clock::now();
-          time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
-          std::cout << "Sequential Loop: " << time_seconds << " seconds" << std::endl;
+            start_time = std::chrono::steady_clock::now();
+            for (size_t i = 0; i < v.size(); ++i) {
+                v[i] = 1;
+            }
+            stop_time = std::chrono::steady_clock::now();
+            time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+            std::cout << "Sequential Loop: " << time_seconds << " seconds" << std::endl;
 
-          start_time = std::chrono::steady_clock::now();
-          for (size_t i = 0; i < v.size(); ++i) {
-              v[i] = 1;
-          }
-          stop_time = std::chrono::steady_clock::now();
-          time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
-          std::cout << "Sequential Loop: " << time_seconds << " seconds" << std::endl;
-          CATCH_REQUIRE(std::all_of(v.begin(), v.end(), [](const uint64_t& v) {
-              return v == 1;
-          }));
+            start_time = std::chrono::steady_clock::now();
+            for (size_t i = 0; i < v.size(); ++i) {
+                v[i] = 1;
+            }
+            stop_time = std::chrono::steady_clock::now();
+            time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+            std::cout << "Sequential Loop: " << time_seconds << " seconds" << std::endl;
+            CATCH_REQUIRE(std::all_of(v.begin(), v.end(), [](const uint64_t& v) {
+                return v == 1;
+            }));
         }
 
         /////
@@ -184,16 +184,21 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
         CATCH_SECTION("SequentialThreadPool") {
             auto sequential_pool = svs::threads::SequentialThreadPool{};
             start_time = std::chrono::steady_clock::now();
-            svs::threads::parallel_for(sequential_pool, svs::threads::StaticPartition{v.size()}, f);
+            svs::threads::parallel_for(
+                sequential_pool, svs::threads::StaticPartition{v.size()}, f
+            );
             stop_time = std::chrono::steady_clock::now();
             time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
             std::cout << "Sequential Pool: " << time_seconds << " seconds" << std::endl;
 
             start_time = std::chrono::steady_clock::now();
-            svs::threads::parallel_for(sequential_pool, svs::threads::StaticPartition{v.size()}, f);
+            svs::threads::parallel_for(
+                sequential_pool, svs::threads::StaticPartition{v.size()}, f
+            );
             stop_time = std::chrono::steady_clock::now();
             time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
-            std::cout << "SequentialThreadPool: " << time_seconds << " seconds" << std::endl;
+            std::cout << "SequentialThreadPool: " << time_seconds << " seconds"
+                      << std::endl;
 
             CATCH_REQUIRE(std::all_of(v.begin(), v.end(), [](const uint64_t& v) {
                 return v == 2;

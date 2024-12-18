@@ -768,7 +768,11 @@ ClusteringSetup(Index, std::vector<I, lib::Allocator<I>>) -> ClusteringSetup<Ind
 /// NOTE: The resulting search index will not automatically perform conversion from index
 /// local IDs to global dataset IDs.
 ///
-template <data::ImmutableMemoryDataset Data, typename Distance, std::integral I, threads::ThreadPool Pool>
+template <
+    data::ImmutableMemoryDataset Data,
+    typename Distance,
+    std::integral I,
+    threads::ThreadPool Pool>
 auto build_primary_index(
     const Data& data,
     std::span<const I> ids,

@@ -559,7 +559,9 @@ void svs_invoke(
             return;
         }
         // Perform search - results will be queued in the search buffer.
-        single_search(dataset, search_buffer, distance, queries.get_datum(i), search, cancel);
+        single_search(
+            dataset, search_buffer, distance, queries.get_datum(i), search, cancel
+        );
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {
