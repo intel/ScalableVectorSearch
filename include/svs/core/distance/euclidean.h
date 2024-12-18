@@ -38,8 +38,8 @@
 // implementation based on the available extension.
 //
 // The vector width used is added as well in case there is an apparent mismatch between
-// Intel(R) AVX extension and the preferred vector width due to performance (sometimes, smaller
-// vector widths are faster).
+// Intel(R) AVX extension and the preferred vector width due to performance (sometimes,
+// smaller vector widths are faster).
 //
 // Versions for older extensions are implemented as fallbacks.
 //

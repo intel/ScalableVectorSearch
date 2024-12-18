@@ -134,10 +134,11 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     ///
     /// @param data The dataset to use
     /// @param distance The distance functor to use.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
-    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     /// @param bucket_size Target number of IDs to use per bucket.
     /// @param num_neighbors The number of neighbors to retrieve when computing the base
     ///     ground truth.
@@ -188,7 +189,9 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
                 threads::UnitRange<Idx>(lib::narrow<Idx>(start), lib::narrow<Idx>(stop));
             auto view = data::make_const_view(data_, ids);
 
-            auto index = index::flat::temporary_flat_index(view, distance_, threads::ThreadPoolReferenceWrapper(threadpool_));
+            auto index = index::flat::temporary_flat_index(
+                view, distance_, threads::ThreadPoolReferenceWrapper(threadpool_)
+            );
             auto groundtruth =
                 svs::index::search_batch(index, queries.cview(), num_neighbors);
 

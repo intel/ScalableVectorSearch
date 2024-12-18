@@ -278,7 +278,9 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             svs::threads::CppAsyncThreadPool(2)
         );
 
-        run_tests<svs::threads::CppAsyncThreadPool>(index, queries, groundtruth, expected_results.config_and_recall_, true);
+        run_tests<svs::threads::CppAsyncThreadPool>(
+            index, queries, groundtruth, expected_results.config_and_recall_, true
+        );
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
@@ -288,7 +290,9 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             svs::threads::QueueThreadPoolWrapper(2)
         );
 
-        run_tests<svs::threads::QueueThreadPoolWrapper>(index, queries, groundtruth, expected_results.config_and_recall_, true);
+        run_tests<svs::threads::QueueThreadPoolWrapper>(
+            index, queries, groundtruth, expected_results.config_and_recall_, true
+        );
         // Save and reload.
         svs_test::prepare_temp_directory();
 
@@ -328,9 +332,12 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
 
         index.set_threadpool(svs::threads::CppAsyncThreadPool(1));
         CATCH_REQUIRE(index.get_num_threads() == 1);
-        auto& threadpool = index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
+        auto& threadpool =
+            index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
         threadpool.resize(2);
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        run_tests<svs::threads::CppAsyncThreadPool>(index, queries, groundtruth, expected_results.config_and_recall_);
+        run_tests<svs::threads::CppAsyncThreadPool>(
+            index, queries, groundtruth, expected_results.config_and_recall_
+        );
     }
 }

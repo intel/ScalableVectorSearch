@@ -266,7 +266,9 @@ template <typename IFace> class IndexManager {
     /// @copydoc threadpool_requirements
     ///
     template <threads::ThreadPool Pool>
-    void set_threadpool(Pool threadpool) requires (!std::is_same_v<threads::ThreadPoolHandle, Pool>) {
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<threads::ThreadPoolHandle, Pool>)
+    {
         set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
     }
 

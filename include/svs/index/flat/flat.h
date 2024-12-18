@@ -184,10 +184,11 @@ class FlatIndex {
     ///     of the passed argument.
     /// @param distance The distance functor to use to compare queries with dataset
     ///     elements.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
-    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     ///
     /// @copydoc threadpool_requirements
     ///
@@ -225,9 +226,11 @@ class FlatIndex {
     ///     ``num_neighbors`` is computed from the number of columns in ``result``.
     /// @param queries A dense collection of queries in R^n.
     /// @param search_parameters search parameters to use for the search.
-    /// @param cancel A predicate called during the search to determine if the search should be cancelled.
-    //      Return ``true`` if the search should be cancelled. This functor must implement ``bool operator()()``.
-    //      Note: This predicate should be thread-safe as it can be called concurrently by different threads during the search.
+    /// @param cancel A predicate called during the search to determine if the search should
+    /// be cancelled.
+    //      Return ``true`` if the search should be cancelled. This functor must implement
+    //      ``bool operator()()``. Note: This predicate should be thread-safe as it can be
+    //      called concurrently by different threads during the search.
     /// @param predicate A predicate functor that can be used to exclude certain dataset
     ///     elements from consideration. This functor must implement
     ///     ``bool operator()(size_t)`` where the ``size_t`` argument is an index in
@@ -423,7 +426,9 @@ class FlatIndex {
     /// @copydoc threadpool_requirements
     ///
     template <threads::ThreadPool Pool>
-    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<Pool, threads::ThreadPoolHandle>)
+    {
         set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
     }
 
@@ -452,10 +457,11 @@ class FlatIndex {
 /// @param data_proto Data prototype. See expanded notes.
 /// @param distance The distance **functor** to use to compare queries with elements of the
 ///     dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-///     instance or an integer specifying the number of threads to use. In the latter case, a new
-///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-///     threads to create.
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+/// acceptable thread pool
+///     instance or an integer specifying the number of threads to use. In the latter case,
+///     a new default thread pool will be constructed using ``threadpool_proto`` as the
+///     number of threads to create.
 ///
 /// This method provides much of the heavy lifting for constructing a Flat index from
 /// a data file on disk or a dataset in memory.
@@ -480,7 +486,8 @@ using TemporaryFlatIndex = FlatIndex<Data, Dist, ReferencesMembers>;
 template <data::ImmutableMemoryDataset Data, typename Dist, typename ThreadPoolProto>
 TemporaryFlatIndex<Data, Dist>
 temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
-    return TemporaryFlatIndex<Data, Dist>{data, distance, threads::as_threadpool(std::move(threadpool_proto))};
+    return TemporaryFlatIndex<Data, Dist>{
+        data, distance, threads::as_threadpool(std::move(threadpool_proto))};
 }
 
 } // namespace svs::index::flat

@@ -376,10 +376,11 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     ///     See the documentation below for details.
     /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
     ///     similarity search computations.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
-    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``
     /// returning a Vamana compatible dataset. Concrete examples include:
@@ -443,10 +444,11 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @param data_loader Either a data loader from disk or a dataset by value.
     ///     See detailed notes below.
     /// @param distance The distance functor to use or a ``svs::DistanceType`` enum.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
-    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     /// @param graph_allocator The allocator to use for the backing graph.
     ///
     /// The data loader should be any object loadable via ``svs::detail::dispatch_load``

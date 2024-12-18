@@ -134,14 +134,14 @@ namespace simd {
 /// 2. Using multiple accumulators can really help in some situations. Floating point
 ///    arithmetic is not associative, so generally the compiler must strictly obey program
 ///    semantics when optimizing. This means that if a single accumulator register is used,
-///    we introduce a long chain dependency in the instruction stream. Intel(R) AVX functional
-///    units are generally pipelined and so have a relatively high latency (4 cycles is common)
-///    but with a high throughput.
+///    we introduce a long chain dependency in the instruction stream. Intel(R) AVX
+///    functional units are generally pipelined and so have a relatively high latency (4
+///    cycles is common) but with a high throughput.
 ///
 ///    For example: Cascadelake and greater servers have two execution port that offer the
-///    bulk of Intel(R) AVX-512 functionality. When fully utilized, SIMD instructions can obtain
-///    a throughput of 2 ops per cycle (separate from loads, which can sustain another 2 ops
-///    (3 ops on Sapphire Rapids) per cycle.
+///    bulk of Intel(R) AVX-512 functionality. When fully utilized, SIMD instructions can
+///    obtain a throughput of 2 ops per cycle (separate from loads, which can sustain
+///    another 2 ops (3 ops on Sapphire Rapids) per cycle.
 ///
 ///    A long dependence on a single accumulation register basically throws all that
 ///    horse-power away.

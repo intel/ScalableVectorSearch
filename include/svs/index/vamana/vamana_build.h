@@ -306,131 +306,135 @@ class VamanaBuilder {
 
         update_type updates{threadpool_.size()};
         auto main = timer.push_back("main");
-        threads::parallel_for(threadpool_, range, [&](const auto& local_indices, uint64_t tid) {
-            // Thread local variables
-            auto& thread_local_updates = updates.at(tid);
+        threads::parallel_for(
+            threadpool_,
+            range,
+            [&](const auto& local_indices, uint64_t tid) {
+                // Thread local variables
+                auto& thread_local_updates = updates.at(tid);
 
-            // Scratch space.
-            std::vector<Neighbor<Idx>> pool{};
-            auto search_buffer = search_buffer_type{params_.window_size};
+                // Scratch space.
+                std::vector<Neighbor<Idx>> pool{};
+                auto search_buffer = search_buffer_type{params_.window_size};
 
-            // Enable use of the visited filter of the search buffer.
-            // It seems to help in high-window-size scenarios.
-            search_buffer.enable_visited_set();
-            set_type<Idx> visited{};
-            auto tracker = OptionalTracker<Idx>(params_.use_full_search_history);
+                // Enable use of the visited filter of the search buffer.
+                // It seems to help in high-window-size scenarios.
+                search_buffer.enable_visited_set();
+                set_type<Idx> visited{};
+                auto tracker = OptionalTracker<Idx>(params_.use_full_search_history);
 
-            // Unpack adaptor.
-            auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
-            auto&& graph_search_distance = build_adaptor.graph_search_distance();
-            auto&& general_distance = build_adaptor.general_distance();
-            auto general_accessor = build_adaptor.general_accessor();
+                // Unpack adaptor.
+                auto build_adaptor = extensions::build_adaptor(data_, distance_function_);
+                auto&& graph_search_distance = build_adaptor.graph_search_distance();
+                auto&& general_distance = build_adaptor.general_distance();
+                auto general_accessor = build_adaptor.general_accessor();
 
-            for (auto node_id : local_indices) {
-                pool.clear();
-                search_buffer.clear();
-                visited.clear();
-                tracker.clear();
+                for (auto node_id : local_indices) {
+                    pool.clear();
+                    search_buffer.clear();
+                    visited.clear();
+                    tracker.clear();
 
-                const auto& graph_search_query =
-                    build_adaptor.access_query_for_graph_search(data_, node_id);
+                    const auto& graph_search_query =
+                        build_adaptor.access_query_for_graph_search(data_, node_id);
 
-                // Perform the greedy search.
-                // The search tracker will be used if it is enabled.
-                {
-                    auto accessor = build_adaptor.graph_search_accessor();
-                    greedy_search(
-                        graph_,
-                        data_,
-                        accessor,
-                        graph_search_query,
-                        graph_search_distance,
-                        search_buffer,
-                        vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
-                        NeighborBuilder(),
-                        tracker,
-                        prefetch_hint_
-                    );
-                }
-
-                const auto& post_search_query = build_adaptor.modify_post_search_query(
-                    data_, node_id, graph_search_query
-                );
-
-                // If the query and distance functors are sufficiently different for the
-                // graph search and the general case, then we *may* need to reapply fix
-                // argument before we can do any further distance computations.
-                //
-                // Decide whether we need to make this call.
-                if constexpr (decltype(build_adaptor)::refix_argument_after_search) {
-                    distance::maybe_fix_argument(general_distance, post_search_query);
-                }
-
-                auto modify_distance = [&](NeighborLike auto const& n) {
-                    return build_adaptor.post_search_modify(
-                        data_, general_distance, post_search_query, n
-                    );
-                };
-
-                // If the full search history is to be used, then use the tracker to
-                // populate the candidate pool.
-                //
-                // Otherwise, pull results directly out of the search buffer.
-                if (tracker.enabled()) {
-                    for (const auto& neighbor : tracker) {
-                        pool.push_back(modify_distance(neighbor));
-                        visited.insert(neighbor.id());
-                    }
-                } else {
-                    for (size_t i = 0, imax = search_buffer.size(); i < imax; ++i) {
-                        const auto& neighbor = search_buffer[i];
-                        pool.push_back(modify_distance(neighbor));
-                        visited.insert(neighbor.id());
-                    }
-                }
-
-                // Add neighbors of the query that are not part of `visited`.
-                for (auto id : graph_.get_node(node_id)) {
-                    assert(id != node_id);
-                    // Try to emplace the node id into the visited set.
-                    // If the id was inserted, then it didn't already exist in the visited
-                    // set and we need to add it to the candidate pool.
-                    auto [_, inserted] = visited.emplace(id);
-                    if (inserted) {
-                        pool.emplace_back(
-                            id,
-                            distance::compute(
-                                general_distance,
-                                post_search_query,
-                                general_accessor(data_, id)
-                            )
+                    // Perform the greedy search.
+                    // The search tracker will be used if it is enabled.
+                    {
+                        auto accessor = build_adaptor.graph_search_accessor();
+                        greedy_search(
+                            graph_,
+                            data_,
+                            accessor,
+                            graph_search_query,
+                            graph_search_distance,
+                            search_buffer,
+                            vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
+                            NeighborBuilder(),
+                            tracker,
+                            prefetch_hint_
                         );
                     }
+
+                    const auto& post_search_query = build_adaptor.modify_post_search_query(
+                        data_, node_id, graph_search_query
+                    );
+
+                    // If the query and distance functors are sufficiently different for the
+                    // graph search and the general case, then we *may* need to reapply fix
+                    // argument before we can do any further distance computations.
+                    //
+                    // Decide whether we need to make this call.
+                    if constexpr (decltype(build_adaptor)::refix_argument_after_search) {
+                        distance::maybe_fix_argument(general_distance, post_search_query);
+                    }
+
+                    auto modify_distance = [&](NeighborLike auto const& n) {
+                        return build_adaptor.post_search_modify(
+                            data_, general_distance, post_search_query, n
+                        );
+                    };
+
+                    // If the full search history is to be used, then use the tracker to
+                    // populate the candidate pool.
+                    //
+                    // Otherwise, pull results directly out of the search buffer.
+                    if (tracker.enabled()) {
+                        for (const auto& neighbor : tracker) {
+                            pool.push_back(modify_distance(neighbor));
+                            visited.insert(neighbor.id());
+                        }
+                    } else {
+                        for (size_t i = 0, imax = search_buffer.size(); i < imax; ++i) {
+                            const auto& neighbor = search_buffer[i];
+                            pool.push_back(modify_distance(neighbor));
+                            visited.insert(neighbor.id());
+                        }
+                    }
+
+                    // Add neighbors of the query that are not part of `visited`.
+                    for (auto id : graph_.get_node(node_id)) {
+                        assert(id != node_id);
+                        // Try to emplace the node id into the visited set.
+                        // If the id was inserted, then it didn't already exist in the
+                        // visited set and we need to add it to the candidate pool.
+                        auto [_, inserted] = visited.emplace(id);
+                        if (inserted) {
+                            pool.emplace_back(
+                                id,
+                                distance::compute(
+                                    general_distance,
+                                    post_search_query,
+                                    general_accessor(data_, id)
+                                )
+                            );
+                        }
+                    }
+
+                    std::sort(
+                        pool.begin(),
+                        pool.end(),
+                        TotalOrder(distance::comparator(general_distance))
+                    );
+                    pool.resize(std::min(pool.size(), params_.max_candidate_pool_size));
+
+                    // Prune and wait for an update.
+                    thread_local_updates.emplace_back(node_id, std::vector<Idx>{});
+                    auto& pruned_results = thread_local_updates.back().second;
+                    heuristic_prune_neighbors(
+                        prune_strategy(distance_function_),
+                        params_.graph_max_degree,
+                        alpha,
+                        data_,
+                        general_accessor,
+                        general_distance,
+                        node_id,
+                        lib::as_const_span(pool),
+                        pruned_results
+                    );
                 }
-
-                std::sort(
-                    pool.begin(),
-                    pool.end(),
-                    TotalOrder(distance::comparator(general_distance))
-                );
-                pool.resize(std::min(pool.size(), params_.max_candidate_pool_size));
-
-                // Prune and wait for an update.
-                thread_local_updates.emplace_back(node_id, std::vector<Idx>{});
-                auto& pruned_results = thread_local_updates.back().second;
-                heuristic_prune_neighbors(
-                    prune_strategy(distance_function_),
-                    params_.graph_max_degree,
-                    alpha,
-                    data_,
-                    general_accessor,
-                    general_distance,
-                    node_id,
-                    lib::as_const_span(pool),
-                    pruned_results
-                );
             }
-        });
+        );
 
         main.finish();
 
@@ -455,18 +459,22 @@ class VamanaBuilder {
         auto backedge_timer = timer.push_back("backedge generation");
         auto range = threads::StaticPartition{indices};
         backedge_buffer_.reset();
-        threads::parallel_for(threadpool_, range, [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
-            for (auto node_id : is) {
-                for (auto other_id : graph_.get_node(node_id)) {
-                    std::lock_guard lock{vertex_locks_[other_id]};
-                    if (graph_.get_node_degree(other_id) < params_.graph_max_degree) {
-                        graph_.add_edge(other_id, node_id);
-                    } else {
-                        backedge_buffer_.add_edge(other_id, node_id);
+        threads::parallel_for(
+            threadpool_,
+            range,
+            [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
+                for (auto node_id : is) {
+                    for (auto other_id : graph_.get_node(node_id)) {
+                        std::lock_guard lock{vertex_locks_[other_id]};
+                        if (graph_.get_node_degree(other_id) < params_.graph_max_degree) {
+                            graph_.add_edge(other_id, node_id);
+                        } else {
+                            backedge_buffer_.add_edge(other_id, node_id);
+                        }
                     }
                 }
             }
-        });
+        );
         backedge_timer.finish();
 
         // For all vertices that now exceed the max degree requirement, run the pruning

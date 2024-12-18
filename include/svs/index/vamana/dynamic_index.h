@@ -521,7 +521,9 @@ class MutableVamanaIndex {
         size_t num_neighbors,
         QueryResultView<I> result
     ) {
-        auto temp_index = temporary_flat_index(data_, distance_, threads::ThreadPoolReferenceWrapper(threadpool_));
+        auto temp_index = temporary_flat_index(
+            data_, distance_, threads::ThreadPoolReferenceWrapper(threadpool_)
+        );
         temp_index.search(queries, num_neighbors, result, [&](size_t i) {
             return getindex(status_, i) == SlotMetadata::Valid;
         });
@@ -842,7 +844,9 @@ class MutableVamanaIndex {
     /// @copydoc threadpool_requirements
     ///
     template <threads::ThreadPool Pool>
-    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<Pool, threads::ThreadPoolHandle>)
+    {
         set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
     }
 
@@ -1063,7 +1067,9 @@ class MutableVamanaIndex {
                 dst.set_datum(i, accessor(data_, id));
             }
         };
-        threads::parallel_for(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
+        threads::parallel_for(
+            threadpool_, threads::StaticPartition{ids_size}, threaded_function
+        );
     }
 
     /// Invoke the provided callable with constant references to the contained graph, data,
@@ -1215,7 +1221,11 @@ struct VamanaStateLoader {
 } // namespace detail
 
 // Assembly
-template <typename GraphLoader, typename DataLoader, typename Distance, typename ThreadPoolProto>
+template <
+    typename GraphLoader,
+    typename DataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
 auto auto_dynamic_assemble(
     const std::filesystem::path& config_path,
     GraphLoader&& graph_loader,

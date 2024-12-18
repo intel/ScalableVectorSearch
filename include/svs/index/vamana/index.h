@@ -328,10 +328,11 @@ class VamanaIndex {
     /// @param entry_point The entry-point into the graph to begin searches.
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
-    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     ///
     /// This is a lower-level function that is meant to take a collection of
     /// instantiated components and assemble the final index. For a more "hands-free"
@@ -512,9 +513,11 @@ class VamanaIndex {
     ///     ``num_neighbors`` is computed from the number of columns in ``result``.
     /// @param queries A dense collection of queries in R^n.
     /// @param search_parameters search parameters to use for the search.
-    /// @param cancel A predicate called during the search to determine if the search should be cancelled.
-    //      Return ``true`` if the search should be cancelled. This functor must implement ``bool operator()()``.
-    //      Note: This predicate should be thread-safe as it can be called concurrently by different threads during the search.
+    /// @param cancel A predicate called during the search to determine if the search should
+    /// be cancelled.
+    //      Return ``true`` if the search should be cancelled. This functor must implement
+    //      ``bool operator()()``. Note: This predicate should be thread-safe as it can be
+    //      called concurrently by different threads during the search.
     ///
     /// Perform a multi-threaded graph search over the index, overwriting the contents
     /// of ``result`` with the results of search.
@@ -644,7 +647,9 @@ class VamanaIndex {
                 dst.set_datum(i, accessor(data_, id));
             }
         };
-        threads::parallel_for(threadpool_, threads::StaticPartition{ids_size}, threaded_function);
+        threads::parallel_for(
+            threadpool_, threads::StaticPartition{ids_size}, threaded_function
+        );
     }
 
     ///// Threading Interface
@@ -667,7 +672,9 @@ class VamanaIndex {
     /// @copydoc threadpool_requirements
     ///
     template <threads::ThreadPool Pool>
-    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<Pool, threads::ThreadPoolHandle>)
+    {
         set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
     }
 
@@ -857,10 +864,11 @@ class VamanaIndex {
 /// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///     the dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-///     instance or an integer specifying the number of threads to use. In the latter case, a new
-///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-///     threads to create.
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+/// acceptable thread pool
+///     instance or an integer specifying the number of threads to use. In the latter case,
+///     a new default thread pool will be constructed using ``threadpool_proto`` as the
+///     number of threads to create.
 /// @param graph_allocator The allocator to use for the graph data structure.
 ///
 /// @copydoc threadpool_requirements
@@ -901,7 +909,8 @@ auto auto_build(
 /// @param data_proto A dispatch loadable class yielding a dataset.
 /// @param distance The distance **functor** to use to compare queries with elements of
 ///        the dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+/// acceptable
 ///        thread pool instance or an integer specifying the number of threads to use.
 ///
 /// This method provides much of the heavy lifting for instantiating a Vamana index from

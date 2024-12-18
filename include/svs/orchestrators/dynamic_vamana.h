@@ -243,7 +243,11 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         ThreadPoolProto threadpool_proto
     ) {
         return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
-            parameters, std::move(data), ids, std::move(distance), threads::as_threadpool(std::move(threadpool_proto))
+            parameters,
+            std::move(data),
+            ids,
+            std::move(distance),
+            threads::as_threadpool(std::move(threadpool_proto))
         );
     }
 

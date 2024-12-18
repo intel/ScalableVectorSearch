@@ -486,7 +486,9 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     // Now that the worker is running, try assigning some jobs to it.
     {
         std::vector<size_t> test_vector{};
-        std::function<void(size_t)> f = [&test_vector](size_t i) { test_vector.push_back(i); };
+        std::function<void(size_t)> f = [&test_vector](size_t i) {
+            test_vector.push_back(i);
+        };
 
         // Assign some jobs and wait until finished.
         block.assign({&f, 10});
@@ -504,9 +506,13 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     {
         std::vector<size_t> test_vector_f{};
         std::vector<float> test_vector_g{};
-        std::function<void(size_t)> f = [&test_vector_f](size_t i) { test_vector_f.push_back(i); };
+        std::function<void(size_t)> f = [&test_vector_f](size_t i) {
+            test_vector_f.push_back(i);
+        };
 
-        std::function<void(size_t)> g = [&test_vector_g](size_t i) { test_vector_g.push_back(i); };
+        std::function<void(size_t)> g = [&test_vector_g](size_t i) {
+            test_vector_g.push_back(i);
+        };
 
         block.assign({&f, 10});
         block.assign({&g, 20});
@@ -695,7 +701,9 @@ CATCH_TEST_CASE("Testing Thread", "[core][threads][high_level]") {
             words_dest.push_back(words.at(i));
         };
 
-        std::function<void(size_t)> g = [&ints_dest](uint64_t i) { ints_dest.push_back(i); };
+        std::function<void(size_t)> g = [&ints_dest](uint64_t i) {
+            ints_dest.push_back(i);
+        };
 
         // Assign jobs to the thread and wait for all to complete.
         thread.assign({&f, 2});

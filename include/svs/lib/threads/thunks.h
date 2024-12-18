@@ -30,10 +30,11 @@ namespace svs {
 namespace threads {
 
 // Move on Copy
-template <typename T>
-struct MoC {
-    MoC(T&& rhs): obj(std::move(rhs)) {}
-    MoC(const MoC& other): obj(std::move(other.obj)) {}
+template <typename T> struct MoC {
+    MoC(T&& rhs)
+        : obj(std::move(rhs)) {}
+    MoC(const MoC& other)
+        : obj(std::move(other.obj)) {}
     T& get() { return obj; }
     mutable T obj;
 };
@@ -91,8 +92,9 @@ template <typename F, typename I> struct Thunk<F, StaticPartition<I>> {
 // Dynamic partition
 template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
     static auto wrap(ThreadCount SVS_UNUSED(nthreads), F& f, DynamicPartition<I> space) {
-        auto count_ = std::make_unique<std::atomic<uint64_t>>(0); // workaround for atomic being not copyable and movable
-        return [&f, space, count=MoC(std::move(count_))](uint64_t tid) mutable {
+        auto count_ = std::make_unique<std::atomic<uint64_t>>(0
+        ); // workaround for atomic being not copyable and movable
+        return [&f, space, count = MoC(std::move(count_))](uint64_t tid) mutable {
             size_t grainsize = space.grainsize;
             size_t iterator_size = space.size();
             for (;;) {

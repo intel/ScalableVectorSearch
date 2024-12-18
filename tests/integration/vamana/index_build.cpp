@@ -42,7 +42,10 @@
 
 namespace {
 
-template <typename E, size_t D = svs::Dynamic, svs::threads::ThreadPool Pool = svs::threads::DefaultThreadPool>
+template <
+    typename E,
+    size_t D = svs::Dynamic,
+    svs::threads::ThreadPool Pool = svs::threads::DefaultThreadPool>
 svs::Vamana build_index(
     const svs::index::vamana::VamanaBuildParameters parameters,
     const std::filesystem::path& data_path,
@@ -51,7 +54,10 @@ svs::Vamana build_index(
 ) {
     auto tic = svs::lib::now();
     svs::Vamana index = svs::Vamana::build<E>(
-        parameters, svs::data::SimpleData<E, D>::load(data_path), dist_type, std::move(threadpool)
+        parameters,
+        svs::data::SimpleData<E, D>::load(data_path),
+        dist_type,
+        std::move(threadpool)
     );
 
     fmt::print("Indexing time: {}s\n", svs::lib::time_difference(tic));
@@ -124,7 +130,10 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
     }
 }
 
-CATCH_TEST_CASE("Uncompressed Vamana Build With Different Threadpools", "[integration][build][vamana][threadpool]") {
+CATCH_TEST_CASE(
+    "Uncompressed Vamana Build With Different Threadpools",
+    "[integration][build][vamana][threadpool]"
+) {
     auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
 
     // How far these results may deviate from previously generated results.
@@ -182,7 +191,8 @@ CATCH_TEST_CASE("Uncompressed Vamana Build With Different Threadpools", "[integr
             CATCH_REQUIRE(recall > expected.recall_ - epsilon);
             CATCH_REQUIRE(recall < expected.recall_ + epsilon);
 
-            auto& threadpool = index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
+            auto& threadpool =
+                index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
             threadpool.resize(2);
             CATCH_REQUIRE(index.get_num_threads() == 2);
         }

@@ -36,7 +36,8 @@ CATCH_TEST_CASE("Thread Thunks", "[core][threads]") {
     std::vector<size_t> u{};
     CATCH_SECTION("Default Thunk") {
         auto f = [&v](uint64_t i) { v.push_back(i); };
-        std::function<void(size_t)> wrapped = threads::thunks::wrap(threads::ThreadCount{1}, f);
+        std::function<void(size_t)> wrapped =
+            threads::thunks::wrap(threads::ThreadCount{1}, f);
 
         threads::ThreadFunctionRef g{&wrapped, 10};
         CATCH_REQUIRE(g.fn == &wrapped);
@@ -134,7 +135,8 @@ CATCH_TEST_CASE("Thread Thunks", "[core][threads]") {
             }
         };
 
-        std::function<void(size_t)> wrapped = threads::thunks::wrap(threads::ThreadCount{4}, f, partition);
+        std::function<void(size_t)> wrapped =
+            threads::thunks::wrap(threads::ThreadCount{4}, f, partition);
 
         CATCH_REQUIRE(v.empty());
         CATCH_REQUIRE(u.empty());

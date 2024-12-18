@@ -87,10 +87,11 @@ class Flat : public manager::IndexManager<FlatInterface> {
     ///
     /// @param data_loader A compatible class capable of load data. See expanded notes.
     /// @param distance A distance functor to use or a ``svs::DistanceType`` enum.
-    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an acceptable thread pool
-    ///     instance or an integer specifying the number of threads to use. In the latter case, a new
-    ///     default thread pool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     ///
     /// @copydoc hidden_flat_auto_assemble
     ///
@@ -101,7 +102,9 @@ class Flat : public manager::IndexManager<FlatInterface> {
         typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
-    static Flat assemble(DataLoader&& data_loader, Distance distance, ThreadPoolProto threadpool_proto) {
+    static Flat assemble(
+        DataLoader&& data_loader, Distance distance, ThreadPoolProto threadpool_proto
+    ) {
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher{distance};
             return dispatcher([&](auto distance_function) {

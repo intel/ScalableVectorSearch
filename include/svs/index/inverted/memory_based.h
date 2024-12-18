@@ -339,10 +339,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
     template <threads::ThreadPool Pool>
     InvertedIndex(
-        Index index,
-        Cluster cluster,
-        translator_type index_local_to_global,
-        Pool threadpool
+        Index index, Cluster cluster, translator_type index_local_to_global, Pool threadpool
     )
         : index_{std::move(index)}
         , cluster_{std::move(cluster)}
@@ -358,9 +355,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
     ///
     /// @brief Return the current number of threads used for search.
     ///
-    size_t get_num_threads() const {
-        return threadpool_.size();
-    }
+    size_t get_num_threads() const { return threadpool_.size(); }
 
     void set_threadpool(threads::ThreadPoolHandle threadpool) {
         threadpool_ = std::move(threadpool);
@@ -374,7 +369,9 @@ template <typename Index, typename Cluster> class InvertedIndex {
     /// @copydoc threadpool_requirements
     ///
     template <threads::ThreadPool Pool>
-    void set_threadpool(Pool threadpool) requires (!std::is_same_v<Pool, threads::ThreadPoolHandle>) {
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<Pool, threads::ThreadPoolHandle>)
+    {
         set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
     }
 
@@ -592,7 +589,11 @@ auto auto_build(
 }
 
 ///// Auto Assembling.
-template <typename DataProto, typename Distance, StorageStrategy Strategy, typename ThreadPoolProto>
+template <
+    typename DataProto,
+    typename Distance,
+    StorageStrategy Strategy,
+    typename ThreadPoolProto>
 auto assemble_from_clustering(
     const std::filesystem::path& clustering_path,
     DataProto data_proto,
