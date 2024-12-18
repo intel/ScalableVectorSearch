@@ -14,22 +14,138 @@
  * limitations under the License.
  */
 
-//! [Example All]
-
 //! [Includes]
 // SVS Dependencies
-#include "svs/orchestrators/vamana.h" // bulk of the dependencies required.
 #include "svs/core/recall.h"          // Convenient k-recall@n computation.
+#include "svs/lib/threads.h"          // Thread pool-related dependencies.
+#include "svs/orchestrators/vamana.h" // bulk of the dependencies required.
 
 // Alternative main definition
 #include "svsmain.h"
 
 // stl
+#include <future>
 #include <map>
+#include <queue>
 #include <string>
 #include <string_view>
 #include <vector>
 //! [Includes]
+
+namespace {
+
+//! [Helper Utilities]
+template <typename T> struct MoC {
+    MoC(T&& rhs)
+        : obj(std::move(rhs)) {}
+    MoC(const MoC& other)
+        : obj(std::move(other.obj)) {}
+    T& get() { return obj; }
+    mutable T obj;
+};
+//! [Helper Utilities]
+
+//! [Custom thread pool implementation]
+class CustomThreadPool {
+  public:
+    explicit CustomThreadPool(size_t num_threads) {
+        threads_.reserve(num_threads);
+        for (size_t i = 0; i < num_threads; ++i) {
+            threads_.emplace_back([this]() {
+                while (!stop_) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock lock(mtx_);
+                        while (queue_.empty() && !stop_) {
+                            cv_.wait(lock);
+                        }
+                        if (!queue_.empty()) {
+                            task = queue_.front();
+                            queue_.pop();
+                        }
+                    }
+
+                    if (task) {
+                        task();
+                    }
+                }
+            });
+        }
+    }
+
+    CustomThreadPool(CustomThreadPool&&) = delete;
+    CustomThreadPool(const CustomThreadPool&) = delete;
+    CustomThreadPool& operator=(CustomThreadPool&&) = delete;
+    CustomThreadPool& operator=(const CustomThreadPool&) = delete;
+
+    ~CustomThreadPool() {
+        shutdown();
+        for (auto& t : threads_) {
+            t.join();
+        }
+    }
+
+    template <typename C> std::future<void> insert(C&& task) {
+        std::promise<void> prom;
+        std::future<void> fu = prom.get_future();
+        {
+            std::scoped_lock lock(mtx_);
+            queue_.push([moc = MoC{std::move(prom)},
+                         task = std::forward<C>(task)]() mutable {
+                task();
+                moc.obj.set_value();
+            });
+        }
+        cv_.notify_one();
+        return fu;
+    }
+
+    size_t size() const { return threads_.size(); }
+
+    void shutdown() {
+        std::scoped_lock lock(mtx_);
+        stop_ = true;
+        cv_.notify_all();
+    }
+
+  private:
+    std::vector<std::thread> threads_;
+    std::mutex mtx_;
+    std::condition_variable cv_;
+
+    bool stop_{false};
+    std::queue<std::function<void()>> queue_;
+};
+
+/////
+///// The wrapper for CustomThreadPool to work on SVS
+/////
+class CustomThreadPoolWrapper {
+  public:
+    CustomThreadPoolWrapper(size_t num_threads)
+        : threadpool_{std::make_unique<CustomThreadPool>(num_threads)} {}
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        std::vector<std::future<void>> futures;
+        futures.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            futures.emplace_back(threadpool_->insert([&f, i]() { f(i); }));
+        }
+
+        // wait until all tasks are finished
+        for (auto& fu : futures) {
+            fu.get();
+        }
+    }
+
+    size_t size() const { return threadpool_->size(); }
+
+  private:
+    std::unique_ptr<CustomThreadPool> threadpool_;
+};
+static_assert(svs::threads::ThreadPool<CustomThreadPoolWrapper>);
+//! [Custom thread pool implementation]
+} // namespace
 
 //! [Helper Utilities]
 double run_recall(
@@ -91,7 +207,10 @@ int svs_main(std::vector<std::string> args) {
     //! [Index Build]
     size_t num_threads = 4;
     svs::Vamana index = svs::Vamana::build<float>(
-        parameters, svs::VectorDataLoader<float>(data_vecs), svs::DistanceL2(), num_threads
+        parameters,
+        svs::VectorDataLoader<float>(data_vecs),
+        svs::DistanceL2(),
+        CustomThreadPoolWrapper(num_threads)
     );
     //! [Index Build]
 
@@ -152,9 +271,9 @@ int svs_main(std::vector<std::string> args) {
     );
     //! [Only Loading]
 
-    //! [Set a new thread pool with n-threads]
-    index.set_threadpool(svs::threads::DefaultThreadPool(4));
-    //! [Set a new thread pool with n-threads]
+    //! [Set a new thread pool]
+    index.set_threadpool(CustomThreadPoolWrapper(4));
+    //! [Set a new thread pool]
 
     return 0;
 }

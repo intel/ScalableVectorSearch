@@ -48,12 +48,13 @@ Neighbor<size_t> find_nearest(const Query& query, const Data& data) {
     return nearest;
 }
 
-template <data::ImmutableMemoryDataset Data, data::ImmutableMemoryDataset Centroids>
-double mean_squared_error(
-    const Data& data, const Centroids& centroids, threads::NativeThreadPool& threadpool
-) {
+template <
+    data::ImmutableMemoryDataset Data,
+    data::ImmutableMemoryDataset Centroids,
+    threads::ThreadPool Pool>
+double mean_squared_error(const Data& data, const Centroids& centroids, Pool& threadpool) {
     threads::SequentialTLS<double> sums(0, threadpool.size());
-    threads::run(
+    threads::parallel_for(
         threadpool,
         threads::DynamicPartition{data.size(), 256},
         [&](auto indices, auto tid) {
@@ -99,14 +100,14 @@ struct KMeansParameters {
     size_t seed;
 };
 
-template <data::ImmutableMemoryDataset Data>
+template <data::ImmutableMemoryDataset Data, threads::ThreadPool Pool>
 void process_batch(
     const Data& data,
     data::SimpleData<float>& centroids,
     std::vector<int64_t>& counts,
     std::vector<int64_t>& old_counts,
     std::vector<size_t>& assignments,
-    threads::NativeThreadPool& threadpool,
+    Pool& threadpool,
     lib::Timer& timer
 ) {
     assignments.resize(data.size());
@@ -114,7 +115,7 @@ void process_batch(
     // Find the nearest centroid to each element in the sampled dataset.
     // Store the results in `assignments`.
     auto generate_assignments = timer.push_back("generate assignments");
-    threads::run(
+    threads::parallel_for(
         threadpool,
         threads::DynamicPartition{data.size(), 128},
         [&](auto indices, auto /*tid*/) {
@@ -143,11 +144,14 @@ void process_batch(
     adjust_centroids.finish();
 }
 
-template <data::ImmutableMemoryDataset Data, typename Callback = lib::donothing>
+template <
+    data::ImmutableMemoryDataset Data,
+    typename Callback = lib::donothing,
+    threads::ThreadPool Pool>
 data::SimpleData<float> train_impl(
     const KMeansParameters& parameters,
     const Data& data,
-    threads::NativeThreadPool& threadpool,
+    Pool& threadpool,
     Callback&& post_epoch_callback = lib::donothing()
 ) {
     size_t ndims = data.dimensions();
@@ -207,16 +211,30 @@ data::SimpleData<float> train_impl(
 
 template <
     data::ImmutableMemoryDataset Data,
-    typename ThreadpoolProto,
+    typename ThreadPoolProto,
     typename Callback = lib::donothing>
 data::SimpleData<float> train(
     const KMeansParameters& parameters,
     const Data& data,
-    ThreadpoolProto&& threadpool_proto,
+    ThreadPoolProto threadpool_proto,
     Callback&& post_epoch_callback = lib::donothing()
 ) {
-    auto threadpool =
-        threads::as_threadpool(std::forward<ThreadpoolProto>(threadpool_proto));
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    return train_impl(
+        parameters, data, threadpool, std::forward<Callback>(post_epoch_callback)
+    );
+}
+
+template <
+    data::ImmutableMemoryDataset Data,
+    threads::ThreadPool Pool,
+    typename Callback = lib::donothing>
+data::SimpleData<float> train(
+    const KMeansParameters& parameters,
+    const Data& data,
+    Pool& threadpool,
+    Callback&& post_epoch_callback = lib::donothing()
+) {
     return train_impl(
         parameters, data, threadpool, std::forward<Callback>(post_epoch_callback)
     );

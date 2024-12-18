@@ -90,9 +90,9 @@ template <typename IFace> class ManagerInterface : public IFace {
     virtual std::vector<svs::DataType> query_types() const = 0;
 
     // Threading interface
-    virtual bool can_change_threads() const = 0;
     virtual size_t get_num_threads() const = 0;
-    virtual void set_num_threads(size_t) = 0;
+    virtual void set_threadpool(threads::ThreadPoolHandle threadpool) = 0;
+    virtual threads::ThreadPoolHandle& get_threadpool_handle() = 0;
 
     // Delete the special member functions.
     ManagerInterface(const ManagerInterface&) = delete;
@@ -175,12 +175,14 @@ class ManagerImpl : public ManagerInterface<IFace> {
     };
 
     // Threading interface.
-    bool can_change_threads() const override {
-        return implementation_.can_change_threads();
-    }
     size_t get_num_threads() const override { return implementation_.get_num_threads(); }
-    void set_num_threads(size_t num_threads) override {
-        implementation_.set_num_threads(num_threads);
+
+    void set_threadpool(threads::ThreadPoolHandle threadpool) override {
+        implementation_.set_threadpool(std::move(threadpool));
+    }
+
+    threads::ThreadPoolHandle& get_threadpool_handle() override {
+        return implementation_.get_threadpool_handle();
     }
 
   protected:
@@ -248,25 +250,33 @@ template <typename IFace> class IndexManager {
     ///// Threading Interface
 
     ///
-    /// @brief Return whether the back-end implementation can change the number of threads.
-    ///
-    bool can_change_threads() const { return impl_->can_change_threads(); }
-
-    ///
     /// @brief Return the current number of worker threads used by this index for searches.
     ///
     size_t get_num_threads() const { return impl_->get_num_threads(); }
 
+    void set_threadpool(threads::ThreadPoolHandle threadpool) {
+        impl_->set_threadpool(std::move(threadpool));
+    }
+
     ///
-    /// @brief Set the number of threads to use for searching.
+    /// @brief Destroy the original thread pool and set to the new one.
     ///
-    /// @param num_threads The number of threads to use. If set to ``0``, will implicitly
-    ///     default to ``1``.
+    /// @param threadpool An acceptable thread pool.
     ///
-    /// Only effective if ``can_change_threads()`` returns ``true``.
+    /// @copydoc threadpool_requirements
     ///
-    void set_num_threads(size_t num_threads) {
-        impl_->set_num_threads(std::max(size_t(1), num_threads));
+    template <threads::ThreadPool Pool>
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<threads::ThreadPoolHandle, Pool>)
+    {
+        set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
+    }
+
+    ///
+    /// @brief Return the current thread pool handle.
+    ///
+    threads::ThreadPoolHandle& get_threadpool_handle() {
+        return impl_->get_threadpool_handle();
     }
 
     // The implementation is `protected` instead of private because derived classes

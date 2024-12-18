@@ -101,7 +101,7 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         auto groundtruth_all = test_dataset::load_groundtruth(svs::L2);
         auto groundtruth = test_dataset::get_test_set(groundtruth_all, queries_in_test_set);
         index.set_search_parameters(expected.search_parameters_);
-        index.set_num_threads(num_threads);
+        index.set_threadpool(svs::threads::DefaultThreadPool(num_threads));
         auto results = index.search(queries, expected.num_neighbors_, timeout);
         auto recall = svs::k_recall_at_n(
             groundtruth, results, expected.num_neighbors_, expected.recall_k_
@@ -117,7 +117,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
     auto groundtruth = test_dataset::groundtruth_euclidean();
 
     CATCH_SECTION("Flat Index Search Cancel") {
-        auto result = svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
+        auto result =
+            svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
         std::atomic<size_t> counter{0};
         auto timeout = [&]() { return ++counter >= 2; };
         auto index =
@@ -130,7 +131,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
     }
 
     CATCH_SECTION("Flat Orchestrator Search Cancel") {
-        auto result = svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
+        auto result =
+            svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
         std::atomic<size_t> counter{0};
         auto timeout = [&]() { return ++counter >= 5; };
         svs::Flat index = svs::Flat::assemble<svs::lib::Types<float, svs::Float16>>(

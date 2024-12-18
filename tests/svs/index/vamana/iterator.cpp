@@ -270,7 +270,7 @@ CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator]") {
         auto original = test_dataset::data_f32();
 
         // Increase the number of threads to help a little with run time.
-        index.set_num_threads(2);
+        index.set_threadpool(svs::threads::DefaultThreadPool(2));
         auto itr = svs::threads::UnitRange{0, index.size()};
         auto valid_ids = std::unordered_set<size_t>{itr.begin(), itr.end()};
         auto checker = DynamicChecker{valid_ids};

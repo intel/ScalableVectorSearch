@@ -117,7 +117,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     /// @brief The distance computation to use.
     Dist distance_;
     /// @brief Threads to use when merging the groundtruth for buckets in the dataset.
-    threads::NativeThreadPool threadpool_;
+    threads::ThreadPoolHandle threadpool_;
     bool extra_checks_ = false;
     /// @brief Associative data structure for all IDs currently in the dataset.
     std::unordered_set<Idx> valid_{};
@@ -134,18 +134,24 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     ///
     /// @param data The dataset to use
     /// @param distance The distance functor to use.
-    /// @param num_threads Number of threads to use for groundtruth computation.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
     /// @param bucket_size Target number of IDs to use per bucket.
     /// @param num_neighbors The number of neighbors to retrieve when computing the base
     ///     ground truth.
     /// @param queries The query set that will be used.
     /// @param rng_seed The seed to use for random number generator initialization.
     ///
-    template <data::ImmutableMemoryDataset Queries>
+    /// @copydoc threadpool_requirements
+    ///
+    template <data::ImmutableMemoryDataset Queries, typename ThreadPoolProto>
     ReferenceDataset(
         data_type data,
         Dist distance,
-        size_t num_threads,
+        ThreadPoolProto threadpool_proto,
         size_t bucket_size,
         size_t num_neighbors,
         const Queries& queries,
@@ -156,7 +162,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
         , num_neighbors_{num_neighbors}
         , bucket_size_{bucket_size}
         , distance_(std::move(distance))
-        , threadpool_{num_threads}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , rng_{rng_seed} {
         // Perform some sanity checks.
         if (bucket_size_ < num_neighbors) {
@@ -183,7 +189,9 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
                 threads::UnitRange<Idx>(lib::narrow<Idx>(start), lib::narrow<Idx>(stop));
             auto view = data::make_const_view(data_, ids);
 
-            auto index = index::flat::temporary_flat_index(view, distance_, threadpool_);
+            auto index = index::flat::temporary_flat_index(
+                view, distance_, threads::ThreadPoolReferenceWrapper(threadpool_)
+            );
             auto groundtruth =
                 svs::index::search_batch(index, queries.cview(), num_neighbors);
 
@@ -262,7 +270,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
                 throw ANNEXCEPTION("What?");
             }
 
-            threads::run(
+            threads::parallel_for(
                 threadpool_,
                 threads::StaticPartition(num_queries_),
                 [&](auto is, auto /*tid*/) {

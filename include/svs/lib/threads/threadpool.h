@@ -22,6 +22,7 @@
 #include <concepts>
 #include <cstdint>
 #include <mutex>
+#include <queue>
 #include <sstream>
 #include <vector>
 
@@ -35,9 +36,22 @@
 namespace svs {
 namespace threads {
 
+///
+/// @class threadpool_requirements
+///
+/// ThreadPool
+/// ===========
+/// An acceptable thread pool should implement two methods:
+/// * ``size_t size()``. This method should return the number of threads used in the thread
+/// pool.
+/// * ``void parallel_for(std::function<void(size_t)> f, size_t n)``. This method should
+/// execute ``f``. Here, ``f(i)`` represents a task on the ``i^th`` partition, and ``n``
+/// represents the number of partitions that need to be executed.
+///
+
 // clang-format off
 template <typename Pool>
-concept ThreadPool = requires(Pool& pool, const Pool& const_pool, FunctionRef f) {
+concept ThreadPool = requires(Pool& pool, const Pool& const_pool, std::function<void(size_t)> f, size_t n) {
     ///
     /// Return the number of threads in the thread pool.
     ///
@@ -46,29 +60,25 @@ concept ThreadPool = requires(Pool& pool, const Pool& const_pool, FunctionRef f)
     ///
     /// Run the fundamental function on each thread.
     ///
-    pool.run(f);
-};
+    pool.parallel_for(std::move(f), n);
 
-template <typename Pool>
-concept ResizeableThreadPool = requires(Pool& pool, size_t sz) {
-    requires(ThreadPool<Pool>);
-
-    ///
-    /// Change the number of threads in the pool.
-    ///
-    pool.resize(sz);
 };
 // clang-format on
 
-template <ThreadPool Pool, typename F> void run(Pool& pool, F&& f) {
-    auto f_wrapped = thunks::wrap(ThreadCount{pool.size()}, f);
-    pool.run(FunctionRef(f_wrapped));
+template <ThreadPool Pool, typename F> void parallel_for(Pool& pool, F&& f) {
+    pool.parallel_for(
+        thunks::wrap(ThreadCount{pool.size()}, f), pool.size()
+    ); // Current partitioning methods will create n partitions where n equals to the number
+       // of threads. Delegate the wrapped function to threadpool
 }
 
-template <ThreadPool Pool, typename T, typename F> void run(Pool& pool, T&& arg, F&& f) {
+template <ThreadPool Pool, typename T, typename F>
+void parallel_for(Pool& pool, T&& arg, F&& f) {
     if (!arg.empty()) {
-        auto f_wrapped = thunks::wrap(ThreadCount{pool.size()}, f, std::forward<T>(arg));
-        pool.run(FunctionRef(f_wrapped));
+        pool.parallel_for(
+            thunks::wrap(ThreadCount{pool.size()}, f, std::forward<T>(arg)), pool.size()
+        ); // Current partitioning methods will create n partitions where n equals to the
+           // number of threads. Delegate the wrapped function to threadpool
     }
 }
 
@@ -82,8 +92,14 @@ template <ThreadPool Pool, typename T, typename F> void run(Pool& pool, T&& arg,
 class SequentialThreadPool {
   public:
     SequentialThreadPool() = default;
+
     static constexpr size_t size() { return 1; }
-    static void run(FunctionRef f) { f(0); }
+
+    static void parallel_for(std::function<void(size_t)> f, size_t n) {
+        for (size_t i = 0; i < n; ++i) {
+            f(i);
+        }
+    }
 };
 static_assert(ThreadPool<SequentialThreadPool>);
 
@@ -146,6 +162,7 @@ template <typename Builder> class NativeThreadPoolBase {
 
     size_t size() const { return threads_.size() + 1; }
 
+    // Support resize
     void resize(size_t new_size) {
         new_size = std::max(new_size, size_t{1});
         std::lock_guard lock{*use_mutex_};
@@ -159,10 +176,13 @@ template <typename Builder> class NativeThreadPoolBase {
         }
     }
 
-    void run(FunctionRef f) {
+    // TODO: This assignment underutilizes the main thread.
+    //       It's okay for now as current partitioning methods set n equals to the number of
+    //       threads
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
         std::lock_guard lock{*use_mutex_};
-        for (size_t i = 0; i < threads_.size(); ++i) {
-            threads_[i].assign({f, i + 1});
+        for (size_t i = 0; i < n - 1; ++i) {
+            threads_[i % (threads_.size())].assign({&f, i + 1});
         }
         // Run on the main function.
         try {
@@ -209,7 +229,7 @@ template <typename Builder> class NativeThreadPoolBase {
 
 using NativeThreadPool = NativeThreadPoolBase<DefaultBuilder>;
 // Ensure that we satisfy the requirements for a threadpool.
-static_assert(ResizeableThreadPool<NativeThreadPool>);
+static_assert(ThreadPool<NativeThreadPool>);
 
 SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_NUMA);
 #if SVS_ENABLE_NUMA
@@ -230,10 +250,229 @@ auto create_on_nodes(InterNUMAThreadPool& threadpool, F&& f)
     using RetType = std::result_of_t<F(size_t)>;
     return numa::NumaLocal<RetType>(threadpool.size(), [&](auto& slots) {
         assert(slots.size() == threadpool.size());
-        threads::run(threadpool, [&](uint64_t tid) { slots[tid] = f(tid); });
+        threads::parallel_for(threadpool, [&](uint64_t tid) { slots[tid] = f(tid); });
     });
 }
 #endif
+
+/////
+///// A handy refernce wrapper for situations where we only want to share a thread pool
+/////
+template <ThreadPool Pool> class ThreadPoolReferenceWrapper {
+  public:
+    ThreadPoolReferenceWrapper(Pool& threadpool)
+        : threadpool_{threadpool} {}
+
+    size_t size() const { return threadpool_.size(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        threadpool_.parallel_for(std::move(f), n);
+    }
+
+  private:
+    Pool& threadpool_;
+};
+
+/////
+///// A thread pool implementation using std::async
+/////
+class CppAsyncThreadPool {
+  public:
+    explicit CppAsyncThreadPool(size_t max_async_tasks)
+        : _max_async_tasks{max_async_tasks} {}
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        std::vector<std::future<void>> futures;
+        futures.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            futures.emplace_back(std::async(
+                std::launch::async, [&f](size_t i) { f(i); }, i
+            ));
+            if (futures.size() == _max_async_tasks) {
+                // wait until all async tasks are finished
+                std::for_each(futures.begin(), futures.end(), [](std::future<void>& fu) {
+                    fu.get();
+                });
+                futures.clear();
+            }
+        }
+
+        // wait until all async tasks are finished
+        std::for_each(futures.begin(), futures.end(), [](std::future<void>& fu) {
+            fu.get();
+        });
+    }
+
+    size_t size() const { return _max_async_tasks; }
+
+    // support resize
+    void resize(size_t max_async_tasks) { _max_async_tasks = max_async_tasks; }
+
+  private:
+    size_t _max_async_tasks{1};
+};
+static_assert(ThreadPool<CppAsyncThreadPool>);
+
+/////
+///// A thread pool implementation using a centrialized task queue
+/////
+class QueueThreadPool {
+  public:
+    explicit QueueThreadPool(size_t num_threads) {
+        threads_.reserve(num_threads);
+        for (size_t i = 0; i < num_threads; ++i) {
+            threads_.emplace_back([this]() {
+                while (!stop_) {
+                    std::function<void()> task;
+                    {
+                        std::unique_lock lock(mtx_);
+                        while (queue_.empty() && !stop_) {
+                            cv_.wait(lock);
+                        }
+                        if (!queue_.empty()) {
+                            task = queue_.front();
+                            queue_.pop();
+                        }
+                    }
+
+                    if (task) {
+                        task();
+                    }
+                }
+            });
+        }
+    }
+
+    QueueThreadPool(QueueThreadPool&&) = delete;
+    QueueThreadPool(const QueueThreadPool&) = delete;
+    QueueThreadPool& operator=(QueueThreadPool&&) = delete;
+    QueueThreadPool& operator=(const QueueThreadPool&) = delete;
+
+    ~QueueThreadPool() {
+        shutdown();
+        for (auto& t : threads_) {
+            t.join();
+        }
+    }
+
+    template <typename C> std::future<void> insert(C&& task) {
+        std::promise<void> prom;
+        std::future<void> fu = prom.get_future();
+        {
+            std::scoped_lock lock(mtx_);
+            queue_.push([moc = MoC{std::move(prom)},
+                         task = std::forward<C>(task)]() mutable {
+                task();
+                moc.obj.set_value();
+            });
+        }
+        cv_.notify_one();
+        return fu;
+    }
+
+    size_t size() const { return threads_.size(); }
+
+    void shutdown() {
+        std::scoped_lock lock(mtx_);
+        stop_ = true;
+        cv_.notify_all();
+    }
+
+  private:
+    std::vector<std::thread> threads_;
+    std::mutex mtx_;
+    std::condition_variable cv_;
+
+    bool stop_{false};
+    std::queue<std::function<void()>> queue_;
+};
+
+/////
+///// The wrapper for QueueThreadPool to work on SVS
+/////
+class QueueThreadPoolWrapper {
+  public:
+    QueueThreadPoolWrapper(size_t num_threads)
+        : threadpool_{std::make_unique<QueueThreadPool>(num_threads)} {}
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        std::vector<std::future<void>> futures;
+        futures.reserve(n);
+        for (size_t i = 0; i < n; ++i) {
+            futures.emplace_back(threadpool_->insert([&f, i]() { f(i); }));
+        }
+
+        // wait until all tasks are finished
+        for (auto& fu : futures) {
+            fu.get();
+        }
+    }
+
+    size_t size() const { return threadpool_->size(); }
+
+  private:
+    std::unique_ptr<QueueThreadPool> threadpool_;
+};
+static_assert(ThreadPool<QueueThreadPoolWrapper>);
+
+/////
+///// Type erasure thread pool implementation
+/////
+
+class ThreadPoolInterface {
+  public:
+    virtual ~ThreadPoolInterface() = default;
+    virtual size_t size() const = 0;
+    virtual void parallel_for(std::function<void(size_t)>, size_t) = 0;
+};
+
+template <ThreadPool Impl> class ThreadPoolImpl : public ThreadPoolInterface {
+  public:
+    explicit ThreadPoolImpl(Impl&& impl)
+        : ThreadPoolInterface{}
+        , impl_{std::move(impl)} {}
+
+    size_t size() const override { return impl_.size(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) override {
+        impl_.parallel_for(std::move(f), n);
+    }
+
+    Impl& get() { return impl_; }
+
+  private:
+    Impl impl_;
+};
+
+class ThreadPoolHandle {
+  public:
+    template <ThreadPool Impl>
+    explicit ThreadPoolHandle(Impl&& impl)
+        requires(!std::is_same_v<Impl, ThreadPoolHandle>) &&
+                std::is_rvalue_reference_v<Impl&&>
+        : impl_{std::make_unique<ThreadPoolImpl<Impl>>(std::move(impl))} {}
+
+    size_t size() const { return impl_->size(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        impl_->parallel_for(std::move(f), n);
+    }
+
+    template <ThreadPool Impl> auto& get() {
+        ThreadPoolImpl<Impl>* result = dynamic_cast<ThreadPoolImpl<Impl>*>(impl_.get());
+        if (result != nullptr) {
+            return result->get();
+        } else {
+            throw ANNEXCEPTION("Failed to cast to the provided threadpool type");
+        }
+    }
+
+  private:
+    std::unique_ptr<ThreadPoolInterface> impl_;
+};
+
+// SVS default threadpool
+using DefaultThreadPool = NativeThreadPool;
 
 } // namespace threads
 } // namespace svs
