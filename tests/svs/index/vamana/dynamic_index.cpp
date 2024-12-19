@@ -148,6 +148,8 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
             }
         }
 
+        index.set_threadpool(threads::CppAsyncThreadPool(num_threads));
+
         std::cout << "Deleting " << ids_to_delete.size() << " entries!" << std::endl;
         index.delete_entries(ids_to_delete);
         check_deleted(index, ids_to_delete, base_data.size());
@@ -163,6 +165,8 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
 
         // Make sure none of the returned results are in the deleted list.
         check_results(results.indices(), ids_to_delete);
+
+        index.set_threadpool(threads::QueueThreadPoolWrapper(num_threads));
 
         auto results_reference = svs::QueryResult<size_t>(queries.size(), num_neighbors);
         index.exhaustive_search(queries.view(), num_neighbors, results_reference.view());
@@ -199,6 +203,13 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
         index.consolidate();
         index.debug_check_graph_consistency(false);
 
+        auto& threadpool =
+            index.get_threadpool_handle().get<threads::CppAsyncThreadPool>.get();
+        threadpool.resize(3);
+        CATCH_REQUIRE(index.get_num_threads() == 3);
+        threadpool.resize(num_threads);
+        CATCH_REQUIRE(index.get_num_threads() == num_threads);
+
         CATCH_REQUIRE(index.entry_point() != entry_point);
         index.search(queries.view(), num_neighbors, results.view());
         auto post_entrypoint_recall =
@@ -217,6 +228,7 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
             ++i;
         }
 
+        index.set_threadpool(threads::DefaultThreadPool(num_threads));
         tic = svs::lib::now();
         index.add_points(points, ids_to_delete);
         auto insert_time = svs::lib::time_difference(tic);

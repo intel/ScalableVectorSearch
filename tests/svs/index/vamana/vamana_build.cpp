@@ -97,9 +97,9 @@ CATCH_TEST_CASE("Index Build Utilties", "[vamana][vamana_build]") {
         // Entries `[10*i + 4, 20 * i)` will be added by thread 2.
         // The regions added by each thread intentionally overlap to ensure that the
         // buffer correctly handles repeated elements.
-        auto threadpool = svs::threads::NativeThreadPool(2);
+        auto threadpool = svs::threads::DefaultThreadPool(2);
         CATCH_REQUIRE(threadpool.size() == 2);
-        svs::threads::run(threadpool, [&](auto tid) {
+        svs::threads::parallel_for(threadpool, [&](auto tid) {
             // Random number generator per thread.
             std::mt19937_64 engine{std::random_device{}()};
             auto dist = std::uniform_int_distribution<>{1, 10};

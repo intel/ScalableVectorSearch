@@ -360,6 +360,49 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
         2
     );
 
+    do_check(
+        reloaded,
+        reference,
+        queries,
+        build_time,
+        stringify("initial build (", num_indices_to_add, ") points"),
+        true
+    );
+
+    reloaded = svs::index::vamana::auto_dynamic_assemble(
+        tmp / "config",
+        SVS_LAZY(svs::graphs::SimpleBlockedGraph<uint32_t>::load(tmp / "graph")),
+        SVS_LAZY(svs::data::BlockedData<float>::load(tmp / "data")),
+        svs::DistanceL2(),
+        svs::threads::CppAsyncThreadPool(2)
+    );
+
+    do_check(
+        reloaded,
+        reference,
+        queries,
+        build_time,
+        stringify("initial build (", num_indices_to_add, ") points"),
+        true
+    );
+
+    reloaded = svs::index::vamana::auto_dynamic_assemble(
+        tmp / "config",
+        SVS_LAZY(svs::graphs::SimpleBlockedGraph<uint32_t>::load(tmp / "graph")),
+        SVS_LAZY(svs::data::BlockedData<float>::load(tmp / "data")),
+        svs::DistanceL2(),
+        svs::threads::QueueThreadPoolWrapper(2)
+    );
+
+    do_check(
+        reloaded,
+        reference,
+        queries,
+        build_time,
+        stringify("initial build (", num_indices_to_add, ") points"),
+        true
+    );
+
     // Make sure parameters were saved across the saving.
     CATCH_REQUIRE(index.get_alpha() == reloaded.get_alpha());
     CATCH_REQUIRE(index.get_graph_max_degree() == reloaded.get_graph_max_degree());

@@ -37,7 +37,7 @@ svs::index::inverted::Clustering<uint32_t> randomly_cluster(
     const Distance& distance,
     size_t num_threads
 ) {
-    auto threadpool = svs::threads::NativeThreadPool(num_threads);
+    auto threadpool = svs::threads::DefaultThreadPool(num_threads);
 
     // Select Centroids.
     auto centroids = svs::index::inverted::randomly_select_centroids(
