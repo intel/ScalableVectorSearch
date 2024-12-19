@@ -293,41 +293,37 @@ class MutableVamanaIndex {
 
     ///// Accessors
 
-    ///
     /// @brief Get the alpha value used for pruning while mutating the graph.
-    ///
-    /// @see set_alpha, get_construction_window_size, set_construction_window_size
-    ///
     float get_alpha() const { return alpha_; }
-
-    ///
     /// @brief Set the alpha value used for pruning while mutating the graph.
-    ///
-    /// @see get_alpha, get_construction_window_size, set_construction_window_size
-    ///
     void set_alpha(float alpha) { alpha_ = alpha; }
 
+    /// @brief Get the ``graph_max_degree`` used while mutating the graph.
+    size_t get_graph_max_degree() const { return graph_.max_degree(); }
+
+    /// @brief Get the max candidate pool size used while mutating the graph.
     size_t get_max_candidates() const { return max_candidates_; }
+    /// @brief Set the max candidate pool size to be used while mutating the graph.
     void set_max_candidates(size_t max_candidates) { max_candidates_ = max_candidates; }
+    /// @brief Get the prune_to value used while mutating the graph.
+    size_t get_prune_to() const { return prune_to_; }
+    /// @brief Set the prune_to value to be used while mutating the graph.
+    void set_prune_to(size_t prune_to) { prune_to_ = prune_to; }
 
-    void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
-    bool get_full_search_history() const { return use_full_search_history_; }
-
-    ///
-    /// @brief Get the window size used the mutating the graph.
-    ///
-    /// @see set_construction_window_size, get_alpha, set_alpha
-    ///
+    /// @brief Get the window size used while mutating the graph.
     size_t get_construction_window_size() const { return construction_window_size_; }
-
-    ///
-    /// @brief Set the window size used the mutating the graph.
-    ///
-    /// @see get_construction_window_size, get_alpha, set_alpha
-    ///
+    /// @brief Set the window size to be used while mutating the graph.
     void set_construction_window_size(size_t window_size) {
         construction_window_size_ = window_size;
     }
+
+    /// @brief Return whether the full search history is being used while mutating
+    /// the graph.
+    bool get_full_search_history() const { return use_full_search_history_; }
+    /// @brief Enable using the full search history for candidate generation while
+    /// mutating the graph.
+    void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
+
 
     ///// Index translation.
 

@@ -47,11 +47,19 @@ class VamanaInterface {
     virtual void set_alpha(float alpha) = 0;
     virtual float get_alpha() const = 0;
 
+    virtual size_t get_graph_max_degree() const = 0;
+
     virtual void set_construction_window_size(size_t window_size) = 0;
     virtual size_t get_construction_window_size() const = 0;
 
     virtual void set_max_candidates(size_t max_candidates) = 0;
     virtual size_t get_max_candidates() const = 0;
+
+    virtual void set_prune_to(size_t prune_to) = 0;
+    virtual size_t get_prune_to() const = 0;
+
+    virtual void set_full_search_history(bool enable) = 0;
+    virtual bool get_full_search_history() const = 0;
 
     ///// Backend Information Interface
     virtual std::string experimental_backend_string() const = 0;
@@ -110,6 +118,8 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     void set_alpha(float alpha) override { impl().set_alpha(alpha); }
     float get_alpha() const override { return impl().get_alpha(); }
 
+    size_t get_graph_max_degree() const override { return impl().get_graph_max_degree(); }
+
     void set_construction_window_size(size_t window_size) override {
         impl().set_construction_window_size(window_size);
     }
@@ -121,6 +131,16 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
         impl().set_max_candidates(max_candidates);
     }
     size_t get_max_candidates() const override { return impl().get_max_candidates(); }
+
+    void set_prune_to(size_t prune_to) override { impl().set_prune_to(prune_to); }
+    size_t get_prune_to() const override { return impl().get_prune_to(); }
+
+    void set_full_search_history(bool enable) override {
+        impl().set_full_search_history(enable);
+    }
+    bool get_full_search_history() const override {
+        return impl().get_full_search_history();
+    }
 
     ///// Backend Information Interface
     std::string experimental_backend_string() const override {
@@ -276,7 +296,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     float get_alpha() const { return impl_->get_alpha(); }
     void set_alpha(float alpha) { impl_->set_alpha(alpha); }
 
-    /// @copydoc svs::index::vamana::VamanaIndex::set_alpha
+    /// @copydoc svs::index::vamana::VamanaIndex::get_graph_max_degree
+    size_t get_graph_max_degree() const { return impl_->get_graph_max_degree(); }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::set_construction_window_size
     size_t get_construction_window_size() const {
         return impl_->get_construction_window_size();
     }
@@ -289,6 +312,14 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     void set_max_candidates(size_t max_candidates) {
         impl_->set_max_candidates(max_candidates);
     }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::get_prune_to
+    size_t get_prune_to() const { return impl_->get_prune_to(); }
+    void set_prune_to(size_t prune_to) { impl_->set_prune_to(prune_to); }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::get_full_search_history
+    bool get_full_search_history() const { return impl_->get_full_search_history(); }
+    void set_full_search_history(bool enable) { impl_->set_full_search_history(enable); }
 
     bool visited_set_enabled() const {
         return get_search_parameters().search_buffer_visited_set_;
