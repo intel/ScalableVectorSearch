@@ -117,7 +117,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
     auto groundtruth = test_dataset::groundtruth_euclidean();
 
     CATCH_SECTION("Flat Index Search Cancel") {
-        auto result = svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
+        auto result =
+            svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
         std::atomic<size_t> counter{0};
         auto timeout = [&]() { return ++counter >= 2; };
         auto index =
@@ -130,7 +131,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
     }
 
     CATCH_SECTION("Flat Orchestrator Search Cancel") {
-        auto result = svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
+        auto result =
+            svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
         std::atomic<size_t> counter{0};
         auto timeout = [&]() { return ++counter >= 5; };
         svs::Flat index = svs::Flat::assemble<svs::lib::Types<float, svs::Float16>>(
@@ -141,6 +143,83 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         // recall should be very bad due to timeout
         CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) < 0.5);
         CATCH_REQUIRE(counter >= 5);
+    }
+
+    CATCH_SECTION("Batch Iterator Search Cancel") {
+        auto index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
+            test_dataset::vamana_config_file(),
+            svs::GraphLoader(test_dataset::graph_file()),
+            svs::VectorDataLoader<float>(test_dataset::data_svs_file()),
+            svs::L2,
+            2
+        );
+        auto expected_results =
+            test_dataset::vamana::expected_search_results(
+                svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+            )
+                .config_and_recall_;
+        const auto& expected = expected_results.at(0);
+
+        std::atomic<size_t> counter{0};
+        auto timeout = [&]() { return ++counter >= 4; };
+
+        const auto queries_all = test_dataset::queries();
+        auto queries = test_dataset::get_test_set(queries_all, 1);
+        auto groundtruth_all = test_dataset::load_groundtruth(svs::L2);
+        auto groundtruth = test_dataset::get_test_set(groundtruth_all, 1);
+
+        auto schedule = svs::index::vamana::DefaultSchedule{
+            expected.search_parameters_, expected.num_neighbors_};
+        auto itr = index.batch_iterator(queries.get_datum(0), schedule);
+
+        auto results = svs::QueryResultImpl<size_t>(1, expected.num_neighbors_);
+        auto neighbors = itr.results();
+        for (size_t j = 0; j < expected.num_neighbors_; ++j) {
+            results.set(neighbors[j], 0, j);
+        }
+        auto recall = svs::k_recall_at_n(
+            groundtruth, results, expected.num_neighbors_, expected.recall_k_
+        );
+
+        CATCH_REQUIRE(recall > 0.6);
+        CATCH_REQUIRE(counter == 0);
+
+        itr = index.batch_iterator(queries.get_datum(0), schedule, timeout);
+        neighbors = itr.results();
+        for (size_t j = 0; j < expected.num_neighbors_; ++j) {
+            results.set(neighbors[j], 0, j);
+        }
+        recall = svs::k_recall_at_n(
+            groundtruth, results, expected.num_neighbors_, expected.recall_k_
+        );
+
+        CATCH_REQUIRE(recall < 0.6);
+        CATCH_REQUIRE(counter >= 4);
+        counter = 0;
+
+        itr.update(queries.get_datum(0), timeout);
+        neighbors = itr.results();
+        for (size_t j = 0; j < expected.num_neighbors_; ++j) {
+            results.set(neighbors[j], 0, j);
+        }
+        recall = svs::k_recall_at_n(
+            groundtruth, results, expected.num_neighbors_, expected.recall_k_
+        );
+
+        CATCH_REQUIRE(recall < 0.6);
+        CATCH_REQUIRE(counter >= 4);
+
+        itr.restart_next_search();
+        itr.next(timeout);
+        neighbors = itr.results();
+        for (size_t j = 0; j < expected.num_neighbors_; ++j) {
+            results.set(neighbors[j], 0, j);
+        }
+        recall = svs::k_recall_at_n(
+            groundtruth, results, expected.num_neighbors_, expected.recall_k_
+        );
+        CATCH_REQUIRE(recall < 0.6);
+        CATCH_REQUIRE(counter >= 4);
     }
 }
 

@@ -462,13 +462,17 @@ class MutableVamanaIndex {
 
     // Single Search
     template <typename Query>
-    void search(const Query& query, scratchspace_type& scratch) const {
+    void search(
+        const Query& query,
+        scratchspace_type& scratch,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters)
+            greedy_search_closure(scratch.prefetch_parameters, cancel)
         );
     }
 
