@@ -78,7 +78,9 @@ class VamanaInterface {
 
     ///// Iterator
     virtual VamanaIterator batch_iterator(
-        svs::AnonymousArray<1> query, svs::index::vamana::AbstractIteratorSchedule schedule
+        svs::AnonymousArray<1> query,
+        svs::index::vamana::AbstractIteratorSchedule schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const = 0;
 
     ///// Calibrations
@@ -176,7 +178,9 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
 
     ///// Iterator
     SVS_TEMPORARY_DISABLE_SINGLE_SEARCH VamanaIterator batch_iterator(
-        svs::AnonymousArray<1> query, svs::index::vamana::AbstractIteratorSchedule schedule
+        svs::AnonymousArray<1> query,
+        svs::index::vamana::AbstractIteratorSchedule schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const override {
         if constexpr (!Impl::temporary_disable_batch_iterator()) {
             // Match the query type.
@@ -187,7 +191,8 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
                     return VamanaIterator{
                         impl(),
                         std::span<const T>(svs::get<T>(query), query.size(0)),
-                        std::move(schedule)};
+                        std::move(schedule),
+                        cancel};
                 }
             );
         } else {
@@ -485,14 +490,19 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @brief Return a new batch iterator for the query using the provided schedule.
     ///
     /// The parameter `QueryType` must be an element of  ``svs::Vamana::query_types()``.
+    /// ``cancel`` is an optional argument to determine if the search should be cancelled.
     ///
     /// The returned iterator will maintain an internal copy of the query.
     template <typename QueryType, size_t N, svs::index::vamana::IteratorSchedule Schedule>
-    svs::VamanaIterator
-    batch_iterator(std::span<const QueryType, N> query, Schedule schedule) const {
+    svs::VamanaIterator batch_iterator(
+        std::span<const QueryType, N> query,
+        Schedule schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
         return impl_->batch_iterator(
             svs::AnonymousArray<1>(query.data(), query.size()),
-            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule))
+            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule)),
+            cancel
         );
     }
 

@@ -138,7 +138,12 @@ class BatchIterator {
     /// of results.
     using const_iterator = typename result_buffer_type::const_iterator;
 
-    BatchIterator(const Index& parent, std::span<const QueryType> query, Schedule schedule)
+    BatchIterator(
+        const Index& parent,
+        std::span<const QueryType> query,
+        Schedule schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    )
         : parent_{&parent}
         , query_{query.begin(), query.end()}
         , scratchspace_{parent.scratchspace()}
@@ -153,13 +158,22 @@ class BatchIterator {
 
         // Perform a traditional graph search to initialize the internal scratchspace.
         // The internal state of the scratch space is preserved for reuse on future runs.
-        parent.search(lib::as_const_span(query_), scratchspace_);
+        parent.search(lib::as_const_span(query_), scratchspace_, cancel);
         copy_from_scratch(max_candidates);
     }
 
-    void update(std::span<const QueryType> newquery) { update(newquery, schedule_); }
+    void update(
+        std::span<const QueryType> newquery,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        update(newquery, schedule_, cancel);
+    }
 
-    void update(std::span<const QueryType> newquery, const Schedule& new_schedule) {
+    void update(
+        std::span<const QueryType> newquery,
+        const Schedule& new_schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
         detail::checkdims(newquery.size(), parent_->dimensions());
         assert(newquery.size() == query_.size());
 
@@ -173,7 +187,7 @@ class BatchIterator {
         restart_search_ = true;
         size_t max_candidates = new_schedule.max_candidates(0);
         scratchspace_.apply(schedule_.for_iteration(0));
-        parent_->search(newquery, scratchspace_);
+        parent_->search(newquery, scratchspace_, cancel);
 
         // Use the copy-and-swap idiom for the new schedule to support copy-constructors
         // that can throw.
@@ -269,6 +283,7 @@ class BatchIterator {
     }
 
     /// @brief Retrieve the next batch of neighbors from the index.
+    /// ``cancel`` is an optional argument to determine if the search should be cancelled.
     ///
     /// This function provides the basic exception guarantee with the following semantics:
     ///
@@ -290,7 +305,7 @@ class BatchIterator {
     /// result buffer will be emptied and no new neighbors will be returned.
     ///
     /// @sa ``done()``
-    void next() {
+    void next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) {
         if (done()) {
             results_.clear();
             return;
@@ -331,7 +346,8 @@ class BatchIterator {
                         vamana::GreedySearchPrefetchParameters{
                             p.prefetch_lookahead_,
                             p.prefetch_step_,
-                        }
+                        },
+                        cancel
                     );
 
                     // TODO: Need a better way of identifying if we're working with

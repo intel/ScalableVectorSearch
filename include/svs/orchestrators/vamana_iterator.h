@@ -36,11 +36,18 @@ class VamanaIterator {
         virtual size_t size() const = 0;
         virtual std::span<const svs::Neighbor<size_t>> results() const = 0;
         virtual void restart_next_search() = 0;
-        virtual void next() = 0;
-        virtual bool done() const = 0;
-        virtual void update(svs::AnonymousArray<1>) = 0;
         virtual void
-        update(svs::AnonymousArray<1>, const svs::index::vamana::AbstractIteratorSchedule&) = 0;
+        next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) = 0;
+        virtual bool done() const = 0;
+        virtual void update(
+            svs::AnonymousArray<1>,
+            const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        ) = 0;
+        virtual void update(
+            svs::AnonymousArray<1>,
+            const svs::index::vamana::AbstractIteratorSchedule&,
+            const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        ) = 0;
 
         virtual ~Interface() = default;
     };
@@ -54,9 +61,10 @@ class VamanaIterator {
         Implementation(
             const Index& index,
             std::span<const QueryType> query,
-            svs::index::vamana::AbstractIteratorSchedule schedule
+            svs::index::vamana::AbstractIteratorSchedule schedule,
+            const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
         )
-            : impl_{index, query, std::move(schedule)} {}
+            : impl_{index, query, std::move(schedule), cancel} {}
 
         svs::index::vamana::VamanaSearchParameters
         parameters_for_current_batch() const override {
@@ -73,26 +81,35 @@ class VamanaIterator {
         }
 
         void restart_next_search() override { impl_.restart_next_search(); }
-        void next() override { impl_.next(); }
+        void next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()))
+            override {
+            impl_.next(cancel);
+        }
         bool done() const override { return impl_.done(); }
 
         // Query Updates
-        void update(svs::AnonymousArray<1> newquery) override {
+        void update(
+            svs::AnonymousArray<1> newquery,
+            const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        ) override {
             if (newquery.type() == svs::datatype_v<QueryType>) {
                 impl_.update(
-                    std::span<const QueryType>(get<QueryType>(newquery), newquery.size(0))
+                    std::span<const QueryType>(get<QueryType>(newquery), newquery.size(0)),
+                    cancel
                 );
             }
         }
 
         void update(
             svs::AnonymousArray<1> newquery,
-            const svs::index::vamana::AbstractIteratorSchedule& newschedule
+            const svs::index::vamana::AbstractIteratorSchedule& newschedule,
+            const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
         ) override {
             if (newquery.type() == svs::datatype_v<QueryType>) {
                 impl_.update(
                     std::span<const QueryType>(get<QueryType>(newquery), newquery.size(0)),
-                    newschedule
+                    newschedule,
+                    cancel
                 );
             }
         }
@@ -109,15 +126,17 @@ class VamanaIterator {
     /// The results for the first batch will be available once the constructor completes.
     ///
     /// Argument ``schedule`` will be used to adjust the search parameters for each batch.
+    /// ``cancel`` is an optional argument to determine if the search should be cancelled.
     /// An internal copy of the query will be made.
     template <typename Index, typename QueryType>
     VamanaIterator(
         const Index& parent,
         std::span<const QueryType> query,
-        svs::index::vamana::AbstractIteratorSchedule schedule
+        svs::index::vamana::AbstractIteratorSchedule schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     )
         : impl_{std::make_unique<Implementation<Index, QueryType>>(
-              parent, query, std::move(schedule)
+              parent, query, std::move(schedule), cancel
           )} {}
 
     /// @brief Return the search parameters used for the current batch.
@@ -144,7 +163,11 @@ class VamanaIterator {
     ///
     /// After calling this method, previous results will no longer be available.
     /// This method invalidates previous values return by ``results()``.
-    void next() { impl_->next(); }
+    /// Argument cancel is a predicate called to determine if the search should be
+    /// cancelled.
+    void next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) {
+        impl_->next(cancel);
+    }
 
     /// @brief Signal that the next batch search should begin entirely from scratch.
     ///
@@ -166,7 +189,7 @@ class VamanaIterator {
     bool done() const { return impl_->done(); }
 
     /// @brief Update the query contained in the iterator and begin a new search.
-    ///
+    /// An optional cancel predicate to determine if the search should be cancelled.
     ///
     /// Thus function provides the following exception guarentee:
     ///
@@ -176,11 +199,16 @@ class VamanaIterator {
     ///
     /// Throws an ``svs::ANNException`` if the provided query type does not match
     /// ``query_type()``.
-    template <typename QueryType> void update(std::span<const QueryType> newquery) {
-        impl_->update(svs::AnonymousArray<1>{newquery.data(), newquery.size()}, newquery);
+    template <typename QueryType>
+    void update(
+        std::span<const QueryType> newquery,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
+        impl_->update(svs::AnonymousArray<1>{newquery.data(), newquery.size()}, cancel);
     }
 
     /// @brief Update the query contained in the iterator and begin a new search.
+    /// An optional cancel predicate to determine if the search should be cancelled.
     ///
     /// Thus function provides the following exception guarentee:
     ///
@@ -193,10 +221,15 @@ class VamanaIterator {
     /// Throws an ``svs::ANNException`` if the provided query type does not match
     /// ``query_type()``.
     template <typename QueryType, svs::index::vamana::IteratorSchedule Schedule>
-    void update(std::span<const QueryType> newquery, const Schedule& newschedule) {
+    void update(
+        std::span<const QueryType> newquery,
+        const Schedule& newschedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) {
         impl_->update(
             svs::AnonymousArray<1>{newquery.data(), newquery.size()},
-            svs::index::vamana::AbstractIteratorSchedule(newschedule)
+            svs::index::vamana::AbstractIteratorSchedule(newschedule),
+            cancel
         );
     }
 };
