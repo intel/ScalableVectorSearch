@@ -739,7 +739,7 @@ void post_process_neighbors(
             }
         }
     };
-    threads::run(threadpool, threads::StaticPartition(results.n_queries()), impl);
+    threads::parallel_for(threadpool, threads::StaticPartition(results.n_queries()), impl);
 }
 
 template <typename Index, std::integral I> struct ClusteringSetup {
@@ -768,13 +768,17 @@ ClusteringSetup(Index, std::vector<I, lib::Allocator<I>>) -> ClusteringSetup<Ind
 /// NOTE: The resulting search index will not automatically perform conversion from index
 /// local IDs to global dataset IDs.
 ///
-template <data::ImmutableMemoryDataset Data, typename Distance, std::integral I>
+template <
+    data::ImmutableMemoryDataset Data,
+    typename Distance,
+    std::integral I,
+    threads::ThreadPool Pool>
 auto build_primary_index(
     const Data& data,
     std::span<const I> ids,
     const vamana::VamanaBuildParameters& vamana_parameters,
     const Distance& distance,
-    threads::ThreadPool auto threadpool
+    Pool threadpool
 ) {
     return vamana::auto_build(
         vamana_parameters,
@@ -842,7 +846,7 @@ Clustering<I> cluster_with(
             primary_index.get_distance(),
             local_translator,
             [centroid_ids](size_t i) { return centroid_ids[i]; },
-            primary_index.borrow_threadpool()
+            primary_index.get_threadpool_handle()
         );
         start = stop;
     }

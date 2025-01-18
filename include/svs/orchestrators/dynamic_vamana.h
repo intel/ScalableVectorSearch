@@ -233,16 +233,21 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     template <
         manager::QueryTypeDefinition QueryTypes,
         data::ImmutableMemoryDataset Data,
-        typename Distance>
+        typename Distance,
+        typename ThreadPoolProto>
     static DynamicVamana build(
         const index::vamana::VamanaBuildParameters& parameters,
         Data data,
         std::span<const size_t> ids,
         Distance distance,
-        size_t num_threads
+        ThreadPoolProto threadpool_proto
     ) {
         return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
-            parameters, std::move(data), ids, std::move(distance), num_threads
+            parameters,
+            std::move(data),
+            ids,
+            std::move(distance),
+            threads::as_threadpool(std::move(threadpool_proto))
         );
     }
 
@@ -251,13 +256,14 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         manager::QueryTypeDefinition QueryTypes,
         typename GraphLoader,
         typename DataLoader,
-        typename Distance>
+        typename Distance,
+        typename ThreadPoolProto>
     static DynamicVamana assemble(
         const std::filesystem::path& config_path,
         const GraphLoader& graph_loader,
         const DataLoader& data_loader,
         const Distance& distance,
-        size_t num_threads,
+        ThreadPoolProto threadpool_proto,
         bool debug_load_from_static = false
     ) {
         return DynamicVamana(
@@ -268,7 +274,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                 graph_loader,
                 data_loader,
                 distance,
-                num_threads,
+                threads::as_threadpool(std::move(threadpool_proto)),
                 debug_load_from_static
             )
         );

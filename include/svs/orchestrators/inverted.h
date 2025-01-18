@@ -111,7 +111,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
         manager::QueryTypeDefinition QueryTypes,
         typename DataProto,
         typename Distance,
-        typename ThreadpoolProto,
+        typename ThreadPoolProto,
         index::inverted::StorageStrategy Strategy = index::inverted::SparseStrategy,
         typename CentroidPicker = svs::tag_t<index::inverted::pick_centroids_randomly>,
         typename ClusteringOp = svs::tag_t<index::inverted::no_clustering_post_op>>
@@ -119,7 +119,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
         const index::inverted::InvertedBuildParameters& build_parameters,
         DataProto data_proto,
         Distance distance,
-        ThreadpoolProto threadpool_proto,
+        ThreadPoolProto threadpool_proto,
         Strategy strategy = {},
         CentroidPicker centroid_picker = {},
         ClusteringOp clustering_post_op = {}
@@ -144,6 +144,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
         manager::QueryTypeDefinition QueryTypes,
         typename DataProto,
         typename Distance,
+        typename ThreadPoolProto,
         typename StorageStrategy = index::inverted::SparseStrategy>
     static Inverted assemble_from_clustering(
         const std::filesystem::path& clustering_path,
@@ -151,7 +152,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
         Distance distance,
         const std::filesystem::path& index_config,
         const std::filesystem::path& graph,
-        size_t num_threads,
+        ThreadPoolProto threadpool_proto,
         StorageStrategy strategy = {}
     ) {
         return Inverted{
@@ -164,7 +165,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
                 std::move(strategy),
                 index_config,
                 graph,
-                num_threads
+                std::move(threadpool_proto)
             )};
     }
 };

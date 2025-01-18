@@ -68,7 +68,7 @@ int svs_main(std::vector<std::string> args) {
         indices_to_delete.insert(distribution(rng));
     }
 
-    auto threadpool = svs::threads::NativeThreadPool(nthreads);
+    auto threadpool = svs::threads::DefaultThreadPool(nthreads);
 
     // Now, perform the deletion.
     std::cout << "Consolidating Graph" << std::endl;

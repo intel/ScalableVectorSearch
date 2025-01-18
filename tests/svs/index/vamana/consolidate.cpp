@@ -55,7 +55,7 @@ void check_post_conditions(const Graph& graph, Predicate&& predicate) {
 CATCH_TEST_CASE("Graph Consolidation", "[graph_index]") {
     auto graph = test_dataset::graph();
     auto data = test_dataset::data_f32();
-    auto threadpool = svs::threads::NativeThreadPool(2);
+    auto threadpool = svs::threads::DefaultThreadPool(2);
 
     CATCH_SECTION("Remove Even Nodes") {
         auto tic = svs::lib::now();

@@ -72,14 +72,14 @@ data::GetDatumAccessor svs_invoke(svs::tag_t<accessor>, const Data& SVS_UNUSED(d
 } // namespace extensions
 
 // The flat index is "special" because we wish to enable the `FlatIndex` to either:
-// (1) Own the data and thread pool.
-// (2) Reference an existing dataset and thread pool.
+// (1) Own the data.
+// (2) Reference an existing dataset.
 //
 // The latter option allows other index implementations like the VamanaIndex to launch a
 // scoped `FlatIndex` to perform exhaustive searches on demand (useful when validating
 // the behavior of the dynamic index).
 //
-// To that end, we allow the actual storage of the data and the threadpool to either be
+// To that end, we allow the actual storage of the data to either be
 // owning (by value) or non-owning (by reference).
 struct OwnsMembers {
     template <typename T> using storage_type = T;
@@ -130,7 +130,6 @@ class FlatIndex {
     using distance_type = Dist;
     /// The type of dataset.
     using data_type = Data;
-    using thread_pool_type = threads::NativeThreadPool;
     using compare = distance::compare_t<Dist>;
     using sorter_type = BulkInserter<Neighbor<size_t>, compare>;
 
@@ -138,7 +137,6 @@ class FlatIndex {
 
     // Compute data and threadpool storage types.
     using data_storage_type = storage_type_t<Ownership, Data>;
-    using thread_storage_type = storage_type_t<Ownership, thread_pool_type>;
 
     // Search parameters
     using search_parameters_type = FlatParameters;
@@ -146,7 +144,7 @@ class FlatIndex {
   private:
     data_storage_type data_;
     [[no_unique_address]] distance_type distance_;
-    thread_storage_type threadpool_;
+    threads::ThreadPoolHandle threadpool_;
 
     // Constructs controlling the iteration strategy over the data and queries.
     search_parameters_type search_parameters_{};
@@ -182,32 +180,31 @@ class FlatIndex {
     ///
     /// @brief Construct a new index from constituent parts.
     ///
-    /// @tparam ThreadPoolProto The type of the threadpool proto type. See notes on the
-    ///     corresponding parameter below.
-    ///
     /// @param data The data to use for the index. The resulting index will take ownership
     ///     of the passed argument.
     /// @param distance The distance functor to use to compare queries with dataset
     ///     elements.
-    /// @param threadpool_proto Something that can be used to build a threadpool using
-    ///     ``threads::as_threadpool``. In practice, this means that ``threapool_proto``
-    ///     can be either a threadpool directly, or an integer. In the latter case, a new
-    ///     threadpool will be constructed using ``threadpool_proto`` as the number of
-    ///     threads to create.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
+    ///
+    /// @copydoc threadpool_requirements
     ///
     template <typename ThreadPoolProto>
-    FlatIndex(Data data, Dist distance, ThreadPoolProto&& threadpool_proto)
+    FlatIndex(Data data, Dist distance, ThreadPoolProto threadpool_proto)
         requires std::is_same_v<Ownership, OwnsMembers>
         : data_{std::move(data)}
         , distance_{std::move(distance)}
-        , threadpool_{
-              threads::as_threadpool(std::forward<ThreadPoolProto>(threadpool_proto))} {}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))} {}
 
-    FlatIndex(Data& data, Dist distance, threads::NativeThreadPool& threadpool)
+    template <typename ThreadPoolProto>
+    FlatIndex(Data& data, Dist distance, ThreadPoolProto threadpool_proto)
         requires std::is_same_v<Ownership, ReferencesMembers>
         : data_{data}
         , distance_{std::move(distance)}
-        , threadpool_{threadpool} {}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))} {}
 
     ////// Dataset Interface
 
@@ -229,9 +226,11 @@ class FlatIndex {
     ///     ``num_neighbors`` is computed from the number of columns in ``result``.
     /// @param queries A dense collection of queries in R^n.
     /// @param search_parameters search parameters to use for the search.
-    /// @param cancel A predicate called during the search to determine if the search should be cancelled.
-    //      Return ``true`` if the search should be cancelled. This functor must implement ``bool operator()()``.
-    //      Note: This predicate should be thread-safe as it can be called concurrently by different threads during the search.
+    /// @param cancel A predicate called during the search to determine if the search should
+    /// be cancelled.
+    //      Return ``true`` if the search should be cancelled. This functor must implement
+    //      ``bool operator()()``. Note: This predicate should be thread-safe as it can be
+    //      called concurrently by different threads during the search.
     /// @param predicate A predicate functor that can be used to exclude certain dataset
     ///     elements from consideration. This functor must implement
     ///     ``bool operator()(size_t)`` where the ``size_t`` argument is an index in
@@ -305,7 +304,7 @@ class FlatIndex {
         // Perform any necessary post-processing on the sorting network and write back
         // the results.
         scratch.cleanup();
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::StaticPartition(queries.size()),
             [&](const auto& query_indices, uint64_t /*tid*/) {
@@ -329,7 +328,7 @@ class FlatIndex {
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
         // Process all queries.
-        threads::run(
+        threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{
                 queries.size(),
@@ -409,29 +408,34 @@ class FlatIndex {
 
     // Threading Interface
 
-    /// Return whether this implementation can dynamically change the number of threads.
-    static bool can_change_threads() { return true; }
-
     ///
     /// @brief Return the current number of threads used for search.
     ///
     /// @sa set_num_threads
     size_t get_num_threads() const { return threadpool_.size(); }
 
-    ///
-    /// @brief Set the number of threads used for search.
-    ///
-    /// @param num_threads The new number of threads to use.
-    ///
-    /// Implementation note: The number of threads cannot be zero. If zero is passed to
-    /// this method, it will be silently changed to 1.
-    ///
-    /// @sa get_num_threads
-    ///
-    void set_num_threads(size_t num_threads) {
-        num_threads = std::max(num_threads, size_t(1));
-        threadpool_.resize(num_threads);
+    void set_threadpool(threads::ThreadPoolHandle threadpool) {
+        threadpool_ = std::move(threadpool);
     }
+
+    ///
+    /// @brief Destroy the original thread pool and set to the provided one.
+    ///
+    /// @param threadpool An acceptable thread pool.
+    ///
+    /// @copydoc threadpool_requirements
+    ///
+    template <threads::ThreadPool Pool>
+    void set_threadpool(Pool threadpool)
+        requires(!std::is_same_v<Pool, threads::ThreadPoolHandle>)
+    {
+        set_threadpool(threads::ThreadPoolHandle(std::move(threadpool)));
+    }
+
+    ///
+    /// @brief Return the current thread pool handle.
+    ///
+    threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 };
 
 ///
@@ -453,19 +457,24 @@ class FlatIndex {
 /// @param data_proto Data prototype. See expanded notes.
 /// @param distance The distance **functor** to use to compare queries with elements of the
 ///     dataset.
-/// @param threadpool_proto Precursor for the thread pool to use. Can either be a threadpool
-///     instance of an integer specifying the number of threads to use.
+/// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+/// acceptable thread pool
+///     instance or an integer specifying the number of threads to use. In the latter case,
+///     a new default thread pool will be constructed using ``threadpool_proto`` as the
+///     number of threads to create.
 ///
 /// This method provides much of the heavy lifting for constructing a Flat index from
 /// a data file on disk or a dataset in memory.
 ///
 /// @copydoc hidden_flat_auto_assemble
 ///
+/// @copydoc threadpool_requirements
+///
 template <typename DataProto, typename Distance, typename ThreadPoolProto>
 auto auto_assemble(
     DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto
 ) {
-    auto threadpool = threads::as_threadpool(threadpool_proto);
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
     return FlatIndex(std::move(data), std::move(distance), std::move(threadpool));
 }
@@ -474,10 +483,11 @@ auto auto_assemble(
 template <data::ImmutableMemoryDataset Data, typename Dist>
 using TemporaryFlatIndex = FlatIndex<Data, Dist, ReferencesMembers>;
 
-template <data::ImmutableMemoryDataset Data, typename Dist>
+template <data::ImmutableMemoryDataset Data, typename Dist, typename ThreadPoolProto>
 TemporaryFlatIndex<Data, Dist>
-temporary_flat_index(Data& data, Dist distance, threads::NativeThreadPool& threadpool) {
-    return TemporaryFlatIndex<Data, Dist>{data, distance, threadpool};
+temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
+    return TemporaryFlatIndex<Data, Dist>{
+        data, distance, threads::as_threadpool(std::move(threadpool_proto))};
 }
 
 } // namespace svs::index::flat

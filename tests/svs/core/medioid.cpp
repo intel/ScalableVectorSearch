@@ -144,7 +144,7 @@ CATCH_TEST_CASE("Testing Medioid Computation", "[core][medioid]") {
     }
 
     CATCH_SECTION("Parallelized") {
-        svs::threads::NativeThreadPool threadpool(2);
+        svs::threads::DefaultThreadPool threadpool(2);
 
         // No predicate
         auto tic = svs::lib::now();
@@ -176,7 +176,7 @@ CATCH_TEST_CASE("Testing Medioid Computation", "[core][medioid]") {
     }
 
     CATCH_SECTION("Find Medioid") {
-        svs::threads::NativeThreadPool threadpool(2);
+        svs::threads::DefaultThreadPool threadpool(2);
         size_t index = svs::utils::find_medioid(
             data, threadpool, returns_true, svs::lib::identity(), test_parameters
         );
@@ -191,7 +191,7 @@ CATCH_TEST_CASE("Testing Medioid Computation", "[core][medioid]") {
         std::vector<double> ref = compute_variances(data);
 
         // Parallel Computation
-        svs::threads::NativeThreadPool threadpool(2);
+        svs::threads::DefaultThreadPool threadpool(2);
         auto means = svs::utils::compute_medioid(data, threadpool);
         auto variances =
             svs::utils::op_pairwise(data, svs::utils::CountVariance(means), threadpool);

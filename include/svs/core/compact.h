@@ -59,7 +59,7 @@ void compact_data(
         auto this_batch = batch_to_new.eachindex();
 
         // Copy from the original dataset into the buffer.
-        threads::run(
+        threads::parallel_for(
             threadpool,
             threads::StaticPartition(this_batch),
             [&](const auto& batch_ids, uint64_t SVS_UNUSED(tid)) {
@@ -71,7 +71,7 @@ void compact_data(
         );
 
         // Copy back from the buffer to the new location in the original dataset.
-        threads::run(
+        threads::parallel_for(
             threadpool,
             threads::StaticPartition(this_batch),
             [&](const auto& batch_ids, uint64_t SVS_UNUSED(tid)) {
