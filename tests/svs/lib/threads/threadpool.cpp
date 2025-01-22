@@ -295,7 +295,7 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
         }
     }
     CATCH_SECTION("SwitchNativeThreadPool and NativeThreadPool with Parallel Calls") {
-        constexpr size_t num_external_threads = 2;
+        constexpr size_t num_external_threads = 3;
         constexpr size_t num_tasks = 1;
 
         auto start_time = std::chrono::steady_clock::now();
@@ -304,9 +304,10 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
         std::vector<std::vector<size_t>> v;
 
         {
+            std::vector<size_t> sum(num_external_threads, 0);
             v.resize(num_external_threads);
             for(auto& vv: v) {
-              vv.resize(10000000);
+              vv.resize(50000000, 1);
             }
 
             std::vector<std::thread> external_threads;
@@ -314,10 +315,10 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
             start_time = std::chrono::steady_clock::now();
 
             for(size_t i = 0; i < num_external_threads; ++i) {
-                external_threads.emplace_back([&v, &switch_pool, i]() { switch_pool.parallel_for([&vv = v[i]](size_t n) {
+                external_threads.emplace_back([&v, &switch_pool, &sum, i]() { switch_pool.parallel_for([&vv = v[i], i, &sum](size_t n) {
                     CATCH_REQUIRE(n == 0);
-                    for(auto& val: vv) {
-                      val = 2;
+                    for(auto val: vv) {
+                        sum[i] += val;
                     }
                 }, num_tasks); });
             }
@@ -328,19 +329,18 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
             stop_time = std::chrono::steady_clock::now();
             switch_time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
 
-            for(auto& vv: v) {
-                CATCH_REQUIRE(std::all_of(vv.begin(), vv.end(), [](const size_t& v) {
-                    return v == 2;
-                }));
+            for(auto s: sum) {
+              CATCH_REQUIRE(s == 50000000);
             }
         }
 
         v.clear();
 
         {
+            std::vector<size_t> sum(num_external_threads, 0);
             v.resize(num_external_threads);
             for(auto& vv: v) {
-              vv.resize(10000000);
+              vv.resize(50000000, 1);
             }
 
             std::vector<std::thread> external_threads;
@@ -349,10 +349,10 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
 
             // NativeThreadPool will block external parallelism due to internal lock.
             for(size_t i = 0; i < num_external_threads; ++i) {
-                external_threads.emplace_back([&v, &pool, i]() { pool.parallel_for([&vv=v[i]](size_t n) {
+                external_threads.emplace_back([&v, &pool, &sum, i]() { pool.parallel_for([&vv=v[i], i, &sum](size_t n) {
                     CATCH_REQUIRE(n == 0);
-                    for(auto& val: vv) {
-                      val = 2;
+                    for(auto val: vv) {
+                        sum[i] += val;
                     }
                 }, num_tasks); });
             }
@@ -363,10 +363,8 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
             stop_time = std::chrono::steady_clock::now();
             time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
 
-            for(auto& vv: v) {
-                CATCH_REQUIRE(std::all_of(vv.begin(), vv.end(), [](const size_t& v) {
-                    return v == 2;
-                }));
+            for(auto s: sum) {
+              CATCH_REQUIRE(s == 50000000);
             }
         }
         CATCH_REQUIRE(switch_time_seconds < time_seconds);
