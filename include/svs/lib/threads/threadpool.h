@@ -256,6 +256,31 @@ auto create_on_nodes(InterNUMAThreadPool& threadpool, F&& f)
 #endif
 
 /////
+///// A thread pool that dynamically switches between single-threaded and multi-threaded execution.
+///// - If `n == 1`, the task will be executed on the main thread without any locking mechanism.
+///// - For `n > 1`, the tasks will be delegated to the internal `NativeThreadPool` for parallel execution.
+/////
+class SwitchNativeThreadPool {
+  public:
+    SwitchNativeThreadPool(size_t num_threads): threadpool_{num_threads} {
+    }
+
+    size_t size() const { return threadpool_.size(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        if(n == 1) {
+            f(0);
+        }
+        else {
+            threadpool_.parallel_for(std::move(f), n);
+        }
+    }
+
+  private:
+    NativeThreadPool threadpool_;
+};
+
+/////
 ///// A handy refernce wrapper for situations where we only want to share a thread pool
 /////
 template <ThreadPool Pool> class ThreadPoolReferenceWrapper {

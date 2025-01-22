@@ -18,7 +18,7 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
-// #include <omp.h>
+//#include <omp.h>
 #include <random>
 #include <thread>
 #include <tuple>
@@ -271,5 +271,104 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
                 return v == 2;
             }));
         }
+
+        /////
+        ///// SwitchNativeThreadPool
+        /////
+        CATCH_SECTION("SwitchNativeThreadPool") {
+            auto pool = svs::threads::SwitchNativeThreadPool(num_threads);
+            start_time = std::chrono::steady_clock::now();
+            svs::threads::parallel_for(pool, svs::threads::StaticPartition{v.size()}, f);
+            stop_time = std::chrono::steady_clock::now();
+            time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+            std::cout << "SwitchNativeThreadPool: " << time_seconds << " seconds" << std::endl;
+
+            start_time = std::chrono::steady_clock::now();
+            svs::threads::parallel_for(pool, svs::threads::StaticPartition{v.size()}, f);
+            stop_time = std::chrono::steady_clock::now();
+            time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+            std::cout << "SwitchNativeThreadPool: " << time_seconds << " seconds" << std::endl;
+
+            CATCH_REQUIRE(std::all_of(v.begin(), v.end(), [](const uint64_t& v) {
+                return v == 2;
+            }));
+        }
+    }
+    CATCH_SECTION("SwitchNativeThreadPool and NativeThreadPool with Parallel Calls") {
+        constexpr size_t num_external_threads = 2;
+        constexpr size_t num_tasks = 1;
+
+        auto start_time = std::chrono::steady_clock::now();
+        auto stop_time = std::chrono::steady_clock::now();
+        float time_seconds, switch_time_seconds;
+        std::vector<std::vector<size_t>> v;
+
+        {
+            v.resize(num_external_threads);
+            for(auto& vv: v) {
+              vv.resize(10000000);
+            }
+
+            std::vector<std::thread> external_threads;
+            auto switch_pool = svs::threads::SwitchNativeThreadPool(1);
+            start_time = std::chrono::steady_clock::now();
+
+            for(size_t i = 0; i < num_external_threads; ++i) {
+                external_threads.emplace_back([&v, &switch_pool, i]() { switch_pool.parallel_for([&vv = v[i]](size_t n) {
+                    CATCH_REQUIRE(n == 0);
+                    for(auto& val: vv) {
+                      val = 2;
+                    }
+                }, num_tasks); });
+            }
+
+            for(auto& t: external_threads) {
+                t.join();
+            }
+            stop_time = std::chrono::steady_clock::now();
+            switch_time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+
+            for(auto& vv: v) {
+                CATCH_REQUIRE(std::all_of(vv.begin(), vv.end(), [](const size_t& v) {
+                    return v == 2;
+                }));
+            }
+        }
+
+        v.clear();
+
+        {
+            v.resize(num_external_threads);
+            for(auto& vv: v) {
+              vv.resize(10000000);
+            }
+
+            std::vector<std::thread> external_threads;
+            auto pool = svs::threads::NativeThreadPool(1);
+            start_time = std::chrono::steady_clock::now();
+
+            // NativeThreadPool will block external parallelism due to internal lock.
+            for(size_t i = 0; i < num_external_threads; ++i) {
+                external_threads.emplace_back([&v, &pool, i]() { pool.parallel_for([&vv=v[i]](size_t n) {
+                    CATCH_REQUIRE(n == 0);
+                    for(auto& val: vv) {
+                      val = 2;
+                    }
+                }, num_tasks); });
+            }
+
+            for(auto& t: external_threads) {
+                t.join();
+            }
+            stop_time = std::chrono::steady_clock::now();
+            time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+
+            for(auto& vv: v) {
+                CATCH_REQUIRE(std::all_of(vv.begin(), vv.end(), [](const size_t& v) {
+                    return v == 2;
+                }));
+            }
+        }
+        CATCH_REQUIRE(switch_time_seconds < time_seconds);
     }
 }

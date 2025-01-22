@@ -327,6 +327,13 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             svs::threads::QueueThreadPoolWrapper>(
             index, queries, test_dataset::groundtruth_cosine()
         );
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::SwitchNativeThreadPool>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
     }
 
     CATCH_SECTION("Cosine With Different Thread Pools From Data") {
@@ -357,6 +364,13 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::DefaultThreadPool>(
+            index, queries, test_dataset::groundtruth_cosine()
+        );
+        test_flat<
+            decltype(index),
+            decltype(queries),
+            decltype(test_dataset::groundtruth_cosine()),
+            svs::threads::SwitchNativeThreadPool>(
             index, queries, test_dataset::groundtruth_cosine()
         );
     }
