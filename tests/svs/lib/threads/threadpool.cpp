@@ -296,90 +296,90 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
             }));
         }
     }
-    //CATCH_SECTION("SwitchNativeThreadPool and NativeThreadPool with Parallel Calls") {
-        //constexpr size_t num_external_threads = 4;
-        //constexpr size_t num_internal_threads = 2;
-        //constexpr size_t num_elements = 50000000;
+    // CATCH_SECTION("SwitchNativeThreadPool and NativeThreadPool with Parallel Calls") {
+    // constexpr size_t num_external_threads = 4;
+    // constexpr size_t num_internal_threads = 2;
+    // constexpr size_t num_elements = 50000000;
 
-        //auto start_time = std::chrono::steady_clock::now();
-        //auto stop_time = std::chrono::steady_clock::now();
-        //float time_seconds, switch_time_seconds;
+    // auto start_time = std::chrono::steady_clock::now();
+    // auto stop_time = std::chrono::steady_clock::now();
+    // float time_seconds, switch_time_seconds;
 
-        //{
-            //std::vector<std::vector<size_t>> v;
-            //std::vector<size_t> sum(num_external_threads, 0);
-            //v.resize(num_external_threads);
-            //for (auto& vv : v) {
-                //vv.resize(num_elements, 1);
-            //}
+    //{
+    // std::vector<std::vector<size_t>> v;
+    // std::vector<size_t> sum(num_external_threads, 0);
+    // v.resize(num_external_threads);
+    // for (auto& vv : v) {
+    // vv.resize(num_elements, 1);
+    //}
 
-            //std::vector<std::thread> external_threads;
-            //auto pool = svs::threads::NativeThreadPool(num_internal_threads);
-            //start_time = std::chrono::steady_clock::now();
+    // std::vector<std::thread> external_threads;
+    // auto pool = svs::threads::NativeThreadPool(num_internal_threads);
+    // start_time = std::chrono::steady_clock::now();
 
-            //// NativeThreadPool will block external parallelism due to internal lock.
-            //for (size_t i = 0; i < num_external_threads; ++i) {
-                //external_threads.emplace_back([&v, &pool, &sum, i]() {
-                    //svs::threads::parallel_for(
-                        //pool,
-                        //svs::threads::StaticPartition{1},
-                        //[i, &vv = v[i], &sum](const auto& [>unused*/, size_t /*unused<]) {
-                            //for (auto val : vv) {
-                                //sum[i] += val;
-                            //}
-                        //}
-                    //);
-                //});
-            //}
+    //// NativeThreadPool will block external parallelism due to internal lock.
+    // for (size_t i = 0; i < num_external_threads; ++i) {
+    // external_threads.emplace_back([&v, &pool, &sum, i]() {
+    // svs::threads::parallel_for(
+    // pool,
+    // svs::threads::StaticPartition{1},
+    //[i, &vv = v[i], &sum](const auto& [>unused*/, size_t /*unused<]) {
+    // for (auto val : vv) {
+    // sum[i] += val;
+    //}
+    //}
+    //);
+    //});
+    //}
 
-            //for (auto& t : external_threads) {
-                //t.join();
-            //}
-            //stop_time = std::chrono::steady_clock::now();
-            //time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
+    // for (auto& t : external_threads) {
+    // t.join();
+    //}
+    // stop_time = std::chrono::steady_clock::now();
+    // time_seconds = std::chrono::duration<float>(stop_time - start_time).count();
 
-            //for (auto s : sum) {
-                //CATCH_REQUIRE(s == num_elements);
-            //}
-        //}
+    // for (auto s : sum) {
+    // CATCH_REQUIRE(s == num_elements);
+    //}
+    //}
 
-        //{
-            //std::vector<std::vector<size_t>> v;
-            //std::vector<size_t> sum(num_external_threads, 0);
-            //v.resize(num_external_threads);
-            //for (auto& vv : v) {
-                //vv.resize(num_elements, 1);
-            //}
+    //{
+    // std::vector<std::vector<size_t>> v;
+    // std::vector<size_t> sum(num_external_threads, 0);
+    // v.resize(num_external_threads);
+    // for (auto& vv : v) {
+    // vv.resize(num_elements, 1);
+    //}
 
-            //std::vector<std::thread> external_threads;
-            //auto switch_pool = svs::threads::SwitchNativeThreadPool(num_internal_threads);
-            //start_time = std::chrono::steady_clock::now();
+    // std::vector<std::thread> external_threads;
+    // auto switch_pool = svs::threads::SwitchNativeThreadPool(num_internal_threads);
+    // start_time = std::chrono::steady_clock::now();
 
-            //for (size_t i = 0; i < num_external_threads; ++i) {
-                //external_threads.emplace_back([&v, &switch_pool, &sum, i]() {
-                    //svs::threads::parallel_for(
-                        //switch_pool,
-                        //svs::threads::StaticPartition{1},
-                        //[i, &vv = v[i], &sum](const auto& [>unused*/, size_t /*unused<]) {
-                            //for (auto val : vv) {
-                                //sum[i] += val;
-                            //}
-                        //}
-                    //);
-                //});
-            //}
+    // for (size_t i = 0; i < num_external_threads; ++i) {
+    // external_threads.emplace_back([&v, &switch_pool, &sum, i]() {
+    // svs::threads::parallel_for(
+    // switch_pool,
+    // svs::threads::StaticPartition{1},
+    //[i, &vv = v[i], &sum](const auto& [>unused*/, size_t /*unused<]) {
+    // for (auto val : vv) {
+    // sum[i] += val;
+    //}
+    //}
+    //);
+    //});
+    //}
 
-            //for (auto& t : external_threads) {
-                //t.join();
-            //}
-            //stop_time = std::chrono::steady_clock::now();
-            //switch_time_seconds =
-                //std::chrono::duration<float>(stop_time - start_time).count();
+    // for (auto& t : external_threads) {
+    // t.join();
+    //}
+    // stop_time = std::chrono::steady_clock::now();
+    // switch_time_seconds =
+    // std::chrono::duration<float>(stop_time - start_time).count();
 
-            //for (auto s : sum) {
-                //CATCH_REQUIRE(s == num_elements);
-            //}
-        //}
-        //CATCH_REQUIRE(switch_time_seconds < time_seconds);
+    // for (auto s : sum) {
+    // CATCH_REQUIRE(s == num_elements);
+    //}
+    //}
+    // CATCH_REQUIRE(switch_time_seconds < time_seconds);
     //}
 }

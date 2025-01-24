@@ -254,11 +254,11 @@ auto create_on_nodes(InterNUMAThreadPool& threadpool, F&& f)
 
 /////
 ///// A thread pool that dynamically switches between single-threaded and multi-threaded
-///execution.
+/// execution.
 ///// - If `n == 1`, the task will be executed on the main thread without any locking
-///mechanism.
+/// mechanism.
 ///// - For `n > 1`, the tasks will be delegated to the internal `NativeThreadPool` for
-///parallel execution.
+/// parallel execution.
 /////
 class SwitchNativeThreadPool {
   public:
