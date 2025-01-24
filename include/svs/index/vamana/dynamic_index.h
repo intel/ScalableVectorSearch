@@ -307,7 +307,6 @@ class MutableVamanaIndex {
     /// mutating the graph.
     void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
 
-
     ///// Index translation.
 
     ///

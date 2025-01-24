@@ -66,19 +66,17 @@ concept ThreadPool = requires(Pool& pool, const Pool& const_pool, std::function<
 // clang-format on
 
 template <ThreadPool Pool, typename F> void parallel_for(Pool& pool, F&& f) {
-    pool.parallel_for(
-        thunks::wrap(ThreadCount{pool.size()}, f), pool.size()
-    ); // Current partitioning methods will create n partitions where n equals to the number
-       // of threads. Delegate the wrapped function to threadpool
+    pool.parallel_for(thunks::wrap(ThreadCount{pool.size()}, f), pool.size());
 }
 
+// Current partitioning methods create n partitions where n equals the
+// number of threads. Adjust the number of partitions to match the problem size
+// if the problem size is smaller than the number of threads.
 template <ThreadPool Pool, typename T, typename F>
 void parallel_for(Pool& pool, T&& arg, F&& f) {
     if (!arg.empty()) {
-        pool.parallel_for(
-            thunks::wrap(ThreadCount{pool.size()}, f, std::forward<T>(arg)), pool.size()
-        ); // Current partitioning methods will create n partitions where n equals to the
-           // number of threads. Delegate the wrapped function to threadpool
+        size_t n = std::min(arg.size(), pool.size());
+        pool.parallel_for(thunks::wrap(ThreadCount{n}, f, std::forward<T>(arg)), n);
     }
 }
 
@@ -200,7 +198,6 @@ template <typename Builder> class NativeThreadPoolBase {
         }
     }
 
-  private:
     void manage_exception_during_run(const std::string& thread_0_message = {}) {
         auto message = std::string{};
         auto inserter = std::back_inserter(message);
@@ -254,6 +251,37 @@ auto create_on_nodes(InterNUMAThreadPool& threadpool, F&& f)
     });
 }
 #endif
+
+/////
+///// A thread pool that dynamically switches between single-threaded and multi-threaded
+/// execution.
+///// - If `n == 1`, the task will be executed on the main thread without any locking
+/// mechanism.
+///// - For `n > 1`, the tasks will be delegated to the internal `NativeThreadPool` for
+/// parallel execution.
+/////
+class SwitchNativeThreadPool {
+  public:
+    SwitchNativeThreadPool(size_t num_threads)
+        : threadpool_{num_threads} {}
+
+    size_t size() const { return threadpool_.size(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+        if (n == 1) {
+            try {
+                f(0);
+            } catch (const std::exception& error) {
+                threadpool_.manage_exception_during_run(error.what());
+            }
+        } else {
+            threadpool_.parallel_for(std::move(f), n);
+        }
+    }
+
+  private:
+    NativeThreadPool threadpool_;
+};
 
 /////
 ///// A handy refernce wrapper for situations where we only want to share a thread pool

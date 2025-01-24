@@ -339,5 +339,10 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         run_tests<svs::threads::CppAsyncThreadPool>(
             index, queries, groundtruth, expected_results.config_and_recall_
         );
+
+        index.set_threadpool(svs::threads::SwitchNativeThreadPool(2));
+        run_tests<svs::threads::SwitchNativeThreadPool>(
+            index, queries, groundtruth, expected_results.config_and_recall_
+        );
     }
 }
