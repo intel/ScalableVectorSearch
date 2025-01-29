@@ -155,6 +155,7 @@ class MutableVamanaIndex {
     size_t prune_to_;
     float alpha_ = 1.2;
     bool use_full_search_history_ = true;
+    size_t last_element_{0};
 
     // Methods
   public:
@@ -578,9 +579,14 @@ class MutableVamanaIndex {
     /// @param points Dataset of points to add.
     /// @param external_ids The external IDs of the corresponding points. Must be a
     ///     container implementing forward iteration.
+    /// @param reuse_empty A flag that determines whether to reuse empty slots that may
+    /// exist after deletion and consolidation. If true, the scan starts from the beginning
+    /// of the data to reuse empty slots.
     ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
-    std::vector<size_t> add_points(const Points& points, const ExternalIds& external_ids) {
+    std::vector<size_t> add_points(
+        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
+    ) {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
         if (num_points != num_ids) {
@@ -594,11 +600,13 @@ class MutableVamanaIndex {
         // Gather all empty slots.
         std::vector<size_t> slots{};
         slots.reserve(num_points);
-
         bool have_room = false;
-        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (status_[i] == SlotMetadata::Empty) {
-                slots.push_back(i);
+
+        size_t s = reuse_empty ? 0 : last_element_;
+        size_t smax = status_.size();
+        for (; s < smax; ++s) {
+            if (status_[s] == SlotMetadata::Empty) {
+                slots.push_back(s);
             }
             if (slots.size() == num_points) {
                 have_room = true;
@@ -656,6 +664,8 @@ class MutableVamanaIndex {
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
         }
+
+        last_element_ = std::max(last_element_, slots.back());
         return slots;
     }
 
@@ -801,6 +811,7 @@ class MutableVamanaIndex {
         // Resize the graph and data.
         graph_.unsafe_resize(max_index);
         data_.resize(max_index);
+        last_element_ = max_index;
 
         // Compact metadata and ID remapping.
         for (size_t new_id = 0; new_id < max_index; ++new_id) {
