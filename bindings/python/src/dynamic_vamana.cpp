@@ -126,7 +126,7 @@ If either of these does not hold, an exception will be thrown without mutating t
 underlying index.
 
 When ``delete_entries`` is called, a soft deletion is performed, marking the entries as ``deleted``.
-The state of these deleted entries becomes ``empty`` as the user calls ``consolidate``.
+When ``consolidate`` is called, the state of these deleted entries becomes ``empty``.
 When ``add_points`` is called with the ``reuse_empty`` flag enabled, the memory is scanned from the beginning to locate and fill these empty entries with new points.
 )";
 
