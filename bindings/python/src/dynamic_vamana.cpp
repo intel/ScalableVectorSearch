@@ -118,12 +118,16 @@ Args:
         the index.
     ids: Vector of ids to assign to each row in ``points``. Must have the same number of
         elements as ``points`` has rows.
-    reuse_empty: A flag that determines whether to reuse empty slots that may exist after deletion and consolidation.
-    If true, the scan starts from the beginning of the data to reuse empty slots.
+    reuse_empty: A flag that determines whether to reuse empty entries that may exist after deletion and consolidation. When enabled,
+    scan from the beginning to find and fill these empty entries when adding new points.
 
 Furthermore, all entries in ``ids`` must be unique and not already exist in the index.
 If either of these does not hold, an exception will be thrown without mutating the
 underlying index.
+
+When ``delete_entries`` is called, a soft deletion is performed, marking the entries as ``deleted``.
+The state of these deleted entries becomes ``empty`` as the user calls ``consolidate``.
+When ``add_points`` is called with the ``reuse_empty`` flag enabled, the memory is scanned from the beginning to locate and fill these empty entries with new points.
 )";
 
 template <typename ElementType>

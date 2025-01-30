@@ -180,6 +180,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{entry_point}
         , status_(data_.size(), SlotMetadata::Valid)
+        , last_element_{data_.size()}
         , translator_()
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
@@ -203,6 +204,7 @@ class MutableVamanaIndex {
         , data_(std::move(data))
         , entry_point_{}
         , status_(data_.size(), SlotMetadata::Valid)
+        , last_element_{data_.size()}
         , translator_()
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
@@ -251,6 +253,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{lib::narrow<Idx>(config.entry_point)}
         , status_{data_.size(), SlotMetadata::Valid}
+        , last_element_{data_.size()}
         , translator_{std::move(translator)}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
@@ -575,13 +578,19 @@ class MutableVamanaIndex {
 
     ///
     /// @brief Add the points with the given external IDs to the dataset.
+    //
+    /// When `delete_entries` is called, a soft deletion is performed, marking the entries
+    /// as `deleted`. The state of these deleted entries becomes `empty` as the user call
+    /// `consolidate`. When `add_points` is called with the `reuse_empty` flag enabled, the
+    /// memory is scanned from the beginning to locate and fill these empty entries with new
+    /// points.
     ///
     /// @param points Dataset of points to add.
     /// @param external_ids The external IDs of the corresponding points. Must be a
     ///     container implementing forward iteration.
-    /// @param reuse_empty A flag that determines whether to reuse empty slots that may
-    /// exist after deletion and consolidation. If true, the scan starts from the beginning
-    /// of the data to reuse empty slots.
+    /// @param reuse_empty A flag that determines whether to reuse empty entries that may
+    /// exist after deletion and consolidation. When enabled, scan from the beginning to
+    /// find and fill these empty entries when adding new points.
     ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
     std::vector<size_t> add_points(
