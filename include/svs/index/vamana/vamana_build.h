@@ -220,7 +220,7 @@ class VamanaBuilder {
             size_t{40}, lib::div_round_up(num_nodes, lib::narrow_cast<size_t>(64 * 64))
         );
 
-        // If num_batches is greater than num_nodes (num_batches will be 40), set
+        // If num_batches is greater than num_nodes, set
         // num_batches to num_nodes to avoid unnecessary iterations.
         if (num_batches > num_nodes) {
             num_batches = num_nodes;
