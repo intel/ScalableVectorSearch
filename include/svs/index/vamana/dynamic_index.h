@@ -142,6 +142,7 @@ class MutableVamanaIndex {
     data_type data_;
     entry_point_type entry_point_;
     std::vector<SlotMetadata> status_;
+    size_t first_empty_ = 0;
     IDTranslator translator_;
 
     // Thread local data structures.
@@ -155,7 +156,6 @@ class MutableVamanaIndex {
     size_t prune_to_;
     float alpha_ = 1.2;
     bool use_full_search_history_ = true;
-    size_t last_element_{0};
 
     // Methods
   public:
@@ -180,7 +180,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{entry_point}
         , status_(data_.size(), SlotMetadata::Valid)
-        , last_element_{data_.size()}
+        , first_empty_{data_.size()}
         , translator_()
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
@@ -204,7 +204,7 @@ class MutableVamanaIndex {
         , data_(std::move(data))
         , entry_point_{}
         , status_(data_.size(), SlotMetadata::Valid)
-        , last_element_{data_.size()}
+        , first_empty_{data_.size()}
         , translator_()
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
@@ -253,7 +253,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{lib::narrow<Idx>(config.entry_point)}
         , status_{data_.size(), SlotMetadata::Valid}
-        , last_element_{data_.size()}
+        , first_empty_{data_.size()}
         , translator_{std::move(translator)}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
@@ -611,7 +611,7 @@ class MutableVamanaIndex {
         slots.reserve(num_points);
         bool have_room = false;
 
-        size_t s = reuse_empty ? 0 : last_element_;
+        size_t s = reuse_empty ? 0 : first_empty_;
         size_t smax = status_.size();
         for (; s < smax; ++s) {
             if (status_[s] == SlotMetadata::Empty) {
@@ -674,7 +674,9 @@ class MutableVamanaIndex {
             status_[i] = SlotMetadata::Valid;
         }
 
-        last_element_ = std::max(last_element_, slots.back());
+        if (!slots.empty()) {
+            first_empty_ = std::max(first_empty_, slots.back() + 1);
+        }
         return slots;
     }
 
@@ -820,7 +822,7 @@ class MutableVamanaIndex {
         // Resize the graph and data.
         graph_.unsafe_resize(max_index);
         data_.resize(max_index);
-        last_element_ = max_index;
+        first_empty_ = max_index;
 
         // Compact metadata and ID remapping.
         for (size_t new_id = 0; new_id < max_index; ++new_id) {
