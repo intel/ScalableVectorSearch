@@ -33,7 +33,11 @@ class DynamicVamanaInterface : public VamanaInterface {
   public:
     // TODO: For now - only accept floating point entries.
     virtual void add_points(
-        const float* data, size_t dim0, size_t dim1, std::span<const size_t> ids
+        const float* data,
+        size_t dim0,
+        size_t dim1,
+        std::span<const size_t> ids,
+        bool reuse_empty = false
     ) = 0;
 
     virtual void delete_points(std::span<const size_t> ids) = 0;
@@ -60,10 +64,14 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
 
     // Implement the interface.
     void add_points(
-        const float* data, size_t dim0, size_t dim1, std::span<const size_t> ids
+        const float* data,
+        size_t dim0,
+        size_t dim1,
+        std::span<const size_t> ids,
+        bool reuse_empty = false
     ) override {
         auto points = data::ConstSimpleDataView<float>(data, dim0, dim1);
-        impl().add_points(points, ids);
+        impl().add_points(points, ids, reuse_empty);
     }
 
     void delete_points(std::span<const size_t> ids) override { impl().delete_entries(ids); }
@@ -148,9 +156,14 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         return *this;
     }
 
-    DynamicVamana&
-    add_points(data::ConstSimpleDataView<float> points, std::span<const size_t> ids) {
-        impl_->add_points(points.data(), points.size(), points.dimensions(), ids);
+    DynamicVamana& add_points(
+        data::ConstSimpleDataView<float> points,
+        std::span<const size_t> ids,
+        bool reuse_empty = false
+    ) {
+        impl_->add_points(
+            points.data(), points.size(), points.dimensions(), ids, reuse_empty
+        );
         return *this;
     }
 
