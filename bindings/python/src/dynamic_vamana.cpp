@@ -92,7 +92,8 @@ template <typename ElementType>
 void add_points(
     svs::DynamicVamana& index,
     const py_contiguous_array_t<ElementType>& py_data,
-    const py_contiguous_array_t<size_t>& ids
+    const py_contiguous_array_t<size_t>& ids,
+    bool reuse_empty = false
 ) {
     if (py_data.ndim() != 2) {
         throw ANNEXCEPTION("Expected points to have 2 dimensions!");
@@ -105,7 +106,7 @@ void add_points(
             "Expected IDs to be the same length as the number of rows in points!"
         );
     }
-    index.add_points(data_view(py_data), std::span(ids.data(), ids.size()));
+    index.add_points(data_view(py_data), std::span(ids.data(), ids.size()), reuse_empty);
 }
 
 const char* ADD_POINTS_DOCSTRING = R"(
@@ -117,10 +118,16 @@ Args:
         the index.
     ids: Vector of ids to assign to each row in ``points``. Must have the same number of
         elements as ``points`` has rows.
+    reuse_empty: A flag that determines whether to reuse empty entries that may exist after deletion and consolidation. When enabled,
+    scan from the beginning to find and fill these empty entries when adding new points.
 
 Furthermore, all entries in ``ids`` must be unique and not already exist in the index.
 If either of these does not hold, an exception will be thrown without mutating the
 underlying index.
+
+When ``delete_entries`` is called, a soft deletion is performed, marking the entries as ``deleted``.
+When ``consolidate`` is called, the state of these deleted entries becomes ``empty``.
+When ``add_points`` is called with the ``reuse_empty`` flag enabled, the memory is scanned from the beginning to locate and fill these empty entries with new points.
 )";
 
 template <typename ElementType>
@@ -130,6 +137,7 @@ void add_points_specialization(py::class_<svs::DynamicVamana>& index) {
         &add_points<ElementType>,
         py::arg("points"),
         py::arg("ids"),
+        py::arg("reuse_empty") = false,
         ADD_POINTS_DOCSTRING
     );
 }

@@ -142,6 +142,7 @@ class MutableVamanaIndex {
     data_type data_;
     entry_point_type entry_point_;
     std::vector<SlotMetadata> status_;
+    size_t first_empty_ = 0;
     IDTranslator translator_;
 
     // Thread local data structures.
@@ -179,6 +180,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{entry_point}
         , status_(data_.size(), SlotMetadata::Valid)
+        , first_empty_{data_.size()}
         , translator_()
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
@@ -202,6 +204,7 @@ class MutableVamanaIndex {
         , data_(std::move(data))
         , entry_point_{}
         , status_(data_.size(), SlotMetadata::Valid)
+        , first_empty_{data_.size()}
         , translator_()
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
@@ -250,6 +253,7 @@ class MutableVamanaIndex {
         , data_{std::move(data)}
         , entry_point_{lib::narrow<Idx>(config.entry_point)}
         , status_{data_.size(), SlotMetadata::Valid}
+        , first_empty_{data_.size()}
         , translator_{std::move(translator)}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
@@ -574,13 +578,24 @@ class MutableVamanaIndex {
 
     ///
     /// @brief Add the points with the given external IDs to the dataset.
+    //
+    /// When `delete_entries` is called, a soft deletion is performed, marking the entries
+    /// as `deleted`. When `consolidate` is called, the state of these deleted entries becomes `empty`.
+    /// When `add_points` is called with the `reuse_empty` flag enabled, the
+    /// memory is scanned from the beginning to locate and fill these empty entries with new
+    /// points.
     ///
     /// @param points Dataset of points to add.
     /// @param external_ids The external IDs of the corresponding points. Must be a
     ///     container implementing forward iteration.
+    /// @param reuse_empty A flag that determines whether to reuse empty entries that may
+    /// exist after deletion and consolidation. When enabled, scan from the beginning to
+    /// find and fill these empty entries when adding new points.
     ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
-    std::vector<size_t> add_points(const Points& points, const ExternalIds& external_ids) {
+    std::vector<size_t> add_points(
+        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
+    ) {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
         if (num_points != num_ids) {
@@ -594,11 +609,13 @@ class MutableVamanaIndex {
         // Gather all empty slots.
         std::vector<size_t> slots{};
         slots.reserve(num_points);
-
         bool have_room = false;
-        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (status_[i] == SlotMetadata::Empty) {
-                slots.push_back(i);
+
+        size_t s = reuse_empty ? 0 : first_empty_;
+        size_t smax = status_.size();
+        for (; s < smax; ++s) {
+            if (status_[s] == SlotMetadata::Empty) {
+                slots.push_back(s);
             }
             if (slots.size() == num_points) {
                 have_room = true;
@@ -655,6 +672,10 @@ class MutableVamanaIndex {
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
+        }
+
+        if (!slots.empty()) {
+            first_empty_ = std::max(first_empty_, slots.back() + 1);
         }
         return slots;
     }
@@ -801,6 +822,7 @@ class MutableVamanaIndex {
         // Resize the graph and data.
         graph_.unsafe_resize(max_index);
         data_.resize(max_index);
+        first_empty_ = max_index;
 
         // Compact metadata and ID remapping.
         for (size_t new_id = 0; new_id < max_index; ++new_id) {
