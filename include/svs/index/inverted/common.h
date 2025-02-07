@@ -45,4 +45,11 @@ template <typename T> inline T bound_with(T nearest, T epsilon, svs::DistanceIP)
     return nearest / (1 + epsilon);
 }
 
+template <typename T>
+inline T bound_with(T nearest, T epsilon, svs::DistanceCosineSimilarity) {
+    // TODO: This is just copy/paste from DistanceIP - is it correct?
+    assert(nearest > 0.0f);
+    return nearest / (1 + epsilon);
+}
+
 } // namespace svs::index::inverted
