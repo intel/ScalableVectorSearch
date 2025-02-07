@@ -177,29 +177,23 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     }
 
     ///// Iterator
-    SVS_TEMPORARY_DISABLE_SINGLE_SEARCH VamanaIterator batch_iterator(
+    VamanaIterator batch_iterator(
         svs::AnonymousArray<1> query,
         svs::index::vamana::AbstractIteratorSchedule schedule,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const override {
-        if constexpr (!Impl::temporary_disable_batch_iterator()) {
-            // Match the query type.
-            return svs::lib::match(
-                QueryTypes{},
-                query.type(),
-                [&]<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
-                    return VamanaIterator{
-                        impl(),
-                        std::span<const T>(svs::get<T>(query), query.size(0)),
-                        std::move(schedule),
-                        cancel};
-                }
-            );
-        } else {
-            // TODO: Enable single-search for LeanVec to remove this run-time error.
-            throw ANNEXCEPTION("The current index backend does not support batch iteration."
-            );
-        }
+        // Match the query type.
+        return svs::lib::match(
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                return VamanaIterator{
+                    impl(),
+                    std::span<const T>(svs::get<T>(query), query.size(0)),
+                    std::move(schedule),
+                    cancel};
+            }
+        );
     }
 
     ///// Calibration
