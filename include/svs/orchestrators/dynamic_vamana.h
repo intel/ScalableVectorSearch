@@ -293,6 +293,20 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         );
     }
 
+    ///// Iterator
+    template <typename QueryType, size_t N, svs::index::vamana::IteratorSchedule Schedule>
+    svs::VamanaIterator batch_iterator(
+        std::span<const QueryType, N> query,
+        Schedule schedule,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
+        return impl_->batch_iterator(
+            svs::AnonymousArray<1>(query.data(), query.size()),
+            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule)),
+            cancel
+        );
+    }
+
     ///// Experimental Calibration
     template <
         data::ImmutableMemoryDataset Queries,
