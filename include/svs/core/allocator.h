@@ -515,7 +515,8 @@ concept HasValueType = requires { typename Alloc::value_type; };
 
 // clang-format off
 template <typename Alloc>
-concept Allocator = HasValueType<Alloc> && requires(Alloc& alloc, typename Alloc::value_type* ptr, size_t n) {
+concept Allocator = HasValueType<Alloc> && std::is_copy_constructible_v<Alloc>
+&& requires(Alloc& alloc, typename Alloc::value_type* ptr, size_t n) {
     { alloc.allocate(n) } -> std::same_as<typename Alloc::value_type*>;
 
     { alloc.deallocate(ptr, n) };
@@ -564,15 +565,16 @@ template <typename T> class AllocatorHandle {
     template <detail::Allocator Impl>
     explicit AllocatorHandle(Impl&& impl)
         requires(!std::is_same_v<Impl, AllocatorHandle>) &&
-                std::is_rvalue_reference_v<Impl&&>
-        : impl_{std::make_unique<AllocatorImpl<Impl>>(std::move(impl))} {}
+                std::is_rvalue_reference_v<Impl&&> &&
+                std::is_same_v<typename Impl::value_type, T>
+        : impl_{new AllocatorImpl(std::move(impl))} {}
 
     AllocatorHandle() {}
     AllocatorHandle(const AllocatorHandle& other)
         : impl_{other.impl_->clone()} {}
     AllocatorHandle(AllocatorHandle&&) = default;
     AllocatorHandle& operator=(const AllocatorHandle& other) {
-        impl_ = other.impl_->clone();
+        impl_.reset(other.impl_->clone());
         return *this;
     }
     AllocatorHandle& operator=(AllocatorHandle&&) = default;
