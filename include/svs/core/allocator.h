@@ -601,8 +601,8 @@ template <typename T> class AllocatorHandle {
 ///
 /// AllocatorHandle
 /// ================
-/// `AllocatorHandle` is specifically designed to support LVQ/Leanvec Datasets with a custom
-/// allocator when using a shared library. It offers an interface that enables the
+/// `AllocatorHandle` is designed to support a custom allocator that works with the
+/// shared library. It offers an interface that enables the
 /// implementation of a custom allocator not included in the shared library. Which custom
 /// allocator to use is determined at runtime.
 ///

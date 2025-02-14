@@ -125,4 +125,39 @@ CATCH_TEST_CASE("Simple Data Compaction", "[core][compaction]") {
             CATCH_REQUIRE(check_line(data.get_datum(i), val));
         }
     }
+
+    CATCH_SECTION("Blocked Data with AllocatorHandle") {
+        auto data = svs::data::SimpleData<
+            float,
+            svs::Dynamic,
+            svs::data::Blocked<svs::AllocatorHandle<float>>>(
+            100, 20, svs::make_blocked_allocator_handle(svs::lib::Allocator<float>())
+        );
+        sequential_fill(data);
+        CATCH_REQUIRE(check_sequential(data));
+
+        auto new_to_old = std::vector<uint32_t>{};
+        for (size_t i = 0, imax = data.size() / 3; i < imax; ++i) {
+            new_to_old.push_back(3 * i);
+        }
+
+        // Single-threaded version
+        data.compact(svs::lib::as_const_span(new_to_old), 20);
+        for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
+            auto val = new_to_old.at(i);
+            CATCH_REQUIRE(check_line(data.get_datum(i), val));
+        }
+
+        // Multi-threaded version.
+        data.resize(0);
+        data.resize(100);
+        sequential_fill(data);
+        CATCH_REQUIRE(check_sequential(data));
+        auto tpool = svs::threads::DefaultThreadPool(2);
+        data.compact(svs::lib::as_const_span(new_to_old), tpool, 20);
+        for (size_t i = 0, imax = new_to_old.size(); i < imax; ++i) {
+            auto val = new_to_old.at(i);
+            CATCH_REQUIRE(check_line(data.get_datum(i), val));
+        }
+    }
 }

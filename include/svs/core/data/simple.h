@@ -850,9 +850,9 @@ make_blocked_allocator_handle(Alloc alloc) {
 /// @brief Creates a `Blocked` object with an `AllocatorHandle` from a given allocator.
 ///
 /// @tparam Alloc The type of the allocator, which must satisfy the `Allocator` concept.
+//  @param parameters The blocking parameters used to configure the `Blocked` object.
 /// @param alloc The allocator to be wrapped in an `AllocatorHandle and managed by a
 /// `Blocked` object.
-//  @param parameters The blocking parameters used to configure the `Blocked` object.
 /// @return A `Blocked` object that manages an `AllocatorHandle` wrapping the given
 /// allocator.
 ///
