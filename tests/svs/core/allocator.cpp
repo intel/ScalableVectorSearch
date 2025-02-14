@@ -137,4 +137,64 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
             }
         }
     }
+
+    CATCH_SECTION("Testing `AllocatorHandle`") {
+        size_t num_elements = 1024;
+        CATCH_SECTION("Allocator") {
+            auto alloc = svs::make_allocator_handle(svs::lib::Allocator<float>());
+            auto* ptr = alloc.allocate(num_elements);
+
+            alloc.deallocate(ptr, num_elements);
+
+            CATCH_STATIC_REQUIRE(std::is_same_v<decltype(ptr), float*>);
+        }
+        CATCH_SECTION("HugepageAllocator - std::byte") {
+            auto alloc = svs::make_allocator_handle(svs::HugepageAllocator<std::byte>());
+            auto* ptr = alloc.allocate(num_elements);
+
+            auto allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+            CATCH_REQUIRE(allocations.size() == 1);
+            CATCH_REQUIRE(allocations.contains(ptr));
+            CATCH_REQUIRE(allocations.at(ptr) >= sizeof(std::byte) * num_elements);
+
+            alloc.deallocate(ptr, num_elements);
+            allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+            CATCH_REQUIRE(allocations.size() == 0);
+            CATCH_REQUIRE(!allocations.contains(ptr));
+
+            CATCH_STATIC_REQUIRE(std::is_same_v<decltype(ptr), std::byte*>);
+        }
+        CATCH_SECTION("HugepageAllocator - int8_t") {
+            auto alloc = svs::make_allocator_handle(svs::HugepageAllocator<int8_t>());
+            auto* ptr = alloc.allocate(num_elements);
+
+            auto allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+            CATCH_REQUIRE(allocations.size() == 1);
+            CATCH_REQUIRE(allocations.contains(ptr));
+            CATCH_REQUIRE(allocations.at(ptr) >= sizeof(int8_t) * num_elements);
+
+            alloc.deallocate(ptr, num_elements);
+            allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+            CATCH_REQUIRE(allocations.size() == 0);
+            CATCH_REQUIRE(!allocations.contains(ptr));
+
+            CATCH_STATIC_REQUIRE(std::is_same_v<decltype(ptr), int8_t*>);
+        }
+        CATCH_SECTION("HugepageAllocator - svs::Float16") {
+            auto alloc = svs::make_allocator_handle(svs::HugepageAllocator<svs::Float16>());
+            auto* ptr = alloc.allocate(num_elements);
+
+            auto allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+            CATCH_REQUIRE(allocations.size() == 1);
+            CATCH_REQUIRE(allocations.contains(ptr));
+            CATCH_REQUIRE(allocations.at(ptr) >= sizeof(svs::Float16) * num_elements);
+
+            alloc.deallocate(ptr, num_elements);
+            allocations = svs::detail::GenericHugepageAllocator::get_allocations();
+            CATCH_REQUIRE(allocations.size() == 0);
+            CATCH_REQUIRE(!allocations.contains(ptr));
+
+            CATCH_STATIC_REQUIRE(std::is_same_v<decltype(ptr), svs::Float16*>);
+        }
+    }
 }
