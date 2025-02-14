@@ -306,9 +306,26 @@ template <size_t N> struct CosineSimilarityImpl<N, float, int8_t> {
 template <size_t N> struct CosineSimilarityImpl<N, float, Float16> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
         return sum / (std::sqrt(norm) * a_norm);
     }
 };
+
+template <size_t N> struct CosineSimilarityImpl<N, Float16, float> {
+    SVS_NOINLINE static float
+    compute(const Float16* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
+    }
+};
+
+template <size_t N> struct CosineSimilarityImpl<N, Float16, Float16> {
+    SVS_NOINLINE static float
+    compute(const Float16* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
+    }
+};
+
 #endif
 } // namespace svs::distance
