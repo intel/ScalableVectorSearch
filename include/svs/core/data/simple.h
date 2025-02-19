@@ -826,4 +826,44 @@ template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T
 using BlockedData = SimpleData<T, Extent, Blocked<Alloc>>;
 
 } // namespace data
+
+///
+/// @brief Creates a `Blocked` object with an `AllocatorHandle` from a given allocator.
+///
+/// @tparam Alloc The type of the allocator, which must satisfy the `Allocator` concept.
+/// @param alloc The allocator to be wrapped in an `AllocatorHandle` and managed by a
+/// `Blocked` object.
+/// @return A `Blocked` object that manages an `AllocatorHandle` wrapping the given
+/// allocator.
+///
+/// @copydoc allocator_handle
+///
+/// @sa make_allocator_handle
+///
+template <detail::Allocator Alloc>
+data::Blocked<AllocatorHandle<typename Alloc::value_type>>
+make_blocked_allocator_handle(Alloc alloc) {
+    return data::Blocked{make_allocator_handle(std::move(alloc))};
+}
+
+///
+/// @brief Creates a `Blocked` object with an `AllocatorHandle` from a given allocator.
+///
+/// @tparam Alloc The type of the allocator, which must satisfy the `Allocator` concept.
+//  @param parameters The blocking parameters used to configure the `Blocked` object.
+/// @param alloc The allocator to be wrapped in an `AllocatorHandle and managed by a
+/// `Blocked` object.
+/// @return A `Blocked` object that manages an `AllocatorHandle` wrapping the given
+/// allocator.
+///
+/// @copydoc allocator_handle
+///
+/// @sa make_allocator_handle
+///
+template <detail::Allocator Alloc>
+data::Blocked<AllocatorHandle<typename Alloc::value_type>>
+make_blocked_allocator_handle(const data::BlockingParameters& parameters, Alloc alloc) {
+    return data::Blocked{parameters, make_allocator_handle(std::move(alloc))};
+}
+
 } // namespace svs

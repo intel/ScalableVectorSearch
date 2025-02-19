@@ -285,22 +285,6 @@ DefaultBuildAdaptor<Distance> svs_invoke(
 ///// SEARCH EXTENSIONS
 /////
 
-// Temporary customization to disable single-search for a given dataset type.
-template <typename Data>
-SVS_TEMPORARY_DISABLE_SINGLE_SEARCH struct TemporaryDisableSingleSearch {
-    [[nodiscard]] inline constexpr bool operator()() const {
-        if constexpr (svs::svs_invocable<TemporaryDisableSingleSearch>) {
-            return svs::svs_invoke(*this);
-        } else {
-            return false;
-        }
-    }
-};
-
-template <typename Data>
-SVS_TEMPORARY_DISABLE_SINGLE_SEARCH inline constexpr TemporaryDisableSingleSearch<Data>
-    temporary_disable_single_search{};
-
 /// Preprartion steps for single search.
 struct VamanaSingleSearchSetupType {
     template <typename Data, typename Distance>

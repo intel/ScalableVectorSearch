@@ -304,13 +304,6 @@ class VamanaIndex {
     VamanaBuildParameters build_parameters_{};
 
   public:
-    // This is because some datasets may not yet support single-searching, which is required
-    // by the BatchIterator.
-    SVS_TEMPORARY_DISABLE_SINGLE_SEARCH static constexpr bool
-    temporary_disable_batch_iterator() {
-        return extensions::temporary_disable_single_search<data_type>();
-    }
-
     /// The type of the search resource used for external threading.
     using inner_scratch_type =
         svs::tag_t<extensions::single_search_setup>::result_t<Data, Dist>;
