@@ -1,19 +1,18 @@
-# Copyright 2024 Intel Corporation
+# Copyright (C) 2025 Intel Corporation
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written
+# permission.
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# This software and the related documents are provided as is, with no
+# express or implied warranties, other than those that are expressly stated
+# in the License.
 
-start_time = 2024-04-01T18:16:09
-stop_time = 2024-04-01T18:17:12
+start_time = 2025-02-20T08:44:53
+stop_time = 2025-02-20T09:22:43
 
 [[inverted_test_build]]
 __schema__ = 'benchmark_expected_result'
@@ -63,13 +62,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.25444444444444442
+    recall = 0.25433333333333336
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 20.0
+        refinement_epsilon = 2.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -85,13 +84,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.51322222222222225
+    recall = 0.51311111111111107
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 10.0
+        refinement_epsilon = 5.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -107,13 +106,13 @@ distance = 'L2'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.80266666666666664
+    recall = 0.80255555555555558
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 20.0
+        refinement_epsilon = 0.80000000000000004
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -135,7 +134,7 @@ distance = 'L2'
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 0.80000000000000004
+        refinement_epsilon = 1.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -194,13 +193,13 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.20088888888888889
+    recall = 0.20077777777777778
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 1.0
+        refinement_epsilon = 20.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -216,13 +215,13 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.50355555555555553
+    recall = 0.50988888888888884
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
         __schema__ = 'inverted_search_parameters'
         __version__ = 'v0.0.0'
-        refinement_epsilon = 0.80000000000000004
+        refinement_epsilon = 20.0
 
             [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
             __schema__ = 'vamana_search_parameters'
@@ -260,7 +259,94 @@ distance = 'MIP'
     __version__ = 'v0.0.0'
     num_neighbors = 10
     num_queries = 900
-    recall = 0.90033333333333332
+    recall = 0.90022222222222226
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 95
+            search_buffer_visited_set = false
+            search_window_size = 95
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'Cosine'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 0.94999998807907104
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float32'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.23022222222222222
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 20.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 5
+            search_buffer_visited_set = false
+            search_window_size = 5
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50466666666666671
     recall_k = 10
 
         [inverted_test_build.config_and_recall.search_parameters]
@@ -273,6 +359,716 @@ distance = 'MIP'
             __version__ = 'v0.0.1'
             prefetch_lookahead = 4
             prefetch_step = 1
+            search_buffer_capacity = 18
+            search_buffer_visited_set = false
+            search_window_size = 18
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80388888888888888
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 5.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 58
+            search_buffer_visited_set = false
+            search_window_size = 58
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90077777777777779
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 92
+            search_buffer_visited_set = false
+            search_window_size = 92
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'L2'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 1.2000000476837158
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'lvq'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_lvq'
+        __version__ = 'v0.0.0'
+        primary = 8
+        residual = 0
+        strategy = 'sequential'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.25366666666666665
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 20.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 3
+            search_buffer_visited_set = false
+            search_window_size = 3
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.51222222222222225
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 20.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 11
+            search_buffer_visited_set = false
+            search_window_size = 11
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80088888888888887
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 0.80000000000000004
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 38
+            search_buffer_visited_set = false
+            search_window_size = 38
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'L2'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 1.2000000476837158
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'lvq'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_lvq'
+        __version__ = 'v0.0.0'
+        primary = 4
+        residual = 0
+        strategy = 'sequential'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.25077777777777777
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 3
+            search_buffer_visited_set = false
+            search_window_size = 3
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.51344444444444448
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 10.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 12
+            search_buffer_visited_set = false
+            search_window_size = 12
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.8004444444444444
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 0.80000000000000004
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 68
+            search_buffer_visited_set = false
+            search_window_size = 68
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'MIP'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 0.94999998807907104
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'lvq'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_lvq'
+        __version__ = 'v0.0.0'
+        primary = 8
+        residual = 0
+        strategy = 'sequential'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.20100000000000001
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 20.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 4
+            search_buffer_visited_set = false
+            search_window_size = 4
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.51022222222222224
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 10.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 19
+            search_buffer_visited_set = false
+            search_window_size = 19
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80088888888888887
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 5.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 60
+            search_buffer_visited_set = false
+            search_window_size = 60
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'MIP'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 0.94999998807907104
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'lvq'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_lvq'
+        __version__ = 'v0.0.0'
+        primary = 4
+        residual = 0
+        strategy = 'sequential'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.20633333333333334
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 10.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 4
+            search_buffer_visited_set = false
+            search_window_size = 4
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50055555555555553
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 5.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 19
+            search_buffer_visited_set = false
+            search_window_size = 19
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80055555555555558
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
             search_buffer_capacity = 95
             search_buffer_visited_set = false
             search_window_size = 95
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'Cosine'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 0.94999998807907104
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'lvq'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_lvq'
+        __version__ = 'v0.0.0'
+        primary = 8
+        residual = 0
+        strategy = 'sequential'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.22977777777777778
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 1.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 5
+            search_buffer_visited_set = false
+            search_window_size = 5
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50077777777777777
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 0.80000000000000004
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 18
+            search_buffer_visited_set = false
+            search_window_size = 18
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80155555555555558
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 58
+            search_buffer_visited_set = false
+            search_window_size = 58
+
+[[inverted_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'Cosine'
+
+    [inverted_test_build.build_parameters]
+    __schema__ = 'inverted_build_parameters'
+    __version__ = 'v0.0.0'
+
+        [inverted_test_build.build_parameters.clustering_parameters]
+        __schema__ = 'clustering_parameters'
+        __version__ = 'v0.0.0'
+        batchsize = 100000
+        epsilon = 1.0
+        max_cluster_size = 60
+        max_replicas = 7
+        num_intermediate_results = 64
+        percent_centroids = 0.12
+        refinement_alpha = 1.0
+        search_window_size = 50
+        seed = 12648430
+
+        [inverted_test_build.build_parameters.primary_parameters]
+        __schema__ = 'vamana_build_parameters'
+        __version__ = 'v0.0.1'
+        alpha = 0.94999998807907104
+        graph_max_degree = 64
+        max_candidate_pool_size = 1000
+        name = 'vamana build parameters'
+        prune_to = 60
+        use_full_search_history = true
+        window_size = 200
+
+    [inverted_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'lvq'
+
+        [inverted_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_lvq'
+        __version__ = 'v0.0.0'
+        primary = 4
+        residual = 0
+        strategy = 'sequential'
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.20455555555555555
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 4
+            search_buffer_visited_set = false
+            search_window_size = 4
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50711111111111107
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 20.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 19
+            search_buffer_visited_set = false
+            search_window_size = 19
+
+    [[inverted_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80000000000000004
+    recall_k = 10
+
+        [inverted_test_build.config_and_recall.search_parameters]
+        __schema__ = 'inverted_search_parameters'
+        __version__ = 'v0.0.0'
+        refinement_epsilon = 2.0
+
+            [inverted_test_build.config_and_recall.search_parameters.primary_parameters]
+            __schema__ = 'vamana_search_parameters'
+            __version__ = 'v0.0.1'
+            prefetch_lookahead = 4
+            prefetch_step = 1
+            search_buffer_capacity = 94
+            search_buffer_visited_set = false
+            search_window_size = 94
