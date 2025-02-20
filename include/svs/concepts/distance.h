@@ -152,6 +152,24 @@ concept UnfixDistance = requires(F& f, A a, B b) {
 };
 // clang-format on
 
+// Most fast_quantized distance implementations will not require centroids in their
+// calculations. We define a concept that allows us to load in the centroids only if
+// necessary.
+
+// Default case: No `requires_centroids`, assume `false`
+template <typename T, typename = void>
+struct requires_centroids_in_computation : std::false_type {};
+
+// Specialization for types that have `requires_centroids == true`
+template <typename T>
+struct requires_centroids_in_computation<T, std::void_t<decltype(T::requires_centroids)>>
+    : std::bool_constant<T::requires_centroids> {};
+
+// Helper variable template for easier usage
+template <typename T>
+inline constexpr bool requires_centroids_in_computation_v =
+    requires_centroids_in_computation<T>::value;
+
 // Algorithms accepting abstract `Distance` types should support either distance types
 // requiring fixing or those that don't require fixing.
 template <typename F, typename A, typename B>
