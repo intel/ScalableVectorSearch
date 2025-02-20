@@ -40,7 +40,12 @@ template <typename T> inline T bound_with(T nearest, T epsilon, svs::DistanceL2)
 }
 
 template <typename T> inline T bound_with(T nearest, T epsilon, svs::DistanceIP) {
-    // TODO: What do we do if the best match is simply bad?
+    assert(nearest > 0.0f);
+    return nearest / (1 + epsilon);
+}
+
+template <typename T>
+inline T bound_with(T nearest, T epsilon, svs::DistanceCosineSimilarity) {
     assert(nearest > 0.0f);
     return nearest / (1 + epsilon);
 }
