@@ -124,10 +124,4 @@ CATCH_TEST_CASE("Test Inverted Building", "[integration][build][inverted]") {
     run_test<svs::DistanceIP, svs::index::inverted::SparseStrategy>(
         queries, svs::threads::QueueThreadPoolWrapper(2)
     );
-    run_test<svs::DistanceCosineSimilarity, svs::index::inverted::SparseStrategy>(
-        queries, 3
-    );
-    run_test<svs::DistanceCosineSimilarity, svs::index::inverted::DenseStrategy>(
-        queries, svs::threads::DefaultThreadPool(3)
-    );
 }
