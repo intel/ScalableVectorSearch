@@ -258,6 +258,7 @@ std::vector<TestFunction> register_uncompressed_test_routines() {
         return std::vector<TestFunction>({
             &test_build<float, svs::DistanceL2>,
             &test_build<float, svs::DistanceIP>,
+            &test_build<float, svs::DistanceCosineSimilarity>,
         });
     } else {
         return std::vector<TestFunction>();
