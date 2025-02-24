@@ -198,16 +198,17 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
         }
         CATCH_SECTION("Rebind") {
             auto alloc = svs::make_allocator_handle(svs::lib::Allocator<int>());
-            svs::lib::rebind_allocator_t<svs::Float16, decltype(alloc)> rebound_alloc{alloc};
+            svs::lib::rebind_allocator_t<svs::Float16, decltype(alloc)> rebound_alloc{
+                alloc};
             auto* ptr = rebound_alloc.allocate(num_elements);
             rebound_alloc.deallocate(ptr, num_elements);
             CATCH_STATIC_REQUIRE(std::is_same_v<decltype(ptr), svs::Float16*>);
 
-            svs::lib::rebind_allocator_t<float, decltype(alloc)> rebound_alloc2{rebound_alloc};
+            svs::lib::rebind_allocator_t<float, decltype(alloc)> rebound_alloc2{
+                rebound_alloc};
             auto* ptr2 = rebound_alloc2.allocate(num_elements);
             rebound_alloc2.deallocate(ptr2, num_elements);
             CATCH_STATIC_REQUIRE(std::is_same_v<decltype(ptr2), float*>);
-
         }
     }
 }

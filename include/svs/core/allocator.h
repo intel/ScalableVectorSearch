@@ -543,7 +543,7 @@ class AllocatorInterface {
 
 template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterface {
   public:
-    using rebind_allocator_float   = lib::rebind_allocator_t<float, Impl>;
+    using rebind_allocator_float = lib::rebind_allocator_t<float, Impl>;
     using rebind_allocator_float16 = lib::rebind_allocator_t<Float16, Impl>;
 
     // pass by value due to clone()
@@ -560,11 +560,11 @@ template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterfac
     AllocatorImpl<Impl>* clone() const override { return new AllocatorImpl(impl_); }
 
     AllocatorImpl<rebind_allocator_float>* rebind_float() const override {
-      return new AllocatorImpl<rebind_allocator_float>(rebind_allocator_float{impl_});
+        return new AllocatorImpl<rebind_allocator_float>(rebind_allocator_float{impl_});
     }
 
     AllocatorImpl<rebind_allocator_float16>* rebind_float16() const override {
-      return new AllocatorImpl<rebind_allocator_float16>(rebind_allocator_float16{impl_});
+        return new AllocatorImpl<rebind_allocator_float16>(rebind_allocator_float16{impl_});
     }
 
   private:
@@ -598,20 +598,24 @@ template <typename T> class AllocatorHandle {
 
     template <typename U>
     AllocatorHandle(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>): impl_{other.impl_->rebind_float()} {}
+        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+        : impl_{other.impl_->rebind_float()} {}
     template <typename U>
     AllocatorHandle(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>): impl_{other.impl_->rebind_float16()} {}
+        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+        : impl_{other.impl_->rebind_float16()} {}
 
     template <typename U>
     AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>) {
+        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+    {
         impl_.reset(other.impl_->rebind_float());
         return *this;
     }
     template <typename U>
     AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>) {
+        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+    {
         impl_.reset(other.impl_->rebind_float16());
         return *this;
     }
