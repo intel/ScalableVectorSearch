@@ -565,7 +565,7 @@ template <typename Alloc> class Blocked {
     template <typename U> friend class Blocked;
     template <typename U>
     Blocked(const Blocked<U>& other)
-        : parameters_{other.parameters_} {}
+        : parameters_{other.parameters_}, allocator_{other.allocator_} {}
 
   private:
     BlockingParameters parameters_{};
