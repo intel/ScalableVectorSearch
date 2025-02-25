@@ -158,8 +158,7 @@ class MutableVamanaIndex {
     bool use_full_search_history_ = true;
 
     // Log callback
-    void* log_ctx_;
-    std::function<void(void*, const char*, const char*)> log_callback_;
+    void* log_callback_ctx_; 
 
     // Methods
   public:
@@ -180,8 +179,7 @@ class MutableVamanaIndex {
         const ExternalIds& external_ids,
         ThreadPoolProto threadpool_proto,
         //Optional logger parameter
-        void* log_ctx = nullptr,
-        std::function<void(void*, const char*, const char*)> log_callback = [](void*, const char*, const char*){}
+        void* log_callback_ctx = nullptr
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -194,16 +192,10 @@ class MutableVamanaIndex {
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
         , construction_window_size_{2 * graph.max_degree()} 
         // Ctor accept logger in parameter
-        , log_ctx_{log_ctx}
-        , log_callback_{std::move(log_callback)} {
+        , log_callback_ctx_{log_callback_ctx} {
 
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
-        log_callback_(log_ctx_, "DEBUG", "Created MutableVamanaIndex");
-    }
-
-    // Helper method for logging
-    void log(const char* level, const char* message) const {
-        log_callback_(log_ctx_, level, message);
+        svs::logging::log(log_callback_ctx_, "DEBUG", "Created MutableVamanaIndex");
     }
 
     ///
@@ -216,8 +208,7 @@ class MutableVamanaIndex {
         const ExternalIds& external_ids,
         Dist distance_function,
         ThreadPoolProto threadpool_proto,
-        void* log_ctx = nullptr,
-        std::function<void(void*, const char*, const char*)> log_callback = [](void*, const char*, const char*){}
+        void* log_callback_ctx = nullptr
     )
         : graph_(Graph{data.size(), parameters.graph_max_degree})
         , data_(std::move(data))
@@ -233,9 +224,8 @@ class MutableVamanaIndex {
         , prune_to_(parameters.prune_to)
         , alpha_(parameters.alpha)
         , use_full_search_history_{parameters.use_full_search_history}
-        , log_ctx_{log_ctx}
-        , log_callback_{std::move(log_callback)} {
-        log_callback_(log_ctx_, "DEBUG", "Created MutableVamanaIndex with build parameters");
+        , log_callback_ctx_{log_callback_ctx} {
+        svs::logging::log(log_callback_ctx_, "DEBUG", "Created MutableVamanaIndex with build parameters");
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
@@ -270,8 +260,7 @@ class MutableVamanaIndex {
         const Dist& distance_function,
         IDTranslator translator,
         Pool threadpool,
-        void* log_ctx = nullptr,
-        std::function<void(void*, const char*, const char*)> log_callback = [](void*, const char*, const char*){}
+        void* log_callback_ctx = nullptr 
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -287,10 +276,9 @@ class MutableVamanaIndex {
         , prune_to_{config.build_parameters.prune_to}
         , alpha_{config.build_parameters.alpha}
         , use_full_search_history_{config.build_parameters.use_full_search_history} 
-        , log_ctx_{log_ctx}
-        , log_callback_{std::move(log_callback)} {
-        log_callback_(log_ctx_, "DEBUG", "Created MutableVamanaIndex from reload");
-        }
+        , log_callback_ctx_{log_callback_ctx}  {
+        svs::logging::log(log_callback_ctx_, "DEBUG", "Created MutableVamanaIndex from reload");
+    }
 
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -624,7 +612,6 @@ class MutableVamanaIndex {
     std::vector<size_t> add_points(
         const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
     ) {
-        log("DEBUG", "Adding new points to index");
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
         if (num_points != num_ids) {
@@ -732,7 +719,6 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> void delete_entries(const T& ids) {
-        log("DEBUG", "Adding new points to index");
         translator_.check_external_exist(ids.begin(), ids.end());
         for (auto i : ids) {
             delete_entry(translator_.get_internal(i));
