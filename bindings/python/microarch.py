@@ -85,7 +85,7 @@ def resolve_compiler(name: str):
     aliases = {
         "GNU": "gcc",
         "Clang": "clang",
-        "IntelLLVM": "intel"
+        "IntelLLVM": "oneapi",
     }
     return aliases.get(name, name)
 
