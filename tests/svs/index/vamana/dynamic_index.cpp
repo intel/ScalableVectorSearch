@@ -246,3 +246,59 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
                   << post_add_time << " seconds." << std::endl;
     }
 }
+
+CATCH_TEST_CASE("Per-Index and Global Logging Test", "[logging]") {
+    // Capture logs
+    std::vector<std::string> instanceLogMessages;
+    std::vector<std::string> globalLogMessages;
+
+    // Global log callback
+    svs::logging::set_global_log_callback([](void*, const char* level, const char* message) {
+        globalLogMessages.emplace_back(std::string(level) + ": " + message);
+    });
+
+    // Per-instance log callback
+    auto testLogCallback = [](void* ctx, const char* level, const char* message) {
+        if (ctx) {
+            auto logMessages = static_cast<std::vector<std::string>*>(ctx);
+            logMessages->emplace_back(std::string(level) + ": " + message);
+        }
+    };
+
+    // Create and configure index
+    std::vector<float> data = {1.0f, 2.0f};
+    std::vector<size_t> external_ids = {0};
+    const size_t dim = 1;
+
+    auto graph = svs::graphs::SimpleGraph<size_t>(1, 64);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, dim);
+    svs::distance::DistanceL2 distance_function;
+    Idx entry_point = 0;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    svs::index::vamana::MutableVamanaIndex index(
+        std::move(graph),
+        std::move(data_view),
+        entry_point,
+        distance_function,
+        external_ids,
+        std::move(threadpool),
+        &instanceLogMessages  // Per-instance log context
+    );
+
+    // Trigger logging
+    svs::logging::log(index.get_log_callback_ctx(), "NOTICE", "test log message no fmt");
+    svs::logging::log(index.get_log_callback_ctx(), "WARNING", "test log message %s %s", "with", "args");
+
+    // Trigger global logging
+    svs::logging::log(nullptr, "WARN", "Global log message");
+
+    // Validate per-instance logs
+    CATCH_REQUIRE(instanceLogMessages.size() == 2);
+    CATCH_REQUIRE(instanceLogMessages[0] == "NOTICE: test log message no fmt");
+    CATCH_REQUIRE(instanceLogMessages[1] == "WARNING: test log message with args");
+
+    // Validate global logs
+    CATCH_REQUIRE(!globalLogMessages.empty());
+    CATCH_REQUIRE(globalLogMessages[0] == "WARN: Global log message");
+}

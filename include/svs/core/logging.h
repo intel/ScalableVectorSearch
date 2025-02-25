@@ -68,6 +68,12 @@ using logger_ptr = std::shared_ptr<::spdlog::logger>;
 /// @brief The type for sinks registered with loggers.
 using sink_ptr = std::shared_ptr<::spdlog::sinks::sink>;
 
+/// @brief Define the callback function type
+using log_callback_function = void(*)(void* ctx, const char* level, const char* message);
+
+/// @brief Global static log callback function
+inline static log_callback_function global_log_callback = nullptr;
+
 /// @brief A sink going nowhere. Used to disable logging entirely.
 inline sink_ptr null_sink() { return std::make_shared<::spdlog::sinks::null_sink_mt>(); }
 
@@ -302,6 +308,11 @@ inline void set_level(Level level) {
     set_level(logger, level);
 }
 
+/// @brief Function to set the global log callback
+inline void set_global_log_callback(log_callback_function callback) {
+    global_log_callback = callback;
+}
+
 /// @brief Return whether a message should be created for the logger at the given level.
 inline bool should_log(const logger_ptr& logger, logging::Level level) {
     return logger->should_log(detail::to_spdlog(level));
@@ -326,6 +337,21 @@ template <typename... Args>
 void log(Level level, fmt::format_string<Args...> fmt, Args&&... args) {
     auto global_logger = logging::get();
     logging::log(global_logger, level, fmt, SVS_FWD(args)...);
+}
+
+/// @brief Log using the per-instance callback
+inline void log(void* ctx, const char* level, const char* msg) {
+    if (ctx) {
+        // Per index context
+        auto logMessages = static_cast<std::vector<std::string>*>(ctx);
+        logMessages->emplace_back(std::string(level) + ": " + msg);
+    } else if (global_log_callback) {
+        // Global callback
+        global_log_callback(nullptr, level, msg);
+    } else {
+        // Fallback to standard logging
+        logging::log(logging::Level::Info, "[{}] {}", level, msg);
+    }
 }
 
 // Convenience methods
