@@ -60,7 +60,7 @@ with open(os.path.join(base_dir, "README.md"), "r", encoding="utf8") as f:
 
 setup(
     name="scalable-vs",
-    version="0.0.6",
+    version="0.0.7",
     description="Scalable Vector Search (SVS) is a performance library for vector similarity search.",
     long_description=long_description,
     long_description_content_type="text/markdown",
