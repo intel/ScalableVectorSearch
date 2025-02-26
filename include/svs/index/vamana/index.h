@@ -869,9 +869,6 @@ class VamanaIndex {
 
     ///// Logging
 
-    /// @brief Getter for logger context
-    void* get_log_callback_ctx() const { return log_callback_ctx_; }
-
     /// @brief Helper method to log
     void log(const char* level, const char* message) const {
         svs::logging::log(log_callback_ctx_, level, message);

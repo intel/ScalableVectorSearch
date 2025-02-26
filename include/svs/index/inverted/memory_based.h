@@ -70,7 +70,8 @@ template <data::MemoryDataset Data, std::integral I> class SparseClusteredDatase
         const Original& original, const Clustering<I>& clustering, const Alloc& allocator
     )
         : SparseClusteredDataset{
-              original, clustering, clustering.packed_leaf_translation(), allocator} {}
+              original, clustering, clustering.packed_leaf_translation(), allocator
+          } {}
 
     template <typename Original, typename Alloc>
     SparseClusteredDataset(
@@ -95,7 +96,8 @@ template <data::MemoryDataset Data, std::integral I> class SparseClusteredDatase
             for (auto neighbor : cluster) {
                 auto global_id = neighbor.id();
                 these_ids.at(i) = SparseIDs<I>{
-                    .local = global_to_local_map.at(global_id), .global = global_id};
+                    .local = global_to_local_map.at(global_id), .global = global_id
+                };
                 ++i;
             }
         });
@@ -339,12 +341,17 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
     template <threads::ThreadPool Pool>
     InvertedIndex(
-        Index index, Cluster cluster, translator_type index_local_to_global, Pool threadpool
+        Index index,
+        Cluster cluster,
+        translator_type index_local_to_global,
+        Pool threadpool,
+        void* log_callback_ctx = nullptr
     )
         : index_{std::move(index)}
         , cluster_{std::move(cluster)}
         , index_local_to_global_{std::move(index_local_to_global)}
-        , threadpool_{std::move(threadpool)} {
+        , threadpool_{std::move(threadpool)}
+        , log_callback_ctx_{log_callback_ctx} {
         // Clear out the threadpool in the inner index - prefer to handle threading
         // ourselves.
         index_.set_threadpool(threads::SequentialThreadPool());
@@ -389,7 +396,8 @@ template <typename Index, typename Cluster> class InvertedIndex {
     ///// Search Parameter Setting
     search_parameters_type get_search_parameters() const {
         return InvertedSearchParameters{
-            index_.get_search_parameters(), refinement_epsilon_};
+            index_.get_search_parameters(), refinement_epsilon_
+        };
     }
 
     void set_search_parameters(const search_parameters_type& parameters) {
@@ -492,6 +500,13 @@ template <typename Index, typename Cluster> class InvertedIndex {
         index_.save(index_config, graph, data);
     }
 
+    ///// Logging
+
+    /// @brief Helper method to log
+    void log(const char* level, const char* message) const {
+        svs::logging::log(log_callback_ctx_, level, message);
+    }
+
   private:
     // Tunable Parameters
     double refinement_epsilon_ = 10.0;
@@ -503,6 +518,9 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
     // Transient parameters.
     threads::ThreadPoolHandle threadpool_;
+
+    // Per index context pointer
+    void* log_callback_ctx_ = nullptr;
 };
 
 struct PickRandomly {
@@ -585,7 +603,8 @@ auto auto_build(
         std::move(index),
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
-        std::move(primary_threadpool)};
+        std::move(primary_threadpool)
+    };
 }
 
 ///// Auto Assembling.

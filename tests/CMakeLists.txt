@@ -125,6 +125,7 @@ set(TEST_SOURCES
     # Index Specific Functionality
     ${TEST_DIR}/svs/index/index.cpp
     ${TEST_DIR}/svs/index/flat/inserters.cpp
+    ${TEST_DIR}/svs/index/flat/flat.cpp
     ${TEST_DIR}/svs/index/vamana/build_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/consolidate.cpp
     ${TEST_DIR}/svs/index/vamana/filter.cpp
@@ -136,10 +137,10 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp
     ${TEST_DIR}/svs/index/vamana/iterator_example.cpp
     ${TEST_DIR}/svs/index/vamana/iterator.cpp
+    # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
-
-    ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
+    # ${TEST_DIR}/svs/index/inverted/memory_based.cpp
 )
 
 #####

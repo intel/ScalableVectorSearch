@@ -158,7 +158,7 @@ class MutableVamanaIndex {
     bool use_full_search_history_ = true;
 
     // Log callback
-    void* log_callback_ctx_; 
+    void* log_callback_ctx_;
 
     // Methods
   public:
@@ -190,12 +190,10 @@ class MutableVamanaIndex {
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
-        , construction_window_size_{2 * graph.max_degree()} 
+        , construction_window_size_{2 * graph.max_degree()}
         // Ctor accept logger in parameter
         , log_callback_ctx_{log_callback_ctx} {
-
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
-        svs::logging::log(log_callback_ctx_, "DEBUG", "Created MutableVamanaIndex");
     }
 
     ///
@@ -225,7 +223,6 @@ class MutableVamanaIndex {
         , alpha_(parameters.alpha)
         , use_full_search_history_{parameters.use_full_search_history}
         , log_callback_ctx_{log_callback_ctx} {
-        svs::logging::log(log_callback_ctx_, "DEBUG", "Created MutableVamanaIndex with build parameters");
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
@@ -260,7 +257,7 @@ class MutableVamanaIndex {
         const Dist& distance_function,
         IDTranslator translator,
         Pool threadpool,
-        void* log_callback_ctx = nullptr 
+        void* log_callback_ctx = nullptr
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -275,10 +272,8 @@ class MutableVamanaIndex {
         , max_candidates_{config.build_parameters.max_candidate_pool_size}
         , prune_to_{config.build_parameters.prune_to}
         , alpha_{config.build_parameters.alpha}
-        , use_full_search_history_{config.build_parameters.use_full_search_history} 
-        , log_callback_ctx_{log_callback_ctx}  {
-        svs::logging::log(log_callback_ctx_, "DEBUG", "Created MutableVamanaIndex from reload");
-    }
+        , use_full_search_history_{config.build_parameters.use_full_search_history}
+        , log_callback_ctx_{log_callback_ctx} {}
 
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -289,7 +284,8 @@ class MutableVamanaIndex {
                 sp.search_buffer_visited_set_
             ),
             extensions::single_search_setup(data_, distance_),
-            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+            {sp.prefetch_lookahead_, sp.prefetch_step_}
+        };
     }
 
     scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
@@ -326,8 +322,6 @@ class MutableVamanaIndex {
     /// @brief Enable using the full search history for candidate generation while
     /// mutating the graph.
     void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
-    /// @brief Return log context
-    void* get_log_callback_ctx() const { return log_callback_ctx_; }
 
     ///// Index translation.
 
@@ -496,7 +490,8 @@ class MutableVamanaIndex {
                     search_buffer_type{sp.buffer_config_, distance::comparator(distance_)};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                    sp.prefetch_lookahead_, sp.prefetch_step_
+                };
 
                 // Legalize search buffer for this search.
                 if (buffer.target() < num_neighbors) {
@@ -598,10 +593,10 @@ class MutableVamanaIndex {
     /// @brief Add the points with the given external IDs to the dataset.
     //
     /// When `delete_entries` is called, a soft deletion is performed, marking the entries
-    /// as `deleted`. When `consolidate` is called, the state of these deleted entries becomes `empty`.
-    /// When `add_points` is called with the `reuse_empty` flag enabled, the
-    /// memory is scanned from the beginning to locate and fill these empty entries with new
-    /// points.
+    /// as `deleted`. When `consolidate` is called, the state of these deleted entries
+    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
+    /// the memory is scanned from the beginning to locate and fill these empty entries with
+    /// new points.
     ///
     /// @param points Dataset of points to add.
     /// @param external_ids The external IDs of the corresponding points. Must be a
@@ -679,13 +674,15 @@ class MutableVamanaIndex {
             construction_window_size_,
             max_candidates_,
             prune_to_,
-            use_full_search_history_};
+            use_full_search_history_
+        };
 
         auto sp = get_search_parameters();
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
-            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
+            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters
+        };
         builder.construct(alpha_, entry_point(), slots, logging::Level::Trace);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
@@ -987,7 +984,8 @@ class MutableVamanaIndex {
                      get_max_candidates(),
                      prune_to_,
                      get_full_search_history()},
-                    get_search_parameters()};
+                    get_search_parameters()
+                };
 
                 return lib::SaveTable(
                     "vamana_dynamic_auxiliary_parameters",
@@ -1213,6 +1211,13 @@ class MutableVamanaIndex {
             }
         }
     }
+
+    ///// Logging
+
+    /// @brief Helper method to log
+    void log(const char* level, const char* message) const {
+        svs::logging::log(log_callback_ctx_, level, message);
+    }
 };
 
 ///// Deduction Guides.
@@ -1243,7 +1248,8 @@ struct VamanaStateLoader {
         if (debug_load_from_static) {
             return VamanaStateLoader{
                 lib::load<VamanaIndexParameters>(table),
-                IDTranslator::Identity(assume_datasize)};
+                IDTranslator::Identity(assume_datasize)
+            };
         }
 
         return VamanaStateLoader{
@@ -1342,7 +1348,8 @@ auto auto_dynamic_assemble(
         std::move(graph),
         std::move(distance),
         std::move(translator),
-        std::move(threadpool)};
+        std::move(threadpool)
+    };
 }
 
 } // namespace svs::index::vamana

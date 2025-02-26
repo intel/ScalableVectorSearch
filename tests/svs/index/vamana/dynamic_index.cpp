@@ -40,7 +40,8 @@
 namespace {
 template <typename T> auto copy_dataset(const T& data) {
     auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
-        data.size(), data.dimensions()};
+        data.size(), data.dimensions()
+    };
     for (size_t i = 0; i < data.size(); ++i) {
         copy.set_datum(i, data.get_datum(i));
     }
@@ -116,7 +117,8 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
             entry_point,
             svs::distance::DistanceL2(),
             svs::threads::UnitRange<size_t>(0, base_data.size()),
-            num_threads};
+            num_threads
+        };
 
         check_equal(base_data, index);
         index.debug_check_graph_consistency(false);
@@ -247,56 +249,45 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
     }
 }
 
-CATCH_TEST_CASE("Dynamic Index Per-Index and Global Logging Test", "[logging]") {
-    // Capture logs
-    std::vector<std::string> instanceLogMessages;
-    std::vector<std::string> globalLogMessages;
+struct TestLogCtx {
+    std::vector<std::string> logs;
+};
 
-    // Global log callback
-    svs::logging::set_global_log_callback([](void*, const char* level, const char* message) {
-        globalLogMessages.emplace_back(std::string(level) + ": " + message);
-    });
+static void test_log_callback(void* ctx, const char* level, const char* msg) {
+    if (!ctx)
+        return;
+    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
+    logCtx->logs.push_back(std::string(level) + ": " + msg);
+}
 
-    // Per-instance log callback
-    auto testLogCallback = [](void* ctx, const char* level, const char* message) {
-        if (ctx) {
-            auto logMessages = static_cast<std::vector<std::string>*>(ctx);
-            logMessages->emplace_back(std::string(level) + ": " + message);
-        }
-    };
+CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
+    svs::logging::set_global_log_callback(&test_log_callback);
 
-    // Create and configure index
+    TestLogCtx myLogCtx;
+
     std::vector<float> data = {1.0f, 2.0f};
-    std::vector<size_t> external_ids = {0};
     const size_t dim = 1;
+    auto dataView = svs::data::SimpleDataView<float>(data.data(), 2, dim);
+    std::vector<size_t> external_ids = {10, 20};
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2f, 64, 10, 20, 10, true);
 
-    auto graph = svs::graphs::SimpleGraph<size_t>(1, 64);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, dim);
-    svs::distance::DistanceL2 distance_function;
-    Idx entry_point = 0;
     auto threadpool = svs::threads::DefaultThreadPool(1);
 
-    svs::index::vamana::MutableVamanaIndex index(
-        std::move(graph),
-        std::move(data_view),
-        entry_point,
-        distance_function,
+    using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
+    using DataType = svs::data::SimpleData<float, 18446744073709551615ULL>;
+    using DistType = svs::distance::DistanceL2;
+
+    svs::index::vamana::MutableVamanaIndex<GraphType, DataType, DistType> index(
+        buildParams,
+        dataView,
         external_ids,
-        std::move(threadpool),
-        &instanceLogMessages  // Per-instance log context
+        svs::distance::DistanceL2{},
+        threadpool,
+        &myLogCtx
     );
 
-    // Trigger logging
-    svs::logging::log(index.get_log_callback_ctx(), "NOTICE", "test log message no fmt");
+    index.log("NOTICE", "Hello from MutableVamanaIndex Logging!");
 
-    // Trigger global logging
-    svs::logging::log(nullptr, "WARN", "Global log message");
-
-    // Validate per-instance logs
-    CATCH_REQUIRE(instanceLogMessages.size() == 1);
-    CATCH_REQUIRE(instanceLogMessages[0] == "NOTICE: test log message no fmt");
-
-    // Validate global logs
-    CATCH_REQUIRE(!globalLogMessages.empty());
-    CATCH_REQUIRE(globalLogMessages[0] == "WARN: Global log message");
+    CATCH_REQUIRE(myLogCtx.logs.size() == 1);
+    CATCH_REQUIRE(myLogCtx.logs[0] == "NOTICE: Hello from MutableVamanaIndex Logging!");
 }

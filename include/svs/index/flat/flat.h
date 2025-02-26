@@ -17,6 +17,7 @@
 #pragma once
 
 // Flat index utilities
+#include "svs/core/logging.h"
 #include "svs/index/flat/inserters.h"
 #include "svs/index/index.h"
 
@@ -145,6 +146,8 @@ class FlatIndex {
     data_storage_type data_;
     [[no_unique_address]] distance_type distance_;
     threads::ThreadPoolHandle threadpool_;
+    // Log callback
+    void* log_callback_ctx_;
 
     // Constructs controlling the iteration strategy over the data and queries.
     search_parameters_type search_parameters_{};
@@ -193,18 +196,30 @@ class FlatIndex {
     /// @copydoc threadpool_requirements
     ///
     template <typename ThreadPoolProto>
-    FlatIndex(Data data, Dist distance, ThreadPoolProto threadpool_proto)
+    FlatIndex(
+        Data data,
+        Dist distance,
+        ThreadPoolProto threadpool_proto,
+        void* log_callback_ctx = nullptr
+    )
         requires std::is_same_v<Ownership, OwnsMembers>
         : data_{std::move(data)}
         , distance_{std::move(distance)}
-        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))} {}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
+        , log_callback_ctx_{log_callback_ctx} {}
 
     template <typename ThreadPoolProto>
-    FlatIndex(Data& data, Dist distance, ThreadPoolProto threadpool_proto)
+    FlatIndex(
+        Data& data,
+        Dist distance,
+        ThreadPoolProto threadpool_proto,
+        void* log_callback_ctx = nullptr
+    )
         requires std::is_same_v<Ownership, ReferencesMembers>
         : data_{data}
         , distance_{std::move(distance)}
-        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))} {}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
+        , log_callback_ctx_{log_callback_ctx} {}
 
     ////// Dataset Interface
 
@@ -331,13 +346,14 @@ class FlatIndex {
         threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{
-                queries.size(),
-                compute_query_batch_size(search_parameters, queries.size())},
+                queries.size(), compute_query_batch_size(search_parameters, queries.size())
+            },
             [&](const auto& query_indices, uint64_t /*tid*/) {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
                 distance::BroadcastDistance distances{
-                    extensions::distance(data_, distance_), query_indices.size()};
+                    extensions::distance(data_, distance_), query_indices.size()
+                };
 
                 search_patch(
                     queries,
@@ -436,6 +452,13 @@ class FlatIndex {
     /// @brief Return the current thread pool handle.
     ///
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
+
+    ///// Logging
+
+    /// @brief Helper method to log
+    void log(const char* level, const char* message) const {
+        svs::logging::log(log_callback_ctx_, level, message);
+    }
 };
 
 ///
@@ -487,7 +510,8 @@ template <data::ImmutableMemoryDataset Data, typename Dist, typename ThreadPoolP
 TemporaryFlatIndex<Data, Dist>
 temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
     return TemporaryFlatIndex<Data, Dist>{
-        data, distance, threads::as_threadpool(std::move(threadpool_proto))};
+        data, distance, threads::as_threadpool(std::move(threadpool_proto))
+    };
 }
 
 } // namespace svs::index::flat
