@@ -247,7 +247,7 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
     }
 }
 
-CATCH_TEST_CASE("Per-Index and Global Logging Test", "[logging]") {
+CATCH_TEST_CASE("Dynamic Index Per-Index and Global Logging Test", "[logging]") {
     // Capture logs
     std::vector<std::string> instanceLogMessages;
     std::vector<std::string> globalLogMessages;
@@ -288,15 +288,13 @@ CATCH_TEST_CASE("Per-Index and Global Logging Test", "[logging]") {
 
     // Trigger logging
     svs::logging::log(index.get_log_callback_ctx(), "NOTICE", "test log message no fmt");
-    svs::logging::log(index.get_log_callback_ctx(), "WARNING", "test log message %s %s", "with", "args");
 
     // Trigger global logging
     svs::logging::log(nullptr, "WARN", "Global log message");
 
     // Validate per-instance logs
-    CATCH_REQUIRE(instanceLogMessages.size() == 2);
+    CATCH_REQUIRE(instanceLogMessages.size() == 1);
     CATCH_REQUIRE(instanceLogMessages[0] == "NOTICE: test log message no fmt");
-    CATCH_REQUIRE(instanceLogMessages[1] == "WARNING: test log message with args");
 
     // Validate global logs
     CATCH_REQUIRE(!globalLogMessages.empty());

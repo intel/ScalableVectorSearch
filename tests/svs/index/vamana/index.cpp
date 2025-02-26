@@ -16,6 +16,7 @@
 
 // Header under test
 #include "svs/index/vamana/index.h"
+#include "svs/core/logging.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -108,4 +109,64 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
         };
         CATCH_REQUIRE(svs::lib::test_self_save_load_context_free(p));
     }
+}
+
+struct TestLogCtx {
+    std::vector<std::string> logBuffer;
+    std::string prefix;
+};
+
+static void test_log_impl(void* ctx, const char* level, const char* message) {
+    // Cast ctx to our local struct
+    auto* log = reinterpret_cast<TestLogCtx*>(ctx);
+
+    // Format the final string
+    std::string msg = std::string(level) + ": " + log->prefix + message;
+
+    // Append to the vector
+    log->logBuffer.push_back(msg);
+}
+
+CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
+    // Prepare a local context
+    TestLogCtx testCtx;
+    testCtx.prefix = "test log prefix: ";
+
+    // Set the global callback function
+    svs::logging::set_global_log_callback(test_log_impl);
+
+    // Create some minimal data
+    std::vector<float> data = {1.0f, 2.0f};
+    const size_t dim = 1;
+    auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, dim);
+    svs::distance::DistanceL2 distance_function;
+    uint32_t entry_point = 0;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    // Build the VamanaIndex, passing &testCtx as the per-index logging context
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    svs::index::vamana::VamanaIndex index(
+        buildParams,
+        std::move(graph),
+        std::move(data_view),
+        entry_point,
+        distance_function,
+        std::move(threadpool),
+        &testCtx
+    );
+
+    // Trigger log message
+    index.log("notice", "test log message no fmt");
+    std::string msgFormatted = "test log message with args";
+    index.log("warning", msgFormatted.c_str());
+
+    // Check that we got exactly 2 messages in our TestLogCtx
+    CATCH_REQUIRE(testCtx.logBuffer.size() == 2);
+    CATCH_REQUIRE(
+        testCtx.logBuffer[0] == "notice: test log prefix: test log message no fmt"
+    );
+    CATCH_REQUIRE(
+        testCtx.logBuffer[1] == "warning: test log prefix: test log message with args"
+    );
 }

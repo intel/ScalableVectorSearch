@@ -178,7 +178,7 @@ class MutableVamanaIndex {
         Dist distance_function,
         const ExternalIds& external_ids,
         ThreadPoolProto threadpool_proto,
-        //Optional logger parameter
+        // Optional logger parameter
         void* log_callback_ctx = nullptr
     )
         : graph_{std::move(graph)}
@@ -326,6 +326,8 @@ class MutableVamanaIndex {
     /// @brief Enable using the full search history for candidate generation while
     /// mutating the graph.
     void set_full_search_history(bool enable) { use_full_search_history_ = enable; }
+    /// @brief Return log context
+    void* get_log_callback_ctx() const { return log_callback_ctx_; }
 
     ///// Index translation.
 
