@@ -537,10 +537,15 @@ class AllocatorInterface {
 
     // covariant return type
     virtual AllocatorInterface* clone() const = 0;
+    virtual AllocatorInterface* rebind_float() const = 0;
+    virtual AllocatorInterface* rebind_float16() const = 0;
 };
 
 template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterface {
   public:
+    using rebind_allocator_float = lib::rebind_allocator_t<float, Impl>;
+    using rebind_allocator_float16 = lib::rebind_allocator_t<Float16, Impl>;
+
     // pass by value due to clone()
     explicit AllocatorImpl(Impl impl)
         : AllocatorInterface{}
@@ -553,6 +558,14 @@ template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterfac
     }
 
     AllocatorImpl<Impl>* clone() const override { return new AllocatorImpl(impl_); }
+
+    AllocatorImpl<rebind_allocator_float>* rebind_float() const override {
+        return new AllocatorImpl<rebind_allocator_float>(rebind_allocator_float{impl_});
+    }
+
+    AllocatorImpl<rebind_allocator_float16>* rebind_float16() const override {
+        return new AllocatorImpl<rebind_allocator_float16>(rebind_allocator_float16{impl_});
+    }
 
   private:
     Impl impl_;
@@ -579,6 +592,33 @@ template <typename T> class AllocatorHandle {
     }
     AllocatorHandle& operator=(AllocatorHandle&&) = default;
     ~AllocatorHandle() = default;
+
+    // Enable rebinding of allocators.
+    template <typename U> friend class AllocatorHandle;
+
+    template <typename U>
+    AllocatorHandle(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+        : impl_{other.impl_->rebind_float()} {}
+    template <typename U>
+    AllocatorHandle(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+        : impl_{other.impl_->rebind_float16()} {}
+
+    template <typename U>
+    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+    {
+        impl_.reset(other.impl_->rebind_float());
+        return *this;
+    }
+    template <typename U>
+    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+    {
+        impl_.reset(other.impl_->rebind_float16());
+        return *this;
+    }
 
     T* allocate(size_t n) {
         if (impl_.get() == nullptr) {
