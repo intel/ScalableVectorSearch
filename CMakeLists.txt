@@ -23,7 +23,7 @@ project(svs
     # - /bindings/python/tests/test_common.py
     # Manually keep in-sync with:
     # - /bindings/python/setup.py
-    VERSION 0.0.6
+    VERSION 0.0.7
 )
 
 set(SVS_LIB svs_devel)

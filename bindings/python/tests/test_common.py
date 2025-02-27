@@ -42,7 +42,7 @@ class CommonTester(unittest.TestCase):
     #####
 
     def test_version(self):
-        self.assertEqual(svs.library_version(), "v0.0.6")
+        self.assertEqual(svs.library_version(), "v0.0.7")
 
     def test_conversion(self):
         # signed
