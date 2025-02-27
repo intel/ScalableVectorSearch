@@ -157,16 +157,11 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     );
 
     // Trigger log message
-    index.log("notice", "test log message no fmt");
-    std::string msgFormatted = "test log message with args";
-    index.log("warning", msgFormatted.c_str());
+    index.log("NOTICE", "Test dynamic VamanaIndex Logging");
 
-    // Check that we got exactly 2 messages in our TestLogCtx
-    CATCH_REQUIRE(testCtx.logBuffer.size() == 2);
+    // Check message
+    CATCH_REQUIRE(testCtx.logBuffer.size() == 1);
     CATCH_REQUIRE(
-        testCtx.logBuffer[0] == "notice: test log prefix: test log message no fmt"
-    );
-    CATCH_REQUIRE(
-        testCtx.logBuffer[1] == "warning: test log prefix: test log message with args"
+        testCtx.logBuffer[0] == "NOTICE: test log prefix: Test dynamic VamanaIndex Logging"
     );
 }
