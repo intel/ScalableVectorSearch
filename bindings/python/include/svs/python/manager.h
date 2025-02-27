@@ -119,7 +119,9 @@ reconstruct(Index& index, py_contiguous_array_t<uint64_t> ids) {
     auto destination = py_contiguous_array_t<float>({num_ids, data_dims});
     index.reconstruct_at(
         mutable_data_view(destination),
-        std::span<const uint64_t>(ids.template mutable_unchecked().mutable_data(), num_ids)
+        std::span<const uint64_t>(
+            ids.template mutable_unchecked<-1>().mutable_data(), num_ids
+        )
     );
 
     // Reshape the destination to have the same shape as the original IDs (plus the extra
