@@ -903,7 +903,8 @@ auto auto_build(
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    const Allocator& graph_allocator = {}
+    const Allocator& graph_allocator = {},
+    void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -918,7 +919,8 @@ auto auto_build(
         std::move(data),
         lib::narrow<I>(entry_point),
         std::move(distance),
-        std::move(threadpool)
+        std::move(threadpool),
+        log_callback_ctx
     };
 }
 
@@ -952,7 +954,8 @@ auto auto_assemble(
     GraphProto graph_loader,
     DataProto data_proto,
     Distance distance,
-    ThreadPoolProto threadpool_proto
+    ThreadPoolProto threadpool_proto,
+    void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -961,7 +964,7 @@ auto auto_assemble(
     // Extract the index type of the provided graph.
     using I = typename decltype(graph)::index_type;
     auto index = VamanaIndex{
-        std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool)
+        std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool), log_callback_ctx 
     };
 
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);

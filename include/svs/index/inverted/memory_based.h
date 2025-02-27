@@ -566,7 +566,8 @@ auto auto_build(
     // Customizations
     Strategy strategy = {},
     CentroidPicker centroid_picker = {},
-    ClusteringOp clustering_op = {}
+    ClusteringOp clustering_op = {},
+    void* log_callback_ctx = nullptr 
 ) {
     // Perform clustering.
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -603,7 +604,8 @@ auto auto_build(
         std::move(index),
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
-        std::move(primary_threadpool)
+        std::move(primary_threadpool),
+        log_callback_ctx
     };
 }
 
@@ -620,7 +622,8 @@ auto assemble_from_clustering(
     Strategy strategy,
     const std::filesystem::path& index_config,
     const std::filesystem::path& graph,
-    ThreadPoolProto threadpool_proto
+    ThreadPoolProto threadpool_proto,
+    void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto original = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -640,7 +643,8 @@ auto assemble_from_clustering(
             return local_data;
         }),
         distance,
-        1
+        1,
+        log_callback_ctx
     );
 
     // Create the clustering and return the final results.

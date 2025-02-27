@@ -495,11 +495,11 @@ class FlatIndex {
 ///
 template <typename DataProto, typename Distance, typename ThreadPoolProto>
 auto auto_assemble(
-    DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto
+    DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto, void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
-    return FlatIndex(std::move(data), std::move(distance), std::move(threadpool));
+    return FlatIndex(std::move(data), std::move(distance), std::move(threadpool), log_callback_ctx);
 }
 
 /// @brief Alias for a short-lived flat index.
