@@ -1282,7 +1282,8 @@ auto auto_dynamic_assemble(
     // to easily benchmark the static versus dynamic implementation.
     //
     // This is an internal API and should not be considered officially supported nor stable.
-    bool debug_load_from_static = false
+    bool debug_load_from_static = false,
+    void* log_callback_ctx = nullptr
 ) {
     // Load the dataset
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -1348,7 +1349,8 @@ auto auto_dynamic_assemble(
         std::move(graph),
         std::move(distance),
         std::move(translator),
-        std::move(threadpool)
+        std::move(threadpool),
+        log_callback_ctx
     };
 }
 

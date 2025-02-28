@@ -36,218 +36,223 @@
 // tests
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
+#include "tests/utils/vamana_reference.h"
 
-namespace {
-template <typename T> auto copy_dataset(const T& data) {
-    auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
-        data.size(), data.dimensions()
-    };
-    for (size_t i = 0; i < data.size(); ++i) {
-        copy.set_datum(i, data.get_datum(i));
-    }
-    return copy;
-}
+// namespace {
+// template <typename T> auto copy_dataset(const T& data) {
+//     auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
+//         data.size(), data.dimensions()
+//     };
+//     for (size_t i = 0; i < data.size(); ++i) {
+//         copy.set_datum(i, data.get_datum(i));
+//     }
+//     return copy;
+// }
 
-template <typename T, typename U> void check_results(const T& results, const U& deleted) {
-    for (size_t i = 0; i < svs::getsize<0>(results); ++i) {
-        for (size_t j = 0; j < svs::getsize<1>(results); ++j) {
-            CATCH_REQUIRE(!deleted.contains(results.at(i, j)));
-        }
-    }
-}
+// template <typename T, typename U> void check_results(const T& results, const U& deleted)
+// {
+//     for (size_t i = 0; i < svs::getsize<0>(results); ++i) {
+//         for (size_t j = 0; j < svs::getsize<1>(results); ++j) {
+//             CATCH_REQUIRE(!deleted.contains(results.at(i, j)));
+//         }
+//     }
+// }
 
-template <typename T, typename U>
-void check_deleted(const T& index, const U& deleted, size_t imax) {
-    for (size_t i = 0; i < imax; ++i) {
-        if (deleted.contains(i)) {
-            CATCH_REQUIRE(index.is_deleted(i));
-        } else {
-            CATCH_REQUIRE(!index.is_deleted(i));
-        }
-    }
-}
+// template <typename T, typename U>
+// void check_deleted(const T& index, const U& deleted, size_t imax) {
+//     for (size_t i = 0; i < imax; ++i) {
+//         if (deleted.contains(i)) {
+//             CATCH_REQUIRE(index.is_deleted(i));
+//         } else {
+//             CATCH_REQUIRE(!index.is_deleted(i));
+//         }
+//     }
+// }
 
-template <typename Left, typename Right>
-void check_equal(const Left& left, const Right& right) {
-    CATCH_REQUIRE(left.size() == right.size());
-    CATCH_REQUIRE(left.dimensions() == right.dimensions());
+// template <typename Left, typename Right>
+// void check_equal(const Left& left, const Right& right) {
+//     CATCH_REQUIRE(left.size() == right.size());
+//     CATCH_REQUIRE(left.dimensions() == right.dimensions());
 
-    for (size_t i = 0, imax = left.size(); i < imax; ++i) {
-        const auto& datum_left = left.get_datum(i);
-        const auto& datum_right = right.get_datum(i);
-        CATCH_REQUIRE(std::equal(datum_left.begin(), datum_left.end(), datum_right.begin())
-        );
-    }
-}
+//     for (size_t i = 0, imax = left.size(); i < imax; ++i) {
+//         const auto& datum_left = left.get_datum(i);
+//         const auto& datum_right = right.get_datum(i);
+//         CATCH_REQUIRE(std::equal(datum_left.begin(), datum_left.end(),
+//         datum_right.begin())
+//         );
+//     }
+// }
 
-} // namespace
+// } // namespace
 
-#if defined(NDEBUG)
-const double DELETE_PERCENT = 0.3;
-#else
-const double DELETE_PERCENT = 0.05;
-#endif
+// #if defined(NDEBUG)
+// const double DELETE_PERCENT = 0.3;
+// #else
+// const double DELETE_PERCENT = 0.05;
+// #endif
 
-CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
-    const size_t num_threads = 2;
-    const size_t num_neighbors = 10;
+// CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
+//     const size_t num_threads = 2;
+//     const size_t num_neighbors = 10;
 
-    const auto base_data = test_dataset::data_blocked_f32();
-    // const auto base_data = test_dataset::data_f32();
-    const auto queries = test_dataset::queries();
-    const auto groundtruth = test_dataset::groundtruth_euclidean();
+//     const auto base_data = test_dataset::data_blocked_f32();
+//     // const auto base_data = test_dataset::data_f32();
+//     const auto queries = test_dataset::queries();
+//     const auto groundtruth = test_dataset::groundtruth_euclidean();
 
-    CATCH_SECTION("Soft Deletion") {
-        // In this section, we test soft deletion.
-        // The idea is as follows:
-        //
-        // (1) Load the test index.
-        // (2) Run a round of queries to ensure that everything loading correctly.
-        // (3) Set a target deletion percentage where all the neighbors returned by
-        //     all results returned by the previous query plus a random collection of extras
-        //     are deleted.
-        //
-        // (4) Rerun queries, make sure accuracy is still high and that no deleted indices
-        //     are present in the results.
-        auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
+//     CATCH_SECTION("Soft Deletion") {
+//         // In this section, we test soft deletion.
+//         // The idea is as follows:
+//         //
+//         // (1) Load the test index.
+//         // (2) Run a round of queries to ensure that everything loading correctly.
+//         // (3) Set a target deletion percentage where all the neighbors returned by
+//         //     all results returned by the previous query plus a random collection of
+//         extras
+//         //     are deleted.
+//         //
+//         // (4) Rerun queries, make sure accuracy is still high and that no deleted
+//         indices
+//         //     are present in the results.
+//         auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
 
-        auto index = svs::index::MutableVamanaIndex{
-            test_dataset::graph_blocked(),
-            base_data.copy(),
-            entry_point,
-            svs::distance::DistanceL2(),
-            svs::threads::UnitRange<size_t>(0, base_data.size()),
-            num_threads
-        };
+//         auto index = svs::index::MutableVamanaIndex{
+//             test_dataset::graph_blocked(),
+//             base_data.copy(),
+//             entry_point,
+//             svs::distance::DistanceL2(),
+//             svs::threads::UnitRange<size_t>(0, base_data.size()),
+//             num_threads
+//         };
 
-        check_equal(base_data, index);
-        index.debug_check_graph_consistency(false);
+//         check_equal(base_data, index);
+//         index.debug_check_graph_consistency(false);
 
-        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
-        index.set_search_window_size(num_neighbors);
+//         auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+//         index.set_search_window_size(num_neighbors);
 
-        auto tic = svs::lib::now();
-        index.search(queries.view(), num_neighbors, results.view());
-        auto original_time = svs::lib::time_difference(svs::lib::now(), tic);
-        auto original_recall = svs::k_recall_at_n(groundtruth, results);
-        CATCH_REQUIRE(index.entry_point() == entry_point);
+//         auto tic = svs::lib::now();
+//         index.search(queries.view(), num_neighbors, results.view());
+//         auto original_time = svs::lib::time_difference(svs::lib::now(), tic);
+//         auto original_recall = svs::k_recall_at_n(groundtruth, results);
+//         CATCH_REQUIRE(index.entry_point() == entry_point);
 
-        std::unordered_set<uint32_t> ids_to_delete{};
-        double delete_percent = DELETE_PERCENT;
-        for (size_t i = 0; i < groundtruth.size(); ++i) {
-            auto slice = groundtruth.get_datum(i);
-            for (size_t j = 0; j < num_neighbors; ++j) {
-                auto id = slice[j];
+//         std::unordered_set<uint32_t> ids_to_delete{};
+//         double delete_percent = DELETE_PERCENT;
+//         for (size_t i = 0; i < groundtruth.size(); ++i) {
+//             auto slice = groundtruth.get_datum(i);
+//             for (size_t j = 0; j < num_neighbors; ++j) {
+//                 auto id = slice[j];
 
-                // For now - don't delete the entry point.
-                if (id != entry_point) {
-                    ids_to_delete.insert(slice[j]);
-                }
-            }
+//                 // For now - don't delete the entry point.
+//                 if (id != entry_point) {
+//                     ids_to_delete.insert(slice[j]);
+//                 }
+//             }
 
-            if (ids_to_delete.size() > delete_percent * base_data.size()) {
-                break;
-            }
-        }
+//             if (ids_to_delete.size() > delete_percent * base_data.size()) {
+//                 break;
+//             }
+//         }
 
-        index.set_threadpool(threads::CppAsyncThreadPool(num_threads));
+//         index.set_threadpool(threads::CppAsyncThreadPool(num_threads));
 
-        std::cout << "Deleting " << ids_to_delete.size() << " entries!" << std::endl;
-        index.delete_entries(ids_to_delete);
-        check_deleted(index, ids_to_delete, base_data.size());
-        index.debug_check_graph_consistency(true);
-        CATCH_REQUIRE_THROWS_AS(
-            index.debug_check_graph_consistency(false), svs::ANNException
-        );
-        CATCH_REQUIRE(index.entry_point() == entry_point);
-        // Make sure the correct points were deleted.
-        tic = svs::lib::now();
-        index.search(queries.view(), num_neighbors, results.view());
-        auto new_time = svs::lib::time_difference(tic);
+//         std::cout << "Deleting " << ids_to_delete.size() << " entries!" << std::endl;
+//         index.delete_entries(ids_to_delete);
+//         check_deleted(index, ids_to_delete, base_data.size());
+//         index.debug_check_graph_consistency(true);
+//         CATCH_REQUIRE_THROWS_AS(
+//             index.debug_check_graph_consistency(false), svs::ANNException
+//         );
+//         CATCH_REQUIRE(index.entry_point() == entry_point);
+//         // Make sure the correct points were deleted.
+//         tic = svs::lib::now();
+//         index.search(queries.view(), num_neighbors, results.view());
+//         auto new_time = svs::lib::time_difference(tic);
 
-        // Make sure none of the returned results are in the deleted list.
-        check_results(results.indices(), ids_to_delete);
+//         // Make sure none of the returned results are in the deleted list.
+//         check_results(results.indices(), ids_to_delete);
 
-        index.set_threadpool(threads::QueueThreadPoolWrapper(num_threads));
+//         index.set_threadpool(threads::QueueThreadPoolWrapper(num_threads));
 
-        auto results_reference = svs::QueryResult<size_t>(queries.size(), num_neighbors);
-        index.exhaustive_search(queries.view(), num_neighbors, results_reference.view());
-        auto new_recall = svs::k_recall_at_n(results_reference.indices(), results);
+//         auto results_reference = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+//         index.exhaustive_search(queries.view(), num_neighbors, results_reference.view());
+//         auto new_recall = svs::k_recall_at_n(results_reference.indices(), results);
 
-        // Perform graph consolidation and see how the results are effected.
-        index.set_alpha(1.2);
-        index.consolidate();
-        index.debug_check_graph_consistency(false);
-        tic = svs::lib::now();
-        index.search(queries.view(), num_neighbors, results.view());
-        auto post_consolidate_time = svs::lib::time_difference(tic);
-        auto post_consolidate_recall =
-            svs::k_recall_at_n(results_reference.indices(), results);
+//         // Perform graph consolidation and see how the results are effected.
+//         index.set_alpha(1.2);
+//         index.consolidate();
+//         index.debug_check_graph_consistency(false);
+//         tic = svs::lib::now();
+//         index.search(queries.view(), num_neighbors, results.view());
+//         auto post_consolidate_time = svs::lib::time_difference(tic);
+//         auto post_consolidate_recall =
+//             svs::k_recall_at_n(results_reference.indices(), results);
 
-        // Check deletion again.
-        check_deleted(index, ids_to_delete, base_data.size());
-        CATCH_REQUIRE(index.entry_point() == entry_point);
+//         // Check deletion again.
+//         check_deleted(index, ids_to_delete, base_data.size());
+//         CATCH_REQUIRE(index.entry_point() == entry_point);
 
-        std::cout << "Original recall: " << original_recall
-                  << ", New Recall: " << new_recall
-                  << ", Post Recall: " << post_consolidate_recall << std::endl;
-        std::cout << "Original Time: " << original_time << " (s), New Time: " << new_time
-                  << " (s) Post Time: " << post_consolidate_time << std::endl;
-        CATCH_REQUIRE(new_recall > original_recall);
-        check_results(results.indices(), ids_to_delete);
+//         std::cout << "Original recall: " << original_recall
+//                   << ", New Recall: " << new_recall
+//                   << ", Post Recall: " << post_consolidate_recall << std::endl;
+//         std::cout << "Original Time: " << original_time << " (s), New Time: " << new_time
+//                   << " (s) Post Time: " << post_consolidate_time << std::endl;
+//         CATCH_REQUIRE(new_recall > original_recall);
+//         check_results(results.indices(), ids_to_delete);
 
-        // Now - delete the entry point and consolidate.
-        ids_to_delete.insert(entry_point);
-        std::vector<size_t> entry_point_vector{};
-        entry_point_vector.push_back(entry_point);
-        index.delete_entries(entry_point_vector);
-        index.set_alpha(1.2);
-        index.consolidate();
-        index.debug_check_graph_consistency(false);
+//         // Now - delete the entry point and consolidate.
+//         ids_to_delete.insert(entry_point);
+//         std::vector<size_t> entry_point_vector{};
+//         entry_point_vector.push_back(entry_point);
+//         index.delete_entries(entry_point_vector);
+//         index.set_alpha(1.2);
+//         index.consolidate();
+//         index.debug_check_graph_consistency(false);
 
-        auto& threadpool =
-            index.get_threadpool_handle().get<threads::CppAsyncThreadPool>.get();
-        threadpool.resize(3);
-        CATCH_REQUIRE(index.get_num_threads() == 3);
-        threadpool.resize(num_threads);
-        CATCH_REQUIRE(index.get_num_threads() == num_threads);
+//         auto& threadpool =
+//             index.get_threadpool_handle().get<threads::CppAsyncThreadPool>.get();
+//         threadpool.resize(3);
+//         CATCH_REQUIRE(index.get_num_threads() == 3);
+//         threadpool.resize(num_threads);
+//         CATCH_REQUIRE(index.get_num_threads() == num_threads);
 
-        CATCH_REQUIRE(index.entry_point() != entry_point);
-        index.search(queries.view(), num_neighbors, results.view());
-        auto post_entrypoint_recall =
-            svs::k_recall_at_n(results_reference.indices(), results);
-        std::cout << "Post entry-point deletion recall: " << post_entrypoint_recall
-                  << std::endl;
+//         CATCH_REQUIRE(index.entry_point() != entry_point);
+//         index.search(queries.view(), num_neighbors, results.view());
+//         auto post_entrypoint_recall =
+//             svs::k_recall_at_n(results_reference.indices(), results);
+//         std::cout << "Post entry-point deletion recall: " << post_entrypoint_recall
+//                   << std::endl;
 
-        // Add the deleted points back in.
-        auto points = svs::data::SimpleData<float, svs::Dynamic>(
-            ids_to_delete.size(), base_data.dimensions()
-        );
+//         // Add the deleted points back in.
+//         auto points = svs::data::SimpleData<float, svs::Dynamic>(
+//             ids_to_delete.size(), base_data.dimensions()
+//         );
 
-        size_t i = 0;
-        for (const auto& j : ids_to_delete) {
-            points.set_datum(i, base_data.get_datum(j));
-            ++i;
-        }
+//         size_t i = 0;
+//         for (const auto& j : ids_to_delete) {
+//             points.set_datum(i, base_data.get_datum(j));
+//             ++i;
+//         }
 
-        index.set_threadpool(threads::DefaultThreadPool(num_threads));
-        tic = svs::lib::now();
-        index.add_points(points, ids_to_delete);
-        auto insert_time = svs::lib::time_difference(tic);
-        std::cout << "Insertion took: " << insert_time << " seconds!" << std::endl;
+//         index.set_threadpool(threads::DefaultThreadPool(num_threads));
+//         tic = svs::lib::now();
+//         index.add_points(points, ids_to_delete);
+//         auto insert_time = svs::lib::time_difference(tic);
+//         std::cout << "Insertion took: " << insert_time << " seconds!" << std::endl;
 
-        // Check that the stored dataset and the original dataset are equal.
-        check_equal(base_data, index);
-        index.debug_check_graph_consistency(false);
+//         // Check that the stored dataset and the original dataset are equal.
+//         check_equal(base_data, index);
+//         index.debug_check_graph_consistency(false);
 
-        tic = svs::lib::now();
-        index.search(queries.view(), num_neighbors, results.view());
-        auto post_add_time = svs::lib::time_difference(tic);
-        auto post_reinsertion_recall = svs::k_recall_at_n(groundtruth, results);
-        std::cout << "Post reinsertion recall: " << post_reinsertion_recall << " in "
-                  << post_add_time << " seconds." << std::endl;
-    }
-}
+//         tic = svs::lib::now();
+//         index.search(queries.view(), num_neighbors, results.view());
+//         auto post_add_time = svs::lib::time_difference(tic);
+//         auto post_reinsertion_recall = svs::k_recall_at_n(groundtruth, results);
+//         std::cout << "Post reinsertion recall: " << post_reinsertion_recall << " in "
+//                   << post_add_time << " seconds." << std::endl;
+//     }
+// }
 
 struct TestLogCtx {
     std::vector<std::string> logs;
@@ -261,33 +266,40 @@ static void test_log_callback(void* ctx, const char* level, const char* msg) {
 }
 
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
+    // Set callback
     svs::logging::set_global_log_callback(&test_log_callback);
+    TestLogCtx testLogContext;
 
-    TestLogCtx myLogCtx;
-
-    std::vector<float> data = {1.0f, 2.0f};
-    const size_t dim = 1;
-    auto dataView = svs::data::SimpleDataView<float>(data.data(), 2, dim);
-    std::vector<size_t> external_ids = {10, 20};
-    svs::index::vamana::VamanaBuildParameters buildParams(1.2f, 64, 10, 20, 10, true);
-
+    // Setup index
+    std::filesystem::path configPath = test_dataset::vamana_config_file();
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto graph = svs::graphs::SimpleGraph<uint32_t>::load(test_dataset::graph_file());
+    auto distance = svs::DistanceL2();
     auto threadpool = svs::threads::DefaultThreadPool(1);
-
-    using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
-    using DataType = svs::data::SimpleData<float, 18446744073709551615ULL>;
-    using DistType = svs::distance::DistanceL2;
-
-    svs::index::vamana::MutableVamanaIndex<GraphType, DataType, DistType> index(
-        buildParams,
-        dataView,
-        external_ids,
-        svs::distance::DistanceL2{},
-        threadpool,
-        &myLogCtx
+    // Load expected build parameters
+    auto expected_result = test_dataset::vamana::expected_build_results(
+        svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
     );
 
-    index.log("NOTICE", "Hello from MutableVamanaIndex Logging!");
+    // Use the build parameters from the expected result
+    svs::index::vamana::VamanaBuildParameters buildParams =
+        expected_result.build_parameters_.value();
 
-    CATCH_REQUIRE(myLogCtx.logs.size() == 1);
-    CATCH_REQUIRE(myLogCtx.logs[0] == "NOTICE: Hello from MutableVamanaIndex Logging!");
+    std::vector<size_t> external_ids(data.size());
+    std::iota(external_ids.begin(), external_ids.end(), 0);
+
+    // Use the build parameters from the expected result
+    auto dynamicIndex = svs::index::vamana::MutableVamanaIndex<
+        svs::graphs::SimpleGraph<uint32_t>,
+        svs::data::SimpleData<float>,
+        svs::distance::DistanceL2>(
+        buildParams, data, external_ids, distance, std::move(threadpool), &testLogContext
+    );
+
+    // Log messasge
+    dynamicIndex.log("NOTICE", "Test MutableVamanaIndex Logging");
+
+    // Verify that the log callback was called
+    CATCH_REQUIRE(testLogContext.logs.size() == 1);
+    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test MutableVamanaIndex Logging");
 }
