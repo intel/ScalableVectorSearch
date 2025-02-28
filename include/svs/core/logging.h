@@ -60,13 +60,20 @@ inline constexpr std::array<Level, 7> all_levels = {
     Level::Warn,
     Level::Error,
     Level::Critical,
-    Level::Off};
+    Level::Off
+};
 
 /// @brief The type of the global logger.
 using logger_ptr = std::shared_ptr<::spdlog::logger>;
 
 /// @brief The type for sinks registered with loggers.
 using sink_ptr = std::shared_ptr<::spdlog::sinks::sink>;
+
+/// @brief Define the callback function type
+using log_callback_function = void (*)(void* ctx, const char* level, const char* message);
+
+/// @brief Global static log callback function
+inline log_callback_function global_log_callback = nullptr;
 
 /// @brief A sink going nowhere. Used to disable logging entirely.
 inline sink_ptr null_sink() { return std::make_shared<::spdlog::sinks::null_sink_mt>(); }
@@ -302,6 +309,13 @@ inline void set_level(Level level) {
     set_level(logger, level);
 }
 
+/// @brief Function to set the global log callback
+inline void set_global_log_callback(log_callback_function callback) {
+    global_log_callback = callback;
+    std::cout << "[DEBUG] set_global_log_callback(" << reinterpret_cast<void*>(callback)
+              << ")\n";
+}
+
 /// @brief Return whether a message should be created for the logger at the given level.
 inline bool should_log(const logger_ptr& logger, logging::Level level) {
     return logger->should_log(detail::to_spdlog(level));
@@ -326,6 +340,21 @@ template <typename... Args>
 void log(Level level, fmt::format_string<Args...> fmt, Args&&... args) {
     auto global_logger = logging::get();
     logging::log(global_logger, level, fmt, SVS_FWD(args)...);
+}
+
+/// @brief Each index can pass its own ctx pointer, but
+///        the function pointer is always global_log_callback.
+inline void log(void* ctx, const char* level, const char* msg) {
+    std::cout << "[DEBUG] log() called: ctx=" << ctx << ", level=" << level << ", msg=\""
+              << msg << "\"\n";
+    if (global_log_callback) {
+        std::cout << "[DEBUG]   -> Using global_log_callback\n";
+        global_log_callback(ctx, level, msg);
+    } else {
+        std::cout << "[DEBUG]   -> No global callback set. Fallback to std::cout.\n";
+        // If no global callback is set, do something fallback-like:
+        std::cout << "[" << level << "] " << msg << "\n";
+    }
 }
 
 // Convenience methods

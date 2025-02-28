@@ -137,13 +137,16 @@ struct VamanaIndexParameters {
                 lib::load_at<size_t>(table, "construction_window_size"),
                 lib::load_at<size_t>(table, "max_candidates"),
                 prune_to,
-                use_full_search_history},
+                use_full_search_history
+            },
             VamanaSearchParameters{
-                SearchBufferConfig{
-                    lib::load_at<size_t>(table, "default_search_window_size")},
+                SearchBufferConfig{lib::load_at<size_t>(table, "default_search_window_size")
+                },
                 lib::load_at<bool>(table, "visited_set"),
                 4,
-                1}};
+                1
+            }
+        };
     }
 
     static VamanaIndexParameters load(const lib::ContextFreeLoadTable& table) {
@@ -302,6 +305,8 @@ class VamanaIndex {
     lib::ReadWriteProtected<VamanaSearchParameters> default_search_parameters_{};
     // Construction parameters
     VamanaBuildParameters build_parameters_{};
+    // Log callback
+    void* log_callback_ctx_;
 
   public:
     /// The type of the search resource used for external threading.
@@ -346,14 +351,16 @@ class VamanaIndex {
         Data data,
         Idx entry_point,
         Dist distance_function,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        void* log_callback_ctx = nullptr
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
-        , default_search_parameters_{construct_default_search_parameters(data_)} {}
+        , default_search_parameters_{construct_default_search_parameters(data_)}
+        , log_callback_ctx_{log_callback_ctx} {}
 
     ///
     /// @brief Build a VamanaIndex over the given dataset.
@@ -385,14 +392,17 @@ class VamanaIndex {
         Data data,
         Idx entry_point,
         Dist distance_function,
-        Pool threadpool
+        Pool threadpool,
+        void* log_callback_ctx = nullptr
     )
         : VamanaIndex{
               std::move(graph),
               std::move(data),
               entry_point,
               std::move(distance_function),
-              std::move(threadpool)} {
+              std::move(threadpool),
+              log_callback_ctx
+          } {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
@@ -429,7 +439,8 @@ class VamanaIndex {
                 sp.search_buffer_visited_set_
             ),
             extensions::single_search_setup(data_, distance_),
-            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+            {sp.prefetch_lookahead_, sp.prefetch_step_}
+        };
     }
 
     /// @brief Return scratch-space resources for external threading with default parameters
@@ -547,11 +558,12 @@ class VamanaIndex {
                 auto search_buffer = search_buffer_type{
                     SearchBufferConfig(search_parameters.buffer_config_),
                     distance::comparator(distance_),
-                    search_parameters.search_buffer_visited_set_};
+                    search_parameters.search_buffer_visited_set_
+                };
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    search_parameters.prefetch_lookahead_,
-                    search_parameters.prefetch_step_};
+                    search_parameters.prefetch_lookahead_, search_parameters.prefetch_step_
+                };
 
                 // Increase the search window size if the defaults are not suitable for the
                 // requested number of neighbors.
@@ -781,7 +793,8 @@ class VamanaIndex {
     ) const {
         // Construct and save runtime parameters.
         auto parameters = VamanaIndexParameters{
-            entry_point_.front(), build_parameters_, get_search_parameters()};
+            entry_point_.front(), build_parameters_, get_search_parameters()
+        };
 
         // Config
         lib::save_to_disk(parameters, config_directory);
@@ -846,6 +859,13 @@ class VamanaIndex {
     template <typename F> void experimental_escape_hatch(F&& f) const {
         std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
     }
+
+    ///// Logging
+
+    /// @brief Helper method to log
+    void log(const char* level, const char* message) const {
+        svs::logging::log(log_callback_ctx_, level, message);
+    }
 };
 
 // Shared documentation for assembly methods.
@@ -876,7 +896,8 @@ auto auto_build(
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    const Allocator& graph_allocator = {}
+    const Allocator& graph_allocator = {},
+    void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -891,7 +912,9 @@ auto auto_build(
         std::move(data),
         lib::narrow<I>(entry_point),
         std::move(distance),
-        std::move(threadpool)};
+        std::move(threadpool),
+        log_callback_ctx
+    };
 }
 
 ///
@@ -924,7 +947,8 @@ auto auto_assemble(
     GraphProto graph_loader,
     DataProto data_proto,
     Distance distance,
-    ThreadPoolProto threadpool_proto
+    ThreadPoolProto threadpool_proto,
+    void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -933,7 +957,8 @@ auto auto_assemble(
     // Extract the index type of the provided graph.
     using I = typename decltype(graph)::index_type;
     auto index = VamanaIndex{
-        std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool)};
+        std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool), log_callback_ctx 
+    };
 
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
