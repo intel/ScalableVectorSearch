@@ -36,7 +36,6 @@
 // tests
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
-#include "tests/utils/vamana_reference.h"
 
 namespace {
 template <typename T> auto copy_dataset(const T& data) {
@@ -104,14 +103,12 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
         // (1) Load the test index.
         // (2) Run a round of queries to ensure that everything loading correctly.
         // (3) Set a target deletion percentage where all the neighbors returned by
-        //     all results returned by the previous query plus a random collection of
-        extras
-            //     are deleted.
-            //
-            // (4) Rerun queries, make sure accuracy is still high and that no deleted
-            indices
-            //     are present in the results.
-            auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
+        //     all results returned by the previous query plus a random collection of extras
+        //     are deleted.
+        //
+        // (4) Rerun queries, make sure accuracy is still high and that no deleted indices
+        //     are present in the results.
+        auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
 
         auto index = svs::index::MutableVamanaIndex{
             test_dataset::graph_blocked(),
