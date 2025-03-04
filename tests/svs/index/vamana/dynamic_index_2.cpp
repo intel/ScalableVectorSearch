@@ -25,6 +25,7 @@
 
 // tests
 #include "tests/utils/test_dataset.h"
+#include "tests/utils/utils.h"
 
 // catch
 #include "catch2/catch_test_macros.hpp"
@@ -415,4 +416,54 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     CATCH_REQUIRE(index.size() == reloaded.size());
     // ID's preserved across runs.
     index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
+}
+
+struct TestLogCtx {
+    std::vector<std::string> logs;
+};
+
+static void test_log_callback(void* ctx, const char* level, const char* msg) {
+    if (!ctx)
+        return;
+    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
+    logCtx->logs.push_back(std::string(level) + ": " + msg);
+}
+
+CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
+    // Set callback
+    svs::logging::set_global_log_callback(&test_log_callback);
+    TestLogCtx testLogContext;
+
+    // Setup index
+    std::filesystem::path configPath = test_dataset::vamana_config_file();
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto graph = svs::graphs::SimpleGraph<uint32_t>::load(test_dataset::graph_file());
+    auto distance = svs::DistanceL2();
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+    // Load expected build parameters
+    auto expected_result = test_dataset::vamana::expected_build_results(
+        svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+
+    // Use the build parameters from the expected result
+    svs::index::vamana::VamanaBuildParameters buildParams =
+        expected_result.build_parameters_.value();
+
+    std::vector<size_t> external_ids(data.size());
+    std::iota(external_ids.begin(), external_ids.end(), 0);
+
+    // Use the build parameters from the expected result
+    auto dynamicIndex = svs::index::vamana::MutableVamanaIndex<
+        svs::graphs::SimpleGraph<uint32_t>,
+        svs::data::SimpleData<float>,
+        svs::distance::DistanceL2>(
+        buildParams, data, external_ids, distance, std::move(threadpool), &testLogContext
+    );
+
+    // Log messasge
+    dynamicIndex.log("NOTICE", "Test MutableVamanaIndex Logging");
+
+    // Verify that the log callback was called
+    CATCH_REQUIRE(testLogContext.logs.size() == 1);
+    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test MutableVamanaIndex Logging");
 }

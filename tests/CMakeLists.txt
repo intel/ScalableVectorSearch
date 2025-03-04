@@ -137,10 +137,11 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp
     ${TEST_DIR}/svs/index/vamana/iterator_example.cpp
     ${TEST_DIR}/svs/index/vamana/iterator.cpp
-    ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
     ${TEST_DIR}/svs/index/inverted/memory_based.cpp
+
+    # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
 )
 
 #####

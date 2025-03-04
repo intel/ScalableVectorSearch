@@ -346,7 +346,7 @@ inline void log(void* ctx, const char* level, const char* msg) {
         global_log_callback(ctx, level, msg);
     } else {
         // Fallback to exisitng global logger
-        Level log_level = level_from_string(level);
+        Level log_level = svs::logging::detail::level_from_string(level);
         log(log_level, "{}", msg);
     }
 }

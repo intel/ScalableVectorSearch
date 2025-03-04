@@ -59,7 +59,7 @@ CATCH_TEST_CASE("InvertedIndex Per-Index Logging", "[logging]") {
     );
 
     // Log a test message
-    invertedIndex.log("NOTICE", "Test InvertedIndex Build");
+    invertedIndex.log("NOTICE", "Test InvertedIndex Logging");
 
     // Check log context received the message
     CATCH_REQUIRE(testLogContext.logs.size() == 1);
