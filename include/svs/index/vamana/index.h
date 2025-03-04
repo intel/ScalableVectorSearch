@@ -137,16 +137,13 @@ struct VamanaIndexParameters {
                 lib::load_at<size_t>(table, "construction_window_size"),
                 lib::load_at<size_t>(table, "max_candidates"),
                 prune_to,
-                use_full_search_history
-            },
+                use_full_search_history},
             VamanaSearchParameters{
-                SearchBufferConfig{lib::load_at<size_t>(table, "default_search_window_size")
-                },
+                SearchBufferConfig{
+                    lib::load_at<size_t>(table, "default_search_window_size")},
                 lib::load_at<bool>(table, "visited_set"),
                 4,
-                1
-            }
-        };
+                1}};
     }
 
     static VamanaIndexParameters load(const lib::ContextFreeLoadTable& table) {
@@ -246,6 +243,8 @@ VamanaSearchParameters construct_default_search_parameters(const Data& data) {
 /// @tparam PostOp The cleanup operation that is performed after the initial graph
 ///     search. This may be included to perform operations like reranking for quantized
 ///     datasets.
+/// @tparam log_callback_ctx A pointer to a user-defined context for per-index logging
+/// customization.
 ///
 /// The mid-level implementation of the static Vamana graph-based index.
 ///
@@ -338,6 +337,8 @@ class VamanaIndex {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
+    /// @param log_callback_ctx A pointer to a user-defined context for per-index logging
+    /// customization.
     ///
     /// This is a lower-level function that is meant to take a collection of
     /// instantiated components and assemble the final index. For a more "hands-free"
@@ -380,6 +381,8 @@ class VamanaIndex {
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
     /// @param threadpool The acceptable threadpool to use to conduct searches.
+    /// @param log_callback_ctx A pointer to a user-defined context for per-index logging
+    /// customization.
     ///
     /// This is a lower-level function that is meant to take a dataset and construct
     /// the graph-based index over the dataset. For a more "hands-free" approach, see
@@ -408,8 +411,7 @@ class VamanaIndex {
               entry_point,
               std::move(distance_function),
               std::move(threadpool),
-              log_callback_ctx
-          } {
+              log_callback_ctx} {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
@@ -446,8 +448,7 @@ class VamanaIndex {
                 sp.search_buffer_visited_set_
             ),
             extensions::single_search_setup(data_, distance_),
-            {sp.prefetch_lookahead_, sp.prefetch_step_}
-        };
+            {sp.prefetch_lookahead_, sp.prefetch_step_}};
     }
 
     /// @brief Return scratch-space resources for external threading with default parameters
@@ -565,12 +566,11 @@ class VamanaIndex {
                 auto search_buffer = search_buffer_type{
                     SearchBufferConfig(search_parameters.buffer_config_),
                     distance::comparator(distance_),
-                    search_parameters.search_buffer_visited_set_
-                };
+                    search_parameters.search_buffer_visited_set_};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    search_parameters.prefetch_lookahead_, search_parameters.prefetch_step_
-                };
+                    search_parameters.prefetch_lookahead_,
+                    search_parameters.prefetch_step_};
 
                 // Increase the search window size if the defaults are not suitable for the
                 // requested number of neighbors.
@@ -800,8 +800,7 @@ class VamanaIndex {
     ) const {
         // Construct and save runtime parameters.
         auto parameters = VamanaIndexParameters{
-            entry_point_.front(), build_parameters_, get_search_parameters()
-        };
+            entry_point_.front(), build_parameters_, get_search_parameters()};
 
         // Config
         lib::save_to_disk(parameters, config_directory);
@@ -890,6 +889,8 @@ class VamanaIndex {
 ///     a new default thread pool will be constructed using ``threadpool_proto`` as the
 ///     number of threads to create.
 /// @param graph_allocator The allocator to use for the graph data structure.
+/// @param log_callback_ctx A pointer to a user-defined context for per-index logging
+/// customization.
 ///
 /// @copydoc threadpool_requirements
 ///
@@ -920,8 +921,7 @@ auto auto_build(
         lib::narrow<I>(entry_point),
         std::move(distance),
         std::move(threadpool),
-        log_callback_ctx
-    };
+        log_callback_ctx};
 }
 
 ///
@@ -939,6 +939,8 @@ auto auto_build(
 /// This method provides much of the heavy lifting for instantiating a Vamana index from
 /// a collection of files on disk (or perhaps a mix-and-match of existing data in-memory
 /// and on disk).
+/// @param log_callback_ctx A pointer to a user-defined context for per-index logging
+/// customization.
 ///
 /// Refer to the examples for use of this interface.
 ///
@@ -964,8 +966,12 @@ auto auto_assemble(
     // Extract the index type of the provided graph.
     using I = typename decltype(graph)::index_type;
     auto index = VamanaIndex{
-        std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool), log_callback_ctx 
-    };
+        std::move(graph),
+        std::move(data),
+        I{},
+        std::move(distance),
+        std::move(threadpool),
+        log_callback_ctx};
 
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);

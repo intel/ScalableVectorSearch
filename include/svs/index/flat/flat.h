@@ -192,6 +192,8 @@ class FlatIndex {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
+    /// @param log_callback_ctx A pointer to a user-defined context for per-index logging
+    /// customization.
     ///
     /// @copydoc threadpool_requirements
     ///
@@ -346,14 +348,13 @@ class FlatIndex {
         threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{
-                queries.size(), compute_query_batch_size(search_parameters, queries.size())
-            },
+                queries.size(),
+                compute_query_batch_size(search_parameters, queries.size())},
             [&](const auto& query_indices, uint64_t /*tid*/) {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
                 distance::BroadcastDistance distances{
-                    extensions::distance(data_, distance_), query_indices.size()
-                };
+                    extensions::distance(data_, distance_), query_indices.size()};
 
                 search_patch(
                     queries,
@@ -485,7 +486,9 @@ class FlatIndex {
 ///     instance or an integer specifying the number of threads to use. In the latter case,
 ///     a new default thread pool will be constructed using ``threadpool_proto`` as the
 ///     number of threads to create.
-///
+/// @param log_callback_ctx A pointer to a user-defined context for per-index logging
+/// customization.
+
 /// This method provides much of the heavy lifting for constructing a Flat index from
 /// a data file on disk or a dataset in memory.
 ///
@@ -495,11 +498,16 @@ class FlatIndex {
 ///
 template <typename DataProto, typename Distance, typename ThreadPoolProto>
 auto auto_assemble(
-    DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto, void* log_callback_ctx = nullptr
+    DataProto&& data_proto,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    void* log_callback_ctx = nullptr
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
-    return FlatIndex(std::move(data), std::move(distance), std::move(threadpool), log_callback_ctx);
+    return FlatIndex(
+        std::move(data), std::move(distance), std::move(threadpool), log_callback_ctx
+    );
 }
 
 /// @brief Alias for a short-lived flat index.
@@ -510,8 +518,7 @@ template <data::ImmutableMemoryDataset Data, typename Dist, typename ThreadPoolP
 TemporaryFlatIndex<Data, Dist>
 temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
     return TemporaryFlatIndex<Data, Dist>{
-        data, distance, threads::as_threadpool(std::move(threadpool_proto))
-    };
+        data, distance, threads::as_threadpool(std::move(threadpool_proto))};
 }
 
 } // namespace svs::index::flat

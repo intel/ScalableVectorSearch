@@ -60,8 +60,7 @@ inline constexpr std::array<Level, 7> all_levels = {
     Level::Warn,
     Level::Error,
     Level::Critical,
-    Level::Off
-};
+    Level::Off};
 
 /// @brief The type of the global logger.
 using logger_ptr = std::shared_ptr<::spdlog::logger>;
@@ -312,8 +311,6 @@ inline void set_level(Level level) {
 /// @brief Function to set the global log callback
 inline void set_global_log_callback(log_callback_function callback) {
     global_log_callback = callback;
-    std::cout << "[DEBUG] set_global_log_callback(" << reinterpret_cast<void*>(callback)
-              << ")\n";
 }
 
 /// @brief Return whether a message should be created for the logger at the given level.
@@ -345,15 +342,12 @@ void log(Level level, fmt::format_string<Args...> fmt, Args&&... args) {
 /// @brief Each index can pass its own ctx pointer, but
 ///        the function pointer is always global_log_callback.
 inline void log(void* ctx, const char* level, const char* msg) {
-    std::cout << "[DEBUG] log() called: ctx=" << ctx << ", level=" << level << ", msg=\""
-              << msg << "\"\n";
     if (global_log_callback) {
-        std::cout << "[DEBUG]   -> Using global_log_callback\n";
         global_log_callback(ctx, level, msg);
     } else {
-        std::cout << "[DEBUG]   -> No global callback set. Fallback to std::cout.\n";
-        // If no global callback is set, do something fallback-like:
-        std::cout << "[" << level << "] " << msg << "\n";
+        // Fallback to exisitng global logger
+        Level log_level = level_from_string(level);
+        log(log_level, "{}", msg);
     }
 }
 

@@ -70,8 +70,7 @@ template <data::MemoryDataset Data, std::integral I> class SparseClusteredDatase
         const Original& original, const Clustering<I>& clustering, const Alloc& allocator
     )
         : SparseClusteredDataset{
-              original, clustering, clustering.packed_leaf_translation(), allocator
-          } {}
+              original, clustering, clustering.packed_leaf_translation(), allocator} {}
 
     template <typename Original, typename Alloc>
     SparseClusteredDataset(
@@ -96,8 +95,7 @@ template <data::MemoryDataset Data, std::integral I> class SparseClusteredDatase
             for (auto neighbor : cluster) {
                 auto global_id = neighbor.id();
                 these_ids.at(i) = SparseIDs<I>{
-                    .local = global_to_local_map.at(global_id), .global = global_id
-                };
+                    .local = global_to_local_map.at(global_id), .global = global_id};
                 ++i;
             }
         });
@@ -396,8 +394,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
     ///// Search Parameter Setting
     search_parameters_type get_search_parameters() const {
         return InvertedSearchParameters{
-            index_.get_search_parameters(), refinement_epsilon_
-        };
+            index_.get_search_parameters(), refinement_epsilon_};
     }
 
     void set_search_parameters(const search_parameters_type& parameters) {
@@ -567,7 +564,7 @@ auto auto_build(
     Strategy strategy = {},
     CentroidPicker centroid_picker = {},
     ClusteringOp clustering_op = {},
-    void* log_callback_ctx = nullptr 
+    void* log_callback_ctx = nullptr
 ) {
     // Perform clustering.
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -605,8 +602,7 @@ auto auto_build(
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
         std::move(primary_threadpool),
-        log_callback_ctx
-    };
+        log_callback_ctx};
 }
 
 ///// Auto Assembling.

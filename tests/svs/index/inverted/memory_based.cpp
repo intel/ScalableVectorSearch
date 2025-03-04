@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,5 +63,5 @@ CATCH_TEST_CASE("InvertedIndex Per-Index Logging", "[logging]") {
 
     // Check log context received the message
     CATCH_REQUIRE(testLogContext.logs.size() == 1);
-    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test InvertedIndex Build");
+    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test InvertedIndex Logging");
 }
