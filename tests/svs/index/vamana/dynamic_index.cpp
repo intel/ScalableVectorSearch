@@ -41,16 +41,14 @@
 namespace {
 template <typename T> auto copy_dataset(const T& data) {
     auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
-        data.size(), data.dimensions()
-    };
+        data.size(), data.dimensions()};
     for (size_t i = 0; i < data.size(); ++i) {
         copy.set_datum(i, data.get_datum(i));
     }
     return copy;
 }
 
-template <typename T, typename U> void check_results(const T& results, const U& deleted)
-{
+template <typename T, typename U> void check_results(const T& results, const U& deleted) {
     for (size_t i = 0; i < svs::getsize<0>(results); ++i) {
         for (size_t j = 0; j < svs::getsize<1>(results); ++j) {
             CATCH_REQUIRE(!deleted.contains(results.at(i, j)));
@@ -77,8 +75,7 @@ void check_equal(const Left& left, const Right& right) {
     for (size_t i = 0, imax = left.size(); i < imax; ++i) {
         const auto& datum_left = left.get_datum(i);
         const auto& datum_right = right.get_datum(i);
-        CATCH_REQUIRE(std::equal(datum_left.begin(), datum_left.end(),
-        datum_right.begin())
+        CATCH_REQUIRE(std::equal(datum_left.begin(), datum_left.end(), datum_right.begin())
         );
     }
 }
@@ -109,12 +106,12 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
         // (3) Set a target deletion percentage where all the neighbors returned by
         //     all results returned by the previous query plus a random collection of
         extras
-        //     are deleted.
-        //
-        // (4) Rerun queries, make sure accuracy is still high and that no deleted
-        indices
-        //     are present in the results.
-        auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
+            //     are deleted.
+            //
+            // (4) Rerun queries, make sure accuracy is still high and that no deleted
+            indices
+            //     are present in the results.
+            auto entry_point = svs::index::load_entry_point(test_dataset::metadata_file());
 
         auto index = svs::index::MutableVamanaIndex{
             test_dataset::graph_blocked(),
@@ -122,8 +119,7 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
             entry_point,
             svs::distance::DistanceL2(),
             svs::threads::UnitRange<size_t>(0, base_data.size()),
-            num_threads
-        };
+            num_threads};
 
         check_equal(base_data, index);
         index.debug_check_graph_consistency(false);
