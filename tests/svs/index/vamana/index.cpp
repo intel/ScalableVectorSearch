@@ -153,7 +153,5 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
 
     // Check message
     CATCH_REQUIRE(testCtx.logs.size() == 1);
-    CATCH_REQUIRE(
-        testCtx.logs[0] == "NOTICE: Test VamanaIndex Logging"
-    );
+    CATCH_REQUIRE(testCtx.logs[0] == "NOTICE: Test VamanaIndex Logging");
 }
