@@ -23,8 +23,8 @@
 
 // svs-test
 #include "tests/utils/test_dataset.h"
-#include "tests/utils/vamana_reference.h"
 #include "tests/utils/utils.h"
+#include "tests/utils/vamana_reference.h"
 
 // catch
 #include "catch2/catch_test_macros.hpp"
