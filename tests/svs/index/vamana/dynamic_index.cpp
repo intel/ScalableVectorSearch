@@ -246,3 +246,4 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
                   << post_add_time << " seconds." << std::endl;
     }
 }
+
