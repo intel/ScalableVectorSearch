@@ -41,7 +41,7 @@ CATCH_TEST_CASE("FlatIndex Per-Index Logging Test", "[logging]") {
     auto threadpool = svs::threads::DefaultThreadPool(1);
 
     svs::index::flat::FlatIndex index(
-        dataView, dist, std::move(threadpool), &testLogContext
+        std::move(dataView), dist, std::move(threadpool), &testLogContext
     );
 
     index.log("NOTICE", "Test FlatIndex Logging");
