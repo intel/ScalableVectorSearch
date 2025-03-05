@@ -20,6 +20,7 @@
 #include "svs/index/flat/flat.h"
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/lib/timing.h"
+
 #include "svs/misc/dynamic_helper.h"
 
 // tests
