@@ -243,8 +243,6 @@ VamanaSearchParameters construct_default_search_parameters(const Data& data) {
 /// @tparam PostOp The cleanup operation that is performed after the initial graph
 ///     search. This may be included to perform operations like reranking for quantized
 ///     datasets.
-/// @tparam log_callback_ctx A pointer to a user-defined context for per-index logging
-/// customization.
 ///
 /// The mid-level implementation of the static Vamana graph-based index.
 ///

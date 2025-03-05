@@ -111,26 +111,19 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
 }
 
 struct TestLogCtx {
-    std::vector<std::string> logBuffer;
-    std::string prefix;
+    std::vector<std::string> logs;
 };
 
-static void test_log_impl(void* ctx, const char* level, const char* message) {
-    // Cast ctx to our local struct
-    auto* log = reinterpret_cast<TestLogCtx*>(ctx);
-
-    // Format the final string
-    std::string msg = std::string(level) + ": " + log->prefix + message;
-
-    // Append to the vector
-    log->logBuffer.push_back(msg);
+static void test_log_impl(void* ctx, const char* level, const char* msg) {
+    if (!ctx)
+        return;
+    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
+    logCtx->logs.push_back(std::string(level) + ": " + msg);
 }
 
 CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     // Prepare a local context
     TestLogCtx testCtx;
-    testCtx.prefix = "test log prefix: ";
-
     // Set the global callback function
     svs::logging::set_global_log_callback(test_log_impl);
 
@@ -156,11 +149,11 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     );
 
     // Trigger log message
-    index.log("NOTICE", "Test dynamic VamanaIndex Logging");
+    index.log("NOTICE", "Test VamanaIndex Logging");
 
     // Check message
-    CATCH_REQUIRE(testCtx.logBuffer.size() == 1);
+    CATCH_REQUIRE(testCtx.logs.size() == 1);
     CATCH_REQUIRE(
-        testCtx.logBuffer[0] == "NOTICE: test log prefix: Test dynamic VamanaIndex Logging"
+        testCtx.logs[0] == "NOTICE: Test VamanaIndex Logging"
     );
 }
