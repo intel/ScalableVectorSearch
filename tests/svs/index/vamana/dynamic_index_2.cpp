@@ -21,10 +21,9 @@
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/lib/timing.h"
 
-#include "svs/misc/dynamic_helper.h"
-
-// tests
+// svs-test
 #include "tests/utils/test_dataset.h"
+#include "tests/utils/vamana_reference.h"
 #include "tests/utils/utils.h"
 
 // catch
