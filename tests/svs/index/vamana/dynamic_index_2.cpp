@@ -27,6 +27,7 @@
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
+#include "spdlog/sinks/callback_sink.h"
 
 // catch
 #include "catch2/catch_test_macros.hpp"
@@ -419,21 +420,22 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
 }
 
-struct TestLogCtx {
-    std::vector<std::string> logs;
-};
-
-static void test_log_callback(void* ctx, const char* level, const char* msg) {
-    if (!ctx)
-        return;
-    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
-    logCtx->logs.push_back(std::string(level) + ": " + msg);
-}
 
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
-    // Set callback
-    svs::logging::set_global_log_callback(&test_log_callback);
-    TestLogCtx testLogContext;
+   // Vector to store captured log messages
+    std::vector<std::string> captured_logs;
+
+    // Create a callback sink to capture log messages
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace); // Capture all log levels
+
+    // Create a logger with the callback sink
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
 
     // Setup index
     std::filesystem::path configPath = test_dataset::vamana_config_file();
@@ -458,13 +460,13 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
         svs::graphs::SimpleGraph<uint32_t>,
         svs::data::SimpleData<float>,
         svs::distance::DistanceL2>(
-        buildParams, data, external_ids, distance, std::move(threadpool), &testLogContext
+        buildParams, data, external_ids, distance, std::move(threadpool), test_logger
     );
 
-    // Log messasge
-    dynamicIndex.log("NOTICE", "Test MutableVamanaIndex Logging");
+    // Log a message using the logger directly
+    test_logger->info("Test MutableVamanaIndex Logging");
 
-    // Verify that the log callback was called
-    CATCH_REQUIRE(testLogContext.logs.size() == 1);
-    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test MutableVamanaIndex Logging");
+    // Verify the log output
+    CATCH_REQUIRE(captured_logs.size() == 1);
+    CATCH_REQUIRE(captured_logs[0] == "Test MutableVamanaIndex Logging");
 }

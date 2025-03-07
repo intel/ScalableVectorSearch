@@ -17,6 +17,7 @@
 // Header under test
 #include "svs/index/vamana/index.h"
 #include "svs/core/logging.h"
+#include "spdlog/sinks/callback_sink.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -110,22 +111,21 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
     }
 }
 
-struct TestLogCtx {
-    std::vector<std::string> logs;
-};
-
-static void test_log_impl(void* ctx, const char* level, const char* msg) {
-    if (!ctx)
-        return;
-    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
-    logCtx->logs.push_back(std::string(level) + ": " + msg);
-}
-
 CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
-    // Prepare a local context
-    TestLogCtx testCtx;
-    // Set the global callback function
-    svs::logging::set_global_log_callback(test_log_impl);
+   // Vector to store captured log messages
+    std::vector<std::string> captured_logs;
+
+    // Create a callback sink to capture log messages
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace); // Capture all log levels
+
+    // Create a logger with the callback sink
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
 
     // Create some minimal data
     std::vector<float> data = {1.0f, 2.0f};
@@ -136,7 +136,7 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     uint32_t entry_point = 0;
     auto threadpool = svs::threads::DefaultThreadPool(1);
 
-    // Build the VamanaIndex, passing &testCtx as the per-index logging context
+    // Build the VamanaIndex with the test logger
     svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
     svs::index::vamana::VamanaIndex index(
         buildParams,
@@ -145,13 +145,13 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
         entry_point,
         distance_function,
         std::move(threadpool),
-        &testCtx
+        test_logger
     );
 
-    // Trigger log message
-    index.log("NOTICE", "Test VamanaIndex Logging");
+    // Log a message using the logger directly
+    test_logger->info("Test VamanaIndex Logging");
 
-    // Check message
-    CATCH_REQUIRE(testCtx.logs.size() == 1);
-    CATCH_REQUIRE(testCtx.logs[0] == "NOTICE: Test VamanaIndex Logging");
+    // Verify the log output
+    CATCH_REQUIRE(captured_logs.size() == 1);
+    CATCH_REQUIRE(captured_logs[0] == "Test VamanaIndex Logging");
 }

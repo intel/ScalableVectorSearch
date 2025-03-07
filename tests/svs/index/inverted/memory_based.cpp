@@ -21,23 +21,23 @@
 #include "tests/utils/inverted_reference.h"
 #include "tests/utils/test_dataset.h"
 #include <filesystem>
+#include "spdlog/sinks/callback_sink.h"
 
-// Define our log context structure.
-struct TestLogCtx {
-    std::vector<std::string> logs;
-};
+CATCH_TEST_CASE("InvertedIndex Logging Test", "[logging]") {
+    // Vector to store captured log messages
+    std::vector<std::string> captured_logs;
 
-static void test_log_callback(void* ctx, const char* level, const char* msg) {
-    if (!ctx)
-        return;
-    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
-    logCtx->logs.push_back(std::string(level) + ": " + msg);
-}
+    // Create a callback sink to capture log messages
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace);
 
-CATCH_TEST_CASE("InvertedIndex Per-Index Logging", "[logging]") {
-    // Set global log callback
-    svs::logging::set_global_log_callback(&test_log_callback);
-    TestLogCtx testLogContext;
+    // Create a logger with the callback sink
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
 
     // Setup index
     auto distance = svs::DistanceL2();
@@ -55,13 +55,13 @@ CATCH_TEST_CASE("InvertedIndex Per-Index Logging", "[logging]") {
         {},
         {},
         {},
-        &testLogContext
+        test_logger
     );
 
     // Log a test message
-    invertedIndex.log("NOTICE", "Test InvertedIndex Logging");
+    test_logger->info("Test InvertedIndex Logging");
 
     // Check log context received the message
-    CATCH_REQUIRE(testLogContext.logs.size() == 1);
-    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test InvertedIndex Logging");
+    CATCH_REQUIRE(captured_logs.size() == 1);
+    CATCH_REQUIRE(captured_logs[0] == "Test InvertedIndex Logging");
 }

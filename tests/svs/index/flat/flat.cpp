@@ -20,20 +20,24 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
-struct TestLogCtx {
-    std::vector<std::string> logs;
-};
+// spd log
+#include "spdlog/sinks/callback_sink.h"
 
-static void test_log_callback(void* ctx, const char* level, const char* msg) {
-    if (!ctx)
-        return;
-    auto* logCtx = reinterpret_cast<TestLogCtx*>(ctx);
-    logCtx->logs.push_back(std::string(level) + ": " + msg);
-}
+CATCH_TEST_CASE("FlatIndex Logging Test", "[logging]") {
+   // Vector to store captured log messages
+    std::vector<std::string> captured_logs;
 
-CATCH_TEST_CASE("FlatIndex Per-Index Logging Test", "[logging]") {
-    svs::logging::set_global_log_callback(&test_log_callback);
-    TestLogCtx testLogContext;
+    // Create a callback sink to capture log messages
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace);
+
+    // Set up the FlatIndex with the test logger
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
 
     std::vector<float> data{1.0f, 2.0f};
     auto dataView = svs::data::SimpleDataView<float>(data.data(), 2, 1);
@@ -41,11 +45,13 @@ CATCH_TEST_CASE("FlatIndex Per-Index Logging Test", "[logging]") {
     auto threadpool = svs::threads::DefaultThreadPool(1);
 
     svs::index::flat::FlatIndex index(
-        std::move(dataView), dist, std::move(threadpool), &testLogContext
+        std::move(dataView), dist, std::move(threadpool), test_logger
     );
 
-    index.log("NOTICE", "Test FlatIndex Logging");
+    // Log a message
+    test_logger->info("Test FlatIndex Logging");
 
-    CATCH_REQUIRE(testLogContext.logs.size() == 1);
-    CATCH_REQUIRE(testLogContext.logs[0] == "NOTICE: Test FlatIndex Logging");
+    // Verify the log output
+    CATCH_REQUIRE(captured_logs.size() == 1);
+    CATCH_REQUIRE(captured_logs[0] == "Test FlatIndex Logging");
 }

@@ -157,8 +157,8 @@ class MutableVamanaIndex {
     float alpha_ = 1.2;
     bool use_full_search_history_ = true;
 
-    // Log callback
-    void* log_callback_ctx_;
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
 
     // Methods
   public:
@@ -179,7 +179,7 @@ class MutableVamanaIndex {
         const ExternalIds& external_ids,
         ThreadPoolProto threadpool_proto,
         // Optional logger parameter
-        void* log_callback_ctx = nullptr
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -192,7 +192,7 @@ class MutableVamanaIndex {
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
         , construction_window_size_{2 * graph.max_degree()}
         // Ctor accept logger in parameter
-        , log_callback_ctx_{log_callback_ctx} {
+        , logger_{std::move(logger)} {
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
@@ -206,7 +206,7 @@ class MutableVamanaIndex {
         const ExternalIds& external_ids,
         Dist distance_function,
         ThreadPoolProto threadpool_proto,
-        void* log_callback_ctx = nullptr
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_(Graph{data.size(), parameters.graph_max_degree})
         , data_(std::move(data))
@@ -222,7 +222,7 @@ class MutableVamanaIndex {
         , prune_to_(parameters.prune_to)
         , alpha_(parameters.alpha)
         , use_full_search_history_{parameters.use_full_search_history}
-        , log_callback_ctx_{log_callback_ctx} {
+        , logger_{std::move(logger)} {
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
@@ -257,7 +257,7 @@ class MutableVamanaIndex {
         const Dist& distance_function,
         IDTranslator translator,
         Pool threadpool,
-        void* log_callback_ctx = nullptr
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -273,7 +273,7 @@ class MutableVamanaIndex {
         , prune_to_{config.build_parameters.prune_to}
         , alpha_{config.build_parameters.alpha}
         , use_full_search_history_{config.build_parameters.use_full_search_history}
-        , log_callback_ctx_{log_callback_ctx} {}
+        , logger_{std::move(logger)} {}
 
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -1206,13 +1206,6 @@ class MutableVamanaIndex {
             }
         }
     }
-
-    ///// Logging
-
-    /// @brief Helper method to log
-    void log(const char* level, const char* message) const {
-        svs::logging::log(log_callback_ctx_, level, message);
-    }
 };
 
 ///// Deduction Guides.
@@ -1277,7 +1270,7 @@ auto auto_dynamic_assemble(
     //
     // This is an internal API and should not be considered officially supported nor stable.
     bool debug_load_from_static = false,
-    void* log_callback_ctx = nullptr
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Load the dataset
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -1344,7 +1337,7 @@ auto auto_dynamic_assemble(
         std::move(distance),
         std::move(translator),
         std::move(threadpool),
-        log_callback_ctx};
+        logger};
 }
 
 } // namespace svs::index::vamana

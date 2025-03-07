@@ -343,13 +343,13 @@ template <typename Index, typename Cluster> class InvertedIndex {
         Cluster cluster,
         translator_type index_local_to_global,
         Pool threadpool,
-        void* log_callback_ctx = nullptr
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : index_{std::move(index)}
         , cluster_{std::move(cluster)}
         , index_local_to_global_{std::move(index_local_to_global)}
         , threadpool_{std::move(threadpool)}
-        , log_callback_ctx_{log_callback_ctx} {
+        , logger_{std::move(logger)} {
         // Clear out the threadpool in the inner index - prefer to handle threading
         // ourselves.
         index_.set_threadpool(threads::SequentialThreadPool());
@@ -497,13 +497,6 @@ template <typename Index, typename Cluster> class InvertedIndex {
         index_.save(index_config, graph, data);
     }
 
-    ///// Logging
-
-    /// @brief Helper method to log
-    void log(const char* level, const char* message) const {
-        svs::logging::log(log_callback_ctx_, level, message);
-    }
-
   private:
     // Tunable Parameters
     double refinement_epsilon_ = 10.0;
@@ -516,8 +509,8 @@ template <typename Index, typename Cluster> class InvertedIndex {
     // Transient parameters.
     threads::ThreadPoolHandle threadpool_;
 
-    // Per index context pointer
-    void* log_callback_ctx_ = nullptr;
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
 };
 
 struct PickRandomly {
@@ -564,7 +557,7 @@ auto auto_build(
     Strategy strategy = {},
     CentroidPicker centroid_picker = {},
     ClusteringOp clustering_op = {},
-    void* log_callback_ctx = nullptr
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Perform clustering.
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -602,7 +595,7 @@ auto auto_build(
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
         std::move(primary_threadpool),
-        log_callback_ctx};
+        logger};
 }
 
 ///// Auto Assembling.
@@ -619,7 +612,7 @@ auto assemble_from_clustering(
     const std::filesystem::path& index_config,
     const std::filesystem::path& graph,
     ThreadPoolProto threadpool_proto,
-    void* log_callback_ctx = nullptr
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto original = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -640,7 +633,7 @@ auto assemble_from_clustering(
         }),
         distance,
         1,
-        log_callback_ctx
+        logger
     );
 
     // Create the clustering and return the final results.

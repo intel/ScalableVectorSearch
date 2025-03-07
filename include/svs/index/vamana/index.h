@@ -302,8 +302,8 @@ class VamanaIndex {
     lib::ReadWriteProtected<VamanaSearchParameters> default_search_parameters_{};
     // Construction parameters
     VamanaBuildParameters build_parameters_{};
-    // Log callback
-    void* log_callback_ctx_;
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
 
   public:
     // This is because some datasets may not yet support single-searching, which is required
@@ -335,8 +335,7 @@ class VamanaIndex {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
-    /// @param log_callback_ctx A pointer to a user-defined context for per-index logging
-    /// customization.
+    /// @param logger_ Spd logger for per-index logging customization.
     ///
     /// This is a lower-level function that is meant to take a collection of
     /// instantiated components and assemble the final index. For a more "hands-free"
@@ -358,7 +357,7 @@ class VamanaIndex {
         Idx entry_point,
         Dist distance_function,
         ThreadPoolProto threadpool_proto,
-        void* log_callback_ctx = nullptr
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -366,7 +365,7 @@ class VamanaIndex {
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , default_search_parameters_{construct_default_search_parameters(data_)}
-        , log_callback_ctx_{log_callback_ctx} {}
+        , logger_{std::move(logger)} {}
 
     ///
     /// @brief Build a VamanaIndex over the given dataset.
@@ -379,8 +378,7 @@ class VamanaIndex {
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
     /// @param threadpool The acceptable threadpool to use to conduct searches.
-    /// @param log_callback_ctx A pointer to a user-defined context for per-index logging
-    /// customization.
+    /// @param logger_ Spd logger for per-index logging customization.
     ///
     /// This is a lower-level function that is meant to take a dataset and construct
     /// the graph-based index over the dataset. For a more "hands-free" approach, see
@@ -401,7 +399,7 @@ class VamanaIndex {
         Idx entry_point,
         Dist distance_function,
         Pool threadpool,
-        void* log_callback_ctx = nullptr
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : VamanaIndex{
               std::move(graph),
@@ -409,7 +407,7 @@ class VamanaIndex {
               entry_point,
               std::move(distance_function),
               std::move(threadpool),
-              log_callback_ctx} {
+              logger} {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
@@ -863,13 +861,6 @@ class VamanaIndex {
     template <typename F> void experimental_escape_hatch(F&& f) const {
         std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
     }
-
-    ///// Logging
-
-    /// @brief Helper method to log
-    void log(const char* level, const char* message) const {
-        svs::logging::log(log_callback_ctx_, level, message);
-    }
 };
 
 // Shared documentation for assembly methods.
@@ -887,8 +878,7 @@ class VamanaIndex {
 ///     a new default thread pool will be constructed using ``threadpool_proto`` as the
 ///     number of threads to create.
 /// @param graph_allocator The allocator to use for the graph data structure.
-/// @param log_callback_ctx A pointer to a user-defined context for per-index logging
-/// customization.
+/// @param logger_ Spd logger for per-index logging customization.
 ///
 /// @copydoc threadpool_requirements
 ///
@@ -903,7 +893,7 @@ auto auto_build(
     Distance distance,
     ThreadPoolProto threadpool_proto,
     const Allocator& graph_allocator = {},
-    void* log_callback_ctx = nullptr
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -919,7 +909,7 @@ auto auto_build(
         lib::narrow<I>(entry_point),
         std::move(distance),
         std::move(threadpool),
-        log_callback_ctx};
+        logger};
 }
 
 ///
@@ -937,8 +927,7 @@ auto auto_build(
 /// This method provides much of the heavy lifting for instantiating a Vamana index from
 /// a collection of files on disk (or perhaps a mix-and-match of existing data in-memory
 /// and on disk).
-/// @param log_callback_ctx A pointer to a user-defined context for per-index logging
-/// customization.
+/// @param logger_ Spd logger for per-index logging customization.
 ///
 /// Refer to the examples for use of this interface.
 ///
@@ -955,7 +944,7 @@ auto auto_assemble(
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    void* log_callback_ctx = nullptr
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -969,7 +958,7 @@ auto auto_assemble(
         I{},
         std::move(distance),
         std::move(threadpool),
-        log_callback_ctx};
+        logger};
 
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
