@@ -16,12 +16,12 @@
 
 #include "svs/index/inverted/memory_based.h"
 #include "catch2/catch_test_macros.hpp"
+#include "spdlog/sinks/callback_sink.h"
 #include "svs-benchmark/datasets.h"
 #include "svs/lib/timing.h"
 #include "tests/utils/inverted_reference.h"
 #include "tests/utils/test_dataset.h"
 #include <filesystem>
-#include "spdlog/sinks/callback_sink.h"
 
 CATCH_TEST_CASE("InvertedIndex Logging Test", "[logging]") {
     // Vector to store captured log messages

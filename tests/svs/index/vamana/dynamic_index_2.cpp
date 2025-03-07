@@ -24,10 +24,10 @@
 #include "svs/misc/dynamic_helper.h"
 
 // tests
+#include "spdlog/sinks/callback_sink.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
-#include "spdlog/sinks/callback_sink.h"
 
 // catch
 #include "catch2/catch_test_macros.hpp"
@@ -420,9 +420,8 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
 }
 
-
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
-   // Vector to store captured log messages
+    // Vector to store captured log messages
     std::vector<std::string> captured_logs;
 
     // Create a callback sink to capture log messages

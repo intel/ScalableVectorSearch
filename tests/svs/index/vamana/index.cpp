@@ -16,8 +16,8 @@
 
 // Header under test
 #include "svs/index/vamana/index.h"
-#include "svs/core/logging.h"
 #include "spdlog/sinks/callback_sink.h"
+#include "svs/core/logging.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -112,7 +112,7 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
 }
 
 CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
-   // Vector to store captured log messages
+    // Vector to store captured log messages
     std::vector<std::string> captured_logs;
 
     // Create a callback sink to capture log messages

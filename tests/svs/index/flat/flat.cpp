@@ -24,7 +24,7 @@
 #include "spdlog/sinks/callback_sink.h"
 
 CATCH_TEST_CASE("FlatIndex Logging Test", "[logging]") {
-   // Vector to store captured log messages
+    // Vector to store captured log messages
     std::vector<std::string> captured_logs;
 
     // Create a callback sink to capture log messages
