@@ -148,10 +148,7 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
         test_logger
     );
 
-    // Log a message using the logger directly
-    test_logger->info("Test VamanaIndex Logging");
-
-    // Verify the log output
-    CATCH_REQUIRE(captured_logs.size() == 1);
-    CATCH_REQUIRE(captured_logs[0] == "Test VamanaIndex Logging");
+    // Verify the internal log messages
+    CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
 }

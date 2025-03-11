@@ -422,8 +422,13 @@ class VamanaIndex {
             extensions::estimate_prefetch_parameters(data_)
         );
 
-        builder.construct(1.0F, entry_point_[0]);
-        builder.construct(parameters.alpha, entry_point_[0]);
+        builder.construct(1.0F, entry_point_[0], logging::Level::Info, logger);
+        builder.construct(parameters.alpha, entry_point_[0], logging::Level::Info, logger);
+    }
+
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const {
+           return logger_;
     }
 
     /// @brief Apply the given configuration parameters to the index.
