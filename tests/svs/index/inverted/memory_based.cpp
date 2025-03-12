@@ -58,10 +58,6 @@ CATCH_TEST_CASE("InvertedIndex Logging Test", "[logging]") {
         test_logger
     );
 
-    // Log a test message
-    test_logger->info("Test InvertedIndex Logging");
-
-    // Check log context received the message
-    CATCH_REQUIRE(captured_logs.size() == 1);
-    CATCH_REQUIRE(captured_logs[0] == "Test InvertedIndex Logging");
+    // Verify the internal log messages
+    CATCH_REQUIRE(captured_logs[0].find("Processing batch") != std::string::npos);
 }

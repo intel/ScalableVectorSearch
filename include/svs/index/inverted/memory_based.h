@@ -578,7 +578,7 @@ auto auto_build(
 
     // Cluster the dataset with the help of the primary index.
     auto clustering = cluster_with(
-        data, lib::as_const_span(centroids), parameters.clustering_parameters_, index
+        data, lib::as_const_span(centroids), parameters.clustering_parameters_, index, logger
     );
 
     // Perform any post-proceseccing on the clustering.

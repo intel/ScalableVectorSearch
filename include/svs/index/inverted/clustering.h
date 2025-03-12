@@ -801,7 +801,8 @@ Clustering<I> cluster_with(
     const Data& data,
     std::span<const I> centroid_ids,
     const ClusteringParameters& params,
-    Index& primary_index
+    Index& primary_index,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     for (auto id : centroid_ids) {
         if (id >= data.size()) {
@@ -820,7 +821,6 @@ Clustering<I> cluster_with(
     size_t start = 0;
     size_t datasize = data.size();
     auto timer = lib::Timer();
-    auto logger = svs::logging::get();
 
     while (start < datasize) {
         size_t stop = std::min(start + batchsize, datasize);

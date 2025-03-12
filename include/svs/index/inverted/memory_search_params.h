@@ -21,6 +21,8 @@
 #include "svs/lib/saveload.h"
 #include "svs/lib/version.h"
 
+//logging
+
 namespace svs::index::inverted {
 
 struct InvertedSearchParameters {
