@@ -236,8 +236,8 @@ class MutableVamanaIndex {
         auto builder = VamanaBuilder(
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters
         );
-        builder.construct(1.0f, entry_point_[0]);
-        builder.construct(parameters.alpha, entry_point_[0]);
+        builder.construct(1.0f, entry_point_[0], logging::Level::Info, logger_);
+        builder.construct(parameters.alpha, entry_point_[0], logging::Level::Info, logger_);
     }
 
     /// @brief Post re-load constructor.
@@ -1217,6 +1217,17 @@ MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist,
 template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
 MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, Pool)
     -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+
+// Guide with logging
+template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
+MutableVamanaIndex(
+    const VamanaBuildParameters&, 
+    Data, 
+    const ExternalIds&, 
+    Dist, 
+    Pool, 
+    svs::logging::logger_ptr
+) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
 namespace detail {
 

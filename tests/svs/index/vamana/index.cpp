@@ -129,9 +129,8 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
 
     // Create some minimal data
     std::vector<float> data = {1.0f, 2.0f};
-    const size_t dim = 1;
     auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, dim);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, 1);
     svs::distance::DistanceL2 distance_function;
     uint32_t entry_point = 0;
     auto threadpool = svs::threads::DefaultThreadPool(1);

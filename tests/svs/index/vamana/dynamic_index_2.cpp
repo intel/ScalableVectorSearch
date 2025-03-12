@@ -437,35 +437,18 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
     test_logger->set_level(spdlog::level::trace);
 
     // Setup index
-    std::filesystem::path configPath = test_dataset::vamana_config_file();
-    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
-    auto graph = svs::graphs::SimpleGraph<uint32_t>::load(test_dataset::graph_file());
-    auto distance = svs::DistanceL2();
+    std::vector<float> data = {1.0f, 2.0f};
+    std::vector<size_t> initial_indices(data.size());
+    std::iota(initial_indices.begin(), initial_indices.end(), 0);
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
     auto threadpool = svs::threads::DefaultThreadPool(1);
-    // Load expected build parameters
-    auto expected_result = test_dataset::vamana::expected_build_results(
-        svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        buildParams, std::move(data_view), initial_indices, 
+        svs::DistanceL2(), std::move(threadpool), test_logger
     );
 
-    // Use the build parameters from the expected result
-    svs::index::vamana::VamanaBuildParameters buildParams =
-        expected_result.build_parameters_.value();
-
-    std::vector<size_t> external_ids(data.size());
-    std::iota(external_ids.begin(), external_ids.end(), 0);
-
-    // Use the build parameters from the expected result
-    auto dynamicIndex = svs::index::vamana::MutableVamanaIndex<
-        svs::graphs::SimpleGraph<uint32_t>,
-        svs::data::SimpleData<float>,
-        svs::distance::DistanceL2>(
-        buildParams, data, external_ids, distance, std::move(threadpool), test_logger
-    );
-
-    // Log a message using the logger directly
-    test_logger->info("Test MutableVamanaIndex Logging");
-
-    // Verify the log output
-    CATCH_REQUIRE(captured_logs.size() == 1);
-    CATCH_REQUIRE(captured_logs[0] == "Test MutableVamanaIndex Logging");
+    // Verify the internal log messages
+    CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
 }
