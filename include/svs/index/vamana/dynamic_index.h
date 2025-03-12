@@ -1221,11 +1221,11 @@ MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist,
 // Guide with logging
 template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
 MutableVamanaIndex(
-    const VamanaBuildParameters&, 
-    Data, 
-    const ExternalIds&, 
-    Dist, 
-    Pool, 
+    const VamanaBuildParameters&,
+    Data,
+    const ExternalIds&,
+    Dist,
+    Pool,
     svs::logging::logger_ptr
 ) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 

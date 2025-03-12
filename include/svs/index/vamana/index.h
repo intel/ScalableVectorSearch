@@ -427,9 +427,7 @@ class VamanaIndex {
     }
 
     /// @brief Getter method for logger
-    svs::logging::logger_ptr get_logger() const {
-           return logger_;
-    }
+    svs::logging::logger_ptr get_logger() const { return logger_; }
 
     /// @brief Apply the given configuration parameters to the index.
     void apply(const VamanaIndexParameters& parameters) {

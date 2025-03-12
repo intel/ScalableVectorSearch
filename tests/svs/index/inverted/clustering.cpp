@@ -27,7 +27,7 @@
 // stl
 #include <unordered_map>
 
-//logging
+// logging
 #include "spdlog/sinks/callback_sink.h"
 
 namespace {
@@ -407,7 +407,8 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
 
     // Setup cluster
     auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
-    auto vamana_parameters = svs::index::vamana::VamanaBuildParameters{1.2, 64, 200, 1000, 60, true};
+    auto vamana_parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2, 64, 200, 1000, 60, true};
     auto clustering_parameters = svs::index::inverted::ClusteringParameters()
                                      .percent_centroids(svs::lib::Percent(0.1))
                                      .epsilon(0.05)
@@ -415,7 +416,9 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
                                      .max_cluster_size(200);
     auto centroids = svs::index::inverted::randomly_select_centroids(
         data.size(),
-        svs::lib::narrow_cast<size_t>(std::floor(data.size() * clustering_parameters.percent_centroids_.value())),
+        svs::lib::narrow_cast<size_t>(
+            std::floor(data.size() * clustering_parameters.percent_centroids_.value())
+        ),
         clustering_parameters.seed_
     );
     auto threadpool = svs::threads::DefaultThreadPool(2);

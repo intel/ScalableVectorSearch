@@ -204,10 +204,9 @@ CATCH_TEST_CASE(
     }
 }
 
-
-
 // Helper function to create a logger with a callback
-std::shared_ptr<spdlog::logger> create_test_logger(std::vector<std::string>& captured_logs) {
+std::shared_ptr<spdlog::logger> create_test_logger(std::vector<std::string>& captured_logs
+) {
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
         [&captured_logs](const spdlog::details::log_msg& msg) {
             captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
@@ -272,6 +271,5 @@ CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging-integration]") {
 
         auto default_logger = svs::logging::get();
         CATCH_REQUIRE(vamana_index.get_logger() == default_logger);
-
     }
 }

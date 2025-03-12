@@ -35,7 +35,6 @@
 #include <memory>
 #include <type_traits>
 
-
 namespace svs::logging {
 
 /// @brief Enum controlling verbosity.

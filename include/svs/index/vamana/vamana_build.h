@@ -201,10 +201,16 @@ class VamanaBuilder {
             );
         }
     }
-    
-    void
-    construct(float alpha, Idx entry_point, logging::Level level = logging::Level::Info, logging::logger_ptr logger = svs::logging::get()) {
-        construct(alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, level, logger);
+
+    void construct(
+        float alpha,
+        Idx entry_point,
+        logging::Level level = logging::Level::Info,
+        logging::logger_ptr logger = svs::logging::get()
+    ) {
+        construct(
+            alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, level, logger
+        );
     }
 
     template <typename R>

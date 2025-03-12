@@ -444,8 +444,12 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
     auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
     auto threadpool = svs::threads::DefaultThreadPool(1);
     auto index = svs::index::vamana::MutableVamanaIndex(
-        buildParams, std::move(data_view), initial_indices, 
-        svs::DistanceL2(), std::move(threadpool), test_logger
+        buildParams,
+        std::move(data_view),
+        initial_indices,
+        svs::DistanceL2(),
+        std::move(threadpool),
+        test_logger
     );
 
     // Verify the internal log messages
