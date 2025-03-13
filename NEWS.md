@@ -1,3 +1,13 @@
-# SVS 0.0.6 Release Notes
+# SVS 0.0.7 Release Notes
 
-**Please note** that this repository only contains the open-source portion of the SVS library, which supports all functionalities and features described in the [documentation](https://intel.github.io/ScalableVectorSearch/), except for our proprietary vector compression techniques, specifically LVQ [[ABHT23]](#1) and Leanvec [[TBAH24]](#2). These techniques are closed-source and supported exclusively on Intel hardware. We provide [shared library](https://github.com/intel/ScalableVectorSearch/releases) and [PyPI package](https://pypi.org/project/scalable-vs/) to enable these vector compression techniques in C++ and Python, respectively.
+## Additions and Changes
+
+* Implemented batch iterator support for hybrid search
+
+* Added support for custom threading and memory allocation
+
+* Introduced a timeout feature for search calls
+
+* Introduced `reuse_empty` flag in dynamic Vamana, enabling users to choose whether to reuse empty entries that may exist after deletion and consolidation
+
+* Enhanced heuristics in the Vamana construct to improve efficiency when adding a small number of points.

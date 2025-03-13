@@ -507,4 +507,163 @@ class MemoryMapper {
         return MMapPtr<void>(base, bytes.value());
     }
 };
+
+namespace detail {
+
+template <typename Alloc>
+concept HasValueType = requires { typename Alloc::value_type; };
+
+// clang-format off
+template <typename Alloc>
+concept Allocator = HasValueType<Alloc> && std::is_copy_constructible_v<Alloc>
+&& requires(Alloc& alloc, typename Alloc::value_type* ptr, size_t n) {
+    { alloc.allocate(n) } -> std::same_as<typename Alloc::value_type*>;
+
+    { alloc.deallocate(ptr, n) };
+};
+// clang-format on
+
+} // namespace detail
+
+/////
+///// Type erasure allocator handle implementation
+/////
+
+class AllocatorInterface {
+  public:
+    virtual ~AllocatorInterface() = default;
+    virtual void* allocate(size_t n) = 0;
+    virtual void deallocate(void* ptr, size_t n) = 0;
+
+    // covariant return type
+    virtual AllocatorInterface* clone() const = 0;
+    virtual AllocatorInterface* rebind_float() const = 0;
+    virtual AllocatorInterface* rebind_float16() const = 0;
+};
+
+template <detail::Allocator Impl> class AllocatorImpl : public AllocatorInterface {
+  public:
+    using rebind_allocator_float = lib::rebind_allocator_t<float, Impl>;
+    using rebind_allocator_float16 = lib::rebind_allocator_t<Float16, Impl>;
+
+    // pass by value due to clone()
+    explicit AllocatorImpl(Impl impl)
+        : AllocatorInterface{}
+        , impl_{std::move(impl)} {}
+
+    void* allocate(size_t n) override { return static_cast<void*>(impl_.allocate(n)); }
+
+    void deallocate(void* ptr, size_t n) override {
+        impl_.deallocate(static_cast<typename Impl::value_type*>(ptr), n);
+    }
+
+    AllocatorImpl<Impl>* clone() const override { return new AllocatorImpl(impl_); }
+
+    AllocatorImpl<rebind_allocator_float>* rebind_float() const override {
+        return new AllocatorImpl<rebind_allocator_float>(rebind_allocator_float{impl_});
+    }
+
+    AllocatorImpl<rebind_allocator_float16>* rebind_float16() const override {
+        return new AllocatorImpl<rebind_allocator_float16>(rebind_allocator_float16{impl_});
+    }
+
+  private:
+    Impl impl_;
+};
+
+template <typename T> class AllocatorHandle {
+  public:
+    using value_type = T;
+
+    template <detail::Allocator Impl>
+    explicit AllocatorHandle(Impl&& impl)
+        requires(!std::is_same_v<Impl, AllocatorHandle>) &&
+                std::is_rvalue_reference_v<Impl&&> &&
+                std::is_same_v<typename Impl::value_type, T>
+        : impl_{new AllocatorImpl(std::move(impl))} {}
+
+    AllocatorHandle() {}
+    AllocatorHandle(const AllocatorHandle& other)
+        : impl_{other.impl_->clone()} {}
+    AllocatorHandle(AllocatorHandle&&) = default;
+    AllocatorHandle& operator=(const AllocatorHandle& other) {
+        impl_.reset(other.impl_->clone());
+        return *this;
+    }
+    AllocatorHandle& operator=(AllocatorHandle&&) = default;
+    ~AllocatorHandle() = default;
+
+    // Enable rebinding of allocators.
+    template <typename U> friend class AllocatorHandle;
+
+    template <typename U>
+    AllocatorHandle(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+        : impl_{other.impl_->rebind_float()} {}
+    template <typename U>
+    AllocatorHandle(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+        : impl_{other.impl_->rebind_float16()} {}
+
+    template <typename U>
+    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+    {
+        impl_.reset(other.impl_->rebind_float());
+        return *this;
+    }
+    template <typename U>
+    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
+        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+    {
+        impl_.reset(other.impl_->rebind_float16());
+        return *this;
+    }
+
+    T* allocate(size_t n) {
+        if (impl_.get() == nullptr) {
+            throw ANNEXCEPTION("Empty allocator handle!");
+        }
+        return static_cast<T*>(impl_->allocate(n));
+    }
+
+    void deallocate(T* ptr, size_t n) {
+        if (impl_.get() == nullptr) {
+            throw ANNEXCEPTION("Empty allocator handle!");
+        }
+        impl_->deallocate(static_cast<void*>(ptr), n);
+    }
+
+  private:
+    std::unique_ptr<AllocatorInterface> impl_;
+};
+
+///
+/// @class allocator_handle
+///
+/// AllocatorHandle
+/// ================
+/// `AllocatorHandle` is designed to support a custom allocator that works with the
+/// shared library. It offers an interface that enables the
+/// implementation of a custom allocator not included in the shared library. Which custom
+/// allocator to use is determined at runtime.
+///
+
+///
+/// @brief Creates an `AllocatorHandle` from a given allocator.
+///
+/// @tparam Alloc The type of the allocator, which must satisfy the `Allocator` concept.
+//
+/// @param alloc The allocator to be wrapped in an `AllocatorHandle`.
+/// @return An `AllocatorHandle` that manages the given allocator.
+///
+/// @copydoc allocator_handle
+///
+/// @sa make_blocked_allocator_handle
+///
+template <detail::Allocator Alloc>
+AllocatorHandle<typename Alloc::value_type> make_allocator_handle(Alloc alloc) {
+    return AllocatorHandle<typename Alloc::value_type>{std::move(alloc)};
+}
+
 } // namespace svs

@@ -162,13 +162,6 @@ class MutableVamanaIndex {
 
     // Methods
   public:
-    // This is because some dataset may not yet support single-searching, which is required
-    // by the BatchIterator.
-    SVS_TEMPORARY_DISABLE_SINGLE_SEARCH static constexpr bool
-    temporary_disable_batch_iterator() {
-        return extensions::temporary_disable_single_search<data_type>();
-    }
-
     // Constructors
     template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
@@ -593,10 +586,10 @@ class MutableVamanaIndex {
     /// @brief Add the points with the given external IDs to the dataset.
     //
     /// When `delete_entries` is called, a soft deletion is performed, marking the entries
-    /// as `deleted`. When `consolidate` is called, the state of these deleted entries becomes `empty`.
-    /// When `add_points` is called with the `reuse_empty` flag enabled, the
-    /// memory is scanned from the beginning to locate and fill these empty entries with new
-    /// points.
+    /// as `deleted`. When `consolidate` is called, the state of these deleted entries
+    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
+    /// the memory is scanned from the beginning to locate and fill these empty entries with
+    /// new points.
     ///
     /// @param points Dataset of points to add.
     /// @param external_ids The external IDs of the corresponding points. Must be a

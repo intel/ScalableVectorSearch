@@ -30,3 +30,9 @@ queries_in_training_set = 100
     __version__ = 'v0.0.0'
     distance = 'MIP'
     path = 'groundtruth_mip.ivecs'
+
+    [[inverted_test_generator.groundtruths]]
+    __schema__ = 'benchmark_distance_and_groundtruth'
+    __version__ = 'v0.0.0'
+    distance = 'Cosine'
+    path = 'groundtruth_cosine.ivecs'
