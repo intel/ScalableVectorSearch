@@ -290,7 +290,9 @@ class MutableVamanaIndex {
     scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
 
     ///// Accessors
-
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
+    
     /// @brief Get the alpha value used for pruning while mutating the graph.
     float get_alpha() const { return alpha_; }
     /// @brief Set the alpha value used for pruning while mutating the graph.

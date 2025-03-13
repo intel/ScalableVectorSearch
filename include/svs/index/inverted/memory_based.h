@@ -497,6 +497,10 @@ template <typename Index, typename Cluster> class InvertedIndex {
         index_.save(index_config, graph, data);
     }
 
+    ///// Accessors
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
+
   private:
     // Tunable Parameters
     double refinement_epsilon_ = 10.0;

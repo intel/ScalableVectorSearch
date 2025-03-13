@@ -219,7 +219,7 @@ std::shared_ptr<spdlog::logger> create_test_logger(std::vector<std::string>& cap
     return logger;
 }
 
-CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging-integration]") {
+CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging]") {
     using namespace svs::index::vamana;
 
     // Test data setup
@@ -250,6 +250,8 @@ CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging-integration]") {
         // Verify the custom logger captured the log messages
         CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
         CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+        auto default_logger = svs::logging::get();
+        CATCH_REQUIRE(vamana_index.get_logger() != default_logger);
     }
 
     CATCH_SECTION("With Default Logger") {

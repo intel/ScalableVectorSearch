@@ -174,6 +174,9 @@ class FlatIndex {
     }
 
   public:
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
+
     search_parameters_type get_search_parameters() const { return search_parameters_; }
 
     void set_search_parameters(const search_parameters_type& search_parameters) {
