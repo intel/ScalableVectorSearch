@@ -239,7 +239,7 @@ class VamanaBuilder {
         double search_time = 0;
         double reverse_time = 0;
         unsigned progress_counter = 0;
-        
+
         svs::logging::log(logger, level, "Number of syncs: {}", num_batches);
         svs::logging::log(logger, level, "Batch Size: {}", batchsize);
 
