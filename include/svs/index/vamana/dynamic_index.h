@@ -1350,7 +1350,7 @@ auto auto_dynamic_assemble(
         std::move(distance),
         std::move(translator),
         std::move(threadpool),
-        logger};
+        std::move(logger)};
 }
 
 } // namespace svs::index::vamana

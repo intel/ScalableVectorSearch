@@ -603,7 +603,7 @@ auto auto_build(
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
         std::move(primary_threadpool),
-        logger};
+        std::move(logger)};
 }
 
 ///// Auto Assembling.
@@ -649,7 +649,8 @@ auto assemble_from_clustering(
         std::move(index),
         strategy(original, clustering, HugepageAllocator<std::byte>()),
         std::move(ids),
-        std::move(threadpool)
+        std::move(threadpool),
+        std::move(logger)
     );
 }
 

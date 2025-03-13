@@ -962,7 +962,6 @@ auto auto_assemble(
         std::move(distance),
         std::move(threadpool),
         std::move(logger)};
-
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;
