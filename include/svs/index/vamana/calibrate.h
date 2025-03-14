@@ -176,9 +176,9 @@ VamanaSearchParameters optimize_split_buffer(
     double target_recall,
     VamanaSearchParameters current,
     const F& compute_recall,
-    const DoSearch& do_search
+    const DoSearch& do_search,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    auto logger = svs::logging::get();
     svs::logging::trace(logger, "Entering split buffer optimization routine");
     assert(
         current.buffer_config_.get_search_window_size() ==
@@ -252,11 +252,11 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
     size_t num_neighbors,
     double target_recall,
     const ComputeRecall& compute_recall,
-    const DoSearch& do_search
+    const DoSearch& do_search,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     using enum CalibrationParameters::SearchBufferOptimization;
     using dataset_type = typename Index::data_type;
-    auto logger = svs::logging::get();
 
     double max_recall = std::numeric_limits<double>::lowest();
     const size_t current_capacity = current.buffer_config_.get_total_capacity();
@@ -345,9 +345,9 @@ VamanaSearchParameters tune_prefetch(
     const CalibrationParameters& calibration_parameters,
     Index& index,
     VamanaSearchParameters search_parameters,
-    const DoSearch& do_search
+    const DoSearch& do_search,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    auto logger = svs::logging::get();
     svs::logging::trace(logger, "Tuning prefetch parameters");
     const auto& prefetch_steps = calibration_parameters.prefetch_steps_;
     size_t max_lookahead = index.max_degree();

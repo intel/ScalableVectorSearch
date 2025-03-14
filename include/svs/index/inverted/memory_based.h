@@ -339,12 +339,17 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
     template <threads::ThreadPool Pool>
     InvertedIndex(
-        Index index, Cluster cluster, translator_type index_local_to_global, Pool threadpool
+        Index index,
+        Cluster cluster,
+        translator_type index_local_to_global,
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : index_{std::move(index)}
         , cluster_{std::move(cluster)}
         , index_local_to_global_{std::move(index_local_to_global)}
-        , threadpool_{std::move(threadpool)} {
+        , threadpool_{std::move(threadpool)}
+        , logger_{std::move(logger)} {
         // Clear out the threadpool in the inner index - prefer to handle threading
         // ourselves.
         index_.set_threadpool(threads::SequentialThreadPool());
@@ -492,6 +497,10 @@ template <typename Index, typename Cluster> class InvertedIndex {
         index_.save(index_config, graph, data);
     }
 
+    ///// Accessors
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
+
   private:
     // Tunable Parameters
     double refinement_epsilon_ = 10.0;
@@ -503,6 +512,9 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
     // Transient parameters.
     threads::ThreadPoolHandle threadpool_;
+
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
 };
 
 struct PickRandomly {
@@ -548,7 +560,8 @@ auto auto_build(
     // Customizations
     Strategy strategy = {},
     CentroidPicker centroid_picker = {},
-    ClusteringOp clustering_op = {}
+    ClusteringOp clustering_op = {},
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Perform clustering.
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -569,7 +582,11 @@ auto auto_build(
 
     // Cluster the dataset with the help of the primary index.
     auto clustering = cluster_with(
-        data, lib::as_const_span(centroids), parameters.clustering_parameters_, index
+        data,
+        lib::as_const_span(centroids),
+        parameters.clustering_parameters_,
+        index,
+        logger
     );
 
     // Perform any post-proceseccing on the clustering.
@@ -585,7 +602,8 @@ auto auto_build(
         std::move(index),
         strategy(data, clustering, HugepageAllocator<std::byte>()),
         std::move(centroids),
-        std::move(primary_threadpool)};
+        std::move(primary_threadpool),
+        std::move(logger)};
 }
 
 ///// Auto Assembling.
@@ -601,7 +619,8 @@ auto assemble_from_clustering(
     Strategy strategy,
     const std::filesystem::path& index_config,
     const std::filesystem::path& graph,
-    ThreadPoolProto threadpool_proto
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto original = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -621,7 +640,8 @@ auto assemble_from_clustering(
             return local_data;
         }),
         distance,
-        1
+        1,
+        logger
     );
 
     // Create the clustering and return the final results.
@@ -629,7 +649,8 @@ auto assemble_from_clustering(
         std::move(index),
         strategy(original, clustering, HugepageAllocator<std::byte>()),
         std::move(ids),
-        std::move(threadpool)
+        std::move(threadpool),
+        std::move(logger)
     );
 }
 

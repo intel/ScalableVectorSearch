@@ -16,6 +16,8 @@
 
 // Header under test
 #include "svs/index/vamana/index.h"
+#include "spdlog/sinks/callback_sink.h"
+#include "svs/core/logging.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -107,4 +109,45 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
             128, {12.4f, 478, 13, 4, 10, false}, {{10, 20}, true, 1, 1}};
         CATCH_REQUIRE(svs::lib::test_self_save_load_context_free(p));
     }
+}
+
+CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
+    // Vector to store captured log messages
+    std::vector<std::string> captured_logs;
+
+    // Create a callback sink to capture log messages
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace); // Capture all log levels
+
+    // Create a logger with the callback sink
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
+
+    // Create some minimal data
+    std::vector<float> data = {1.0f, 2.0f};
+    auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, 1);
+    svs::distance::DistanceL2 distance_function;
+    uint32_t entry_point = 0;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    // Build the VamanaIndex with the test logger
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    svs::index::vamana::VamanaIndex index(
+        buildParams,
+        std::move(graph),
+        std::move(data_view),
+        entry_point,
+        distance_function,
+        std::move(threadpool),
+        test_logger
+    );
+
+    // Verify the internal log messages
+    CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
 }
