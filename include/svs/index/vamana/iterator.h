@@ -334,13 +334,16 @@ class BatchIterator {
                                            ) {
             auto search_closure =
                 [&](const auto& query, const auto& accessor, auto& d, auto& buffer) {
-                    constexpr vamana::extensions::UsesReranking<std::remove_const_t<decltype(data)>> uses_reranking{};
-                    if constexpr(uses_reranking()) {
+                    constexpr vamana::extensions::UsesReranking<
+                        std::remove_const_t<std::remove_reference_t<decltype(data)>>>
+                        uses_reranking{};
+                    if constexpr (uses_reranking()) {
                         // recompute search buffer using only primary dataset
                         for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
                             auto& neighbor = buffer[j];
                             auto id = neighbor.id();
-                            auto new_distance = distance::compute(d, query, data.get_primary(id));
+                            auto new_distance =
+                                distance::compute(d, query, data.get_primary(id));
                             neighbor.set_distance(new_distance);
                         }
                         buffer.sort();
