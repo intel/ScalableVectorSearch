@@ -32,7 +32,7 @@
 CATCH_TEST_CASE("Vamana Index", "[managers][vamana]") {
     // Todo?
 }
-CATCH_TEST_CASE("Vamana Index Default Parameters", "[managers1][vamana]") {
+CATCH_TEST_CASE("Vamana Index Default Parameters", "[managers][vamana]") {
     using Catch::Approx;
     std::filesystem::path data_path = test_dataset::data_svs_file();
 

@@ -474,8 +474,12 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         if (params.alpha == 0.0f) {
             // Default alpha
             if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
-                params.alpha = (distance == DistanceType::L2) ? 1.2f :
-                            ((distance == DistanceType::MIP || distance == DistanceType::Cosine) ? 0.95f : 1.2f);
+                params.alpha = (distance == DistanceType::L2)
+                                   ? 1.2f
+                                   : ((distance == DistanceType::MIP ||
+                                       distance == DistanceType::Cosine)
+                                          ? 0.95f
+                                          : 1.2f);
             } else {
                 params.alpha = 1.2f;
             }
@@ -488,7 +492,9 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                     }
                 } else if (distance == DistanceType::MIP || distance == DistanceType::Cosine) {
                     if (params.alpha >= 1.0f) {
-                        throw std::invalid_argument("For MIP/Cosine distance, alpha must be < 1.0");
+                        throw std::invalid_argument(
+                            "For MIP/Cosine distance, alpha must be < 1.0"
+                        );
                     }
                 }
             }
