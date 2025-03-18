@@ -448,7 +448,7 @@ void wrap(py::module& m) {
                     prune_to,
                     true};
             }),
-            py::arg("alpha") = 1.2,
+            py::arg("alpha") = 0,
             py::arg("graph_max_degree") = 32,
             py::arg("window_size") = 64,
             py::arg("max_candidate_pool_size") = 80,

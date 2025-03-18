@@ -469,12 +469,37 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         const Allocator& graph_allocator = {}
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        // Set alpha based on distance metric. L2: 1.2, IP/Cosince: 0.95
+        auto params = parameters;
+        if (params.alpha == 0.0f) {
+            // Default alpha
+            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+                params.alpha = (distance == DistanceType::L2) ? 1.2f :
+                            ((distance == DistanceType::MIP || distance == DistanceType::Cosine) ? 0.95f : 1.2f);
+            } else {
+                params.alpha = 1.2f;
+            }
+        } else {
+            // User set alpha
+            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+                if (distance == DistanceType::L2) {
+                    if (params.alpha <= 1.0f) {
+                        throw std::invalid_argument("For L2 distance, alpha must be > 1.0");
+                    }
+                } else if (distance == DistanceType::MIP || distance == DistanceType::Cosine) {
+                    if (params.alpha >= 1.0f) {
+                        throw std::invalid_argument("For MIP/Cosine distance, alpha must be < 1.0");
+                    }
+                }
+            }
+        }
+
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
                 return make_vamana<manager::as_typelist<QueryTypes>>(
                     BuildTag(),
-                    parameters,
+                    params,
                     std::forward<DataLoader>(data_loader),
                     std::move(distance_function),
                     std::move(threadpool),
@@ -484,7 +509,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         } else {
             return make_vamana<manager::as_typelist<QueryTypes>>(
                 BuildTag(),
-                parameters,
+                params,
                 std::forward<DataLoader>(data_loader),
                 distance,
                 std::move(threadpool),
