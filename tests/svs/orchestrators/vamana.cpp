@@ -65,7 +65,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[managers][vamana]") {
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         CATCH_REQUIRE_THROWS_WITH(
             svs::Vamana::build<float>(build_params, data_loader, svs::L2),
-            "For L2 distance, alpha must be > 1.0"
+            "For L2 distance, alpha must be >= 1.0"
         );
     }
 
@@ -74,11 +74,11 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[managers][vamana]") {
             svs::MIP, svsbenchmark::Uncompressed(svs::DataType::float32)
         );
         auto build_params = expected_result.build_parameters_.value();
-        build_params.alpha = 1.0f;
+        build_params.alpha = 1.2f;
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         CATCH_REQUIRE_THROWS_WITH(
             svs::Vamana::build<float>(build_params, data_loader, svs::MIP),
-            "For MIP/Cosine distance, alpha must be < 1.0"
+            "For MIP/Cosine distance, alpha must be <= 1.0"
         );
     }
 }

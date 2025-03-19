@@ -776,7 +776,7 @@ template <
 auto build_primary_index(
     const Data& data,
     std::span<const I> ids,
-    const vamana::VamanaBuildParameters& vamana_parameters,
+    vamana::VamanaBuildParameters& vamana_parameters,
     const Distance& distance,
     Pool threadpool
 ) {

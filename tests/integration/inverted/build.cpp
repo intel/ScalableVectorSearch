@@ -40,7 +40,7 @@ template <
     svs::threads::ThreadPool Pool,
     size_t D = svs::Dynamic>
 svs::Inverted build_index(
-    const svs::index::inverted::InvertedBuildParameters& build_parameters,
+    svs::index::inverted::InvertedBuildParameters& build_parameters,
     const std::filesystem::path& data_path,
     Pool threadpool,
     Distance distance,
