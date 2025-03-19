@@ -16,6 +16,7 @@
 
 // SVS
 #include "svs/orchestrators/vamana.h"
+#include "svs/index/vamana/build_params.h"
 
 // Catch2
 #include "catch2/catch_test_macros.hpp"
@@ -80,5 +81,30 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[managers][vamana]") {
             svs::Vamana::build<float>(build_params, data_loader, svs::MIP),
             "For MIP/Cosine distance, alpha must be <= 1.0"
         );
+    }
+
+    CATCH_SECTION("Invalid prune_to > graph_max_degree") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.prune_to = build_params.graph_max_degree + 10;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::Vamana::build<float>(build_params, data_loader, svs::L2),
+            "prune_to must be <= graph_max_degree"
+        );
+    }
+
+    CATCH_SECTION("L2 Distance Empty Params") {
+        svs::index::vamana::VamanaBuildParameters empty_params;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        svs::Vamana index = svs::Vamana::build<float>(empty_params, data_loader, svs::L2);
+        CATCH_REQUIRE(index.get_alpha() == Approx(1.2f));
+        CATCH_REQUIRE(index.get_graph_max_degree() == 32);
+        CATCH_REQUIRE(index.get_prune_to() == 28);
+        CATCH_REQUIRE(index.get_construction_window_size() == 64);
+        CATCH_REQUIRE(index.get_max_candidates() == 64);
+        CATCH_REQUIRE(index.get_full_search_history() == true);
     }
 }
