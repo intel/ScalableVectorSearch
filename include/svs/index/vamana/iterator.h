@@ -338,6 +338,7 @@ class BatchIterator {
                         std::remove_const_t<std::remove_reference_t<decltype(data)>>>
                         uses_reranking{};
                     if constexpr (uses_reranking()) {
+                        distance::maybe_fix_argument(d, query);
                         // recompute search buffer using only primary dataset
                         for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
                             auto& neighbor = buffer[j];
