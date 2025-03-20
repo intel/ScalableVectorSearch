@@ -430,7 +430,6 @@ class VamanaIndex {
         entry_point_.push_back(parameters.entry_point);
 
         build_parameters_ = parameters.build_parameters;
-        verify_or_set_default_index_parameters(build_parameters_, distance_);
         set_search_parameters(parameters.search_parameters);
     }
 

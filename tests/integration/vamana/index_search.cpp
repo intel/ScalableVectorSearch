@@ -21,7 +21,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "toml++/toml.h"
+
 // svs
 #include "svs/core/recall.h"
 #include "svs/lib/saveload.h"
@@ -248,19 +248,6 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             distance_type, svsbenchmark::Uncompressed(svs::DataType::float32)
         );
 
-        // Dynamic change alpha based on distance type
-        auto config = toml::parse_file(test_dataset::vamana_config_file().string());  
-        float expected_alpha = (distance_type == svs::L2) ? 1.2f : 0.95f;      
-        if (auto* build_params = config["object"]["build_parameters"].as_table()) {
-            float new_alpha = expected_alpha;
-            build_params->insert_or_assign("alpha", new_alpha);
-        }      
-        // Overwrite the config file with the modified config
-        {
-            std::ofstream ofs(test_dataset::vamana_config_file());
-            ofs << config;
-        }
-
         auto index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
             svs::GraphLoader(test_dataset::graph_file()),
@@ -311,6 +298,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
 
         // Set variables to ensure they are saved and reloaded properly.
         index.set_search_window_size(123);
+        index.set_alpha(1.2);
         index.set_construction_window_size(456);
         index.set_max_candidates(1001);
 
@@ -335,7 +323,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
         // Index Properties
         CATCH_REQUIRE(index.get_search_window_size() == 123);
-        CATCH_REQUIRE(index.get_alpha() == expected_alpha);
+        CATCH_REQUIRE(index.get_alpha() == 1.2f);
         CATCH_REQUIRE(index.get_construction_window_size() == 456);
         CATCH_REQUIRE(index.get_max_candidates() == 1001);
         CATCH_REQUIRE(index.get_graph_max_degree() == max_degree);
@@ -356,15 +344,5 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         run_tests<svs::threads::SwitchNativeThreadPool>(
             index, queries, groundtruth, expected_results.config_and_recall_
         );
-    }
-
-    // Revert the config
-    auto config = toml::parse_file(test_dataset::vamana_config_file().string());        
-    if(auto* build_params = config["object"]["build_parameters"].as_table()) {
-        build_params->insert_or_assign("alpha", 1.2f);
-    }
-    {
-        std::ofstream ofs(test_dataset::vamana_config_file());
-        ofs << config;
     }
 }
