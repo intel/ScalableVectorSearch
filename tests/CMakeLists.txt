@@ -139,6 +139,9 @@ set(TEST_SOURCES
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
 
+    # Global scalar quantization
+    ${TEST_DIR}/svs/quantization/scalar/scalar.cpp
+
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
 )
 
