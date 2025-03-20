@@ -998,19 +998,14 @@ void verify_or_set_default_index_parameters(
     constexpr bool is_Cosine =
         std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;
 
-    // Check if any supported type
-    if (!(is_L2 || is_IP || is_Cosine)) {
-        throw std::invalid_argument("Unsupported distance type");
-    }
-
     if (parameters.alpha == svs::FLOAT_MAX) {
         // Check if it's a supported distance type
         if (is_L2) {
             parameters.alpha = 1.2f;
-        }
-
-        if (is_IP || is_Cosine) {
+        } else if (is_IP || is_Cosine) {
             parameters.alpha = 0.95f;
+        } else {
+            throw std::invalid_argument("Unsupported distance type");
         }
     }
 
@@ -1032,7 +1027,7 @@ void verify_or_set_default_index_parameters(
         }
     }
 
-    if (is_IP || is_Cosine) {
+    if (is_IP || is_Cosine) {        
         if (parameters.alpha > 1.0f) {
             throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
         }
