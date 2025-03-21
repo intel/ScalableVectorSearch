@@ -83,6 +83,10 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
             }
         }
 
+        // Maximum error is the range of the input dataset (here: [-127, 127])
+        // divided by the number of available values (here: 2^8 = 256)
+        constexpr float max_error = (127 - (-127)) / std::pow(2, 8);
+
         // Buffer for datasets elements.
         auto delta = std::vector<float>(original.dimensions());
 
@@ -94,7 +98,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
             for (size_t j = 0; j < dims; ++j) {
                 float r = datum[j] - sq_datum[j];
                 // At worst we should be off by (-0.5, 0.5)
-                CATCH_REQUIRE(std::abs(r) < 0.5F);
+                CATCH_REQUIRE(std::abs(r) <= max_error);
             }
         }
 
@@ -105,7 +109,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         for (size_t j = 0; j < dims; ++j) {
             float r = datum[j] - sq_datum[j];
             // At worst we should be off by (-0.5, 0.5)
-            CATCH_REQUIRE(std::abs(r) < 0.5F);
+            CATCH_REQUIRE(std::abs(r) <= max_error);
         }
     }
 }
