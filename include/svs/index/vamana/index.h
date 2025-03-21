@@ -1026,7 +1026,7 @@ void verify_or_set_default_index_parameters(
         }
     }
 
-    if (is_IP || is_Cosine) {        
+    if (is_IP || is_Cosine) {
         if (parameters.alpha > 1.0f) {
             throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
         }
