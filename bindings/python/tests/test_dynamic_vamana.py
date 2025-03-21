@@ -108,7 +108,7 @@ class DynamicVamanaTester(unittest.TestCase):
             window_size = 128,
             alpha = 1.2,
         )
-        
+
         index = svs.DynamicVamana.build(
             parameters,
             data,
