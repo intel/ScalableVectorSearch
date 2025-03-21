@@ -249,7 +249,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         typename Distance,
         typename ThreadPoolProto>
     static DynamicVamana build(
-        const index::vamana::VamanaBuildParameters& parameters,
+        index::vamana::VamanaBuildParameters& parameters,
         Data data,
         std::span<const size_t> ids,
         Distance distance,

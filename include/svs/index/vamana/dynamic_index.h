@@ -194,7 +194,7 @@ class MutableVamanaIndex {
     ///
     template <typename ExternalIds, typename ThreadPoolProto>
     MutableVamanaIndex(
-        const VamanaBuildParameters& parameters,
+        VamanaBuildParameters& parameters,
         Data data,
         const ExternalIds& external_ids,
         Dist distance_function,
@@ -217,16 +217,16 @@ class MutableVamanaIndex {
         , use_full_search_history_{parameters.use_full_search_history}
         , logger_{std::move(logger)} {
         // Verify and set defaults directly on the input parameters
-        // verify_or_set_default_index_parameters(parameters, distance_function);
+        verify_or_set_default_index_parameters(parameters, distance_function);
 
         // Initialize with unverified parameters first as there are no default constructors,
         // Set it again it verify function may change values
-        // graph_ = Graph{data_.size(), parameters.graph_max_degree};
-        // construction_window_size_ = parameters.window_size;
-        // max_candidates_ = parameters.max_candidate_pool_size;
-        // prune_to_ = parameters.prune_to;
-        // alpha_ = parameters.alpha;
-        // use_full_search_history_ = parameters.use_full_search_history;
+        graph_ = Graph{data_.size(), parameters.graph_max_degree};
+        construction_window_size_ = parameters.window_size;
+        max_candidates_ = parameters.max_candidate_pool_size;
+        prune_to_ = parameters.prune_to;
+        alpha_ = parameters.alpha;
+        use_full_search_history_ = parameters.use_full_search_history;
 
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));

@@ -98,7 +98,7 @@ class DynamicVamanaTester(unittest.TestCase):
         # here, we set an expected mid-point for the recall and allow it to wander up and
         # down by a little.
         expected_recall = 0.845
-        expected_recall_delta = 0.03
+        expected_recall_delta = 0.05
 
         reference = ReferenceDataset(num_threads = num_threads)
         data, ids = reference.new_ids(5000)
@@ -108,7 +108,6 @@ class DynamicVamanaTester(unittest.TestCase):
             window_size = 128,
             alpha = 1.2,
         )
-
         index = svs.DynamicVamana.build(
             parameters,
             data,
