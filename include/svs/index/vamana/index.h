@@ -386,7 +386,7 @@ class VamanaIndex {
     ///
     template <threads::ThreadPool Pool>
     VamanaIndex(
-        const VamanaBuildParameters& parameters,
+        VamanaBuildParameters& parameters,
         Graph graph,
         Data data,
         Idx entry_point,
@@ -405,12 +405,14 @@ class VamanaIndex {
             throw ANNEXCEPTION("Wrong sizes!");
         }
 
+        // verify the parameters before set local var
+        verify_or_set_default_index_parameters(parameters, distance_function);
         build_parameters_ = parameters;
         auto builder = VamanaBuilder(
             graph_,
             data_,
             distance_,
-            parameters,
+            build_parameters_,
             threadpool_,
             extensions::estimate_prefetch_parameters(data_)
         );
@@ -884,7 +886,7 @@ template <
     typename ThreadPoolProto,
     typename Allocator = HugepageAllocator<uint32_t>>
 auto auto_build(
-    const VamanaBuildParameters& parameters,
+    VamanaBuildParameters& parameters,
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
@@ -896,6 +898,7 @@ auto auto_build(
     auto entry_point = extensions::compute_entry_point(data, threadpool);
 
     // Default graph.
+    verify_or_set_default_index_parameters(parameters, distance);
     auto graph = default_graph(data.size(), parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
     return VamanaIndex{
@@ -958,5 +961,75 @@ auto auto_assemble(
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;
+}
+
+/// @brief Verify parameters and set defaults if needed
+template <typename Dist>
+void verify_or_set_default_index_parameters(
+    VamanaBuildParameters& parameters, Dist distance_function
+) {
+    // Set default values
+    if (parameters.graph_max_degree == svs::UNSIGNED_INTEGER_MAX) {
+        parameters.graph_max_degree = 32;
+    }
+
+    if (parameters.window_size == svs::UNSIGNED_INTEGER_MAX) {
+        parameters.window_size = 64;
+    }
+
+    if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_MAX) {
+        parameters.max_candidate_pool_size = 2 * parameters.graph_max_degree;
+    }
+
+    if (parameters.prune_to == svs::UNSIGNED_INTEGER_MAX) {
+        if (parameters.graph_max_degree >= 16) {
+            parameters.prune_to = parameters.graph_max_degree - 4;
+        } else {
+            parameters.prune_to = parameters.graph_max_degree;
+        }
+    }
+
+    // Check supported distance type using std::is_same type trait
+    using dist_type = std::decay_t<decltype(distance_function)>;
+    // Create type flags for each distance type
+    constexpr bool is_L2 = std::is_same_v<dist_type, svs::distance::DistanceL2>;
+    constexpr bool is_IP = std::is_same_v<dist_type, svs::distance::DistanceIP>;
+    constexpr bool is_Cosine =
+        std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;
+
+    if (parameters.alpha == svs::FLOAT_MAX) {
+        // Check if it's a supported distance type
+        if (is_L2) {
+            parameters.alpha = 1.2f;
+        } else if (is_IP || is_Cosine) {
+            parameters.alpha = 0.95f;
+        } else {
+            throw std::invalid_argument("Unsupported distance type");
+        }
+    }
+
+    // Check User set values
+    // Validate number parameters are positive
+    if (parameters.alpha < 0.0f) {
+        throw std::invalid_argument("alpha must be > 0");
+    }
+
+    // Check prune_to <= graph_max_degree
+    if (parameters.prune_to > parameters.graph_max_degree) {
+        throw std::invalid_argument("prune_to must be <= graph_max_degree");
+    }
+
+    // Check. L2: 1.2, IP/Cosine: 0.95
+    if (is_L2) {
+        if (parameters.alpha < 1.0f) {
+            throw std::invalid_argument("For L2 distance, alpha must be >= 1.0");
+        }
+    }
+
+    if (is_IP || is_Cosine) {
+        if (parameters.alpha > 1.0f) {
+            throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
+        }
+    }
 }
 } // namespace svs::index::vamana

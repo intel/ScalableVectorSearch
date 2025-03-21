@@ -51,7 +51,7 @@ template <
     size_t D = svs::Dynamic,
     svs::threads::ThreadPool Pool = svs::threads::DefaultThreadPool>
 svs::Vamana build_index(
-    const svs::index::vamana::VamanaBuildParameters parameters,
+    svs::index::vamana::VamanaBuildParameters parameters,
     const std::filesystem::path& data_path,
     Pool threadpool,
     svs::DistanceType dist_type
@@ -71,7 +71,7 @@ svs::Vamana build_index(
 
 template <typename E, size_t D = svs::Dynamic>
 svs::Vamana build_index(
-    const svs::index::vamana::VamanaBuildParameters parameters,
+    svs::index::vamana::VamanaBuildParameters parameters,
     const std::filesystem::path& data_path,
     size_t num_threads,
     svs::DistanceType dist_type

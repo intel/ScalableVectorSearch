@@ -17,6 +17,7 @@
 #pragma once
 
 // svs
+#include "svs/lib/preprocessor.h"
 #include "svs/lib/saveload.h"
 
 // stl
@@ -44,27 +45,27 @@ struct VamanaBuildParameters {
         , use_full_search_history{use_full_search_history_} {}
 
     /// The pruning parameter.
-    float alpha;
+    float alpha = svs::FLOAT_MAX;
 
     /// The maximum degree in the graph. A higher max degree may yield a higher quality
     /// graph in terms of recall for performance, but the memory footprint of the graph is
     /// directly proportional to the maximum degree.
-    size_t graph_max_degree;
+    size_t graph_max_degree = svs::UNSIGNED_INTEGER_MAX;
 
     /// The search window size to use during graph construction. A higher search window
     /// size will yield a higher quality graph since more overall vertices are considered,
     /// but will increase construction time.
-    size_t window_size;
+    size_t window_size = svs::UNSIGNED_INTEGER_MAX;
 
     /// Set a limit on the number of neighbors considered during pruning. In practice, set
     /// this to a high number (at least 5 times greater than the window_size) and forget
     /// about it.
-    size_t max_candidate_pool_size;
+    size_t max_candidate_pool_size = svs::UNSIGNED_INTEGER_MAX;
 
     /// This is the amount that candidates will be pruned to after certain pruning
     /// procedures. Setting this to less than ``graph_max_degree`` can result in significant
     /// speedups in index building.
-    size_t prune_to;
+    size_t prune_to = svs::UNSIGNED_INTEGER_MAX;
 
     /// When building, either the contents of the search buffer can be used or the entire
     /// search history can be used.

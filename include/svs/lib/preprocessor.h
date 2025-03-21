@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <limits>
+
 namespace svs::preprocessor::detail {
 
 // consteval functions for working with preprocessor defines.
@@ -159,3 +162,9 @@ inline constexpr bool have_avx512_avx2 = true;
 #endif
 
 } // namespace svs::arch
+
+namespace svs {
+// Maximum values used as default initializers
+inline constexpr size_t UNSIGNED_INTEGER_MAX = std::numeric_limits<size_t>::max();
+inline constexpr float FLOAT_MAX = std::numeric_limits<float>::max();
+} // namespace svs

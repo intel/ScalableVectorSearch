@@ -30,6 +30,7 @@
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/orchestrators/vamana.h"
 
 // pybind
@@ -95,7 +96,7 @@ using VamanaAssembleTypes =
 
 template <typename Q, typename T, size_t N>
 svs::Vamana build_uncompressed(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::index::vamana::VamanaBuildParameters& parameters,
     svs::VectorDataLoader<T, N, RebindAllocator<T>> data,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -128,7 +129,7 @@ using VamanaBuildTypes = std::variant<UnspecializedVectorDataLoader>;
 
 template <typename Q, typename T, size_t N>
 svs::Vamana uncompressed_build_from_array(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::index::vamana::VamanaBuildParameters& parameters,
     svs::data::ConstSimpleDataView<T, N> view,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -189,7 +190,7 @@ svs::Vamana assemble(
 // Build from file
 using BuildFromFileDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
-    const svs::index::vamana::VamanaBuildParameters&,
+    svs::index::vamana::VamanaBuildParameters&,
     VamanaBuildTypes,
     svs::DistanceType,
     size_t>;
@@ -201,7 +202,7 @@ BuildFromFileDispatcher build_from_file_dispatcher() {
 }
 
 svs::Vamana build_from_file(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::index::vamana::VamanaBuildParameters& parameters,
     VamanaBuildTypes data_source,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -221,7 +222,7 @@ svs::Vamana build_from_file(
 // by the backend - so we need to do it ourselves.
 using BuildFromArrayDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
-    const svs::index::vamana::VamanaBuildParameters&,
+    svs::index::vamana::VamanaBuildParameters&,
     AnonymousVectorData,
     svs::DistanceType,
     size_t>;
@@ -233,7 +234,7 @@ BuildFromArrayDispatcher build_from_array_dispatcher() {
 }
 
 svs::Vamana build_from_array(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::index::vamana::VamanaBuildParameters& parameters,
     AnonymousVectorData py_data,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -250,7 +251,7 @@ template <typename ElementType>
 void add_build_specialization(py::class_<svs::Vamana>& vamana) {
     vamana.def_static(
         "build",
-        [](const svs::index::vamana::VamanaBuildParameters& parameters,
+        [](svs::index::vamana::VamanaBuildParameters& parameters,
            py_contiguous_array_t<ElementType> py_data,
            svs::DistanceType distance_type,
            size_t num_threads) {
@@ -420,40 +421,21 @@ void wrap(py::module& m) {
                         size_t window_size,
                         size_t max_candidate_pool_size,
                         size_t prune_to,
-                        size_t num_threads) {
-                if (num_threads != std::numeric_limits<size_t>::max()) {
-                    PyErr_WarnEx(
-                        PyExc_DeprecationWarning,
-                        "Constructing VamanaBuildParameters with the \"num_threads\" "
-                        "keyword "
-                        "argument is deprecated, no longer has any effect, and will be "
-                        "removed "
-                        "from future versions of the library. Use the \"num_threads\" "
-                        "keyword "
-                        "argument of \"svs.Vamana.build\" instead!",
-                        1
-                    );
-                }
-
-                // Default the `prune_to` argument appropriately.
-                if (prune_to == std::numeric_limits<size_t>::max()) {
-                    prune_to = graph_max_degree;
-                }
-
+                        bool use_full_search_history) {
                 return svs::index::vamana::VamanaBuildParameters{
                     alpha,
                     graph_max_degree,
                     window_size,
                     max_candidate_pool_size,
                     prune_to,
-                    true};
+                    use_full_search_history};
             }),
-            py::arg("alpha") = 1.2,
-            py::arg("graph_max_degree") = 32,
-            py::arg("window_size") = 64,
-            py::arg("max_candidate_pool_size") = 80,
-            py::arg("prune_to") = std::numeric_limits<size_t>::max(),
-            py::arg("num_threads") = std::numeric_limits<size_t>::max(),
+            py::arg("alpha") = svs::FLOAT_MAX,
+            py::arg("graph_max_degree") = svs::UNSIGNED_INTEGER_MAX,
+            py::arg("window_size") = svs::UNSIGNED_INTEGER_MAX,
+            py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_MAX,
+            py::arg("prune_to") = svs::UNSIGNED_INTEGER_MAX,
+            py::arg("use_full_search_history") = true,
             R"(
             Construct a new instance from keyword arguments.
 

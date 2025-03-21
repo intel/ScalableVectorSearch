@@ -45,7 +45,7 @@ namespace {
 
 template <typename ElementType>
 svs::DynamicVamana build_from_array(
-    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::index::vamana::VamanaBuildParameters& parameters,
     py_contiguous_array_t<ElementType> py_data,
     py_contiguous_array_t<size_t> py_ids,
     svs::DistanceType distance_type,

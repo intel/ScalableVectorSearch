@@ -462,7 +462,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         typename ThreadPoolProto = size_t,
         typename Allocator = HugepageAllocator<uint32_t>>
     static Vamana build(
-        const index::vamana::VamanaBuildParameters& parameters,
+        index::vamana::VamanaBuildParameters& parameters,
         DataLoader&& data_loader,
         Distance distance,
         ThreadPoolProto threadpool_proto = 1,
