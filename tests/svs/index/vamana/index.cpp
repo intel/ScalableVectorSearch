@@ -23,6 +23,7 @@
 
 // svs
 #include "svs/index/vamana/build_params.h"
+#include "svs/lib/preprocessor.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -232,11 +233,13 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         svs::index::vamana::VamanaBuildParameters empty_params;
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         svs::Vamana index = svs::Vamana::build<float>(empty_params, data_loader, svs::L2);
-        CATCH_REQUIRE(index.get_alpha() == Approx(1.2f));
-        CATCH_REQUIRE(index.get_graph_max_degree() == 32);
-        CATCH_REQUIRE(index.get_prune_to() == 28);
-        CATCH_REQUIRE(index.get_construction_window_size() == 64);
-        CATCH_REQUIRE(index.get_max_candidates() == 64);
-        CATCH_REQUIRE(index.get_full_search_history() == true);
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_graph_max_degree() == svs::GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(index.get_prune_to() == svs::GRAPH_MAX_DEGREE_DEFAULT - 4);
+        CATCH_REQUIRE(index.get_construction_window_size() == svs::WINDOW_SIZE_DEFAULT);
+        CATCH_REQUIRE(index.get_max_candidates() == 2 * svs::GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(
+            index.get_full_search_history() == svs::USE_FULL_SEARCH_HISTORY_DEFAULT
+        );
     }
 }

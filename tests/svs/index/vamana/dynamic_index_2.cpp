@@ -19,8 +19,8 @@
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
-
 #include "svs/misc/dynamic_helper.h"
 
 // tests
@@ -603,11 +603,13 @@ CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]"
         auto index = svs::index::vamana::MutableVamanaIndex(
             params, std::move(data_view), indices, svs::distance::DistanceL2(), 1
         );
-        CATCH_REQUIRE(index.get_alpha() == Approx(1.2f));
-        CATCH_REQUIRE(index.get_graph_max_degree() == 32);
-        CATCH_REQUIRE(index.get_prune_to() == 28);
-        CATCH_REQUIRE(index.get_construction_window_size() == 64);
-        CATCH_REQUIRE(index.get_max_candidates() == 64);
-        CATCH_REQUIRE(index.get_full_search_history() == true);
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_graph_max_degree() == svs::GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(index.get_prune_to() == svs::GRAPH_MAX_DEGREE_DEFAULT - 4);
+        CATCH_REQUIRE(index.get_construction_window_size() == svs::WINDOW_SIZE_DEFAULT);
+        CATCH_REQUIRE(index.get_max_candidates() == 2 * svs::GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(
+            index.get_full_search_history() == svs::USE_FULL_SEARCH_HISTORY_DEFAULT
+        );
     }
 }
