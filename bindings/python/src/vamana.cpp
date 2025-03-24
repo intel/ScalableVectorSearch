@@ -430,12 +430,12 @@ void wrap(py::module& m) {
                     prune_to,
                     use_full_search_history};
             }),
-            py::arg("alpha") = svs::FLOAT_MAX,
-            py::arg("graph_max_degree") = svs::UNSIGNED_INTEGER_MAX,
-            py::arg("window_size") = svs::UNSIGNED_INTEGER_MAX,
-            py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_MAX,
-            py::arg("prune_to") = svs::UNSIGNED_INTEGER_MAX,
-            py::arg("use_full_search_history") = true,
+            py::arg("alpha") = svs::FLOAT_PLACEHOLDER,
+            py::arg("graph_max_degree") = svs::GRAPH_MAX_DEGREE_DEFAULT,
+            py::arg("window_size") = svs::WINDOW_SIZE_DEFAULT,
+            py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
+            py::arg("prune_to") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
+            py::arg("use_full_search_history") = svs::USE_FULL_SEARCH_HISTORY_DEFAULT,
             R"(
             Construct a new instance from keyword arguments.
 

@@ -38,6 +38,7 @@
 #include "svs/index/vamana/index.h"
 #include "svs/index/vamana/vamana_build.h"
 #include "svs/lib/boundscheck.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
 namespace svs::index::vamana {
@@ -210,14 +211,9 @@ class MutableVamanaIndex {
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
         , search_parameters_(vamana::construct_default_search_parameters(data_))
-        , construction_window_size_(parameters.window_size)
-        , max_candidates_(parameters.max_candidate_pool_size)
-        , prune_to_(parameters.prune_to)
-        , alpha_(parameters.alpha)
-        , use_full_search_history_{parameters.use_full_search_history}
         , logger_{std::move(logger)} {
         // Verify and set defaults directly on the input parameters
-        verify_or_set_default_index_parameters(parameters, distance_function);
+        verify_and_set_default_index_parameters(parameters, distance_function);
 
         // Initialize with unverified parameters first as there are no default constructors,
         // Set it again it verify function may change values

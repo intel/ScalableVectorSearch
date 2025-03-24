@@ -165,6 +165,9 @@ inline constexpr bool have_avx512_avx2 = true;
 
 namespace svs {
 // Maximum values used as default initializers
-inline constexpr size_t UNSIGNED_INTEGER_MAX = std::numeric_limits<size_t>::max();
-inline constexpr float FLOAT_MAX = std::numeric_limits<float>::max();
+inline constexpr size_t UNSIGNED_INTEGER_PLACEHOLDER = std::numeric_limits<size_t>::max();
+inline constexpr float FLOAT_PLACEHOLDER = std::numeric_limits<float>::max();
+inline constexpr float GRAPH_MAX_DEGREE_DEFAULT = 32;
+inline constexpr float WINDOW_SIZE_DEFAULT = 64;
+inline constexpr bool USE_FULL_SEARCH_HISTORY_DEFAULT = true;
 } // namespace svs

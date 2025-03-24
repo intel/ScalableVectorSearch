@@ -406,7 +406,7 @@ class VamanaIndex {
         }
 
         // verify the parameters before set local var
-        verify_or_set_default_index_parameters(parameters, distance_function);
+        verify_and_set_default_index_parameters(parameters, distance_function);
         build_parameters_ = parameters;
         auto builder = VamanaBuilder(
             graph_,
@@ -898,7 +898,7 @@ auto auto_build(
     auto entry_point = extensions::compute_entry_point(data, threadpool);
 
     // Default graph.
-    verify_or_set_default_index_parameters(parameters, distance);
+    verify_and_set_default_index_parameters(parameters, distance);
     auto graph = default_graph(data.size(), parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
     return VamanaIndex{
@@ -965,23 +965,15 @@ auto auto_assemble(
 
 /// @brief Verify parameters and set defaults if needed
 template <typename Dist>
-void verify_or_set_default_index_parameters(
+void verify_and_set_default_index_parameters(
     VamanaBuildParameters& parameters, Dist distance_function
 ) {
     // Set default values
-    if (parameters.graph_max_degree == svs::UNSIGNED_INTEGER_MAX) {
-        parameters.graph_max_degree = 32;
-    }
-
-    if (parameters.window_size == svs::UNSIGNED_INTEGER_MAX) {
-        parameters.window_size = 64;
-    }
-
-    if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_MAX) {
+    if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
         parameters.max_candidate_pool_size = 2 * parameters.graph_max_degree;
     }
 
-    if (parameters.prune_to == svs::UNSIGNED_INTEGER_MAX) {
+    if (parameters.prune_to == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
         if (parameters.graph_max_degree >= 16) {
             parameters.prune_to = parameters.graph_max_degree - 4;
         } else {
@@ -997,7 +989,7 @@ void verify_or_set_default_index_parameters(
     constexpr bool is_Cosine =
         std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;
 
-    if (parameters.alpha == svs::FLOAT_MAX) {
+    if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
         // Check if it's a supported distance type
         if (is_L2) {
             parameters.alpha = 1.2f;
@@ -1010,7 +1002,7 @@ void verify_or_set_default_index_parameters(
 
     // Check User set values
     // Validate number parameters are positive
-    if (parameters.alpha < 0.0f) {
+    if (parameters.alpha <= 0.0f) {
         throw std::invalid_argument("alpha must be > 0");
     }
 

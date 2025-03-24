@@ -16,12 +16,25 @@
 
 // Header under test
 #include "svs/index/vamana/index.h"
+
+// Logging
 #include "spdlog/sinks/callback_sink.h"
 #include "svs/core/logging.h"
 
+// svs
+#include "svs/index/vamana/build_params.h"
+
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include <catch2/catch_approx.hpp>
 
+// tests
+#include "tests/utils/test_dataset.h"
+#include "tests/utils/utils.h"
+#include "tests/utils/vamana_reference.h"
+
+// svsbenchmark
+#include "svs-benchmark/benchmark.h"
 // stl
 #include <string_view>
 
@@ -150,4 +163,80 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     // Verify the internal log messages
     CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+}
+
+CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
+    using Catch::Approx;
+    std::filesystem::path data_path = test_dataset::data_svs_file();
+
+    CATCH_SECTION("L2 Distance Defaults") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        svs::Vamana index = svs::Vamana::build<float>(build_params, data_loader, svs::L2);
+        CATCH_REQUIRE(index.get_alpha() == Approx(1.2f));
+    }
+
+    CATCH_SECTION("MIP Distance Defaults") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::MIP, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        svs::Vamana index = svs::Vamana::build<float>(build_params, data_loader, svs::MIP);
+        CATCH_REQUIRE(index.get_alpha() == Approx(0.95f));
+    }
+
+    CATCH_SECTION("Invalid Alpha for L2") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.alpha = 0.8f;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::Vamana::build<float>(build_params, data_loader, svs::L2),
+            "For L2 distance, alpha must be >= 1.0"
+        );
+    }
+
+    CATCH_SECTION("Invalid Alpha for MIP") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::MIP, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.alpha = 1.2f;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::Vamana::build<float>(build_params, data_loader, svs::MIP),
+            "For MIP/Cosine distance, alpha must be <= 1.0"
+        );
+    }
+
+    CATCH_SECTION("Invalid prune_to > graph_max_degree") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.prune_to = build_params.graph_max_degree + 10;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::Vamana::build<float>(build_params, data_loader, svs::L2),
+            "prune_to must be <= graph_max_degree"
+        );
+    }
+
+    CATCH_SECTION("L2 Distance Empty Params") {
+        svs::index::vamana::VamanaBuildParameters empty_params;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+        svs::Vamana index = svs::Vamana::build<float>(empty_params, data_loader, svs::L2);
+        CATCH_REQUIRE(index.get_alpha() == Approx(1.2f));
+        CATCH_REQUIRE(index.get_graph_max_degree() == 32);
+        CATCH_REQUIRE(index.get_prune_to() == 28);
+        CATCH_REQUIRE(index.get_construction_window_size() == 64);
+        CATCH_REQUIRE(index.get_max_candidates() == 64);
+        CATCH_REQUIRE(index.get_full_search_history() == true);
+    }
 }

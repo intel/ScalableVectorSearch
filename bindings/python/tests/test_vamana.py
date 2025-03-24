@@ -281,13 +281,6 @@ class VamanaTester(unittest.TestCase):
             self._test_basic(loader, matcher, first_iter = first_iter)
             first_iter = False
 
-    # def test_deprecation(self):
-    #     with warnings.catch_warnings(record = True) as w:
-    #         p = svs.VamanaBuildParameters(num_threads = 1)
-    #         self.assertTrue(len(w) == 1)
-    #         self.assertTrue(issubclass(w[0].category, DeprecationWarning))
-    #         self.assertTrue("VamanaBuildParameters" in str(w[0].message))
-
     def _groundtruth_map(self):
         return {
             svs.DistanceType.L2: test_groundtruth_l2,
