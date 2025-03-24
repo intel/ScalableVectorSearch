@@ -58,8 +58,18 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
             svs::data::SimpleData<float, dims>::load(test_dataset::data_svs_file());
         auto sq_dataset = scalar::SQDataset<dims>::compress(original);
 
+        // Assert compressed data has the same size and dimensions
         CATCH_REQUIRE(sq_dataset.size() == original.size());
         CATCH_REQUIRE(sq_dataset.dimensions() == original.dimensions());
+
+        // Assert scale and bias are calculated correctly
+        // Scale is calculated from (max_data - min_data) / (max_quant - min_quant)
+        // The dataset features values [-127, 127], the quantization range is [-128, 127]
+        constexpr float exp_scale = 254.0F / 255.0F;
+        // Bias is calculates as min_data - scale * min_quant
+        constexpr float exp_bias = -127.0F - exp_scale * -128.0F;
+        CATCH_REQUIRE(sq_dataset.get_scale() == exp_scale);
+        CATCH_REQUIRE(sq_dataset.get_bias() == exp_bias);
 
         // Try saving and reloading.
         svs_test::prepare_temp_directory();
@@ -67,11 +77,13 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         svs::lib::save_to_disk(sq_dataset, temp_dir);
         auto reloaded_sq_dataset = svs::lib::load_from_disk<decltype(sq_dataset)>(temp_dir);
 
+        // Type is reconstructed correctly
         static_assert(std::is_same_v<decltype(sq_dataset), decltype(reloaded_sq_dataset)>);
+
+        // Values don't change
         CATCH_REQUIRE(sq_dataset.size() == reloaded_sq_dataset.size());
         CATCH_REQUIRE(sq_dataset.get_scale() == reloaded_sq_dataset.get_scale());
         CATCH_REQUIRE(sq_dataset.get_bias() == reloaded_sq_dataset.get_bias());
-
         // Check for equality
         for (size_t i = 0, imax = sq_dataset.size(); i < imax; ++i) {
             // compare all elements in span at index i
@@ -83,13 +95,16 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
             }
         }
 
-        // Maximum error is the range of the input dataset (here: [-127, 127])
-        // divided by the number of available values (here: 2^8 = 256)
-        constexpr float max_error = (127 - (-127)) / std::pow(2, 8);
+        // Worst case is being off by one in the compression.
+        // Because we are shifting, we should in fact never be off by more than (-0.5, 0.5)
+        // in the compressed range.
+        // A value "1" in the compressed range corresponds to the value of "scale" in the
+        // uncompressed range.
+        // We already verified the scale is calculated correctly above.
+        float max_error = 0.5 * sq_dataset.get_scale();
 
-        // Buffer for datasets elements.
+        // Now assert that the compression isn't off by more than one.
         auto delta = std::vector<float>(original.dimensions());
-
         for (size_t i = 0; i < original.size(); ++i) {
             auto datum = original.get_datum(i);
             auto sq_datum = sq_dataset.get_datum(i);
@@ -97,8 +112,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
 
             for (size_t j = 0; j < dims; ++j) {
                 float r = datum[j] - sq_datum[j];
-                // At worst we should be off by (-0.5, 0.5)
-                CATCH_REQUIRE(std::abs(r) <= max_error);
+                CATCH_REQUIRE(std::abs(r) < max_error);
             }
         }
 
@@ -108,8 +122,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         auto sq_datum = sq_dataset.get_datum(0);
         for (size_t j = 0; j < dims; ++j) {
             float r = datum[j] - sq_datum[j];
-            // At worst we should be off by (-0.5, 0.5)
-            CATCH_REQUIRE(std::abs(r) <= max_error);
+            CATCH_REQUIRE(std::abs(r) < max_error);
         }
     }
 }

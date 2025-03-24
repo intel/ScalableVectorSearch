@@ -86,13 +86,18 @@ class SQDataset {
     static SQDataset
     compress(const Dataset& data, Pool& threadpool, const allocator_type& allocator = {});
 
+    /// @brief Save dataset to a file.
     static constexpr lib::Version save_version = scalar_quantization_save_version;
     static constexpr std::string_view serialization_schema =
         scalar_quantization_serialization_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const;
 
+    /// @brief Load dataset from a file.
     static SQDataset
     load(const lib::LoadTable& table, const allocator_type& allocator = {});
+
+    /// @brief Prefetch data in the dataset.
+    void prefetch(size_t i) const;
 };
 
 } // namespace scalar

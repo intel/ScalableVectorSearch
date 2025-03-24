@@ -221,6 +221,11 @@ SQDataset<Extent, Alloc> SQDataset<Extent, Alloc>::load(
         lib::load_at<float>(table, "bias")};
 }
 
+template <size_t Extent, typename Alloc>
+void SQDataset<Extent, Alloc>::prefetch(size_t i) const {
+    data_.prefetch(i);
+}
+
 } // namespace scalar
 } // namespace quantization
 } // namespace svs

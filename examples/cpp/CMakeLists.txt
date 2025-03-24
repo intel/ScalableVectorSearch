@@ -49,11 +49,6 @@ configure_file(../../data/test_dataset/data_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/queries_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
 
-# tmp executable for sqdataset
-add_executable(sqdataset sqdataset.cpp)
-target_include_directories(sqdataset PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(sqdataset ${SVS_LIB} svs_compile_options svs_native_options)
-
 # The vamana test executable.
 add_executable(vamana vamana.cpp)
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})
