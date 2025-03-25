@@ -48,7 +48,6 @@ create_simple_example(custom_thread_pool test_custom_thread_pool custom_thread_p
 configure_file(../../data/test_dataset/data_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/queries_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
-
 # The vamana test executable.
 add_executable(vamana vamana.cpp)
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})

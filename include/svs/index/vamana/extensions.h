@@ -21,13 +21,12 @@
 #include "svs/core/distance.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
-#include "svs/index/flat/flat.h"
-#include "svs/index/vamana/extensions.h"
 #include "svs/index/vamana/greedy_search.h"
 #include "svs/lib/invoke.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
+
 namespace svs::index::vamana::extensions {
 
 /////
