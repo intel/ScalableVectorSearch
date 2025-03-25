@@ -487,10 +487,10 @@ void wrap(py::module& m) {
             &svs::index::vamana::VamanaBuildParameters::use_full_search_history
         )
 
-    ///
-    /// Vamana Static Module
-    ///
-    std::string name = "Vamana";
+        ///
+        /// Vamana Static Module
+        ///
+        std::string name = "Vamana";
     py::class_<svs::Vamana> vamana(
         m, name.c_str(), "Top level class for the Vamana graph index."
     );
