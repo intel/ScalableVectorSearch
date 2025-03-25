@@ -33,14 +33,14 @@ struct InvertedBuildParameters {
     InvertedBuildParameters() = default;
     InvertedBuildParameters(
         const inverted::ClusteringParameters& clustering_parameters,
-        const vamana::VamanaBuildParameters& primary_parameters
+        vamana::VamanaBuildParameters& primary_parameters
     )
         : clustering_parameters_{clustering_parameters}
         , primary_parameters_{primary_parameters} {}
 
     // Comparison
     friend constexpr bool
-    operator==(const InvertedBuildParameters&, const InvertedBuildParameters&) = default;
+    operator==(const InvertedBuildParameters&, InvertedBuildParameters&) = default;
 
     // Saving
     static constexpr svs::lib::Version save_version{0, 0, 0};
