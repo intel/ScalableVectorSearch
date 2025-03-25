@@ -177,7 +177,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         auto build_params = expected_result.build_parameters_.value();
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         svs::Vamana index = svs::Vamana::build<float>(build_params, data_loader, svs::L2);
-        CATCH_REQUIRE(index.get_alpha() == Approx(1.2f));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
     }
 
     CATCH_SECTION("MIP Distance Defaults") {
@@ -187,7 +187,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         auto build_params = expected_result.build_parameters_.value();
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         svs::Vamana index = svs::Vamana::build<float>(build_params, data_loader, svs::MIP);
-        CATCH_REQUIRE(index.get_alpha() == Approx(0.95f));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MINIMIZE_DEFAULT));
     }
 
     CATCH_SECTION("Invalid Alpha for L2") {

@@ -485,7 +485,7 @@ void wrap(py::module& m) {
         .def_readwrite(
             "use_full_search_history",
             &svs::index::vamana::VamanaBuildParameters::use_full_search_history
-        );
+        )
 
     ///
     /// Vamana Static Module
