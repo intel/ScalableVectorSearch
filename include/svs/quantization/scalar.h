@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "eve/algo.hpp"
+
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
@@ -40,25 +42,33 @@ class EuclideanCompressed {
     EuclideanCompressed(float scale, float bias, size_t dims)
         : query_fp32_{1, dims}
         , scale_{scale}
-        , bias_{bias} {}
+        , bias_{bias}
+        , scale_sq_{scale * scale} {}
 
     EuclideanCompressed shallow_copy() const {
         return EuclideanCompressed(scale_, bias_, query_fp32_.dimensions());
     }
 
-    template <typename T> void fix_argument(const std::span<T>& /*query*/) {}
+    template <typename T> void fix_argument(const std::span<T>& query) {
+        query_fp32_.set_datum(0, query);
+    }
+
+    std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
 
     template <typename T>
-    float compute(const T& /*y*/) const
+    float compute(const T& y) const
         requires(lib::is_spanlike_v<T>)
     {
-        return 0.0;
+        auto inner = distance::DistanceL2{};
+        return scale_sq_ * distance::compute(inner, view_query(), y);
     }
 
   private:
     data::SimpleData<float> query_fp32_;
     float scale_;
     float bias_;
+
+    float scale_sq_;
 };
 
 class InnerProductCompressed {
@@ -71,9 +81,8 @@ class InnerProductCompressed {
     InnerProductCompressed(float scale, float bias, size_t dims)
         : query_fp32_{1, dims}
         , scale_{scale}
-        , bias_{bias} {
-        scale_sq_ = scale * scale;
-    }
+        , bias_{bias}
+        , scale_sq_{scale * scale} {}
 
     InnerProductCompressed shallow_copy() const {
         return InnerProductCompressed(scale_, bias_, query_fp32_.dimensions());
@@ -82,10 +91,7 @@ class InnerProductCompressed {
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
 
-        float sum = 0.0F;
-        for (auto val : query) {
-            sum += val;
-        }
+        float sum = eve::algo::reduce(query, 0.0f);
         offset_ = bias_ * scale_ * sum;
     }
 
@@ -106,7 +112,7 @@ class InnerProductCompressed {
 
     // pre-computed values
     float scale_sq_;
-    float offset_;
+    float offset_ = 0;
 };
 
 class CosineSimilarityCompressed {
@@ -121,19 +127,30 @@ class CosineSimilarityCompressed {
         , scale_{scale}
         , bias_{bias} {}
 
-    template <typename T> void fix_argument(const std::span<T>& /*query*/) {}
+    template <typename T> void fix_argument(const std::span<T>& query) {
+        query_fp32_.set_datum(0, query);
+        inner_.fix_argument(query);
+    }
+
+    std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
 
     template <typename T>
-    float compute(const T& /*y*/) const
+    float compute(const T& y) const
         requires(lib::is_spanlike_v<T>)
     {
-        return 0.0;
+        std::vector<float> y_biased(y.size());
+        std::transform(y.begin(), y.end(), y_biased.begin(), [&](float v) {
+            return (v - bias_) / scale_;
+        });
+        return distance::compute(inner_, view_query(), std::span<const float>(y_biased));
     }
 
   private:
     data::SimpleData<float> query_fp32_;
     float scale_;
     float bias_;
+
+    distance::DistanceCosineSimilarity inner_;
 };
 
 namespace detail {
