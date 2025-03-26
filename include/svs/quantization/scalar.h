@@ -17,7 +17,6 @@
 #pragma once
 
 // svs
-#include "svs/concepts/quantization.h"
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
 #include "svs/lib/memory.h"
@@ -31,9 +30,111 @@ namespace svs {
 namespace quantization {
 namespace scalar {
 
-class EuclideanCompressed;
-class InnerProductCompressed;
-class CosineSimilarityCompressed;
+class EuclideanCompressed {
+  public:
+    using compare = std::less<>;
+
+    static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
+
+    EuclideanCompressed(float scale, float bias, size_t dims)
+        : query_fp32_{1, dims}
+        , scale_{scale}
+        , bias_{bias} {}
+
+    EuclideanCompressed shallow_copy() const {
+        return EuclideanCompressed(scale_, bias_, query_fp32_.dimensions());
+    }
+
+    template <typename T> void fix_argument(const std::span<T>& /*query*/) {}
+
+    template <typename T>
+    float compute(const T& /*y*/) const
+        requires(lib::is_spanlike_v<T>)
+    {
+        return 0.0;
+    }
+
+  private:
+    data::SimpleData<float> query_fp32_;
+    float scale_;
+    float bias_;
+};
+
+class InnerProductCompressed {
+  public:
+    using compare = std::greater<>;
+
+    static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
+
+    InnerProductCompressed(float scale, float bias, size_t dims)
+        : query_fp32_{1, dims}
+        , scale_{scale}
+        , bias_{bias} {
+        scale_sq_ = scale * scale;
+    }
+
+    InnerProductCompressed shallow_copy() const {
+        return InnerProductCompressed(scale_, bias_, query_fp32_.dimensions());
+    }
+
+    template <typename T> void fix_argument(const std::span<T>& query) {
+        query_fp32_.set_datum(0, query);
+
+        float sum = 0.0F;
+        for (auto val : query) {
+            sum += val;
+        }
+        offset_ = bias_ * scale_ * sum;
+    }
+
+    std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
+
+    template <typename T>
+    float compute(const T& y) const
+        requires(lib::is_spanlike_v<T>)
+    {
+        auto inner = distance::DistanceIP{};
+        return scale_sq_ * distance::compute(inner, view_query(), y) + offset_;
+    }
+
+  private:
+    data::SimpleData<float> query_fp32_;
+    float scale_;
+    float bias_;
+
+    // pre-computed values
+    float scale_sq_;
+    float offset_;
+};
+
+class CosineSimilarityCompressed {
+  public:
+    using compare = std::greater<>;
+
+    static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
+
+    CosineSimilarityCompressed(float scale, float bias, size_t dims)
+        : query_fp32_{1, dims}
+        , scale_{scale}
+        , bias_{bias} {}
+
+    template <typename T> void fix_argument(const std::span<T>& /*query*/) {}
+
+    template <typename T>
+    float compute(const T& /*y*/) const
+        requires(lib::is_spanlike_v<T>)
+    {
+        return 0.0;
+    }
+
+  private:
+    data::SimpleData<float> query_fp32_;
+    float scale_;
+    float bias_;
+};
 
 namespace detail {
 
@@ -277,21 +378,6 @@ class SQDataset {
 
     /// @brief Prefetch data in the dataset.
     void prefetch(size_t i) const { data_.prefetch(i); }
-
-    // template <IsCompressedData Data, typename Distance>
-    // compressed_distance_t<Distance>
-    // adapt(const Data& dataset, const Distance& SVS_UNUSED(distance)) {
-    //     return compressed_distance_t<Distance>(dataset.get_scale(), dataset.get_bias());
-    // }
-
-    // template <IsCompressedData Data, typename Distance>
-    // compressed_distance_t<Distance> svs_invoke(
-    //     svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
-    //     const Data& data,
-    //     const Distance& distance
-    // ) {
-    //     return adapt(data, distance);
-    // }
 };
 
 } // namespace scalar

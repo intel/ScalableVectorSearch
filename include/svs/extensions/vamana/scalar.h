@@ -23,16 +23,20 @@ namespace svs::quantization::scalar {
 template <IsCompressedData Data>
 SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
     svs::tag_t<svs::index::vamana::extensions::reconstruct_accessor> SVS_UNUSED(cpo),
-    const Data& SVS_UNUSED(dataset)
+    const Data& SVS_UNUSED(data)
 ) {
     return data::GetDatumAccessor();
 }
 
-// template <IsCompressedData Data, typename Distance>
-// compressed_distance_t<Distance> svs_invoke(
-//     svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
-//     const Data& data,
-//     const Distance& distance
-// );
+template <IsCompressedData Data, typename Distance>
+compressed_distance_t<Distance> svs_invoke(
+    svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
+    const Data& data,
+    const Distance& SVS_UNUSED(distance)
+) {
+    return compressed_distance_t<Distance>(
+        data.get_scale(), data.get_bias(), data.dimensions()
+    );
+}
 
 } // namespace svs::quantization::scalar
