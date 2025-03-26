@@ -67,6 +67,7 @@ template <size_t Extent = svs::Dynamic, typename Alloc = lib::Allocator<std::int
 class SQDataset {
   public:
     constexpr static size_t extent = Extent;
+    constexpr static bool uses_compressed_data = true;
 
     using allocator_type = Alloc;
     // TODO: replace int8 with template
@@ -79,9 +80,9 @@ class SQDataset {
     // TODO: This is potentially a performance bottleneck. Other datasets simply return a
     // view, but because we are manipulating the values before return, they must go into a
     // vector
-    using compressed_value_type = std::span<const std::int8_t, Extent>;
-    using const_value_type = std::vector<float>;
+    using const_value_type = std::span<const std::int8_t, Extent>;
     using value_type = const_value_type;
+    using element_type = std::int8_t;
 
   private:
     float scale_;
@@ -277,20 +278,20 @@ class SQDataset {
     /// @brief Prefetch data in the dataset.
     void prefetch(size_t i) const { data_.prefetch(i); }
 
-    template <IsCompressedData Data, typename Distance>
-    compressed_distance_t<Distance>
-    adapt(const Data& dataset, const Distance& SVS_UNUSED(distance)) {
-        return compressed_distance_t<Distance>(dataset.get_scale(), dataset.get_bias());
-    }
+    // template <IsCompressedData Data, typename Distance>
+    // compressed_distance_t<Distance>
+    // adapt(const Data& dataset, const Distance& SVS_UNUSED(distance)) {
+    //     return compressed_distance_t<Distance>(dataset.get_scale(), dataset.get_bias());
+    // }
 
-    template <IsCompressedData Data, typename Distance>
-    compressed_distance_t<Distance> svs_invoke(
-        svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
-        const Data& data,
-        const Distance& distance
-    ) {
-        return adapt(data, distance);
-    }
+    // template <IsCompressedData Data, typename Distance>
+    // compressed_distance_t<Distance> svs_invoke(
+    //     svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
+    //     const Data& data,
+    //     const Distance& distance
+    // ) {
+    //     return adapt(data, distance);
+    // }
 };
 
 } // namespace scalar

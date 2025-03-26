@@ -13,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "svs/concepts/quantization.h"
+#include "svs/index/vamana/extensions.h"
 #include "svs/quantization/scalar.h"
 
 namespace svs::quantization::scalar {
 
-template <IsCompressedData Data, typename Distance>
-compressed_distance_t<Distance> svs_invoke(
-    svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
-    const Data& data,
-    const Distance& distance
-);
+template <IsCompressedData Data>
+SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
+    svs::tag_t<svs::index::vamana::extensions::reconstruct_accessor> SVS_UNUSED(cpo),
+    const Data& SVS_UNUSED(dataset)
+) {
+    return data::GetDatumAccessor();
+}
+
+// template <IsCompressedData Data, typename Distance>
+// compressed_distance_t<Distance> svs_invoke(
+//     svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
+//     const Data& data,
+//     const Distance& distance
+// );
 
 } // namespace svs::quantization::scalar
