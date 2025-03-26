@@ -458,12 +458,12 @@ void wrap(py::module& m) {
                     The default value is 64.
                 max_candidate_pool_size: Limit on the number of candidates to consider
                     for neighbor updates. Should be larger than `window_size`.
-                    The default value is graph_max_degree * 2.
+                    The default value is `graph_max_degree` * 2.
                 prune_to: Amount candidate lists will be pruned to when exceeding the
                     target max degree. In general, setting this to slightly less than
                     `graph_max_degree` will yield faster index building times. Default:
-                    `graph_max_degree`. The default value is graph_max_degree - 4 if
-                    graph_max_degree is at least 16, otherwise it equals graph_max_degree.
+                    `graph_max_degree`. The default value is `graph_max_degree` - 4 if
+                    `graph_max_degree` is at least 16, otherwise it equals `graph_max_degree`.
                 use_full_search_history: When true, uses the full search history during
                     graph construction, which can improve graph quality at the expense of
                     additional memory and potentially longer build times.
