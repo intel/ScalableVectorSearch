@@ -992,9 +992,9 @@ void verify_and_set_default_index_parameters(
     if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
         // Check if it's a supported distance type
         if (is_L2) {
-            parameters.alpha = svs::ALPHA_MAXIMIZE_DEFAULT;
-        } else if (is_IP || is_Cosine) {
             parameters.alpha = svs::ALPHA_MINIMIZE_DEFAULT;
+        } else if (is_IP || is_Cosine) {
+            parameters.alpha = svs::ALPHA_MAXIMIZE_DEFAULT;
         } else {
             throw std::invalid_argument("Unsupported distance type");
         }

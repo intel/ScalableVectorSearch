@@ -499,7 +499,7 @@ CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]"
             build_params, std::move(data_loader), indices, svs::distance::DistanceL2(), 2
         );
 
-        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MINIMIZE_DEFAULT));
     }
 
     CATCH_SECTION("MIP Distance Defaults") {
@@ -518,7 +518,7 @@ CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]"
             build_params, std::move(data_loader), indices, svs::distance::DistanceIP(), 2
         );
 
-        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MINIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
     }
 
     CATCH_SECTION("Invalid Alpha for L2") {
@@ -604,7 +604,7 @@ CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]"
         auto index = svs::index::vamana::MutableVamanaIndex(
             params, std::move(data_view), indices, svs::distance::DistanceL2(), 1
         );
-        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MINIMIZE_DEFAULT));
         CATCH_REQUIRE(index.get_graph_max_degree() == svs::GRAPH_MAX_DEGREE_DEFAULT);
         CATCH_REQUIRE(index.get_prune_to() == svs::GRAPH_MAX_DEGREE_DEFAULT - 4);
         CATCH_REQUIRE(index.get_construction_window_size() == svs::WINDOW_SIZE_DEFAULT);
