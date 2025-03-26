@@ -21,6 +21,7 @@
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
+
 #include "svs/misc/dynamic_helper.h"
 
 // tests

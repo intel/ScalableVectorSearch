@@ -35,7 +35,7 @@ namespace {
 template <svs::data::ImmutableMemoryDataset Data, typename Distance>
 svs::index::inverted::Clustering<uint32_t> randomly_cluster(
     const Data& data,
-    svs::index::vamana::VamanaBuildParameters& primary_parameters,
+    const svs::index::vamana::VamanaBuildParameters& primary_parameters,
     const svs::index::inverted::ClusteringParameters& clustering_parameters,
     const Distance& distance,
     size_t num_threads

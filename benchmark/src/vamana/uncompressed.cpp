@@ -149,7 +149,7 @@ toml::table run_static_uncompressed(
     D distance,
     svs::lib::ExtentTag<N> SVS_UNUSED(extent),
     // feed-forward arguments
-    BuildJob& job
+    const BuildJob& job
 ) {
     auto tic = svs::lib::now();
     auto index = svs::Vamana::build<Q>(
@@ -187,7 +187,7 @@ toml::table run_dynamic_uncompressed(
     D distance,
     svs::lib::ExtentTag<N> SVS_UNUSED(extent),
     // feed-forward arguments
-    DynamicBuildJob& job,
+    const DynamicBuildJob& job,
     const Checkpoint& checkpointer
 ) {
     auto bundle = svsbenchmark::build::initialize_dynamic<T, Q>(

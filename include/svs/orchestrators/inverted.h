@@ -116,7 +116,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
         typename CentroidPicker = svs::tag_t<index::inverted::pick_centroids_randomly>,
         typename ClusteringOp = svs::tag_t<index::inverted::no_clustering_post_op>>
     static Inverted build(
-        index::inverted::InvertedBuildParameters& build_parameters,
+        const index::inverted::InvertedBuildParameters& build_parameters,
         DataProto data_proto,
         Distance distance,
         ThreadPoolProto threadpool_proto,

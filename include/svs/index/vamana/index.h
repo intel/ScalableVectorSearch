@@ -386,7 +386,7 @@ class VamanaIndex {
     ///
     template <threads::ThreadPool Pool>
     VamanaIndex(
-        VamanaBuildParameters& parameters,
+        const VamanaBuildParameters& parameters,
         Graph graph,
         Data data,
         Idx entry_point,
@@ -404,10 +404,9 @@ class VamanaIndex {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
-
-        // verify the parameters before set local var
-        verify_and_set_default_index_parameters(parameters, distance_function);
         build_parameters_ = parameters;
+        // verify the parameters before set local var
+        verify_and_set_default_index_parameters(build_parameters_, distance_function);
         auto builder = VamanaBuilder(
             graph_,
             data_,
@@ -418,7 +417,7 @@ class VamanaIndex {
         );
 
         builder.construct(1.0F, entry_point_[0], logging::Level::Info, logger);
-        builder.construct(parameters.alpha, entry_point_[0], logging::Level::Info, logger);
+        builder.construct(build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger);
     }
 
     /// @brief Getter method for logger
@@ -886,7 +885,7 @@ template <
     typename ThreadPoolProto,
     typename Allocator = HugepageAllocator<uint32_t>>
 auto auto_build(
-    VamanaBuildParameters& parameters,
+    const VamanaBuildParameters& parameters,
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
@@ -898,11 +897,12 @@ auto auto_build(
     auto entry_point = extensions::compute_entry_point(data, threadpool);
 
     // Default graph.
-    verify_and_set_default_index_parameters(parameters, distance);
-    auto graph = default_graph(data.size(), parameters.graph_max_degree, graph_allocator);
+    auto verified_parameters = parameters;
+    verify_and_set_default_index_parameters(verified_parameters, distance);
+    auto graph = default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
     return VamanaIndex{
-        parameters,
+        verified_parameters,
         std::move(graph),
         std::move(data),
         lib::narrow<I>(entry_point),

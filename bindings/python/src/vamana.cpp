@@ -96,7 +96,7 @@ using VamanaAssembleTypes =
 
 template <typename Q, typename T, size_t N>
 svs::Vamana build_uncompressed(
-    svs::index::vamana::VamanaBuildParameters& parameters,
+    const svs::index::vamana::VamanaBuildParameters& parameters,
     svs::VectorDataLoader<T, N, RebindAllocator<T>> data,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -129,7 +129,7 @@ using VamanaBuildTypes = std::variant<UnspecializedVectorDataLoader>;
 
 template <typename Q, typename T, size_t N>
 svs::Vamana uncompressed_build_from_array(
-    svs::index::vamana::VamanaBuildParameters& parameters,
+    const svs::index::vamana::VamanaBuildParameters& parameters,
     svs::data::ConstSimpleDataView<T, N> view,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -190,7 +190,7 @@ svs::Vamana assemble(
 // Build from file
 using BuildFromFileDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
-    svs::index::vamana::VamanaBuildParameters&,
+    const svs::index::vamana::VamanaBuildParameters&,
     VamanaBuildTypes,
     svs::DistanceType,
     size_t>;
@@ -202,7 +202,7 @@ BuildFromFileDispatcher build_from_file_dispatcher() {
 }
 
 svs::Vamana build_from_file(
-    svs::index::vamana::VamanaBuildParameters& parameters,
+    const svs::index::vamana::VamanaBuildParameters& parameters,
     VamanaBuildTypes data_source,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -222,7 +222,7 @@ svs::Vamana build_from_file(
 // by the backend - so we need to do it ourselves.
 using BuildFromArrayDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
-    svs::index::vamana::VamanaBuildParameters&,
+    const svs::index::vamana::VamanaBuildParameters&,
     AnonymousVectorData,
     svs::DistanceType,
     size_t>;
@@ -234,7 +234,7 @@ BuildFromArrayDispatcher build_from_array_dispatcher() {
 }
 
 svs::Vamana build_from_array(
-    svs::index::vamana::VamanaBuildParameters& parameters,
+    const svs::index::vamana::VamanaBuildParameters& parameters,
     AnonymousVectorData py_data,
     svs::DistanceType distance_type,
     size_t num_threads
@@ -251,7 +251,7 @@ template <typename ElementType>
 void add_build_specialization(py::class_<svs::Vamana>& vamana) {
     vamana.def_static(
         "build",
-        [](svs::index::vamana::VamanaBuildParameters& parameters,
+        [](const svs::index::vamana::VamanaBuildParameters& parameters,
            py_contiguous_array_t<ElementType> py_data,
            svs::DistanceType distance_type,
            size_t num_threads) {
@@ -487,10 +487,10 @@ void wrap(py::module& m) {
             &svs::index::vamana::VamanaBuildParameters::use_full_search_history
         );
 
-        ///
-        /// Vamana Static Module
-        ///
-        std::string name = "Vamana";
+    ///
+    /// Vamana Static Module
+    ///
+    std::string name = "Vamana";
     py::class_<svs::Vamana> vamana(
         m, name.c_str(), "Top level class for the Vamana graph index."
     );

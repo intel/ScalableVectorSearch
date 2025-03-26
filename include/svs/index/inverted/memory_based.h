@@ -553,7 +553,7 @@ template <
     typename CentroidPicker = PickRandomly,
     typename ClusteringOp = ClusteringPostOp>
 auto auto_build(
-    inverted::InvertedBuildParameters& parameters,
+    const inverted::InvertedBuildParameters& parameters,
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
