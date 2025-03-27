@@ -30,7 +30,6 @@
 #include "../../../../include/svs/extensions/flat/lvq.h"
 #include "../../../../include/svs/extensions/flat/leanvec.h"
 #include "../../../../include/svs/extensions/inverted/lvq.h"
-#include "../../../../include/svs/extensions/inverted/leanvec.h"
 #include "../../../../include/svs/extensions/vamana/lvq.h"
 #include "../../../../include/svs/extensions/vamana/leanvec.h"
 
