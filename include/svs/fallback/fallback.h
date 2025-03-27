@@ -27,6 +27,10 @@
 
 #include "../../../../include/svs/quantization/lvq/lvq.h"
 #include "../../../../include/svs/leanvec/leanvec.h"
+#include "../../../../include/svs/flat/vamana/lvq.h"
+#include "../../../../include/svs/flat/vamana/leanvec.h"
+#include "../../../../include/svs/inverted/vamana/lvq.h"
+#include "../../../../include/svs/inverted/vamana/leanvec.h"
 #include "../../../../include/svs/extensions/vamana/lvq.h"
 #include "../../../../include/svs/extensions/vamana/leanvec.h"
 
