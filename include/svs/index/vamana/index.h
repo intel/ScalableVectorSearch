@@ -997,22 +997,18 @@ void verify_and_set_default_index_parameters(
         if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
             parameters.alpha = svs::VAMANA_ALPHA_MINIMIZE_DEFAULT;
         } else if (parameters.alpha < 1.0f) {
+            // Check User set values
             throw std::invalid_argument("For L2 distance, alpha must be >= 1.0");
         }
     } else if constexpr (is_IP || is_Cosine) {
         if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
             parameters.alpha = svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT;
         } else if (parameters.alpha > 1.0f) {
+            // Check User set values
             throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
         }
     } else {
         throw std::invalid_argument("Unsupported distance type");
-    }
-
-    // Check User set values
-    // Validate number parameters are positive
-    if (parameters.alpha <= 0.0f) {
-        throw std::invalid_argument("alpha must be > 0");
     }
 
     // Check prune_to <= graph_max_degree
