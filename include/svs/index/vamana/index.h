@@ -992,15 +992,21 @@ void verify_and_set_default_index_parameters(
     constexpr bool is_Cosine =
         std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;
 
-    if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
-        // Check if it's a supported distance type
-        if (is_L2) {
+    // Handle alpha based on distance type
+    if constexpr (is_L2) {
+        if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
             parameters.alpha = svs::VAMANA_ALPHA_MINIMIZE_DEFAULT;
-        } else if (is_IP || is_Cosine) {
-            parameters.alpha = svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT;
-        } else {
-            throw std::invalid_argument("Unsupported distance type");
+        } else if (parameters.alpha < 1.0f) {
+            throw std::invalid_argument("For L2 distance, alpha must be >= 1.0");
         }
+    } else if constexpr (is_IP || is_Cosine) {
+        if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
+            parameters.alpha = svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT;
+        } else if (parameters.alpha > 1.0f) {
+            throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
+        }
+    } else {
+        throw std::invalid_argument("Unsupported distance type");
     }
 
     // Check User set values
@@ -1012,19 +1018,6 @@ void verify_and_set_default_index_parameters(
     // Check prune_to <= graph_max_degree
     if (parameters.prune_to > parameters.graph_max_degree) {
         throw std::invalid_argument("prune_to must be <= graph_max_degree");
-    }
-
-    // Check. L2: 1.2, IP/Cosine: 0.95
-    if (is_L2) {
-        if (parameters.alpha < 1.0f) {
-            throw std::invalid_argument("For L2 distance, alpha must be >= 1.0");
-        }
-    }
-
-    if (is_IP || is_Cosine) {
-        if (parameters.alpha > 1.0f) {
-            throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
-        }
     }
 }
 } // namespace svs::index::vamana
