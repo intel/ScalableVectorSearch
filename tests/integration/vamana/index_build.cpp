@@ -40,6 +40,10 @@
 #include <string>
 #include <utility>
 
+// logger
+#include "spdlog/sinks/callback_sink.h"
+#include "svs/core/logging.h"
+
 namespace {
 
 template <
@@ -197,5 +201,77 @@ CATCH_TEST_CASE(
             CATCH_REQUIRE(index.get_num_threads() == 2);
         }
         ++num_threads;
+    }
+}
+
+// Helper function to create a logger with a callback
+std::shared_ptr<spdlog::logger> create_test_logger(std::vector<std::string>& captured_logs
+) {
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace);
+
+    auto logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    logger->set_level(spdlog::level::trace);
+    return logger;
+}
+
+CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging]") {
+    using namespace svs::index::vamana;
+
+    // Test data setup
+    std::vector<float> data = {1.0f, 2.0f};
+    const size_t dim = 1;
+    auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, dim);
+    svs::distance::DistanceL2 distance_function;
+    uint32_t entry_point = 0;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+    VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+
+    CATCH_SECTION("With Custom Logger") {
+        std::vector<std::string> captured_logs;
+        auto custom_logger = create_test_logger(captured_logs);
+
+        // Create VamanaIndex, which will call the builder and construct
+        VamanaIndex vamana_index(
+            buildParams,
+            std::move(graph),
+            std::move(data_view),
+            entry_point,
+            std::move(distance_function),
+            std::move(threadpool),
+            custom_logger
+        );
+
+        // Verify the custom logger captured the log messages
+        CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
+        CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+        auto default_logger = svs::logging::get();
+        CATCH_REQUIRE(vamana_index.get_logger() != default_logger);
+    }
+
+    CATCH_SECTION("With Default Logger") {
+        // Reset the test data setup
+        std::vector<float> data = {1.0f, 2.0f};
+        auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
+        auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, dim);
+        auto threadpool = svs::threads::DefaultThreadPool(1);
+
+        // Create VamanaIndex without passing a custom logger
+        VamanaIndex vamana_index(
+            buildParams,
+            std::move(graph),
+            std::move(data_view),
+            entry_point,
+            std::move(distance_function),
+            std::move(threadpool)
+        );
+
+        auto default_logger = svs::logging::get();
+        CATCH_REQUIRE(vamana_index.get_logger() == default_logger);
     }
 }
