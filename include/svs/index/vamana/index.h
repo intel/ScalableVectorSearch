@@ -1006,6 +1006,8 @@ void verify_and_set_default_index_parameters(
         } else if (parameters.alpha > 1.0f) {
             // Check User set values
             throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
+        } else if (parameters.alpha <= 0.0f) {
+            throw std::invalid_argument("alpha must be > 0");
         }
     } else {
         throw std::invalid_argument("Unsupported distance type");
