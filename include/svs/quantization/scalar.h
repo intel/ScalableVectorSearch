@@ -221,8 +221,9 @@ struct MinMax {
 };
 
 // operator to compress a dataset using a threadpool
-template <typename T> struct Compressor {
-    using data_type = T;
+template <typename Element, typename Data> struct Compressor {
+    using element_type = Element;
+    using data_type = Data;
 
     Compressor(float scale, float bias)
         : scale_{scale}
@@ -244,7 +245,7 @@ template <typename T> struct Compressor {
             [&](const auto& indices, uint64_t /*tid*/) {
                 threads::UnitRange range{indices};
                 // Allocate a buffer of given dimensionality, will be re-used for each datum
-                std::vector<std::int8_t> buffer(data.dimensions());
+                std::vector<element_type> buffer(data.dimensions());
                 for (size_t i = range.start(); i < range.stop(); ++i) {
                     // Compress datum
                     auto datum = data.get_datum(i);
@@ -253,7 +254,7 @@ template <typename T> struct Compressor {
                         datum.end(),
                         buffer.begin(),
                         [&](float v) {
-                            return compress<float, std::int8_t>(v, scale_, bias_);
+                            return compress<float, element_type>(v, scale_, bias_);
                         }
                     );
                     // Store to compressed dataset
@@ -296,26 +297,17 @@ inline constexpr lib::Version scalar_quantization_save_version = lib::Version(0,
 
 // Scalar Quantization Dataset
 // This class provides a globally quantized (scale & bias) dataset.
-template <size_t Extent = svs::Dynamic, typename Alloc = lib::Allocator<std::int8_t>>
+template <typename T, size_t Extent = svs::Dynamic, typename Alloc = lib::Allocator<T>>
 class SQDataset {
   public:
     constexpr static size_t extent = Extent;
     constexpr static bool uses_compressed_data = true;
 
     using allocator_type = Alloc;
-    // TODO: replace int8 with template
-    using data_type = data::SimpleData<std::int8_t, Extent, allocator_type>;
-
-    // TODO: get_datum will return this type, other classes would return compressed data
-    //       while we return uncompressed data for simplicity. Maybe this needs to change
-    // using const_value_type = std::span<const std::int8_t, Extent>;
-    // using value_type = const_value_type;
-    // TODO: This is potentially a performance bottleneck. Other datasets simply return a
-    // view, but because we are manipulating the values before return, they must go into a
-    // vector
-    using const_value_type = std::span<const std::int8_t, Extent>;
+    using element_type = T;
+    using data_type = data::SimpleData<element_type, Extent, allocator_type>;
+    using const_value_type = std::span<const element_type, Extent>;
     using value_type = const_value_type;
-    using element_type = std::int8_t;
 
   private:
     float scale_;
@@ -341,7 +333,7 @@ class SQDataset {
     std::vector<float> decompress_datum(size_t i) const {
         auto datum = get_datum(i);
         std::vector<float> buffer(datum.size());
-        std::transform(datum.begin(), datum.end(), buffer.begin(), [&](std::int8_t v) {
+        std::transform(datum.begin(), datum.end(), buffer.begin(), [&](element_type v) {
             return detail::decompress(v, scale_, bias_);
         });
         return buffer;
@@ -353,9 +345,9 @@ class SQDataset {
         assert(datum.size() == dims);
 
         // Compress elements
-        std::vector<std::int8_t> buffer(dims);
+        std::vector<element_type> buffer(dims);
         std::transform(datum.begin(), datum.end(), buffer.begin(), [&](QueryType v) {
-            return detail::compress<QueryType, std::int8_t>(v, scale_, bias_);
+            return detail::compress<QueryType, element_type>(v, scale_, bias_);
         });
 
         data_.set_datum(i, buffer);
@@ -387,16 +379,17 @@ class SQDataset {
         auto global = minmax(data, threadpool);
 
         // Compute scale and bias
-        constexpr float MIN = std::numeric_limits<std::int8_t>::min();
-        constexpr float MAX = std::numeric_limits<std::int8_t>::max();
+        constexpr float MIN = std::numeric_limits<element_type>::min();
+        constexpr float MAX = std::numeric_limits<element_type>::max();
         float scale = (global.max - global.min) / (MAX - MIN);
         float bias = global.min - MIN * scale;
 
         // Compress data
-        auto compressor = detail::Compressor<data_type>{scale, bias};
+        auto compressor = detail::Compressor<element_type, data_type>{scale, bias};
         auto compressed = compressor(data, threadpool, allocator);
 
-        return SQDataset<Extent, Alloc>{std::move(compressed), scale, bias};
+        return SQDataset<element_type, extent, allocator_type>{
+            std::move(compressed), scale, bias};
     }
 
     /// @brief Save dataset to a file.
@@ -416,7 +409,7 @@ class SQDataset {
     /// @brief Load dataset from a file.
     static SQDataset
     load(const lib::LoadTable& table, const allocator_type& allocator = {}) {
-        return SQDataset<Extent, Alloc>{
+        return SQDataset<element_type, extent, allocator_type>{
             SVS_LOAD_MEMBER_AT_(table, data, allocator),
             lib::load_at<float>(table, "scale"),
             lib::load_at<float>(table, "bias")};

@@ -167,7 +167,7 @@ int svs_main(std::vector<std::string> args) {
     // used in the index has been created.
     auto compressor = svs::lib::Lazy([=](svs::threads::ThreadPool auto& threadpool) {
         auto data = svs::VectorDataLoader<float, 128>("example_data").load();
-        return scalar::SQDataset<128>::compress(data, threadpool);
+        return scalar::SQDataset<std::int8_t, 128>::compress(data, threadpool);
     });
     index = svs::Vamana::assemble<float>(
         "example_config",
