@@ -155,6 +155,115 @@ class CosineSimilarityCompressed {
 
 namespace detail {
 
+template <typename Original, typename Compressed>
+Compressed compress(Original val, float scale, float bias) {
+    static constexpr auto MIN = std::numeric_limits<Compressed>::min();
+    static constexpr auto MAX = std::numeric_limits<Compressed>::max();
+    return std::clamp<float>(std::round((val - bias) / scale), MIN, MAX);
+}
+
+template <typename Compressed> float decompress(Compressed val, float scale, float bias) {
+    return scale * float(val) + bias;
+}
+
+struct MinMaxAccumulator {
+    double min = 0.0;
+    double max = 0.0;
+
+    void accumulate(double val) {
+        min = std::min(min, val);
+        max = std::max(max, val);
+    }
+
+    void merge(const MinMaxAccumulator& other) {
+        min = std::min(min, other.min);
+        max = std::max(max, other.max);
+    }
+};
+
+// operator to find global min and max in dataset
+struct MinMax {
+    template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
+    MinMaxAccumulator operator()(const Dataset& data, Pool& threadpool) {
+        static constexpr size_t batch_size = 512;
+
+        // Thread-local accumulators
+        std::vector<MinMaxAccumulator> tls(threadpool.size());
+
+        // Compute mean and squared sum
+        threads::parallel_for(
+            threadpool,
+            threads::DynamicPartition(data.size(), batch_size),
+            [&](const auto& indices, uint64_t tid) {
+                threads::UnitRange range{indices};
+                MinMaxAccumulator local;
+
+                for (size_t i = range.start(); i < range.stop(); ++i) {
+                    const auto& datum = data.get_datum(i);
+                    for (size_t d = 0; d < data.dimensions(); ++d) {
+                        local.accumulate(datum[d]);
+                    }
+                }
+
+                tls.at(tid).merge(local);
+            }
+        );
+
+        // Reduce
+        MinMaxAccumulator global;
+        for (const auto& partial : tls) {
+            global.merge(partial);
+        }
+
+        return global;
+    }
+};
+
+// operator to compress a dataset using a threadpool
+template <typename T> struct Compressor {
+    using data_type = T;
+
+    Compressor(float scale, float bias)
+        : scale_{scale}
+        , bias_{bias} {}
+
+    template <
+        data::ImmutableMemoryDataset Dataset,
+        threads::ThreadPool Pool,
+        typename Alloc>
+    data_type
+    operator()(const Dataset& data, Pool& threadpool, const Alloc& allocator) const {
+        static constexpr size_t batch_size = 512;
+
+        data_type compressed{data.size(), data.dimensions(), allocator};
+
+        threads::parallel_for(
+            threadpool,
+            threads::DynamicPartition(data.size(), batch_size),
+            [&](const auto& indices, uint64_t /*tid*/) {
+                threads::UnitRange range{indices};
+                // Allocate a buffer of given dimensionality, will be re-used for each datum
+                std::vector<std::int8_t> buffer(data.dimensions());
+                for (size_t i = range.start(); i < range.stop(); ++i) {
+                    // Compress datum
+                    auto datum = data.get_datum(i);
+                    for (size_t d = 0; d < data.dimensions(); ++d) {
+                        buffer[d] = compress<float, std::int8_t>(datum[d], scale_, bias_);
+                    }
+                    // Store to compressed dataset
+                    compressed.set_datum(i, buffer);
+                }
+            }
+        );
+
+        return compressed;
+    }
+
+  private:
+    float scale_;
+    float bias_;
+};
+
 // Map from baseline distance functors to the local versions.
 template <typename T> struct CompressedDistance;
 
@@ -239,24 +348,14 @@ class SQDataset {
         auto dims = dimensions();
         assert(datum.size() == dims);
 
-        // Compression range extrema
-        static constexpr std::int8_t MIN = std::numeric_limits<std::int8_t>::min();
-        static constexpr std::int8_t MAX = std::numeric_limits<std::int8_t>::max();
-
-        // Uniform scalar quantization function
-        auto scalar = [&](float v) -> std::int8_t {
-            return std::clamp<float>(std::round((v - bias_) / scale_), MIN, MAX);
-        };
-
-        // Prepare compressed elements
+        // Compress elements
         std::vector<std::int8_t> buffer(dims);
         for (size_t j = 0; j < dims; ++j) {
-            // Apply scalar quantization to element
-            buffer[j] = scalar(datum[j]);
+            buffer[j] = detail::compress<QueryType, std::int8_t>(datum[j], scale_, bias_);
         }
-        data_.set_datum(i, buffer);
 
-        // TODO: Float16 truncation check? (see codec.h, line 114)
+        data_.set_datum(i, buffer);
+        // TODO: Float16 truncation check? (see codec.h, line 1[14)
     }
 
     template <data::ImmutableMemoryDataset Dataset>
@@ -279,93 +378,19 @@ class SQDataset {
             throw ANNEXCEPTION("Dimension mismatch!");
         }
 
-        static constexpr size_t batch_size = 512;
-
-        // Helper struct to collect values
-        struct Accumulator {
-            double min = 0.0;
-            double max = 0.0;
-
-            void accumulate(double val) {
-                min = std::min(min, val);
-                max = std::max(max, val);
-            }
-
-            void merge(const Accumulator& other) {
-                min = std::min(min, other.min);
-                max = std::max(max, other.max);
-            }
-        };
-
-        // Thread-local accumulators
-        std::vector<Accumulator> tls(threadpool.size());
-
-        // Compute mean and squared sum
-        threads::parallel_for(
-            threadpool,
-            threads::DynamicPartition(data.size(), batch_size),
-            [&](const auto& indices, uint64_t tid) {
-                threads::UnitRange range{indices};
-                Accumulator local;
-
-                for (size_t i = range.start(); i < range.stop(); ++i) {
-                    const auto& datum = data.get_datum(i);
-                    for (size_t d = 0; d < data.dimensions(); ++d) {
-                        local.accumulate(datum[d]);
-                    }
-                }
-
-                tls.at(tid).merge(local);
-            }
-        );
-
-        // Reduce
-        Accumulator global;
-        for (const auto& partial : tls) {
-            global.merge(partial);
-        }
-
-        // Compress the scaled and biased values
-        // TODO: Templated compression bits
-        // static constexpr size_t bits = 8;
-
-        // Compression range extrema
-        static constexpr std::int8_t MIN = std::numeric_limits<std::int8_t>::min();
-        static constexpr std::int8_t MAX = std::numeric_limits<std::int8_t>::max();
+        // Get dataset extrema
+        auto minmax = detail::MinMax{};
+        auto global = minmax(data, threadpool);
 
         // Compute scale and bias
+        constexpr float MIN = std::numeric_limits<std::int8_t>::min();
+        constexpr float MAX = std::numeric_limits<std::int8_t>::max();
         float scale = (global.max - global.min) / (MAX - MIN);
         float bias = global.min - MIN * scale;
 
-        // Uniform scalar quantization function
-        auto scalar = [&](float v) -> std::int8_t {
-            return std::clamp<float>(std::round((v - bias) / scale), MIN, MAX);
-        };
-
-        data_type compressed{data.size(), data.dimensions(), allocator};
-
-        threads::parallel_for(
-            threadpool,
-            threads::DynamicPartition(data.size(), batch_size),
-            [&](const auto& indices, uint64_t /*tid*/) {
-                threads::UnitRange range{indices};
-                for (size_t i = range.start(); i < range.stop(); ++i) {
-                    // Load original row
-                    auto original = data.get_datum(i);
-
-                    // Allocate temporary buffer for transformed data
-                    std::vector<std::int8_t> transformed(original.size());
-
-                    for (size_t d = 0; d < original.size(); ++d) {
-                        float val = static_cast<float>(original[d]);
-                        transformed[d] = scalar(val);
-                    }
-
-                    // Store normalized data back (set_datum will do narrowing if needed)
-                    compressed.set_datum(i, transformed);
-                }
-            }
-        );
+        // Compress data
+        auto compressor = detail::Compressor<data_type>{scale, bias};
+        auto compressed = compressor(data, threadpool, allocator);
 
         return SQDataset<Extent, Alloc>{std::move(compressed), scale, bias};
     }
