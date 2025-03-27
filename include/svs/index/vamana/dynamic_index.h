@@ -242,7 +242,9 @@ class MutableVamanaIndex {
             graph_, data_, distance_, build_parameters_, threadpool_, prefetch_parameters
         );
         builder.construct(1.0f, entry_point_[0], logging::Level::Info, logger_);
-        builder.construct(build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger_);
+        builder.construct(
+            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger_
+        );
     }
 
     /// @brief Post re-load constructor.

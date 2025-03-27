@@ -177,7 +177,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         auto build_params = expected_result.build_parameters_.value();
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         svs::Vamana index = svs::Vamana::build<float>(build_params, data_loader, svs::L2);
-        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MINIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::VAMANA_ALPHA_MINIMIZE_DEFAULT));
     }
 
     CATCH_SECTION("MIP Distance Defaults") {
@@ -187,7 +187,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         auto build_params = expected_result.build_parameters_.value();
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         svs::Vamana index = svs::Vamana::build<float>(build_params, data_loader, svs::MIP);
-        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MAXIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT));
     }
 
     CATCH_SECTION("Invalid Alpha for L2") {
@@ -233,13 +233,17 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         svs::index::vamana::VamanaBuildParameters empty_params;
         auto data_loader = svs::data::SimpleData<float>::load(data_path);
         svs::Vamana index = svs::Vamana::build<float>(empty_params, data_loader, svs::L2);
-        CATCH_REQUIRE(index.get_alpha() == Approx(svs::ALPHA_MINIMIZE_DEFAULT));
-        CATCH_REQUIRE(index.get_graph_max_degree() == svs::GRAPH_MAX_DEGREE_DEFAULT);
-        CATCH_REQUIRE(index.get_prune_to() == svs::GRAPH_MAX_DEGREE_DEFAULT - 4);
-        CATCH_REQUIRE(index.get_construction_window_size() == svs::WINDOW_SIZE_DEFAULT);
-        CATCH_REQUIRE(index.get_max_candidates() == 2 * svs::GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::VAMANA_ALPHA_MINIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_graph_max_degree() == svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(index.get_prune_to() == svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT - 4);
         CATCH_REQUIRE(
-            index.get_full_search_history() == svs::USE_FULL_SEARCH_HISTORY_DEFAULT
+            index.get_construction_window_size() == svs::VAMANA_WINDOW_SIZE_DEFAULT
+        );
+        CATCH_REQUIRE(
+            index.get_max_candidates() == 2 * svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT
+        );
+        CATCH_REQUIRE(
+            index.get_full_search_history() == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
         );
     }
 }

@@ -417,7 +417,9 @@ class VamanaIndex {
         );
 
         builder.construct(1.0F, entry_point_[0], logging::Level::Info, logger);
-        builder.construct(build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger);
+        builder.construct(
+            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger
+        );
     }
 
     /// @brief Getter method for logger
@@ -899,7 +901,8 @@ auto auto_build(
     // Default graph.
     auto verified_parameters = parameters;
     verify_and_set_default_index_parameters(verified_parameters, distance);
-    auto graph = default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
+    auto graph =
+        default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
     return VamanaIndex{
         verified_parameters,
@@ -992,9 +995,9 @@ void verify_and_set_default_index_parameters(
     if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
         // Check if it's a supported distance type
         if (is_L2) {
-            parameters.alpha = svs::ALPHA_MINIMIZE_DEFAULT;
+            parameters.alpha = svs::VAMANA_ALPHA_MINIMIZE_DEFAULT;
         } else if (is_IP || is_Cosine) {
-            parameters.alpha = svs::ALPHA_MAXIMIZE_DEFAULT;
+            parameters.alpha = svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT;
         } else {
             throw std::invalid_argument("Unsupported distance type");
         }

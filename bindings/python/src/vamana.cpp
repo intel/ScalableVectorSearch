@@ -432,14 +432,15 @@ void wrap(py::module& m) {
             }),
             // L2 distance type default 1.2, IP/Cosine 0.95
             py::arg("alpha") = svs::FLOAT_PLACEHOLDER,
-            py::arg("graph_max_degree") = svs::GRAPH_MAX_DEGREE_DEFAULT,
-            py::arg("window_size") = svs::WINDOW_SIZE_DEFAULT,
+            py::arg("graph_max_degree") = svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT,
+            py::arg("window_size") = svs::VAMANA_WINDOW_SIZE_DEFAULT,
             // Default is graph_max_degree * 2
             py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
             // If graph_max_degree >= 16, default graph_max_degree - 4, otherwise
             // graph_max_degree
             py::arg("prune_to") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
-            py::arg("use_full_search_history") = svs::USE_FULL_SEARCH_HISTORY_DEFAULT,
+            py::arg("use_full_search_history") =
+                svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT,
             R"(
             Construct a new instance from keyword arguments.
 

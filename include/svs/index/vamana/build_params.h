@@ -50,12 +50,12 @@ struct VamanaBuildParameters {
     /// The maximum degree in the graph. A higher max degree may yield a higher quality
     /// graph in terms of recall for performance, but the memory footprint of the graph is
     /// directly proportional to the maximum degree.
-    size_t graph_max_degree = svs::GRAPH_MAX_DEGREE_DEFAULT;
+    size_t graph_max_degree = svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT;
 
     /// The search window size to use during graph construction. A higher search window
     /// size will yield a higher quality graph since more overall vertices are considered,
     /// but will increase construction time.
-    size_t window_size = svs::WINDOW_SIZE_DEFAULT;
+    size_t window_size = svs::VAMANA_WINDOW_SIZE_DEFAULT;
 
     /// Set a limit on the number of neighbors considered during pruning. In practice, set
     /// this to a high number (at least 5 times greater than the window_size) and forget
@@ -71,7 +71,7 @@ struct VamanaBuildParameters {
     /// search history can be used.
     ///
     /// The latter case may yield a slightly better graph as the cost of more search time.
-    bool use_full_search_history = svs::USE_FULL_SEARCH_HISTORY_DEFAULT;
+    bool use_full_search_history = svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT;
 
     ///// Comparison
     friend bool
