@@ -26,6 +26,8 @@
 #include "svs/lib/dispatcher.h"
 #include "svs/orchestrators/dynamic_vamana.h"
 
+#include "svs/fallback/fallback.h"
+
 // pybind
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -42,6 +44,8 @@ namespace py = pybind11;
 namespace svs::python::dynamic_vamana {
 
 namespace {
+
+namespace lvq = svs::quantization::lvq;
 
 template <typename ElementType>
 svs::DynamicVamana build_from_array(
@@ -214,13 +218,76 @@ svs::DynamicVamana assemble_uncompressed(
     );
 }
 
+template <
+    typename Dist,
+    size_t Primary,
+    size_t Residual,
+    lvq::LVQPackingStrategy Strategy,
+    size_t N>
+svs::DynamicVamana assemble_lvq(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    svs::quantization::lvq::LVQLoader<Primary, Residual, N, Strategy, Allocator> loader,
+    Dist distance,
+    size_t num_threads,
+    bool debug_load_from_static
+) {
+    auto load_graph = svs::lib::Lazy([&]() {
+        return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
+    });
+
+    return svs::DynamicVamana::assemble<float>(
+        config_path,
+        load_graph,
+        loader.rebind_alloc(as_blocked),
+        distance,
+        num_threads,
+        debug_load_from_static
+    );
+}
+
+template <typename Dist, typename Primary, typename Secondary, size_t L, size_t N>
+svs::DynamicVamana assemble_leanvec(
+    const std::filesystem::path& config_path,
+    const UnspecializedGraphLoader& graph_loader,
+    svs::leanvec::LeanVecLoader<Primary, Secondary, L, N, Allocator> loader,
+    Dist distance,
+    size_t num_threads,
+    bool debug_load_from_static
+) {
+    auto load_graph = svs::lib::Lazy([&]() {
+        return svs::graphs::SimpleBlockedGraph<uint32_t>::load(graph_loader.path());
+    });
+
+    return svs::DynamicVamana::assemble<float>(
+        config_path,
+        load_graph,
+        loader.rebind_alloc(as_blocked),
+        distance,
+        num_threads,
+        debug_load_from_static
+    );
+}
+
 template <typename Dispatcher> void register_assembly(Dispatcher& dispatcher) {
     for_standard_specializations([&]<typename Q, typename T, typename D, size_t N>() {
         dispatcher.register_target(&assemble_uncompressed<Q, T, D, N>);
     });
+
+    for_compressed_specializations(
+        [&]<typename D, size_t P, size_t R, lvq::LVQPackingStrategy S, size_t N>() {
+            dispatcher.register_target(&assemble_lvq<D, P, R, S, N>);
+        }
+    );
+
+    for_leanvec_specializations([&]<typename D, typename P, typename S, size_t L, size_t N>(
+                                ) {
+        dispatcher.register_target(&assemble_leanvec<D, P, S, L, N>);
+    });
 }
 
-using DynamicVamanaAssembleTypes = std::variant<UnspecializedVectorDataLoader>;
+using DynamicVamanaAssembleTypes =
+    std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec>;
 
 svs::DynamicVamana assemble(
     const std::string& config_path,

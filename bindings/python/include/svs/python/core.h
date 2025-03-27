@@ -27,6 +27,8 @@
 #include "svs/lib/meta.h"
 #include "svs/lib/misc.h"
 
+#include "svs/fallback/fallback.h"
+
 // pybind
 #include <pybind11/pybind11.h>
 
@@ -117,6 +119,22 @@ class UnspecializedGraphLoader {
 // Distance Aliases
 using DistanceL2 = svs::distance::DistanceL2;
 using DistanceIP = svs::distance::DistanceIP;
+
+/////
+///// LVQ
+/////
+
+// Compressors - online compression of existing data
+using LVQReloader = svs::quantization::lvq::Reload;
+using LVQ = svs::quantization::lvq::ProtoLVQLoader<Allocator>;
+
+/////
+///// LeanVec
+/////
+
+// Dimensionality reduction using LeanVec
+using LeanVecReloader = svs::leanvec::Reload;
+using LeanVec = svs::leanvec::ProtoLeanVecLoader<Allocator>;
 
 namespace core {
 void wrap(pybind11::module& m);
