@@ -15,10 +15,9 @@
  */
 
 // svs
-#include "svs/quantization/scalar/scalar.h"
+#include "svs/quantization/scalar.h"
 #include "svs/core/data/simple.h"
 #include "svs/lib/meta.h"
-#include "svs/quantization/scalar.h"
 
 #include "tests/svs/core/data/data.h"
 #include "tests/utils/test_dataset.h"
@@ -106,7 +105,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         auto delta = std::vector<float>(original.dimensions());
         for (size_t i = 0; i < original.size(); ++i) {
             auto datum = original.get_datum(i);
-            auto sq_datum = sq_dataset.get_datum(i);
+            auto sq_datum = sq_dataset.decompress_datum(i);
 
             for (size_t j = 0; j < dims; ++j) {
                 float r = datum[j] - sq_datum[j];
@@ -117,7 +116,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         // Set a datum and check if it is the same.
         auto datum = original.get_datum(0);
         sq_dataset.set_datum(0, datum);
-        auto sq_datum = sq_dataset.get_datum(0);
+        auto sq_datum = sq_dataset.decompress_datum(0);
         for (size_t j = 0; j < dims; ++j) {
             float r = datum[j] - sq_datum[j];
             CATCH_REQUIRE(std::abs(r) < max_error);

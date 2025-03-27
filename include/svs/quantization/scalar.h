@@ -43,7 +43,7 @@ class EuclideanCompressed {
         : query_fp32_{1, dims}
         , scale_{scale}
         , bias_{bias}
-        , scale_sq_{scale * scale} {}
+        , scale_T_{1.0F / scale} {}
 
     EuclideanCompressed shallow_copy() const {
         return EuclideanCompressed(scale_, bias_, query_fp32_.dimensions());
@@ -60,7 +60,7 @@ class EuclideanCompressed {
         requires(lib::is_spanlike_v<T>)
     {
         auto inner = distance::DistanceL2{};
-        return scale_sq_ * distance::compute(inner, view_query(), y);
+        return scale_T_ * distance::compute(inner, view_query(), y);
     }
 
   private:
@@ -68,7 +68,7 @@ class EuclideanCompressed {
     float scale_;
     float bias_;
 
-    float scale_sq_;
+    float scale_T_;
 };
 
 class InnerProductCompressed {
@@ -82,7 +82,7 @@ class InnerProductCompressed {
         : query_fp32_{1, dims}
         , scale_{scale}
         , bias_{bias}
-        , scale_sq_{scale * scale} {}
+        , scale_sq_T_{1.0F / (scale * scale)} {}
 
     InnerProductCompressed shallow_copy() const {
         return InnerProductCompressed(scale_, bias_, query_fp32_.dimensions());
@@ -90,9 +90,6 @@ class InnerProductCompressed {
 
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
-
-        float sum = eve::algo::reduce(query, 0.0f);
-        offset_ = bias_ * scale_ * sum;
     }
 
     std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
@@ -102,7 +99,9 @@ class InnerProductCompressed {
         requires(lib::is_spanlike_v<T>)
     {
         auto inner = distance::DistanceIP{};
-        return scale_sq_ * distance::compute(inner, view_query(), y) + offset_;
+        float sum = eve::algo::reduce(y, 0.0f);
+        float ip = distance::compute(inner, view_query(), y);
+        return scale_sq_T_ * (ip - bias_ * sum);
     }
 
   private:
@@ -111,8 +110,7 @@ class InnerProductCompressed {
     float bias_;
 
     // pre-computed values
-    float scale_sq_;
-    float offset_ = 0;
+    float scale_sq_T_;
 };
 
 class CosineSimilarityCompressed {
@@ -125,7 +123,9 @@ class CosineSimilarityCompressed {
     CosineSimilarityCompressed(float scale, float bias, size_t dims)
         : query_fp32_{1, dims}
         , scale_{scale}
-        , bias_{bias} {}
+        , bias_{bias}
+        , inner_{}
+        , scale_T_{1.0F / scale} {}
 
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
@@ -140,7 +140,7 @@ class CosineSimilarityCompressed {
     {
         std::vector<float> y_biased(y.size());
         std::transform(y.begin(), y.end(), y_biased.begin(), [&](float v) {
-            return (v - bias_) / scale_;
+            return (v - bias_) * scale_T_;
         });
         return distance::compute(inner_, view_query(), std::span<const float>(y_biased));
     }
@@ -151,6 +151,7 @@ class CosineSimilarityCompressed {
     float bias_;
 
     distance::DistanceCosineSimilarity inner_;
+    float scale_T_;
 };
 
 namespace detail {
@@ -247,9 +248,14 @@ template <typename T> struct Compressor {
                 for (size_t i = range.start(); i < range.stop(); ++i) {
                     // Compress datum
                     auto datum = data.get_datum(i);
-                    for (size_t d = 0; d < data.dimensions(); ++d) {
-                        buffer[d] = compress<float, std::int8_t>(datum[d], scale_, bias_);
-                    }
+                    std::transform(
+                        datum.begin(),
+                        datum.end(),
+                        buffer.begin(),
+                        [&](float v) {
+                            return compress<float, std::int8_t>(v, scale_, bias_);
+                        }
+                    );
                     // Store to compressed dataset
                     compressed.set_datum(i, buffer);
                 }
@@ -330,17 +336,15 @@ class SQDataset {
     float get_scale() const { return scale_; }
     float get_bias() const { return bias_; }
 
-    const_value_type get_datum(size_t i) const {
-        return data_.get_datum(i);
-        // decompress data
-        // auto result = std::vector<float>(dimensions());
-        // compressed_value_type compressed = data_.get_datum(i);
-        // for (size_t j = 0; j < dimensions(); ++j) {
-        //     auto val = static_cast<float>(compressed[j]);
-        //     result[j] = scale_ * val + bias_;
-        // }
+    const_value_type get_datum(size_t i) const { return data_.get_datum(i); }
 
-        // return result;
+    std::vector<float> decompress_datum(size_t i) const {
+        auto datum = get_datum(i);
+        std::vector<float> buffer(datum.size());
+        std::transform(datum.begin(), datum.end(), buffer.begin(), [&](std::int8_t v) {
+            return detail::decompress(v, scale_, bias_);
+        });
+        return buffer;
     }
 
     template <typename QueryType, size_t N>
@@ -350,9 +354,9 @@ class SQDataset {
 
         // Compress elements
         std::vector<std::int8_t> buffer(dims);
-        for (size_t j = 0; j < dims; ++j) {
-            buffer[j] = detail::compress<QueryType, std::int8_t>(datum[j], scale_, bias_);
-        }
+        std::transform(datum.begin(), datum.end(), buffer.begin(), [&](QueryType v) {
+            return detail::compress<QueryType, std::int8_t>(v, scale_, bias_);
+        });
 
         data_.set_datum(i, buffer);
         // TODO: Float16 truncation check? (see codec.h, line 1[14)
