@@ -72,6 +72,9 @@ template <typename F> void for_leanvec_specializations(F&& f) {
 
     X(DistanceL2, svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic);
     X(DistanceIP, svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, Dynamic, Dynamic);
+
+    X(DistanceL2, svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic);
+    X(DistanceIP, svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<4>, Dynamic, Dynamic);
 #undef X
 }
 
