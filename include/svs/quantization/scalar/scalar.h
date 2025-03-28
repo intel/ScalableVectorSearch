@@ -34,7 +34,21 @@ namespace svs {
 namespace quantization {
 namespace scalar {
 
-class EuclideanCompressed {
+namespace detail {
+template <typename Original, typename Compressed>
+Compressed compress(Original val, float scale, float bias) {
+    static constexpr auto MIN = std::numeric_limits<Compressed>::min();
+    static constexpr auto MAX = std::numeric_limits<Compressed>::max();
+    return std::clamp<float>(std::round((val - bias) / scale), MIN, MAX);
+}
+
+template <typename Compressed> float decompress(Compressed val, float scale, float bias) {
+    return scale * float(val) + bias;
+}
+
+} // namespace detail
+
+template <typename ElementType> class EuclideanCompressed {
   public:
     using compare = std::less<>;
 
@@ -42,35 +56,42 @@ class EuclideanCompressed {
     static constexpr bool must_fix_argument = true;
 
     EuclideanCompressed(float scale, float bias, size_t dims)
-        : query_fp32_{1, dims}
+        : query_compressed_{1, dims}
         , scale_{scale}
         , bias_{bias}
-        , scale_T_{1.0F / scale} {}
+        , scale_sq_{scale * scale} {}
 
     EuclideanCompressed shallow_copy() const {
-        return EuclideanCompressed(scale_, bias_, query_fp32_.dimensions());
+        return EuclideanCompressed(scale_, bias_, query_compressed_.dimensions());
     }
 
     template <typename T> void fix_argument(const std::span<T>& query) {
-        query_fp32_.set_datum(0, query);
+        // Store the compressed query
+        std::vector<ElementType> compressed(query.size());
+        std::transform(query.begin(), query.end(), compressed.begin(), [&](T v) {
+            return detail::compress<T, ElementType>(v, scale_, bias_);
+        });
+        query_compressed_.set_datum(0, compressed);
     }
 
-    std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
+    std::span<const ElementType> view_query() const {
+        return query_compressed_.get_datum(0);
+    }
 
     template <typename T>
     float compute(const T& y) const
         requires(lib::is_spanlike_v<T>)
     {
         auto inner = distance::DistanceL2{};
-        return scale_T_ * distance::compute(inner, view_query(), y);
+        return scale_sq_ * distance::compute(inner, view_query(), y);
     }
 
   private:
-    data::SimpleData<float> query_fp32_;
+    data::SimpleData<ElementType> query_compressed_;
     float scale_;
     float bias_;
 
-    float scale_T_;
+    float scale_sq_;
 };
 
 class InnerProductCompressed {
@@ -83,8 +104,7 @@ class InnerProductCompressed {
     InnerProductCompressed(float scale, float bias, size_t dims)
         : query_fp32_{1, dims}
         , scale_{scale}
-        , bias_{bias}
-        , scale_sq_T_{1.0F / (scale * scale)} {}
+        , bias_{bias} {}
 
     InnerProductCompressed shallow_copy() const {
         return InnerProductCompressed(scale_, bias_, query_fp32_.dimensions());
@@ -92,6 +112,7 @@ class InnerProductCompressed {
 
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
+        offset_ = bias_ * eve::algo::reduce(query, 0.0f);
     }
 
     std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
@@ -101,9 +122,8 @@ class InnerProductCompressed {
         requires(lib::is_spanlike_v<T>)
     {
         auto inner = distance::DistanceIP{};
-        float sum = eve::algo::reduce(y, 0.0f);
         float ip = distance::compute(inner, view_query(), y);
-        return scale_sq_T_ * (ip - bias_ * sum);
+        return scale_ * ip + offset_;
     }
 
   private:
@@ -111,8 +131,7 @@ class InnerProductCompressed {
     float scale_;
     float bias_;
 
-    // pre-computed values
-    float scale_sq_T_;
+    float offset_ = 0;
 };
 
 class CosineSimilarityCompressed {
@@ -126,8 +145,7 @@ class CosineSimilarityCompressed {
         : query_fp32_{1, dims}
         , scale_{scale}
         , bias_{bias}
-        , inner_{}
-        , scale_T_{1.0F / scale} {}
+        , inner_{} {}
 
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
@@ -140,11 +158,11 @@ class CosineSimilarityCompressed {
     float compute(const T& y) const
         requires(lib::is_spanlike_v<T>)
     {
-        std::vector<float> y_biased(y.size());
-        std::transform(y.begin(), y.end(), y_biased.begin(), [&](float v) {
-            return (v - bias_) * scale_T_;
+        std::vector<float> y_decomp(y.size());
+        std::transform(y.begin(), y.end(), y_decomp.begin(), [&](auto v) {
+            return detail::decompress<float>(v, scale_, bias_);
         });
-        return distance::compute(inner_, view_query(), std::span<const float>(y_biased));
+        return distance::compute(inner_, view_query(), std::span<const float>(y_decomp));
     }
 
   private:
@@ -153,21 +171,9 @@ class CosineSimilarityCompressed {
     float bias_;
 
     distance::DistanceCosineSimilarity inner_;
-    float scale_T_;
 };
 
 namespace detail {
-
-template <typename Original, typename Compressed>
-Compressed compress(Original val, float scale, float bias) {
-    static constexpr auto MIN = std::numeric_limits<Compressed>::min();
-    static constexpr auto MAX = std::numeric_limits<Compressed>::max();
-    return std::clamp<float>(std::round((val - bias) / scale), MIN, MAX);
-}
-
-template <typename Compressed> float decompress(Compressed val, float scale, float bias) {
-    return scale * float(val) + bias;
-}
 
 struct MinMaxAccumulator {
     float min = 0.0;
@@ -274,17 +280,20 @@ template <typename Element, typename Data> struct Compressor {
 };
 
 // Map from baseline distance functors to the local versions.
-template <typename T> struct CompressedDistance;
+template <typename T, typename ElementType> struct CompressedDistance;
 
-template <> struct CompressedDistance<distance::DistanceL2> {
-    using type = EuclideanCompressed;
+template <typename ElementType>
+struct CompressedDistance<distance::DistanceL2, ElementType> {
+    using type = EuclideanCompressed<ElementType>;
 };
 
-template <> struct CompressedDistance<distance::DistanceIP> {
+template <typename ElementType>
+struct CompressedDistance<distance::DistanceIP, ElementType> {
     using type = InnerProductCompressed;
 };
 
-template <> struct CompressedDistance<distance::DistanceCosineSimilarity> {
+template <typename ElementType>
+struct CompressedDistance<distance::DistanceCosineSimilarity, ElementType> {
     using type = CosineSimilarityCompressed;
 };
 
@@ -301,8 +310,9 @@ inline constexpr bool compressed_data_trait_v = compressed_data_trait<T>::value;
 
 } // namespace detail
 
-template <typename T>
-using compressed_distance_t = typename detail::CompressedDistance<T>::type;
+template <typename Distance, typename ElementType>
+using compressed_distance_t =
+    typename detail::CompressedDistance<Distance, ElementType>::type;
 
 template <typename T>
 concept IsSQData = detail::compressed_data_trait_v<T>;

@@ -28,12 +28,12 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
 }
 
 template <IsSQData Data, typename Distance>
-compressed_distance_t<Distance> svs_invoke(
+auto svs_invoke(
     svs::tag_t<svs::index::vamana::extensions::single_search_setup>,
     const Data& data,
     const Distance& SVS_UNUSED(distance)
 ) {
-    return compressed_distance_t<Distance>(
+    return compressed_distance_t<Distance, typename Data::element_type>(
         data.get_scale(), data.get_bias(), data.dimensions()
     );
 }
