@@ -430,14 +430,10 @@ void wrap(py::module& m) {
                     prune_to,
                     use_full_search_history};
             }),
-            // L2 distance type default 1.2, IP/Cosine 0.95
             py::arg("alpha") = svs::FLOAT_PLACEHOLDER,
             py::arg("graph_max_degree") = svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT,
             py::arg("window_size") = svs::VAMANA_WINDOW_SIZE_DEFAULT,
-            // Default is graph_max_degree * 2
             py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
-            // If graph_max_degree >= 16, default graph_max_degree - 4, otherwise
-            // graph_max_degree
             py::arg("prune_to") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
             py::arg("use_full_search_history") =
                 svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT,
@@ -449,26 +445,24 @@ void wrap(py::module& m) {
                     For distance types favoring minimization, set this to a number
                     greater than 1.0 (typically, 1.2 is sufficient). For distance types
                     preferring maximization, set to a value less than 1.0 (such as 0.95).
-                    The default value is 1.2 for L2 distance type and 0.95 for IP/Cosine.
+                    The default value is 1.2 for L2 distance type and 0.95 for MIP/Cosine.
                 graph_max_degree: The maximum out-degree in the final graph. Graphs with
                     a higher degree tend to yield better accuracy and performance at the cost
-                    of a larger memory footprint. The default value is 32.
+                    of a larger memory footprint.
                 window_size: Parameter controlling the quality of graph construction. A
                     larger window size will yield a higher-quality index at the cost of
                     longer construction time. Should be larger than `graph_max_degree`.
-                    The default value is 64.
                 max_candidate_pool_size: Limit on the number of candidates to consider
                     for neighbor updates. Should be larger than `window_size`.
-                    The default value is `graph_max_degree` * 2.
+                    The default value is ``graph_max_degree`` * 2.
                 prune_to: Amount candidate lists will be pruned to when exceeding the
                     target max degree. In general, setting this to slightly less than
-                    `graph_max_degree` will yield faster index building times. Default:
-                    `graph_max_degree`. The default value is `graph_max_degree` - 4 if
-                    `graph_max_degree` is at least 16, otherwise it equals `graph_max_degree`.
+                    ``graph_max_degree`` will yield faster index building times. Default:
+                    ` `graph_max_degree`` - 4 if
+                    ``graph_max_degree`` is at least 16, otherwise ``graph_max_degree``.
                 use_full_search_history: When true, uses the full search history during
                     graph construction, which can improve graph quality at the expense of
                     additional memory and potentially longer build times.
-                    The default value is true.
             )"
         )
         .def_readwrite("alpha", &svs::index::vamana::VamanaBuildParameters::alpha)
