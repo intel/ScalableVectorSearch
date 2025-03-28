@@ -163,7 +163,7 @@ int svs_main(std::vector<std::string> args) {
     namespace scalar = svs::quantization::scalar;
 
     // Wrap the compressor object in a lazy functor.
-    // This will defer loading and compression of the LVQ dataset until the threadpool
+    // This will defer loading and compression of the SQ dataset until the threadpool
     // used in the index has been created.
     auto compressor = svs::lib::Lazy([=](svs::threads::ThreadPool auto& threadpool) {
         auto data = svs::VectorDataLoader<float, 128>("example_data").load();
