@@ -18,10 +18,10 @@
 
 //! [Includes]
 // SVS Dependencies
-#include "svs/orchestrators/vamana.h"     // bulk of the dependencies required.
-#include "svs/core/recall.h"              // Convenient k-recall@n computation.
-#include "svs/extensions/vamana/scalar.h" // SQ vamana extensions.
-#include "svs/quantization/scalar.h"      // SQ implementation.
+#include "svs/orchestrators/vamana.h"       // bulk of the dependencies required.
+#include "svs/core/recall.h"                // Convenient k-recall@n computation.
+#include "svs/extensions/vamana/scalar.h"   // SQ vamana extensions.
+#include "svs/quantization/scalar/scalar.h" // SQ implementation.
 
 // Alternative main definition
 #include "svsmain.h"

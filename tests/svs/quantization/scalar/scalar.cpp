@@ -15,7 +15,7 @@
  */
 
 // svs
-#include "svs/quantization/scalar.h"
+#include "svs/quantization/scalar/scalar.h"
 #include "svs/core/data/simple.h"
 #include "svs/lib/meta.h"
 

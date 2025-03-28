@@ -26,7 +26,9 @@
 #include "svs/lib/version.h"
 
 // stl
+#include <concepts>
 #include <memory>
+#include <variant>
 
 namespace svs {
 namespace quantization {
@@ -286,10 +288,24 @@ template <> struct CompressedDistance<distance::DistanceCosineSimilarity> {
     using type = CosineSimilarityCompressed;
 };
 
+// Trait to identify whether a type has `uses_compressed_data`
+template <typename T, typename = void> struct compressed_data_trait : std::false_type {};
+
+// Specialization for types that have `uses_compressed_data == true`
+template <typename T>
+struct compressed_data_trait<T, std::void_t<decltype(T::uses_compressed_data)>>
+    : std::bool_constant<T::uses_compressed_data> {};
+
+template <typename T>
+inline constexpr bool compressed_data_trait_v = compressed_data_trait<T>::value;
+
 } // namespace detail
 
 template <typename T>
 using compressed_distance_t = typename detail::CompressedDistance<T>::type;
+
+template <typename T>
+concept IsSQData = detail::compressed_data_trait_v<T>;
 
 inline constexpr std::string_view scalar_quantization_serialization_schema =
     "scalar_quantization_dataset";
