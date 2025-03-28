@@ -45,6 +45,8 @@ template <typename T, size_t N> void test_sq_top() {
     constexpr float exp_scale = 254.0F / float(MAX - MIN);
     // Bias is calculated as min_data - min_quant * scale
     constexpr float exp_bias = -127.0F - MIN * exp_scale;
+    // Calculations are performed in float everywhere and should therefore produce the exact
+    // same results
     CATCH_REQUIRE(sq_dataset.get_scale() == exp_scale);
     CATCH_REQUIRE(sq_dataset.get_bias() == exp_bias);
 

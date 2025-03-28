@@ -168,10 +168,10 @@ template <typename Compressed> float decompress(Compressed val, float scale, flo
 }
 
 struct MinMaxAccumulator {
-    double min = 0.0;
-    double max = 0.0;
+    float min = 0.0;
+    float max = 0.0;
 
-    void accumulate(double val) {
+    void accumulate(float val) {
         min = std::min(min, val);
         max = std::max(max, val);
     }
