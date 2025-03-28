@@ -140,6 +140,8 @@ set(TEST_SOURCES
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
     ${TEST_DIR}/svs/index/inverted/memory_based.cpp
+    # Fallback
+    ${TEST_DIR}/svs/fallback/fallback.cpp
 
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
 )
