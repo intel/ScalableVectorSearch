@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <limits>
+
 namespace svs::preprocessor::detail {
 
 // consteval functions for working with preprocessor defines.
@@ -159,3 +162,14 @@ inline constexpr bool have_avx512_avx2 = true;
 #endif
 
 } // namespace svs::arch
+
+namespace svs {
+// Maximum values used as default initializers
+inline constexpr size_t UNSIGNED_INTEGER_PLACEHOLDER = std::numeric_limits<size_t>::max();
+inline constexpr float FLOAT_PLACEHOLDER = std::numeric_limits<float>::max();
+inline constexpr float VAMANA_GRAPH_MAX_DEGREE_DEFAULT = 32;
+inline constexpr float VAMANA_WINDOW_SIZE_DEFAULT = 64;
+inline constexpr bool VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT = true;
+inline constexpr float VAMANA_ALPHA_MINIMIZE_DEFAULT = 1.2;
+inline constexpr float VAMANA_ALPHA_MAXIMIZE_DEFAULT = 0.95;
+} // namespace svs
