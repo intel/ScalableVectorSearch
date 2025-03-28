@@ -160,11 +160,11 @@ template <typename Original, typename Compressed>
 Compressed compress(Original val, float scale, float bias) {
     static constexpr auto MIN = std::numeric_limits<Compressed>::min();
     static constexpr auto MAX = std::numeric_limits<Compressed>::max();
-    return std::clamp<float>(std::round((val - bias) / scale), MIN, MAX);
+    return std::clamp<float>(std::round(scale * val + bias), MIN, MAX);
 }
 
 template <typename Compressed> float decompress(Compressed val, float scale, float bias) {
-    return scale * float(val) + bias;
+    return (val - bias) / scale;
 }
 
 struct MinMaxAccumulator {
@@ -381,8 +381,8 @@ class SQDataset {
         // Compute scale and bias
         constexpr float MIN = std::numeric_limits<element_type>::min();
         constexpr float MAX = std::numeric_limits<element_type>::max();
-        float scale = (global.max - global.min) / (MAX - MIN);
-        float bias = global.min - MIN * scale;
+        float scale = (MAX - MIN) / (global.max - global.min);
+        float bias = MIN - scale * global.min;
 
         // Compress data
         auto compressor = detail::Compressor<element_type, data_type>{scale, bias};

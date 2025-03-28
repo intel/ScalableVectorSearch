@@ -37,14 +37,15 @@ template <typename T, size_t N> void test_sq_top() {
     CATCH_REQUIRE(sq_dataset.dimensions() == original.dimensions());
 
     // Assert scale and bias are calculated correctly
-    // Scale is calculated from (max_data - min_data) / (max_quant - min_quant)
+    // Compression is a linear transformation x -> scale * x + bias
+    // Scale is calculated as (MAX - MIN) / (max_data - min_data)
     // The dataset features values [-127, 127], the quantization range is given by the MIN
     // and MAX elements of the provided type.
     constexpr float MIN = std::numeric_limits<T>::min();
     constexpr float MAX = std::numeric_limits<T>::max();
-    constexpr float exp_scale = 254.0F / float(MAX - MIN);
-    // Bias is calculated as min_data - min_quant * scale
-    constexpr float exp_bias = -127.0F - MIN * exp_scale;
+    constexpr float exp_scale = float(MAX - MIN) / 254.0F;
+    // Bias is calculated as MIN - scale * min_data
+    constexpr float exp_bias = MIN - exp_scale * -127.0F;
     CATCH_REQUIRE(sq_dataset.get_scale() == exp_scale);
     CATCH_REQUIRE(sq_dataset.get_bias() == exp_bias);
 
