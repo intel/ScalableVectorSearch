@@ -47,7 +47,6 @@ jobs:
     - name: Build Wheel
       env:
         TEMP_WORKSPACE: ${{ runner.temp }}/usr
-        SKBUILD_CMAKE_ARGS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
       run: |
         cd ${GITHUB_WORKSPACE}
         cibuildwheel --only $(python tools/pybuild.py) bindings/python
