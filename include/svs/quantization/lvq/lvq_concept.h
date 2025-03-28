@@ -16,180 +16,28 @@
 
 #pragma once
 
-#include "svs/core/data/simple.h"
-#include "svs/lib/threads.h"
-#include "svs/lib/saveload/save.h"
-#include "svs/fallback/fallback_mode.h"
+#ifndef USE_PROPRIETARY
 
-namespace fallback = svs::fallback;
+#include "svs/quantization/lvq/lvq_fallback.h"
+
+#else // USE_PROPRIETARY
+
+#include "../../../../../include/svs/quantization/lvq/lvq.h"
+
+#endif // USE_PROPRIETARY
 
 namespace svs {
 namespace quantization {
 namespace lvq {
 
-// TODO: should these be fully defined?
-struct Sequential {
-    static constexpr std::string_view name() { return "sequential"; }
-};
-template <size_t Lanes, size_t ElementsPerLane> struct Turbo {
-    static constexpr std::string name() {
-        return fmt::format("turbo<{}x{}>", Lanes, ElementsPerLane);
-    }
-};
+/////
+///// Load Helpers
+/////
 
-namespace detail {
-
-// Trait to identify and dispatch based on the Turbo class itself.
-template <typename T> inline constexpr bool is_turbo_like_v = false;
-template <typename T> inline constexpr bool is_lvq_packing_strategy_v = false;
-
-template <size_t Lanes, size_t ElementsPerLane>
-inline constexpr bool is_turbo_like_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
-
-template <> inline constexpr bool is_lvq_packing_strategy_v<lvq::Sequential> = true;
-template <size_t Lanes, size_t ElementsPerLane>
-
-inline constexpr bool is_lvq_packing_strategy_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
-
-template <typename A> inline constexpr bool is_blocked = false;
-template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
-
-template <typename T, typename A, bool = is_blocked<A>> struct select_rebind_allocator {
-    using type = lib::rebind_allocator_t<T, A>;
-};
-template <typename T, typename A> struct select_rebind_allocator<T, A, true> {
-    using base_allocator = typename A::allocator_type;
-    using rebind_base_allocator = lib::rebind_allocator_t<T, base_allocator>;
-    using type = data::Blocked<rebind_base_allocator>;
-};
-template <typename T, typename A>
-using select_rebind_allocator_t = typename select_rebind_allocator<T, A>::type;
-
-} // namespace detail
-
-template <typename T>
-concept LVQPackingStrategy = detail::is_lvq_packing_strategy_v<T>;
-
-enum class LVQStrategyDispatch { Auto, Sequential, Turbo };
-
-// LVQDataset
-template <
-    size_t Primary,
-    size_t Residual = 0,
-    size_t Extent = Dynamic,
-    LVQPackingStrategy Strategy = Sequential,
-    typename Alloc = lib::Allocator<std::byte>>
-class LVQDataset {
-  public:
-    using allocator_type = detail::select_rebind_allocator_t<float, Alloc>;
-  private:
-    data::SimpleData<float, Extent, allocator_type> primary_;
-  public:
-    static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
-    using const_value_type = typename data::SimpleData<float, Extent, allocator_type>::const_value_type;
-    using element_type = float;
-    using value_type = const_value_type;
-    using primary_type = data::SimpleData<float, Extent, allocator_type>;
-    void resize(size_t new_size)
-        requires is_resizeable
-    {
-        primary_.resize(new_size);
-    }
-    template <std::integral I, threads::ThreadPool Pool>
-        requires is_resizeable
-    void
-    compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000) {
-        primary_.compact(new_to_old, threadpool, batchsize);
-    }
-
-    template <data::ImmutableMemoryDataset Dataset>
-        LVQDataset(Dataset primary): primary_{primary} {
-        if (fallback::get_mode() == fallback::FallbackMode::Error) {
-            throw fallback::UnsupportedHardwareError();
-        } else if (fallback::get_mode() == fallback::FallbackMode::Warning) {
-            fmt::print(fallback::fallback_warning);
-        }
-    }
-
-    size_t size() const { return primary_.size(); }
-    size_t dimensions() const { return primary_.dimensions(); }
-    const_value_type get_datum(size_t i) const { return primary_.get_datum(i); }
-    void prefetch(size_t i) const { primary_.prefetch(i); }
-
-    template <typename QueryType, size_t N>
-    void set_datum(size_t i, std::span<QueryType, N> datum, size_t SVS_UNUSED(centroid_selector) = 0) {
-        primary_.set_datum(i, datum);
-    }
-
-    template <data::ImmutableMemoryDataset Dataset>
-    static LVQDataset compress(const Dataset& data, const Alloc& allocator = {}) {
-        return compress(data, 1, 0, allocator);
-    }
-
-    template <data::ImmutableMemoryDataset Dataset>
-    static LVQDataset compress(
-        const Dataset& data,
-        size_t num_threads,
-        size_t alignment,
-        const Alloc& allocator = {}
-    ) {
-        auto pool = threads::NativeThreadPool{num_threads};
-        return compress(data, pool, alignment, allocator);
-    }
-
-    template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
-    static LVQDataset compress(
-        const Dataset& data,
-        Pool& SVS_UNUSED(threadpool),
-        size_t SVS_UNUSED(alignment),
-        const Alloc& allocator = {}
-    ) {
-        primary_type primary = primary_type{data.size(), data.dimensions(), allocator_type{allocator}};
-        svs::data::copy(data, primary);
-        return LVQDataset{primary};
-    }
-
-    
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    static constexpr std::string_view serialization_schema = "lvq_fallback";
-    lib::SaveTable save(const lib::SaveContext& ctx) const {
-        return lib::SaveTable(
-            serialization_schema,
-            save_version,
-            {SVS_LIST_SAVE_(primary, ctx)}
-        );
-    }
-
-    static LVQDataset load(
-        const lib::LoadTable& table,
-        size_t SVS_UNUSED(alignment) = 0,
-        const Alloc& allocator = {}
-    ) {
-        return LVQDataset{SVS_LOAD_MEMBER_AT_(table, primary, allocator)};
-    }
-};
-
-struct Reload {
-  public:
-    explicit Reload(const std::filesystem::path& directory)
-        : directory{directory} {}
-
-    std::filesystem::path directory;
-};
-
-template <
-    size_t Primary,
-    size_t Residual,
-    size_t Extent,
-    LVQPackingStrategy Strategy,
-    typename Alloc>
-struct LVQLoader;
-
-inline constexpr std::string_view one_level_serialization_schema = "one_level_lvq_dataset";
-inline constexpr lib::Version one_level_save_version = lib::Version(0, 0, 2);
-inline constexpr std::string_view two_level_serialization_schema = "two_level_lvq_dataset";
-inline constexpr lib::Version two_level_save_version = lib::Version(0, 0, 3);
+// Types to use for lazy compression.
 inline constexpr lib::Types<float, Float16> CompressionTs{};
+
+// How are we expecting to obtain the data.
 struct OnlineCompression {
   public:
     explicit OnlineCompression(const std::filesystem::path& path, DataType type)
@@ -204,85 +52,46 @@ struct OnlineCompression {
     std::filesystem::path path;
     DataType type;
 };
-using SourceTypes = std::variant<OnlineCompression, Reload>;
 
-enum class DatasetSchema { Compressed, ScaledBiased };
-struct Signed {
-    static constexpr std::string_view name = "signed";
-};
-inline constexpr std::string_view get_schema(DatasetSchema kind) {
-    switch (kind) {
-        using enum DatasetSchema;
-        case Compressed: {
-            return "lvq_compressed_dataset";
-        }
-        case ScaledBiased: {
-            return "lvq_with_scaling_constants";
-        }
-    }
-    throw ANNEXCEPTION("Invalid schema!");
-}
-inline constexpr lib::Version get_current_version(DatasetSchema kind) {
-    switch (kind) {
-        using enum DatasetSchema;
-        case Compressed: {
-            return lib::Version(0, 0, 0);
-        }
-        case ScaledBiased: {
-            return lib::Version(0, 0, 3);
-        }
-    }
-    throw ANNEXCEPTION("Invalid schema!");
-}
-struct DatasetSummary {
-    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
-        using enum DatasetSchema;
-        if (schema == get_schema(Compressed) &&
-            version == get_current_version(Compressed)) {
-            return true;
-        }
-        if (schema == get_schema(ScaledBiased) &&
-            version == get_current_version(ScaledBiased)) {
-            return true;
-        }
-        return false;
-    }
-
-    static DatasetSummary load(const lib::ContextFreeLoadTable& table) {
-        using enum DatasetSchema;
-        auto schema = table.schema();
-        if (schema == get_schema(Compressed)) {
-            return DatasetSummary{
-                .kind = Compressed,
-                .is_signed =
-                    (lib::load_at<std::string>(table, "sign") == lvq::Signed::name),
-                .dims = lib::load_at<size_t>(table, "ndims"),
-                .bits = lib::load_at<size_t>(table, "bits")};
-        }
-        if (schema == get_schema(ScaledBiased)) {
-            return DatasetSummary{
-                .kind = ScaledBiased,
-                .is_signed = false, // ScaledBiased always uses unsigned codes.
-                .dims = lib::load_at<size_t>(table, "logical_dimensions"),
-                .bits = lib::load_at<size_t>(table, "bits")};
-        }
-        throw ANNEXCEPTION("Invalid table schema {}!", schema);
-    }
+///
+/// @brief Dispatch type indicating that a compressed dataset should be reloaded
+/// directly.
+///
+/// LVQ based loaders can either perform dataset compression online, or reload a
+/// previously saved dataset.
+///
+/// Using this type in LVQ loader constructors indicates that reloading is
+/// desired.
+///
+struct Reload {
+  public:
+    ///
+    /// @brief Construct a new Reloader.
+    ///
+    /// @param directory The directory where a LVQ compressed dataset was
+    /// previously saved.
+    ///
+    explicit Reload(const std::filesystem::path& directory)
+        : directory{directory} {}
 
     ///// Members
-    // The kind of the leaf dataset.
-    DatasetSchema kind;
-    // Whether each LVQ element is signed.
-    bool is_signed;
-    // The logical number of dimensions in the dataset.
-    size_t dims;
-    // The number of bits used for compression.
-    size_t bits;
+    std::filesystem::path directory;
 };
 
-template <typename T>
-concept TurboLike = detail::is_turbo_like_v<T>;
+// The various ways we can instantiate LVQ-based datasets..
+using SourceTypes = std::variant<OnlineCompression, Reload>;
+
+// Forward Declaration.
+template <
+    size_t Primary,
+    size_t Residual,
+    size_t Extent,
+    LVQPackingStrategy Strategy,
+    typename Alloc>
+struct LVQLoader;
+
 namespace detail {
+
 template <LVQPackingStrategy Strategy>
 constexpr bool is_compatible(LVQStrategyDispatch strategy) {
     switch (strategy) {
@@ -298,30 +107,8 @@ constexpr bool is_compatible(LVQStrategyDispatch strategy) {
     }
     throw ANNEXCEPTION("Could not match strategy!");
 }
-}
-template <LVQPackingStrategy Strategy>
-int64_t overload_match_strategy(LVQStrategyDispatch strategy) {
-    constexpr bool is_sequential = std::is_same_v<Strategy, lvq::Sequential>;
-    constexpr bool is_turbo = lvq::TurboLike<Strategy>;
 
-    switch (strategy) {
-        // If sequential is requested - we can only match sequential.
-        case LVQStrategyDispatch::Sequential: {
-            return is_sequential ? lib::perfect_match : lib::invalid_match;
-        }
-        // If turbo is requested - we can only match turbo.
-        case LVQStrategyDispatch::Turbo: {
-            return is_turbo ? lib::perfect_match : lib::invalid_match;
-        }
-        case LVQStrategyDispatch::Auto: {
-            // Preference:
-            // (1) Turbo
-            // (2) Sequential
-            return is_turbo ? 0 : 1;
-        }
-    }
-    throw ANNEXCEPTION("Unreachable!");
-}
+} // namespace detail
 
 struct Matcher {
     // Load a matcher for either one or two level datasets.
@@ -376,6 +163,30 @@ struct Matcher {
     size_t dims;
 };
 
+template <LVQPackingStrategy Strategy>
+int64_t overload_match_strategy(LVQStrategyDispatch strategy) {
+    constexpr bool is_sequential = std::is_same_v<Strategy, lvq::Sequential>;
+    constexpr bool is_turbo = lvq::TurboLike<Strategy>;
+
+    switch (strategy) {
+        // If sequential is requested - we can only match sequential.
+        case LVQStrategyDispatch::Sequential: {
+            return is_sequential ? lib::perfect_match : lib::invalid_match;
+        }
+        // If turbo is requested - we can only match turbo.
+        case LVQStrategyDispatch::Turbo: {
+            return is_turbo ? lib::perfect_match : lib::invalid_match;
+        }
+        case LVQStrategyDispatch::Auto: {
+            // Preference:
+            // (1) Turbo
+            // (2) Sequential
+            return is_turbo ? 0 : 1;
+        }
+    }
+    throw ANNEXCEPTION("Unreachable!");
+}
+
 // Compatibility ranking for LVQ
 template <size_t Primary, size_t Residual, size_t Extent, LVQPackingStrategy Strategy>
 int64_t overload_score(size_t p, size_t r, size_t e, LVQStrategyDispatch strategy) {
@@ -414,7 +225,6 @@ int64_t overload_score(Matcher matcher, LVQStrategyDispatch strategy) {
         matcher.primary, matcher.residual, matcher.dims, strategy
     );
 }
-
 
 template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLVQLoader {
   public:
@@ -622,4 +432,5 @@ struct lib::DispatchConverter<
         );
     }
 };
-}
+
+} // namespace svs

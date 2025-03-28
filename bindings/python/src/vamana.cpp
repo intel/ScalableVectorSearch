@@ -32,8 +32,6 @@
 #include "svs/lib/meta.h"
 #include "svs/orchestrators/vamana.h"
 
-#include "svs/fallback/fallback.h"
-
 // pybind
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>

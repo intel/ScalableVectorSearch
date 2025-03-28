@@ -24,8 +24,6 @@
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/saveload.h"
 
-#include "svs/fallback/fallback.h"
-
 // Dispatch rule for serialized objects to a VectorDataLoader.
 template <typename T, size_t N>
 struct svs::lib::DispatchConverter<

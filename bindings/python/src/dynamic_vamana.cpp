@@ -26,8 +26,6 @@
 #include "svs/lib/dispatcher.h"
 #include "svs/orchestrators/dynamic_vamana.h"
 
-#include "svs/fallback/fallback.h"
-
 // pybind
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>

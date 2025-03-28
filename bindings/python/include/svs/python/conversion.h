@@ -16,12 +16,9 @@
 
 #pragma once
 
-#include "svs/fallback/fallback_mode.h"
-#include "svs/quantization/lvq/lvq_concept.h"
-#include "svs/leanvec/leanvec_concept.h"
+// pybind
+#include <pybind11/pybind11.h>
 
-#ifdef USE_PROPRIETARY
-
-#include "../../../../include/svs/fallback/fallback2.h"
-
-#endif // USE_PROPRIETARY
+namespace svs::python::conversion {
+void wrap(pybind11::module& m);
+} // namespace svs::python::conversion
