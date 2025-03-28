@@ -219,8 +219,7 @@ class MutableVamanaIndex {
         // Verify and set defaults directly on the input parameters
         verify_and_set_default_index_parameters(build_parameters_, distance_function);
 
-        // Initialize with unverified parameters first as there are no default constructors,
-        // Set it again it verify function may change values
+        //Set graph again as verify function might change graph_max_degree parameter
         graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
         construction_window_size_ = build_parameters_.window_size;
         max_candidates_ = build_parameters_.max_candidate_pool_size;
