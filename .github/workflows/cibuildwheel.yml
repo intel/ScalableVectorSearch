@@ -47,9 +47,10 @@ jobs:
     - name: Build Wheel
       env:
         TEMP_WORKSPACE: ${{ runner.temp }}/usr
+        SKBUILD_CMAKE_ARGS: "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
       run: |
         cd ${GITHUB_WORKSPACE}
-        cibuildwheel --only $(python tools/pybuild.py) bindings/python -- --cmake-args="-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+        cibuildwheel --only $(python tools/pybuild.py) bindings/python
         pip install ./wheelhouse/scalable_vs*.whl --target=${TEMP_WORKSPACE}
 
     # Make sure to add the location of the generated wheel to the python path.
