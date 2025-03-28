@@ -29,6 +29,12 @@
 
 #include "svs/fallback/fallback.h"
 
+#ifdef USE_PROPRIETARY
+
+#include "../../../../../../include/svs/fallback/fallback_python.h"
+
+#endif // USE_PROPRIETARY
+
 // pybind
 #include <pybind11/pybind11.h>
 
