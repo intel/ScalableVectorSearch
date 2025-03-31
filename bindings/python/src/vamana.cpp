@@ -30,6 +30,7 @@
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/orchestrators/vamana.h"
 
 // pybind
@@ -523,40 +524,22 @@ void wrap(py::module& m) {
                         size_t window_size,
                         size_t max_candidate_pool_size,
                         size_t prune_to,
-                        size_t num_threads) {
-                if (num_threads != std::numeric_limits<size_t>::max()) {
-                    PyErr_WarnEx(
-                        PyExc_DeprecationWarning,
-                        "Constructing VamanaBuildParameters with the \"num_threads\" "
-                        "keyword "
-                        "argument is deprecated, no longer has any effect, and will be "
-                        "removed "
-                        "from future versions of the library. Use the \"num_threads\" "
-                        "keyword "
-                        "argument of \"svs.Vamana.build\" instead!",
-                        1
-                    );
-                }
-
-                // Default the `prune_to` argument appropriately.
-                if (prune_to == std::numeric_limits<size_t>::max()) {
-                    prune_to = graph_max_degree;
-                }
-
+                        bool use_full_search_history) {
                 return svs::index::vamana::VamanaBuildParameters{
                     alpha,
                     graph_max_degree,
                     window_size,
                     max_candidate_pool_size,
                     prune_to,
-                    true};
+                    use_full_search_history};
             }),
-            py::arg("alpha") = 1.2,
-            py::arg("graph_max_degree") = 32,
-            py::arg("window_size") = 64,
-            py::arg("max_candidate_pool_size") = 80,
-            py::arg("prune_to") = std::numeric_limits<size_t>::max(),
-            py::arg("num_threads") = std::numeric_limits<size_t>::max(),
+            py::arg("alpha") = svs::FLOAT_PLACEHOLDER,
+            py::arg("graph_max_degree") = svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT,
+            py::arg("window_size") = svs::VAMANA_WINDOW_SIZE_DEFAULT,
+            py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
+            py::arg("prune_to") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
+            py::arg("use_full_search_history") =
+                svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT,
             R"(
             Construct a new instance from keyword arguments.
 
@@ -565,6 +548,7 @@ void wrap(py::module& m) {
                     For distance types favoring minimization, set this to a number
                     greater than 1.0 (typically, 1.2 is sufficient). For distance types
                     preferring maximization, set to a value less than 1.0 (such as 0.95).
+                    The default value is 1.2 for L2 distance type and 0.95 for MIP/Cosine.
                 graph_max_degree: The maximum out-degree in the final graph. Graphs with
                     a higher degree tend to yield better accuracy and performance at the cost
                     of a larger memory footprint.
@@ -573,10 +557,15 @@ void wrap(py::module& m) {
                     longer construction time. Should be larger than `graph_max_degree`.
                 max_candidate_pool_size: Limit on the number of candidates to consider
                     for neighbor updates. Should be larger than `window_size`.
+                    The default value is ``graph_max_degree`` * 2.
                 prune_to: Amount candidate lists will be pruned to when exceeding the
                     target max degree. In general, setting this to slightly less than
-                    `graph_max_degree` will yield faster index building times. Default:
-                    `graph_max_degree`.
+                    ``graph_max_degree`` will yield faster index building times. Default:
+                    ` `graph_max_degree`` - 4 if
+                    ``graph_max_degree`` is at least 16, otherwise ``graph_max_degree``.
+                use_full_search_history: When true, uses the full search history during
+                    graph construction, which can improve graph quality at the expense of
+                    additional memory and potentially longer build times.
             )"
         )
         .def_readwrite("alpha", &svs::index::vamana::VamanaBuildParameters::alpha)
