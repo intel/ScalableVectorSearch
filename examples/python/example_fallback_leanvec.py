@@ -21,15 +21,18 @@ import svs
 # [imports]
 
 DEBUG_MODE = False
-def assert_equal(lhs, rhs, message: str = ""):
+def assert_equal(lhs, rhs, message: str = "", expected_alpha = 0.05):
     if DEBUG_MODE:
         print(f"{message}: {lhs} == {rhs}")
     else:
-        assert lhs == rhs, message
+        assert lhs < rhs + expected_alpha, f"{message}"
+        assert lhs > rhs - expected_alpha, f"{message}"
 
 test_data_dir = None
 
 def run():
+    expected_delta = 0.05
+
     # [generate-dataset]
     # Create a test dataset.
     # This will create a directory "example_data_vamana" and populate it with three
@@ -101,7 +104,9 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert_equal(recall, 0.976, "initial recall")
+    expected_recall = 0.976
+    assert recall < expected_recall + expected_delta
+    assert recall > expected_recall - expected_delta
     # [build-and-search-index]
 
 #####

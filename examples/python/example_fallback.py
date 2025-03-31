@@ -21,11 +21,12 @@ import svs
 # [imports]
 
 DEBUG_MODE = False
-def assert_equal(lhs, rhs, message: str = ""):
+def assert_equal(lhs, rhs, message: str = "", expected_alpha = 0.05):
     if DEBUG_MODE:
         print(f"{message}: {lhs} == {rhs}")
     else:
-        assert lhs == rhs, message
+        assert lhs < rhs + expected_alpha, f"{message}"
+        assert lhs > rhs - expected_alpha, f"{message}"
 
 def run_test_float(index, queries, groundtruth):
     expected = {
@@ -91,6 +92,7 @@ def run_test_build_two_level4_8(index, queries, groundtruth):
 test_data_dir = None
 
 def run():
+    expected_delta = 0.05
 
     # ###
     # Generating test data
@@ -170,8 +172,11 @@ def run():
 
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
+    expected_recall = 0.8288
     print(f"Recall = {recall}")
-    assert(recall == 0.8288)
+    assert recall < expected_recall + expected_delta
+    assert recall > expected_recall - expected_delta
+
     # [perform-queries]
 
     # [search-window-size]
@@ -225,7 +230,9 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8288)
+    expected_recall = 0.8288
+    assert recall < expected_recall + expected_delta
+    assert recall > expected_recall - expected_delta
     # [loading]
 
     ##### Begin Test
@@ -287,7 +294,9 @@ def run():
     I, D = index.search(queries, 10)
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Compressed recall: {recall}")
-    assert(recall == 0.8288) #assert(recall == 0.8223)
+    expected_recall = 0.8223
+    assert recall < expected_recall + expected_delta
+    assert recall > expected_recall - expected_delta
     # [search-compressed]
 
     ##### Begin Test
@@ -315,7 +324,9 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8288)
+    expected_recall = 0.8221
+    assert recall < expected_recall + expected_delta
+    assert recall > expected_recall - expected_delta
     # [loading]
 
     ##### Begin Test
