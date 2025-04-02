@@ -1393,4 +1393,5 @@ auto auto_dynamic_assemble(
         std::move(threadpool),
         std::move(logger)};
 }
+
 } // namespace svs::index::vamana
