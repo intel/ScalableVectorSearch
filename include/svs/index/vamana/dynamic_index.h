@@ -1217,25 +1217,35 @@ class MutableVamanaIndex {
     }
 
     /// @brief Compute the distance between an external vector and a vector in the index.
-    template <typename ExternalId>
-    double get_distance(const ExternalId& external_id, const void* vector_data) const {
+    template <typename ExternalId, typename Query>
+    double get_distance(const ExternalId& external_id, const Query& query) const {
         // Check if the external ID exists
         if (!has_id(external_id)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
         // Translate external ID to internal ID
         auto internal_id = translate_external_id(external_id);
-        auto query_datum = std::span{reinterpret_cast<const float*>(vector_data), dimensions()};
+        auto query_span = svs::lib::as_const_span(query);
 
         auto build_adaptor = extensions::build_adaptor(data_, distance_);
         auto&& general_distance = build_adaptor.general_distance();
         auto general_accessor = build_adaptor.general_accessor();
-        svs::distance::maybe_fix_argument(general_distance, query_datum);
+        svs::distance::maybe_fix_argument(general_distance, query_span);
         // Get vector in index
-        auto indexed_datum = general_accessor(data_, internal_id);
+        auto indexed_span = general_accessor(data_, internal_id);
 
-        auto dist = svs::distance::compute(general_distance, query_datum, indexed_datum);
+        auto dist = svs::distance::compute(general_distance, query_span, indexed_span);
         
         return static_cast<double>(dist);
     }

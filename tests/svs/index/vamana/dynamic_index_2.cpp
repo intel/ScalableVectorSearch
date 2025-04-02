@@ -641,13 +641,13 @@ CATCH_TEST_CASE("Dynamic Vamana get_distance Test", "[get_distance][distance]") 
     );
     
     std::vector<Eltype> test_vector(N, 1.0f);
-    double index_distance = index.get_distance(0, test_vector.data());
+    double index_distance = index.get_distance(0, test_vector);
     std::span<const float> vector1(vector0.data(), N);
     std::span<const float> vector2(test_vector.data(), N);
     double expected_distance = svs::distance::compute(distance_function, vector2, vector1);
     CATCH_REQUIRE(std::abs(index_distance - expected_distance) < 1e-5);
     
     // Test with a non-existent ID
-    double invalid_distance = index.get_distance(999, test_vector.data());
+    double invalid_distance = index.get_distance(999, test_vector);
     CATCH_REQUIRE(std::isnan(invalid_distance));
 }
