@@ -25,6 +25,7 @@
 // svs
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/concepts/distance.h"
 #include "svs/core/graph.h"
 #include "svs/core/loading.h"
 #include "svs/core/logging.h"
@@ -1214,6 +1215,31 @@ class MutableVamanaIndex {
             }
         }
     }
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename ExternalId>
+    double get_distance(const ExternalId& external_id, const void* vector_data) const {
+        // Check if the external ID exists
+        if (!has_id(external_id)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        
+        // Translate external ID to internal ID
+        auto internal_id = translate_external_id(external_id);
+        auto query_datum = std::span{reinterpret_cast<const float*>(vector_data), dimensions()};
+
+        auto build_adaptor = extensions::build_adaptor(data_, distance_);
+        auto&& general_distance = build_adaptor.general_distance();
+        auto general_accessor = build_adaptor.general_accessor();
+        svs::distance::maybe_fix_argument(general_distance, query_datum);
+        // Get vector in index
+        auto indexed_datum = general_accessor(data_, internal_id);
+
+        auto dist = svs::distance::compute(general_distance, query_datum, indexed_datum);
+        
+        return static_cast<double>(dist);
+    }
+
 };
 
 ///// Deduction Guides.
@@ -1358,5 +1384,4 @@ auto auto_dynamic_assemble(
         std::move(threadpool),
         std::move(logger)};
 }
-
 } // namespace svs::index::vamana
