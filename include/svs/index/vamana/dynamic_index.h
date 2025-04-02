@@ -23,9 +23,9 @@
 #include "svs/index/flat/flat.h"
 
 // svs
+#include "svs/concepts/distance.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
-#include "svs/concepts/distance.h"
 #include "svs/core/graph.h"
 #include "svs/core/loading.h"
 #include "svs/core/logging.h"
@@ -1246,10 +1246,9 @@ class MutableVamanaIndex {
         auto indexed_span = general_accessor(data_, internal_id);
 
         auto dist = svs::distance::compute(general_distance, query_span, indexed_span);
-        
+
         return static_cast<double>(dist);
     }
-
 };
 
 ///// Deduction Guides.
