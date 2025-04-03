@@ -591,4 +591,47 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
     return data::GetDatumAccessor();
 }
 
+/////
+///// Distance
+/////
+struct ComputeDistanceType {
+    template <typename Data, typename Distance, typename Query>
+    double operator()(
+        const Data& data, 
+        const Distance& distance,
+        size_t internal_id,
+        const Query& query
+    ) const {
+        return svs_invoke(*this, data, distance, internal_id, query);
+    }
+};
+// CPO for distance computation
+inline constexpr ComputeDistanceType get_distance_ext{};
+template <typename Data, typename Distance, typename Query>
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Data& data,
+    const Distance& distance,
+    size_t internal_id,
+    const Query& query
+) {
+    // Convert query to span for uniform handling
+    auto query_span = lib::as_const_span(query);
+    
+    // Call build extension to handle different data type
+    auto adaptor = build_adaptor(data, distance);
+    auto&& general_distance = adaptor.general_distance();
+    auto general_accessor = adaptor.general_accessor();
+    svs::distance::maybe_fix_argument(general_distance, query_span);
+    
+    // Get the vector from the index
+    auto indexed_span = general_accessor(data, internal_id);
+    
+    // Compute the distance using the appropriate distance function
+    auto dist = svs::distance::compute(general_distance, query_span, indexed_span);
+    
+    return static_cast<double>(dist);
+}
+
+
 } // namespace svs::index::vamana::extensions

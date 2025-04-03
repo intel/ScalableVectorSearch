@@ -1236,18 +1236,9 @@ class MutableVamanaIndex {
 
         // Translate external ID to internal ID
         auto internal_id = translate_external_id(external_id);
-        auto query_span = svs::lib::as_const_span(query);
 
-        auto build_adaptor = extensions::build_adaptor(data_, distance_);
-        auto&& general_distance = build_adaptor.general_distance();
-        auto general_accessor = build_adaptor.general_accessor();
-        svs::distance::maybe_fix_argument(general_distance, query_span);
-        // Get vector in index
-        auto indexed_span = general_accessor(data_, internal_id);
-
-        auto dist = svs::distance::compute(general_distance, query_span, indexed_span);
-
-        return static_cast<double>(dist);
+        // Call extension for distance computation
+        return extensions::get_distance_ext(data_, distance_, internal_id, query);
     }
 };
 
