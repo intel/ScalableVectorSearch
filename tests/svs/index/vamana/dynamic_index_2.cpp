@@ -689,7 +689,7 @@ CATCH_TEST_CASE("Dynamic Vamana get_distance Test", "[get_distance][distance]") 
         std::span<const svs::Float16> vector2(float16_test.data(), N);
         double expected_distance = svs::distance::compute(distance_function, vector2, vector1);
         
-        CATCH_REQUIRE(std::abs(index_distance - expected_distance) < 1e-3);
+        CATCH_REQUIRE(std::abs(index_distance - expected_distance) < 1e-5);
     }
 
 }

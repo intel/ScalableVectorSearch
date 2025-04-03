@@ -20,6 +20,7 @@
 #include "svs/core/logging.h"
 #include "svs/index/flat/inserters.h"
 #include "svs/index/index.h"
+#include "svs/index/vamana/extensions.h"
 
 // svs
 #include "svs/concepts/distance.h"
@@ -455,6 +456,32 @@ class FlatIndex {
     /// @brief Return the current thread pool handle.
     ///
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
+
+    ///// Distance 
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename Query>
+    double get_distance(size_t id, const Query& query) const {
+        // Check if id is valid
+        if (id >= size()) {
+            throw ANNEXCEPTION("ID {} is out of bounds for index of size {}!", id, size());
+        }
+        
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Call extension for distance computation
+        return svs::index::vamana::extensions::get_distance_ext(data_, distance_, id, query);
+    }
+
 };
 
 ///

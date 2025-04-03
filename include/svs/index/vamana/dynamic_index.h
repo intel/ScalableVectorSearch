@@ -1216,6 +1216,8 @@ class MutableVamanaIndex {
         }
     }
 
+    ///// Distance 
+
     /// @brief Compute the distance between an external vector and a vector in the index.
     template <typename ExternalId, typename Query>
     double get_distance(const ExternalId& external_id, const Query& query) const {
