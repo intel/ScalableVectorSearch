@@ -597,10 +597,7 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
 struct ComputeDistanceType {
     template <typename Data, typename Distance, typename Query>
     double operator()(
-        const Data& data, 
-        const Distance& distance,
-        size_t internal_id,
-        const Query& query
+        const Data& data, const Distance& distance, size_t internal_id, const Query& query
     ) const {
         return svs_invoke(*this, data, distance, internal_id, query);
     }
@@ -624,9 +621,8 @@ double svs_invoke(
 
     // Compute the distance using the appropriate distance function
     auto dist = svs::distance::compute(distance, query_span, indexed_span);
-    
+
     return static_cast<double>(dist);
 }
-
 
 } // namespace svs::index::vamana::extensions

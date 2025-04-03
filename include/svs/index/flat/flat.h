@@ -457,16 +457,15 @@ class FlatIndex {
     ///
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
-    ///// Distance 
+    ///// Distance
 
     /// @brief Compute the distance between an external vector and a vector in the index.
-    template <typename Query>
-    double get_distance(size_t id, const Query& query) const {
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
         // Check if id is valid
         if (id >= size()) {
             throw ANNEXCEPTION("ID {} is out of bounds for index of size {}!", id, size());
         }
-        
+
         // Verify dimensions match
         const size_t query_size = query.size();
         const size_t index_vector_size = dimensions();
@@ -479,9 +478,10 @@ class FlatIndex {
         }
 
         // Call extension for distance computation
-        return svs::index::vamana::extensions::get_distance_ext(data_, distance_, id, query);
+        return svs::index::vamana::extensions::get_distance_ext(
+            data_, distance_, id, query
+        );
     }
-
 };
 
 ///

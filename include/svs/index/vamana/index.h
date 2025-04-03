@@ -861,11 +861,10 @@ class VamanaIndex {
         std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
     }
 
-    ///// Distance 
+    ///// Distance
 
     /// @brief Compute the distance between a vector in the index and a query vector
-    template <typename Query>
-    double get_distance(size_t id, const Query& query) const {
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
         // Already have internal id
         // Check if id is valid
         if (id >= size()) {

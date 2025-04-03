@@ -251,7 +251,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
 CATCH_TEST_CASE("Vamana Index get_distance Test", "[get_distance][distance]") {
     const size_t N = 128;
     const size_t num_threads = 2;
-    
+
     CATCH_SECTION("Float32 index and queries") {
         // Create some minimal data
         std::vector<float> data(N, 0.5f);
@@ -260,7 +260,7 @@ CATCH_TEST_CASE("Vamana Index get_distance Test", "[get_distance][distance]") {
         svs::distance::DistanceL2 distance_function;
         uint32_t entry_point = 0;
         auto threadpool = svs::threads::DefaultThreadPool(num_threads);
-        
+
         // Build the VamanaIndex
         svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 128, 1000, 60, true);
         svs::index::vamana::VamanaIndex index(
@@ -271,37 +271,38 @@ CATCH_TEST_CASE("Vamana Index get_distance Test", "[get_distance][distance]") {
             distance_function,
             std::move(threadpool)
         );
-        
+
         // Create test vector
         std::vector<float> test_vector(N, 1.0f);
-        
+
         // Get distance
         double index_distance = index.get_distance(0, test_vector);
-        
+
         // Expected distance
         std::span<const float> vector1(data.data(), N);
         std::span<const float> vector2(test_vector.data(), N);
-        double expected_distance = svs::distance::compute(distance_function, vector2, vector1);
-        
+        double expected_distance =
+            svs::distance::compute(distance_function, vector2, vector1);
+
         CATCH_REQUIRE(std::abs(index_distance - expected_distance) < 1e-5);
-        
+
         // Test with an out-of-bounds index
         CATCH_REQUIRE_THROWS_AS(index.get_distance(999, test_vector), svs::ANNException);
     }
-    
+
     CATCH_SECTION("Float16 index and queries") {
         // Create Float16 data
         std::vector<svs::Float16> data(N);
         for (size_t i = 0; i < N; i++) {
             data[i] = svs::Float16(0.5f);
         }
-        
+
         auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
         auto data_view = svs::data::SimpleDataView<svs::Float16>(data.data(), 1, N);
         svs::distance::DistanceL2 distance_function;
         uint32_t entry_point = 0;
         auto threadpool = svs::threads::DefaultThreadPool(num_threads);
-        
+
         // Build the VamanaIndex
         svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 128, 1000, 60, true);
         svs::index::vamana::VamanaIndex index(
@@ -312,21 +313,22 @@ CATCH_TEST_CASE("Vamana Index get_distance Test", "[get_distance][distance]") {
             distance_function,
             std::move(threadpool)
         );
-        
+
         // Create Float16 test vector
         std::vector<svs::Float16> test_vector(N);
         for (size_t i = 0; i < N; i++) {
             test_vector[i] = svs::Float16(1.0f);
         }
-        
+
         // Get distance
         double index_distance = index.get_distance(0, test_vector);
-        
+
         // Expected distance
         std::span<const svs::Float16> vector1(data.data(), N);
         std::span<const svs::Float16> vector2(test_vector.data(), N);
-        double expected_distance = svs::distance::compute(distance_function, vector2, vector1);
-        
+        double expected_distance =
+            svs::distance::compute(distance_function, vector2, vector1);
+
         CATCH_REQUIRE(std::abs(index_distance - expected_distance) < 1e-5);
     }
 }
