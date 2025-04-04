@@ -102,6 +102,7 @@ class DefaultSchedule {
         auto& p = current_parameters_;
         if (i > 0) {
             p.buffer_config_.increment({i, i});
+            batch_size_ = i;
         } else {
             p.buffer_config_.increment({batch_size_, batch_size_});
         }
@@ -279,6 +280,7 @@ class LinearSchedule {
         auto& p = current_parameters_;
         if (i > 0) {
             p.buffer_config_.increment({i, i});
+            batch_size_ = i;
         } else {
             p.buffer_config_.increment({scale_search_window_, scale_buffer_capacity_});
         }
