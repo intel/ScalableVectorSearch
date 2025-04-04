@@ -56,6 +56,7 @@ template <std::integral I> struct RestartInitializer {
 
         // Happy path - we can reuse the contents of the search buffer.
         buffer.soft_clear();
+        //buffer.sort();
     }
 
     // Entry Points in case we need to restart from scratch.
@@ -124,6 +125,12 @@ class BatchIterator {
                 break;
             }
         }
+        //fmt::print(
+        //    "Yielded {} results max_candidate: {} buffer: {}\n",
+        //    results_.size(),
+        //    max_candidates,
+        //    buffer.size()
+        //);
     }
 
   public:
@@ -142,7 +149,7 @@ class BatchIterator {
         const Index& parent,
         std::span<const QueryType> query,
         Schedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& SVS_UNUSED(cancel) = lib::Returns(lib::Const<false>())
     )
         : parent_{&parent}
         , query_{query.begin(), query.end()}
@@ -151,15 +158,15 @@ class BatchIterator {
         // TODO: Can we delegate the dimensionality check to the index?
         detail::checkdims(query.size(), parent.dimensions());
 
-        // Update the newly allocated scratchspace with the search parameters for the first
-        // iteration.
-        size_t max_candidates = schedule_.max_candidates(0);
-        scratchspace_.apply(schedule_.for_iteration(0));
+        //// Update the newly allocated scratchspace with the search parameters for the first
+        //// iteration.
+        //size_t max_candidates = schedule_.max_candidates(0);
+        //scratchspace_.apply(schedule_.for_iteration(0));
 
-        // Perform a traditional graph search to initialize the internal scratchspace.
-        // The internal state of the scratch space is preserved for reuse on future runs.
-        parent.search(lib::as_const_span(query_), scratchspace_, cancel);
-        copy_from_scratch(max_candidates);
+        //// Perform a traditional graph search to initialize the internal scratchspace.
+        //// The internal state of the scratch space is preserved for reuse on future runs.
+        //parent.search(lib::as_const_span(query_), scratchspace_, cancel);
+        //copy_from_scratch(max_candidates);
     }
 
     void update(
@@ -277,11 +284,6 @@ class BatchIterator {
     /// @brief Return a mutable reference to the underlying schedule
     Schedule& schedule() { return schedule_; }
 
-    /// @brief Return the parameters used for the most recent iteration.
-    vamana::VamanaSearchParameters parameters_for_current_iteration() const {
-        return schedule_.for_iteration(iteration_);
-    }
-
     /// @brief Retrieve the next batch of neighbors from the index.
     /// ``cancel`` is an optional argument to determine if the search should be cancelled.
     ///
@@ -305,7 +307,7 @@ class BatchIterator {
     /// result buffer will be emptied and no new neighbors will be returned.
     ///
     /// @sa ``done()``
-    void next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) {
+    void next(size_t batch_size = 0, const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) {
         if (done()) {
             results_.clear();
             return;
@@ -314,10 +316,18 @@ class BatchIterator {
         // Increment the number of neighbors to return.
         // Defer actually incrementing of the member variable until after search is
         // completed to maintain class invariants in the presence of exceptions.
-        size_t this_iteration = iteration_ + 1;
+        size_t this_iteration = iteration_;
         size_t max_candidates = schedule_.max_candidates(this_iteration);
-        const auto& p = schedule_.for_iteration(this_iteration);
+        const auto& p = schedule_.for_iteration(batch_size);
         scratchspace_.apply(p);
+        //fmt::print(
+        //    "Next iteration: {} p sws: {} cap {} buffer: {} {}\n",
+        //    this_iteration,
+        //    p.buffer_config_.get_search_window_size(),
+        //    p.buffer_config_.get_total_capacity(),
+        //    scratchspace_.buffer.size(),
+        //    scratchspace_.buffer.valid()
+        //);
 
         // Conservatively set the `restart_search_` so that if an exception is thrown during
         // search, we begin from scratch on the next round.
@@ -406,7 +416,7 @@ class BatchIterator {
     // Which iteration is currently being processed.
     size_t iteration_ = 0;
     // If an exception is thrown during search,
-    bool restart_search_ = false;
+    bool restart_search_ = true;
     // The search buffer schedule.
     Schedule schedule_;
 };

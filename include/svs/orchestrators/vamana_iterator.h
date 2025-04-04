@@ -29,15 +29,13 @@ namespace svs {
 class VamanaIterator {
   private:
     struct Interface {
-        virtual svs::index::vamana::VamanaSearchParameters
-        parameters_for_current_batch() const = 0;
         virtual svs::DataType query_type() const = 0;
         virtual size_t batch() const = 0;
         virtual size_t size() const = 0;
         virtual std::span<const svs::Neighbor<size_t>> results() const = 0;
         virtual void restart_next_search() = 0;
         virtual void
-        next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) = 0;
+        next(size_t batch_size = 0, const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) = 0;
         virtual bool done() const = 0;
         virtual void update(
             svs::AnonymousArray<1>,
@@ -66,11 +64,6 @@ class VamanaIterator {
         )
             : impl_{index, query, std::move(schedule), cancel} {}
 
-        svs::index::vamana::VamanaSearchParameters
-        parameters_for_current_batch() const override {
-            return impl_.parameters_for_current_iteration();
-        }
-
         svs::DataType query_type() const override { return svs::datatype_v<QueryType>; }
 
         size_t batch() const override { return impl_.batch(); }
@@ -81,9 +74,9 @@ class VamanaIterator {
         }
 
         void restart_next_search() override { impl_.restart_next_search(); }
-        void next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()))
+        void next(size_t batch_size = 0, const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()))
             override {
-            impl_.next(cancel);
+            impl_.next(batch_size, cancel);
         }
         bool done() const override { return impl_.done(); }
 
@@ -139,12 +132,6 @@ class VamanaIterator {
               parent, query, std::move(schedule), cancel
           )} {}
 
-    /// @brief Return the search parameters used for the current batch.
-    [[nodiscard]] svs::index::vamana::VamanaSearchParameters
-    parameters_for_current_batch() const {
-        return impl_->parameters_for_current_batch();
-    }
-
     /// @brief Return the element type of the captured query.
     [[nodiscard]] svs::DataType query_type() const { return impl_->query_type(); }
 
@@ -165,8 +152,8 @@ class VamanaIterator {
     /// This method invalidates previous values return by ``results()``.
     /// Argument cancel is a predicate called to determine if the search should be
     /// cancelled.
-    void next(const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) {
-        impl_->next(cancel);
+    void next(size_t batch_size = 0, const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())) {
+        impl_->next(batch_size, cancel);
     }
 
     /// @brief Signal that the next batch search should begin entirely from scratch.

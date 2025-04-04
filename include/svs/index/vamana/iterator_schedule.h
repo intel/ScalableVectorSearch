@@ -25,6 +25,8 @@
 #include <type_traits>
 #include <utility>
 
+#define SVS_ITERATOR_EXTRA_BUFFER_SIZE 100
+
 namespace svs::index::vamana {
 
 // clang-format off
@@ -59,7 +61,7 @@ namespace svs::index::vamana {
 template <typename T>
 concept IteratorSchedule =
 std::is_nothrow_swappable_v<T> &&
-requires(const T& const_schedule, size_t iteration) {
+requires(T& const_schedule, size_t iteration) {
     { const_schedule.for_iteration(iteration) } ->
         std::convertible_to<vamana::VamanaSearchParameters>;
     { const_schedule.max_candidates(iteration) } -> std::same_as<size_t>;
@@ -81,8 +83,11 @@ class DefaultSchedule {
   public:
     /// @brief Construct a new default schedule.
     DefaultSchedule(const vamana::VamanaSearchParameters& base, size_t batch_size)
-        : base_parameters_{base}
-        , batch_size_{batch_size} {}
+        : current_parameters_{base}
+        , batch_size_{batch_size} {
+        auto& p = current_parameters_;
+        p.buffer_config_.increment({0, SVS_ITERATOR_EXTRA_BUFFER_SIZE});
+    }
 
     /// @brief Return parameters for batch ``i``.
     ///
@@ -91,11 +96,15 @@ class DefaultSchedule {
     /// i * batch_size
     /// @endcode
     /// where ``batch_size`` is the value passed to the class constructor.
-    vamana::VamanaSearchParameters for_iteration(size_t i) const {
+    vamana::VamanaSearchParameters for_iteration(size_t i) {
         // Copy the base parameters, then scale the search window size and capacity by
         // `batch_size_` on each iteration.
-        auto p = base_parameters_;
-        p.buffer_config_.increment(i * batch_size_);
+        auto& p = current_parameters_;
+        if (i > 0) {
+            p.buffer_config_.increment({i, i});
+        } else {
+            p.buffer_config_.increment({batch_size_, batch_size_});
+        }
         return p;
     }
 
@@ -108,7 +117,7 @@ class DefaultSchedule {
     ///// Members
   private:
     // The starting search parameters to use for the first iteration of search.
-    vamana::VamanaSearchParameters base_parameters_;
+    vamana::VamanaSearchParameters current_parameters_;
     // The new number of elements to return on each iteration.
     size_t batch_size_;
 };
@@ -123,7 +132,7 @@ static_assert(
 class LinearSchedule {
   private:
     ///// Members
-    vamana::VamanaSearchParameters base_parameters_;
+    vamana::VamanaSearchParameters current_parameters_;
     uint16_t scale_search_window_;
     uint16_t scale_buffer_capacity_;
     int16_t enable_filter_after_;
@@ -158,7 +167,7 @@ class LinearSchedule {
         uint16_t batch_size_start,
         uint16_t scale_batch_size
     )
-        : base_parameters_{base_parameters}
+        : current_parameters_{base_parameters}
         , scale_search_window_{scale_search_window}
         , scale_buffer_capacity_{scale_buffer_capacity}
         , enable_filter_after_{enable_filter_after}
@@ -166,6 +175,8 @@ class LinearSchedule {
         , scale_batch_size_{scale_batch_size} {
         // Check invariants.
         check_invariants();
+        auto& p = current_parameters_;
+        p.buffer_config_.increment({0, SVS_ITERATOR_EXTRA_BUFFER_SIZE});
     }
 
     LinearSchedule(
@@ -262,11 +273,15 @@ class LinearSchedule {
     ///
     /// The visited filter will also be enabled on and after its specified iteration,
     /// if applicable.
-    vamana::VamanaSearchParameters for_iteration(size_t i) const {
+    vamana::VamanaSearchParameters for_iteration(size_t i) {
         // Copy the base parameters and scale the fields according to the internal
         // configuration.
-        auto p = base_parameters_;
-        p.buffer_config_.increment({scale_search_window_ * i, scale_buffer_capacity_ * i});
+        auto& p = current_parameters_;
+        if (i > 0) {
+            p.buffer_config_.increment({i, i});
+        } else {
+            p.buffer_config_.increment({scale_search_window_, scale_buffer_capacity_});
+        }
 
         // `narrow_cast` guarenteed to succeed since we've already ruled out negative
         // values for `enable_filter_after_`.
@@ -300,7 +315,7 @@ static_assert(
 class AbstractIteratorSchedule {
   private:
     struct Interface {
-        virtual vamana::VamanaSearchParameters for_iteration(size_t iteration) const = 0;
+        virtual vamana::VamanaSearchParameters for_iteration(size_t iteration) = 0;
         virtual size_t max_candidates(size_t iteration) const = 0;
         virtual std::unique_ptr<Interface> clone() const = 0;
 
@@ -319,7 +334,7 @@ class AbstractIteratorSchedule {
 
         ///// Interface implementation
         virtual vamana::VamanaSearchParameters for_iteration(size_t iteration
-        ) const override {
+        ) override {
             return impl_.for_iteration(iteration);
         }
 
@@ -368,7 +383,7 @@ class AbstractIteratorSchedule {
     }
 
     /// @brief Return the search parameters from the wrapped schedule.
-    vamana::VamanaSearchParameters for_iteration(size_t iteration) const {
+    vamana::VamanaSearchParameters for_iteration(size_t iteration) {
         return iface_->for_iteration(iteration);
     }
 

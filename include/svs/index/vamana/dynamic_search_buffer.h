@@ -156,6 +156,15 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         // about an exception breaking class invariants.
         target_valid_ = target_valid_temp;
         valid_capacity_ = valid_capacity_temp;
+        //fmt::print(
+        //    "Changing maxsize to sws {} cap {} val {} roi {} best {} size {}.\n",
+        //    target_valid_,
+        //    valid_capacity_,
+        //    valid(),
+        //    roi_end_,
+        //    best_unvisited_,
+        //    size()
+        //);
     }
 
     // Change the maximum number of elements that can be in the search buffer.
@@ -178,14 +187,27 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             visited_->reset();
         }
 
-        for (auto& neighbor : candidates_) {
+        for (size_t i = best_unvisited(); i < size(); ++i) {
+            auto& neighbor = candidates_[i];
             neighbor.clear_visited();
             if (use_visited_set) {
                 visited_->emplace(neighbor.id());
             }
         }
+        sort();
 
         best_unvisited_ = 0;
+        //sort();
+        //fmt::print(
+        //    "soft_clear sws {} cap {} val {} roi {} best {} size {}.\n",
+        //    target_valid_,
+        //    valid_capacity_,
+        //    valid(),
+        //    roi_end_,
+        //    best_unvisited_,
+        //    size()
+        //);
+
     }
 
     size_t capacity() const { return candidates_.capacity(); }

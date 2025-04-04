@@ -227,10 +227,9 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
             visited_->reset();
         }
 
-        // Mark all neighbors as no longer visited.
-        // Use a loop over `[0, size_)` since this is likely called after growing the buffer
-        // and the contents of the extended elements are invalid.
-        for (size_t i = 0; i < size_; ++i) {
+        // Used by the iterator to clear the visited flag for all elements in the buffer
+        // except the one which are already yielded previously.
+        for (size_t i = best_unvisited(); i < size(); ++i) {
             auto& neighbor = candidates_[i];
             neighbor.clear_visited();
             if (use_visited_set) {
@@ -238,7 +237,9 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
             }
         }
 
-        // Reset the best unvisited back to the beginning.
+        sort();
+        // Reset the best unvisited back to the beginning. It will first explore the nearest
+        // neighbor and then directly jump to the next univisited neighbor.
         best_unvisited_ = 0;
     }
 
