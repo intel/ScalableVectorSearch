@@ -614,13 +614,16 @@ double svs_invoke(
 ) {
     // Convert query to span for uniform handling
     auto query_span = lib::as_const_span(query);
-    svs::distance::maybe_fix_argument(distance, query_span);
+
+    // Get distance
+    auto dist_f = single_search_setup(data, distance);
+    svs::distance::maybe_fix_argument(dist_f, query_span);
 
     // Get the vector from the index
     auto indexed_span = data.get_datum(internal_id);
 
     // Compute the distance using the appropriate distance function
-    auto dist = svs::distance::compute(distance, query_span, indexed_span);
+    auto dist = svs::distance::compute(dist_f, query_span, indexed_span);
 
     return static_cast<double>(dist);
 }
