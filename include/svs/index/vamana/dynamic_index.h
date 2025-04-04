@@ -23,6 +23,7 @@
 #include "svs/index/flat/flat.h"
 
 // svs
+#include "svs/concepts/distance.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
@@ -1213,6 +1214,33 @@ class MutableVamanaIndex {
                 count++;
             }
         }
+    }
+
+    ///// Distance
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename ExternalId, typename Query>
+    double get_distance(const ExternalId& external_id, const Query& query) const {
+        // Check if the external ID exists
+        if (!has_id(external_id)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Translate external ID to internal ID
+        auto internal_id = translate_external_id(external_id);
+
+        // Call extension for distance computation
+        return extensions::get_distance_ext(data_, distance_, internal_id, query);
     }
 };
 
