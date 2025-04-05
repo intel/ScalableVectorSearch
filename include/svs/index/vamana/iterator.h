@@ -317,9 +317,9 @@ class BatchIterator {
         // Defer actually incrementing of the member variable until after search is
         // completed to maintain class invariants in the presence of exceptions.
         size_t this_iteration = iteration_;
-        size_t max_candidates = schedule_.max_candidates(this_iteration);
         const auto& p = schedule_.for_iteration(batch_size);
         scratchspace_.apply(p);
+        size_t max_candidates = schedule_.max_candidates(this_iteration);
         //fmt::print(
         //    "Next iteration: {} p sws: {} cap {} buffer: {} {}\n",
         //    this_iteration,

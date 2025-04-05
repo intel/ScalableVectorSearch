@@ -85,8 +85,8 @@ class DefaultSchedule {
     DefaultSchedule(const vamana::VamanaSearchParameters& base, size_t batch_size)
         : current_parameters_{base}
         , batch_size_{batch_size} {
-        auto& p = current_parameters_;
-        p.buffer_config_.increment({0, SVS_ITERATOR_EXTRA_BUFFER_SIZE});
+        current_parameters_.buffer_config_ =
+            vamana::SearchBufferConfig{0, SVS_ITERATOR_EXTRA_BUFFER_SIZE};
     }
 
     /// @brief Return parameters for batch ``i``.
