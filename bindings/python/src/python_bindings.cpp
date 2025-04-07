@@ -205,7 +205,7 @@ Args:
 
 #ifdef USE_PROPRIETARY
     // Dataset conversion.
-    svs::python::conversion::wrap(m);
+    // svs::python::conversion::wrap(m);
 #endif
 
     // Intel(R) MKL

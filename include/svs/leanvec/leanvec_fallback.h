@@ -86,11 +86,7 @@ class LeanDataset {
     using primary_type = data::SimpleData<float, Extent, allocator_type>;
 
     LeanDataset(primary_type primary): primary_{std::move(primary)} {
-        if (fallback::get_mode() == fallback::FallbackMode::Error) {
-            throw fallback::UnsupportedHardwareError();
-        } else if (fallback::get_mode() == fallback::FallbackMode::Warning) {
-            fmt::print(fallback::fallback_warning);
-        }
+        fallback::handle_fallback(fallback::get_mode(), fallback::get_fallback_reason());
     }
 
     size_t size() const { return primary_.size(); }

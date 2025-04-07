@@ -16,11 +16,9 @@
 
 #pragma once
 
-#ifndef USE_PROPRIETARY
-
 #include "svs/quantization/lvq/lvq_fallback.h"
 
-#else // USE_PROPRIETARY
+#ifdef USE_PROPRIETARY
 
 #include "../../../../../include/svs/quantization/lvq/lvq.h"
 
@@ -29,6 +27,204 @@
 namespace svs {
 namespace quantization {
 namespace lvq {
+
+// Tag types for dispatching
+struct TrueTag {};
+struct FalseTag {};
+
+// // Tag dispatching for fallback (TrueTag) and proprietary (FalseTag)
+// template <typename Tag, size_t Primary, size_t Residual, size_t Extent, typename Strategy, typename Alloc>
+// struct type_selector<TrueTag, Primary, Residual, Extent, Strategy, Alloc> {
+//     using primary_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>::primary_type;
+//     using const_value_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>::const_value_type;
+//     using value_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>::value_type;
+//     using allocator_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>::allocator_type;
+// };
+
+// template <typename Tag, size_t Primary, size_t Residual, size_t Extent, typename Strategy, typename Alloc>
+// struct type_selector<FalseTag, Primary, Residual, Extent, Strategy, Alloc> {
+//     using primary_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::False>::primary_type;
+//     using const_value_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::False>::const_value_type;
+//     using value_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::False>::value_type;
+//     using allocator_type = typename LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::False>::allocator_type;
+// };
+
+
+class Dataset{};
+    // hold impl dataset for entry LVQDataset
+    // impl can be SimpleData or ScaledBiasedDataset (try just forward declaration)
+    // should be able to determine at runtime
+    // set dispatcher LVQDataset const_value_type and value_type to be this class
+    // requires size(), dimentions(), get_datum(), prefetch(), can call impl_.func for each?
+
+template <
+    size_t Primary,
+    size_t Residual = 0,
+    size_t Extent = Dynamic,
+    LVQPackingStrategy Strategy = Sequential,
+    typename Alloc = lib::Allocator<std::byte>,
+    svs::fallback::FallbackBool Fallback = svs::fallback::FallbackBool::Dispatcher>
+class LVQDataset {
+  private:
+    // using Impl = LVQDataset<Primary, Residual, Extent, Strategy, Alloc, fallback::use_fallback()>;
+        // check on c++ variant
+    using ImplTrue = LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>;
+    using ImplFalse = LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::False>;
+    ImplTrue impl_true_;
+    ImplFalse impl_false_;
+  public:
+    using const_value_type = Dataset;
+    using value_type = Dataset;
+    // // Conditional type selection based on fallback logic
+    // using primary_type = typename std::conditional<
+    //     fallback::use_fallback(),  // If true, use the fallback type
+    //     typename type_selector<TrueTag, Primary, Residual, Extent, Strategy, Alloc>::primary_type,  // Fallback version
+    //     typename type_selector<FalseTag, Primary, Residual, Extent, Strategy, Alloc>::primary_type   // Proprietary version
+    // >::type;
+
+    // using const_value_type = typename std::conditional<
+    //     fallback::use_fallback(),
+    //     typename type_selector<TrueTag, Primary, Residual, Extent, Strategy, Alloc>::const_value_type,
+    //     typename type_selector<FalseTag, Primary, Residual, Extent, Strategy, Alloc>::const_value_type
+    // >::type;
+
+    // using value_type = typename std::conditional<
+    //     fallback::use_fallback(),
+    //     typename type_selector<TrueTag, Primary, Residual, Extent, Strategy, Alloc>::value_type,
+    //     typename type_selector<FalseTag, Primary, Residual, Extent, Strategy, Alloc>::value_type
+    // >::type;
+
+    // using allocator_type = typename std::conditional<
+    //     fallback::use_fallback(),
+    //     typename type_selector<TrueTag, Primary, Residual, Extent, Strategy, Alloc>::allocator_type,
+    //     typename type_selector<FalseTag, Primary, Residual, Extent, Strategy, Alloc>::allocator_type
+    // >::type;
+
+  public:
+    template <typename... Args>
+    auto resize(Args&&... args) {
+        if (fallback::use_fallback()) {
+            impl_true_.resize(std::forward<Args>(args)...);
+        }
+        else {
+            impl_false_.resize(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto compact(Args&&... args) {
+        if (fallback::use_fallback()) {
+            impl_true_.compact(std::forward<Args>(args)...);
+        }
+        else {
+            impl_false_.compact(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    LVQDataset(Args&&... args) {
+        if (fallback::use_fallback()) {
+            new (&impl_true_) ImplTrue(std::forward<Args>(args)...);
+        } else {
+            new (&impl_false_) ImplFalse(std::forward<Args>(args)...);
+        }
+        // : impl_(std::forward<Args>(args)...) {}
+    }
+
+    template <typename... Args>
+    auto size(Args&&... args) {
+        if (fallback::use_fallback()) {
+            return impl_true_.size(std::forward<Args>(args)...);
+        }
+        else {
+            return impl_false_.size(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto dimensions(Args&&... args) {
+        if (fallback::use_fallback()) {
+            return impl_true_.dimensions(std::forward<Args>(args)...);
+        }
+        else {
+            return impl_false_.dimensions(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto get_datum(TrueTag, Args&&... args) { 
+        return impl_true_.size(std::forward<Args>(args)...); 
+    }
+
+    template <typename... Args>
+    auto get_datum(FalseTag, Args&&... args) { 
+        return impl_false_.size(std::forward<Args>(args)...);
+    }
+    template <typename... Args>
+    auto get_datum(Args&&... args) {
+        if (fallback::use_fallback()) {
+            return get_datum(TrueTag{}, std::forward<Args>(args)...);
+        }
+        else {
+            return get_datum(FalseTag{}, std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    void prefetch(Args&&... args) {
+        if (fallback::use_fallback()) {
+            impl_true_.prefetch(std::forward<Args>(args)...);
+        }
+        else {
+            impl_false_.prefetch(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    void set_datum(Args&&... args) {
+        if (fallback::use_fallback()) {
+            impl_true_.set_datum(std::forward<Args>(args)...);
+        }
+        else {
+            impl_false_.set_datum(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto compress(Args&&... args) {
+        if (fallback::use_fallback()) {
+            return impl_true_.compress(std::forward<Args>(args)...);
+        }
+        else {
+            return impl_false_.compress(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto save(Args&&... args) {
+        if (fallback::use_fallback()) {
+            return impl_true_.save(std::forward<Args>(args)...);
+        }
+        else {
+            return impl_false_.save(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto load(Args&&... args) {
+        if (fallback::use_fallback()) {
+            return impl_true_.load(std::forward<Args>(args)...);
+        }
+        else {
+            return impl_false_.load(std::forward<Args>(args)...);
+        }
+    }
+
+
+    template <typename... Args>
+    auto reproducibility_set_centroids(Args&&... args) {
+        if (!fallback::use_fallback()) {
+            return impl_false_.reproducibility_set_centroids(std::forward<Args>(args)...);
+        }
+    }
+    template <typename... Args>
+    auto decompressor(Args&&... args) {
+        if (!fallback::use_fallback()) {
+            return impl_false_.decompressor(std::forward<Args>(args)...);
+        }
+    }
+};
 
 /////
 ///// Load Helpers

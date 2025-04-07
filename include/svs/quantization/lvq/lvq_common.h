@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include "svs/quantization/lvq/impl/config.h"
+#include "svs/fallback/fallback_mode.h"
+
 namespace svs {
 namespace quantization {
 namespace lvq {
@@ -26,14 +29,103 @@ namespace detail {
 // Used to SFINAE away resizing methods if the allocator is not blocked.
 template <typename A> inline constexpr bool is_blocked = false;
 template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
+// template <typename T> inline constexpr bool is_lvq_packing_strategy_v = false;
+
+} // namespace detail// Strategies for storing packed data.
+struct Sequential {
+    static constexpr std::string_view name() { return "sequential"; }
+    static constexpr size_t compute_bytes(size_t nbits, size_t length) {
+        return lib::div_round_up(nbits * length, 8);
+    }
+
+    // No permutation required.
+    static constexpr size_t logical_to_linear(size_t i) { return i; }
+    static constexpr size_t linear_to_logical(size_t i) { return i; }
+};
+
+// Blockwise strategy.
+template <size_t Lanes, size_t ElementsPerLane> struct Turbo {
+    static constexpr std::string name() {
+        return fmt::format("turbo<{}x{}>", Lanes, ElementsPerLane);
+    }
+    static constexpr size_t lanes = Lanes;
+    static constexpr size_t elements_per_lane = ElementsPerLane;
+    static constexpr size_t block_size = Lanes * ElementsPerLane;
+
+    static constexpr size_t compute_bytes(size_t nbits, size_t length) {
+        assert(nbits == 4 || nbits == 8);
+
+        size_t block_size_bytes = nbits * block_size / 8;
+        size_t num_blocks = lib::div_round_up(length, block_size);
+        return block_size_bytes * num_blocks;
+    }
+
+    static constexpr size_t logical_to_linear(size_t i) {
+        // `a`: Which block we are in.
+        // `b`: Tne entry in the block.
+        // `c`: The offset in the lane
+        // `d`: Which lane.
+        auto [a, b] = detail::divrem(i, block_size);
+        auto [c, d] = detail::divrem(b, Lanes);
+        return block_size * a + ElementsPerLane * d + c;
+    }
+
+    static constexpr size_t linear_to_logical(size_t i) {
+        // `a`: Which block we are in.
+        // `b`: The entry in the block.
+        auto [a, b] = detail::divrem(i, block_size);
+        auto [c, d] = detail::divrem(b, ElementsPerLane);
+        return block_size * a + Lanes * d + c;
+    }
+
+    static constexpr size_t num_blocks(size_t count) {
+        return lib::round_up_to_multiple_of(count, block_size);
+    }
+};
+
+namespace detail {
+
+// Trait to identify and dispatch based on the Turbo class itself.
+template <typename T> inline constexpr bool is_turbo_like_v = false;
+template <typename T> inline constexpr bool is_lvq_packing_strategy_v = false;
+
+template <size_t Lanes, size_t ElementsPerLane>
+inline constexpr bool is_turbo_like_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
+
+template <> inline constexpr bool is_lvq_packing_strategy_v<lvq::Sequential> = true;
+template <size_t Lanes, size_t ElementsPerLane>
+
+inline constexpr bool is_lvq_packing_strategy_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
 
 } // namespace detail
+
+template <typename T>
+concept TurboLike = detail::is_turbo_like_v<T>;
+
+template <typename T>
+concept UsesSequential = std::is_same_v<typename T::strategy, Sequential>;
+
+template <typename T>
+concept UsesTurbo = TurboLike<typename T::strategy>;
 
 enum class LVQStrategyDispatch {
     Auto,       // Choose between sequential and turbo.
     Sequential, // Force Sequential
     Turbo       // Force Turbo
 };
+
+template <typename T>
+concept LVQPackingStrategy = detail::is_lvq_packing_strategy_v<T>;
+
+// Forward declaration of the primary template
+template <
+    size_t Primary,
+    size_t Residual,
+    size_t Extent,
+    LVQPackingStrategy Strategy,
+    typename Alloc,
+    svs::fallback::FallbackBool Fallback>
+class LVQDataset;
 
 ///
 /// Place-holder to indicate that a given direct compression stores its values as

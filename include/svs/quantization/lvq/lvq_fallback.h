@@ -28,29 +28,29 @@ namespace svs {
 namespace quantization {
 namespace lvq {
 
-struct Sequential {
-    static constexpr std::string_view name() { return "sequential"; }
-};
+// struct Sequential {
+//     static constexpr std::string_view name() { return "sequential"; }
+// };
 
-template <size_t Lanes, size_t ElementsPerLane> struct Turbo {
-    static constexpr std::string name() {
-        return fmt::format("turbo<{}x{}>", Lanes, ElementsPerLane);
-    }
-};
+// template <size_t Lanes, size_t ElementsPerLane> struct Turbo {
+//     static constexpr std::string name() {
+//         return fmt::format("turbo<{}x{}>", Lanes, ElementsPerLane);
+//     }
+// };
 
 namespace detail {
 
 // Trait to identify and dispatch based on the Turbo class itself.
-template <typename T> inline constexpr bool is_turbo_like_v = false;
-template <typename T> inline constexpr bool is_lvq_packing_strategy_v = false;
+// template <typename T> inline constexpr bool is_turbo_like_v = false;
+// // template <typename T> inline constexpr bool is_lvq_packing_strategy_v = false;
 
-template <size_t Lanes, size_t ElementsPerLane>
-inline constexpr bool is_turbo_like_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
+// template <size_t Lanes, size_t ElementsPerLane>
+// inline constexpr bool is_turbo_like_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
 
-template <> inline constexpr bool is_lvq_packing_strategy_v<lvq::Sequential> = true;
-template <size_t Lanes, size_t ElementsPerLane>
+// template <> inline constexpr bool is_lvq_packing_strategy_v<lvq::Sequential> = true;
+// template <size_t Lanes, size_t ElementsPerLane>
 
-inline constexpr bool is_lvq_packing_strategy_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
+// inline constexpr bool is_lvq_packing_strategy_v<lvq::Turbo<Lanes, ElementsPerLane>> = true;
 
 template <typename T, typename A, bool = is_blocked<A>> struct select_rebind_allocator {
     using type = lib::rebind_allocator_t<T, A>;
@@ -65,20 +65,16 @@ using select_rebind_allocator_t = typename select_rebind_allocator<T, A>::type;
 
 }
 
-template <typename T>
-concept LVQPackingStrategy = detail::is_lvq_packing_strategy_v<T>;
+// template <typename T>
+// concept LVQPackingStrategy = detail::is_lvq_packing_strategy_v<T>;
 
-template <typename T>
-concept TurboLike = detail::is_turbo_like_v<T>;
+// template <typename T>
+// concept TurboLike = detail::is_turbo_like_v<T>;
 
 // LVQDataset
 template <
-    size_t Primary,
-    size_t Residual = 0,
-    size_t Extent = Dynamic,
-    LVQPackingStrategy Strategy = Sequential,
-    typename Alloc = lib::Allocator<std::byte>>
-class LVQDataset {
+    size_t Primary, size_t Residual, size_t Extent, LVQPackingStrategy Strategy, typename Alloc>
+class LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True> {
   public:
     using allocator_type = detail::select_rebind_allocator_t<float, Alloc>;
   private:
@@ -102,12 +98,8 @@ class LVQDataset {
     }
 
     template <data::ImmutableMemoryDataset Dataset>
-        LVQDataset(Dataset primary): primary_{primary} {
-        if (fallback::get_mode() == fallback::FallbackMode::Error) {
-            throw fallback::UnsupportedHardwareError();
-        } else if (fallback::get_mode() == fallback::FallbackMode::Warning) {
-            fmt::print(fallback::fallback_warning);
-        }
+        LVQDataset/*<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>*/(Dataset primary): primary_{primary} {
+        fallback::handle_fallback(fallback::get_mode(), fallback::get_fallback_reason());
     }
 
     size_t size() const { return primary_.size(); }
@@ -121,12 +113,12 @@ class LVQDataset {
     }
 
     template <data::ImmutableMemoryDataset Dataset>
-    static LVQDataset compress(const Dataset& data, const Alloc& allocator = {}) {
+    static LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True> compress(const Dataset& data, const Alloc& allocator = {}) {
         return compress(data, 1, 0, allocator);
     }
 
     template <data::ImmutableMemoryDataset Dataset>
-    static LVQDataset compress(
+    static LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True> compress(
         const Dataset& data,
         size_t num_threads,
         size_t alignment,
@@ -137,7 +129,7 @@ class LVQDataset {
     }
 
     template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
-    static LVQDataset compress(
+    static LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True> compress(
         const Dataset& data,
         Pool& SVS_UNUSED(threadpool),
         size_t SVS_UNUSED(alignment),
@@ -145,7 +137,7 @@ class LVQDataset {
     ) {
         primary_type primary = primary_type{data.size(), data.dimensions(), allocator_type{allocator}};
         svs::data::copy(data, primary);
-        return LVQDataset{primary};
+        return LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>{primary};
     }
 
     
@@ -159,12 +151,12 @@ class LVQDataset {
         );
     }
 
-    static LVQDataset load(
+    static LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True> load(
         const lib::LoadTable& table,
         size_t SVS_UNUSED(alignment) = 0,
         const Alloc& allocator = {}
     ) {
-        return LVQDataset{SVS_LOAD_MEMBER_AT_(table, primary, allocator)};
+        return LVQDataset<Primary, Residual, Extent, Strategy, Alloc, svs::fallback::FallbackBool::True>{SVS_LOAD_MEMBER_AT_(table, primary, allocator)};
     }
 };
 
