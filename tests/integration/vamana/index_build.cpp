@@ -89,12 +89,14 @@ svs::Vamana build_index(
 }
 } // namespace
 
-CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
+CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana][get_distance]") {
     auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
 
     // How far these results may deviate from previously generated results.
     const double epsilon = 0.005;
     const auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    const auto dataset = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+
     for (auto distance_type : distances) {
         CATCH_REQUIRE(svs_test::prepare_temp_directory());
         size_t num_threads = 2;
@@ -110,6 +112,9 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
         CATCH_REQUIRE(
             index.query_types() == std::vector<svs::DataType>{svs::DataType::float32}
         );
+
+        // Call test get_distance in util.h
+        svs_test::GetDistanceTester::test(index, distance_type, queries, dataset);
 
         auto groundtruth = test_dataset::load_groundtruth(distance_type);
         for (const auto& expected : expected_result.config_and_recall_) {

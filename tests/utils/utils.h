@@ -35,10 +35,13 @@
 #include "svs/third-party/toml.h"
 
 #include "svs/concepts/distance.h"
+#include "svs/core/distance.h"
 #include "svs/core/distance/euclidean.h"
 
 #include "catch2/catch_approx.hpp"
 #include "catch2/matchers/catch_matchers_templated.hpp"
+
+#include "catch2/catch_test_macros.hpp"
 
 namespace svs_test {
 
@@ -251,4 +254,56 @@ void mutate_table(
     std::initializer_list<Lens> lenses
 );
 
+/////
+///// Distance
+/////
+
+// Test get_distance for any index, data type, and distance method
+struct GetDistanceTester {
+    template <typename IndexType>
+    static void test(
+        IndexType& index, 
+        svs::DistanceType distance_type,
+        const svs::data::ImmutableMemoryDataset auto& queries,
+        const svs::data::ImmutableMemoryDataset auto& dataset
+    ) { 
+        // Test index vector id
+        size_t id = 0;
+        
+        // Convert distance_type to a distance function
+        svs::DistanceDispatcher dispatcher(distance_type);
+        dispatcher([&](auto distance) {
+            constexpr double TOLERANCE = 1e-5;
+            
+            // Use a query vector for testing
+            if (queries.size() > 10 && index.size() > 0 && dataset.size() > id) {
+                auto query_span = queries.get_datum(10);
+                using ElementType = std::decay_t<decltype(query_span[0])>;
+                std::vector<ElementType> query_vector(query_span.begin(), query_span.end());
+                
+                // Get distance from index
+                double index_distance = index.get_distance(id, query_vector);
+                
+                // Get the vector directly from the dataset
+                auto indexed_span = dataset.get_datum(id);
+                
+                // Compute expected distance
+                auto dist_copy = distance;
+                svs::distance::maybe_fix_argument(dist_copy, query_span);
+                double expected_distance = svs::distance::compute(dist_copy, query_span, indexed_span);
+                
+                // Test the distance calculation
+                CATCH_REQUIRE(std::abs(index_distance - expected_distance) < TOLERANCE);
+            }
+            
+            // Test out of bounds ID
+            if (index.size() > 0) {
+                const size_t dim = index.dimensions();
+                using DataType = float;  // Default to float
+                std::vector<DataType> test_vector(dim, 1.0f);
+                CATCH_REQUIRE_THROWS_AS(index.get_distance(index.size() + 100, test_vector), svs::ANNException);
+            }
+        });
+    }
+};
 } // namespace svs_test
