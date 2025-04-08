@@ -1223,7 +1223,9 @@ class MutableVamanaIndex {
     double get_distance(const ExternalId& external_id, const Query& query) const {
         // Check if the external ID exists
         if (!has_id(external_id)) {
-            return std::numeric_limits<double>::quiet_NaN();
+            throw ANNEXCEPTION(
+                "ID {} is out of bounds for index of size {}!", external_id, size()
+            );
         }
         // Verify dimensions match
         const size_t query_size = query.size();

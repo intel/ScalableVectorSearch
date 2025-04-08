@@ -96,9 +96,10 @@ class VamanaInterface {
         const index::vamana::CalibrationParameters& calibration_parameters
     ) = 0;
     virtual void reset_performance_parameters() = 0;
-    
+
     // Non-templated virtual method for distance calculation
-    virtual double get_distance(size_t id, const void* query, DataType query_type) const = 0;
+    virtual double
+    get_distance(size_t id, const void* query, DataType query_type) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -577,11 +578,10 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @tparam Query The query vector type
     /// @param id The ID of the vector in the index
     /// @param query The query vector
-    template <typename Query>
-    double get_distance(size_t id, const Query& query) const {
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
         using ElementType = std::decay_t<decltype(query[0])>;
         auto query_type = svs::datatype_v<ElementType>;
-        
+
         // Forward to the interface method
         return impl_->get_distance(id, &query, query_type);
     }

@@ -41,6 +41,10 @@ namespace svs {
 class FlatInterface {
   public:
     using search_parameters_type = svs::index::flat::FlatParameters;
+
+    // Non-templated virtual method for distance calculation
+    virtual double
+    get_distance(size_t id, const void* query, DataType query_type) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = FlatInterface>
@@ -62,6 +66,20 @@ class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
     template <typename... Args>
     explicit FlatImpl(Args&&... args)
         : base_type{std::forward<Args>(args)...} {}
+
+    ///// Distance
+    double get_distance(size_t id, const void* query, DataType query_type) const override {
+        return svs::lib::match(
+            QueryTypes{},
+            query_type,
+            [&]<typename T>(svs::lib::Type<T>) {
+                // Convert void* to T
+                using VectorType = std::vector<T>;
+                const VectorType* vector_ptr = static_cast<const VectorType*>(query);
+                return impl().get_distance(id, *vector_ptr);
+            }
+        );
+    }
 };
 
 // Forward Declarations
@@ -123,6 +141,19 @@ class Flat : public manager::IndexManager<FlatInterface> {
                 threads::as_threadpool(std::move(threadpool_proto))
             );
         }
+    }
+
+    ///// Distance
+    /// @brief Get the distance between a vector in the index and a query vector
+    /// @tparam Query The query vector type
+    /// @param id The ID of the vector in the index
+    /// @param query The query vector
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        using ElementType = std::decay_t<decltype(query[0])>;
+        auto query_type = svs::datatype_v<ElementType>;
+
+        // Forward to the interface method
+        return impl_->get_distance(id, &query, query_type);
     }
 };
 

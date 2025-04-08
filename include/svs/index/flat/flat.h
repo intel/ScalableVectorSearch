@@ -18,9 +18,9 @@
 
 // Flat index utilities
 #include "svs/core/logging.h"
+#include "svs/index/flat/extensions.h"
 #include "svs/index/flat/inserters.h"
 #include "svs/index/index.h"
-#include "svs/index/vamana/extensions.h"
 
 // svs
 #include "svs/concepts/distance.h"
@@ -478,9 +478,7 @@ class FlatIndex {
         }
 
         // Call extension for distance computation
-        return svs::index::vamana::extensions::get_distance_ext(
-            data_, distance_, id, query
-        );
+        return svs::index::flat::extensions::get_distance_ext(data_, distance_, id, query);
     }
 };
 
