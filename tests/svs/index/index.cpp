@@ -182,4 +182,3 @@ CATCH_TEST_CASE("Query Processing", "[index][general]") {
         CATCH_REQUIRE(!check_all_are(results.view(), 123));
     }
 }
-
