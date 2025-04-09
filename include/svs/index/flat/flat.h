@@ -18,7 +18,6 @@
 
 // Flat index utilities
 #include "svs/core/logging.h"
-#include "svs/index/flat/extensions.h"
 #include "svs/index/flat/inserters.h"
 #include "svs/index/index.h"
 
