@@ -37,7 +37,7 @@ query_type = 'float32'
     [vamana_iterator_v1.parameters]
     __schema__ = 'svsbenchamrk_isp'
     __version__ = 'v0.0.0'
-    num_batches = 10
+    num_batches = 5
     query_subsample = 1000
     target_recalls = [ 0.9 ]
-    batch_sizes = [ 10, 20, 50, 100]
+    batch_sizes = [ 10, 20, 30, 50, 100]
