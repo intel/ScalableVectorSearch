@@ -73,197 +73,7 @@ void check(
     const size_t num_neighbors = 100;
     // Through an exception during search every `throw_exception_every` batches.
     const size_t throw_exception_every = 3;
-    const auto batchsizes = std::vector<size_t>{{10, 20, 25,    // Number of queries to test during the iterator validation process.
-    const size_t QUERIES_TO_CHECK = 10;
-    
-    // Common test routine for validating the behavior of static and dynamic indexes.
-    // This function ensures that the iterator correctly retrieves neighbors in batches,
-    // handles exceptions gracefully, and maintains consistency in its state.
-    template <typename Index, typename IDChecker = svs::lib::Returns<svs::lib::Const<true>>>
-    void check(
-        Index& index,
-        svs::data::ConstSimpleDataView<float> queries,
-        svs::data::ConstSimpleDataView<uint32_t> groundtruth,
-        IDChecker& checker
-    ) {
-        const size_t num_neighbors = 100; // Number of neighbors to retrieve per query.
-        const size_t throw_exception_every = 3; // Frequency of simulated exceptions.
-        const auto batchsizes = std::vector<size_t>{{10, 20, 25, 50, 100}}; // Batch sizes to test.
-    
-        // Ensure the index has enough entries to retrieve the required number of neighbors.
-        CATCH_REQUIRE(index.size() > num_neighbors);
-    
-        // Configure search parameters for the iterator.
-        auto p = svs::index::vamana::VamanaSearchParameters{
-            {num_neighbors, num_neighbors}, false, 0, 0};
-    
-        // Allocate scratch space for the search.
-        auto scratch = index.scratchspace(p);
-    
-        // Map to store neighbor IDs and their distances for validation.
-        auto id_to_distance = std::unordered_map<size_t, float>();
-        auto id_buffer = std::vector<size_t>();
-    
-        // Validate the initial state of the checker.
-        CATCH_REQUIRE(checker(id_to_distance));
-    
-        // Set to track IDs returned by the iterator.
-        auto from_iterator = std::unordered_set<size_t>();
-    
-        // Iterate over a fixed number of queries to validate the iterator.
-        for (size_t query_index = 0; query_index < QUERIES_TO_CHECK; ++query_index) {
-            auto query = queries.get_datum(query_index);
-    
-            // Perform a full-precision search to obtain reference results.
-            index.search(query, scratch);
-            const auto& buffer = scratch.buffer;
-    
-            // Clear previous results and populate the ID-to-distance map.
-            id_to_distance.clear();
-            id_buffer.clear();
-            for (const auto& neighbor : buffer) {
-                size_t id = [&]() -> size_t {
-                    if constexpr (Index::needs_id_translation) {
-                        return index.translate_internal_id(neighbor.id());
-                    } else {
-                        return neighbor.id();
-                    }
-                }();
-                id_to_distance.insert({id, neighbor.distance()});
-                id_buffer.push_back(id);
-            }
-    
-            // Ensure the recall is within acceptable limits.
-            CATCH_REQUIRE(
-                svs::lib::count_intersect(id_buffer, groundtruth.get_datum(query_index)) >=
-                0.95 * num_neighbors
-            );
-    
-            // Test the iterator with different batch sizes.
-            for (auto batchsize : batchsizes) {
-                CATCH_REQUIRE(num_neighbors % batchsize == 0);
-                size_t num_batches = num_neighbors / batchsize;
-    
-                // Initialize the batch iterator.
-                auto iterator = svs::index::vamana::BatchIterator{index, query};
-                iterator.next(batchsize);
-    
-                // Ensure the iterator returns the correct batch size.
-                CATCH_REQUIRE(iterator.size() == batchsize);
-    
-                from_iterator.clear();
-                size_t similar_count = 0;
-    
-                // Track IDs returned in the current batch.
-                auto ids_returned_this_batch = std::vector<size_t>();
-    
-                // Iterate through batches and validate results.
-                for (size_t batch = 0; batch < num_batches; ++batch) {
-                    CATCH_REQUIRE(iterator.batch() == batch + 1);
-                    ids_returned_this_batch.clear();
-    
-                    // Validate each neighbor in the batch.
-                    for (auto i : iterator) {
-                        auto id = i.id();
-                        // Ensure no duplicate IDs are returned.
-                        CATCH_REQUIRE(!from_iterator.contains(id));
-                        auto itr = id_to_distance.find(id);
-                        if (itr != id_to_distance.end()) {
-                            // Ensure distances match the reference results.
-                            CATCH_REQUIRE(itr->second == i.distance());
-                            ++similar_count;
-                        }
-    
-                        // Track the ID to detect duplicates in future batches.
-                        from_iterator.insert(id);
-                        ids_returned_this_batch.push_back(id);
-                    }
-    
-                    // Validate the size of the returned batch.
-                    CATCH_REQUIRE(ids_returned_this_batch.size() == iterator.size());
-                    CATCH_REQUIRE(ids_returned_this_batch.size() == batchsize);
-    
-                    // Simulate an exception during search and validate iterator state.
-                    if (batch % throw_exception_every == 0) {
-                        EXCEPTION_COUNTDOWN = 50;
-                        CATCH_REQUIRE_THROWS_AS(iterator.next(batchsize), svs::ANNException);
-                        // Ensure the iterator's state remains consistent after the exception.
-                        CATCH_REQUIRE(iterator.batch() == batch + 1);
-                        CATCH_REQUIRE(iterator.size() == ids_returned_this_batch.size());
-                        CATCH_REQUIRE(std::equal(
-                            iterator.begin(),
-                            iterator.end(),
-                            ids_returned_this_batch.begin(),
-                            [](svs::NeighborLike auto left, size_t right) {
-                                return left.id() == right;
-                            }
-                        ));
-                    }
-    
-                    // Retrieve the next batch of neighbors.
-                    iterator.next(batchsize);
-                }
-    
-                // Ensure all expected neighbors have been retrieved.
-                CATCH_REQUIRE(from_iterator.size() == num_neighbors);
-    
-                // Validate the similarity between iterator results and reference results.
-                CATCH_REQUIRE(similar_count >= 0.98 * num_neighbors);
-            }
-    
-            // Invoke the checker to validate the IDs returned by the iterator.
-            CATCH_REQUIRE(checker(from_iterator));
-        }
-    }
-    
-    // Overloaded `check` function for cases where no custom IDChecker is provided.
-    template <typename Index>
-    void check(
-        Index& index,
-        svs::data::ConstSimpleDataView<float> queries,
-        svs::data::ConstSimpleDataView<uint32_t> groundtruth
-    ) {
-        auto checker = svs::lib::Returns<svs::lib::Const<true>>();
-        check(index, queries, groundtruth, checker);
-    }
-    
-    // Helper class to validate IDs for dynamic indexes.
-    struct DynamicChecker {
-        DynamicChecker(const std::unordered_set<size_t>& valid_ids)
-            : valid_ids_{valid_ids} {}
-    
-        // Check whether an ID is valid and track it.
-        bool check(size_t id) {
-            seen_.insert(id);
-            return valid_ids_.contains(id);
-        }
-    
-        // Overload for validating a map of IDs.
-        template <std::integral I> bool operator()(const std::unordered_map<I, float>& ids) {
-            for (const auto& itr : ids) {
-                if (!check(itr.first)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    
-        // Overload for validating a set of IDs.
-        template <std::integral I> bool operator()(const std::unordered_set<I>& ids) {
-            for (auto itr : ids) {
-                if (!check(itr)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-    
-        // Clear the set of seen IDs.
-        void clear() { seen_.clear(); }
-    
-        const std::unordered_set<size_t>& valid_ids_; // Set of valid IDs.
-        std::unordered_set<size_t> seen_; // Set of IDs seen during validation.
-    }; 50, 100}};
+    const auto batchsizes = std::vector<size_t>{{10, 20, 25, 50, 100}};
 
     CATCH_REQUIRE(index.size() > num_neighbors);
     auto p = svs::index::vamana::VamanaSearchParameters{
@@ -310,11 +120,8 @@ void check(
             size_t num_batches = num_neighbors / batchsize;
 
             auto iterator = svs::index::vamana::BatchIterator{index, query};
+            CATCH_REQUIRE(iterator.size() == 0);
             iterator.next(batchsize);
-
-            // TODO: how do we communicate if something goes wrong on the on the iterator
-            // end and we cannot return `batch_size()` neighbors?
-            CATCH_REQUIRE(iterator.size() == batchsize);
 
             from_iterator.clear();
             size_t similar_count = 0;
@@ -324,6 +131,7 @@ void check(
             // during search, the state of the iterator is unchanged.
             auto ids_returned_this_batch = std::vector<size_t>();
             for (size_t batch = 0; batch < num_batches; ++batch) {
+                // Make sure the batch number is the same.
                 CATCH_REQUIRE(iterator.batch() == batch + 1);
                 ids_returned_this_batch.clear();
                 for (auto i : iterator) {

@@ -28,16 +28,15 @@
 
 namespace svs::index::vamana {
 
-// The default value of extra search buffer capacity to use for the next search.
-// This is used to ensure that we have enough space in the search buffer to
-// accommodate the next search. 
+// Default value for the extra search buffer capacity.
+// This ensures sufficient space in the search buffer for the next search iteration.
 #define SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT 100
 
-/// A graph search initializer that uses the original contents of the search buffer
-/// to kick-start the next round of graph search.
+/// @brief A graph search initializer that uses the existing contents of the search buffer
+/// to initialize the next round of graph search.
 ///
-/// If a previous search exited with an exception, then we need to be able to restart search
-/// from scratch using the traditional method.
+/// If a previous search exited with an exception, this initializer allows restarting
+/// the search from scratch using the traditional method.
 template <std::integral I> struct RestartInitializer {
     template <
         typename Buffer,
@@ -51,30 +50,27 @@ template <std::integral I> struct RestartInitializer {
         const Builder& builder,
         vamana::NullTracker tracker // Compile error for non-NullTracker.
     ) const {
-        // Start again from scratch if requested.
+        // Restart the search from scratch if requested.
         if (hard_restart_) {
             vamana::EntryPointInitializer<I>{
                 entry_points_}(buffer, computer, graph, builder, tracker);
             return;
         }
 
+        // Otherwise, sort the buffer to prepare for the next search.
         buffer.sort();
     }
 
-    // Entry Points in case we need to restart from scratch.
+    // Entry points for restarting the search from scratch.
     std::span<const I> entry_points_;
     bool hard_restart_;
 };
-
-/////
-///// Concrete Schedules
-/////
 
 namespace detail {
 constexpr void checkdims(size_t query_size, size_t index_dims) {
     if (query_size != index_dims) {
         throw ANNEXCEPTION(
-            "Incompatible dimensions. Query has {} while the index expectes {}.",
+            "Incompatible dimensions. Query has {} while the index expects {}.",
             query_size,
             index_dims
         );
@@ -82,57 +78,62 @@ constexpr void checkdims(size_t query_size, size_t index_dims) {
 }
 } // namespace detail
 
+/// @brief A batch iterator for retrieving neighbors from the index in batches.
+///
+/// This iterator abstracts the process of retrieving neighbors in fixed-size batches
+/// while maintaining internal state for efficient graph traversal.
 template <typename Index, typename QueryType> class BatchIterator {
   public:
     static_assert(
         std::is_trivially_copyable_v<QueryType>,
         "The batch iterator requires a trivial (no-throw copy constructible) type to "
-        "provide its exception guarentees"
+        "provide its exception guarantees"
     );
 
-    // Public type-aliases
+    // Public type aliases
     using scratchspace_type = index::scratchspace_t<Index>;
     using internal_id_type = typename Index::internal_id_type;
     using external_id_type = size_t;
 
-    /// @brief The value yielded by this container's iterator interface.
+    // The value type yielded by the iterator.
     using value_type = Neighbor<external_id_type>;
 
   private:
-    // Private type-aliases
+    // Private type aliases
     using result_buffer_type = std::vector<value_type>;
 
-    // Clear the results buffer and copy into it the contents of the scratch buffer.
+    /// @brief Copies results from the scratch buffer to the results buffer.
+    /// Ensures that only unique neighbors are added to the results buffer.
     void copy_from_scratch(size_t batch_size) {
         results_.clear();
         const auto& buffer = scratchspace_.buffer;
         for (size_t i = 0, imax = buffer.size(); i < imax; ++i) {
             auto neighbor = buffer[i];
-            // Unfortunately, lambdas cannot capture structured bindings.
-            // So we need to manually unpack the result from `insert`.
             auto result = yielded_.insert(neighbor.id());
-            if (result.second /*inserted*/) {
-                // If push_back throws - rollback the insertion into the `yielded` set.
+            if (result.second /* inserted */) {
+                // Rollback insertion into the yielded set if push_back throws.
                 auto guard = lib::make_dismissable_scope_guard([&]() noexcept {
-                    // `std::unordered_set` documented to not throw exceptions on `erase`.
                     yielded_.erase(result.first);
                 });
                 results_.push_back(adapt(neighbor));
                 guard.dismiss();
             }
 
-            // Break if we've yielded the requested number of candidates.
+            // Stop if the requested batch size is reached.
             if (results_.size() == batch_size) {
                 break;
             }
         }
     }
 
+    /// @brief Initializes the search buffer with the configured capacity.
     void initialize_buffer() {
         auto config = SearchBufferConfig{0, extra_search_buffer_capacity_};
         scratchspace_.buffer.change_maxsize(config);
     }
 
+    /// @brief Increments the search window and capacity by `batch_size` for the next
+    /// iteration.
     void increment_buffer(size_t batch_size) {
         auto config = scratchspace_.buffer.config();
         config.increment(batch_size);
@@ -144,13 +145,15 @@ template <typename Index, typename QueryType> class BatchIterator {
     using reference = value_type&;
     using const_reference = const value_type&;
 
-    /// A random-access, contiguous iterator to ``value_type`` over the current batch of
-    /// results.
+    /// Random-access iterator to `value_type` over the current batch of results.
     using iterator = typename result_buffer_type::iterator;
-    /// A random-access, contiguous iterator to ``cosnt value_type`` over the current batch
-    /// of results.
+    /// Random-access iterator to `const value_type` over the current batch of results.
     using const_iterator = typename result_buffer_type::const_iterator;
 
+    /// @brief Constructs a batch iterator for the given query over the index.
+    /// @param parent The index to search.
+    /// @param query The query data.
+    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
     BatchIterator(
         const Index& parent,
         std::span<const QueryType> query,
@@ -167,6 +170,8 @@ template <typename Index, typename QueryType> class BatchIterator {
         initialize_buffer();
     }
 
+    /// @brief Updates the iterator with a new query.
+    /// Resets the internal state and restarts the search when `next(...)` is called.
     void update(std::span<const QueryType> newquery) {
         detail::checkdims(newquery.size(), parent_->dimensions());
         assert(newquery.size() == query_.size());
@@ -179,8 +184,7 @@ template <typename Index, typename QueryType> class BatchIterator {
         yielded_.clear();
     }
 
-    // Hook to perform late index translation.
-    // TODO: The dynamic index *really* needs a better interface for this.
+    /// @brief Adapts an internal neighbor to an external neighbor.
     template <NeighborLike N> svs::Neighbor<external_id_type> adapt(N internal) const {
         if constexpr (Index::needs_id_translation) {
             return Neighbor<external_id_type>{
@@ -190,9 +194,9 @@ template <typename Index, typename QueryType> class BatchIterator {
         }
     }
 
-    /// Return an iterator to the beginning.
+    /// @brief Returns an iterator to the beginning of the results.
     iterator begin() { return results_.begin(); }
-    /// Return an iterato to the end.
+    /// @brief Returns an iterator to the end of the results.
     iterator end() { return results_.end(); }
     /// @copydoc begin()
     const_iterator begin() const { return results_.begin(); }
@@ -203,15 +207,15 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @copydoc begin()
     const_iterator cend() const { return results_.cend(); }
 
-    /// @brief Return a span over the current batch of neighbors.
-    ///
-    /// The return span will be invalidated by calls to ``next()``.
+    /// @brief Returns a span over the current batch of neighbors.
+    /// The span is invalidated by calls to `next(...)`.
     std::span<const value_type> contents() const { return lib::as_const_span(results_); }
 
-    /// @brief Return the number of buffered results.
+    /// @brief Returns the number of buffered results.
     size_t size() const { return results_.size(); }
 
-    /// @brief Return the current batch number contained in the buffer.
+    /// @brief Reurn the current batch nu contained in the buffermber contained in the
+    /// buffer.
     size_t batch() const { return iteration_; }
 
     /// @brief Return whether the entire entries in the index have been yielded.
@@ -221,16 +225,10 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// remain unchanged by subsequent invocations of ``next()``.
     bool done() const { return yielded_.size() == parent_->size(); }
 
-    /// @brief Require that the next iteration start search from scratch.
-    ///
-    /// This method is mainly used for testing purposes and to identify possible issues
-    /// related to maintaining state in the internal scratchspace.
-    ///
-    /// The assignment is only valid for the next invocation of `next`, after which the
-    /// default behavior of the `BatchIterator` is restored.
+    /// @brief Forces the next iteration to restart the search from scratch.
     void restart_next_search() { restart_search_ = true; }
 
-    /// @brief Return the parameters used for the most recent iteration.
+    /// @brief Returns the search parameters used for the current batch.
     vamana::VamanaSearchParameters parameters_for_current_iteration() const {
         auto& buffer = scratchspace_.buffer;
         auto& prefetch = scratchspace_.prefetch_parameters;
@@ -241,30 +239,8 @@ template <typename Index, typename QueryType> class BatchIterator {
             prefetch.step};
     }
 
-    /// @brief Retrieve the next batch of neighbors from the index.
-    /// ``batch_size`` is the number of neighbors to retrieve.
-    /// ``cancel`` is an optional argument to determine if the search should be cancelled.
-    ///
-    /// This function provides the basic exception guarantee with the following semantics:
-    ///
-    /// * If an exception is thrown during search, the contents and batch number of the
-    ///   ``BatchIterator`` remain unchanged. This can be detected by using ``batch()``
-    ///   to determine the current batch buffered in this container.
-    ///
-    /// * If an exception is thrown after search (this should be extremely rare), then the
-    ///   contents and batch number will be incremented but the contents of container may
-    ///   be less than the schedule's requested batch size.
-    ///
-    ///   This may cause some de-sync between the yielded elements and the batch size
-    ///   requested by the schedule, but the iterator should continue to work.
-    ///
-    /// After this function returns, a new batch of neighbors can be retrieved using this
-    /// container's iterator interface.
-    ///
-    /// If ``done()`` returns ``true`` prior to calling this function, then the internal
-    /// result buffer will be emptied and no new neighbors will be returned.
-    ///
-    /// @sa ``done()``
+    /// @brief Retrieves the next batch of neighbors from the index.
+    /// Handles exceptions gracefully and ensures iterator state consistency.
     void next(
         size_t batch_size,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
@@ -274,18 +250,10 @@ template <typename Index, typename QueryType> class BatchIterator {
             return;
         }
 
-        // Increase the search window and capacity to accommodate the next search iteration.
-        // If an exception occurs, the search window and capacity will remain increased.
-        // This may result in minor performance degradation, but functionality will not be affected.
         increment_buffer(batch_size);
 
-        // Conservatively set the `restart_search_` so that if an exception is thrown during
-        // search, we begin from scratch on the next round.
-        //
-        // Make a copy of the old value for capturing in the lambda below.
         bool restart_search_copy = std::exchange(restart_search_, true);
 
-        // Rerun search using the stashed contents of the search buffer.
         parent_->experimental_escape_hatch([&]<std::integral I>(
                                                const auto& graph,
                                                const auto& data,
@@ -299,7 +267,6 @@ template <typename Index, typename QueryType> class BatchIterator {
                         uses_reranking{};
                     if constexpr (uses_reranking()) {
                         distance::maybe_fix_argument(d, query);
-                        // recompute search buffer using only primary dataset
                         for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
                             auto& neighbor = buffer[j];
                             auto id = neighbor.id();
@@ -323,8 +290,6 @@ template <typename Index, typename QueryType> class BatchIterator {
                         cancel
                     );
 
-                    // TODO: Need a better way of identifying if we're working with
-                    // the dynamic index or not.
                     if constexpr (Index::needs_id_translation) {
                         buffer.cleanup();
                     }
@@ -339,34 +304,20 @@ template <typename Index, typename QueryType> class BatchIterator {
             );
         });
 
-        // Search was successful.
-        // We do not need to start the next search from scratch.
         ++iteration_;
         restart_search_ = false;
         copy_from_scratch(batch_size);
     }
 
   private:
-    // The index we are accessing.
-    const Index* parent_;
-    // Local buffer for the query.
-    std::vector<QueryType> query_;
-    // Scratchspace for search.
-    scratchspace_type scratchspace_;
-    // Filtered results from search.
-    std::vector<Neighbor<external_id_type>> results_{};
-    // Yielded neighbors.
-    // Keep track of internal IDs since (generally speaking), internal IDs should have
-    // a smaller width than external IDs.
-    std::unordered_set<internal_id_type> yielded_{};
-    // Which iteration is currently being processed.
-    size_t iteration_ = 0;
-    // Indicates whether the next search should start from scratch.
-    bool restart_search_ = true;
-    // Extra search buffer capacity to use for the next search.
-    // This is used to ensure that we have enough space in the search buffer to
-    // accommodate the next search.
-    size_t extra_search_buffer_capacity_ = 0;
+    const Index* parent_;                               // The index being accessed.
+    std::vector<QueryType> query_;                      // Local buffer for the query.
+    scratchspace_type scratchspace_;                    // Scratch space for search.
+    std::vector<Neighbor<external_id_type>> results_{}; // Filtered results from search.
+    std::unordered_set<internal_id_type> yielded_{};    // Set of yielded neighbors.
+    size_t iteration_ = 0;                              // Current iteration number.
+    bool restart_search_ = true; // Whether the next search should restart from scratch.
+    size_t extra_search_buffer_capacity_ = 0; // Extra buffer capacity for the next search.
 };
 
 // Deduction Guides
