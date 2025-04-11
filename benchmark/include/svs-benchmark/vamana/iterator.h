@@ -387,10 +387,10 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
                 // The first call to `iterator` kick-starts graph search.
                 auto tic = svs::lib::now();
                 auto iterator = make_iterator(index, query);
-                iterator.next(config.get_search_window_size());
+                iterator.next(config.buffer_config_.get_search_window_size());
                 auto elapsed = svs::lib::time_difference(tic);
                 if (i == 0) {
-                    iteration_parameters.push_back(iterator.parameters_for_current_batch());
+                    iteration_parameters.push_back(iterator.parameters_for_current_iteration());
                 }
 
                 timings_for_this_query.push_back(tally(iterator, i, 0, elapsed));
@@ -401,7 +401,7 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
                     timings_for_this_query.push_back(tally(iterator, i, j + 1, elapsed));
                     if (i == 0) {
                         iteration_parameters.push_back(
-                            iterator.parameters_for_current_batch()
+                            iterator.parameters_for_current_iteration()
                         );
                     }
                 }
