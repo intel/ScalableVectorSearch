@@ -24,7 +24,7 @@ find_package(MKL CONFIG REQUIRED)
 #
 # The resulting object and linking are portable and should be suitable for distribution.
 if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
-    set(SVS_MKL_CUSTOM_LIBRARY_NAME libmkl_custom)
+    set(SVS_MKL_CUSTOM_LIBRARY_NAME libsvs_mkl)
     set(SVS_MKL_CUSTOM_SO_NAME ${SVS_MKL_CUSTOM_LIBRARY_NAME}.so)
     set(SVS_MKL_CUSTOM_FULL_PATH ${CMAKE_CURRENT_BINARY_DIR}/${SVS_MKL_CUSTOM_SO_NAME})
 
