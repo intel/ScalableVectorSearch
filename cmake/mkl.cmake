@@ -82,7 +82,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
     # Ensure that the custom Intel(R) MKL library is bundled with the rest of the library.
     include(GNUInstallDirs)
     install(IMPORTED_RUNTIME_ARTIFACTS svs_mkl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-else()
+elseif(NOT MKL_LINK STREQUAL "static")
     target_compile_options(
         ${SVS_LIB} INTERFACE $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>
     )
