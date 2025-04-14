@@ -182,6 +182,7 @@ template <typename Index, typename QueryType> class BatchIterator {
         restart_search_ = true;
         iteration_ = 0;
         yielded_.clear();
+        results_.clear();
     }
 
     /// @brief Adapts an internal neighbor to an external neighbor.
