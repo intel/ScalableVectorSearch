@@ -32,17 +32,17 @@ concurrency:
 jobs:
   python-build:
     name: ${{ matrix.cxx }}
-    runs-on: ubuntu-22.04
+    runs-on: self-hosted
     strategy:
       matrix:
         cxx:
           - g++-11
-          - clang++-15
+          - clang++-13
         include:
           - cxx: g++-11
             cc: gcc-11
-          - cxx: clang++-15
-            cc: clang-15
+          - cxx: clang++-13
+            cc: clang-13
 
     steps:
     - uses: actions/checkout@v4
