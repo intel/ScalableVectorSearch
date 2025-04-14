@@ -60,7 +60,7 @@ jobs:
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
               -DSVS_EXPERIMENTAL_LEANVEC=YES \
-              -DSVS_NO_AVX512=YES
+              -DSVS_NO_AVX512=NO
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
