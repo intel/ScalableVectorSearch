@@ -1,0 +1,38 @@
+# Copyright (C) 2024 Intel Corporation
+#
+# This software and the related documents are Intel copyrighted materials,
+# and your use of them is governed by the express license under which they
+# were provided to you ("License"). Unless the License provides otherwise,
+# you may not use, modify, copy, publish, distribute, disclose or transmit
+# this software or the related documents without Intel's prior written
+# permission.
+#
+# This software and the related documents are provided as is, with no
+# express or implied warranties, other than those that are expressly stated
+# in the License.
+
+cmake_minimum_required(VERSION 3.21)
+
+project(svs_shared_library_example
+    LANGUAGES CXX
+)
+
+set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.7/svs-shared-library-0.0.7-avx2-static.tar.gz")
+
+include(FetchContent)
+FetchContent_Declare(
+  svs
+  URL "${SVS_URL}"
+)
+FetchContent_MakeAvailable(svs)
+
+list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
+find_package(svs REQUIRED)
+find_library(SVS_SHARED svs_shared_library)
+
+set(SVS_CXX_STANDARD 20)
+SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Werror -Wall -Wextra -Wpedantic" )
+
+add_executable(shared_test shared.cpp)
+target_link_libraries(shared_test PUBLIC ${SVS_SHARED} svs::svs)
+
