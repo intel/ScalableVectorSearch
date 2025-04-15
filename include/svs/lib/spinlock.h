@@ -17,11 +17,18 @@
 #pragma once
 
 #include <atomic>
+// #include <version>  // __cpp_inline_assembly
 
 namespace svs {
 
 namespace detail {
-inline void pause() { __builtin_ia32_pause(); }
+inline void pause() {
+  #if defined(__i386__) || defined(__x86_64__)
+    __builtin_ia32_pause();
+  #elif defined(__aarch64__)
+    asm volatile ("yield" ::: "memory");
+  #endif
+}
 } // namespace detail
 
 ///
