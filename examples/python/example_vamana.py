@@ -80,8 +80,6 @@ def run_test_build_two_level4_8(index, queries, groundtruth):
 test_data_dir = None
 
 def run():
-    epsilon = 0.05
-
     # ###
     # Generating test data
     # ###

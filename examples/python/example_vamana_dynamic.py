@@ -49,8 +49,6 @@ def run_test_float(index, queries, groundtruth):
 test_data_dir = None
 
 def run():
-    epsilon = 0.05
-
     # [generate-dataset]
     # Create a test dataset.
     # This will create a directory "example_data_vamana" and populate it with three
