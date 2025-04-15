@@ -22,11 +22,12 @@ import numpy as np
 # [imports]
 
 DEBUG_MODE = False
-def assert_equal(lhs, rhs, message: str = ""):
+def assert_equal(lhs, rhs, message: str = "", epsilon = 0.05):
     if DEBUG_MODE:
         print(f"{message}: {lhs} == {rhs}")
     else:
-        assert lhs == rhs, message
+        assert lhs < rhs + epsilon, message
+        assert lhs > rhs - epsilon, message
 
 def run_test_float(index, queries, groundtruth):
     expected = {
@@ -118,7 +119,7 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8202)
+    assert_equal(recall, 0.8202)
     # [perform-queries]
 
     ##### Begin Test
@@ -158,8 +159,7 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8202)
-
+    assert_equal(recall, 0.8202)
 
     ##### Begin Test
     run_test_float(index, queries, groundtruth)

@@ -60,3 +60,9 @@ jobs:
       working-directory: ${{ runner.temp }}
       run: python -m unittest discover -s ${GITHUB_WORKSPACE}/bindings/python
 
+    - name: Run examples
+      env:
+          PYTHONPATH: ${{ runner.temp }}/usr
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}
+      run: python -m unittest discover -p "example*.py" -s ${GITHUB_WORKSPACE}/examples/python
