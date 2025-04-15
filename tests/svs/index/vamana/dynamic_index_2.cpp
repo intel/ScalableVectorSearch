@@ -19,6 +19,7 @@
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
 
@@ -247,7 +248,7 @@ void test_loop(
     }
 }
 
-CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
+CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distance]") {
     // Set hyper parameters here
     const size_t max_degree = 64;
 #if defined(NDEBUG)
@@ -303,11 +304,16 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
         1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
 
     auto tic = svs::lib::now();
+    // Get a copy before data moved
+    auto data_copy = data_mutable;
     auto index = svs::index::vamana::MutableVamanaIndex(
         parameters, std::move(data_mutable), initial_indices, Distance(), num_threads
     );
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
+
+    // Call test get_distance in util.h
+    svs_test::GetDistanceTester::test(index, svs::L2, queries, data_copy, initial_indices);
 
     // Verify that we can get and set build parameters.
     CATCH_REQUIRE(index.get_alpha() == alpha);
