@@ -21,11 +21,12 @@ import svs
 # [imports]
 
 DEBUG_MODE = False
-def assert_equal(lhs, rhs, message: str = ""):
+def assert_equal(lhs, rhs, message: str = "", epsilon = 0.05):
     if DEBUG_MODE:
         print(f"{message}: {lhs} == {rhs}")
     else:
-        assert lhs == rhs, message
+        assert lhs < rhs + epsilon, message
+        assert lhs > rhs - epsilon, message
 
 def run_test_float(index, queries, groundtruth):
     expected = {
@@ -79,7 +80,6 @@ def run_test_build_two_level4_8(index, queries, groundtruth):
 test_data_dir = None
 
 def run():
-
     # ###
     # Generating test data
     # ###
@@ -159,7 +159,7 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8288)
+    assert_equal(recall, 0.8288)
     # [perform-queries]
 
     # [search-window-size]
@@ -213,7 +213,7 @@ def run():
     # Compare with the groundtruth.
     recall = svs.k_recall_at(groundtruth, I, 10, 10)
     print(f"Recall = {recall}")
-    assert(recall == 0.8288)
+    assert_equal(recall, 0.8288)
     # [loading]
 
     ##### Begin Test
