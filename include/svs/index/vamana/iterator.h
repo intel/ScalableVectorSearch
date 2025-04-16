@@ -219,7 +219,6 @@ template <typename Index, typename QueryType> class BatchIterator {
     size_t size() const { return results_.size(); }
 
     /// @brief Return the batch number corresponding to the current buffer.
-    /// buffer.
     size_t batch_number() const { return iteration_; }
 
     /// @brief Return whether the entire entries in the index have been yielded.
