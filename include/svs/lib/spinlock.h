@@ -24,7 +24,7 @@ namespace detail {
 inline void pause() {
   #if defined(__i386__) || defined(__x86_64__)
     __builtin_ia32_pause();
-  #elif defined(__aarch64__)
+  #else //  __aarch64__
     asm volatile ("yield" ::: "memory");
   #endif
 }
