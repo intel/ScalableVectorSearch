@@ -53,7 +53,7 @@ class VamanaIterator {
         Implementation(
             const Index& index,
             std::span<const QueryType> query,
-            size_t extra_search_buffer_capacity = 0
+            size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
         )
             : impl_{index, query, extra_search_buffer_capacity} {}
 
@@ -105,7 +105,7 @@ class VamanaIterator {
     VamanaIterator(
         const Index& parent,
         std::span<const QueryType> query,
-        size_t extra_search_buffer_capacity = 0
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     )
         : impl_{std::make_unique<Implementation<Index, QueryType>>(
               parent, query, extra_search_buffer_capacity
@@ -131,7 +131,7 @@ class VamanaIterator {
         return impl_->results();
     }
 
-    /// @brief Prepate a new batch of results.
+    /// @brief Prepare a new batch of results.
     ///
     /// After calling this method, previous results will no longer be available.
     /// This method invalidates previous values return by ``results()``.

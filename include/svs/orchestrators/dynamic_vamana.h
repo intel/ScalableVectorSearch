@@ -296,7 +296,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     ///// Iterator
     template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
-        std::span<const QueryType, N> query, size_t extra_search_buffer_capacity = 0
+        std::span<const QueryType, N> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const {
         return impl_->batch_iterator(
             svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity

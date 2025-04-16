@@ -78,7 +78,8 @@ class VamanaInterface {
 
     ///// Iterator
     virtual VamanaIterator batch_iterator(
-        svs::AnonymousArray<1> query, size_t extra_search_buffer_capacity = 0
+        svs::AnonymousArray<1> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const = 0;
 
     ///// Calibrations
@@ -176,7 +177,8 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
 
     ///// Iterator
     VamanaIterator batch_iterator(
-        svs::AnonymousArray<1> query, size_t extra_search_buffer_capacity = 0
+        svs::AnonymousArray<1> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const override {
         // Match the query type.
         return svs::lib::match(
@@ -495,7 +497,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// The returned iterator will maintain an internal copy of the query.
     template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
-        std::span<const QueryType, N> query, size_t extra_search_buffer_capacity = 0
+        std::span<const QueryType, N> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const {
         return impl_->batch_iterator(
             svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity

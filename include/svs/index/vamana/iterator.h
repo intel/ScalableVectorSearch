@@ -153,20 +153,23 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @brief Constructs a batch iterator for the given query over the index.
     /// @param parent The index to search.
     /// @param query The query data.
-    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
+    /// @param extra_search_buffer_capacity Additional buffer capacity for the search
+    ///     When not provided, default value SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT is
+    ///     used.
     BatchIterator(
         const Index& parent,
         std::span<const QueryType> query,
-        size_t extra_search_buffer_capacity = 0
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     )
         : parent_{&parent}
         , query_{query.begin(), query.end()}
         , scratchspace_{parent_->scratchspace()} {
         detail::checkdims(query.size(), parent.dimensions());
 
-        extra_search_buffer_capacity_ = extra_search_buffer_capacity
-                                            ? extra_search_buffer_capacity
-                                            : SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT;
+        extra_search_buffer_capacity_ =
+            extra_search_buffer_capacity == svs::UNSIGNED_INTEGER_PLACEHOLDER
+                ? SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT
+                : extra_search_buffer_capacity;
         initialize_buffer();
     }
 
@@ -318,7 +321,8 @@ template <typename Index, typename QueryType> class BatchIterator {
     std::unordered_set<internal_id_type> yielded_{};    // Set of yielded neighbors.
     size_t iteration_ = 0;                              // Current iteration number.
     bool restart_search_ = true; // Whether the next search should restart from scratch.
-    size_t extra_search_buffer_capacity_ = 0; // Extra buffer capacity for the next search.
+    size_t extra_search_buffer_capacity_ =
+        svs::UNSIGNED_INTEGER_PLACEHOLDER; // Extra buffer capacity for the next search.
 };
 
 // Deduction Guides
