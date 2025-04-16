@@ -222,8 +222,8 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @brief Return whether the entire entries in the index have been yielded.
     ///
     /// The transition from not done to done will be triggered by a call to ``next()``.
-    /// The contents of ``batch_number()`` and ``parameters_for_current_iteration()`` will then
-    /// remain unchanged by subsequent invocations of ``next()``.
+    /// The contents of ``batch_number()`` and ``parameters_for_current_iteration()`` will
+    /// then remain unchanged by subsequent invocations of ``next()``.
     bool done() const { return yielded_.size() == parent_->size(); }
 
     /// @brief Forces the next iteration to restart the search from scratch.

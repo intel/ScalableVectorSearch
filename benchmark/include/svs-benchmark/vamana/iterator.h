@@ -390,7 +390,9 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
                 iterator.next(config.buffer_config_.get_search_window_size());
                 auto elapsed = svs::lib::time_difference(tic);
                 if (i == 0) {
-                    iteration_parameters.push_back(iterator.parameters_for_current_iteration());
+                    iteration_parameters.push_back(
+                        iterator.parameters_for_current_iteration()
+                    );
                 }
 
                 timings_for_this_query.push_back(tally(iterator, i, 0, elapsed));
