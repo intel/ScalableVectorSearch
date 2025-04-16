@@ -31,7 +31,6 @@
 #include <memory>
 #include <span>
 #include <type_traits>
-#include <x86intrin.h>
 
 // Implementation Notes regarding Intel(R) AVX Extentions
 // Top most entry in the bulleted list underneath each type pair <T,U> is the preferred
