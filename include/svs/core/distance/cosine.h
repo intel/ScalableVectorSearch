@@ -18,6 +18,7 @@
 
 // svs
 #include "svs/core/distance/distance_core.h"
+#include "svs/core/distance/simd_utils.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/static.h"
 
@@ -28,12 +29,6 @@
 #include <iostream>
 #include <memory>
 #include <type_traits>
-
-SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
-#if SVS_AVX512_F
-#include "svs/core/distance/simd_utils.h"
-#include <x86intrin.h>
-#endif  // SVS_AVX512_F
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.

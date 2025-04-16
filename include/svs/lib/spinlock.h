@@ -17,7 +17,6 @@
 #pragma once
 
 #include <atomic>
-// #include <version>  // __cpp_inline_assembly
 
 namespace svs {
 
