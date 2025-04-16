@@ -67,7 +67,7 @@ void test_iterator() {
 
     // Ensure the iterator is initialized correctly. No search happens at this point.
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 0);
+    CATCH_REQUIRE(itr.batch_number() == 0);
     auto buffer_config = itr.parameters_for_current_iteration().buffer_config_;
     CATCH_REQUIRE(buffer_config.get_search_window_size() == 0);
     CATCH_REQUIRE(
@@ -82,7 +82,7 @@ void test_iterator() {
     // There are more neighbors to return.
     CATCH_REQUIRE(!itr.done());
     // The current batch of neighbors is for batch 1.
-    CATCH_REQUIRE(itr.batch() == 1);
+    CATCH_REQUIRE(itr.batch_number() == 1);
     buffer_config = itr.parameters_for_current_iteration().buffer_config_;
     CATCH_REQUIRE(buffer_config.get_search_window_size() == 3);
     CATCH_REQUIRE(
@@ -102,7 +102,7 @@ void test_iterator() {
     itr.next(batchsize - 1);
     CATCH_REQUIRE(itr.size() == batchsize - 1);
     CATCH_REQUIRE(!itr.done());
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 2);
 
     results = itr.results();
     CATCH_REQUIRE(results[0].id() == 5);
@@ -113,7 +113,7 @@ void test_iterator() {
     itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 2);
     CATCH_REQUIRE(itr.done());
-    CATCH_REQUIRE(itr.batch() == 3);
+    CATCH_REQUIRE(itr.batch_number() == 3);
     results = itr.results();
     CATCH_REQUIRE(results[0].id() == 6);
     CATCH_REQUIRE(results[1].id() == 0);
@@ -121,12 +121,12 @@ void test_iterator() {
     // Calling `next()` again should yield no more candidates.
     itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 3);
+    CATCH_REQUIRE(itr.batch_number() == 3);
     CATCH_REQUIRE(itr.done());
 
     itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 3);
+    CATCH_REQUIRE(itr.batch_number() == 3);
     CATCH_REQUIRE(itr.done());
 
     // Update with a new query and increase the batch size.
@@ -137,7 +137,7 @@ void test_iterator() {
     batchsize = 4;
     itr.next(batchsize);
 
-    CATCH_REQUIRE(itr.batch() == 1);
+    CATCH_REQUIRE(itr.batch_number() == 1);
     CATCH_REQUIRE(itr.size() == 4);
     CATCH_REQUIRE(!itr.done());
     results = itr.results();
@@ -147,7 +147,7 @@ void test_iterator() {
     CATCH_REQUIRE(results[3].id() == 4);
 
     itr.next(batchsize);
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 2);
     CATCH_REQUIRE(itr.size() == 3);
     CATCH_REQUIRE(itr.done());
 
@@ -158,12 +158,12 @@ void test_iterator() {
 
     itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 2);
     CATCH_REQUIRE(itr.done());
 
     itr.next(batchsize + 1);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 2);
     CATCH_REQUIRE(itr.done());
 
     // Create another instance of batch iterator to test the setting of extra search buffer
@@ -176,7 +176,7 @@ void test_iterator() {
 
     // Ensure the iterator is initialized correctly. No search happens at this point.
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 0);
+    CATCH_REQUIRE(itr.batch_number() == 0);
     buffer_config = itr.parameters_for_current_iteration().buffer_config_;
     CATCH_REQUIRE(buffer_config.get_search_window_size() == 0);
     CATCH_REQUIRE(buffer_config.get_total_capacity() == extra_buffer_size);
@@ -184,7 +184,7 @@ void test_iterator() {
     itr.next(4);
     CATCH_REQUIRE(itr.size() == 4);
     CATCH_REQUIRE(!itr.done());
-    CATCH_REQUIRE(itr.batch() == 1);
+    CATCH_REQUIRE(itr.batch_number() == 1);
     buffer_config = itr.parameters_for_current_iteration().buffer_config_;
     CATCH_REQUIRE(buffer_config.get_search_window_size() == 4);
     CATCH_REQUIRE(buffer_config.get_total_capacity() == extra_buffer_size + 4);

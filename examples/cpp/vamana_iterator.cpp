@@ -85,7 +85,7 @@ void demonstrate_iterator() {
         // maintains an internal copy.
         auto query = std::vector<float>{3.25, 3.25, 3.25, 3.25};
 
-        // Make a batch iterator for the query using the provided schedule.
+        // Make a batch iterator for the query.
         return index.batch_iterator(svs::lib::as_const_span(query));
     }();
     //! [Setup]
@@ -93,7 +93,7 @@ void demonstrate_iterator() {
     //! [First Iteration]
     itr.next(batchsize);
     CHECK(itr.size() == 3);
-    CHECK(itr.batch() == 1);
+    CHECK(itr.batch_number() == 1);
 
     // Obtain a view of the current list candidates.
     std::span<const svs::Neighbor<size_t>> results = itr.results();
@@ -115,7 +115,7 @@ void demonstrate_iterator() {
     CHECK(itr.size() == 3);
 
     // The contents of the iterator are for batch 2.
-    CHECK(itr.batch() == 2);
+    CHECK(itr.batch_number() == 2);
 
     // Update and inspect the results.
     results = itr.results();

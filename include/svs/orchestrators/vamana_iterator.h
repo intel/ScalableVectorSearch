@@ -31,7 +31,7 @@ class VamanaIterator {
         virtual svs::index::vamana::VamanaSearchParameters
         parameters_for_current_iteration() const = 0;
         virtual svs::DataType query_type() const = 0;
-        virtual size_t batch() const = 0;
+        virtual size_t batch_number() const = 0;
         virtual size_t size() const = 0;
         virtual std::span<const svs::Neighbor<size_t>> results() const = 0;
         virtual void restart_next_search() = 0;
@@ -64,7 +64,7 @@ class VamanaIterator {
 
         svs::DataType query_type() const override { return svs::datatype_v<QueryType>; }
 
-        size_t batch() const override { return impl_.batch(); }
+        size_t batch_number() const override { return impl_.batch_number(); }
         size_t size() const override { return impl_.size(); }
 
         std::span<const svs::Neighbor<size_t>> results() const override {
@@ -121,7 +121,7 @@ class VamanaIterator {
     [[nodiscard]] svs::DataType query_type() const { return impl_->query_type(); }
 
     /// @brief Return the current batch number.
-    [[nodiscard]] size_t batch() const { return impl_->batch(); }
+    [[nodiscard]] size_t batch_number() const { return impl_->batch_number(); }
 
     /// @brief Return the number of results for the current batch.
     [[nodiscard]] size_t size() const { return impl_->size(); }
@@ -131,12 +131,16 @@ class VamanaIterator {
         return impl_->results();
     }
 
-    /// @brief Retrieve a new batch of results.
+    /// @brief Prepate a new batch of results.
     ///
     /// After calling this method, previous results will no longer be available.
     /// This method invalidates previous values return by ``results()``.
-    /// Argument cancel is a predicate called to determine if the search should be
-    /// cancelled.
+    /// @param batch_size The number of results to return in the next batch.
+    ///     In some scenarios (like when all entries are returned or if search is
+    ///     cancelled), results size can be lower than the ``batch_size``.
+    /// @param cancel A predicate called during the search to determine if the search should
+    /// be cancelled.
+    ///
     void next(
         size_t batch_size,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
@@ -159,7 +163,7 @@ class VamanaIterator {
     ///
     /// This transition is triggered by an invocation of ``next()``.
     /// After ``done() == true``, future calls to ``next()`` will yield an empty set of
-    /// candidates and will not change the results of ``batch()`` or
+    /// candidates and will not change the results of ``batch_number()`` or
     /// ``parameters_for_current_iteration()``.
     bool done() const { return impl_->done(); }
 

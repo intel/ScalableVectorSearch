@@ -215,14 +215,14 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @brief Returns the number of buffered results.
     size_t size() const { return results_.size(); }
 
-    /// @brief Reurn the current batch nu contained in the buffermber contained in the
+    /// @brief Return the batch number corresponding to the current buffer.
     /// buffer.
-    size_t batch() const { return iteration_; }
+    size_t batch_number() const { return iteration_; }
 
     /// @brief Return whether the entire entries in the index have been yielded.
     ///
     /// The transition from not done to done will be triggered by a call to ``next()``.
-    /// The contents of ``batch()`` and ``parameters_for_current_iteration()`` will then
+    /// The contents of ``batch_number()`` and ``parameters_for_current_iteration()`` will then
     /// remain unchanged by subsequent invocations of ``next()``.
     bool done() const { return yielded_.size() == parent_->size(); }
 
@@ -240,7 +240,7 @@ template <typename Index, typename QueryType> class BatchIterator {
             prefetch.step};
     }
 
-    /// @brief Retrieves the next batch of neighbors from the index.
+    /// @brief Prepares the next batch of neighbors (up to ``batch_size``) from the index.
     /// Handles exceptions gracefully and ensures iterator state consistency.
     void next(
         size_t batch_size,

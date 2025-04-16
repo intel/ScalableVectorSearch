@@ -132,7 +132,7 @@ void check(
             auto ids_returned_this_batch = std::vector<size_t>();
             for (size_t batch = 0; batch < num_batches; ++batch) {
                 // Make sure the batch number is the same.
-                CATCH_REQUIRE(iterator.batch() == batch + 1);
+                CATCH_REQUIRE(iterator.batch_number() == batch + 1);
                 ids_returned_this_batch.clear();
                 for (auto i : iterator) {
                     auto id = i.id();
@@ -166,7 +166,7 @@ void check(
                     EXCEPTION_COUNTDOWN = 50;
                     CATCH_REQUIRE_THROWS_AS(iterator.next(batchsize), svs::ANNException);
                     // The batch reported by the iterator must be unchanged.
-                    CATCH_REQUIRE(iterator.batch() == batch + 1);
+                    CATCH_REQUIRE(iterator.batch_number() == batch + 1);
                     // The contents of the iterator should be unchanged.
                     CATCH_REQUIRE(iterator.size() == ids_returned_this_batch.size());
                     CATCH_REQUIRE(std::equal(

@@ -81,3 +81,8 @@ jobs:
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
 
+    - name: Run Cpp Examples
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+        working-directory: ${{ runner.temp }}/build/examples/cpp
+        run: ctest -C RelWithDebugInfo
