@@ -83,6 +83,6 @@ jobs:
 
     - name: Run Cpp Examples
       env:
-        CTEST_OUTPUT_ON_FAILURE: 1
-        working-directory: ${{ runner.temp }}/build/examples/cpp
-        run: ctest -C RelWithDebugInfo
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}/build/examples/cpp
+      run: ctest -C RelWithDebugInfo
