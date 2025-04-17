@@ -46,7 +46,14 @@ void stress(svs::lib::Timer& timer, size_t max_depth = 3, size_t max_flat = 3) {
     }
 }
 
-// std::this_thread::sleep_for doesn't provide good accuracy for macos
+/*
+ * We use a busy_sleep here, not std::this_thread::sleep_for
+ * std::this_thread::sleep_for garanties, that the sleep would be
+ * not shorter than requared.
+ * For some platforms (like MacOS) a sleep can be much longer,
+ * so if we need the sleep time to be close to the requared,
+ * busy sleep is a good choise.
+ */
 void busy_sleep(std::chrono::nanoseconds duration) {
     auto start = std::chrono::steady_clock::now();
     while (std::chrono::steady_clock::now() - start < duration) {

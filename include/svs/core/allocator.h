@@ -42,6 +42,11 @@
 #include <fcntl.h>
 #include <filesystem>
 
+/* <linux/mman.h> provides some linux-specific flags like
+ * MAP_POPULATE, MAP_NORESERVE, MAP_HUGETLB.
+ * They can be used only with linux, and are not availiable
+ * for MacOS
+ */
 #if defined(__linux__)
 #include <linux/mman.h>
 #endif // __linux__
@@ -82,6 +87,9 @@ struct HugepageX86Parameters {
 };
 
 // Hugepage Allocation will happen in the order given below.
+/*
+ * MAP_HUGETLB, MAP_HUGE_1GB, MAP_HUGE_2MB are linux-specific
+ */
 #if defined(__linux__)
 static constexpr std::array<HugepageX86Parameters, 3> hugepage_x86_options{
     HugepageX86Parameters{1 << 30, MAP_HUGETLB | MAP_HUGE_1GB},
