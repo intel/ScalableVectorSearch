@@ -27,6 +27,7 @@
 
 // stl
 #include <concepts>
+#include <limits>
 #include <memory>
 #include <variant>
 
@@ -46,7 +47,15 @@ template <typename Compressed> float decompress(Compressed val, float scale, flo
     return scale * float(val) + bias;
 }
 
+// Used to SFINAE away resizing methods if the allocator is not blocked.
+template <typename A> inline constexpr bool is_blocked = false;
+template <typename A> inline constexpr bool is_blocked<data::Blocked<A>> = true;
+
 } // namespace detail
+
+// Trait to determine if an allocator is blocked or not.
+template <typename A>
+concept is_resizeable = detail::is_blocked<A>;
 
 template <typename ElementType> class EuclideanCompressed {
   public:
@@ -416,6 +425,21 @@ class SQDataset {
 
         return SQDataset<element_type, extent, allocator_type>{
             std::move(compressed), scale, bias};
+    }
+
+    /// @brief Compact the dataset
+    template <std::integral I, threads::ThreadPool Pool>
+    void compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize)
+        requires is_resizeable<Alloc>
+    {
+        data_.compact(new_to_old, threadpool, batchsize);
+    }
+
+    /// @brief Resize the dataset
+    void resize(size_t new_size)
+        requires is_resizeable<Alloc>
+    {
+        data_.resize(new_size);
     }
 
     /// @brief Save dataset to a file.
