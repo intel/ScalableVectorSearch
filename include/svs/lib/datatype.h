@@ -276,6 +276,13 @@ template<> inline constexpr DataType datatype_v<uint16_t> = DataType::uint16;
 template<> inline constexpr DataType datatype_v<uint32_t> = DataType::uint32;
 template<> inline constexpr DataType datatype_v<uint64_t> = DataType::uint64;
 
+#if defined(__APPLE__)
+template<> inline constexpr DataType datatype_v<size_t> =
+    sizeof(size_t) == 8 ? DataType::uint64 :
+    sizeof(size_t) == 4 ? DataType::uint32 :
+    DataType::undef;
+#endif // __APPLE__
+
 template<> inline constexpr DataType datatype_v<int8_t> = DataType::int8;
 template<> inline constexpr DataType datatype_v<int16_t> = DataType::int16;
 template<> inline constexpr DataType datatype_v<int32_t> = DataType::int32;

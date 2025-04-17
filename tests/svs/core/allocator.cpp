@@ -42,7 +42,11 @@ static_assert(std::is_same_v<typename Traits::pointer, float*>);
 static_assert(std::is_same_v<typename Traits::const_pointer, const float*>);
 static_assert(std::is_same_v<typename Traits::void_pointer, void*>);
 static_assert(std::is_same_v<typename Traits::const_void_pointer, const void*>);
+#if defined(__APPLE__)
+static_assert(std::is_same_v<typename Traits::difference_type, long>);
+#else
 static_assert(std::is_same_v<typename Traits::difference_type, int64_t>);
+#endif // __APPLE__
 static_assert(std::is_same_v<typename Traits::size_type, size_t>);
 static_assert(std::is_same_v<
               typename Traits::propagate_on_container_copy_assignment,

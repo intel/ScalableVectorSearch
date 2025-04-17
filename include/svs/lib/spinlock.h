@@ -22,11 +22,11 @@ namespace svs {
 
 namespace detail {
 inline void pause() {
-  #if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
     __builtin_ia32_pause();
-  #else //  __aarch64__
-    asm volatile ("yield" ::: "memory");
-  #endif
+#else //  __aarch64__
+    asm volatile("yield" ::: "memory");
+#endif
 }
 } // namespace detail
 
