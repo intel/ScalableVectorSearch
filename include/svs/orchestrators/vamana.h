@@ -491,10 +491,19 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     }
 
     ///// Iterator
-
-    /// @brief Return a new batch iterator for the query.
+    ///
+    /// @brief Return a new iterator (an instance of `svs::VamanaIterator`) for the query.
+    ///
+    /// @tparam QueryType The element type of the query that will be given to the iterator.
+    /// @tparam N The dimension of the query.
+    ///
+    /// @param query The query to use for the iterator.
+    /// @param extra_search_buffer_capacity An optional extra search buffer capacity to
+    ///     allow the iterator to search beyond the current batch (when not provided,
+    ///     defaults to 100).
     ///
     /// The returned iterator will maintain an internal copy of the query.
+    ///
     template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
         std::span<const QueryType, N> query,

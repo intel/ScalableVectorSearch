@@ -294,9 +294,7 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     }
 
     ///// Iterator
-    /// @brief Return a new batch iterator for the query.
-    ///
-    /// The returned iterator will maintain an internal copy of the query.
+    /// @copydoc svs::Vamana::batch_iterator
     template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
         std::span<const QueryType, N> query,
