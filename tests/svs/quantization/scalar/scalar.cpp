@@ -104,48 +104,70 @@ template <typename T, size_t N> void test_sq_top() {
     }
 }
 
-template <typename T, size_t N> void test_distance_ip(float lo, float hi) {
+template <typename T, typename Distance, size_t N>
+void test_distance_single(float lo, float hi) {
     constexpr size_t num_tests = 100;
 
     std::vector<float> a, b;
     auto generator = svs_test::make_generator<float>(lo, hi);
 
+    // populate the query
+    svs_test::populate(a, generator, N);
+
+    // populate the datasets
+    auto adata = svs::data::SimpleData<float>{1, N};
+    adata.set_datum(0, a);
+    auto bdata = svs::data::SimpleData<float>{num_tests, N};
     for (size_t i = 0; i < num_tests; ++i) {
-        // populate random vectors
-        svs_test::populate(a, generator, N);
         svs_test::populate(b, generator, N);
+        bdata.set_datum(i, b);
+    }
 
-        // calculate a well-tested distance and use it as reference
-        float reference = svs::distance::IP::compute<N>(a.data(), b.data());
+    // create the compressed dataset
+    auto compressed = scalar::SQDataset<T, N>::compress(bdata);
+    auto scale = compressed.get_scale();
+    auto bias = compressed.get_bias();
 
-        // create compressed dataset
-        auto adata = svs::data::SimpleData<float>{1, N};
-        adata.set_datum(0, a);
-        auto bdata = svs::data::SimpleData<float>{1, N};
-        bdata.set_datum(0, b);
-        auto compressed = scalar::SQDataset<T, N>::compress(bdata);
-        auto scale = compressed.get_scale();
-        auto bias = compressed.get_bias();
+    // create the compressed distance, fix query
+    Distance distance;
+    auto compressed_distance = scalar::compressed_distance_t<Distance, T>{scale, bias, N};
+    svs::distance::maybe_fix_argument(compressed_distance, adata.get_datum(0));
 
-        // create the compressed distance to calculate distances on compressed dataset
-        auto distance = scalar::InnerProductCompressed{scale, bias, N};
-
-        // call fix argument with test query
-        svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
-
-        // each element of the compressed vector has an associated error
-        // the maximum error after performing error propagation is
-        // 0.5 * scale * abs_sum_a
-        auto sum_a = std::accumulate(a.begin(), a.end(), 0.0f, [](float acc, float val) {
-            return acc + std::abs(val);
-        });
-        auto propagated_error = 0.5 * scale * sum_a;
-        auto expected = Catch::Approx(reference).margin(propagated_error);
+    std::vector<float> buffer(N);
+    for (size_t i = 0; i < num_tests; ++i) {
+        // manually decompress the compressed datum for reference calculation
+        std::transform(
+            compressed.get_datum(i).begin(),
+            compressed.get_datum(i).end(),
+            buffer.begin(),
+            [&](T v) { return scale * float(v) + bias; }
+        );
+        auto aspan = std::span(a);
+        auto buffspan = std::span(buffer);
+        float reference = svs::distance::compute(distance, aspan, buffspan);
+        auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
 
         // calculate the compressed distance and compare with reference
-        float result = distance.compute(compressed.get_datum(0));
+        float result = compressed_distance.compute(compressed.get_datum(i));
         CATCH_REQUIRE(result == expected);
     }
+}
+
+template <typename T, typename Distance> void test_distance() {
+    // Error accumulates proportional to number of dimensions, perform a low-dim test
+    test_distance_single<std::int8_t, Distance, 2>(-127, 127);
+
+    // More realistic, higher dimensionality tests for SIMD lanes with unrolling.
+    // 16x4 = 64 unrolled, plus full epilogue (16), plus ragged epilogue (7)
+    constexpr size_t N = 64 + 16 + 7;
+    // a bunch of test cases resulting in small and large values for scale & bias
+    test_distance_single<std::int8_t, Distance, N>(800, 1000);
+    test_distance_single<std::int8_t, Distance, N>(-127, 127);
+    test_distance_single<std::int8_t, Distance, N>(-10000, 10000);
+    test_distance_single<std::int8_t, Distance, N>(8000, 10000);
+    test_distance_single<std::int8_t, Distance, N>(-0.5, 0.1);
+    test_distance_single<std::int8_t, Distance, N>(-10, 1);
+    test_distance_single<std::int8_t, Distance, N>(80, 100);
 }
 
 CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
@@ -184,23 +206,12 @@ CATCH_TEST_CASE(
     "Testing Distance computations with SQDataset", "[quantization][scalar][distance]"
 ) {
     CATCH_SECTION("Distance with SQDataset") {
-        // Error accumulates proportional to number of dimensions, perform a low-dim test
-        test_distance_ip<std::int8_t, 2>(-127, 127);
+        using DistanceL2 = svs::distance::DistanceL2;
+        using DistanceIP = svs::distance::DistanceIP;
+        using DistanceCS = svs::distance::DistanceCosineSimilarity;
 
-        // More realistic, higher dimensionality tests for SIMD lanes with unrolling.
-        // 16x4 = 64 unrolled, plus full epilogue (16), plus ragged epilogue (7)
-        constexpr size_t N = 64 + 16 + 7;
-        // scale ~1, small bias (symmetric around 0)
-        test_distance_ip<std::int8_t, N>(-127, 127);
-        // scale ~1, large bias
-        test_distance_ip<std::int8_t, N>(800, 1000);
-        // scale >> 1, small bias
-        test_distance_ip<std::int8_t, N>(-10000, 10000);
-        // scale >> 1, large bias
-        test_distance_ip<std::int8_t, N>(8000, 10000);
-        // scale << 1, small bias
-        test_distance_ip<std::int8_t, N>(-10, 10);
-        // scale << 1, large bias
-        test_distance_ip<std::int8_t, N>(80, 100);
+        test_distance<std::int8_t, DistanceL2>();
+        test_distance<std::int8_t, DistanceIP>();
+        test_distance<std::int8_t, DistanceCS>();
     }
 }
