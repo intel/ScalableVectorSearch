@@ -41,7 +41,11 @@
 #include <array>
 #include <fcntl.h>
 #include <filesystem>
+
+#if defined(__linux__)
 #include <linux/mman.h>
+#endif // __linux__
+
 #include <memory>
 #include <optional>
 #include <string>
@@ -78,11 +82,17 @@ struct HugepageX86Parameters {
 };
 
 // Hugepage Allocation will happen in the order given below.
+#if defined(__linux__)
 static constexpr std::array<HugepageX86Parameters, 3> hugepage_x86_options{
     HugepageX86Parameters{1 << 30, MAP_HUGETLB | MAP_HUGE_1GB},
     HugepageX86Parameters{1 << 21, MAP_HUGETLB | MAP_HUGE_2MB},
     HugepageX86Parameters{1 << 12, 0},
 };
+#else
+static constexpr std::array<HugepageX86Parameters, 1> hugepage_x86_options{
+    HugepageX86Parameters{1 << 12, 0}
+};
+#endif // __linux__
 
 namespace detail {
 
@@ -104,11 +114,25 @@ struct HugepageAllocation {
         auto pagesize = params.pagesize;
         auto flags = params.mmap_flags;
         sz = lib::round_up_to_multiple_of(bytes, pagesize);
+
+        int mmap_flags = MAP_PRIVATE;
+        #if defined(MAP_ANONYMOUS)
+            mmap_flags |= MAP_ANONYMOUS;
+        #elif defined(MAP_ANON)
+            mmap_flags |= MAP_ANON;
+        #else
+            #error "System does not support anonymous mmap (no MAP_ANONYMOUS or MAP_ANON)"
+        #endif
+        // Add Linux-specific flags
+        #ifdef __linux__
+            mmap_flags |= MAP_POPULATE;
+        #endif // __linux__
+
         ptr = mmap(
             nullptr,
             sz,
             PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE | flags,
+            mmap_flags | flags,
             -1,
             0
         );
@@ -489,13 +513,19 @@ class MemoryMapper {
             }
         }
         lseek(fd, 0, SEEK_SET);
+
+        int mmap_flags = MAP_SHARED;  // Accessible from all processes
+        // Add Linux-specific flags
+        #ifdef __linux__
+            mmap_flags |= MAP_NORESERVE;  // Don't reserve space in DRAM for this until used
+            mmap_flags |= MAP_POPULATE;  // Populate page table entries in the DRAM
+        #endif // __linux__
+
         void* base = ::mmap(
             nullptr,
             bytes.value(),
             mmap_permissions(permission_),
-            MAP_NORESERVE       // Don't reserve space in DRAM for this until used
-                | MAP_SHARED    // Accessible from all processes
-                | MAP_POPULATE, // Populate page table entries in the DRAM
+            mmap_flags,
             fd,
             0
         );

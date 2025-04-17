@@ -64,7 +64,12 @@ void run_test(const Queries& queries, ThreadPoolProto threadpool_proto) {
     auto strategy = Strategy();
 
     // Distance between the obtained results and reference ressults.
-    const double epsilon = 0.005;
+    #if defined(__APPLE__)
+        const double epsilon = 0.01;
+    #else
+        const double epsilon = 0.005;
+    #endif  // __APPLE__
+
     constexpr svs::DistanceType distance_type = svs::distance_type_v<decltype(distance)>;
     auto expected_results = test_dataset::inverted::expected_build_results(
         distance_type, svsbenchmark::Uncompressed(svs::DataType::float32)

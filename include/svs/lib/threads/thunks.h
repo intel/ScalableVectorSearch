@@ -104,7 +104,8 @@ template <typename F, typename I> struct Thunk<F, DynamicPartition<I>> {
                     return;
                 }
 
-                auto stop = std::min(grainsize * (i + 1), iterator_size);
+                auto stop = std::min(grainsize * (i + 1),
+                                     static_cast<uint64_t>(iterator_size));
                 auto this_range =
                     IteratorPair{std::begin(space) + start, std::begin(space) + stop};
                 f(this_range, tid);

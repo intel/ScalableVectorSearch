@@ -45,6 +45,15 @@ void stress(svs::lib::Timer& timer, size_t max_depth = 3, size_t max_flat = 3) {
         }
     }
 }
+
+// std::this_thread::sleep_for doesn't provide good accuracy for macos
+void busy_sleep(std::chrono::nanoseconds duration) {
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start < duration) {
+        // spin
+    }
+}
+
 } // namespace
 
 CATCH_TEST_CASE("Timing", "[lib][timing]") {
@@ -66,16 +75,16 @@ CATCH_TEST_CASE("Timing", "[lib][timing]") {
         auto timer = svs::lib::Timer();
         {
             auto x = timer.push_back("a");
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            busy_sleep(std::chrono::milliseconds(10));
         }
         {
             auto x = timer.push_back("b");
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            busy_sleep(std::chrono::milliseconds(10));
         }
         {
             auto x = timer.push_back("b");
             auto y = timer.push_back("c");
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            busy_sleep(std::chrono::milliseconds(10));
         }
 
         // Number of elapsed time should be pretty close to the sleep time.
