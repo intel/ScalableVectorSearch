@@ -40,7 +40,7 @@ void check(bool value, std::string_view expr, svs::lib::detail::LineInfo linfo) 
 #define CHECK(expr) check(expr, #expr, SVS_LINEINFO);
 
 //! [Example Index Construction]
-[[nodiscard]] svs::Vamana make_example_index() {
+[[nodiscard]] auto make_example_index() {
     // Build the index.
     auto build_parameters = svs::index::vamana::VamanaBuildParameters{
         1.2, // alpha
@@ -68,42 +68,34 @@ void check(bool value, std::string_view expr, svs::lib::detail::LineInfo linfo) 
     }
 
     // Build the index.
-    return svs::Vamana::build<float>(build_parameters, std::move(data), svs::DistanceL2{});
+    return svs::index::vamana::auto_build(
+        build_parameters, std::move(data), svs::DistanceL2{}, 1
+    );
 }
 //! [Example Index Construction]
 
-void demonstrate_default_schedule() {
+void demonstrate_iterator() {
     //! [Setup]
     auto index = make_example_index();
 
-    // Base search parameters for the iterator schedule.
-    // This uses a search window size/capacity of 4.
-    auto base_parameters = svs::index::vamana::VamanaSearchParameters{}.buffer_config({4});
-
-    // The default schedule take base parameters and a batch size.
     // Each iteration will yield 3 elements that have not been yielded previously.
     size_t batchsize = 3;
-    auto schedule = svs::index::vamana::DefaultSchedule{base_parameters, batchsize};
 
     // Create a batch iterator over the index for the query.
-    // After the constructor returns, the contents of the first batch will be available.
     auto itr = [&]() {
         // Construct a query a query in a scoped block to demonstrate that the iterator
         // maintains an internal copy.
         auto query = std::vector<float>{3.25, 3.25, 3.25, 3.25};
 
-        // Make a batch iterator for the query using the provided schedule.
-        return index.batch_iterator(svs::lib::as_const_span(query), schedule);
+        // Make a batch iterator for the query.
+        return svs::VamanaIterator(index, svs::lib::as_const_span(query));
     }();
     //! [Setup]
 
-    //! [Initial Checks]
-    // The iterator was configured to yield three neighbors on each invocation.
-    // This information is available through the `size()` method.
+    //! [First Iteration]
+    itr.next(batchsize);
     CHECK(itr.size() == 3);
-
-    // The contents of the iterator are for batch 0.
-    CHECK(itr.batch() == 0);
+    CHECK(itr.batch_number() == 1);
 
     // Obtain a view of the current list candidates.
     std::span<const svs::Neighbor<size_t>> results = itr.results();
@@ -117,18 +109,15 @@ void demonstrate_default_schedule() {
     CHECK(results[0].id() == 3);
     CHECK(results[1].id() == 4);
     CHECK(results[2].id() == 2);
-    //! [Initial Checks]
+    //! [First Iteration]
 
     //! [Next Iteration]
-    // Once we've finished with the current batch of neighbors, we can step the iterator
-    // to the next batch.
-    //
-    // Using the `DefaultSchedule`, we will retrieve at most 3 new candidates.
-    itr.next();
+    // This will yield the next batch of neighbors.
+    itr.next(batchsize);
     CHECK(itr.size() == 3);
 
-    // The contents of the iterator are for batch 1.
-    CHECK(itr.batch() == 1);
+    // The contents of the iterator are for batch 2.
+    CHECK(itr.batch_number() == 2);
 
     // Update and inspect the results.
     results = itr.results();
@@ -144,7 +133,7 @@ void demonstrate_default_schedule() {
     //! [Final Iteration]
     // So far, the iterator has yielded 6 of the 7 vectors in the dataset.
     // This call to `next()` should only yield a single neighbor - the last on in the index.
-    itr.next();
+    itr.next(batchsize);
     CHECK(itr.size() == 1);
     CHECK(itr.done());
     results = itr.results();
@@ -154,7 +143,7 @@ void demonstrate_default_schedule() {
 
     //! [Beyond Final Iteration]
     // Calling `next()` again should yield no more candidates.
-    itr.next();
+    itr.next(batchsize);
     CHECK(itr.size() == 0);
     CHECK(itr.done());
     //! [Beyond Final Iteration]
@@ -162,7 +151,7 @@ void demonstrate_default_schedule() {
 
 // Alternative main definition
 int svs_main(std::vector<std::string> SVS_UNUSED(args)) {
-    demonstrate_default_schedule();
+    demonstrate_iterator();
     return 0;
 }
 

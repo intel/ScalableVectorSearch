@@ -167,10 +167,10 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         auto queries = test_dataset::get_test_set(queries_all, 1);
         auto groundtruth_all = test_dataset::load_groundtruth(svs::L2);
         auto groundtruth = test_dataset::get_test_set(groundtruth_all, 1);
+        auto batchsize = expected.num_neighbors_;
 
-        auto schedule = svs::index::vamana::DefaultSchedule{
-            expected.search_parameters_, expected.num_neighbors_};
-        auto itr = index.batch_iterator(queries.get_datum(0), schedule);
+        auto itr = index.batch_iterator(queries.get_datum(0));
+        itr.next(batchsize);
 
         auto results = svs::QueryResultImpl<size_t>(1, expected.num_neighbors_);
         auto neighbors = itr.results();
@@ -184,7 +184,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         CATCH_REQUIRE(recall > 0.6);
         CATCH_REQUIRE(counter == 0);
 
-        itr = index.batch_iterator(queries.get_datum(0), schedule, timeout);
+        itr = index.batch_iterator(queries.get_datum(0));
+        itr.next(batchsize, timeout);
         neighbors = itr.results();
         for (size_t j = 0; j < expected.num_neighbors_; ++j) {
             results.set(neighbors[j], 0, j);
@@ -197,7 +198,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         CATCH_REQUIRE(counter >= 4);
         counter = 0;
 
-        itr.update(queries.get_datum(0), timeout);
+        itr.update(queries.get_datum(0));
+        itr.next(batchsize, timeout);
         neighbors = itr.results();
         for (size_t j = 0; j < expected.num_neighbors_; ++j) {
             results.set(neighbors[j], 0, j);
@@ -210,7 +212,7 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         CATCH_REQUIRE(counter >= 4);
 
         itr.restart_next_search();
-        itr.next(timeout);
+        itr.next(batchsize, timeout);
         neighbors = itr.results();
         for (size_t j = 0; j < expected.num_neighbors_; ++j) {
             results.set(neighbors[j], 0, j);
