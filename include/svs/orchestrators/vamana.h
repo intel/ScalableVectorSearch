@@ -490,7 +490,6 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         }
     }
 
-    ///// Iterator
     ///
     /// @brief Return a new iterator (an instance of `svs::VamanaIterator`) for the query.
     ///

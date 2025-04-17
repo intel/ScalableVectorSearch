@@ -293,7 +293,6 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         );
     }
 
-    ///// Iterator
     /// @copydoc svs::Vamana::batch_iterator
     template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
