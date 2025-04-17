@@ -104,6 +104,50 @@ template <typename T, size_t N> void test_sq_top() {
     }
 }
 
+template <typename T, size_t N> void test_distance_ip(float lo, float hi) {
+    constexpr size_t num_tests = 100;
+
+    std::vector<float> a, b;
+    auto generator = svs_test::make_generator<float>(lo, hi);
+
+    for (size_t i = 0; i < num_tests; ++i) {
+        // populate random vectors
+        svs_test::populate(a, generator, N);
+        svs_test::populate(b, generator, N);
+
+        // calculate a well-tested distance and use it as reference
+        float reference = svs::distance::IP::compute<N>(a.data(), b.data());
+
+        // create compressed dataset
+        auto adata = svs::data::SimpleData<float>{1, N};
+        adata.set_datum(0, a);
+        auto bdata = svs::data::SimpleData<float>{1, N};
+        bdata.set_datum(0, b);
+        auto compressed = scalar::SQDataset<T, N>::compress(bdata);
+        auto scale = compressed.get_scale();
+        auto bias = compressed.get_bias();
+
+        // create the compressed distance to calculate distances on compressed dataset
+        auto distance = scalar::InnerProductCompressed{scale, bias, N};
+
+        // call fix argument with test query
+        svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
+
+        // each element of the compressed vector has an associated error
+        // the maximum error after performing error propagation is
+        // 0.5 * scale * abs_sum_a
+        auto sum_a = std::accumulate(a.begin(), a.end(), 0.0f, [](float acc, float val) {
+            return acc + std::abs(val);
+        });
+        auto propagated_error = 0.5 * scale * sum_a;
+        auto expected = Catch::Approx(reference).margin(propagated_error);
+
+        // calculate the compressed distance and compare with reference
+        float result = distance.compute(compressed.get_datum(0));
+        CATCH_REQUIRE(result == expected);
+    }
+}
+
 CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
     CATCH_SECTION("Default SQDataset") {}
 
@@ -140,39 +184,23 @@ CATCH_TEST_CASE(
     "Testing Distance computations with SQDataset", "[quantization][scalar][distance]"
 ) {
     CATCH_SECTION("Distance with SQDataset") {
-        constexpr size_t dims = 100;
-        constexpr size_t num_tests = 100;
+        // Error accumulates proportional to number of dimensions, perform a low-dim test
+        test_distance_ip<std::int8_t, 2>(-127, 127);
 
-        std::vector<float> a, b;
-        auto generator_a = svs_test::make_generator<float>(-127, 127);
-        auto generator_b = svs_test::make_generator<float>(-127, 127);
-
-        for (size_t i = 0; i < num_tests; ++i) {
-            // populate random vectors
-            svs_test::populate(a, generator_a, dims);
-            svs_test::populate(b, generator_b, dims);
-
-            // calculate a well-tested distance and use it as reference
-            float reference = svs::distance::IP::compute<dims>(a.data(), b.data());
-
-            // create compressed dataset
-            auto adata = svs::data::SimpleData<float>{1, dims};
-            adata.set_datum(0, a);
-            auto bdata = svs::data::SimpleData<float>{1, dims};
-            bdata.set_datum(0, b);
-            auto compressed = scalar::SQDataset<std::int8_t, dims>::compress(bdata);
-            auto scale = compressed.get_scale();
-            auto bias = compressed.get_bias();
-
-            // create the compressed distance to calculate distances on compressed dataset
-            auto distance = scalar::InnerProductCompressed{scale, bias, dims};
-
-            // call fix argument with test query
-            svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
-
-            // calculate the compressed distance and compare with reference
-            auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
-            CATCH_REQUIRE(distance.compute(compressed.get_datum(0)) == expected);
-        }
+        // More realistic, higher dimensionality tests for SIMD lanes with unrolling.
+        // 16x4 = 64 unrolled, plus full epilogue (16), plus ragged epilogue (7)
+        constexpr size_t N = 64 + 16 + 7;
+        // scale ~1, small bias (symmetric around 0)
+        test_distance_ip<std::int8_t, N>(-127, 127);
+        // scale ~1, large bias
+        test_distance_ip<std::int8_t, N>(800, 1000);
+        // scale >> 1, small bias
+        test_distance_ip<std::int8_t, N>(-10000, 10000);
+        // scale >> 1, large bias
+        test_distance_ip<std::int8_t, N>(8000, 10000);
+        // scale << 1, small bias
+        test_distance_ip<std::int8_t, N>(-10, 10);
+        // scale << 1, large bias
+        test_distance_ip<std::int8_t, N>(80, 100);
     }
 }
