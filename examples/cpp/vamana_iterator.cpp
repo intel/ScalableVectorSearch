@@ -40,7 +40,7 @@ void check(bool value, std::string_view expr, svs::lib::detail::LineInfo linfo) 
 #define CHECK(expr) check(expr, #expr, SVS_LINEINFO);
 
 //! [Example Index Construction]
-[[nodiscard]] svs::Vamana make_example_index() {
+[[nodiscard]] auto make_example_index() {
     // Build the index.
     auto build_parameters = svs::index::vamana::VamanaBuildParameters{
         1.2, // alpha
@@ -68,7 +68,9 @@ void check(bool value, std::string_view expr, svs::lib::detail::LineInfo linfo) 
     }
 
     // Build the index.
-    return svs::Vamana::build<float>(build_parameters, std::move(data), svs::DistanceL2{});
+    return svs::index::vamana::auto_build(
+        build_parameters, std::move(data), svs::DistanceL2{}, 1
+    );
 }
 //! [Example Index Construction]
 
@@ -86,7 +88,7 @@ void demonstrate_iterator() {
         auto query = std::vector<float>{3.25, 3.25, 3.25, 3.25};
 
         // Make a batch iterator for the query.
-        return index.batch_iterator(svs::lib::as_const_span(query));
+        return svs::VamanaIterator(index, svs::lib::as_const_span(query));
     }();
     //! [Setup]
 
