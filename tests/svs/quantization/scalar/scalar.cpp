@@ -20,6 +20,7 @@
 #include "svs/lib/meta.h"
 
 #include "tests/svs/core/data/data.h"
+#include "tests/utils/generators.h"
 #include "tests/utils/test_dataset.h"
 
 // catch2
@@ -128,5 +129,50 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
     CATCH_SECTION("SQDataset compression") {
         test_sq_top<std::int8_t, 128>();
         test_sq_top<std::int16_t, 128>();
+    }
+
+    CATCH_SECTION("SQDataset compress and resize") {
+        // TODO
+    }
+}
+
+CATCH_TEST_CASE(
+    "Testing Distance computations with SQDataset", "[quantization][scalar][distance]"
+) {
+    CATCH_SECTION("Distance with SQDataset") {
+        constexpr size_t dims = 100;
+        constexpr size_t num_tests = 100;
+
+        std::vector<float> a, b;
+        auto generator_a = svs_test::make_generator<float>(-127, 127);
+        auto generator_b = svs_test::make_generator<float>(-127, 127);
+
+        for (size_t i = 0; i < num_tests; ++i) {
+            // populate random vectors
+            svs_test::populate(a, generator_a, dims);
+            svs_test::populate(b, generator_b, dims);
+
+            // calculate a well-tested distance and use it as reference
+            float reference = svs::distance::IP::compute<dims>(a.data(), b.data());
+
+            // create compressed dataset
+            auto adata = svs::data::SimpleData<float>{1, dims};
+            adata.set_datum(0, a);
+            auto bdata = svs::data::SimpleData<float>{1, dims};
+            bdata.set_datum(0, b);
+            auto compressed = scalar::SQDataset<std::int8_t, dims>::compress(bdata);
+            auto scale = compressed.get_scale();
+            auto bias = compressed.get_bias();
+
+            // create the compressed distance to calculate distances on compressed dataset
+            auto distance = scalar::InnerProductCompressed{scale, bias, dims};
+
+            // call fix argument with test query
+            svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
+
+            // calculate the compressed distance and compare with reference
+            auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
+            CATCH_REQUIRE(distance.compute(compressed.get_datum(0)) == expected);
+        }
     }
 }
