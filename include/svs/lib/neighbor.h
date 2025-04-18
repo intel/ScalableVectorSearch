@@ -157,7 +157,7 @@ template <typename Cmp> class TotalOrder {
 namespace type_traits {
 template <typename Idx, typename Cmp> struct Sentinel<Neighbor<Idx>, Cmp> {
     static constexpr Neighbor<Idx> value =
-        Neighbor<Idx>{0, sentinel_v<float, Cmp>};
+        Neighbor<Idx>{std::numeric_limits<Idx>::max(), sentinel_v<float, Cmp>};
 };
 } // namespace type_traits
 
