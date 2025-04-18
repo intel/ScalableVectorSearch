@@ -45,6 +45,13 @@ Neighbor<size_t> find_nearest(const Query& query, const Data& data) {
         auto d = distance::compute(f, query, data.get_datum(i));
         nearest = std::min(nearest, Neighbor<size_t>(i, d));
     }
+
+    // If the distance is infinity and the id remains unchanged from sentinel_v,
+    // reset to the first index to return to the exsiting neighbor.
+    if (nearest.id() == type_traits::sentinel_v<Neighbor<size_t>, std::less<>>.id() &&
+        data.size() > 0) {
+        nearest = Neighbor<size_t>(0, nearest.distance());
+    }
     return nearest;
 }
 
