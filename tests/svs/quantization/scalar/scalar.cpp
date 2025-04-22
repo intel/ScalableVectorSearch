@@ -117,6 +117,7 @@ void test_distance_single(float lo, float hi) {
     // populate the datasets
     auto adata = svs::data::SimpleData<float>{1, N};
     adata.set_datum(0, a);
+    auto aspan = std::span(a);
     auto bdata = svs::data::SimpleData<float>{num_tests, N};
     for (size_t i = 0; i < num_tests; ++i) {
         svs_test::populate(b, generator, N);
@@ -131,6 +132,7 @@ void test_distance_single(float lo, float hi) {
     // create the compressed distance, fix query
     Distance distance;
     auto compressed_distance = scalar::compressed_distance_t<Distance, T>{scale, bias, N};
+    svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
     svs::distance::maybe_fix_argument(compressed_distance, adata.get_datum(0));
 
     std::vector<float> buffer(N);
@@ -142,7 +144,6 @@ void test_distance_single(float lo, float hi) {
             buffer.begin(),
             [&](T v) { return scale * float(v) + bias; }
         );
-        auto aspan = std::span(a);
         auto buffspan = std::span(buffer);
         float reference = svs::distance::compute(distance, aspan, buffspan);
         auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
