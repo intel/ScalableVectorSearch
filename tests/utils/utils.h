@@ -37,6 +37,7 @@
 #include "svs/concepts/distance.h"
 #include "svs/core/distance.h"
 #include "svs/core/distance/euclidean.h"
+#include "svs/index/vamana/extensions.h"
 
 #include "catch2/catch_approx.hpp"
 #include "catch2/matchers/catch_matchers_templated.hpp"
@@ -282,7 +283,7 @@ struct GetDistanceTester {
 
         // Convert distance_type to a distance function
         svs::DistanceDispatcher dispatcher(distance_type);
-        dispatcher([&](auto distance) {
+        dispatcher([&](auto dist) {
             constexpr double TOLERANCE = 1e-5;
 
             // Use a query vector for testing
@@ -298,14 +299,12 @@ struct GetDistanceTester {
                 auto indexed_span = dataset.get_datum(id);
 
                 // Compute expected distance
-                auto dist_copy = distance;
+                auto dist_copy = svs::index::vamana::extensions::single_search_setup(dataset, dist);
+
                 svs::distance::maybe_fix_argument(dist_copy, query_span);
                 double expected_distance =
                     svs::distance::compute(dist_copy, query_span, indexed_span);
                 
-                fmt::print("  index_distance:    {}\n", index_distance);
-                fmt::print("  expected_distance: {}\n", expected_distance);
-
                 // Test the distance calculation
                 CATCH_REQUIRE(std::abs(index_distance - expected_distance) < TOLERANCE);
             }
