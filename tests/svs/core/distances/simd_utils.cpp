@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#if defined(__i386__) || defined(__x86_64__)
+
 #include <cstdint>
 #include <type_traits>
 
@@ -61,3 +63,5 @@ CATCH_TEST_CASE("Masks", "[distance]") {
     CATCH_REQUIRE(svs::create_mask<16>(svs::lib::MaybeStatic<100>()) == 0xF);
     CATCH_REQUIRE(svs::create_mask<16>(svs::lib::MaybeStatic<16>()) == 0xFFFF);
 }
+
+#endif // defined(__i386__) || defined(__x86_64__)

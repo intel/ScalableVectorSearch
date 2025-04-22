@@ -33,7 +33,7 @@ template <typename T> void prefetch_l0(const T* ptr) {
 }
 #else
 // Do nothing if prefetch is not-available.
-template <typename T> void prefetch_l0(const T* ptr) {}
+template <typename T> void prefetch_l0([[maybe_unused]] const T* ptr) {}
 #endif
 
 const size_t CACHELINE_BYTES = 64;

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#if defined(__i386__) || defined(__x86_64__)
+
 #include <array>
 #include <limits>
 #include <type_traits>
@@ -369,3 +371,5 @@ template <> struct ConvertForVNNI<int16_t, 32> {
 
 } // namespace simd
 } // namespace svs
+
+#endif // __i386__ || __x86_64__
