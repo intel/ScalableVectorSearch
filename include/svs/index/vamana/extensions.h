@@ -624,7 +624,8 @@ double svs_invoke(
 
     // Compute the distance using the appropriate distance function
     auto dist = svs::distance::compute(dist_f, query_span, indexed_span);
-
+    fmt::print("Debug: Computing distance for ID {}: computed value = {}\n", 
+            internal_id, static_cast<double>(dist));
     return static_cast<double>(dist);
 }
 

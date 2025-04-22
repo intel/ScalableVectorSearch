@@ -302,6 +302,9 @@ struct GetDistanceTester {
                 svs::distance::maybe_fix_argument(dist_copy, query_span);
                 double expected_distance =
                     svs::distance::compute(dist_copy, query_span, indexed_span);
+                
+                fmt::print("  index_distance:    {}\n", index_distance);
+                fmt::print("  expected_distance: {}\n", expected_distance);
 
                 // Test the distance calculation
                 CATCH_REQUIRE(std::abs(index_distance - expected_distance) < TOLERANCE);
