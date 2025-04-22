@@ -150,53 +150,77 @@ struct Matcher {
   public:
     ///// Loading.
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
-        return schema == lean_dataset_schema && version == lean_dataset_save_version;
+        if (schema == lean_dataset_schema && version == lean_dataset_save_version) {
+            return true;
+        }
+        if (schema == fallback_schema && version == fallback_save_version) {
+            return true;
+        }
+        return false;
     }
 
     static lib::TryLoadResult<Matcher> try_load(const lib::ContextFreeLoadTable& table) {
+        auto schema = table.schema();
         // For each of the primary and secondary, use the combinations of expected
         // expected types until we have a successful match.
         auto primary_expected = detect_data(table.at("primary"));
         if (!primary_expected) {
             return lib::Unexpected(primary_expected.error());
         }
-
-        auto secondary_expected = detect_data(table.at("secondary"));
-        if (!secondary_expected) {
-            return lib::Unexpected(secondary_expected.error());
-        }
-
         const auto& primary = primary_expected.value();
-        const auto& secondary = secondary_expected.value();
 
-        return Matcher{
-            .leanvec_dims = primary.dims,
-            .total_dims = secondary.dims,
-            .primary_kind = primary.kind,
-            .secondary_kind = secondary.kind};
+        if (schema == lean_dataset_schema) {
+            auto secondary_expected = detect_data(table.at("secondary"));
+            if (!secondary_expected) {
+                return lib::Unexpected(secondary_expected.error());
+            }
+            const auto& secondary = secondary_expected.value();
+            return Matcher{
+                .leanvec_dims = primary.dims,
+                .total_dims = secondary.dims,
+                .primary_kind = primary.kind,
+                .secondary_kind = secondary.kind};
+        }
+        else if (schema == fallback_schema) {
+            return Matcher{
+                .leanvec_dims = primary.dims,
+                .total_dims = primary.dims,
+                .primary_kind = primary.kind,
+                .secondary_kind = LeanVecKind::float32};
+        }
+        else {
+            // TODO raise exception
+            throw ANNEXCEPTION("Invalid schema!");
+        }
     }
 
     static Matcher load(const lib::ContextFreeLoadTable& table) {
+        auto schema = table.schema();
         // For each of the primary and secondary, use the combinations of expected
         // expected types until we have a successful match.
         auto primary_expected = detect_data(table.at("primary"));
         if (!primary_expected) {
             throw ANNEXCEPTION("Could not match the primary dataset!");
         }
-
-        auto secondary_expected = detect_data(table.at("secondary"));
-        if (!secondary_expected) {
-            throw ANNEXCEPTION("Could not match the secondary dataset!");
-        }
-
         const auto& primary = primary_expected.value();
-        const auto& secondary = secondary_expected.value();
 
+        if (schema == lean_dataset_schema) {
+            auto secondary_expected = detect_data(table.at("secondary"));
+            if (!secondary_expected) {
+                throw ANNEXCEPTION("Could not match the secondary dataset!");
+            }
+            const auto& secondary = secondary_expected.value();
+            return Matcher{
+                .leanvec_dims = primary.dims,
+                .total_dims = secondary.dims,
+                .primary_kind = primary.kind,
+                .secondary_kind = secondary.kind};
+        }
         return Matcher{
             .leanvec_dims = primary.dims,
-            .total_dims = secondary.dims,
+            .total_dims = primary.dims,
             .primary_kind = primary.kind,
-            .secondary_kind = secondary.kind};
+            .secondary_kind = LeanVecKind::float32};
     }
 
     constexpr bool friend operator==(const Matcher&, const Matcher&) = default;

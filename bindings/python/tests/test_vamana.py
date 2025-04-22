@@ -41,7 +41,10 @@ from .common import \
     test_dimensions, \
     get_test_set
 
-from .dataset import UncompressedMatcher
+from .dataset import \
+    UncompressedMatcher, \
+    LVQMatcher, \
+    LeanVecMatcher
 
 DEBUG = False;
 
@@ -59,8 +62,114 @@ class VamanaTester(unittest.TestCase):
             self.reference_results = toml.load(f)
 
     def _setup(self, loader: svs.VectorDataLoader):
+        sequential = svs.LVQStrategy.Sequential
+        turbo = svs.LVQStrategy.Turbo
+
+        # Generate LeanVec OOD matrices
+        data = svs.read_vecs(test_data_vecs)
+        queries = svs.read_vecs(test_queries)
+        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64);
+
         self.loader_and_matcher = [
             (loader, UncompressedMatcher("float32")),
+            # LVQ
+            (svs.LVQLoader(loader, primary = 8, padding = 0), LVQMatcher(8)),
+            (svs.LVQLoader(loader, primary = 4, padding = 0), LVQMatcher(4)),
+            (svs.LVQLoader(
+                loader, primary = 4, residual = 4, strategy = sequential, padding = 0),
+                LVQMatcher(4, 4)
+            ),
+            (svs.LVQLoader(
+                loader, primary = 4, residual = 4, strategy = turbo, padding = 0),
+                LVQMatcher(4, 4)
+            ),
+            (svs.LVQLoader(
+                loader, primary = 4, residual = 8, strategy = sequential, padding = 0),
+                LVQMatcher(4, 8)
+            ),
+            (svs.LVQLoader(
+                loader, primary = 4, residual = 8, strategy = turbo, padding = 0),
+                LVQMatcher(4, 8)
+            ),
+            (svs.LVQLoader(
+                loader, primary = 8, residual = 8, padding = 0),
+                LVQMatcher(8, 8)
+            ),
+
+            #LeanVec
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = svs.LeanVecKind.float32,
+                    secondary_kind = svs.LeanVecKind.float32,
+                ),
+                LeanVecMatcher("float32", "float32", 64)
+            ),
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = svs.LeanVecKind.lvq4,
+                    secondary_kind = svs.LeanVecKind.lvq4,
+                ),
+                LeanVecMatcher("lvq4", "lvq4", 64)
+            ),
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = svs.LeanVecKind.lvq4,
+                    secondary_kind = svs.LeanVecKind.lvq8,
+                ),
+                LeanVecMatcher("lvq4", "lvq8", 64),
+            ),
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = svs.LeanVecKind.lvq8,
+                    secondary_kind = svs.LeanVecKind.lvq8,
+                    alignment = 0
+                ),
+                LeanVecMatcher("lvq8", "lvq8", 64)
+            ),
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 96,
+                    primary_kind = svs.LeanVecKind.float32,
+                    secondary_kind = svs.LeanVecKind.float32,
+                    alignment = 0
+                ),
+                LeanVecMatcher("float32", "float32", 96)
+            ),
+
+            # LeanVec OOD
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = svs.LeanVecKind.float32,
+                    secondary_kind = svs.LeanVecKind.float32,
+                    data_matrix = data_matrix,
+                    query_matrix = query_matrix,
+                    alignment = 0
+                ),
+                LeanVecMatcher("float32", "float32", 64, False)
+            ),
+            (
+                svs.LeanVecLoader(
+                    loader,
+                    leanvec_dims = 64,
+                    primary_kind = svs.LeanVecKind.lvq8,
+                    secondary_kind = svs.LeanVecKind.lvq8,
+                    data_matrix = data_matrix,
+                    query_matrix = query_matrix,
+                    alignment = 0
+                ),
+                LeanVecMatcher("lvq8", "lvq8", 64, False)
+            )
         ]
 
     def _distance_map(self):
@@ -254,10 +363,13 @@ class VamanaTester(unittest.TestCase):
             # Reload from raw-files.
             reloaded = svs.Vamana(configdir, graphdir, datadir, svs.DistanceType.L2)
 
-            self.assertTrue(
-                vamana.experimental_backend_string ==
-                reloaded.experimental_backend_string
-            )
+            # Backend strings should match unless this is LVQ loader with a Turbo backend
+            # TODO: Allow for more introspection in the LVQLoader fields.
+            if not isinstance(loader, (svs.LVQLoader, svs.LeanVecLoader)):
+                self.assertTrue(
+                    vamana.experimental_backend_string ==
+                    reloaded.experimental_backend_string
+                )
 
             reloaded.num_threads = num_threads
             self._test_basic_inner(
@@ -280,6 +392,73 @@ class VamanaTester(unittest.TestCase):
         for loader, matcher in self.loader_and_matcher:
             self._test_basic(loader, matcher, first_iter = first_iter)
             first_iter = False
+
+    def test_lvq_reload(self):
+        # Test LVQ reloading with different alignemnts and strategies.
+        default_loader = svs.VectorDataLoader(
+            test_data_svs, svs.DataType.float32, dims = test_data_dims
+        )
+
+        lvq_loader = svs.LVQLoader(
+            default_loader,
+            primary = 4,
+            residual = 8,
+            strategy = svs.LVQStrategy.Sequential
+        );
+        matcher = LVQMatcher(4, 8)
+
+        num_threads = 2
+        vamana = svs.Vamana(
+            test_vamana_config,
+            svs.GraphLoader(test_graph),
+            lvq_loader,
+            svs.DistanceType.L2,
+            num_threads = num_threads
+        )
+
+        print(f"Testing: {vamana.experimental_backend_string}")
+        self._test_basic_inner(
+            vamana,
+            matcher,
+            num_threads,
+            skip_thread_test = False,
+            first_iter = False,
+        )
+
+        # Test saving and reloading.
+        with TemporaryDirectory() as tempdir:
+            configdir = os.path.join(tempdir, "config")
+            graphdir = os.path.join(tempdir, "graph")
+            datadir = os.path.join(tempdir, "data")
+            vamana.save(configdir, graphdir, datadir)
+
+            reloader = svs.LVQLoader(
+                datadir,
+                strategy = svs.LVQStrategy.Sequential,
+                padding = 32,
+            )
+
+            print("Reloading LVQ with padding")
+            self._test_basic_inner(
+                svs.Vamana(configdir, graphdir, reloader, num_threads = num_threads),
+                matcher,
+                num_threads,
+                skip_thread_test = False,
+                first_iter = False,
+            )
+
+            reloader = svs.LVQLoader(
+                datadir, strategy = svs.LVQStrategy.Turbo, padding = 32,
+            )
+
+            print("Reloading LVQ as Turbo")
+            self._test_basic_inner(
+                svs.Vamana(configdir, graphdir, reloader, num_threads = num_threads),
+                matcher,
+                num_threads,
+                skip_thread_test = False,
+                first_iter = False,
+            )
 
     def _groundtruth_map(self):
         return {
@@ -349,6 +528,10 @@ class VamanaTester(unittest.TestCase):
         # Build directly from data
         data = svs.read_vecs(test_data_vecs)
 
+        # Generate LeanVec OOD matrices
+        queries = svs.read_vecs(test_queries)
+        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64);
+
         matcher = UncompressedMatcher("float32")
         self._test_build(data, svs.DistanceType.L2, matcher)
         self._test_build(data, svs.DistanceType.MIP, matcher)
@@ -371,6 +554,64 @@ class VamanaTester(unittest.TestCase):
         # Build from file loader
         loader = svs.VectorDataLoader(test_data_svs, svs.DataType.float32)
         matcher = UncompressedMatcher("float32")
+        self._test_build(loader, svs.DistanceType.L2, matcher)
+        self._test_build(loader, svs.DistanceType.MIP, matcher)
+        self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+        data = svs.VectorDataLoader(test_data_svs, svs.DataType.float32, dims = 128)
+
+        # Build from LVQ
+        loader = svs.LVQ8(data)
+        matcher = LVQMatcher(8)
+        self._test_build(loader, svs.DistanceType.L2, matcher)
+        self._test_build(loader, svs.DistanceType.MIP, matcher)
+        self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+        loader = svs.LVQ4x4(data)
+        matcher = LVQMatcher(4, 4)
+        self._test_build(loader, svs.DistanceType.L2, matcher)
+        self._test_build(loader, svs.DistanceType.MIP, matcher)
+        self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+        loader = svs.LVQ4x8(data)
+        matcher = LVQMatcher(4, 8)
+        self._test_build(loader, svs.DistanceType.L2, matcher)
+        self._test_build(loader, svs.DistanceType.MIP, matcher)
+        self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+        # Build from LeanVec
+        loader = svs.LeanVecLoader(
+            data,
+            leanvec_dims = 64,
+            primary_kind = svs.LeanVecKind.float32,
+            secondary_kind = svs.LeanVecKind.float32
+        )
+        matcher = LeanVecMatcher("float32", "float32", 64)
+        self._test_build(loader, svs.DistanceType.L2, matcher)
+        self._test_build(loader, svs.DistanceType.MIP, matcher)
+        self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+        loader = svs.LeanVecLoader(
+            data,
+            leanvec_dims = 64,
+            primary_kind = svs.LeanVecKind.lvq8,
+            secondary_kind = svs.LeanVecKind.lvq8
+        )
+        matcher = LeanVecMatcher("lvq8", "lvq8", 64)
+        self._test_build(loader, svs.DistanceType.L2, matcher)
+        self._test_build(loader, svs.DistanceType.MIP, matcher)
+        self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+        # Build from LeanVec OOD
+        loader = svs.LeanVecLoader(
+            data,
+            leanvec_dims = 64,
+            primary_kind = svs.LeanVecKind.lvq8,
+            secondary_kind = svs.LeanVecKind.lvq8,
+            data_matrix = data_matrix,
+            query_matrix = query_matrix
+        )
+        matcher = LeanVecMatcher("lvq8", "lvq8", 64, False)
         self._test_build(loader, svs.DistanceType.L2, matcher)
         self._test_build(loader, svs.DistanceType.MIP, matcher)
         self._test_build(loader, svs.DistanceType.Cosine, matcher)

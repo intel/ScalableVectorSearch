@@ -151,8 +151,8 @@ class LeanDataset {
         return LeanDataset{primary};
     }
 
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    static constexpr std::string_view serialization_schema = "leanvec_fallback";
+    static constexpr lib::Version save_version = fallback_save_version;
+    static constexpr std::string_view serialization_schema = fallback_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
             serialization_schema,

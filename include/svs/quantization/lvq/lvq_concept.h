@@ -90,26 +90,6 @@ template <
     typename Alloc>
 struct LVQLoader;
 
-namespace detail {
-
-template <LVQPackingStrategy Strategy>
-constexpr bool is_compatible(LVQStrategyDispatch strategy) {
-    switch (strategy) {
-        case LVQStrategyDispatch::Auto: {
-            return true;
-        }
-        case LVQStrategyDispatch::Sequential: {
-            return std::is_same_v<Strategy, Sequential>;
-        }
-        case LVQStrategyDispatch::Turbo: {
-            return TurboLike<Strategy>;
-        }
-    }
-    throw ANNEXCEPTION("Could not match strategy!");
-}
-
-} // namespace detail
-
 struct Matcher {
     // Load a matcher for either one or two level datasets.
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
@@ -117,6 +97,9 @@ struct Matcher {
             return true;
         }
         if (schema == two_level_serialization_schema && version == two_level_save_version) {
+            return true;
+        }
+        if (schema == fallback_serialization_schema && version == fallback_save_version) {
             return true;
         }
         return false;
@@ -136,6 +119,12 @@ struct Matcher {
             return Matcher{
                 .primary = primary_summary.bits,
                 .residual = residual_summary.bits,
+                .dims = primary_summary.dims};
+        }
+        if (schema == fallback_serialization_schema) {
+            return Matcher{
+                .primary = primary_summary.bits,
+                .residual = 0,
                 .dims = primary_summary.dims};
         }
         throw ANNEXCEPTION(
@@ -191,7 +180,7 @@ int64_t overload_match_strategy(LVQStrategyDispatch strategy) {
 template <size_t Primary, size_t Residual, size_t Extent, LVQPackingStrategy Strategy>
 int64_t overload_score(size_t p, size_t r, size_t e, LVQStrategyDispatch strategy) {
     // Reject easy matches.
-    if (p != Primary || r != Residual) {
+    if (lvq::check_primary_residual<Primary, Residual>(p, r)) {
         return lib::invalid_match;
     }
 
@@ -206,7 +195,7 @@ int64_t overload_score(size_t p, size_t r, size_t e, LVQStrategyDispatch strateg
 
     // We know dimensionality matches, now we have to try to match strategy.
     auto strategy_match = overload_match_strategy<Strategy>(strategy);
-    if (strategy_match < 0) {
+    if (lvq::check_strategy_match(strategy_match)) {
         return lib::invalid_match;
     }
 
@@ -297,7 +286,7 @@ template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLVQLoader {
                 throw ANNEXCEPTION("Invalid specialization!");
             }
         }
-        if (Primary != primary_ || Residual != residual_) {
+        if (lvq::check_primary_residual<Primary, Residual>(primary_, residual_)) {
             throw ANNEXCEPTION("Encoding bits mismatched!");
         }
         if (!detail::is_compatible<Strategy>(strategy_)) {

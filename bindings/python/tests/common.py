@@ -39,6 +39,8 @@ test_groundtruth_l2 = str(TEST_DATASET_DIR.joinpath("groundtruth_euclidean.ivecs
 test_groundtruth_mip = str(TEST_DATASET_DIR.joinpath("groundtruth_mip.ivecs"))
 test_groundtruth_cosine = str(TEST_DATASET_DIR.joinpath("groundtruth_cosine.ivecs"))
 test_vamana_reference = str(TEST_DATASET_DIR.joinpath("reference/vamana_reference.toml"))
+test_leanvec_data_matrix = str(TEST_DATASET_DIR.joinpath("leanvec_data_matrix.fvecs"))
+test_leanvec_query_matrix = str(TEST_DATASET_DIR.joinpath("leanvec_query_matrix.fvecs"))
 
 test_number_of_vectors = 10000
 test_dimensions = 128
@@ -123,3 +125,37 @@ def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     # For short lived processes, we generally see closer to a 3x speedup than a 4x
     # speedup when using 4 threads.
     testcase.assertTrue(1.3 * new_time < base_time)
+
+def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: int = 0):
+    """
+    Test that the reconstructed values are within the expected tolerance for LVQ compressed
+    data.
+
+    Arguments:
+        - original: The original, uncompressed data.
+        - reconstucted: The reconstructed data.
+
+    Keyword Arguments:
+        - primary_bits: The number of bits in the primary encoding.
+        - residual_bits: The number of bits in the residual encoding.
+    """
+
+    # Obtain the difference between the maximum and minimum values in the pre-processed
+    # dataset.
+    spans = svs.common.get_lvq_range(original)
+
+    # Compute the max delta for each component of the dataset.
+    # NOTE: We *should* divide by another factor of two here, but there are some values in
+    # the LVQ quantization space that will exceed this threshold due to compression
+    # limitations.
+    #
+    # See the C++ tests for LVQ reconstruction for a more complete explanation.
+    deltas = spans / (((2 ** primary_bits) - 1) * 2)
+    if residual_bits != 0:
+        deltas = deltas / ((2 ** residual_bits) - 1)
+
+    # Ensure that each reconstructed value is within the target threshold (plus a tiny
+    # fudge factor to help offset rounding imprecision.
+    upper_bound = np.expand_dims(deltas, axis = 1)
+    upper_bound = upper_bound + 0.0125 * upper_bound;
+    return np.all(np.abs(original - reconstructed) <= upper_bound)

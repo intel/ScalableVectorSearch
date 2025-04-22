@@ -149,8 +149,8 @@ class LVQDataset {
     }
 
     
-    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    static constexpr std::string_view serialization_schema = "lvq_fallback";
+    static constexpr lib::Version save_version = fallback_save_version;
+    static constexpr std::string_view serialization_schema = fallback_serialization_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
             serialization_schema,
@@ -167,6 +167,25 @@ class LVQDataset {
         return LVQDataset{SVS_LOAD_MEMBER_AT_(table, primary, allocator)};
     }
 };
+
+// No constraints on fallback for primary, residual, strategy
+template<size_t Primary, size_t Residual>
+inline bool check_primary_residual(size_t SVS_UNUSED(p), size_t SVS_UNUSED(r)) {
+    return false;
+}
+
+inline bool check_strategy_match(int64_t SVS_UNUSED(strategy_match)) {
+    return false;
+}
+
+namespace detail {
+
+template <LVQPackingStrategy Strategy>
+constexpr bool is_compatible(LVQStrategyDispatch SVS_UNUSED(strategy)) {
+    return true;
+}
+
+} // namespace detail
 
 } // namespace lvq
 } // namespace quantization

@@ -26,6 +26,8 @@ template <size_t Bits> struct UsingLVQ {};
 // Hoist out schemas for reuse while auto-loading.
 inline constexpr std::string_view lean_dataset_schema = "leanvec_dataset";
 inline constexpr lib::Version lean_dataset_save_version = lib::Version(0, 0, 0);
+inline constexpr std::string_view fallback_schema = "leanvec_fallback";
+inline constexpr lib::Version fallback_save_version = lib::Version(0, 0, 0);
 
 namespace detail {
 

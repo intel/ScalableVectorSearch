@@ -52,6 +52,10 @@ class FlatTester(unittest.TestCase):
                 svs.DistanceType.L2: 1.0,
                 svs.DistanceType.MIP: 1.0,
             }),
+            (svs.LVQ8(file, 0), {
+                svs.DistanceType.L2: 0.99997,
+                svs.DistanceType.MIP: 0.99993,
+            }),
         ]
 
     def _do_test(self, flat, queries, groundtruth, expected_recall = 1.0):

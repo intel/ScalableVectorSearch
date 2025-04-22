@@ -59,8 +59,10 @@ inline constexpr std::string_view one_level_serialization_schema = "one_level_lv
 inline constexpr lib::Version one_level_save_version = lib::Version(0, 0, 2);
 inline constexpr std::string_view two_level_serialization_schema = "two_level_lvq_dataset";
 inline constexpr lib::Version two_level_save_version = lib::Version(0, 0, 3);
+inline constexpr std::string_view fallback_serialization_schema = "fallback_dataset";
+inline constexpr lib::Version fallback_save_version = lib::Version(0, 0, 0);
 
-enum class DatasetSchema { Compressed, ScaledBiased };
+enum class DatasetSchema { Compressed, ScaledBiased, Fallback };
 ///
 /// Support for deduction.
 ///
@@ -72,6 +74,9 @@ inline constexpr std::string_view get_schema(DatasetSchema kind) {
         }
         case ScaledBiased: {
             return "lvq_with_scaling_constants";
+        }
+        case Fallback: {
+            return "uncompressed_data";
         }
     }
     throw ANNEXCEPTION("Invalid schema!");
@@ -86,6 +91,9 @@ inline constexpr lib::Version get_current_version(DatasetSchema kind) {
         case ScaledBiased: {
             return lib::Version(0, 0, 3);
         }
+        case Fallback: {
+            return lib::Version(0, 0, 0);
+        }
     }
     throw ANNEXCEPTION("Invalid schema!");
 }
@@ -99,6 +107,10 @@ struct DatasetSummary {
         }
         if (schema == get_schema(ScaledBiased) &&
             version == get_current_version(ScaledBiased)) {
+            return true;
+        }
+        if (schema == get_schema(Fallback) &&
+            version == get_current_version(Fallback)) {
             return true;
         }
         return false;
@@ -121,6 +133,13 @@ struct DatasetSummary {
                 .is_signed = false, // ScaledBiased always uses unsigned codes.
                 .dims = lib::load_at<size_t>(table, "logical_dimensions"),
                 .bits = lib::load_at<size_t>(table, "bits")};
+        }
+        if (schema == get_schema(Fallback)) {
+            return DatasetSummary{
+                .kind = Fallback,
+                .is_signed = false,//???
+                .dims = lib::load_at<size_t>(table, "dims"),
+                .bits = 32};//???
         }
         throw ANNEXCEPTION("Invalid table schema {}!", schema);
     }
