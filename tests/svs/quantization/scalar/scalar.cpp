@@ -213,6 +213,49 @@ void test_distance_compressed_single(float lo, float hi) {
     }
 }
 
+template <typename T, typename Distance, size_t N>
+void test_distance_high_precision(float lo, float hi) {
+    // compare the values of the compressed distance with the reference
+    // when using a higher precision type, the introduced error should be very
+    // small, allowing for tight error bounds in the comparison
+
+    constexpr size_t num_tests = 100;
+    std::vector<float> a, b;
+
+    auto generator = svs_test::make_generator<float>(lo, hi);
+    // populate the query
+    svs_test::populate(a, generator, N);
+    // populate the datasets
+    auto adata = svs::data::SimpleData<float>{1, N};
+    adata.set_datum(0, a);
+    auto bdata = svs::data::SimpleData<float>{num_tests, N};
+    for (size_t i = 0; i < num_tests; ++i) {
+        svs_test::populate(b, generator, N);
+        bdata.set_datum(i, b);
+    }
+    // create the compressed dataset
+    auto compressed = scalar::SQDataset<T, N>::compress(bdata);
+    auto scale = compressed.get_scale();
+    auto bias = compressed.get_bias();
+    std::cout << "scale: " << scale << " bias: " << bias << std::endl;
+
+    // create the compressed distance, fix query
+    Distance distance;
+    auto compressed_distance = scalar::compressed_distance_t<Distance, T>{scale, bias, N};
+    svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
+    svs::distance::maybe_fix_argument(compressed_distance, adata.get_datum(0));
+
+    for (size_t i = 0; i < num_tests; ++i) {
+        float reference =
+            svs::distance::compute(distance, adata.get_datum(0), bdata.get_datum(i));
+        auto expected = Catch::Approx(reference).epsilon(0.01);
+
+        // calculate the compressed distance and compare with reference
+        float result = compressed_distance.compute(compressed.get_datum(i));
+        CATCH_REQUIRE(result == expected);
+    }
+}
+
 template <typename T, typename Distance> void test_distance() {
     // Error accumulates proportional to number of dimensions, perform a low-dim test
     test_distance_single<std::int8_t, Distance, 2>(-127, 127);
@@ -228,6 +271,9 @@ template <typename T, typename Distance> void test_distance() {
     test_distance_single<std::int8_t, Distance, N>(-0.5, 0.1);
     test_distance_single<std::int8_t, Distance, N>(-10, 1);
     test_distance_single<std::int8_t, Distance, N>(80, 100);
+
+    // test_distance_high_precision<std::int32_t, Distance, N>(-127, 127);
+    // test_distance_high_precision<std::int32_t, Distance, N>(800, 1000);
 }
 
 template <typename T, typename Distance> void test_distance_compressed() {
@@ -295,7 +341,7 @@ CATCH_TEST_CASE(
         test_distance_compressed<std::int8_t, DistanceL2>();
 
         // TODO:
-        // Think about an SQDataset wither higher precission
+        // Think about an SQDataset wither higher precision
         // that effectively has no compression and check distance calculations. (No error
         // propagation needed because we run with full precision?)
         //
