@@ -102,8 +102,6 @@ set(CPUARCH_CPP_FILES
     src/instantiations.cpp
 )
 
-find_package(pybind11 REQUIRED)
-
 # Generate an object file for each target microarchitecture.
 set(OBJECT_FILES "")
 foreach(MICRO OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
@@ -121,7 +119,7 @@ foreach(MICRO OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
 endforeach()
 
 set(LIB_NAME "_svs")
-add_library(${LIB_NAME} SHARED ${OBJECT_FILES} ${CPP_FILES})
+pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES} ${OBJECT_FILES})
 target_link_libraries(${LIB_NAME} PRIVATE pybind11::module)
 target_link_libraries(${LIB_NAME} PUBLIC svs::svs)
 # Dependency "fmt::fmt" obtained from "svs"

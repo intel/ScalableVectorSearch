@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Dynamic loading logic.
-from .loader import library, current_backend, available_backends
+from .loader import library
 
 # Reexport all public functions and structs from the inner module.
 lib = library()
