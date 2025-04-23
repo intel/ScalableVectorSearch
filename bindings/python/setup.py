@@ -29,22 +29,22 @@ cmake_args = [
 def target(arch):
     return cpu.TARGETS[arch]
 
-# N.B.: cibuildwheel must configure the multi-arch environment variable.
-# Also, the micro-architectures defined below should be in order of preference.
-if os.environ.get("SVS_MULTIARCH", None) is not None:
-    svs_microarchs = [
+# TODO: Replace with externally-specified list
+svs_microarchs = [
+        # "x86_64_v3" # This is the default target for base lib compilation
+        "broadwell",
+        "skylake",
+        "skylake_avx512",
         "cascadelake",
-        "x86_64_v3", # conservative base CPU for x86 CPUs.
+        # TODO: Add support for other architectures (archspec does not support them yet)
+        # "cooperlake",
+        # "icelake_server",
+        "sapphirerapids",
+        # "graniterapids",
+        # "graniterapids_d",
     ]
-
-    # Add the current host to the list of micro-architecture if it doesn't already exist.
-    last_target = target(svs_microarchs[-1])
-    host_name = cpu.host().name
-    if host_name not in svs_microarchs and target(host_name) < last_target:
-        svs_microarchs.append(host_name)
-
-    cmake_array = ";".join(svs_microarchs)
-    cmake_args.append(f"-DSVS_MICROARCHS={cmake_array}")
+cmake_array = ";".join(svs_microarchs)
+cmake_args.append(f"-DSVS_MICROARCHS={cmake_array}")
 
 # Determine the root of the repository
 base_dir = os.path.relpath(os.path.join(os.path.dirname(__file__), '..', '..'))

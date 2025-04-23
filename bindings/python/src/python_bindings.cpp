@@ -50,7 +50,7 @@
 // The variable allows us to customize the name of the python module to support
 // micro-architecture versioning.
 #if !defined(SVS_MODULE_NAME)
-#define SVS_MODULE_NAME _svs_native
+#define SVS_MODULE_NAME _svs
 #endif
 
 namespace py = pybind11;

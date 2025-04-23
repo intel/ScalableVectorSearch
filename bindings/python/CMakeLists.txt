@@ -97,45 +97,56 @@ set(CPP_FILES
     src/vamana_common.cpp
     src/svs_mkl.cpp
 )
+# C++ files that are used to instantiate the template classes for each microarchitecture.
+set(CPUARCH_CPP_FILES
+    src/instantiations.cpp
+)
 
-# Generate a shared library for each target microarchitecture.
+find_package(pybind11 REQUIRED)
+
+# Generate an object file for each target microarchitecture.
+set(OBJECT_FILES "")
 foreach(MICRO OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
-    set(LIB_NAME "_svs_${MICRO}")
+    set(OBJ_NAME "_svs_${MICRO}")
+    add_library(${OBJ_NAME} OBJECT ${CPUARCH_CPP_FILES})
 
-    pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES})
-    target_link_libraries(${LIB_NAME} PUBLIC svs::svs)
-    # Dependency "fmt::fmt" obtained from "svs"
-    target_link_libraries(${LIB_NAME} PRIVATE svs::compile_options fmt::fmt)
+    target_link_libraries(${OBJ_NAME} PUBLIC svs::svs)
+    target_link_libraries(${OBJ_NAME} PRIVATE svs::compile_options fmt::fmt)
 
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
     message("OPT Flags: ${OPT_FLAGS}")
-    target_compile_options(${LIB_NAME} PRIVATE ${OPT_FLAGS})
+    target_compile_options(${OBJ_NAME} PRIVATE ${OPT_FLAGS} -DSVS_TUNE_TARGET=${MICRO} -DSVS_EXTERNAL_CPUARCH_INSTANCE=1 -fPIC)
 
-    # Header files.
-    target_include_directories(
-        ${LIB_NAME}
-        PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
-    )
-
-    # Comunicate to the C++ library the desired name of the library
-    target_compile_options(${LIB_NAME} PRIVATE "-DSVS_MODULE_NAME=${LIB_NAME}")
-
-    # If scikit build is running the compilation process,
-    if(DEFINED SKBUILD)
-        install(TARGETS ${LIB_NAME} DESTINATION .)
-
-        # The extension module may need to load build or included libraries when loaded.
-
-        # Placing build depedencies in the package and using relative RPATHs that
-        # don't point outside of the package means that the built package is
-        # relocatable. This allows for safe binary redistribution.
-        set_target_properties(
-            ${LIB_NAME}
-            PROPERTIES
-                INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}"
-        )
-    endif()
+    list(APPEND OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
 endforeach()
+
+set(LIB_NAME "_svs")
+add_library(${LIB_NAME} SHARED ${OBJECT_FILES} ${CPP_FILES})
+target_link_libraries(${LIB_NAME} PRIVATE pybind11::module)
+target_link_libraries(${LIB_NAME} PUBLIC svs::svs)
+# Dependency "fmt::fmt" obtained from "svs"
+target_link_libraries(${LIB_NAME} PRIVATE svs::compile_options fmt::fmt)
+# TODO: remove manual specification of base arch optimization flags
+target_compile_options(${LIB_NAME} PRIVATE -march=x86-64-v3 -mtune=generic -DSVS_TUNE_TARGET=x86_64_v3)
+target_include_directories(
+    ${LIB_NAME}
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+)
+
+if(DEFINED SKBUILD)
+    install(TARGETS ${LIB_NAME} DESTINATION .)
+
+    # The extension module may need to load build or included libraries when loaded.
+
+    # Placing build depedencies in the package and using relative RPATHs that
+    # don't point outside of the package means that the built package is
+    # relocatable. This allows for safe binary redistribution.
+    set_target_properties(
+        ${LIB_NAME}
+        PROPERTIES
+            INSTALL_RPATH "$ORIGIN/${CMAKE_INSTALL_LIBDIR}"
+    )
+endif()
 
 if(DEFINED SKBUILD)
     # Install the manifest JSON file.

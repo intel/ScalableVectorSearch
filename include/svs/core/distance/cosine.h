@@ -19,6 +19,7 @@
 // svs
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/simd_utils.h"
+#include "svs/lib/arch.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/static.h"
 
@@ -32,7 +33,7 @@
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl;
+template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct CosineSimilarityImpl;
 
 // Generic Entry Point
 // Call as one of either:
@@ -41,22 +42,25 @@ template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl;
 // (2) CosineSimilarity::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
+template<svs::arch::CPUArch Arch>
 class CosineSimilarity {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm, size_t N) {
-        return CosineSimilarityImpl<Dynamic, Ea, Eb>::compute(
+        return CosineSimilarityImpl<Dynamic, Ea, Eb, Arch>::compute(
             a, b, a_norm, lib::MaybeStatic(N)
         );
     }
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm) {
-        return CosineSimilarityImpl<N, Ea, Eb>::compute(
+        return CosineSimilarityImpl<N, Ea, Eb, Arch>::compute(
             a, b, a_norm, lib::MaybeStatic<N>()
         );
     }
 };
+
+SVS_DECLARE_CLASS_BY_CPUARCH(CosineSimilarity)
 
 ///
 /// @brief Functor for computing Cosine Similarity.
@@ -139,9 +143,17 @@ float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<
     assert(a.size() == b.size());
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        return CosineSimilarity::compute(a.data(), b.data(), distance.norm_, a.size());
+        SVS_DISPATCH_CLASS_BY_CPUARCH(
+            CosineSimilarity,
+            compute,
+            SVS_PACK_ARGS(a.data(), b.data(), distance.norm_, a.size())
+        );
     } else {
-        return CosineSimilarity::compute<extent>(a.data(), b.data(), distance.norm_);
+        SVS_DISPATCH_CLASS_BY_CPUARCH(
+            CosineSimilarity,
+            compute<extent>,
+            SVS_PACK_ARGS(a.data(), b.data(), distance.norm_)
+        );
     }
 }
 
@@ -166,7 +178,7 @@ float generic_cosine_similarity(
     return result / (a_norm * std::sqrt(accum));
 };
 
-template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl {
+template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct CosineSimilarityImpl {
     static float compute(
         const Ea* a,
         const Eb* b,
@@ -224,7 +236,7 @@ template <> struct CosineFloatOp<16> : public svs::simd::ConvertToFloat<16> {
 // Small Integers
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
-template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t> {
+template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto sum = _mm512_setzero_epi32();
@@ -250,7 +262,7 @@ template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, uint8_t, uint8_t> {
+template <size_t N> struct CosineSimilarityImpl<N, uint8_t, uint8_t, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto sum = _mm512_setzero_epi32();
@@ -278,7 +290,7 @@ template <size_t N> struct CosineSimilarityImpl<N, uint8_t, uint8_t> {
 #endif
 
 // Floating and Mixed Types
-template <size_t N> struct CosineSimilarityImpl<N, float, float> {
+template <size_t N> struct CosineSimilarityImpl<N, float, float, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
@@ -286,7 +298,7 @@ template <size_t N> struct CosineSimilarityImpl<N, float, float> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t> {
+template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
@@ -294,7 +306,7 @@ template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t> {
     };
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, float, int8_t> {
+template <size_t N> struct CosineSimilarityImpl<N, float, int8_t, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
@@ -302,7 +314,7 @@ template <size_t N> struct CosineSimilarityImpl<N, float, int8_t> {
     };
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, float, Float16> {
+template <size_t N> struct CosineSimilarityImpl<N, float, Float16, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
@@ -310,7 +322,7 @@ template <size_t N> struct CosineSimilarityImpl<N, float, Float16> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, Float16, float> {
+template <size_t N> struct CosineSimilarityImpl<N, Float16, float, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
@@ -318,7 +330,7 @@ template <size_t N> struct CosineSimilarityImpl<N, Float16, float> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, Float16, Float16> {
+template <size_t N> struct CosineSimilarityImpl<N, Float16, Float16, SVS_TARGET_CPUARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);

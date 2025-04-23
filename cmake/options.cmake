@@ -146,7 +146,7 @@ endif()
 
 add_library(svs_native_options INTERFACE)
 add_library(svs::native_options ALIAS svs_native_options)
-target_compile_options(svs_native_options INTERFACE -march=native -mtune=native)
+target_compile_options(svs_native_options INTERFACE -DSVS_CPUARCH_NATIVE -march=native -mtune=native)
 
 # Use an internal INTERFACE target to apply the same build options to both the
 # unit test and the compiled binaries.

@@ -85,11 +85,12 @@ void test_types(T lo, T hi, size_t num_tests) {
         // Statically Sized Computation
         auto a_norm = svs::distance::norm(std::span{a.data(), a.size()});
         CATCH_REQUIRE(
-            (svs::distance::CosineSimilarity::compute<N>(a.data(), b.data(), a_norm) ==
+            // TODO: replace baseline with something else?
+            (svs::distance::CosineSimilarity<svs::arch::CPUArch::baseline>::compute<N>(a.data(), b.data(), a_norm) ==
              expected)
         );
         // Dynamically Sized Computation
-        auto dist = svs::distance::CosineSimilarity::compute(a.data(), b.data(), a_norm, N);
+        auto dist = svs::distance::CosineSimilarity<svs::arch::CPUArch::baseline>::compute(a.data(), b.data(), a_norm, N);
         CATCH_REQUIRE((dist == expected));
     }
 }
