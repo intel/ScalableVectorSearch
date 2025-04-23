@@ -19,9 +19,12 @@
 #include <string>
 #include <cstdint>
 #include <unordered_map>
-#include <cpuid.h>
 #include <array>
 #include <vector>
+
+#if defined(__x86_64__)
+#include <cpuid.h>
+#endif
 
 namespace svs::arch {
 
