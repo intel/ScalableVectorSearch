@@ -134,16 +134,16 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
 
     auto extents = std::make_tuple(svs::lib::Val<N>(), svs::lib::Val<svs::Dynamic>());
 
-    // TODO: Also do for IP and Cosine
-
     svs::lib::foreach (extents, [&]<size_t E>(svs::lib::Val<E> /*unused*/) {
         fmt::print("Scalar quantization search - Extent {}\n", E);
-        auto distance = svs::distance::DistanceL2();
         auto data = svs::data::SimpleData<float, E>::load(datafile);
+        auto compressed = scalar::SQDataset<std::int8_t, E>::compress(data);
 
         // Sequential tests
-        test_search(
-            scalar::SQDataset<std::int8_t, E>::compress(data), distance, queries, gt
-        );
+        // clang-format off
+        // test_search(compressed, svs::distance::DistanceL2(), queries, gt);
+        test_search(compressed, svs::distance::DistanceIP(), queries, gt);
+        // test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries, gt);
+        // clang-format on
     });
 }
