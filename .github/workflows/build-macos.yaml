@@ -1,0 +1,85 @@
+# Copyright 2025 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: MacOS Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        build_type: [RelWithDebugInfo]
+        cxx: [clang++-15]
+        include:
+          - cxx: clang++-15
+            package: llvm@15
+            cc_name: clang
+            cxx_name: clang++
+            needs_prefix: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Compiler
+      run: |
+        echo "Installing ${{ matrix.package }}..."
+        brew install ${{ matrix.package }}
+
+    - name: Configure build
+      working-directory: ${{ runner.temp }}
+      env:
+        TEMP_WORKSPACE: ${{ runner.temp }}
+      run: |
+        if [[ "${{ matrix.needs_prefix }}" == "true" ]]; then
+          # For non-default packages like llvm@15, get the install prefix
+          COMPILER_PREFIX=$(brew --prefix ${{ matrix.package }})
+          export CC="${COMPILER_PREFIX}/bin/${{ matrix.cc_name }}"
+          export CXX="${COMPILER_PREFIX}/bin/${{ matrix.cxx_name }}"
+        else
+          # For versioned GCC installs, the name is usually directly available
+          export CC="${{ matrix.cc_name }}"
+          export CXX="${{ matrix.cxx_name }}"
+        fi
+
+        cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DSVS_BUILD_BINARIES=YES \
+              -DSVS_BUILD_TESTS=YES \
+              -DSVS_BUILD_EXAMPLES=YES \
+              -DSVS_EXPERIMENTAL_LEANVEC=YES
+
+    - name: Build Tests and Utilities
+      working-directory: ${{ runner.temp }}/build
+      run: make -j$(sysctl -n hw.ncpu)
+
+    - name: Run tests
+      env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}/build/tests
+      run: ctest -C ${{ matrix.build_type }}

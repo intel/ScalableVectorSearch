@@ -412,8 +412,8 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
     auto clustering_parameters = svs::index::inverted::ClusteringParameters()
                                      .percent_centroids(svs::lib::Percent(0.1))
                                      .epsilon(0.05)
-                                     .max_replicas(8)
-                                     .max_cluster_size(200);
+                                     .max_replicas(12)
+                                     .max_cluster_size(300);
     auto centroids = svs::index::inverted::randomly_select_centroids(
         data.size(),
         svs::lib::narrow_cast<size_t>(
