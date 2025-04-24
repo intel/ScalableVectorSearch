@@ -18,9 +18,9 @@
 
 //! [Includes]
 // SVS Dependencies
-#include "svs/orchestrators/vamana.h"           // bulk of the dependencies required.
-#include "svs/core/recall.h"                    // Convenient k-recall@n computation.
 #include "svs/fallback/fallback.h"
+#include "svs/core/recall.h"          // Convenient k-recall@n computation.
+#include "svs/orchestrators/vamana.h" // bulk of the dependencies required.
 
 // Alternative main definition
 #include "svsmain.h"
@@ -198,9 +198,8 @@ int svs_main(std::vector<std::string> args) {
 
     auto compressor_lean = svs::lib::Lazy([=](svs::threads::ThreadPool auto& threadpool) {
         auto data = svs::VectorDataLoader<float, 128>("example_data").load();
-        return leanvec::LeanDataset<leanvec::UsingLVQ<4>, leanvec::UsingLVQ<8>, 64, 128>::reduce(
-            data, std::nullopt, threadpool, padding
-        );
+        return leanvec::LeanDataset<leanvec::UsingLVQ<4>, leanvec::UsingLVQ<8>, 64, 128>::
+            reduce(data, std::nullopt, threadpool, padding);
     });
     index = svs::Vamana::assemble<float>(
         "example_config",

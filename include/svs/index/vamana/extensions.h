@@ -598,8 +598,7 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
 
 template <data::ImmutableMemoryDataset Data>
 SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
-    svs::tag_t<reconstruct_accessor> SVS_UNUSED(cpo),
-    const Data& SVS_UNUSED(dataset)
+    svs::tag_t<reconstruct_accessor> SVS_UNUSED(cpo), const Data& SVS_UNUSED(dataset)
 ) {
     return data::GetDatumAccessor();
 }

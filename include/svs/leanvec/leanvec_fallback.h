@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "svs/quantization/lvq/lvq_fallback.h"
 #include "svs/fallback/fallback_mode.h"
 #include "svs/leanvec/leanvec_common.h"
+#include "svs/quantization/lvq/lvq_fallback.h"
 
 // #include leanvec_common.h
 
@@ -43,6 +43,7 @@ template <size_t Extent> struct LeanVecMatrices {
             throw ANNEXCEPTION("Mismatched data and query matrix dimensions!");
         }
     }
+
   private:
     leanvec_matrix_type data_matrix_;
     leanvec_matrix_type query_matrix_;
@@ -63,7 +64,7 @@ template <typename T, typename A> struct select_rebind_allocator<T, A, true> {
 };
 template <typename T, typename A>
 using select_rebind_allocator_t = typename select_rebind_allocator<T, A>::type;
-}
+} // namespace detail
 
 template <
     typename T1,
@@ -74,17 +75,21 @@ template <
 class LeanDataset {
   public:
     using allocator_type = detail::select_rebind_allocator_t<float, Alloc>;
+
   private:
     data::SimpleData<float, Extent, allocator_type> primary_;
+
   public:
     static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
     using leanvec_matrices_type = LeanVecMatrices<LeanVecDims>;
-    using const_value_type = typename data::SimpleData<float, Extent, allocator_type>::const_value_type;
+    using const_value_type =
+        typename data::SimpleData<float, Extent, allocator_type>::const_value_type;
     using element_type = float;
     using value_type = const_value_type;
     using primary_type = data::SimpleData<float, Extent, allocator_type>;
 
-    LeanDataset(primary_type primary): primary_{std::move(primary)} {
+    LeanDataset(primary_type primary)
+        : primary_{std::move(primary)} {
         if (fallback::get_mode() == fallback::FallbackMode::Error) {
             throw fallback::UnsupportedHardwareError();
         } else if (fallback::get_mode() == fallback::FallbackMode::Warning) {
@@ -145,7 +150,8 @@ class LeanDataset {
         lib::MaybeStatic<LeanVecDims> SVS_UNUSED(leanvec_dims) = {},
         const Alloc& allocator = {}
     ) {
-        primary_type primary = primary_type{data.size(), data.dimensions(), allocator_type{allocator}};
+        primary_type primary =
+            primary_type{data.size(), data.dimensions(), allocator_type{allocator}};
         svs::data::copy(data, primary);
         return LeanDataset{primary};
     }
@@ -154,9 +160,7 @@ class LeanDataset {
     static constexpr std::string_view serialization_schema = fallback_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
-            serialization_schema,
-            save_version,
-            {SVS_LIST_SAVE_(primary, ctx)}
+            serialization_schema, save_version, {SVS_LIST_SAVE_(primary, ctx)}
         );
     }
 

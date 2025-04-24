@@ -94,7 +94,7 @@ template <> struct LeanVecPicker<UsingLVQ<4>> {
 
 template <typename T>
 inline constexpr LeanVecKind leanvec_kind_v = detail::LeanVecPicker<T>::value;
-    
+
 // LeanDataset Matcher
 struct Matcher {
   private:
@@ -180,15 +180,13 @@ struct Matcher {
                 .total_dims = secondary.dims,
                 .primary_kind = primary.kind,
                 .secondary_kind = secondary.kind};
-        }
-        else if (schema == fallback_schema) {
+        } else if (schema == fallback_schema) {
             return Matcher{
                 .leanvec_dims = primary.dims,
                 .total_dims = primary.dims,
                 .primary_kind = primary.kind,
                 .secondary_kind = LeanVecKind::float32};
-        }
-        else {
+        } else {
             // TODO raise exception
             throw ANNEXCEPTION("Invalid schema!");
         }

@@ -17,8 +17,8 @@
 #pragma once
 
 #include "svs/fallback/fallback_mode.h"
-#include "svs/quantization/lvq/lvq_concept.h"
 #include "svs/leanvec/leanvec_concept.h"
+#include "svs/quantization/lvq/lvq_concept.h"
 
 #ifdef USE_PROPRIETARY
 

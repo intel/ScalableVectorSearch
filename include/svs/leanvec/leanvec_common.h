@@ -34,11 +34,11 @@ namespace detail {
 template <typename T> inline constexpr bool is_using_lvq_tag_v = false;
 template <size_t N> inline constexpr bool is_using_lvq_tag_v<UsingLVQ<N>> = true;
 
-}
+} // namespace detail
 
 // Compatible type parameters for LeanDatasets
 template <typename T>
 concept LeanCompatible = has_datatype_v<T> || detail::is_using_lvq_tag_v<T>;
 
-}
-}
+} // namespace leanvec
+} // namespace svs

@@ -15,9 +15,9 @@
  */
 
 // SVS
+#include "svs/fallback/fallback.h"
 #include "svs/core/recall.h"
 #include "svs/lib/static.h"
-#include "svs/fallback/fallback.h"
 #include "svs/orchestrators/dynamic_vamana.h"
 #include "svs/orchestrators/exhaustive.h"
 #include "svs/orchestrators/vamana.h"

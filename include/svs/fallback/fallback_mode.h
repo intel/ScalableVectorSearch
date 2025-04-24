@@ -30,11 +30,13 @@ inline FallbackMode get_mode() { return mode; }
 class UnsupportedHardwareError : public std::runtime_error {
   public:
     explicit UnsupportedHardwareError()
-        : std::runtime_error{"LVQ and Leanvec functionality of SVS is not supported on non-Intel hardware."} {}
+        : std::runtime_error{"LVQ and Leanvec functionality of SVS is not supported on "
+                             "non-Intel hardware."} {}
 };
 
-constexpr const char* fallback_warning = "LVQ and Leanvec functionality of SVS is not supported on non-Intel hardware. "
-            "Using uncompressed data.\n";
+constexpr const char* fallback_warning =
+    "LVQ and Leanvec functionality of SVS is not supported on non-Intel hardware. "
+    "Using uncompressed data.\n";
 
-}
-}
+} // namespace fallback
+} // namespace svs

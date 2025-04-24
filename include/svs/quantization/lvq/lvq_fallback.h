@@ -17,9 +17,9 @@
 #pragma once
 
 #include "svs/core/data/simple.h"
-#include "svs/lib/threads.h"
-#include "svs/lib/saveload/save.h"
 #include "svs/fallback/fallback_mode.h"
+#include "svs/lib/saveload/save.h"
+#include "svs/lib/threads.h"
 #include "svs/quantization/lvq/lvq_common.h"
 
 namespace fallback = svs::fallback;
@@ -63,7 +63,7 @@ template <typename T, typename A> struct select_rebind_allocator<T, A, true> {
 template <typename T, typename A>
 using select_rebind_allocator_t = typename select_rebind_allocator<T, A>::type;
 
-}
+} // namespace detail
 
 template <typename T>
 concept LVQPackingStrategy = detail::is_lvq_packing_strategy_v<T>;
@@ -81,11 +81,14 @@ template <
 class LVQDataset {
   public:
     using allocator_type = detail::select_rebind_allocator_t<float, Alloc>;
+
   private:
     data::SimpleData<float, Extent, allocator_type> primary_;
+
   public:
     static constexpr bool is_resizeable = detail::is_blocked<Alloc>;
-    using const_value_type = typename data::SimpleData<float, Extent, allocator_type>::const_value_type;
+    using const_value_type =
+        typename data::SimpleData<float, Extent, allocator_type>::const_value_type;
     using element_type = float;
     using value_type = const_value_type;
     using primary_type = data::SimpleData<float, Extent, allocator_type>;
@@ -102,7 +105,8 @@ class LVQDataset {
     }
 
     template <data::ImmutableMemoryDataset Dataset>
-        LVQDataset(Dataset primary): primary_{primary} {
+    LVQDataset(Dataset primary)
+        : primary_{primary} {
         if (fallback::get_mode() == fallback::FallbackMode::Error) {
             throw fallback::UnsupportedHardwareError();
         } else if (fallback::get_mode() == fallback::FallbackMode::Warning) {
@@ -116,7 +120,9 @@ class LVQDataset {
     void prefetch(size_t i) const { primary_.prefetch(i); }
 
     template <typename QueryType, size_t N>
-    void set_datum(size_t i, std::span<QueryType, N> datum, size_t SVS_UNUSED(centroid_selector) = 0) {
+    void set_datum(
+        size_t i, std::span<QueryType, N> datum, size_t SVS_UNUSED(centroid_selector) = 0
+    ) {
         primary_.set_datum(i, datum);
     }
 
@@ -143,19 +149,17 @@ class LVQDataset {
         size_t SVS_UNUSED(alignment),
         const Alloc& allocator = {}
     ) {
-        primary_type primary = primary_type{data.size(), data.dimensions(), allocator_type{allocator}};
+        primary_type primary =
+            primary_type{data.size(), data.dimensions(), allocator_type{allocator}};
         svs::data::copy(data, primary);
         return LVQDataset{primary};
     }
 
-    
     static constexpr lib::Version save_version = fallback_save_version;
     static constexpr std::string_view serialization_schema = fallback_serialization_schema;
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
-            serialization_schema,
-            save_version,
-            {SVS_LIST_SAVE_(primary, ctx)}
+            serialization_schema, save_version, {SVS_LIST_SAVE_(primary, ctx)}
         );
     }
 
@@ -169,14 +173,12 @@ class LVQDataset {
 };
 
 // No constraints on fallback for primary, residual, strategy
-template<size_t Primary, size_t Residual>
+template <size_t Primary, size_t Residual>
 inline bool check_primary_residual(size_t SVS_UNUSED(p), size_t SVS_UNUSED(r)) {
     return false;
 }
 
-inline bool check_strategy_match(int64_t SVS_UNUSED(strategy_match)) {
-    return false;
-}
+inline bool check_strategy_match(int64_t SVS_UNUSED(strategy_match)) { return false; }
 
 namespace detail {
 

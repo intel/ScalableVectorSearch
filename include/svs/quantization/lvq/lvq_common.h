@@ -109,8 +109,7 @@ struct DatasetSummary {
             version == get_current_version(ScaledBiased)) {
             return true;
         }
-        if (schema == get_schema(Fallback) &&
-            version == get_current_version(Fallback)) {
+        if (schema == get_schema(Fallback) && version == get_current_version(Fallback)) {
             return true;
         }
         return false;
@@ -137,9 +136,9 @@ struct DatasetSummary {
         if (schema == get_schema(Fallback)) {
             return DatasetSummary{
                 .kind = Fallback,
-                .is_signed = false,//???
+                .is_signed = false,
                 .dims = lib::load_at<size_t>(table, "dims"),
-                .bits = 32};//???
+                .bits = 32};
         }
         throw ANNEXCEPTION("Invalid table schema {}!", schema);
     }

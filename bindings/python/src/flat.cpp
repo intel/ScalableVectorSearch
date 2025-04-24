@@ -21,10 +21,10 @@
 #include "svs/python/manager.h"
 
 // svs
-#include "svs/quantization/lvq/lvq_concept.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
 #include "svs/orchestrators/exhaustive.h"
+#include "svs/quantization/lvq/lvq_concept.h"
 
 // stl
 #include <pybind11/numpy.h>

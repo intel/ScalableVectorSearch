@@ -330,12 +330,31 @@ void wrap_fallback(py::module& m) {
         m, "FallbackMode", "Select the fallback mode for LVQ"
     )
         .value("Silent", Silent, "Seamlessly fall back to the default Vamana index.")
-        .value("Warning", Warning, "Provide results using default Vamana index. Logs a warning message indicated LeanVec/LVQ optimizations are unsupported.")
-        .value("Error", Error, "Enforces an error, stopping execution if LeanVec/LVQ optimizations are not supported.")
+        .value(
+            "Warning",
+            Warning,
+            "Provide results using default Vamana index. Logs a warning message indicated "
+            "LeanVec/LVQ optimizations are unsupported."
+        )
+        .value(
+            "Error",
+            Error,
+            "Enforces an error, stopping execution if LeanVec/LVQ optimizations are not "
+            "supported."
+        )
         .export_values();
 
-    m.def("set_fallback_mode", [](svs::fallback::FallbackMode mode) { svs::fallback::set_mode(mode); }, py::arg("mode"), "Set the LVQ mode.");
-    m.def("get_fallback_mode", []() { return svs::fallback::get_mode(); }, "Get the current LVQ mode.");
+    m.def(
+        "set_fallback_mode",
+        [](svs::fallback::FallbackMode mode) { svs::fallback::set_mode(mode); },
+        py::arg("mode"),
+        "Set the LVQ mode."
+    );
+    m.def(
+        "get_fallback_mode",
+        []() { return svs::fallback::get_mode(); },
+        "Get the current LVQ mode."
+    );
 }
 
 /// Generate bindings for LVQ compressors and loaders.
@@ -621,10 +640,10 @@ Args:
         return svs::lib::begin_deserialization(path);
     }));
     py::implicitly_convertible<std::filesystem::path, svs::lib::SerializedObject>();
- 
+
     ///// Fallback
     wrap_fallback(m);
-     
+
     ///// LVQ
     wrap_lvq(m);
 
