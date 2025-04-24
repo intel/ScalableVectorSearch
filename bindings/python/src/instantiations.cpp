@@ -16,4 +16,4 @@
 
 #include "svs/core/distance/cosine.h"
 
-SVS_INSTANTIATE_CLASS_BY_CPUARCH(svs::distance::CosineSimilarity)
+SVS_INSTANTIATE_COSINE_DISTANCE_BY_CPUARCH

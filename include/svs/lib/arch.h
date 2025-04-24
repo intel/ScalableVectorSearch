@@ -173,27 +173,10 @@ private:
 #if defined(SVS_CPUARCH_NATIVE)
     #define SVS_TARGET_CPUARCH svs::arch::CPUArch::native
 
-    #define SVS_DECLARE_CLASS_BY_CPUARCH(cls) template class cls<SVS_TARGET_CPUARCH>;
-
     #define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args) \
         return cls<svs::arch::CPUArch::native>::method(args);
 #elif defined(__x86_64__)
     #define SVS_TARGET_CPUARCH svs::arch::CPUArch::SVS_TUNE_TARGET
-
-    #if defined(SVS_EXTERNAL_CPUARCH_INSTANCE)
-        #define SVS_DECLARE_CLASS_BY_CPUARCH(cls)
-    #else
-        #define SVS_DECLARE_CLASS_BY_CPUARCH(cls) \
-            template class cls<SVS_TARGET_CPUARCH>; \
-            extern template class cls<svs::arch::CPUArch::x86_64_v3>; \
-            extern template class cls<svs::arch::CPUArch::broadwell>; \
-            extern template class cls<svs::arch::CPUArch::skylake>; \
-            extern template class cls<svs::arch::CPUArch::skylake_avx512>; \
-            extern template class cls<svs::arch::CPUArch::cascadelake>; \
-            extern template class cls<svs::arch::CPUArch::sapphirerapids>;
-    #endif
-
-    #define SVS_INSTANTIATE_CLASS_BY_CPUARCH(cls) template class cls<SVS_TARGET_CPUARCH>;
 
     #define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args) \
         svs::arch::CPUArch cpu_arch = svs::arch::CPUArchEnvironment::get_instance().get_cpu_arch(); \
@@ -211,17 +194,6 @@ private:
 #elif defined(__aarch64__)
     #define SVS_TARGET_CPUARCH svs::arch::CPUArch::SVS_TUNE_TARGET
 
-    #if defined(SVS_EXTERNAL_CPUARCH_INSTANCE)
-        #define SVS_DECLARE_CLASS_BY_CPUARCH(cls)
-    #else
-        #define SVS_DECLARE_CLASS_BY_CPUARCH(cls) \
-            template class cls<SVS_TARGET_CPUARCH>; \
-            extern template class cls<svs::arch::CPUArch::neoverse_n1>; \
-            extern template class cls<svs::arch::CPUArch::neoverse_v1>;
-    #endif
-
-    #define SVS_INSTANTIATE_CLASS_BY_CPUARCH(cls) template class cls<SVS_TARGET_CPUARCH>;
-
     #define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args) \
         svs::arch::CPUArch cpu_arch = svs::arch::CPUArchEnvironment::get_instance().get_cpu_arch(); \
         switch (cpu_arch) { \
@@ -232,5 +204,11 @@ private:
                 break; \
         }
 #endif
+
+#define SVS_INST_CLASS_METHOD_TMPL_BY_CPUARCH(return_type, cls, method, template_args, args) \
+    template return_type cls<SVS_TARGET_CPUARCH>::method<template_args>(args);
+// Distance-specific dispatching macros
+#define SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(cls, a_type, b_type) \
+    SVS_INST_CLASS_METHOD_TMPL_BY_CPUARCH(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long))
 
 } // namespace svs::arch
