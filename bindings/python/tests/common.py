@@ -24,7 +24,6 @@ import svs.common
 # directory of the SVS project.
 _current_file = Path(__file__).parent.resolve() #<prefix>/svs/bindings/python/tests
 ROOT_DIR = _current_file.parents[2]
-print("Root:", ROOT_DIR)
 TEST_DATASET_DIR = ROOT_DIR.joinpath("data", "test_dataset")
 
 # Main exports
