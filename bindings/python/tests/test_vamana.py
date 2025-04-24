@@ -46,7 +46,7 @@ from .dataset import \
     LVQMatcher, \
     LeanVecMatcher
 
-DEBUG = False;
+DEBUG = False
 
 class VamanaTester(unittest.TestCase):
     """
@@ -68,7 +68,7 @@ class VamanaTester(unittest.TestCase):
         # Generate LeanVec OOD matrices
         data = svs.read_vecs(test_data_vecs)
         queries = svs.read_vecs(test_queries)
-        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64);
+        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64)
 
         self.loader_and_matcher = [
             (loader, UncompressedMatcher("float32")),
@@ -222,7 +222,7 @@ class VamanaTester(unittest.TestCase):
             queries
         ):
 
-        I_full, D_full = vamana.search(queries, 10);
+        I_full, D_full = vamana.search(queries, 10)
 
         I_single = []
         D_single = []
@@ -358,7 +358,7 @@ class VamanaTester(unittest.TestCase):
             configdir = os.path.join(tempdir, "config")
             graphdir = os.path.join(tempdir, "graph")
             datadir = os.path.join(tempdir, "data")
-            vamana.save(configdir, graphdir, datadir);
+            vamana.save(configdir, graphdir, datadir)
 
             # Reload from raw-files.
             reloaded = svs.Vamana(configdir, graphdir, datadir, svs.DistanceType.L2)
@@ -404,7 +404,7 @@ class VamanaTester(unittest.TestCase):
             primary = 4,
             residual = 8,
             strategy = svs.LVQStrategy.Sequential
-        );
+        )
         matcher = LVQMatcher(4, 8)
 
         num_threads = 2
@@ -479,7 +479,7 @@ class VamanaTester(unittest.TestCase):
 
         params = self._get_build_parameters(
             'vamana_test_build', distance_map[distance], matcher
-        );
+        )
 
         vamana = svs.Vamana.build(params, loader, distance, num_threads = num_threads)
         print(f"Building: {vamana.experimental_backend_string}")
@@ -530,7 +530,7 @@ class VamanaTester(unittest.TestCase):
 
         # Generate LeanVec OOD matrices
         queries = svs.read_vecs(test_queries)
-        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64);
+        data_matrix, query_matrix = svs.compute_leanvec_matrices(data, queries, 64)
 
         matcher = UncompressedMatcher("float32")
         self._test_build(data, svs.DistanceType.L2, matcher)

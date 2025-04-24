@@ -121,7 +121,7 @@ class FlatTester(unittest.TestCase):
             svs.VectorDataLoader(
                 test_data_svs, svs.DataType.float32, dims = test_data_dims
             )
-        );
+        )
         for loader, recall in loaders:
             index = svs.Flat(
                 loader,

@@ -596,7 +596,7 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
 
 #else // USE_PROPRIETARY
 
-template <data::ImmutableMemoryDataset Data/*, size_t Extent, typename Alloc*/>
+template <data::ImmutableMemoryDataset Data>
 SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
     svs::tag_t<reconstruct_accessor> SVS_UNUSED(cpo),
     const Data& SVS_UNUSED(dataset)

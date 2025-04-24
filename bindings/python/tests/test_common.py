@@ -141,28 +141,28 @@ class CommonTester(unittest.TestCase):
         self.assertTrue(x.dtype == np.float32)
         self.assertRaises(
             RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.hvecs")
-        );
+        )
 
         # Half
         x = svs.common.random_dataset(10, 128, dtype = np.float16)
         self.assertTrue(x.dtype == np.float16)
         self.assertRaises(
             RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.fvecs")
-        );
+        )
 
         # UInt32
         x = svs.common.random_dataset(10, 128, dtype = np.uint32)
         self.assertTrue(x.dtype == np.uint32)
         self.assertRaises(
             RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.bvecs")
-        );
+        )
 
         # UInt8
         x = svs.common.random_dataset(10, 128, dtype = np.uint8)
         self.assertTrue(x.dtype == np.uint8)
         self.assertRaises(
             RuntimeError, svs.write_vecs, x, os.path.join(self.tempdir_name, "temp.ivecs")
-        );
+        )
 
     def test_generate_test_dataset(self):
         svs.generate_test_dataset(

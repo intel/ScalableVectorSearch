@@ -78,7 +78,7 @@ def get_test_set(A, num_entries: int):
     """
     assert(A.ndim == 2)
     assert(A.shape[0] >= num_entries)
-    return A[-num_entries:];
+    return A[-num_entries:]
 
 def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     """
@@ -156,5 +156,5 @@ def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: in
     # Ensure that each reconstructed value is within the target threshold (plus a tiny
     # fudge factor to help offset rounding imprecision.
     upper_bound = np.expand_dims(deltas, axis = 1)
-    upper_bound = upper_bound + 0.0125 * upper_bound;
+    upper_bound = upper_bound + 0.0125 * upper_bound
     return np.all(np.abs(original - reconstructed) <= upper_bound)

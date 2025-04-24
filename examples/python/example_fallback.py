@@ -1,4 +1,4 @@
-# Copyright 2023 Intel Corporation
+# Copyright 2025 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,12 +45,6 @@ def run_test_float(index, queries, groundtruth):
         )
 
 def run_test_two_level4_8(index, queries, groundtruth):
-    # expected = {
-    #     10: 0.5482,
-    #     20: 0.7294,
-    #     30: 0.8223,
-    #     40: 0.8756,
-    # }
     expected = {
         10: 0.5664,
         20: 0.7397,
@@ -67,12 +61,6 @@ def run_test_two_level4_8(index, queries, groundtruth):
         )
 
 def run_test_build_two_level4_8(index, queries, groundtruth):
-    # expected = {
-    #     10: 0.5484,
-    #     20: 0.7295,
-    #     30: 0.8221,
-    #     40: 0.8758,
-    # }
     expected = {
         10: 0.5664,
         20: 0.7397,

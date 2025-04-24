@@ -58,7 +58,7 @@ def np_to_svs(nptype):
     if nptype == np.float64:
         return lib.float64
 
-    raise Exception(f"Could not convert {nptype} to a svs.DataType enum!");
+    raise Exception(f"Could not convert {nptype} to a svs.DataType enum!")
 
 def read_npy(filename: str):
     """

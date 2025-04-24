@@ -24,7 +24,7 @@ from .common import \
     test_data_vecs, \
     test_data_dims
 
-DEBUG = False;
+DEBUG = False
 
 class LoaderAPITester(unittest.TestCase):
     """

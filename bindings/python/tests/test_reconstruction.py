@@ -34,7 +34,7 @@ from .common import \
     test_vamana_config, \
     test_close_lvq
 
-DEBUG = False;
+DEBUG = False
 
 class ReconstructionTester(unittest.TestCase):
     """

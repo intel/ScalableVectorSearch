@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,6 @@ namespace svs {
 namespace leanvec {
 
 template <size_t Extent> struct LeanVecMatrices {
-  // temporary (?) additions
   public:
     using leanvec_matrix_type = data::SimpleData<float, Extent>;
 
