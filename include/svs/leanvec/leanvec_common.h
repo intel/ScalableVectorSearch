@@ -16,6 +16,18 @@
 
 #pragma once
 
+// svs
+#include "svs/core/data.h"
+
+// stl
+#include <optional>
+#include <string>
+#include <string_view>
+#include <variant>
+
+// third-party
+#include "fmt/core.h"
+
 namespace svs {
 namespace leanvec {
 

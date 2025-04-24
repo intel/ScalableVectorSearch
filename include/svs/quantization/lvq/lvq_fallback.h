@@ -18,8 +18,6 @@
 
 #include "svs/core/data/simple.h"
 #include "svs/fallback/fallback_mode.h"
-#include "svs/lib/saveload/save.h"
-#include "svs/lib/threads.h"
 #include "svs/quantization/lvq/lvq_common.h"
 
 namespace fallback = svs::fallback;

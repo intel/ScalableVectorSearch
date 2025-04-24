@@ -16,6 +16,22 @@
 
 #pragma once
 
+// svs
+#include "eve/algo.hpp"
+#include "svs/core/data.h"
+#include "svs/core/distance.h"
+#include "svs/core/kmeans.h"
+#include "svs/lib/dispatcher.h"
+#include "svs/lib/meta.h"
+#include "svs/lib/misc.h"
+#include "svs/lib/saveload.h"
+
+// stl
+#include <memory>
+#include <string>
+#include <string_view>
+#include <variant>
+
 namespace svs {
 namespace quantization {
 namespace lvq {

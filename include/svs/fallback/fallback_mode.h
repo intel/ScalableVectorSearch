@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <stdexcept>
+
 namespace svs {
 namespace fallback {
 
