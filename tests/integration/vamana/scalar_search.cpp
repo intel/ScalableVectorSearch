@@ -101,22 +101,21 @@ void test_search(
     auto data_dir = dir / "data";
     index.save(config_dir, graph_dir, data_dir);
 
-    // // Reload
-    // {
-    //     auto reloaded_data = svs::lib::load_from_disk<Data>(data_dir, 32);
-    //     auto reloaded = svs::Vamana::assemble<float>(
-    //         config_dir,
-    //         svs::GraphLoader(graph_dir),
-    //         std::move(reloaded_data),
-    //         distance,
-    //         num_threads
-    //     );
-    //     CATCH_REQUIRE(reloaded.get_num_threads() == num_threads);
-    //     CATCH_REQUIRE(reloaded.size() == test_dataset::VECTORS_IN_DATA_SET);
-    //     CATCH_REQUIRE(reloaded.dimensions() == test_dataset::NUM_DIMENSIONS);
-    //     run_search(index, queries, groundtruth, expected_results.config_and_recall_,
-    //     false);
-    // }
+    // Reload
+    {
+        auto reloaded_data = svs::lib::load_from_disk<Data>(data_dir);
+        auto reloaded = svs::Vamana::assemble<float>(
+            config_dir,
+            svs::GraphLoader(graph_dir),
+            std::move(reloaded_data),
+            distance,
+            num_threads
+        );
+        CATCH_REQUIRE(reloaded.get_num_threads() == num_threads);
+        CATCH_REQUIRE(reloaded.size() == test_dataset::VECTORS_IN_DATA_SET);
+        CATCH_REQUIRE(reloaded.dimensions() == test_dataset::NUM_DIMENSIONS);
+        run_search(index, queries, groundtruth, expected_results.config_and_recall_);
+    }
 }
 } // namespace
 
@@ -129,6 +128,8 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
     auto gt = test_dataset::groundtruth_euclidean();
 
     auto extents = std::make_tuple(svs::lib::Val<N>(), svs::lib::Val<svs::Dynamic>());
+
+    // TODO: Also do for IP and Cosine
 
     svs::lib::foreach (extents, [&]<size_t E>(svs::lib::Val<E> /*unused*/) {
         fmt::print("Scalar quantization search - Extent {}\n", E);
