@@ -72,10 +72,7 @@ void run_search(
 
 template <scalar::IsSQData Data, typename Distance>
 void test_search(
-    Data data,
-    const Distance& distance,
-    const svs::data::SimpleData<float>& queries,
-    const svs::data::SimpleData<uint32_t>& groundtruth
+    Data data, const Distance& distance, const svs::data::SimpleData<float>& queries
 ) {
     size_t num_threads = 2;
 
@@ -83,6 +80,7 @@ void test_search(
     auto expected_results = test_dataset::vamana::expected_search_results(
         svs::distance_type_v<Distance>, svsbenchmark::Uncompressed(svs::DataType::float32)
     );
+    auto groundtruth = test_dataset::load_groundtruth(svs::distance_type_v<Distance>);
 
     // Make a copy of the original data to use for reconstruction comparison.
     auto index = svs::Vamana::assemble<float>(
@@ -139,9 +137,9 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
 
         // Sequential tests
         // clang-format off
-        test_search(compressed, svs::distance::DistanceL2(), queries, test_dataset::groundtruth_euclidean());
-        test_search(compressed, svs::distance::DistanceIP(), queries, test_dataset::groundtruth_mip());
-        test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries, test_dataset::groundtruth_cosine());
+        test_search(compressed, svs::distance::DistanceL2(), queries);
+        test_search(compressed, svs::distance::DistanceIP(), queries);
+        test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries);
         // clang-format on
     });
 }
