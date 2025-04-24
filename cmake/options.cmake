@@ -63,6 +63,11 @@ option(SVS_NO_AVX512
     OFF # disabled by default
 )
 
+option(SVS_NO_AVX
+    "Disable use of any Intel(R) AVX intrinsics."
+    OFF # disabled by default
+)
+
 option(SVS_FORCE_INTEGRATION_TESTS
     "Run integration tests in debug mode (slow)."
     OFF # disabled by default
@@ -146,7 +151,11 @@ endif()
 
 add_library(svs_native_options INTERFACE)
 add_library(svs::native_options ALIAS svs_native_options)
-target_compile_options(svs_native_options INTERFACE -march=native -mtune=native)
+if (SVS_NO_AVX)
+    target_compile_options(svs_native_options INTERFACE -march=x86-64-v2 -mtune=native)
+else()
+    target_compile_options(svs_native_options INTERFACE -march=native -mtune=native)
+endif()
 
 # Use an internal INTERFACE target to apply the same build options to both the
 # unit test and the compiled binaries.
