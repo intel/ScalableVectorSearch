@@ -21,8 +21,6 @@ import os
 #
 # This at least lets us have some kind of compatibility with older CPUs.
 cmake_args = [
-    "-DCMAKE_BUILD_TYPE=Debug",
-    "-DCMAKE_VERBOSE_MAKEFILE=ON",
     # Export compile commands to allow us to explore compiler flags as needed.
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=YES",
 ]
