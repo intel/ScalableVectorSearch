@@ -130,8 +130,6 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
     const size_t N = 128;
     auto datafile = test_dataset::data_svs_file();
     auto queries = test_dataset::queries();
-    auto gt = test_dataset::groundtruth_euclidean();
-
     auto extents = std::make_tuple(svs::lib::Val<N>(), svs::lib::Val<svs::Dynamic>());
 
     svs::lib::foreach (extents, [&]<size_t E>(svs::lib::Val<E> /*unused*/) {
@@ -141,9 +139,9 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
 
         // Sequential tests
         // clang-format off
-        // test_search(compressed, svs::distance::DistanceL2(), queries, gt);
-        test_search(compressed, svs::distance::DistanceIP(), queries, gt);
-        // test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries, gt);
+        test_search(compressed, svs::distance::DistanceL2(), queries, test_dataset::groundtruth_euclidean());
+        test_search(compressed, svs::distance::DistanceIP(), queries, test_dataset::groundtruth_mip());
+        test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries, test_dataset::groundtruth_cosine());
         // clang-format on
     });
 }
