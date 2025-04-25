@@ -339,13 +339,5 @@ CATCH_TEST_CASE(
         // L2 computes with compressed query and data and the check works a bit differently
         using DistanceL2 = svs::distance::DistanceL2;
         test_distance_compressed<std::int8_t, DistanceL2>();
-
-        // TODO:
-        // Think about an SQDataset wither higher precision
-        // that effectively has no compression and check distance calculations. (No error
-        // propagation needed because we run with full precision?)
-        //
-        // OR: int8 over full range
-        // so that scale=1, bias=0 with integer float32 values as queries
     }
 }
