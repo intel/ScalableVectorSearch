@@ -29,21 +29,24 @@ enum class CPUArch {
 #elif defined(__x86_64__)
     // Refer to the GCC docs for the list of targeted architectures:
     // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
-    x86_64_v3,
-    // Q: are aliases needed in future?
-    haswell = x86_64_v3,
-    core_avx2 = x86_64_v3,
+    nehalem,
+    x86_64_v2 = nehalem,
+    westmere,
+    sandybridge,
+    ivybridge,
+    haswell,
+    x86_64_v3 = haswell,
     broadwell,
     skylake,
     skylake_avx512,
+    x86_64_v4 = skylake_avx512,
     cascadelake,
-    // TODO: Uncomment once supported on python bindings side
-    // cooperlake,
-    // icelake_server,
+    cooperlake,
+    icelake_server,
     sapphirerapids,
     emeraldrapids = sapphirerapids,
-    // graniterapids,
-    // graniterapids_d,
+    graniterapids,
+    graniterapids_d,
 #elif defined(__aarch64__)
     neoverse_n1,
     neoverse_v1,
@@ -57,16 +60,30 @@ inline bool arch_is_supported(CPUArch arch) {
         case CPUArch::native:
             return true;
 #elif defined(__x86_64__)
-        case CPUArch::x86_64_v3:
+        case CPUArch::nehalem:
             return check_extensions(std::vector<ISAExt>{
                 ISAExt::MMX, ISAExt::SSE, ISAExt::SSE2, ISAExt::SSE3, ISAExt::SSSE3,
                 ISAExt::SSE4_1, ISAExt::SSE4_2, ISAExt::POPCNT, ISAExt::CX16, ISAExt::SAHF,
-                ISAExt::FXSR, ISAExt::AVX, ISAExt::XSAVE, ISAExt::PCLMUL, ISAExt::FSGSBASE,
-                ISAExt::RDRND, ISAExt::F16C, ISAExt::AVX2, ISAExt::BMI, ISAExt::BMI2,
-                ISAExt::LZCNT, ISAExt::FMA, ISAExt::MOVBE
+                ISAExt::FXSR
+            });
+        case CPUArch::westmere:
+            return arch_is_supported(CPUArch::nehalem) && check_extensions(std::vector<ISAExt>{
+                ISAExt::PCLMUL
+            });
+        case CPUArch::sandybridge:
+            return arch_is_supported(CPUArch::westmere) && check_extensions(std::vector<ISAExt>{
+                ISAExt::AVX, ISAExt::XSAVE
+            });
+        case CPUArch::ivybridge:
+            return arch_is_supported(CPUArch::sandybridge) && check_extensions(std::vector<ISAExt>{
+                ISAExt::FSGSBASE, ISAExt::RDRND, ISAExt::F16C
+            });
+        case CPUArch::haswell:
+            return arch_is_supported(CPUArch::ivybridge) && check_extensions(std::vector<ISAExt>{
+                ISAExt::AVX2, ISAExt::BMI, ISAExt::BMI2, ISAExt::LZCNT, ISAExt::FMA, ISAExt::MOVBE
             });
         case CPUArch::broadwell:
-            return arch_is_supported(CPUArch::x86_64_v3) && check_extensions(std::vector<ISAExt>{
+            return arch_is_supported(CPUArch::haswell) && check_extensions(std::vector<ISAExt>{
                 ISAExt::RDSEED, ISAExt::ADCX, ISAExt::PREFETCHW
             });
         case CPUArch::skylake:
@@ -82,41 +99,38 @@ inline bool arch_is_supported(CPUArch arch) {
             return arch_is_supported(CPUArch::skylake_avx512) && check_extensions(std::vector<ISAExt>{
                 ISAExt::AVX512_VNNI
             });
-        // case CPUArch::cooperlake:
-        //     return arch_is_supported(CPUArch::cascadelake) && check_extensions(std::vector<ISAExt>{
-        //         ISAExt::AVX512_BF16
-        //     });
-        // case CPUArch::icelake_server:
-        //     return arch_is_supported(CPUArch::cooperlake) && check_extensions(std::vector<ISAExt>{
-        //         ISAExt::PKU, ISAExt::AVX512_VBMI, ISAExt::AVX512_IFMA, ISAExt::SHA,
-        //         ISAExt::GFNI, ISAExt::VAES, ISAExt::AVX512_VBMI2, ISAExt::VPCLMULQDQ,
-        //         ISAExt::AVX512_BITALG, ISAExt::RDPID, ISAExt::AVX512_VPOPCNTDQ, ISAExt::PCONFIG,
-        //         ISAExt::WBNOINVD, ISAExt::CLWB
-        //     });
-        case CPUArch::sapphirerapids:
-            // return arch_is_supported(CPUArch::icelake_server) && check_extensions(std::vector<ISAExt>{
+        case CPUArch::cooperlake:
             return arch_is_supported(CPUArch::cascadelake) && check_extensions(std::vector<ISAExt>{
+                ISAExt::AVX512_BF16
+            });
+        case CPUArch::icelake_server:
+            return arch_is_supported(CPUArch::cooperlake) && check_extensions(std::vector<ISAExt>{
+                ISAExt::PKU, ISAExt::AVX512_VBMI, ISAExt::AVX512_IFMA, ISAExt::SHA,
+                ISAExt::GFNI, ISAExt::VAES, ISAExt::AVX512_VBMI2, ISAExt::VPCLMULQDQ,
+                ISAExt::AVX512_BITALG, ISAExt::RDPID, ISAExt::AVX512_VPOPCNTDQ, ISAExt::PCONFIG,
+                ISAExt::WBNOINVD, ISAExt::CLWB
+            });
+        case CPUArch::sapphirerapids:
+            return arch_is_supported(CPUArch::icelake_server) && check_extensions(std::vector<ISAExt>{
                 ISAExt::MOVDIRI, ISAExt::MOVDIR64B, ISAExt::ENQCMD, ISAExt::CLDEMOTE,
                 ISAExt::PTWRITE, ISAExt::WAITPKG, ISAExt::SERIALIZE, ISAExt::TSXLDTRK,
                 ISAExt::UINTR, ISAExt::AMX_BF16, ISAExt::AMX_TILE, ISAExt::AMX_INT8,
                 ISAExt::AVX_VNNI, ISAExt::AVX512_FP16, ISAExt::AVX512_BF16
             });
-        // case CPUArch::graniterapids:
-        //     return arch_is_supported(CPUArch::sapphirerapids) && check_extensions(std::vector<ISAExt>{
-        //         ISAExt::AMX_FP16, ISAExt::PREFETCHI
-        //     });
-        // case CPUArch::graniterapids_d:
-        //     return arch_is_supported(CPUArch::graniterapids) && check_extensions(std::vector<ISAExt>{
-        //         ISAExt::AMX_COMPLEX
-        //     });
+        case CPUArch::graniterapids:
+            return arch_is_supported(CPUArch::sapphirerapids) && check_extensions(std::vector<ISAExt>{
+                ISAExt::AMX_FP16, ISAExt::PREFETCHI
+            });
+        case CPUArch::graniterapids_d:
+            return arch_is_supported(CPUArch::graniterapids) && check_extensions(std::vector<ISAExt>{
+                ISAExt::AMX_COMPLEX
+            });
 #elif defined(__aarch64__)
         // TODO: complete lists of supported extensions
         case CPUArch::neoverse_n1:
-            return check_extension(ISAExt::SVE);
+            return check_extensions(std::vector<ISAExt>{ISAExt::SVE})
         case CPUArch::neoverse_v1:
-            return arch_is_supported(CPUArch::neoverse_n1) && check_extensions(std::vector<ISAExt>{
-                ISAExt::SVE2
-            });
+            return arch_is_supported(CPUArch::neoverse_n1) && check_extensions(std::vector<ISAExt>{ISAExt::SVE2});
 #endif
         default:
             return false;
@@ -133,6 +147,7 @@ public:
     CPUArch get_cpu_arch() const {
         return max_arch_;
     }
+
 private:
     CPUArchEnvironment() {
         const std::vector<CPUArch> compiled_archs = {
@@ -140,12 +155,15 @@ private:
             CPUArch::native,
 #elif defined(__x86_64__)
             // TODO: add support for dynamic list of compiled archs
-            CPUArch::x86_64_v3,
+            CPUArch::haswell,
             CPUArch::broadwell,
             CPUArch::skylake,
             CPUArch::skylake_avx512,
             CPUArch::cascadelake,
             CPUArch::sapphirerapids,
+#elif defined(__aarch64__)
+            CPUArch::neoverse_n1,
+            CPUArch::neoverse_v1,
 #endif
         };
         compiled_archs_ = compiled_archs;
@@ -181,7 +199,7 @@ private:
     #define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args) \
         svs::arch::CPUArch cpu_arch = svs::arch::CPUArchEnvironment::get_instance().get_cpu_arch(); \
         switch (cpu_arch) { \
-            SVS_CLASS_METHOD_CPUARCH_CASE(x86_64_v3, cls, method, SVS_PACK_ARGS(args)) \
+            SVS_CLASS_METHOD_CPUARCH_CASE(haswell, cls, method, SVS_PACK_ARGS(args)) \
             SVS_CLASS_METHOD_CPUARCH_CASE(broadwell, cls, method, SVS_PACK_ARGS(args)) \
             SVS_CLASS_METHOD_CPUARCH_CASE(skylake, cls, method, SVS_PACK_ARGS(args)) \
             SVS_CLASS_METHOD_CPUARCH_CASE(skylake_avx512, cls, method, SVS_PACK_ARGS(args)) \
