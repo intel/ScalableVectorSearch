@@ -44,15 +44,6 @@
 #include <filesystem>
 #include <optional>
 
-// Get the expected name of the library
-// Make sure CMake stays up to date with defining this parameter.
-//
-// The variable allows us to customize the name of the python module to support
-// micro-architecture versioning.
-#if !defined(SVS_MODULE_NAME)
-#define SVS_MODULE_NAME _svs
-#endif
-
 namespace py = pybind11;
 
 namespace {
@@ -144,7 +135,7 @@ class ScopedModuleNameOverride {
 
 } // namespace
 
-PYBIND11_MODULE(SVS_MODULE_NAME, m) {
+PYBIND11_MODULE(_svs, m) {
     // Internall, the top level `__init__.py` imports everything from the C++ module named
     // `_svs`.
     //
