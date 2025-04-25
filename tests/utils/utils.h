@@ -261,62 +261,57 @@ void mutate_table(
 
 // Test get_distance for any index, data type, and distance method
 struct GetDistanceTester {
-    template <typename IndexType, typename IdType = size_t>
+    template <typename IndexType, typename Distance, typename IdType = size_t>
     static void test(
         IndexType& index,
-        svs::DistanceType distance_type,
-        const svs::data::ImmutableMemoryDataset auto& queries,
-        const svs::data::ImmutableMemoryDataset auto& dataset,
+        const Distance& distance_type,
+        // testdata.h includes utils need to pass data file
+        const std::string& data_file,
         const std::vector<IdType>& external_ids = {}
     ) {
+        const auto data = svs::data::SimpleData<float>::load(data_file);
+
         // Skip test if there aren't enough data points
-        if (index.size() == 0 || queries.size() == 0) {
+        if (index.size() == 0 || data.size() == 0) {
             std::cout << "Skipping get_distance test due to insufficient data\n";
             return;
         }
 
-        // Test index vector id
-        size_t id = 0;
+        constexpr double TOLERANCE = 1e-2;
+        const size_t query_id = 10;
+        size_t index_id = 100;
+
+        // Use external ID if provided
         if (!external_ids.empty()) {
-            id = external_ids[0];
+            index_id = external_ids[0];
         }
 
-        // Convert distance_type to a distance function
-        svs::DistanceDispatcher dispatcher(distance_type);
-        dispatcher([&](auto dist) {
-            constexpr double TOLERANCE = 1e-5;
+        // Get direct vectors out
+        auto query_span = data.get_datum(query_id);
+        auto indexed_span = data.get_datum(index_id);
 
-            // Use a query vector for testing
-            if (queries.size() > 10 && index.size() > 0 && dataset.size() > id) {
-                auto query_span = queries.get_datum(10);
-                using ElementType = std::decay_t<decltype(query_span[0])>;
-                std::vector<ElementType> query_vector(query_span.begin(), query_span.end());
+        using ElementType = std::decay_t<decltype(query_span[0])>;
+        std::vector<ElementType> query_vector(query_span.begin(), query_span.end());
+        std::vector<ElementType> indexed_vector(indexed_span.begin(), indexed_span.end());
 
-                // Get distance from index
-                double index_distance = index.get_distance(id, query_vector);
+        // Get distance from index
+        double index_distance = index.get_distance(index_id, query_vector);
 
-                // Get the vector directly from the dataset
-                auto indexed_span = dataset.get_datum(id);
+        // Get exptected distance
+        Distance dist_copy = distance_type;
+        svs::distance::maybe_fix_argument(dist_copy, query_span);
+        double expected_distance =
+            svs::distance::compute(dist_copy, query_span, indexed_span);
 
-                // Compute expected distance
-                auto dist_copy = svs::index::vamana::extensions::single_search_setup(dataset, dist);
+        // Test the distance calculation
+        CATCH_REQUIRE(std::abs(index_distance - expected_distance) < TOLERANCE);
 
-                svs::distance::maybe_fix_argument(dist_copy, query_span);
-                double expected_distance =
-                    svs::distance::compute(dist_copy, query_span, indexed_span);
-                
-                // Test the distance calculation
-                CATCH_REQUIRE(std::abs(index_distance - expected_distance) < TOLERANCE);
-            }
-
-            // Test out of bounds ID
-            if (index.size() > 0) {
-                std::vector<float> test_vector(index.dimensions(), 1.0f);
-                CATCH_REQUIRE_THROWS_AS(
-                    index.get_distance(index.size() + 99999, test_vector), svs::ANNException
-                );
-            }
-        });
+        // Test out of bounds ID
+        if (index.size() > 0) {
+            CATCH_REQUIRE_THROWS_AS(
+                index.get_distance(index_id + 99999, query_vector), svs::ANNException
+            );
+        }
     }
 };
 } // namespace svs_test

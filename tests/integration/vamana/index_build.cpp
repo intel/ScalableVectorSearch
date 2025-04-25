@@ -114,7 +114,10 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana][get_d
         );
 
         // Call test get_distance in util.h
-        svs_test::GetDistanceTester::test(index, distance_type, queries, dataset);
+        svs::DistanceDispatcher dispatcher(distance_type);
+        dispatcher([&](auto dist) {
+            svs_test::GetDistanceTester::test(index, dist, test_dataset::data_svs_file());
+        });
 
         auto groundtruth = test_dataset::load_groundtruth(distance_type);
         for (const auto& expected : expected_result.config_and_recall_) {

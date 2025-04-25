@@ -313,7 +313,10 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distanc
     index.debug_check_invariants(false);
 
     // Call test get_distance in util.h
-    svs_test::GetDistanceTester::test(index, svs::L2, queries, data_copy, initial_indices);
+    svs::DistanceDispatcher dispatcher(svs::L2);
+    dispatcher([&](auto dist) {
+        svs_test::GetDistanceTester::test(index, dist, test_dataset::data_svs_file());
+    });
 
     // Verify that we can get and set build parameters.
     CATCH_REQUIRE(index.get_alpha() == alpha);

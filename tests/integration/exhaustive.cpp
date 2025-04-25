@@ -80,7 +80,10 @@ void test_flat(
     // Test get distance
     auto dataset = svs::load_data<float>(test_dataset::data_svs_file());
     // Call test get_distance in util.h
-    svs_test::GetDistanceTester::test(index, distance_type, queries, dataset);
+    svs::DistanceDispatcher dispatcher(distance_type);
+    dispatcher([&](auto dist) {
+        svs_test::GetDistanceTester::test(index, dist, test_dataset::data_svs_file());
+    });
 
     CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
     CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
