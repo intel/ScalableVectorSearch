@@ -185,8 +185,8 @@ class CosineSimilarityCompressed {
 namespace detail {
 
 struct MinMaxAccumulator {
-    float min = 0.0;
-    float max = 0.0;
+    float min = std::numeric_limits<float>::max();
+    float max = std::numeric_limits<float>::min();
 
     void accumulate(float val) {
         min = std::min(min, val);
@@ -288,6 +288,51 @@ template <typename Element, typename Data> struct Compressor {
     float bias_;
 };
 
+template <typename Element, typename Data> struct Decompressor {
+    using element_type = Element;
+    using data_type = Data;
+
+    Decompressor(float scale, float bias)
+        : scale_{scale}
+        , bias_{bias} {}
+
+    template <
+        data::ImmutableMemoryDataset Dataset,
+        threads::ThreadPool Pool,
+        typename Alloc>
+    data_type
+    operator()(const Dataset& data, Pool& threadpool, const Alloc& allocator) const {
+        static constexpr size_t batch_size = 512;
+
+        data_type decompressed{data.size(), data.dimensions(), allocator};
+
+        threads::parallel_for(
+            threadpool,
+            threads::DynamicPartition(data.size(), batch_size),
+            [&](const auto& indices, uint64_t /*tid*/) {
+                threads::UnitRange range{indices};
+                // Allocate a buffer of given dimensionality, will be re-used for each datum
+                std::vector<element_type> buffer(data.dimensions());
+                for (size_t i = range.start(); i < range.stop(); ++i) {
+                    // Compress datum
+                    auto datum = data.get_datum(i);
+                    std::transform(datum.begin(), datum.end(), buffer.begin(), [&](auto v) {
+                        return decompress<float>(v, scale_, bias_);
+                    });
+                    // Store to compressed dataset
+                    decompressed.set_datum(i, buffer);
+                }
+            }
+        );
+
+        return decompressed;
+    }
+
+  private:
+    float scale_;
+    float bias_;
+};
+
 // Map from baseline distance functors to the local versions.
 template <typename T, typename ElementType> struct CompressedDistance;
 
@@ -337,6 +382,8 @@ class SQDataset {
   public:
     constexpr static size_t extent = Extent;
     constexpr static bool uses_compressed_data = true;
+    constexpr static T MIN = std::numeric_limits<T>::min();
+    constexpr static T MAX = std::numeric_limits<T>::max();
 
     using allocator_type = Alloc;
     using element_type = T;
@@ -347,14 +394,18 @@ class SQDataset {
   private:
     float scale_;
     float bias_;
+    float min_;
+    float max_;
     data_type data_;
 
   public:
     SQDataset(size_t size, size_t dims)
         : data_{size, dims} {}
-    SQDataset(data_type data, float scale, float bias)
+    SQDataset(data_type data, float scale, float bias, float min, float max)
         : scale_(scale)
         , bias_(bias)
+        , min_(min)
+        , max_(max)
         , data_{std::move(data)} {}
 
     size_t size() const { return data_.size(); }
@@ -375,18 +426,66 @@ class SQDataset {
     }
 
     template <typename QueryType, size_t N>
-    void set_datum(size_t i, std::span<QueryType, N> datum) {
+    void set_datum(
+        size_t i, std::span<QueryType, N> datum, const allocator_type& allocator = {}
+    ) {
+        return set_datum(i, datum, 1, allocator);
+    }
+
+    template <typename QueryType, size_t N>
+    void set_datum(
+        size_t i,
+        std::span<QueryType, N> datum,
+        size_t num_threads,
+        const allocator_type& allocator = {}
+    ) {
+        auto pool = threads::DefaultThreadPool{num_threads};
+        return set_datum(i, datum, pool, allocator);
+    }
+
+    template <typename QueryType, size_t N, threads::ThreadPool Pool>
+    void set_datum(
+        size_t i,
+        std::span<QueryType, N> datum,
+        Pool& threadpool,
+        const allocator_type& allocator = {}
+    ) {
         auto dims = dimensions();
-        assert(datum.size() == dims);
+        if (datum.size() != dims) {
+            throw ANNEXCEPTION("Datum size mismatch!");
+        }
 
-        // Compress elements
-        std::vector<element_type> buffer(dims);
-        std::transform(datum.begin(), datum.end(), buffer.begin(), [&](QueryType v) {
-            return detail::compress<QueryType, element_type>(v, scale_, bias_);
-        });
+        // Check if the datum is within the range
+        float datum_min = *std::min_element(datum.begin(), datum.end());
+        float datum_max = *std::max_element(datum.begin(), datum.end());
+        bool in_range = (datum_min >= min_ && datum_max <= max_);
 
-        data_.set_datum(i, buffer);
-        // TODO: Float16 truncation check? (see codec.h, line 1[14)
+        if (in_range) {
+            // Compress elements
+            std::vector<element_type> buffer(dims);
+            std::transform(datum.begin(), datum.end(), buffer.begin(), [&](QueryType v) {
+                return detail::compress<QueryType, element_type>(v, scale_, bias_);
+            });
+
+            data_.set_datum(i, buffer);
+        } else {
+            // Need to re-compress entire dataset plus the new datum with new parameters
+            auto decompressor =
+                detail::Decompressor<element_type, data_type>{scale_, bias_};
+            auto decompressed = decompressor(data_, threadpool, allocator);
+            decompressed.set_datum(i, datum);
+
+            // Update min_ and max_ values, recalculate scale and bias
+            min_ = std::min(min_, datum_min);
+            max_ = std::max(max_, datum_max);
+            scale_ = (max_ - min_) / (MAX - MIN);
+            bias_ = min_ - MIN * scale_;
+
+            // Recompress with new parameters
+            auto compressor = detail::Compressor<element_type, data_type>{scale_, bias_};
+            auto compressed = compressor(decompressed, threadpool, allocator);
+            data_ = std::move(compressed);
+        }
     }
 
     template <data::ImmutableMemoryDataset Dataset>
@@ -412,10 +511,11 @@ class SQDataset {
         // Get dataset extrema
         auto minmax = detail::MinMax{};
         auto global = minmax(data, threadpool);
+        if (global.min == global.max) {
+            throw ANNEXCEPTION("Trivial dataset can't be compressed");
+        }
 
         // Compute scale and bias
-        constexpr float MIN = std::numeric_limits<element_type>::min();
-        constexpr float MAX = std::numeric_limits<element_type>::max();
         float scale = (global.max - global.min) / (MAX - MIN);
         float bias = global.min - MIN * scale;
 
@@ -424,7 +524,7 @@ class SQDataset {
         auto compressed = compressor(data, threadpool, allocator);
 
         return SQDataset<element_type, extent, allocator_type>{
-            std::move(compressed), scale, bias};
+            std::move(compressed), scale, bias, global.min, global.max};
     }
 
     /// @brief Compact the dataset
@@ -452,7 +552,9 @@ class SQDataset {
             save_version,
             {SVS_LIST_SAVE_(data, ctx),
              {"scale", lib::save(scale_, ctx)},
-             {"bias", lib::save(bias_, ctx)}}
+             {"bias", lib::save(bias_, ctx)},
+             {"min", lib::save(min_, ctx)},
+             {"max", lib::save(max_, ctx)}}
         );
     }
 
@@ -462,7 +564,10 @@ class SQDataset {
         return SQDataset<element_type, extent, allocator_type>{
             SVS_LOAD_MEMBER_AT_(table, data, allocator),
             lib::load_at<float>(table, "scale"),
-            lib::load_at<float>(table, "bias")};
+            lib::load_at<float>(table, "bias"),
+            lib::load_at<float>(table, "min"),
+            lib::load_at<float>(table, "max"),
+        };
     }
 
     /// @brief Prefetch data in the dataset.

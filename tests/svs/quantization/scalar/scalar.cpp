@@ -25,6 +25,7 @@
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include "catch2/matchers/catch_matchers_string.hpp"
 
 namespace scalar = svs::quantization::scalar;
 
@@ -294,8 +295,6 @@ template <typename T, typename Distance> void test_distance_compressed() {
 }
 
 CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
-    CATCH_SECTION("Default SQDataset") {}
-
     CATCH_SECTION("SQDataset dynamic extent") {
         auto x = scalar::SQDataset<std::int8_t>(10, 100);
 
@@ -306,12 +305,10 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
 
     CATCH_SECTION("SQDataset fixed extent") {
         constexpr size_t dims = 128;
-        auto x = scalar::SQDataset<std::int8_t, dims>({}, 1.0F, 0.0F);
+        auto x = scalar::SQDataset<std::int8_t, dims>(0, 128);
 
         CATCH_REQUIRE(x.size() == 0);
         CATCH_REQUIRE(x.dimensions() == dims);
-        CATCH_REQUIRE(x.get_scale() == 1.0F);
-        CATCH_REQUIRE(x.get_bias() == 0.0F);
         CATCH_REQUIRE(x.extent == dims);
     }
 
@@ -320,8 +317,45 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         test_sq_top<std::int16_t, 128>();
     }
 
-    CATCH_SECTION("SQDataset compress and resize") {
+    CATCH_SECTION("SQDataset compact and resize") {
         // TODO
+    }
+
+    CATCH_SECTION("SQDataset trivial compression is not allowed") {
+        // Compress single-value data, would result in 0 scale
+        svs::data::SimpleData<float> simple_data(1, 4);
+        std::vector<float> initial_data = {1, 1, 1, 1};
+        simple_data.set_datum(0, initial_data);
+        // the next line must throw
+        CATCH_REQUIRE_THROWS_MATCHES(
+            scalar::SQDataset<std::int8_t>::compress(simple_data),
+            svs::ANNException,
+            svs_test::ExceptionMatcher(
+                Catch::Matchers::ContainsSubstring("Trivial dataset can't be compressed")
+            )
+        );
+    }
+
+    CATCH_SECTION("SQDataset update scale and bias") {
+        using A = svs::lib::Allocator<std::int8_t>;
+        using blocked_type = svs::data::Blocked<A>;
+        using compressed_type = scalar::SQDataset<std::int8_t, 4, blocked_type>;
+
+        // Create SQDataset from initial set of values
+        auto initial_data = std::vector<float>{1, 2, 3, 4};
+        auto simple_data = svs::data::SimpleData<float>(1, 4);
+        simple_data.set_datum(0, initial_data);
+
+        auto data = compressed_type::compress(simple_data);
+        auto initial_scale = data.get_scale();
+        CATCH_REQUIRE(initial_scale != 0.0F);
+
+        // Add another value that's outside the range of the initial values
+        data.resize(2);
+        std::vector<float> new_data = {5, 6, 7, 8};
+        data.set_datum(1, std::span(new_data));
+        // Assert the scale was updated accordingly
+        CATCH_REQUIRE(data.get_scale() != initial_scale);
     }
 }
 
