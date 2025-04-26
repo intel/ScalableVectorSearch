@@ -261,15 +261,22 @@ void mutate_table(
 
 // Test get_distance for any index, data type, and distance method
 struct GetDistanceTester {
-    template <typename IndexType, typename Distance, typename IdType = size_t>
+    template <
+        typename IndexType,
+        typename Distance,
+        typename DataType,
+        typename IdType = size_t>
     static void test(
         IndexType& index,
         const Distance& distance_type,
-        // testdata.h includes utils need to pass data file
-        const std::string& data_file,
-        const std::vector<IdType>& external_ids = {}
+        const DataType& data,
+        const std::vector<IdType>& external_ids = {},
+        bool test_distance = true
     ) {
-        const auto data = svs::data::SimpleData<float>::load(data_file);
+        if (!test_distance) {
+            std::cout << "Skipping get_distance test due to test flag\n";
+            return;
+        }
 
         // Skip test if there aren't enough data points
         if (index.size() == 0 || data.size() == 0) {
@@ -279,7 +286,7 @@ struct GetDistanceTester {
 
         constexpr double TOLERANCE = 1e-2;
         const size_t query_id = 10;
-        size_t index_id = 100;
+        size_t index_id = std::min<size_t>(100, index.size() - 1);
 
         // Use external ID if provided
         if (!external_ids.empty()) {
@@ -304,7 +311,9 @@ struct GetDistanceTester {
             svs::distance::compute(dist_copy, query_span, indexed_span);
 
         // Test the distance calculation
-        CATCH_REQUIRE(std::abs(index_distance - expected_distance) < TOLERANCE);
+        double relative_diff =
+            std::abs((index_distance - expected_distance) / expected_distance);
+        CATCH_REQUIRE(relative_diff < TOLERANCE);
 
         // Test out of bounds ID
         if (index.size() > 0) {

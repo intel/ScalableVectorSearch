@@ -263,6 +263,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distanc
 
     // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto data_copy = data;
     auto num_points = data.size();
     auto queries = test_dataset::queries();
 
@@ -304,8 +305,6 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distanc
         1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
 
     auto tic = svs::lib::now();
-    // Get a copy before data moved
-    auto data_copy = data_mutable;
     auto index = svs::index::vamana::MutableVamanaIndex(
         parameters, std::move(data_mutable), initial_indices, Distance(), num_threads
     );
@@ -315,7 +314,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distanc
     // Call test get_distance in util.h
     svs::DistanceDispatcher dispatcher(svs::L2);
     dispatcher([&](auto dist) {
-        svs_test::GetDistanceTester::test(index, dist, test_dataset::data_svs_file());
+        svs_test::GetDistanceTester::test(index, dist, data_copy, initial_indices);
     });
 
     // Verify that we can get and set build parameters.

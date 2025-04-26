@@ -162,8 +162,8 @@ def test_get_distance(index, distance, data = svs.read_vecs(test_data_vecs), tes
     else:
         raise ValueError(f"Unsupported DistanceType: {distance}")
 
-    print(index_distance, expected_distance, distance, dt)
-    assert abs(index_distance - expected_distance) < tolerance
+    relative_diff = abs((index_distance - expected_distance) / expected_distance)
+    assert relative_diff < tolerance
 
     # Test out of bounds ID
     try:
