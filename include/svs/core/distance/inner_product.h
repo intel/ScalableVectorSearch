@@ -42,8 +42,7 @@ template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct IP
 // (2) IP::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
-template<svs::arch::CPUArch Arch>
-class IP {
+template <svs::arch::CPUArch Arch> class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
@@ -120,15 +119,11 @@ float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
         SVS_DISPATCH_CLASS_BY_CPUARCH(
-            IP,
-            compute,
-            SVS_PACK_ARGS(a.data(), b.data(), a.size())
+            IP, compute, SVS_PACK_ARGS(a.data(), b.data(), a.size())
         );
     } else {
         SVS_DISPATCH_CLASS_BY_CPUARCH(
-            IP,
-            compute<extent>,
-            SVS_PACK_ARGS(a.data(), b.data())
+            IP, compute<extent>, SVS_PACK_ARGS(a.data(), b.data())
         );
     }
 }
@@ -422,14 +417,16 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, SVS_TARGET_CPUARCH> {
 #endif
 
 // NOTE: dispatching doesn't work for other IP instances than the listed below.
-#define SVS_INSTANTIATE_IP_DISTANCE_BY_CPUARCH \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, int8_t, int8_t) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, uint8_t, uint8_t) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, float) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, uint8_t) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, int8_t) \
+#define SVS_INSTANTIATE_IP_DISTANCE_BY_CPUARCH                                         \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, int8_t, int8_t)               \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, uint8_t, uint8_t)             \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, float)                 \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, uint8_t)               \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, int8_t)                \
     SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, float, svs::float16::Float16) \
     SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, svs::float16::Float16, float) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(IP, svs::float16::Float16, svs::float16::Float16)
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(                                  \
+        IP, svs::float16::Float16, svs::float16::Float16                               \
+    )
 
 } // namespace svs::distance

@@ -81,8 +81,7 @@ template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct L2
 // (2) L2::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
-template<svs::arch::CPUArch Arch>
-class L2 {
+template <svs::arch::CPUArch Arch> class L2 {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
@@ -158,15 +157,11 @@ float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
         SVS_DISPATCH_CLASS_BY_CPUARCH(
-            L2,
-            compute,
-            SVS_PACK_ARGS(a.data(), b.data(), a.size())
+            L2, compute, SVS_PACK_ARGS(a.data(), b.data(), a.size())
         );
     } else {
         SVS_DISPATCH_CLASS_BY_CPUARCH(
-            L2,
-            compute<extent>,
-            SVS_PACK_ARGS(a.data(), b.data())
+            L2, compute<extent>, SVS_PACK_ARGS(a.data(), b.data())
         );
     }
 }
@@ -474,14 +469,16 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TARGET_CPUARCH> {
 #endif
 
 // NOTE: dispatching doesn't work for other L2 instances than the listed below.
-#define SVS_INSTANTIATE_L2_DISTANCE_BY_CPUARCH \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, int8_t, int8_t) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, uint8_t, uint8_t) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, float) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, uint8_t) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, int8_t) \
+#define SVS_INSTANTIATE_L2_DISTANCE_BY_CPUARCH                                         \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, int8_t, int8_t)               \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, uint8_t, uint8_t)             \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, float)                 \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, uint8_t)               \
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, int8_t)                \
     SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, float, svs::float16::Float16) \
     SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, svs::float16::Float16, float) \
-    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(L2, svs::float16::Float16, svs::float16::Float16)
+    SVS_INST_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(                                  \
+        L2, svs::float16::Float16, svs::float16::Float16                               \
+    )
 
 } // namespace svs::distance

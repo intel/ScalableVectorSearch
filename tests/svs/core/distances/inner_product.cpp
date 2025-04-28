@@ -76,9 +76,17 @@ void test_types(T lo, T hi, size_t num_tests) {
                             .margin(INNERPRODUCT_MARGIN);
 
         // Statically Sized Computation
-        CATCH_REQUIRE((svs::distance::IP<svs::arch::CPUArch::baseline>::compute<N>(a.data(), b.data()) == expected));
+        CATCH_REQUIRE(
+            (svs::distance::IP<svs::arch::CPUArch::baseline>::compute<N>(
+                 a.data(), b.data()
+             ) == expected)
+        );
         // Dynamically Sized Computation
-        CATCH_REQUIRE((svs::distance::IP<svs::arch::CPUArch::baseline>::compute(a.data(), b.data(), N) == expected));
+        CATCH_REQUIRE(
+            (svs::distance::IP<svs::arch::CPUArch::baseline>::compute(
+                 a.data(), b.data(), N
+             ) == expected)
+        );
     }
 }
 } // anonymous namespace

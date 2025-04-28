@@ -68,9 +68,17 @@ void test_types(T lo, T hi, size_t num_tests) {
         auto expected = Catch::Approx(euclidean_reference(a, b));
 
         // Statically Sized Computation
-        CATCH_REQUIRE((svs::distance::L2<svs::arch::CPUArch::baseline>::compute<N>(a.data(), b.data()) == expected));
+        CATCH_REQUIRE(
+            (svs::distance::L2<svs::arch::CPUArch::baseline>::compute<N>(
+                 a.data(), b.data()
+             ) == expected)
+        );
         // Dynamically Sized Computation
-        CATCH_REQUIRE((svs::distance::L2<svs::arch::CPUArch::baseline>::compute(a.data(), b.data(), N) == expected));
+        CATCH_REQUIRE(
+            (svs::distance::L2<svs::arch::CPUArch::baseline>::compute(
+                 a.data(), b.data(), N
+             ) == expected)
+        );
     }
 }
 } // namespace

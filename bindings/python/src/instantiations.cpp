@@ -15,8 +15,8 @@
  */
 
 #include "svs/core/distance/cosine.h"
-#include "svs/core/distance/inner_product.h"
 #include "svs/core/distance/euclidean.h"
+#include "svs/core/distance/inner_product.h"
 
 SVS_INSTANTIATE_COSINE_DISTANCE_BY_CPUARCH
 SVS_INSTANTIATE_L2_DISTANCE_BY_CPUARCH

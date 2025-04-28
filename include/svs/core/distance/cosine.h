@@ -33,7 +33,8 @@
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct CosineSimilarityImpl;
+template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch>
+struct CosineSimilarityImpl;
 
 // Generic Entry Point
 // Call as one of either:
@@ -42,8 +43,7 @@ template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct Co
 // (2) CosineSimilarity::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
-template<svs::arch::CPUArch Arch>
-class CosineSimilarity {
+template <svs::arch::CPUArch Arch> class CosineSimilarity {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm, size_t N) {
@@ -176,7 +176,8 @@ float generic_cosine_similarity(
     return result / (a_norm * std::sqrt(accum));
 };
 
-template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch> struct CosineSimilarityImpl {
+template <size_t N, typename Ea, typename Eb, svs::arch::CPUArch Arch>
+struct CosineSimilarityImpl {
     static float compute(
         const Ea* a,
         const Eb* b,
@@ -338,15 +339,32 @@ template <size_t N> struct CosineSimilarityImpl<N, Float16, Float16, SVS_TARGET_
 
 #endif
 
-// NOTE: dispatching doesn't work for other CosineSimilarity instances than the listed below.
-#define SVS_INSTANTIATE_COSINE_DISTANCE_BY_CPUARCH \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, signed char, signed char) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, unsigned char, unsigned char) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, float, float) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, float, unsigned char) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, float, signed char) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, float, svs::float16::Float16) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, svs::float16::Float16, float) \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(CosineSimilarity, svs::float16::Float16, svs::float16::Float16)
+// NOTE: dispatching doesn't work for other CosineSimilarity instances than the listed
+// below.
+#define SVS_INSTANTIATE_COSINE_DISTANCE_BY_CPUARCH                     \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, signed char, signed char                     \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, unsigned char, unsigned char                 \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, float, float                                 \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, float, unsigned char                         \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, float, signed char                           \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, float, svs::float16::Float16                 \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, svs::float16::Float16, float                 \
+    )                                                                  \
+    SVS_INST_COSINE_DISTANCE_CLASS_BY_CPUARCH_AND_TYPENAMES(           \
+        CosineSimilarity, svs::float16::Float16, svs::float16::Float16 \
+    )
 
 } // namespace svs::distance
