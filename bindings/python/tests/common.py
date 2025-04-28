@@ -130,6 +130,9 @@ def test_get_distance(index, distance, data = svs.read_vecs(test_data_vecs), tes
 
     Arguments:
         index: The SVS index object with get_distance method
+        distance: The distance type
+        data: The dataset used to build the index
+        test_distance: Whether to perform the distance test
     """
     # Skip get_distance_test if flag is set
     if not test_distance:
