@@ -865,7 +865,6 @@ class VamanaIndex {
 
     /// @brief Compute the distance between a vector in the index and a query vector
     template <typename Query> double get_distance(size_t id, const Query& query) const {
-        // Already have internal id
         // Check if id is valid
         if (id >= size()) {
             throw ANNEXCEPTION("ID {} is out of bounds for index of size {}!", id, size());

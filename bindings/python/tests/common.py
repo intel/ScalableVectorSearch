@@ -124,7 +124,6 @@ def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     # speedup when using 4 threads.
     testcase.assertTrue(1.3 * new_time < base_time)
 
-# Similar test as GetDistanceTester for python
 def test_get_distance(index, distance, data = svs.read_vecs(test_data_vecs), test_distance = True):
     """
     Test the get_distance method of an index by comparing its results with direct distance computation.
