@@ -243,9 +243,7 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
 ///// Flat
 /////
 
-CATCH_TEST_CASE(
-    "Flat Orchestrator Search", "[integration][exhaustive][orchestrator]"
-) {
+CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestrator]") {
     auto queries = test_dataset::queries();
 
     // Load data using both the file path method and from a direct file.

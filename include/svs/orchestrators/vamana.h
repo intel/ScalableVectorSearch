@@ -577,8 +577,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @tparam Query The query vector type
     /// @param id The ID of the vector in the index
     /// @param query The query vector
-    template <typename Query>
-    double get_distance(size_t id, const Query& query) const {
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
         // Create AnonymousArray from the query
         AnonymousArray<1> query_array{query.data(), query.size()};
         return impl_->get_distance(id, query_array);
