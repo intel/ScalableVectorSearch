@@ -244,7 +244,7 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
 /////
 
 CATCH_TEST_CASE(
-    "Flat Orchestrator Search", "[integration][exhaustive][orchestrator][get_distance]"
+    "Flat Orchestrator Search", "[integration][exhaustive][orchestrator]"
 ) {
     auto queries = test_dataset::queries();
 
