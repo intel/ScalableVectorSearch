@@ -213,12 +213,10 @@ Calling this method should not affect recall.)"
     )"
     );
 
-    // expose get_distance
     manager.def(
         "get_distance",
-        // Need to convert np array to span
         [](Manager& self, size_t external_id, py_contiguous_array_t<float> query_array) {
-            // Get raw pointer + size from the np array
+            // Get raw pointer + size from the Python array
             const float* data_ptr = query_array.data();
             size_t n = query_array.size();
             std::vector<float> vec(data_ptr, data_ptr + n);
@@ -230,7 +228,7 @@ Calling this method should not affect recall.)"
     Compute the distance between the stored vector at `external_id` and the provided `query_vector`.
 
     Args:
-        external_id: the internal ID of the vector in the index
+        external_id: the external ID of the vector in the index
         query_vector: a 1-D contiguous array whose length must match the index dimensionality
 
     Returns:

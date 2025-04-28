@@ -248,7 +248,7 @@ void test_loop(
     }
 }
 
-CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distance]") {
+CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     // Set hyper parameters here
     const size_t max_degree = 64;
 #if defined(NDEBUG)
@@ -311,7 +311,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index][get_distanc
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
 
-    // Call test get_distance in util.h
+    // Test get_distance functionality
     svs::DistanceDispatcher dispatcher(svs::L2);
     dispatcher([&](auto dist) {
         svs_test::GetDistanceTester::test(index, dist, data_copy, initial_indices);

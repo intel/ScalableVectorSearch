@@ -79,7 +79,7 @@ void test_flat(
 ) {
     // Test get distance
     auto dataset = svs::load_data<float>(test_dataset::data_svs_file());
-    // Call test get_distance in util.h
+    // Test get_distance functionality
     svs::DistanceDispatcher dispatcher(distance_type);
     dispatcher([&](auto dist) { svs_test::GetDistanceTester::test(index, dist, dataset); });
 

@@ -275,7 +275,6 @@ queries-per-second).
 See also: `svs.FlatSearchParameters`.)"
     );
 
-    // expose get_distance
     for_standard_specializations([&flat]<typename Q, typename T, size_t N>() {
         flat.def(
             "get_distance",
@@ -291,7 +290,7 @@ See also: `svs.FlatSearchParameters`.)"
     Compute the distance between the stored vector at `external_id` and the provided `query_vector`.
 
     Args:
-        external_id: the internal ID of the vector in the index
+        external_id: the external ID of the vector in the index
         query_vector: a 1-D contiguous array whose length must match the index dimensionality
 
     Returns:

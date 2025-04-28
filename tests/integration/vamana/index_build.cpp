@@ -113,7 +113,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana][get_d
             index.query_types() == std::vector<svs::DataType>{svs::DataType::float32}
         );
 
-        // Call test get_distance in util.h
+        // Test get_distance functionality
         svs::DistanceDispatcher dispatcher(distance_type);
         dispatcher([&](auto dist) {
             svs_test::GetDistanceTester::test(index, dist, dataset);

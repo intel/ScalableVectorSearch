@@ -259,7 +259,7 @@ void mutate_table(
 ///// Distance
 /////
 
-// Test get_distance for any index, data type, and distance method
+// Test get_distance for a given index, data type, and distance method
 struct GetDistanceTester {
     template <
         typename IndexType,
@@ -299,7 +299,6 @@ struct GetDistanceTester {
 
         using ElementType = std::decay_t<decltype(query_span[0])>;
         std::vector<ElementType> query_vector(query_span.begin(), query_span.end());
-        std::vector<ElementType> indexed_vector(indexed_span.begin(), indexed_span.end());
 
         // Get distance from index
         double index_distance = index.get_distance(index_id, query_vector);

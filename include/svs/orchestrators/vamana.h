@@ -98,8 +98,7 @@ class VamanaInterface {
     virtual void reset_performance_parameters() = 0;
 
     // Non-templated virtual method for distance calculation
-    virtual double
-    get_distance(size_t id, const void* query, DataType query_type) const = 0;
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -250,15 +249,15 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     void reset_performance_parameters() override { impl().reset_performance_parameters(); }
 
     ///// Distance
-    double get_distance(size_t id, const void* query, DataType query_type) const override {
+    double get_distance(size_t id, const AnonymousArray<1>& query) const override {
         return svs::lib::match(
             QueryTypes{},
-            query_type,
+            query.type(),
             [&]<typename T>(svs::lib::Type<T>) {
-                // Convert void* to T
-                using VectorType = std::vector<T>;
-                const VectorType* vector_ptr = static_cast<const VectorType*>(query);
-                return impl().get_distance(id, *vector_ptr);
+                // Get the data from AnonymousArray as a span
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                std::vector<T> query_vector(query_span.begin(), query_span.end());
+                return impl().get_distance(id, query_vector);
             }
         );
     }
@@ -578,12 +577,11 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @tparam Query The query vector type
     /// @param id The ID of the vector in the index
     /// @param query The query vector
-    template <typename Query> double get_distance(size_t id, const Query& query) const {
-        using ElementType = std::decay_t<decltype(query[0])>;
-        auto query_type = svs::datatype_v<ElementType>;
-
-        // Forward to the interface method
-        return impl_->get_distance(id, &query, query_type);
+    template <typename Query>
+    double get_distance(size_t id, const Query& query) const {
+        // Create AnonymousArray from the query
+        AnonymousArray<1> query_array{query.data(), query.size()};
+        return impl_->get_distance(id, query_array);
     }
 };
 
