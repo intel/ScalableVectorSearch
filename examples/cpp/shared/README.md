@@ -14,14 +14,14 @@
   ~ limitations under the License.
 -->
 
-A simple example to use SVS shared library in your project
+A simple example to use SVS shared library.
 
-Now follow the commands below to use the shared library in your project
+Follow the commands below to compile and use SVS shared library:
 
 ```
 mkdir build
 cd build
 CC=gcc-11 CXX=g++-11 cmake ../
 make -j
-./shared__test
+./shared
 ```
