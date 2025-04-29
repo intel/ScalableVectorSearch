@@ -24,7 +24,7 @@ find_package(MKL CONFIG REQUIRED)
 #
 # The resulting object and linking are portable and should be suitable for distribution.
 if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
-    set(SVS_MKL_CUSTOM_LIBRARY_NAME libmkl_custom)
+    set(SVS_MKL_CUSTOM_LIBRARY_NAME libsvs_mkl)
     set(SVS_MKL_CUSTOM_SO_NAME ${SVS_MKL_CUSTOM_LIBRARY_NAME}.so)
     set(SVS_MKL_CUSTOM_FULL_PATH ${CMAKE_CURRENT_BINARY_DIR}/${SVS_MKL_CUSTOM_SO_NAME})
 
@@ -82,7 +82,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
     # Ensure that the custom Intel(R) MKL library is bundled with the rest of the library.
     include(GNUInstallDirs)
     install(IMPORTED_RUNTIME_ARTIFACTS svs_mkl LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-else()
+elseif(NOT SVS_EXPERIMENTAL_LINK_STATIC_MKL)
     target_compile_options(
         ${SVS_LIB} INTERFACE $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>
     )
