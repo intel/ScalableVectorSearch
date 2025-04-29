@@ -61,6 +61,15 @@ target_compile_options(
     "-DSVS_VERSION_PATCH=${SVS_VERSION_PATCH}"
 )
 
+# Explicitly define ARM NEON macros for GCC on AArch64
+# This helps EVE's internal detection mechanism which seems problematic with GCC.
+# We define __ARM_NEON (standard macro) and EVE_ARM_64 (EVE specific).
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
+   CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64" AND
+   (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+    add_compile_definitions(__ARM_NEON EVE_ARM_64)
+endif()
+
 #####
 ##### Options and extra build steps
 #####
