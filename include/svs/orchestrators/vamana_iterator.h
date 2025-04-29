@@ -100,7 +100,8 @@ class VamanaIterator {
     ///
     /// Argument ``extra_search_buffer_capacity`` is the extra search buffer capacity to use
     /// for the next search. This is used to ensure that we have few extra neighbors in the
-    /// search buffer to accommodate the next search.
+    /// search buffer to accommodate the next search (when not provided,
+    /// ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is used.
     template <typename Index, typename QueryType>
     VamanaIterator(
         const Index& parent,

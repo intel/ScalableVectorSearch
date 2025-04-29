@@ -150,7 +150,8 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @param parent The index to search.
     /// @param query The query data.
     /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
-    ///     When not provided, ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT`` is used.
+    ///     When not provided, ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is
+    ///     used.
     BatchIterator(
         const Index& parent,
         std::span<const QueryType> query,
