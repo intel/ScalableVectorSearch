@@ -23,7 +23,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
     file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_x86_64" SVS_MICROARCHS)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
     file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_aarch64" SVS_MICROARCHS)
+else()
+    message(FATAL_ERROR "Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
+
 
 # Try to find the Python executable.
 #
