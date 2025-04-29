@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "eve/algo.hpp"
+#include "eve/module/algo.hpp"
 
 // svs
 #include "svs/core/data/simple.h"
