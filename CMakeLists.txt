@@ -16,31 +16,6 @@ cmake_minimum_required(VERSION 3.21)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-# Check if we are on Linux, AArch64, and using GCC.
-# This needs to happen *before* project() so flags/definitions are set early.
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
-   CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64" AND
-   (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR NOT CMAKE_CXX_COMPILER_ID) # Check ID or if not yet set
-  )
-    message(STATUS "ARM Linux GCC detected: Adding -march=armv8-a and defining EVE_SUPPORTS_NEON for EVE compatibility.")
-
-    # 1. Ensure compiler targets NEON-capable arch
-    set(ARM_GCC_ARCH_FLAG "-march=armv8-a")
-    # Check if already set by environment/toolchain to avoid duplication if needed
-    if(NOT CMAKE_CXX_FLAGS MATCHES "-march=")
-       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARM_GCC_ARCH_FLAG}" CACHE STRING "CXX Flags" FORCE)
-    endif()
-     if(NOT CMAKE_C_FLAGS MATCHES "-march=")
-       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARM_GCC_ARCH_FLAG}" CACHE STRING "C Flags" FORCE)
-    endif()
-
-    # 2. Force EVE to recognize NEON support by defining its internal macro
-    #    This should influence EVE's headers during its own configuration via FetchContent.
-    #    Using add_compile_definitions ensures it's passed via -D to the compiler.
-    add_compile_definitions(EVE_SUPPORTS_NEON)
-
-endif()
-
 project(svs
     LANGUAGES CXX
     # The version is tested in the files:
