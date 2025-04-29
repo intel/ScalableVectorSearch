@@ -202,9 +202,15 @@ class VamanaBuilder {
         }
     }
 
-    void
-    construct(float alpha, Idx entry_point, logging::Level level = logging::Level::Info) {
-        construct(alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, level);
+    void construct(
+        float alpha,
+        Idx entry_point,
+        logging::Level level = logging::Level::Info,
+        logging::logger_ptr logger = svs::logging::get()
+    ) {
+        construct(
+            alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, level, logger
+        );
     }
 
     template <typename R>
@@ -212,9 +218,9 @@ class VamanaBuilder {
         float alpha,
         Idx entry_point,
         const R& range,
-        logging::Level level = logging::Level::Info
+        logging::Level level = logging::Level::Info,
+        logging::logger_ptr logger = svs::logging::get()
     ) {
-        auto logger = svs::logging::get();
         size_t num_nodes = range.size();
         size_t num_batches = std::max(
             size_t{40}, lib::div_round_up(num_nodes, lib::narrow_cast<size_t>(64 * 64))

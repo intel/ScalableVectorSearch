@@ -302,6 +302,8 @@ class VamanaIndex {
     lib::ReadWriteProtected<VamanaSearchParameters> default_search_parameters_{};
     // Construction parameters
     VamanaBuildParameters build_parameters_{};
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
 
   public:
     /// The type of the search resource used for external threading.
@@ -326,6 +328,7 @@ class VamanaIndex {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
+    /// @param logger_ Spd logger for per-index logging customization.
     ///
     /// This is a lower-level function that is meant to take a collection of
     /// instantiated components and assemble the final index. For a more "hands-free"
@@ -346,14 +349,16 @@ class VamanaIndex {
         Data data,
         Idx entry_point,
         Dist distance_function,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
         , entry_point_{entry_point}
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
-        , default_search_parameters_{construct_default_search_parameters(data_)} {}
+        , default_search_parameters_{construct_default_search_parameters(data_)}
+        , logger_{std::move(logger)} {}
 
     ///
     /// @brief Build a VamanaIndex over the given dataset.
@@ -366,6 +371,7 @@ class VamanaIndex {
     /// @param distance_function The distance function used to compare queries and
     ///     elements of the dataset.
     /// @param threadpool The acceptable threadpool to use to conduct searches.
+    /// @param logger_ Spd logger for per-index logging customization.
     ///
     /// This is a lower-level function that is meant to take a dataset and construct
     /// the graph-based index over the dataset. For a more "hands-free" approach, see
@@ -385,31 +391,39 @@ class VamanaIndex {
         Data data,
         Idx entry_point,
         Dist distance_function,
-        Pool threadpool
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : VamanaIndex{
               std::move(graph),
               std::move(data),
               entry_point,
               std::move(distance_function),
-              std::move(threadpool)} {
+              std::move(threadpool),
+              logger} {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
-
         build_parameters_ = parameters;
+        // verify the parameters before set local var
+        verify_and_set_default_index_parameters(build_parameters_, distance_function);
         auto builder = VamanaBuilder(
             graph_,
             data_,
             distance_,
-            parameters,
+            build_parameters_,
             threadpool_,
             extensions::estimate_prefetch_parameters(data_)
         );
 
-        builder.construct(1.0F, entry_point_[0]);
-        builder.construct(parameters.alpha, entry_point_[0]);
+        builder.construct(1.0F, entry_point_[0], logging::Level::Info, logger);
+        builder.construct(
+            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger
+        );
     }
+
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
 
     /// @brief Apply the given configuration parameters to the index.
     void apply(const VamanaIndexParameters& parameters) {
@@ -863,6 +877,7 @@ class VamanaIndex {
 ///     a new default thread pool will be constructed using ``threadpool_proto`` as the
 ///     number of threads to create.
 /// @param graph_allocator The allocator to use for the graph data structure.
+/// @param logger_ Spd logger for per-index logging customization.
 ///
 /// @copydoc threadpool_requirements
 ///
@@ -876,22 +891,27 @@ auto auto_build(
     DataProto data_proto,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    const Allocator& graph_allocator = {}
+    const Allocator& graph_allocator = {},
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
     auto entry_point = extensions::compute_entry_point(data, threadpool);
 
     // Default graph.
-    auto graph = default_graph(data.size(), parameters.graph_max_degree, graph_allocator);
+    auto verified_parameters = parameters;
+    verify_and_set_default_index_parameters(verified_parameters, distance);
+    auto graph =
+        default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
     return VamanaIndex{
-        parameters,
+        verified_parameters,
         std::move(graph),
         std::move(data),
         lib::narrow<I>(entry_point),
         std::move(distance),
-        std::move(threadpool)};
+        std::move(threadpool),
+        logger};
 }
 
 ///
@@ -909,6 +929,7 @@ auto auto_build(
 /// This method provides much of the heavy lifting for instantiating a Vamana index from
 /// a collection of files on disk (or perhaps a mix-and-match of existing data in-memory
 /// and on disk).
+/// @param logger_ Spd logger for per-index logging customization.
 ///
 /// Refer to the examples for use of this interface.
 ///
@@ -924,7 +945,8 @@ auto auto_assemble(
     GraphProto graph_loader,
     DataProto data_proto,
     Distance distance,
-    ThreadPoolProto threadpool_proto
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::move(data_proto), threadpool);
@@ -933,10 +955,67 @@ auto auto_assemble(
     // Extract the index type of the provided graph.
     using I = typename decltype(graph)::index_type;
     auto index = VamanaIndex{
-        std::move(graph), std::move(data), I{}, std::move(distance), std::move(threadpool)};
-
+        std::move(graph),
+        std::move(data),
+        I{},
+        std::move(distance),
+        std::move(threadpool),
+        std::move(logger)};
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;
+}
+
+/// @brief Verify parameters and set defaults if needed
+template <typename Dist>
+void verify_and_set_default_index_parameters(
+    VamanaBuildParameters& parameters, Dist distance_function
+) {
+    // Set default values
+    if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
+        parameters.max_candidate_pool_size = 2 * parameters.graph_max_degree;
+    }
+
+    if (parameters.prune_to == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
+        if (parameters.graph_max_degree >= 16) {
+            parameters.prune_to = parameters.graph_max_degree - 4;
+        } else {
+            parameters.prune_to = parameters.graph_max_degree;
+        }
+    }
+
+    // Check supported distance type using std::is_same type trait
+    using dist_type = std::decay_t<decltype(distance_function)>;
+    // Create type flags for each distance type
+    constexpr bool is_L2 = std::is_same_v<dist_type, svs::distance::DistanceL2>;
+    constexpr bool is_IP = std::is_same_v<dist_type, svs::distance::DistanceIP>;
+    constexpr bool is_Cosine =
+        std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;
+
+    // Handle alpha based on distance type
+    if constexpr (is_L2) {
+        if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
+            parameters.alpha = svs::VAMANA_ALPHA_MINIMIZE_DEFAULT;
+        } else if (parameters.alpha < 1.0f) {
+            // Check User set values
+            throw std::invalid_argument("For L2 distance, alpha must be >= 1.0");
+        }
+    } else if constexpr (is_IP || is_Cosine) {
+        if (parameters.alpha == svs::FLOAT_PLACEHOLDER) {
+            parameters.alpha = svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT;
+        } else if (parameters.alpha > 1.0f) {
+            // Check User set values
+            throw std::invalid_argument("For MIP/Cosine distance, alpha must be <= 1.0");
+        } else if (parameters.alpha <= 0.0f) {
+            throw std::invalid_argument("alpha must be > 0");
+        }
+    } else {
+        throw std::invalid_argument("Unsupported distance type");
+    }
+
+    // Check prune_to <= graph_max_degree
+    if (parameters.prune_to > parameters.graph_max_degree) {
+        throw std::invalid_argument("prune_to must be <= graph_max_degree");
+    }
 }
 } // namespace svs::index::vamana

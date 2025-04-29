@@ -17,6 +17,7 @@
 #pragma once
 
 // Flat index utilities
+#include "svs/core/logging.h"
 #include "svs/index/flat/inserters.h"
 #include "svs/index/index.h"
 
@@ -145,6 +146,8 @@ class FlatIndex {
     data_storage_type data_;
     [[no_unique_address]] distance_type distance_;
     threads::ThreadPoolHandle threadpool_;
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
 
     // Constructs controlling the iteration strategy over the data and queries.
     search_parameters_type search_parameters_{};
@@ -171,6 +174,9 @@ class FlatIndex {
     }
 
   public:
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
+
     search_parameters_type get_search_parameters() const { return search_parameters_; }
 
     void set_search_parameters(const search_parameters_type& search_parameters) {
@@ -189,22 +195,35 @@ class FlatIndex {
     ///     instance or an integer specifying the number of threads to use. In the latter
     ///     case, a new default thread pool will be constructed using ``threadpool_proto``
     ///     as the number of threads to create.
+    /// @param logger_ Spd logger for per-index logging customization.
     ///
     /// @copydoc threadpool_requirements
     ///
     template <typename ThreadPoolProto>
-    FlatIndex(Data data, Dist distance, ThreadPoolProto threadpool_proto)
+    FlatIndex(
+        Data data,
+        Dist distance,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
         requires std::is_same_v<Ownership, OwnsMembers>
         : data_{std::move(data)}
         , distance_{std::move(distance)}
-        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))} {}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
+        , logger_{std::move(logger)} {}
 
     template <typename ThreadPoolProto>
-    FlatIndex(Data& data, Dist distance, ThreadPoolProto threadpool_proto)
+    FlatIndex(
+        Data& data,
+        Dist distance,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
         requires std::is_same_v<Ownership, ReferencesMembers>
         : data_{data}
         , distance_{std::move(distance)}
-        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))} {}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
+        , logger_{std::move(logger)} {}
 
     ////// Dataset Interface
 
@@ -462,6 +481,7 @@ class FlatIndex {
 ///     instance or an integer specifying the number of threads to use. In the latter case,
 ///     a new default thread pool will be constructed using ``threadpool_proto`` as the
 ///     number of threads to create.
+/// @param logger_ Spd logger for per-index logging customization.
 ///
 /// This method provides much of the heavy lifting for constructing a Flat index from
 /// a data file on disk or a dataset in memory.
@@ -472,11 +492,16 @@ class FlatIndex {
 ///
 template <typename DataProto, typename Distance, typename ThreadPoolProto>
 auto auto_assemble(
-    DataProto&& data_proto, Distance distance, ThreadPoolProto threadpool_proto
+    DataProto&& data_proto,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
-    return FlatIndex(std::move(data), std::move(distance), std::move(threadpool));
+    return FlatIndex(
+        std::move(data), std::move(distance), std::move(threadpool), std::move(logger)
+    );
 }
 
 /// @brief Alias for a short-lived flat index.

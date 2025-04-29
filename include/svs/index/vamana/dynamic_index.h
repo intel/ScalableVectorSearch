@@ -38,6 +38,7 @@
 #include "svs/index/vamana/index.h"
 #include "svs/index/vamana/vamana_build.h"
 #include "svs/lib/boundscheck.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
 namespace svs::index::vamana {
@@ -157,6 +158,12 @@ class MutableVamanaIndex {
     float alpha_ = 1.2;
     bool use_full_search_history_ = true;
 
+    // Construction parameters
+    VamanaBuildParameters build_parameters_{};
+
+    // SVS logger for per index logging
+    svs::logging::logger_ptr logger_;
+
     // Methods
   public:
     // Constructors
@@ -167,7 +174,9 @@ class MutableVamanaIndex {
         Idx entry_point,
         Dist distance_function,
         const ExternalIds& external_ids,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        // Optional logger parameter
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -178,7 +187,9 @@ class MutableVamanaIndex {
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
-        , construction_window_size_{2 * graph.max_degree()} {
+        , construction_window_size_{2 * graph.max_degree()}
+        // Ctor accept logger in parameter
+        , logger_{std::move(logger)} {
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
     }
 
@@ -191,7 +202,8 @@ class MutableVamanaIndex {
         Data data,
         const ExternalIds& external_ids,
         Dist distance_function,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_(Graph{data.size(), parameters.graph_max_degree})
         , data_(std::move(data))
@@ -202,11 +214,19 @@ class MutableVamanaIndex {
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
         , search_parameters_(vamana::construct_default_search_parameters(data_))
-        , construction_window_size_(parameters.window_size)
-        , max_candidates_(parameters.max_candidate_pool_size)
-        , prune_to_(parameters.prune_to)
-        , alpha_(parameters.alpha)
-        , use_full_search_history_{parameters.use_full_search_history} {
+        , build_parameters_(parameters)
+        , logger_{std::move(logger)} {
+        // Verify and set defaults directly on the input parameters
+        verify_and_set_default_index_parameters(build_parameters_, distance_function);
+
+        // Set graph again as verify function might change graph_max_degree parameter
+        graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
+        construction_window_size_ = build_parameters_.window_size;
+        max_candidates_ = build_parameters_.max_candidate_pool_size;
+        prune_to_ = build_parameters_.prune_to;
+        alpha_ = build_parameters_.alpha;
+        use_full_search_history_ = build_parameters_.use_full_search_history;
+
         // Setup the initial translation of external to internal ids.
         translator_.insert(external_ids, threads::UnitRange<Idx>(0, external_ids.size()));
 
@@ -218,10 +238,12 @@ class MutableVamanaIndex {
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         auto builder = VamanaBuilder(
-            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters
+            graph_, data_, distance_, build_parameters_, threadpool_, prefetch_parameters
         );
-        builder.construct(1.0f, entry_point_[0]);
-        builder.construct(parameters.alpha, entry_point_[0]);
+        builder.construct(1.0f, entry_point_[0], logging::Level::Info, logger_);
+        builder.construct(
+            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger_
+        );
     }
 
     /// @brief Post re-load constructor.
@@ -240,7 +262,8 @@ class MutableVamanaIndex {
         graph_type graph,
         const Dist& distance_function,
         IDTranslator translator,
-        Pool threadpool
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{std::move(graph)}
         , data_{std::move(data)}
@@ -255,7 +278,8 @@ class MutableVamanaIndex {
         , max_candidates_{config.build_parameters.max_candidate_pool_size}
         , prune_to_{config.build_parameters.prune_to}
         , alpha_{config.build_parameters.alpha}
-        , use_full_search_history_{config.build_parameters.use_full_search_history} {}
+        , use_full_search_history_{config.build_parameters.use_full_search_history}
+        , logger_{std::move(logger)} {}
 
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -272,6 +296,8 @@ class MutableVamanaIndex {
     scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
 
     ///// Accessors
+    /// @brief Getter method for logger
+    svs::logging::logger_ptr get_logger() const { return logger_; }
 
     /// @brief Get the alpha value used for pruning while mutating the graph.
     float get_alpha() const { return alpha_; }
@@ -1200,6 +1226,17 @@ template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPoo
 MutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, Pool)
     -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+// Guide with logging
+template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
+MutableVamanaIndex(
+    const VamanaBuildParameters&,
+    Data,
+    const ExternalIds&,
+    Dist,
+    Pool,
+    svs::logging::logger_ptr
+) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+
 namespace detail {
 
 struct VamanaStateLoader {
@@ -1251,7 +1288,8 @@ auto auto_dynamic_assemble(
     // to easily benchmark the static versus dynamic implementation.
     //
     // This is an internal API and should not be considered officially supported nor stable.
-    bool debug_load_from_static = false
+    bool debug_load_from_static = false,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Load the dataset
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -1317,7 +1355,8 @@ auto auto_dynamic_assemble(
         std::move(graph),
         std::move(distance),
         std::move(translator),
-        std::move(threadpool)};
+        std::move(threadpool),
+        std::move(logger)};
 }
 
 } // namespace svs::index::vamana

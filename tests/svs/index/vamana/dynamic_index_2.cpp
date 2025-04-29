@@ -19,12 +19,16 @@
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
 
 #include "svs/misc/dynamic_helper.h"
 
 // tests
+#include "spdlog/sinks/callback_sink.h"
 #include "tests/utils/test_dataset.h"
+#include "tests/utils/utils.h"
+#include "tests/utils/vamana_reference.h"
 
 // catch
 #include "catch2/catch_test_macros.hpp"
@@ -415,4 +419,202 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     CATCH_REQUIRE(index.size() == reloaded.size());
     // ID's preserved across runs.
     index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
+}
+
+CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
+    // Vector to store captured log messages
+    std::vector<std::string> captured_logs;
+
+    // Create a callback sink to capture log messages
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace); // Capture all log levels
+
+    // Create a logger with the callback sink
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
+
+    // Setup index
+    std::vector<float> data = {1.0f, 2.0f};
+    std::vector<size_t> initial_indices(data.size());
+    std::iota(initial_indices.begin(), initial_indices.end(), 0);
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        buildParams,
+        std::move(data_view),
+        initial_indices,
+        svs::DistanceL2(),
+        std::move(threadpool),
+        test_logger
+    );
+
+    // Verify the internal log messages
+    CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+}
+
+CATCH_TEST_CASE("Dynamic MutableVamanaIndex Default Logger Test", "[logging]") {
+    // Setup index with default logger
+    std::vector<float> data = {1.0f, 2.0f};
+    std::vector<size_t> initial_indices(data.size());
+    std::iota(initial_indices.begin(), initial_indices.end(), 0);
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        buildParams,
+        std::move(data_view),
+        initial_indices,
+        svs::DistanceL2(),
+        std::move(threadpool)
+    );
+
+    // Verify that the default logger is used
+    auto default_logger = svs::logging::get();
+    CATCH_REQUIRE(index.get_logger() == default_logger);
+}
+
+CATCH_TEST_CASE("Dynamic Vamana Index Default Parameters", "[parameter][vamana]") {
+    using Catch::Approx;
+    std::filesystem::path data_path = test_dataset::data_svs_file();
+
+    CATCH_SECTION("L2 Distance Defaults") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+
+        // Get IDs for all points in the dataset
+        std::vector<size_t> indices(data_loader.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        // Build dynamic index with L2 distance
+        auto index = svs::index::vamana::MutableVamanaIndex(
+            build_params, std::move(data_loader), indices, svs::distance::DistanceL2(), 2
+        );
+
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::VAMANA_ALPHA_MINIMIZE_DEFAULT));
+    }
+
+    CATCH_SECTION("MIP Distance Defaults") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::MIP, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+
+        // Get IDs for all points in the dataset
+        std::vector<size_t> indices(data_loader.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        // Build dynamic index with MIP distance
+        auto index = svs::index::vamana::MutableVamanaIndex(
+            build_params, std::move(data_loader), indices, svs::distance::DistanceIP(), 2
+        );
+
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::VAMANA_ALPHA_MAXIMIZE_DEFAULT));
+    }
+
+    CATCH_SECTION("Invalid Alpha for L2") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.alpha = 0.8f;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+
+        // Get IDs for all points in the dataset
+        std::vector<size_t> indices(data_loader.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::index::vamana::MutableVamanaIndex(
+                build_params,
+                std::move(data_loader),
+                indices,
+                svs::distance::DistanceL2(),
+                2
+            ),
+            "For L2 distance, alpha must be >= 1.0"
+        );
+    }
+
+    CATCH_SECTION("Invalid Alpha for MIP") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::MIP, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.alpha = 1.2f;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+
+        // Get IDs for all points in the dataset
+        std::vector<size_t> indices(data_loader.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::index::vamana::MutableVamanaIndex(
+                build_params,
+                std::move(data_loader),
+                indices,
+                svs::distance::DistanceIP(),
+                2
+            ),
+            "For MIP/Cosine distance, alpha must be <= 1.0"
+        );
+    }
+
+    CATCH_SECTION("Invalid prune_to > graph_max_degree") {
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            svs::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        auto build_params = expected_result.build_parameters_.value();
+        build_params.prune_to = build_params.graph_max_degree + 10;
+        auto data_loader = svs::data::SimpleData<float>::load(data_path);
+
+        // Get IDs for all points in the dataset
+        std::vector<size_t> indices(data_loader.size());
+        std::iota(indices.begin(), indices.end(), 0);
+
+        CATCH_REQUIRE_THROWS_WITH(
+            svs::index::vamana::MutableVamanaIndex(
+                build_params,
+                std::move(data_loader),
+                indices,
+                svs::distance::DistanceL2(),
+                2
+            ),
+            "prune_to must be <= graph_max_degree"
+        );
+    }
+
+    CATCH_SECTION("L2 Distance Empty Params") {
+        svs::index::vamana::VamanaBuildParameters params;
+        std::vector<float> data(32);
+        for (size_t i = 0; i < data.size(); i++) {
+            data[i] = static_cast<float>(i + 1);
+        }
+        auto data_view = svs::data::SimpleDataView<float>(data.data(), 8, 4);
+        std::vector<size_t> indices = {0, 1, 2, 3, 4, 5, 6, 7};
+        auto index = svs::index::vamana::MutableVamanaIndex(
+            params, std::move(data_view), indices, svs::distance::DistanceL2(), 1
+        );
+        CATCH_REQUIRE(index.get_alpha() == Approx(svs::VAMANA_ALPHA_MINIMIZE_DEFAULT));
+        CATCH_REQUIRE(index.get_graph_max_degree() == svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(index.get_prune_to() == svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT - 4);
+        CATCH_REQUIRE(
+            index.get_construction_window_size() == svs::VAMANA_WINDOW_SIZE_DEFAULT
+        );
+        CATCH_REQUIRE(
+            index.get_max_candidates() == 2 * svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT
+        );
+        CATCH_REQUIRE(
+            index.get_full_search_history() == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
+        );
+    }
 }

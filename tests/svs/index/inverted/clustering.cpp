@@ -27,6 +27,9 @@
 // stl
 #include <unordered_map>
 
+// logging
+#include "spdlog/sinks/callback_sink.h"
+
 namespace {
 
 template <svs::data::ImmutableMemoryDataset Data, typename Distance>
@@ -388,4 +391,48 @@ CATCH_TEST_CASE("Random Clustering - End to End", "[inverted][random_clustering]
         test_end_to_end_clustering(data, svs::DistanceL2(), 1.2f);
         test_end_to_end_clustering(data, svs::DistanceIP(), 0.9f);
     }
+}
+
+CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
+    // Setup logger
+    std::vector<std::string> captured_logs;
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace); // Capture all log levels
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
+
+    // Setup cluster
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto vamana_parameters =
+        svs::index::vamana::VamanaBuildParameters{1.2, 64, 200, 1000, 60, true};
+    auto clustering_parameters = svs::index::inverted::ClusteringParameters()
+                                     .percent_centroids(svs::lib::Percent(0.1))
+                                     .epsilon(0.05)
+                                     .max_replicas(12)
+                                     .max_cluster_size(300);
+    auto centroids = svs::index::inverted::randomly_select_centroids(
+        data.size(),
+        svs::lib::narrow_cast<size_t>(
+            std::floor(data.size() * clustering_parameters.percent_centroids_.value())
+        ),
+        clustering_parameters.seed_
+    );
+    auto threadpool = svs::threads::DefaultThreadPool(2);
+    auto index = svs::index::inverted::build_primary_index(
+        data,
+        svs::lib::as_const_span(centroids),
+        vamana_parameters,
+        svs::DistanceL2(),
+        std::move(threadpool)
+    );
+    auto clustering = svs::index::inverted::cluster_with(
+        data, svs::lib::as_const_span(centroids), clustering_parameters, index, test_logger
+    );
+
+    // Verify the internal log messages
+    CATCH_REQUIRE(captured_logs[0].find("Processing batch") != std::string::npos);
 }
