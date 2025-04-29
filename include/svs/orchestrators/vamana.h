@@ -499,7 +499,7 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
     /// @param query The query to use for the iterator.
     /// @param extra_search_buffer_capacity An optional extra search buffer capacity to
     ///     allow the iterator to search beyond the current batch (when not provided,
-    ///     defaults to 100).
+    ///     ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT`` is used).
     ///
     /// The returned iterator will maintain an internal copy of the query.
     ///

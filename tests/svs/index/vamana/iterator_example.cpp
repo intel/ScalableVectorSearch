@@ -71,7 +71,7 @@ void test_iterator() {
     auto buffer_config = itr.parameters_for_current_iteration().buffer_config_;
     CATCH_REQUIRE(buffer_config.get_search_window_size() == 0);
     CATCH_REQUIRE(
-        buffer_config.get_total_capacity() == SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT
+        buffer_config.get_total_capacity() == svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT
     );
 
     itr.next(batchsize);
@@ -86,7 +86,8 @@ void test_iterator() {
     buffer_config = itr.parameters_for_current_iteration().buffer_config_;
     CATCH_REQUIRE(buffer_config.get_search_window_size() == 3);
     CATCH_REQUIRE(
-        buffer_config.get_total_capacity() == SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT + 3
+        buffer_config.get_total_capacity() ==
+        svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT + 3
     );
 
     // Obtain a view of the current list candidates.

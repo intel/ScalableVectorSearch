@@ -28,10 +28,6 @@
 
 namespace svs::index::vamana {
 
-// Default value for the extra search buffer capacity.
-// This ensures sufficient space in the search buffer for the next search iteration.
-#define SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT 100
-
 /// @brief A graph search initializer that uses the existing contents of the search buffer
 /// to initialize the next round of graph search.
 ///
@@ -153,9 +149,8 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @brief Constructs a batch iterator for the given query over the index.
     /// @param parent The index to search.
     /// @param query The query data.
-    /// @param extra_search_buffer_capacity Additional buffer capacity for the search
-    ///     When not provided, default value SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT is
-    ///     used.
+    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
+    ///     When not provided, ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT`` is used.
     BatchIterator(
         const Index& parent,
         std::span<const QueryType> query,
@@ -168,7 +163,7 @@ template <typename Index, typename QueryType> class BatchIterator {
 
         extra_search_buffer_capacity_ =
             extra_search_buffer_capacity == svs::UNSIGNED_INTEGER_PLACEHOLDER
-                ? SVS_ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT
+                ? svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT
                 : extra_search_buffer_capacity;
         initialize_buffer();
     }
