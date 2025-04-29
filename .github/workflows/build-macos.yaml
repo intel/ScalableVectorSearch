@@ -46,7 +46,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install archspec and get host microarch
+    - name: Install archspec and Get Host Microarch
       run: |
         python -m pip install archspec
         python -c "import archspec.cpu; print(archspec.cpu.host().name)"
