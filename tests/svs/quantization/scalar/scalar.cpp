@@ -104,153 +104,51 @@ template <typename T, size_t N> void test_sq_top() {
     }
 }
 
-template <typename T, typename Distance, size_t N>
-void test_distance_single(float lo, float hi) {
+template <typename T, typename Distance, size_t N> void test_distance_single(T lo, T hi) {
     constexpr size_t num_tests = 100;
+    std::vector<T> a; // random query
+    std::vector<T> b; // random compressed data
+    auto generator = svs_test::make_generator<T>(lo, hi);
+    auto float_generator = svs_test::make_generator<float>(-3, 3);
 
-    std::vector<float> a, b;
-    auto generator = svs_test::make_generator<float>(lo, hi);
+    // Generate random scale and bias
+    float scale = svs_test::generate(float_generator);
+    float bias = svs_test::generate(float_generator);
+    // Decompression helper
+    auto decompress = [scale, bias](T val) { return scale * float(val) + bias; };
 
-    // populate the query
+    // Populate query
     svs_test::populate(a, generator, N);
-
-    // populate the datasets
-    auto adata = svs::data::SimpleData<float>{1, N};
-    adata.set_datum(0, a);
-    auto aspan = std::span(a);
-    auto bdata = svs::data::SimpleData<float>{num_tests, N};
-    for (size_t i = 0; i < num_tests; ++i) {
-        svs_test::populate(b, generator, N);
-        bdata.set_datum(i, b);
-    }
-
-    // create the compressed dataset
-    auto compressed = scalar::SQDataset<T, N>::compress(bdata);
-    auto scale = compressed.get_scale();
-    auto bias = compressed.get_bias();
-
-    // create the compressed distance, fix query
-    Distance distance;
-    auto compressed_distance = scalar::compressed_distance_t<Distance, T>{scale, bias, N};
-    svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
-    svs::distance::maybe_fix_argument(compressed_distance, adata.get_datum(0));
-
     std::vector<float> buffer(N);
-    std::vector<float> buffer2(N);
-    for (size_t i = 0; i < num_tests; ++i) {
-        // manually decompress the compressed datum for reference calculation
-        std::transform(
-            compressed.get_datum(i).begin(),
-            compressed.get_datum(i).end(),
-            buffer.begin(),
-            [&](T v) { return scale * float(v) + bias; }
-        );
+    std::transform(a.begin(), a.end(), buffer.begin(), decompress);
+    auto query = svs::data::SimpleData<float>{1, N};
+    query.set_datum(0, buffer);
 
-        auto buffspan = std::span(buffer);
-        float reference = svs::distance::compute(distance, aspan, buffspan);
-        auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
-
-        // calculate the compressed distance and compare with reference
-        float result = compressed_distance.compute(compressed.get_datum(i));
-        CATCH_REQUIRE(result == expected);
-    }
-}
-
-template <typename T, typename Distance, size_t N>
-void test_distance_compressed_single(float lo, float hi) {
-    constexpr size_t num_tests = 100;
-
-    std::vector<float> a, b;
-    auto generator = svs_test::make_generator<float>(lo, hi);
-
-    // populate the query
-    svs_test::populate(a, generator, N);
-
-    // populate the datasets
-    auto adata = svs::data::SimpleData<float>{1, N};
-    adata.set_datum(0, a);
-    auto bdata = svs::data::SimpleData<float>{num_tests, N};
+    // Populate dataset
+    auto bdata = svs::data::SimpleData<T, N>{num_tests, N};
     for (size_t i = 0; i < num_tests; ++i) {
         svs_test::populate(b, generator, N);
         bdata.set_datum(i, b);
     }
+    auto compressed = scalar::SQDataset<T, N>(bdata, scale, bias);
 
-    // create the compressed dataset
-    auto compressed = scalar::SQDataset<T, N>::compress(bdata);
-    auto scale = compressed.get_scale();
-    auto bias = compressed.get_bias();
-
-    // create the compressed distance, fix query
+    // Prepare distances
     Distance distance;
     auto compressed_distance = scalar::compressed_distance_t<Distance, T>{scale, bias, N};
-    svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
-    svs::distance::maybe_fix_argument(compressed_distance, adata.get_datum(0));
+    svs::distance::maybe_fix_argument(distance, query.get_datum(0));
+    svs::distance::maybe_fix_argument(compressed_distance, query.get_datum(0));
 
-    // compress the query for reference_calculation
-    std::vector<float> q_buff(N); // query buffer
-    std::vector<float> d_buff(N); // data buffer
+    // A buffer into which we decompress the int8 values
+    std::vector<float> rhs(N);
 
-    // put query through compression and decompression to account for numerical
-    // errors during compressed computation
-    std::transform(a.begin(), a.end(), q_buff.begin(), [&](float v) {
-        return float(T(std::round((v - bias) / scale)) * scale + bias);
-    });
     for (size_t i = 0; i < num_tests; ++i) {
-        // decompress the data datum for reference calculation
-        std::transform(
-            compressed.get_datum(i).begin(),
-            compressed.get_datum(i).end(),
-            d_buff.begin(),
-            [&](T v) { return scale * float(v) + bias; }
-        );
-        float reference =
-            svs::distance::compute(distance, std::span(q_buff), std::span(d_buff));
+        auto datum = compressed.get_datum(i);
+        std::transform(datum.begin(), datum.end(), rhs.begin(), decompress);
+        auto rhs_span = std::span(rhs);
+        float reference = svs::distance::compute(distance, query.get_datum(0), rhs_span);
         auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
 
-        // calculate the compressed distance and compare with reference
-        float result = compressed_distance.compute(compressed.get_datum(i));
-        CATCH_REQUIRE(result == expected);
-    }
-}
-
-template <typename T, typename Distance, size_t N>
-void test_distance_high_precision(float lo, float hi) {
-    // compare the values of the compressed distance with the reference
-    // when using a higher precision type, the introduced error should be very
-    // small, allowing for tight error bounds in the comparison
-
-    constexpr size_t num_tests = 100;
-    std::vector<float> a, b;
-
-    auto generator = svs_test::make_generator<float>(lo, hi);
-    // populate the query
-    svs_test::populate(a, generator, N);
-    // populate the datasets
-    auto adata = svs::data::SimpleData<float>{1, N};
-    adata.set_datum(0, a);
-    auto bdata = svs::data::SimpleData<float>{num_tests, N};
-    for (size_t i = 0; i < num_tests; ++i) {
-        svs_test::populate(b, generator, N);
-        bdata.set_datum(i, b);
-    }
-    // create the compressed dataset
-    auto compressed = scalar::SQDataset<T, N>::compress(bdata);
-    auto scale = compressed.get_scale();
-    auto bias = compressed.get_bias();
-    std::cout << "scale: " << scale << " bias: " << bias << std::endl;
-
-    // create the compressed distance, fix query
-    Distance distance;
-    auto compressed_distance = scalar::compressed_distance_t<Distance, T>{scale, bias, N};
-    svs::distance::maybe_fix_argument(distance, adata.get_datum(0));
-    svs::distance::maybe_fix_argument(compressed_distance, adata.get_datum(0));
-
-    for (size_t i = 0; i < num_tests; ++i) {
-        float reference =
-            svs::distance::compute(distance, adata.get_datum(0), bdata.get_datum(i));
-        auto expected = Catch::Approx(reference).epsilon(0.01);
-
-        // calculate the compressed distance and compare with reference
+        // Calculate compressed distance and compare with reference
         float result = compressed_distance.compute(compressed.get_datum(i));
         CATCH_REQUIRE(result == expected);
     }
@@ -263,34 +161,13 @@ template <typename T, typename Distance> void test_distance() {
     // More realistic, higher dimensionality tests for SIMD lanes with unrolling.
     // 16x4 = 64 unrolled, plus full epilogue (16), plus ragged epilogue (7)
     constexpr size_t N = 64 + 16 + 7;
-    // a bunch of test cases resulting in small and large values for scale & bias
-    test_distance_single<std::int8_t, Distance, N>(800, 1000);
+    // a bunch of test cases from different ranges of the int8 spectrum
     test_distance_single<std::int8_t, Distance, N>(-127, 127);
-    test_distance_single<std::int8_t, Distance, N>(-10000, 10000);
-    test_distance_single<std::int8_t, Distance, N>(8000, 10000);
-    test_distance_single<std::int8_t, Distance, N>(-0.5, 0.1);
-    test_distance_single<std::int8_t, Distance, N>(-10, 1);
     test_distance_single<std::int8_t, Distance, N>(80, 100);
-
-    // test_distance_high_precision<std::int32_t, Distance, N>(-127, 127);
-    // test_distance_high_precision<std::int32_t, Distance, N>(800, 1000);
-}
-
-template <typename T, typename Distance> void test_distance_compressed() {
-    // Error accumulates proportional to number of dimensions, perform a low-dim test
-    test_distance_compressed_single<std::int8_t, Distance, 2>(-127, 127);
-
-    // More realistic, higher dimensionality tests for SIMD lanes with unrolling.
-    // 16x4 = 64 unrolled, plus full epilogue (16), plus ragged epilogue (7)
-    constexpr size_t N = 64 + 16 + 7;
-    // a bunch of test cases resulting in small and large values for scale & bias
-    test_distance_compressed_single<std::int8_t, Distance, N>(800, 1000);
-    test_distance_compressed_single<std::int8_t, Distance, N>(-127, 127);
-    test_distance_compressed_single<std::int8_t, Distance, N>(-10000, 10000);
-    test_distance_compressed_single<std::int8_t, Distance, N>(8000, 10000);
-    test_distance_compressed_single<std::int8_t, Distance, N>(-0.5, 0.1);
-    test_distance_compressed_single<std::int8_t, Distance, N>(-10, 1);
-    test_distance_compressed_single<std::int8_t, Distance, N>(80, 100);
+    test_distance_single<std::int8_t, Distance, N>(-10, 10);
+    test_distance_single<std::int8_t, Distance, N>(-100, -80);
+    test_distance_single<std::int8_t, Distance, N>(-1, 1);
+    test_distance_single<std::int8_t, Distance, N>(-10, 1);
 }
 
 CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
@@ -330,14 +207,14 @@ CATCH_TEST_CASE(
 ) {
     CATCH_SECTION("Distance with SQDataset") {
         // IP and CS use the float32 query for computation
+        using DistanceL2 = svs::distance::DistanceL2;
         using DistanceIP = svs::distance::DistanceIP;
         using DistanceCS = svs::distance::DistanceCosineSimilarity;
 
+        test_distance<std::int8_t, DistanceL2>();
         test_distance<std::int8_t, DistanceIP>();
         test_distance<std::int8_t, DistanceCS>();
 
         // L2 computes with compressed query and data and the check works a bit differently
-        using DistanceL2 = svs::distance::DistanceL2;
-        test_distance_compressed<std::int8_t, DistanceL2>();
     }
 }
