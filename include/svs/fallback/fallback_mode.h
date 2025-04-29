@@ -36,7 +36,7 @@ class UnsupportedHardwareError : public std::runtime_error {
                              "non-Intel hardware."} {}
 };
 
-constexpr const char* fallback_warning =
+inline constexpr const char* fallback_warning =
     "LVQ and Leanvec functionality of SVS is not supported on non-Intel hardware. "
     "Using uncompressed data.\n";
 

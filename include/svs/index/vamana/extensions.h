@@ -583,7 +583,6 @@ struct Reconstruct {
 // Customization point for reconstructing vectors.
 inline constexpr Reconstruct reconstruct_accessor{};
 
-// TOOD: unify these
 #ifdef USE_PROPRIETARY
 
 template <typename T, size_t Extent, typename Alloc>

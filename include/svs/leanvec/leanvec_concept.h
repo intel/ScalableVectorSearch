@@ -304,10 +304,6 @@ template <typename Alloc = lib::Allocator<std::byte>> struct ProtoLeanVecLoader 
 
     explicit ProtoLeanVecLoader(
         Reload reloader,
-        // size_t leanvec_dims,
-        // size_t dims,
-        // LeanVecKind primary_kind,
-        // LeanVecKind secondary_kind,
         size_t alignment = 0,
         const Alloc& allocator = {}
     )
@@ -471,36 +467,6 @@ struct lib::DispatchConverter<
         return overload_score<Primary, Secondary, LeanVecDims, Extent>(
             loader.primary_kind_, loader.leanvec_dims_, loader.secondary_kind_, loader.dims_
         );
-        // if (loader.primary_kind_ != leanvec::leanvec_kind_v<Primary>) {
-        //     return lib::invalid_match;
-        // }
-
-        // // Check secondary kind
-        // if (loader.secondary_kind_ != leanvec::leanvec_kind_v<Secondary>) {
-        //     return lib::invalid_match;
-        // }
-
-        // // Check extent-tags.
-        // auto extent_match = lib::dispatch_match<lib::ExtentArg,
-        // lib::ExtentTag<Extent>>(
-        //     lib::ExtentArg{loader.dims_}
-        // );
-
-        // // If extents don't match, then we abort immediately.
-        // if (extent_match < 0) {
-        //     return lib::invalid_match;
-        // }
-
-        // // Check leanvec_dims-tags.
-        // auto leanvec_dims_match =
-        //     lib::dispatch_match<lib::ExtentArg,
-        //     lib::ExtentTag<LeanVecDims>>(lib::ExtentArg{ loader.leanvec_dims_});
-        // // If leanvec_dims don't match, then we abort immediately.
-        // if (leanvec_dims_match < 0) {
-        //     return lib::invalid_match;
-        // }
-
-        // return extent_match + leanvec_dims_match;
     }
 
     static leanvec::LeanVecLoader<Primary, Secondary, LeanVecDims, Extent, Alloc>
