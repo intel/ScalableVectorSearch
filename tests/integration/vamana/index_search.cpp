@@ -234,7 +234,7 @@ void run_tests(
 }
 } // namespace
 
-CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
+CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana][get_distance]") {
     auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
     const auto queries = test_dataset::queries();
     auto temp_dir = svs_test::temp_directory();
