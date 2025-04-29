@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "eve/algo.hpp"
-
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
@@ -121,7 +119,10 @@ class InnerProductCompressed {
 
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
-        offset_ = bias_ * eve::algo::reduce(query, 0.0f);
+        auto sum = std::reduce(query.begin(), query.end(), 0.0F, [](float acc, T v) {
+            return acc + float(v);
+        });
+        offset_ = bias_ * sum;
     }
 
     std::span<const float> view_query() const { return query_fp32_.get_datum(0); }
