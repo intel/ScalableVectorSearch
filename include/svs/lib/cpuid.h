@@ -86,7 +86,7 @@ enum class ISAExt {
     // AVX family
     AVX_VNNI,
 
-    // AVX512_ family
+    // AVX512 family
     AVX512_F,
     AVX512_VL,
     AVX512_BW,
@@ -293,7 +293,7 @@ inline const std::unordered_map<ISAExt, MSRFlag> ISAExtInfo = {
     {ISAExt::SVE2, {ID_AA64ZFR0_EL1, 0, 4, 1, "sve2"}},
 };
 
-#endif // if defined(__aarch64__)
+#endif
 
 inline bool check_extension(ISAExt ext) { return ISAExtInfo.at(ext).get_value(); }
 

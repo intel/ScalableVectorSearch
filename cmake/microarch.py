@@ -17,13 +17,11 @@
 # (1) A text file with compiler optimization flags for each microarchitecture formatted for
 #     relatively easy consumption by CMake.
 #
-# (2) A JSON manifest file describing the micreoarchitecture for each compiled library
-#     that the python library can use to select the correct shared library.
-#
 import archspec
 import archspec.cpu as cpu
 import argparse
 import json
+
 
 def build_parser():
     parser = argparse.ArgumentParser()
@@ -31,7 +29,6 @@ def build_parser():
         "cmake_flags_text_file",
         help = "file path to where CMake's text file will go."
     )
-    parser.add_argument("python_output_json_file")
     parser.add_argument("--compiler", required = True)
     parser.add_argument("--compiler-version", required = True)
     parser.add_argument(
@@ -48,6 +45,7 @@ def resolve_microarch(name: str):
     """
     custom_aliases = {
         "native": cpu.host().name,
+        "icelake_client": "icelake",
     }
     # Allow the custom aliases to override the current name.
     # If an alias doesn't exist, juse pass the name straight through.
@@ -96,7 +94,6 @@ def run():
     # Extract elements from the parser
     architectures = args.microarchitectures
     output_text = args.cmake_flags_text_file
-    output_json = args.python_output_json_file
     compiler = resolve_compiler(args.compiler)
     compiler_version = args.compiler_version
 
@@ -120,15 +117,9 @@ def run():
         "toolchain": toolchain,
         "libraries": suffix_to_microarch,
     }
-    with open(output_json, "w") as file:
-        file.write(json.dumps(pre_json_dict, indent = 4))
 
     # Safe flags to file
     dump_flags_for_cmake(optimization_flags, output_text)
-
-    # Print flags to stdout
-    for flags in optimization_flags:
-        print(flags)
 
 #####
 ##### Execute as script.

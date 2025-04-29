@@ -21,9 +21,7 @@
 namespace svs::arch {
 
 enum class CPUArch {
-#if defined(SVS_CPUARCH_NATIVE)
-    native,
-#elif defined(__x86_64__)
+#if defined(__x86_64__)
     // Refer to the GCC docs for the list of targeted architectures:
     // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
     nehalem,
@@ -39,6 +37,7 @@ enum class CPUArch {
     x86_64_v4 = skylake_avx512,
     cascadelake,
     cooperlake,
+    icelake_client,
     icelake_server,
     sapphirerapids,
     emeraldrapids = sapphirerapids,
@@ -53,10 +52,7 @@ enum class CPUArch {
 
 inline bool arch_is_supported(CPUArch arch) {
     switch (arch) {
-#if defined(SVS_CPUARCH_NATIVE)
-        case CPUArch::native:
-            return true;
-#elif defined(__x86_64__)
+#if defined(__x86_64__)
         case CPUArch::nehalem:
             return check_extensions(std::vector<ISAExt>{
                 ISAExt::MMX,
@@ -116,7 +112,7 @@ inline bool arch_is_supported(CPUArch arch) {
         case CPUArch::cooperlake:
             return arch_is_supported(CPUArch::cascadelake) &&
                    check_extensions(std::vector<ISAExt>{ISAExt::AVX512_BF16});
-        case CPUArch::icelake_server:
+        case CPUArch::icelake_client:
             return arch_is_supported(CPUArch::cooperlake) &&
                    check_extensions(std::vector<ISAExt>{
                        ISAExt::PKU,
@@ -129,7 +125,10 @@ inline bool arch_is_supported(CPUArch arch) {
                        ISAExt::VPCLMULQDQ,
                        ISAExt::AVX512_BITALG,
                        ISAExt::RDPID,
-                       ISAExt::AVX512_VPOPCNTDQ,
+                       ISAExt::AVX512_VPOPCNTDQ});
+        case CPUArch::icelake_server:
+            return arch_is_supported(CPUArch::icelake_client) &&
+                   check_extensions(std::vector<ISAExt>{
                        ISAExt::PCONFIG,
                        ISAExt::WBNOINVD,
                        ISAExt::CLWB});
@@ -161,7 +160,8 @@ inline bool arch_is_supported(CPUArch arch) {
 #elif defined(__aarch64__)
         // TODO: complete lists of supported extensions
         case CPUArch::neoverse_n1:
-        return check_extensions(std::vector<ISAExt>{ISAExt::SVE}) case CPUArch::neoverse_v1:
+            return check_extensions(std::vector<ISAExt>{ISAExt::SVE});
+        case CPUArch::neoverse_v1:
             return arch_is_supported(CPUArch::neoverse_n1) &&
                    check_extensions(std::vector<ISAExt>{ISAExt::SVE2});
 #endif
@@ -171,47 +171,90 @@ inline bool arch_is_supported(CPUArch arch) {
 }
 
 class CPUArchEnvironment {
-  public:
-    static CPUArchEnvironment& get_instance() {
-        // TODO: ensure thread safety
-        static CPUArchEnvironment instance;
-        return instance;
-    }
-    CPUArch get_cpu_arch() const { return max_arch_; }
+    public:
+        static CPUArchEnvironment& get_instance() {
+            // TODO: ensure thread safety
+            static CPUArchEnvironment instance;
+            return instance;
+        }
+        CPUArch get_cpu_arch() const { return max_arch_; }
 
-  private:
-    CPUArchEnvironment() {
-        const std::vector<CPUArch> compiled_archs = {
-#if defined(SVS_CPUARCH_NATIVE)
-            CPUArch::native,
-#elif defined(__x86_64__)
-            // TODO: add support for dynamic list of compiled archs
-            CPUArch::haswell,
-            CPUArch::broadwell,
-            CPUArch::skylake,
-            CPUArch::skylake_avx512,
-            CPUArch::cascadelake,
-            CPUArch::sapphirerapids,
-#elif defined(__aarch64__)
-            CPUArch::neoverse_n1,
-            CPUArch::neoverse_v1,
+    private:
+        CPUArchEnvironment() {
+            const std::vector<CPUArch> compiled_archs = {
+#if defined(SVS_CPUARCH_SUPPORT_native)
+                CPUArch::native,
 #endif
-        };
-        compiled_archs_ = compiled_archs;
-        max_arch_ = CPUArch::baseline;
-        for (const auto& arch : compiled_archs_) {
-            if (arch_is_supported(arch)) {
-                supported_archs_.push_back(arch);
-                if (static_cast<int>(arch) > static_cast<int>(max_arch_)) {
-                    max_arch_ = arch;
+#if defined(__x86_64__)
+    #if defined(SVS_CPUARCH_SUPPORT_nehalem)
+                CPUArch::nehalem,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_westmere)
+                CPUArch::westmere,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_sandybridge)
+                CPUArch::sandybridge,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_ivybridge)
+                CPUArch::ivybridge,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_haswell)
+                CPUArch::haswell,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_broadwell)
+                CPUArch::broadwell,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_skylake)
+                CPUArch::skylake,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_skylake_avx512)
+                CPUArch::skylake_avx512,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_cascadelake)
+                CPUArch::cascadelake,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_cooperlake)
+                CPUArch::cooperlake,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_icelake_client)
+                CPUArch::icelake_client,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_icelake_server)
+                CPUArch::icelake_server,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_sapphirerapids)
+                CPUArch::sapphirerapids,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_graniterapids)
+                CPUArch::graniterapids,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_graniterapids_d)
+                CPUArch::graniterapids_d,
+    #endif
+#elif defined(__aarch64__)
+    #if defined(SVS_CPUARCH_SUPPORT_neoverse_n1)
+                CPUArch::neoverse_n1,
+    #endif
+    #if defined(SVS_CPUARCH_SUPPORT_neoverse_v1)
+                CPUArch::neoverse_v1,
+    #endif
+#endif
+            };
+            compiled_archs_ = compiled_archs;
+            max_arch_ = CPUArch::baseline;
+            for (const auto& arch : compiled_archs_) {
+                if (arch_is_supported(arch)) {
+                    supported_archs_.push_back(arch);
+                    if (static_cast<int>(arch) > static_cast<int>(max_arch_)) {
+                        max_arch_ = arch;
+                    }
                 }
             }
         }
-    }
 
-    std::vector<CPUArch> compiled_archs_;
-    std::vector<CPUArch> supported_archs_;
-    CPUArch max_arch_;
+        std::vector<CPUArch> compiled_archs_;
+        std::vector<CPUArch> supported_archs_;
+        CPUArch max_arch_;
 };
 
 #define SVS_PACK_ARGS(...) __VA_ARGS__
@@ -219,23 +262,19 @@ class CPUArchEnvironment {
     case svs::arch::CPUArch::cpuarch:                             \
         return cls<svs::arch::CPUArch::cpuarch>::method(args);    \
         break;
-#if defined(SVS_CPUARCH_NATIVE)
-#define SVS_TARGET_CPUARCH svs::arch::CPUArch::native
-
-#define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args) \
-    return cls<svs::arch::CPUArch::native>::method(args);
-#elif defined(__x86_64__)
 #define SVS_TARGET_CPUARCH svs::arch::CPUArch::SVS_TUNE_TARGET
+
+#if defined(__x86_64__)
 
 #define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args)                                \
     svs::arch::CPUArch cpu_arch =                                                       \
         svs::arch::CPUArchEnvironment::get_instance().get_cpu_arch();                   \
     switch (cpu_arch) {                                                                 \
+        SVS_CLASS_METHOD_CPUARCH_CASE(nehalem, cls, method, SVS_PACK_ARGS(args))        \
         SVS_CLASS_METHOD_CPUARCH_CASE(haswell, cls, method, SVS_PACK_ARGS(args))        \
-        SVS_CLASS_METHOD_CPUARCH_CASE(broadwell, cls, method, SVS_PACK_ARGS(args))      \
-        SVS_CLASS_METHOD_CPUARCH_CASE(skylake, cls, method, SVS_PACK_ARGS(args))        \
         SVS_CLASS_METHOD_CPUARCH_CASE(skylake_avx512, cls, method, SVS_PACK_ARGS(args)) \
         SVS_CLASS_METHOD_CPUARCH_CASE(cascadelake, cls, method, SVS_PACK_ARGS(args))    \
+        SVS_CLASS_METHOD_CPUARCH_CASE(icelake_client, cls, method, SVS_PACK_ARGS(args)) \
         SVS_CLASS_METHOD_CPUARCH_CASE(sapphirerapids, cls, method, SVS_PACK_ARGS(args)) \
         default:                                                                        \
             return cls<svs::arch::CPUArch::baseline>::method(args);                     \

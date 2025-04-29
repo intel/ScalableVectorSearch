@@ -24,67 +24,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(pybind11)
 
-# Try to find the Python executable.
-#
-# If it's given as part of the Cmake arguments given by "scikit build", then use that.
-# Otherwise, fall back to using plain old "python".
-# If *THAT* doesn't work, give up.
-if(DEFINED PYTHON_EXECUTABLE)
-    set(SVS_PYTHON_EXECUTABLE "${PYTHON_EXECUTABLE}")
-else()
-    set(SVS_PYTHON_EXECUTABLE "python")
-endif()
-
-# The micro architectures to compile for.
-if(NOT DEFINED SVS_MICROARCHS)
-    set(SVS_MICROARCHS native)
-endif()
-
 # Include the SVS library directly.
 add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
-
-# Run the python script to get optimization flags for the desired back-ends.
-#
-# FLAGS_SCRIPT - Path to the Python script that will take the compiler, compiler version,
-#   and list of desired microarchitectures and generate optimization flags for each
-#   microarchitecture.
-#
-# FLAGS_TEXT_FILE - List of optimization flags for each architecture.
-#   Expected format:
-#       -march=arch1,-mtune=arch1
-#       -march=arch2,-mtune=arch2
-#       ...
-#       -march=archN,-mtune=archN
-#
-#   The number of lines should be equal to the number of microarchitectures.
-#   NOTE: The entries within each line are separated by a comma on purpose to allow CMake
-#   to read the whole file as a List and then use string replacement on the commas to turn
-#   each line into a list in its own right.
-#
-# TEMP_JSON - JSON Manifest file describing the generated binaries. This is meant to be
-#   included in the Python package to allow the Python code to reason about the packaged
-#   libraries and select the correct one for loading.
-#
-set(FLAGS_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/microarch.py")
-set(FLAGS_TEXT_FILE "${CMAKE_CURRENT_BINARY_DIR}/optimization_flags.txt")
-set(FLAGS_MANIFEST_JSON "${CMAKE_CURRENT_BINARY_DIR}/flags_manifest.json")
-
-execute_process(
-    COMMAND
-        ${SVS_PYTHON_EXECUTABLE}
-        ${FLAGS_SCRIPT}
-        ${FLAGS_TEXT_FILE}
-        ${FLAGS_MANIFEST_JSON}
-        --compiler ${CMAKE_CXX_COMPILER_ID}
-        --compiler-version ${CMAKE_CXX_COMPILER_VERSION}
-        --microarchitectures ${SVS_MICROARCHS}
-    COMMAND_ERROR_IS_FATAL ANY
-)
-
-file(STRINGS "${FLAGS_TEXT_FILE}" OPTIMIZATION_FLAGS)
-message("Flags: ${OPTIMIZATION_FLAGS}")
-list(LENGTH OPTIMIZATION_FLAGS OPT_FLAGS_LENGTH)
-message("Length of flags: ${OPT_FLAGS_LENGTH}")
 
 # C++ files makind up the python bindings.
 set(CPP_FILES
@@ -97,35 +38,13 @@ set(CPP_FILES
     src/vamana_common.cpp
     src/svs_mkl.cpp
 )
-# C++ files that are used to instantiate the template classes for each microarchitecture.
-set(CPUARCH_CPP_FILES
-    src/instantiations.cpp
-)
-
-# Generate an object file for each target microarchitecture.
-set(OBJECT_FILES "")
-foreach(MICRO OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
-    set(OBJ_NAME "_svs_${MICRO}")
-    add_library(${OBJ_NAME} OBJECT ${CPUARCH_CPP_FILES})
-
-    target_link_libraries(${OBJ_NAME} PUBLIC svs::svs)
-    target_link_libraries(${OBJ_NAME} PRIVATE svs::compile_options fmt::fmt)
-
-    string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
-    message("OPT Flags: ${OPT_FLAGS}")
-    target_compile_options(${OBJ_NAME} PRIVATE ${OPT_FLAGS} -DSVS_TUNE_TARGET=${MICRO} -DSVS_EXTERNAL_CPUARCH_INSTANCE=1 -fPIC)
-
-    list(APPEND OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
-endforeach()
 
 set(LIB_NAME "_svs")
-pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES} ${OBJECT_FILES})
+pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES} ${MICROARCH_OBJECT_FILES})
 target_link_libraries(${LIB_NAME} PRIVATE pybind11::module)
 target_link_libraries(${LIB_NAME} PUBLIC svs::svs)
 # Dependency "fmt::fmt" obtained from "svs"
-target_link_libraries(${LIB_NAME} PRIVATE svs::compile_options fmt::fmt)
-# TODO: remove manual specification of base arch optimization flags
-target_compile_options(${LIB_NAME} PRIVATE -march=x86-64-v3 -mtune=generic -DSVS_TUNE_TARGET=x86_64_v3)
+target_link_libraries(${LIB_NAME} PRIVATE svs::compile_options fmt::fmt svs::microarch_options_base)
 target_include_directories(
     ${LIB_NAME}
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
@@ -147,11 +66,6 @@ if(DEFINED SKBUILD)
 endif()
 
 if(DEFINED SKBUILD)
-    # Install the manifest JSON file.
-    # This is kind of a hack to avoid the needing to explicitly move JSON file into the
-    # source folder of the python library.
-    install(FILES ${FLAGS_MANIFEST_JSON} DESTINATION .)
-
     # Install header files.
     install(
         DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/include/svs"

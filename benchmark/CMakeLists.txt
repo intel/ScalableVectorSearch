@@ -48,7 +48,7 @@ set(SHARED_LIBRARY_FILES
     src/inverted/memory/executables/memory_test.cpp
 )
 
-add_library(svs_benchmark_library SHARED ${SHARED_LIBRARY_FILES})
+add_library(svs_benchmark_library SHARED ${SHARED_LIBRARY_FILES} ${MICROARCH_OBJECT_FILES})
 target_include_directories(svs_benchmark_library PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 
 # Minimal
@@ -104,7 +104,7 @@ target_link_libraries(
     PUBLIC
         ${SVS_LIB}
         svs_compile_options
-        svs_native_options
+        svs_microarch_options_base
         fmt::fmt
 )
 

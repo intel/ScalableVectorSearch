@@ -13,7 +13,7 @@
 # limitations under the License.
 
 function(create_utility exe file)
-    add_executable(${exe} ${file})
+    add_executable(${exe} ${file} ${MICROARCH_OBJECT_FILES})
     target_include_directories(
         ${exe}
         PRIVATE ${CMAKE_CURRENT_LIST_DIR}
@@ -22,7 +22,7 @@ function(create_utility exe file)
     target_link_libraries(${exe} PRIVATE ${SVS_LIB})
 
     # Get common compiler options with the unit tests.
-    target_link_libraries(${exe} PRIVATE svs_compile_options svs_native_options)
+    target_link_libraries(${exe} PRIVATE svs_compile_options svs_microarch_options_base)
 
     # Link with third-party executables.
     target_link_libraries(${exe} PRIVATE fmt::fmt)

@@ -67,6 +67,7 @@ target_compile_options(
 
 include("cmake/options.cmake")
 
+include("cmake/cpuarch.cmake")
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
@@ -79,6 +80,8 @@ include("cmake/toml.cmake")
 #####
 ##### Build Objects
 #####
+
+create_microarch_instantiations()
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)
@@ -112,7 +115,7 @@ set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_devel svs_compile_options svs_native_options
+    TARGETS svs_devel svs_compile_options svs_microarch_options_base
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
