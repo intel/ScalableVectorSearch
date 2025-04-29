@@ -49,8 +49,7 @@ class DynamicVamanaInterface : public VamanaInterface {
     virtual void all_ids(std::vector<size_t>& ids) const = 0;
 
     // Non-templated virtual method for distance calculation
-    virtual double
-    get_distance(size_t id, const void* query, DataType query_type) const = 0;
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -91,15 +90,13 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
     }
 
     ///// Distance
-    double get_distance(size_t id, const void* query, DataType query_type) const override {
+    double get_distance(size_t id, const AnonymousArray<1>& query) const override {
         return svs::lib::match(
             QueryTypes{},
-            query_type,
+            query.type(),
             [&]<typename T>(svs::lib::Type<T>) {
-                // Convert void* to T
-                using VectorType = std::vector<T>;
-                const VectorType* vector_ptr = static_cast<const VectorType*>(query);
-                return impl().get_distance(id, *vector_ptr);
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                return impl().get_distance(id, query_span);
             }
         );
     }
@@ -372,11 +369,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @param id The ID of the vector in the index
     /// @param query The query vector
     template <typename Query> double get_distance(size_t id, const Query& query) const {
-        using ElementType = std::decay_t<decltype(query[0])>;
-        auto query_type = svs::datatype_v<ElementType>;
-
-        // Forward to the interface method
-        return impl_->get_distance(id, &query, query_type);
+        // Create AnonymousArray from the query
+        AnonymousArray<1> query_array{query.data(), query.size()};
+        return impl_->get_distance(id, query_array);
     }
 };
 

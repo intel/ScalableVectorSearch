@@ -293,21 +293,16 @@ struct GetDistanceTester {
             index_id = external_ids[0];
         }
 
-        // Get direct vectors out
-        auto query_span = data.get_datum(query_id);
-        auto indexed_span = data.get_datum(index_id);
-
-        using ElementType = std::decay_t<decltype(query_span[0])>;
-        std::vector<ElementType> query_vector(query_span.begin(), query_span.end());
+        auto query = data.get_datum(query_id);
+        auto datum = data.get_datum(index_id);
 
         // Get distance from index
-        double index_distance = index.get_distance(index_id, query_vector);
+        double index_distance = index.get_distance(index_id, query);
 
-        // Get exptected distance
+        // Get expected distance
         Distance dist_copy = distance_type;
-        svs::distance::maybe_fix_argument(dist_copy, query_span);
-        double expected_distance =
-            svs::distance::compute(dist_copy, query_span, indexed_span);
+        svs::distance::maybe_fix_argument(dist_copy, query);
+        double expected_distance = svs::distance::compute(dist_copy, query, datum);
 
         // Test the distance calculation
         double relative_diff =
@@ -317,7 +312,7 @@ struct GetDistanceTester {
         // Test out of bounds ID
         if (index.size() > 0) {
             CATCH_REQUIRE_THROWS_AS(
-                index.get_distance(index_id + 99999, query_vector), svs::ANNException
+                index.get_distance(index_id + 99999, query), svs::ANNException
             );
         }
     }

@@ -254,10 +254,8 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
             QueryTypes{},
             query.type(),
             [&]<typename T>(svs::lib::Type<T>) {
-                // Get the data from AnonymousArray as a span
                 auto query_span = std::span<const T>(get<T>(query), query.size(0));
-                std::vector<T> query_vector(query_span.begin(), query_span.end());
-                return impl().get_distance(id, query_vector);
+                return impl().get_distance(id, query_span);
             }
         );
     }
