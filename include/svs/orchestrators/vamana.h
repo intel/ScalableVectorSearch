@@ -79,8 +79,7 @@ class VamanaInterface {
     ///// Iterator
     virtual VamanaIterator batch_iterator(
         svs::AnonymousArray<1> query,
-        svs::index::vamana::AbstractIteratorSchedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const = 0;
 
     ///// Calibrations
@@ -179,8 +178,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     ///// Iterator
     VamanaIterator batch_iterator(
         svs::AnonymousArray<1> query,
-        svs::index::vamana::AbstractIteratorSchedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const override {
         // Match the query type.
         return svs::lib::match(
@@ -190,8 +188,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
                 return VamanaIterator{
                     impl(),
                     std::span<const T>(svs::get<T>(query), query.size(0)),
-                    std::move(schedule),
-                    cancel};
+                    extra_search_buffer_capacity};
             }
         );
     }
@@ -493,24 +490,26 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         }
     }
 
-    ///// Iterator
-
-    /// @brief Return a new batch iterator for the query using the provided schedule.
     ///
-    /// The parameter `QueryType` must be an element of  ``svs::Vamana::query_types()``.
-    /// ``cancel`` is an optional argument to determine if the search should be cancelled.
+    /// @brief Return a new iterator (an instance of `svs::VamanaIterator`) for the query.
+    ///
+    /// @tparam QueryType The element type of the query that will be given to the iterator.
+    /// @tparam N The dimension of the query.
+    ///
+    /// @param query The query to use for the iterator.
+    /// @param extra_search_buffer_capacity An optional extra search buffer capacity to
+    ///     allow the iterator to search beyond the current batch (when not provided,
+    ///     ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is used).
     ///
     /// The returned iterator will maintain an internal copy of the query.
-    template <typename QueryType, size_t N, svs::index::vamana::IteratorSchedule Schedule>
+    ///
+    template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
         std::span<const QueryType, N> query,
-        Schedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const {
         return impl_->batch_iterator(
-            svs::AnonymousArray<1>(query.data(), query.size()),
-            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule)),
-            cancel
+            svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
         );
     }
 

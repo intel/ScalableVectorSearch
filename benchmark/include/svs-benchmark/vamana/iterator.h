@@ -30,70 +30,11 @@
 
 namespace svsbenchmark::vamana {
 
-/// Pre-configuration for the linear schedule.
-struct LinearSchedulePrototype {
-    size_t scale_search_window_;
-    size_t scale_buffer_capacity_;
-    int64_t enable_filter_after_;
-    size_t batch_size_start_;
-    size_t scale_batch_size_;
-    // Whether search should be restarted on every iteration.
-    bool restart_searches_;
-
-    ///// Saving and Loading.
-    static constexpr std::string_view serialization_schema =
-        "svsbench_vamana_iter_schedule";
-    static constexpr svs::lib::Version save_version{0, 0, 0};
-
-    svs::lib::SaveTable save() const {
-        return svs::lib::SaveTable{
-            serialization_schema,
-            save_version,
-            {SVS_LIST_SAVE_(scale_search_window),
-             SVS_LIST_SAVE_(scale_buffer_capacity),
-             SVS_LIST_SAVE_(enable_filter_after),
-             SVS_LIST_SAVE_(batch_size_start),
-             SVS_LIST_SAVE_(scale_batch_size),
-             SVS_LIST_SAVE_(restart_searches)}};
-    }
-
-    static LinearSchedulePrototype load(const svs::lib::ContextFreeLoadTable& table) {
-        return LinearSchedulePrototype{
-            SVS_LOAD_MEMBER_AT_(table, scale_search_window),
-            SVS_LOAD_MEMBER_AT_(table, scale_buffer_capacity),
-            SVS_LOAD_MEMBER_AT_(table, enable_filter_after),
-            SVS_LOAD_MEMBER_AT_(table, batch_size_start),
-            SVS_LOAD_MEMBER_AT_(table, scale_batch_size),
-            SVS_LOAD_MEMBER_AT_(table, restart_searches)};
-    }
-
-    // Return several representative examples for the schedule.
-    static std::vector<LinearSchedulePrototype> examples() {
-        return {{10, 20, -1, 10, 0, false}, {10, 10, 3, 10, 5, false}};
-    }
-
-    // Should search be restarted from scratch every iteration.
-    bool restart_every_iteration() const { return restart_searches_; }
-
-    // Materialize an actual schedule given a set of base parameters.
-    // NOTE: This does not propagate the `restart_searches_` flag.
-    svs::index::vamana::LinearSchedule
-    materialize(const svs::index::vamana::VamanaSearchParameters& sp) const {
-        return svs::index::vamana::LinearSchedule{
-            sp,
-            svs::lib::narrow<uint16_t>(scale_search_window_),
-            svs::lib::narrow<uint16_t>(scale_buffer_capacity_),
-            svs::lib::narrow<int16_t>(enable_filter_after_),
-            svs::lib::narrow<uint16_t>(batch_size_start_),
-            svs::lib::narrow<uint16_t>(scale_batch_size_)};
-    }
-};
-
 struct IteratorSearchParameters {
   public:
     ///// Members
-    // The schedules to try.
-    std::vector<LinearSchedulePrototype> schedules_;
+    // Batch sizes to use for the iterator.
+    std::vector<size_t> batch_sizes_{{10, 20}};
     // target recalls relative to base number of neighbors.
     std::vector<svs::lib::Percent> target_recalls_;
     // The number of batches to yield.
@@ -108,7 +49,7 @@ struct IteratorSearchParameters {
 
     static IteratorSearchParameters example() {
         return IteratorSearchParameters{
-            .schedules_ = LinearSchedulePrototype::examples(),
+            .batch_sizes_ = {10},
             .target_recalls_ = {svs::lib::Percent(0.9)},
             .num_batches_ = 5,
             .query_subsample_ = 10,
@@ -119,7 +60,7 @@ struct IteratorSearchParameters {
         return svs::lib::SaveTable{
             serialization_schema,
             save_version,
-            {SVS_LIST_SAVE_(schedules),
+            {SVS_LIST_SAVE_(batch_sizes),
              SVS_LIST_SAVE_(target_recalls),
              SVS_LIST_SAVE_(num_batches),
              SVS_LIST_SAVE_(query_subsample)}};
@@ -127,7 +68,7 @@ struct IteratorSearchParameters {
 
     static IteratorSearchParameters load(const svs::lib::ContextFreeLoadTable& table) {
         return IteratorSearchParameters{
-            SVS_LOAD_MEMBER_AT_(table, schedules),
+            SVS_LOAD_MEMBER_AT_(table, batch_sizes),
             SVS_LOAD_MEMBER_AT_(table, target_recalls),
             SVS_LOAD_MEMBER_AT_(table, num_batches),
             SVS_LOAD_MEMBER_AT_(table, query_subsample)};
@@ -279,30 +220,25 @@ struct YieldedResult {
 
 // TODO: Make the dependence on `Report` looser.
 template <typename Index> struct QueryIteratorResult {
-    LinearSchedulePrototype schedule_;
+    size_t batch_size_;
     size_t num_batches_;
     double target_recall_;
     search::RunReport<Index> report_;
-    // The search parameters used for each iteration.
-    // Must be the same for all queries in the batch.
-    std::vector<svs::index::vamana::VamanaSearchParameters> iteration_parameters_;
     // Outer vector: Results for each query.
     // Inner vector: Results within a query.
     std::vector<std::vector<YieldedResult>> results_;
 
     ///// Constructor
     QueryIteratorResult(
-        const LinearSchedulePrototype& schedule,
+        size_t batch_size,
         double target_recall,
         search::RunReport<Index> report,
-        std::vector<svs::index::vamana::VamanaSearchParameters> iteration_parameters,
         std::vector<std::vector<YieldedResult>> results
     )
-        : schedule_{schedule}
-        , num_batches_{iteration_parameters.size()}
+        : batch_size_{batch_size}
+        , num_batches_{results.at(0).size()}
         , target_recall_{target_recall}
         , report_{std::move(report)}
-        , iteration_parameters_{std::move(iteration_parameters)}
         , results_{std::move(results)} {
         // Ensure all the yielded results have the correct size.
         for (size_t i = 0, imax = results_.size(); i < imax; ++i) {
@@ -326,11 +262,10 @@ template <typename Index> struct QueryIteratorResult {
         return svs::lib::SaveTable{
             serialization_schema,
             save_version,
-            {SVS_LIST_SAVE_(schedule),
+            {SVS_LIST_SAVE_(batch_size),
              SVS_LIST_SAVE_(num_batches),
              SVS_LIST_SAVE_(target_recall),
              SVS_LIST_SAVE_(report),
-             SVS_LIST_SAVE_(iteration_parameters),
              SVS_LIST_SAVE_(results)}};
     }
 };
@@ -360,15 +295,14 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
 
     // Loop over each batchsize.
     auto query_iterator_results = std::vector<QueryIteratorResult<Index>>{};
-    for (const auto& schedule : parameters.schedules_) {
-        auto initial_batch_size = schedule.batch_size_start_;
+    for (const auto& batch_size : parameters.batch_sizes_) {
         for (auto target_recall : parameters.target_recalls_) {
             // Calibrate the index for the given recall.
             auto config = traits::calibrate(
                 index,
                 query_set.training_set_,
                 query_set.training_set_groundtruth_,
-                initial_batch_size,
+                batch_size,
                 target_recall.value(),
                 context,
                 extra
@@ -379,7 +313,7 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
                 index,
                 query_set.test_set_,
                 query_set.test_set_groundtruth_,
-                initial_batch_size,
+                batch_size,
                 target_recall.value(),
                 svsbenchmark::CalibrateContext::TestSetTune,
                 config,
@@ -389,7 +323,7 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
             // Now we have a calibrated configuration - obtain a baseline report for
             // searching with this batchsize.
             auto report = svsbenchmark::search::search_with_config(
-                index, config, query_test, groundtruth_test, initial_batch_size
+                index, config, query_test, groundtruth_test, batch_size
             );
 
             // `resuilt_buffer`: All results that have been returned by the iterator.
@@ -452,27 +386,24 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
 
                 // The first call to `iterator` kick-starts graph search.
                 auto tic = svs::lib::now();
-                auto iterator = make_iterator(index, query, config, schedule);
+                auto iterator = make_iterator(index, query);
+                iterator.next(config.buffer_config_.get_search_window_size());
                 auto elapsed = svs::lib::time_difference(tic);
                 if (i == 0) {
-                    iteration_parameters.push_back(iterator.parameters_for_current_batch());
+                    iteration_parameters.push_back(
+                        iterator.parameters_for_current_iteration()
+                    );
                 }
 
                 timings_for_this_query.push_back(tally(iterator, i, 0, elapsed));
                 for (size_t j = 0; j < parameters.num_batches_; ++j) {
-                    // If requested by the parent schedule, reset search for this
-                    // iteration.
-                    if (schedule.restart_every_iteration()) {
-                        iterator.restart_next_search();
-                    }
-
                     tic = svs::lib::now();
-                    iterator.next();
+                    iterator.next(batch_size);
                     elapsed = svs::lib::time_difference(tic);
                     timings_for_this_query.push_back(tally(iterator, i, j + 1, elapsed));
                     if (i == 0) {
                         iteration_parameters.push_back(
-                            iterator.parameters_for_current_batch()
+                            iterator.parameters_for_current_iteration()
                         );
                     }
                 }
@@ -480,10 +411,9 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
 
             // Finish up summarizing these results.
             query_iterator_results.emplace_back(
-                schedule,
+                batch_size,
                 target_recall.value(),
                 std::move(report),
-                std::move(iteration_parameters),
                 std::move(yielded_results)
             );
             do_checkpoint(query_iterator_results);
@@ -522,9 +452,7 @@ toml::table tune_and_search_iterator(
         job.parameters_,
         query_set,
         svsbenchmark::CalibrateContext::InitialTrainingSet,
-        [](const auto& index, const auto& query, const auto& config, const auto& schedule) {
-            return index.batch_iterator(query, schedule.materialize(config));
-        },
+        [](const auto& index, const auto& query) { return index.batch_iterator(query); },
         do_checkpoint,
         svsbenchmark::IndexTraits<Index>::regression_optimization()
     );
