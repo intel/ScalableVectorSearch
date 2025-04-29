@@ -68,6 +68,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
    CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64" AND
    (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     add_compile_definitions(__ARM_NEON EVE_ARM_64)
+
+    if(NOT CMAKE_CXX_FLAGS MATCHES "-march=")
+       string(APPEND CMAKE_CXX_FLAGS_INIT " -march=armv8-a")
+       string(APPEND CMAKE_C_FLAGS_INIT " -march=armv8-a")
+    endif()
+
 endif()
 
 #####
