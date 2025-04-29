@@ -186,8 +186,8 @@ class CosineSimilarityCompressed {
 namespace detail {
 
 struct MinMaxAccumulator {
-    float min = 0.0;
-    float max = 0.0;
+    float min = std::numeric_limits<float>::max();
+    float max = std::numeric_limits<float>::min();
 
     void accumulate(float val) {
         min = std::min(min, val);
