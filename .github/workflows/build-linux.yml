@@ -56,8 +56,10 @@ jobs:
        source /opt/intel/oneapi/setvars.sh
        printenv >> $GITHUB_ENV
 
-    - name: Install archspec
-      run: python -m pip install archspec
+    - name: Install archspec and get host microarch
+      run: |
+        python -m pip install archspec
+        python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
     - name: Configure build
       working-directory: ${{ runner.temp }}

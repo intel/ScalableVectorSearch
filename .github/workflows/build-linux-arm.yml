@@ -47,8 +47,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install archspec
-      run: python -m pip install archspec
+    - name: Install archspec and get host microarch
+      run: |
+        python -m pip install archspec
+        python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
