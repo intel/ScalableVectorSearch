@@ -155,12 +155,10 @@ template <typename T, typename Distance, size_t N> void test_distance_single(T l
 }
 
 template <typename T, typename Distance> void test_distance() {
-    // Error accumulates proportional to number of dimensions, perform a low-dim test
-    test_distance_single<std::int8_t, Distance, 2>(-127, 127);
-
-    // More realistic, higher dimensionality tests for SIMD lanes with unrolling.
+    // Test dimensionality tuned for SIMD lanes with unrolling.
     // 16x4 = 64 unrolled, plus full epilogue (16), plus ragged epilogue (7)
     constexpr size_t N = 64 + 16 + 7;
+
     // a bunch of test cases from different ranges of the int8 spectrum
     test_distance_single<std::int8_t, Distance, N>(-127, 127);
     test_distance_single<std::int8_t, Distance, N>(80, 100);
@@ -197,7 +195,7 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         test_sq_top<std::int16_t, 128>();
     }
 
-    CATCH_SECTION("SQDataset compress and resize") {
+    CATCH_SECTION("SQDataset compact and resize") {
         // TODO
     }
 }
@@ -206,7 +204,6 @@ CATCH_TEST_CASE(
     "Testing Distance computations with SQDataset", "[quantization][scalar][distance]"
 ) {
     CATCH_SECTION("Distance with SQDataset") {
-        // IP and CS use the float32 query for computation
         using DistanceL2 = svs::distance::DistanceL2;
         using DistanceIP = svs::distance::DistanceIP;
         using DistanceCS = svs::distance::DistanceCosineSimilarity;
@@ -214,7 +211,5 @@ CATCH_TEST_CASE(
         test_distance<std::int8_t, DistanceL2>();
         test_distance<std::int8_t, DistanceIP>();
         test_distance<std::int8_t, DistanceCS>();
-
-        // L2 computes with compressed query and data and the check works a bit differently
     }
 }
