@@ -44,8 +44,13 @@ enum class CPUArch {
     graniterapids,
     graniterapids_d,
 #elif defined(__aarch64__)
+#if defined(__APPLE__)
+    m1,
+    m2,
+#else
     neoverse_v1,
     neoverse_n2,
+#endif
 #endif
     baseline = 0,
 };
@@ -156,12 +161,19 @@ inline bool arch_is_supported(CPUArch arch) {
             return arch_is_supported(CPUArch::graniterapids) &&
                    check_extensions(std::vector<ISAExt>{ISAExt::AMX_COMPLEX});
 #elif defined(__aarch64__)
-        // TODO: complete lists of supported extensions
+#if defined(__APPLE__)
+        case CPUArch::m1:
+            return check_extensions(std::vector<ISAExt>{ISAExt::SVE});
+        case CPUArch::m2:
+            return arch_is_supported(CPUArch::m1) &&
+                   check_extensions(std::vector<ISAExt>{ISAExt::SVE2});
+#else
         case CPUArch::neoverse_v1:
             return check_extensions(std::vector<ISAExt>{ISAExt::SVE});
         case CPUArch::neoverse_n2:
             return arch_is_supported(CPUArch::neoverse_v1) &&
                    check_extensions(std::vector<ISAExt>{ISAExt::SVE2});
+#endif
 #endif
         default:
             return false;
@@ -180,9 +192,6 @@ class CPUArchEnvironment {
   private:
     CPUArchEnvironment() {
         const std::vector<CPUArch> compiled_archs = {
-#if defined(SVS_CPUARCH_SUPPORT_native)
-            CPUArch::native,
-#endif
 #if defined(__x86_64__)
 #if defined(SVS_CPUARCH_SUPPORT_nehalem)
             CPUArch::nehalem,
@@ -230,11 +239,20 @@ class CPUArchEnvironment {
             CPUArch::graniterapids_d,
 #endif
 #elif defined(__aarch64__)
-#if defined(SVS_CPUARCH_SUPPORT_neoverse_n1)
-            CPUArch::neoverse_n1,
+#if defined(__APPLE__)
+#if defined(SVS_CPUARCH_SUPPORT_m1)
+            CPUArch::m1,
 #endif
+#if defined(SVS_CPUARCH_SUPPORT_m2)
+            CPUArch::m2,
+#endif
+#else
 #if defined(SVS_CPUARCH_SUPPORT_neoverse_v1)
             CPUArch::neoverse_v1,
+#endif
+#if defined(SVS_CPUARCH_SUPPORT_neoverse_n2)
+            CPUArch::neoverse_n2,
+#endif
 #endif
 #endif
         };
@@ -279,7 +297,21 @@ class CPUArchEnvironment {
             break;                                                                      \
     }
 #elif defined(__aarch64__)
-#define SVS_TARGET_CPUARCH svs::arch::CPUArch::SVS_TUNE_TARGET
+
+#if defined(__APPLE__)
+
+#define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args)                    \
+    svs::arch::CPUArch cpu_arch =                                           \
+        svs::arch::CPUArchEnvironment::get_instance().get_cpu_arch();       \
+    switch (cpu_arch) {                                                     \
+        SVS_CLASS_METHOD_CPUARCH_CASE(m1, cls, method, SVS_PACK_ARGS(args)) \
+        SVS_CLASS_METHOD_CPUARCH_CASE(m2, cls, method, SVS_PACK_ARGS(args)) \
+        default:                                                            \
+            return cls<svs::arch::CPUArch::baseline>::method(args);         \
+            break;                                                          \
+    }
+
+#else
 
 #define SVS_DISPATCH_CLASS_BY_CPUARCH(cls, method, args)                             \
     svs::arch::CPUArch cpu_arch =                                                    \
@@ -291,6 +323,9 @@ class CPUArchEnvironment {
             return cls<svs::arch::CPUArch::baseline>::method(args);                  \
             break;                                                                   \
     }
+
+#endif
+
 #endif
 
 #define SVS_INST_CLASS_METHOD_TMPL_BY_CPUARCH(    \
