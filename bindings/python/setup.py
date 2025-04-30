@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from skbuild import setup
-import archspec.cpu as cpu
 import os
 
 # If building in a cibuildwheel context, compile multiple versions of the library for
@@ -24,27 +23,6 @@ cmake_args = [
     # Export compile commands to allow us to explore compiler flags as needed.
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=YES",
 ]
-
-# Utility to convert micro-architecture strings to
-def target(arch):
-    return cpu.TARGETS[arch]
-
-# TODO: Replace with externally-specified list
-svs_microarchs = [
-        # "x86_64_v3" # This is the default target for base lib compilation
-        "broadwell",
-        "skylake",
-        "skylake_avx512",
-        "cascadelake",
-        # TODO: Add support for other architectures (archspec does not support them yet)
-        # "cooperlake",
-        # "icelake_server",
-        "sapphirerapids",
-        # "graniterapids",
-        # "graniterapids_d",
-    ]
-cmake_array = ";".join(svs_microarchs)
-cmake_args.append(f"-DSVS_MICROARCHS={cmake_array}")
 
 # Determine the root of the repository
 base_dir = os.path.relpath(os.path.join(os.path.dirname(__file__), '..', '..'))
