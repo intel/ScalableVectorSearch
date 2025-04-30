@@ -70,6 +70,39 @@ data::GetDatumAccessor svs_invoke(svs::tag_t<accessor>, const Data& SVS_UNUSED(d
     return data::GetDatumAccessor{};
 }
 
+/////
+///// Distance
+/////
+struct ComputeDistanceType {
+    template <typename Data, typename Distance, typename Query>
+    double operator()(
+        const Data& data, const Distance& distance, size_t internal_id, const Query& query
+    ) const {
+        return svs_invoke(*this, data, distance, internal_id, query);
+    }
+};
+// CPO for distance computation
+inline constexpr ComputeDistanceType get_distance_ext{};
+template <typename Data, typename Distance, typename Query>
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Data& data,
+    const Distance& distance,
+    size_t internal_id,
+    const Query& query
+) {
+    // Get distance
+    auto dist_f = extensions::distance(data, distance);
+    svs::distance::maybe_fix_argument(dist_f, query);
+
+    // Get the vector from the index
+    auto indexed_span = data.get_datum(internal_id);
+
+    // Compute the distance using the appropriate distance function
+    auto dist = svs::distance::compute(dist_f, query, indexed_span);
+
+    return static_cast<double>(dist);
+}
 } // namespace extensions
 
 // The flat index is "special" because we wish to enable the `FlatIndex` to either:
@@ -455,6 +488,30 @@ class FlatIndex {
     /// @brief Return the current thread pool handle.
     ///
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
+
+    ///// Distance
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Check if id is valid
+        if (id >= size()) {
+            throw ANNEXCEPTION("ID {} is out of bounds for index of size {}!", id, size());
+        }
+
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Call extension for distance computation
+        return svs::index::flat::extensions::get_distance_ext(data_, distance_, id, query);
+    }
 };
 
 ///

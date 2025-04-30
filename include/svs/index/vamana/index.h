@@ -860,6 +860,29 @@ class VamanaIndex {
     template <typename F> void experimental_escape_hatch(F&& f) const {
         std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
     }
+
+    ///// Distance
+
+    /// @brief Compute the distance between a vector in the index and a query vector
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Check if id is valid
+        if (id >= size()) {
+            throw ANNEXCEPTION("ID {} is out of bounds for index of size {}!", id, size());
+        }
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Call extension for distance computation
+        return extensions::get_distance_ext(data_, distance_, id, query);
+    }
 };
 
 // Shared documentation for assembly methods.

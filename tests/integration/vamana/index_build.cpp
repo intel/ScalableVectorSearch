@@ -95,6 +95,8 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
     // How far these results may deviate from previously generated results.
     const double epsilon = 0.005;
     const auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    const auto dataset = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+
     for (auto distance_type : distances) {
         CATCH_REQUIRE(svs_test::prepare_temp_directory());
         size_t num_threads = 2;
@@ -110,6 +112,12 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
         CATCH_REQUIRE(
             index.query_types() == std::vector<svs::DataType>{svs::DataType::float32}
         );
+
+        // Test get_distance functionality
+        svs::DistanceDispatcher dispatcher(distance_type);
+        dispatcher([&](auto dist) {
+            svs_test::GetDistanceTester::test(index, dist, dataset);
+        });
 
         auto groundtruth = test_dataset::load_groundtruth(distance_type);
         for (const auto& expected : expected_result.config_and_recall_) {

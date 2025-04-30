@@ -29,7 +29,8 @@ from .common import \
     test_groundtruth_l2, \
     test_groundtruth_mip, \
     test_number_of_vectors, \
-    test_dimensions
+    test_dimensions, \
+    test_get_distance
 
 class FlatTester(unittest.TestCase):
     """
@@ -54,7 +55,7 @@ class FlatTester(unittest.TestCase):
             }),
         ]
 
-    def _do_test(self, flat, queries, groundtruth, expected_recall = 1.0):
+    def _do_test(self, flat, queries, groundtruth, distance, data = svs.read_vecs(test_data_vecs), expected_recall = 1.0, test_distance = True):
         """
         Perform a series of tests on a Flat index to test its conformance to expectations.
         Parameters:
@@ -67,6 +68,9 @@ class FlatTester(unittest.TestCase):
             - Results of `search` are within acceptable margins of the groundtruth.
             - The number of threads can be changed with an observable side-effect.
         """
+        # Test get distance
+        test_get_distance(flat, distance, data, test_distance)
+
         # Data interface
         self.assertEqual(flat.size, test_number_of_vectors)
         self.assertEqual(flat.dimensions, test_dimensions)
@@ -117,7 +121,7 @@ class FlatTester(unittest.TestCase):
             svs.VectorDataLoader(
                 test_data_svs, svs.DataType.float32, dims = test_data_dims
             )
-        );
+        )
         for loader, recall in loaders:
             index = svs.Flat(
                 loader,
@@ -126,7 +130,7 @@ class FlatTester(unittest.TestCase):
             )
 
             self.assertEqual(index.num_threads, num_threads)
-            self._do_test(index, queries, groundtruth, expected_recall = recall[distance])
+            self._do_test(index, queries, groundtruth, distance, expected_recall = recall[distance])
 
     def test_from_file(self):
         """
@@ -154,21 +158,22 @@ class FlatTester(unittest.TestCase):
         # Test `float32`
         print("Flat, From Array, Float32")
         flat = svs.Flat(data_f32, svs.DistanceType.L2)
-        self._do_test(flat, queries_f32, groundtruth)
+        self._do_test(flat, queries_f32, groundtruth, svs.DistanceType.L2, data_f32)
 
         # Test `float16`
         print("Flat, From Array, Float16")
         data_f16 = data_f32.astype('float16')
         queries_f16 = queries_f32.astype('float16')
         flat = svs.Flat(data_f16, svs.DistanceType.L2)
-        self._do_test(flat, queries_f16, groundtruth)
+        # Do not test get distance for fp16 data as py_contiguous_array_t does not support it
+        self._do_test(flat, queries_f16, groundtruth, svs.DistanceType.L2, data_f16, test_distance = False)
 
         # Test `int8`
         print("Flat, From Array, Int8")
         data_i8 = data_f32.astype('int8')
         queries_i8 = queries_f32.astype('int8')
         flat = svs.Flat(data_i8, svs.DistanceType.L2)
-        self._do_test(flat, queries_i8, groundtruth)
+        self._do_test(flat, queries_i8, groundtruth, svs.DistanceType.L2, data=data_i8)
 
         # Test 'uint8'
         # The dataset is stored as values that can be encoded as `int8`.
@@ -178,4 +183,4 @@ class FlatTester(unittest.TestCase):
         data_u8 = (data_f32 + 128).astype('uint8')
         queries_u8 = (queries_f32 + 128).astype('uint8')
         flat = svs.Flat(data_u8, svs.DistanceType.L2)
-        self._do_test(flat, queries_u8, groundtruth)
+        self._do_test(flat, queries_u8, groundtruth, svs.DistanceType.L2, data=data_u8)
