@@ -309,10 +309,10 @@ template <typename Index, typename QueryType> class BatchIterator {
     }
 
   private:
-    std::vector<Neighbor<external_id_type>> results_{}; // Filtered results from search.
     const Index* parent_;                               // The index being accessed.
     std::vector<QueryType> query_;                      // Local buffer for the query.
     scratchspace_type scratchspace_;                    // Scratch space for search.
+    std::vector<Neighbor<external_id_type>> results_{}; // Filtered results from search.
     std::unordered_set<internal_id_type> yielded_{};    // Set of yielded neighbors.
     size_t iteration_ = 0;                              // Current iteration number.
     bool restart_search_ = true; // Whether the next search should restart from scratch.

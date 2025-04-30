@@ -277,17 +277,16 @@ CATCH_TEST_CASE("LVQ/Leanvec Vamana Iterator", "[integration][vamana][iterator][
     auto dist = svs::distance::DistanceL2();
     auto original = test_dataset::data_f32();
     constexpr size_t E = 128;
+    using A = svs::lib::Allocator<std::int8_t>;
+    using blocked_type = svs::data::Blocked<A>;
 
     CATCH_SECTION("Static Index") {
         static_index_with_iterator(
-            dist, scalar::SQDataset<std::int8_t, E>::compress(original)
+            dist, scalar::SQDataset<std::int8_t, E, blocked_type>::compress(original)
         );
     }
 
     CATCH_SECTION("Dynamic Index") {
-        using A = svs::lib::Allocator<std::int8_t>;
-        using blocked_type = svs::data::Blocked<A>;
-
         dynamic_index_with_iterator(
             dist, scalar::SQDataset<std::int8_t, E, blocked_type>::compress(original)
         );
