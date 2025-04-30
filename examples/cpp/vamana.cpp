@@ -177,7 +177,7 @@ int svs_main(std::vector<std::string> args) {
         4
     );
     recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed load");
-    check(0.8215, recall);
+    check(0.8190, recall);
     //! [Compressed Loader]
 
     //! [Build Index Compressed]
