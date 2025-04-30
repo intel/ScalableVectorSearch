@@ -67,7 +67,7 @@ target_compile_options(
 
 include("cmake/options.cmake")
 
-include("cmake/cpuarch.cmake")
+include("cmake/microarch.cmake")
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")

@@ -95,11 +95,11 @@ list(POP_FRONT OPTIMIZATION_FLAGS BASE_OPT_FLAGS)
 string(REPLACE "," ";" BASE_OPT_FLAGS ${BASE_OPT_FLAGS})
 message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 
-target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS} -DSVS_CPUARCH_SUPPORT_${BASE_MICROARCH})
+target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS} -DSVS_MICROARCH_SUPPORT_${BASE_MICROARCH})
 
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
     # Tell the microarch dispatcher to include this microarch branch
-    target_compile_options(svs_microarch_options_base INTERFACE -DSVS_CPUARCH_SUPPORT_${MICROARCH})
+    target_compile_options(svs_microarch_options_base INTERFACE -DSVS_MICROARCH_SUPPORT_${MICROARCH})
 
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
     message("Opt.flags[${MICROARCH}]: ${OPT_FLAGS}")

@@ -69,13 +69,13 @@ void test_types(T lo, T hi, size_t num_tests) {
 
         // Statically Sized Computation
         CATCH_REQUIRE(
-            (svs::distance::L2<svs::arch::CPUArch::baseline>::compute<N>(
+            (svs::distance::L2<svs::arch::MicroArch::baseline>::compute<N>(
                  a.data(), b.data()
              ) == expected)
         );
         // Dynamically Sized Computation
         CATCH_REQUIRE(
-            (svs::distance::L2<svs::arch::CPUArch::baseline>::compute(
+            (svs::distance::L2<svs::arch::MicroArch::baseline>::compute(
                  a.data(), b.data(), N
              ) == expected)
         );
