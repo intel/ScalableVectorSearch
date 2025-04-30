@@ -308,17 +308,14 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         );
     }
 
-    ///// Iterator
-    template <typename QueryType, size_t N, svs::index::vamana::IteratorSchedule Schedule>
+    /// @copydoc svs::Vamana::batch_iterator
+    template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
         std::span<const QueryType, N> query,
-        Schedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const {
         return impl_->batch_iterator(
-            svs::AnonymousArray<1>(query.data(), query.size()),
-            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule)),
-            cancel
+            svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
         );
     }
 

@@ -1,4 +1,4 @@
-# Copyright 2023 Intel Corporation
+# Copyright 2025 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Linux Build and Test
+name: MacOS Build and Test
 
 on:
   push:
@@ -31,58 +31,55 @@ concurrency:
 jobs:
   build:
     name: ${{ matrix.cxx }}, ${{ matrix.build_type }}
-    runs-on: ubuntu-22.04
+    runs-on: macos-latest
     strategy:
       matrix:
         build_type: [RelWithDebugInfo]
-        cxx: [g++-11, g++-12, clang++-15]
+        cxx: [clang++-15]
         include:
-          - cxx: g++-11
-            cc: gcc-11
-          - cxx: g++-12
-            cc: gcc-12
           - cxx: clang++-15
-            cc: clang-15
+            package: llvm@15
+            cc_name: clang
+            cxx_name: clang++
+            needs_prefix: true
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install MKL
-      timeout-minutes: 5
+
+    - name: Install Compiler
       run: |
-       .github/scripts/setup_apt_repo_linux.sh
-       sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
-       # Setup environment variables for building against MKL.
-       # Persist the environment variables for use across multiple subsequent actions.
-       source /opt/intel/oneapi/setvars.sh
-       printenv >> $GITHUB_ENV
+        echo "Installing ${{ matrix.package }}..."
+        brew install ${{ matrix.package }}
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
       env:
-        CXX: ${{ matrix.cxx }}
-        CC: ${{ matrix.cc }}
         TEMP_WORKSPACE: ${{ runner.temp }}
       run: |
+        if [[ "${{ matrix.needs_prefix }}" == "true" ]]; then
+          # For non-default packages like llvm@15, get the install prefix
+          COMPILER_PREFIX=$(brew --prefix ${{ matrix.package }})
+          export CC="${COMPILER_PREFIX}/bin/${{ matrix.cc_name }}"
+          export CXX="${COMPILER_PREFIX}/bin/${{ matrix.cxx_name }}"
+        else
+          # For versioned GCC installs, the name is usually directly available
+          export CC="${{ matrix.cc_name }}"
+          export CXX="${{ matrix.cxx_name }}"
+        fi
+
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=YES \
-              -DSVS_NO_AVX512=NO
+              -DSVS_EXPERIMENTAL_LEANVEC=YES
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
-      run: make -j$(nproc)
+      run: make -j$(sysctl -n hw.ncpu)
 
     - name: Run tests
       env:
           CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
-
-    - name: Run Cpp Examples
-      env:
-          CTEST_OUTPUT_ON_FAILURE: 1
-      working-directory: ${{ runner.temp }}/build/examples/cpp
-      run: ctest -C RelWithDebugInfo

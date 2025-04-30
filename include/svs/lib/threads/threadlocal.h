@@ -82,7 +82,8 @@ template <typename T, size_t Alignment = CACHE_LINE_BYTES> struct AlignedAllocat
     }
 
     void deallocate(value_type* ptr, size_t count) noexcept {
-        ::operator delete(ptr, count, std::align_val_t{alignment});
+        size_t bytes = alignment * lib::div_round_up(sizeof(T) * count, alignment);
+        ::operator delete(static_cast<void*>(ptr), bytes, std::align_val_t{alignment});
     }
 };
 

@@ -61,7 +61,9 @@ template <typename T> struct Allocator {
     }
 
     constexpr void deallocate(value_type* ptr, size_t count) noexcept {
-        ::operator delete(ptr, count);
+        ::operator delete(
+            static_cast<void*>(ptr), sizeof(T) * count, std::align_val_t(alignof(T))
+        );
     }
 
     // Intercept zero-argument construction to do default initialization.

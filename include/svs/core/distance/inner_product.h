@@ -29,7 +29,6 @@
 #include <iostream>
 #include <memory>
 #include <type_traits>
-#include <x86intrin.h>
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
