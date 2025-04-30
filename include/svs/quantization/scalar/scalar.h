@@ -200,7 +200,7 @@ struct MinMaxAccumulator {
     }
 };
 
-// operator to find global min and max in dataset
+// Operator to find global min and max in dataset
 struct MinMax {
     template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
     MinMaxAccumulator operator()(const Dataset& data, Pool& threadpool) {
@@ -209,7 +209,7 @@ struct MinMax {
         // Thread-local accumulators
         std::vector<MinMaxAccumulator> tls(threadpool.size());
 
-        // Compute mean and squared sum
+        // Compute min and max values in dataset
         threads::parallel_for(
             threadpool,
             threads::DynamicPartition(data.size(), batch_size),
@@ -238,7 +238,7 @@ struct MinMax {
     }
 };
 
-// operator to compress a dataset using a threadpool
+// Operator to compress a dataset using a threadpool
 template <typename Element, typename Data> struct Compressor {
     using element_type = Element;
     using data_type = Data;
@@ -259,7 +259,7 @@ template <typename Element, typename Data> struct Compressor {
 
         threads::parallel_for(
             threadpool,
-            threads::DynamicPartition(data.size(), batch_size),
+            threads::StaticPartition{queries.size()},
             [&](const auto& indices, uint64_t /*tid*/) {
                 threads::UnitRange range{indices};
                 // Allocate a buffer of given dimensionality, will be re-used for each datum

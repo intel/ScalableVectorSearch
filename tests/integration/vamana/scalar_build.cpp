@@ -75,7 +75,7 @@ template <typename T, typename Distance> void test_build(const Distance& distanc
     CATCH_REQUIRE(svs_test::prepare_temp_directory());
     size_t num_threads = 2;
 
-    // use uncompressed reference results which should be identical
+    // Use uncompressed reference results which should be identical
     auto expected_result = test_dataset::vamana::expected_build_results(
         svs::distance_type_v<Distance>, svsbenchmark::Uncompressed(svs::DataType::float32)
     );
