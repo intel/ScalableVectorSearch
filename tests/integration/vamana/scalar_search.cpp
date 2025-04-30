@@ -136,10 +136,8 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
         auto compressed = scalar::SQDataset<std::int8_t, E>::compress(data);
 
         // Sequential tests
-        // clang-format off
         test_search(compressed, svs::distance::DistanceL2(), queries);
         test_search(compressed, svs::distance::DistanceIP(), queries);
         test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries);
-        // clang-format on
     });
 }
