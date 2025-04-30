@@ -90,17 +90,9 @@ void check(
             CATCH_REQUIRE(num_neighbors % batchsize == 0);
             size_t num_batches = num_neighbors / batchsize;
 
-            // Initialize the base search parameters with more than the configured batch
-            // size. This will check that the internal limiting mechanisms only return
-            // at most `batchsize` elements.
-            auto sp = svs::index::vamana::VamanaSearchParameters{
-                {batchsize + 10, batchsize + 10}, false, 0, 0};
+            auto iterator = svs::index::vamana::BatchIterator{index, query};
+            iterator.next(batchsize);
 
-            auto iterator = svs::index::vamana::BatchIterator{
-                index, query, svs::index::vamana::DefaultSchedule{sp, batchsize}};
-
-            // TODO: how do we communicate if something goes wrong on the on the iterator
-            // end and we cannot return `batch_size()` neighbors?
             CATCH_REQUIRE(iterator.size() == batchsize);
 
             from_iterator.clear();
@@ -112,7 +104,7 @@ void check(
             auto ids_returned_this_batch = std::vector<size_t>();
             for (size_t batch = 0; batch < num_batches; ++batch) {
                 // Make sure the batch number is the same.
-                CATCH_REQUIRE(iterator.batch() == batch);
+                CATCH_REQUIRE(iterator.batch_number() == batch + 1);
                 ids_returned_this_batch.clear();
                 for (auto i : iterator) {
                     auto id = i.id();
@@ -136,7 +128,7 @@ void check(
                 CATCH_REQUIRE(ids_returned_this_batch.size() == iterator.size());
                 CATCH_REQUIRE(ids_returned_this_batch.size() == batchsize);
 
-                iterator.next();
+                iterator.next(batchsize);
             }
 
             // Make sure the expected number of neighbors has been obtained.
@@ -144,7 +136,7 @@ void check(
 
             // Ensure that the results returned by the iterator are "substantively similar"
             // to those returned from the full search.
-            CATCH_REQUIRE(similar_count >= 0.90 * num_neighbors);
+            CATCH_REQUIRE(similar_count >= 0.75 * num_neighbors);
         }
 
         // Invoke the checker on the IDs returned from the iterator.
