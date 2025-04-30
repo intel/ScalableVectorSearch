@@ -26,6 +26,10 @@
 #include <cpuid.h>
 #endif
 
+#if defined(__aarch64__) && defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
+
 namespace svs::arch {
 
 #if defined(__x86_64__)
@@ -198,35 +202,52 @@ inline const std::unordered_map<ISAExt, CPUIDFlag> ISAExtInfo = {
 
 #elif defined(__aarch64__)
 
+#if defined(__APPLE__)
+
 enum class ISAExt {
-    // SVE family
+    M1,
+    M2,
+};
+
+struct BrandInfo {
+    const char* name;
+
+    bool get_value() const {
+        char buffer[256];
+        size_t size = sizeof(buffer);
+
+        if (sysctlbyname("machdep.cpu.brand_string", &buffer, &size, nullptr, 0) == 0) {
+            std::string brand(buffer);
+            return brand.find(name) != std::string::npos;
+        }
+
+        return false;
+    }
+};
+
+inline const std::unordered_map<ISAExt, BrandInfo> ISAExtInfo = {
+    {ISAExt::M1, {"M1"}},
+    {ISAExt::M2, {"M2"}},
+};
+
+#else
+
+enum class ISAExt {
     SVE,
     SVE2,
-
-    DOTPROD, // ARMv8.4-A
-    RNG,     // ARMv8.5-A
-    BF16,    // ARMv8.6-A
 };
 
 // Define register ID values for ARM features detection
 #define ID_AA64PFR0_EL1 0
-#define ID_AA64ISAR0_EL1 1
-#define ID_AA64ISAR1_EL1 2
-#define ID_AA64ZFR0_EL1 3
+#define ID_AA64ZFR0_EL1 1
 
 // Helper template to read system registers with mrs instruction
 template <unsigned int ID> inline uint64_t read_system_reg() {
     uint64_t val;
     if constexpr (ID == ID_AA64PFR0_EL1) {
         asm("mrs %0, id_aa64pfr0_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64ISAR0_EL1) {
-        asm("mrs %0, id_aa64isar0_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64ISAR1_EL1) {
-        asm("mrs %0, id_aa64isar1_el1" : "=r"(val));
-#if !(defined(__APPLE__))
     } else if constexpr (ID == ID_AA64ZFR0_EL1) {
         asm("mrs %0, id_aa64zfr0_el1" : "=r"(val));
-#endif
     } else {
         val = 0;
     }
@@ -253,19 +274,11 @@ struct MSRFlag {
                 case ID_AA64PFR0_EL1:
                     reg_val = read_system_reg<ID_AA64PFR0_EL1>();
                     break;
-                case ID_AA64ISAR0_EL1:
-                    reg_val = read_system_reg<ID_AA64ISAR0_EL1>();
-                    break;
-                case ID_AA64ISAR1_EL1:
-                    reg_val = read_system_reg<ID_AA64ISAR1_EL1>();
-                    break;
-#if !(defined(__APPLE__))
                 case ID_AA64ZFR0_EL1:
                     if (extract_bits(read_system_reg<ID_AA64PFR0_EL1>(), 32, 4) != 0) {
                         reg_val = read_system_reg<ID_AA64ZFR0_EL1>();
                     }
                     break;
-#endif
                 default:
                     return false;
             }
@@ -280,14 +293,10 @@ struct MSRFlag {
 
 inline const std::unordered_map<ISAExt, MSRFlag> ISAExtInfo = {
     {ISAExt::SVE, {ID_AA64PFR0_EL1, 32, 4, 1, "sve"}},
-#if !(defined(__APPLE__))
     {ISAExt::SVE2, {ID_AA64ZFR0_EL1, 0, 4, 1, "sve2"}},
-#endif
-    {ISAExt::DOTPROD, {ID_AA64ISAR0_EL1, 24, 4, 1, "dotprod"}},
-    {ISAExt::RNG, {ID_AA64ISAR0_EL1, 60, 4, 1, "rng"}},
-    {ISAExt::BF16, {ID_AA64ISAR1_EL1, 44, 4, 1, "bf16"}},
 };
 
+#endif
 #endif
 
 inline bool check_extension(ISAExt ext) { return ISAExtInfo.at(ext).get_value(); }
