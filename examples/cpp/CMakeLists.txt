@@ -64,7 +64,7 @@ add_test(
 # The custom thread pool executable.
 add_executable(custom_thread_pool custom_thread_pool.cpp)
 target_include_directories(custom_thread_pool PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_native_options)
+target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_microarch_options_base)
 add_test(
     NAME test_custom_thread_pool
     COMMAND
