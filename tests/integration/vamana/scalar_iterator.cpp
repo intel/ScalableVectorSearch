@@ -32,12 +32,10 @@
 
 namespace scalar = svs::quantization::scalar;
 
-namespace {
-
 const size_t QUERIES_TO_CHECK = 10;
 
 // Common test routines for the static and dynamic indexes.
-template <typename Index, typename IDChecker = svs::lib::Returns<svs::lib::Const<true>>>
+template <typename Index, typename IDChecker>
 void check(
     Index& index,
     svs::data::ConstSimpleDataView<float> queries,
@@ -91,7 +89,8 @@ void check(
             size_t num_batches = num_neighbors / batchsize;
 
             auto iterator = svs::index::vamana::BatchIterator{index, query};
-            iterator.next(batchsize);
+            auto cancel = svs::lib::Returns<svs::lib::Const<false>>();
+            iterator.next(batchsize, cancel);
 
             CATCH_REQUIRE(iterator.size() == batchsize);
 
@@ -128,7 +127,8 @@ void check(
                 CATCH_REQUIRE(ids_returned_this_batch.size() == iterator.size());
                 CATCH_REQUIRE(ids_returned_this_batch.size() == batchsize);
 
-                iterator.next(batchsize);
+                cancel = svs::lib::Returns<svs::lib::Const<false>>();
+                iterator.next(batchsize, cancel);
             }
 
             // Make sure the expected number of neighbors has been obtained.
@@ -188,8 +188,6 @@ struct DynamicChecker {
     const std::unordered_set<size_t>& valid_ids_;
     std::unordered_set<size_t> seen_;
 };
-
-} // namespace
 
 template <typename Distance, typename Data>
 void static_index_with_iterator(const Distance& distance, Data data) {
