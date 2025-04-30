@@ -194,10 +194,6 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         test_sq_top<std::int8_t, 128>();
         test_sq_top<std::int16_t, 128>();
     }
-
-    CATCH_SECTION("SQDataset compact and resize") {
-        // TODO
-    }
 }
 
 CATCH_TEST_CASE(
