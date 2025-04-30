@@ -119,18 +119,9 @@ void check(
             CATCH_REQUIRE(num_neighbors % batchsize == 0);
             size_t num_batches = num_neighbors / batchsize;
 
-            // Initialize the base search parameters with more than the configured batch
-            // size. This will check that the internal limiting mechanisms only return
-            // at most `batchsize` elements.
-            auto sp = svs::index::vamana::VamanaSearchParameters{
-                {batchsize + 10, batchsize + 10}, false, 0, 0};
-
-            auto iterator = svs::index::vamana::BatchIterator{
-                index, query, svs::index::vamana::DefaultSchedule{sp, batchsize}};
-
-            // TODO: how do we communicate if something goes wrong on the on the iterator
-            // end and we cannot return `batch_size()` neighbors?
-            CATCH_REQUIRE(iterator.size() == batchsize);
+            auto iterator = svs::index::vamana::BatchIterator{index, query};
+            CATCH_REQUIRE(iterator.size() == 0);
+            iterator.next(batchsize);
 
             from_iterator.clear();
             size_t similar_count = 0;
@@ -141,7 +132,7 @@ void check(
             auto ids_returned_this_batch = std::vector<size_t>();
             for (size_t batch = 0; batch < num_batches; ++batch) {
                 // Make sure the batch number is the same.
-                CATCH_REQUIRE(iterator.batch() == batch);
+                CATCH_REQUIRE(iterator.batch_number() == batch + 1);
                 ids_returned_this_batch.clear();
                 for (auto i : iterator) {
                     auto id = i.id();
@@ -173,9 +164,9 @@ void check(
                 // search without incident.
                 if (batch % throw_exception_every == 0) {
                     EXCEPTION_COUNTDOWN = 50;
-                    CATCH_REQUIRE_THROWS_AS(iterator.next(), svs::ANNException);
+                    CATCH_REQUIRE_THROWS_AS(iterator.next(batchsize), svs::ANNException);
                     // The batch reported by the iterator must be unchanged.
-                    CATCH_REQUIRE(iterator.batch() == batch);
+                    CATCH_REQUIRE(iterator.batch_number() == batch + 1);
                     // The contents of the iterator should be unchanged.
                     CATCH_REQUIRE(iterator.size() == ids_returned_this_batch.size());
                     CATCH_REQUIRE(std::equal(
@@ -188,7 +179,7 @@ void check(
                     ));
                 }
 
-                iterator.next();
+                iterator.next(batchsize);
             }
 
             // Make sure the expected number of neighbors has been obtained.

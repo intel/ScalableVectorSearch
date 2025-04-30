@@ -41,6 +41,9 @@ namespace svs {
 class FlatInterface {
   public:
     using search_parameters_type = svs::index::flat::FlatParameters;
+
+    // Non-templated virtual method for distance calculation
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = FlatInterface>
@@ -62,6 +65,18 @@ class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
     template <typename... Args>
     explicit FlatImpl(Args&&... args)
         : base_type{std::forward<Args>(args)...} {}
+
+    ///// Distance
+    double get_distance(size_t id, const AnonymousArray<1>& query) const override {
+        return svs::lib::match(
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T>) {
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                return impl().get_distance(id, query_span);
+            }
+        );
+    }
 };
 
 // Forward Declarations
@@ -123,6 +138,17 @@ class Flat : public manager::IndexManager<FlatInterface> {
                 threads::as_threadpool(std::move(threadpool_proto))
             );
         }
+    }
+
+    ///// Distance
+    /// @brief Get the distance between a vector in the index and a query vector
+    /// @tparam Query The query vector type
+    /// @param id The ID of the vector in the index
+    /// @param query The query vector
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Create AnonymousArray from the query
+        AnonymousArray<1> query_array{query.data(), query.size()};
+        return impl_->get_distance(id, query_array);
     }
 };
 

@@ -79,8 +79,7 @@ class VamanaInterface {
     ///// Iterator
     virtual VamanaIterator batch_iterator(
         svs::AnonymousArray<1> query,
-        svs::index::vamana::AbstractIteratorSchedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const = 0;
 
     ///// Calibrations
@@ -96,6 +95,9 @@ class VamanaInterface {
         const index::vamana::CalibrationParameters& calibration_parameters
     ) = 0;
     virtual void reset_performance_parameters() = 0;
+
+    // Non-templated virtual method for distance calculation
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -179,8 +181,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     ///// Iterator
     VamanaIterator batch_iterator(
         svs::AnonymousArray<1> query,
-        svs::index::vamana::AbstractIteratorSchedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const override {
         // Match the query type.
         return svs::lib::match(
@@ -190,8 +191,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
                 return VamanaIterator{
                     impl(),
                     std::span<const T>(svs::get<T>(query), query.size(0)),
-                    std::move(schedule),
-                    cancel};
+                    extra_search_buffer_capacity};
             }
         );
     }
@@ -244,6 +244,18 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     }
 
     void reset_performance_parameters() override { impl().reset_performance_parameters(); }
+
+    ///// Distance
+    double get_distance(size_t id, const AnonymousArray<1>& query) const override {
+        return svs::lib::match(
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T>) {
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                return impl().get_distance(id, query_span);
+            }
+        );
+    }
 };
 
 ///// Forward declarations
@@ -493,24 +505,26 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         }
     }
 
-    ///// Iterator
-
-    /// @brief Return a new batch iterator for the query using the provided schedule.
     ///
-    /// The parameter `QueryType` must be an element of  ``svs::Vamana::query_types()``.
-    /// ``cancel`` is an optional argument to determine if the search should be cancelled.
+    /// @brief Return a new iterator (an instance of `svs::VamanaIterator`) for the query.
+    ///
+    /// @tparam QueryType The element type of the query that will be given to the iterator.
+    /// @tparam N The dimension of the query.
+    ///
+    /// @param query The query to use for the iterator.
+    /// @param extra_search_buffer_capacity An optional extra search buffer capacity to
+    ///     allow the iterator to search beyond the current batch (when not provided,
+    ///     ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is used).
     ///
     /// The returned iterator will maintain an internal copy of the query.
-    template <typename QueryType, size_t N, svs::index::vamana::IteratorSchedule Schedule>
+    ///
+    template <typename QueryType, size_t N>
     svs::VamanaIterator batch_iterator(
         std::span<const QueryType, N> query,
-        Schedule schedule,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     ) const {
         return impl_->batch_iterator(
-            svs::AnonymousArray<1>(query.data(), query.size()),
-            svs::index::vamana::AbstractIteratorSchedule(std::move(schedule)),
-            cancel
+            svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
         );
     }
 
@@ -553,6 +567,17 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
             target_recall,
             calibration_parameters
         );
+    }
+
+    ///// Distance
+    /// @brief Get the distance between a vector in the index and a query vector
+    /// @tparam Query The query vector type
+    /// @param id The ID of the vector in the index
+    /// @param query The query vector
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Create AnonymousArray from the query
+        AnonymousArray<1> query_array{query.data(), query.size()};
+        return impl_->get_distance(id, query_array);
     }
 };
 

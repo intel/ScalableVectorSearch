@@ -51,32 +51,44 @@ svs::Vamana make_example_index() {
     );
 }
 
-void test_default_schedule() {
+void test_iterator() {
     auto index = make_example_index();
 
-    // Base search parameters for the iterator schedule.
-    auto base_parameters = svs::index::vamana::VamanaSearchParameters{}.buffer_config({4});
-
-    // The default schedule take base parameters and a batch size.
-    // On each iteration,
-    auto schedule = svs::index::vamana::DefaultSchedule{base_parameters, 3};
+    // Set batch size to 3.
+    size_t batchsize = 3;
 
     // Create a batch iterator over the index for the query.
-    // After the constructor returns, the contents of the first batch will be available.
     auto itr = [&]() {
         // Construct a query a query in a scoped block to demonstrate that the iterator
         // maintains an internal copy.
         auto query = std::vector<float>{3.25, 3.25, 3.25, 3.25};
-        return index.batch_iterator(svs::lib::as_const_span(query), schedule);
+        return index.batch_iterator(svs::lib::as_const_span(query));
     }();
+
+    // Ensure the iterator is initialized correctly. No search happens at this point.
+    CATCH_REQUIRE(itr.size() == 0);
+    CATCH_REQUIRE(itr.batch_number() == 0);
+    auto buffer_config = itr.parameters_for_current_iteration().buffer_config_;
+    CATCH_REQUIRE(buffer_config.get_search_window_size() == 0);
+    CATCH_REQUIRE(
+        buffer_config.get_total_capacity() == svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT
+    );
+
+    itr.next(batchsize);
 
     // The iterator was configured to yield three neighbors on each invocation.
     // This information is available through the `size()` method.
     CATCH_REQUIRE(itr.size() == 3);
     // There are more neighbors to return.
     CATCH_REQUIRE(!itr.done());
-    // The current batch of neighbors is for batch 0.
-    CATCH_REQUIRE(itr.batch() == 0);
+    // The current batch of neighbors is for batch 1.
+    CATCH_REQUIRE(itr.batch_number() == 1);
+    buffer_config = itr.parameters_for_current_iteration().buffer_config_;
+    CATCH_REQUIRE(buffer_config.get_search_window_size() == 3);
+    CATCH_REQUIRE(
+        buffer_config.get_total_capacity() ==
+        svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT + 3
+    );
 
     // Obtain a view of the current list candidates.
     std::span<const svs::Neighbor<size_t>> results = itr.results();
@@ -87,47 +99,46 @@ void test_default_schedule() {
     CATCH_REQUIRE(results[1].id() == 4);
     CATCH_REQUIRE(results[2].id() == 2);
 
-    // Once we've finished with the current batch of neighbors, we can step the iterator
-    // to the next batch.
-    //
-    // Using the `DefaultSchedule`, we will retrieve at most 3 new candidates.
-    itr.next();
-    CATCH_REQUIRE(itr.size() == 3);
+    // This will yield the next batch of neighbors (only 2 in this case).
+    itr.next(batchsize - 1);
+    CATCH_REQUIRE(itr.size() == batchsize - 1);
     CATCH_REQUIRE(!itr.done());
-    CATCH_REQUIRE(itr.batch() == 1);
+    CATCH_REQUIRE(itr.batch_number() == 2);
 
     results = itr.results();
     CATCH_REQUIRE(results[0].id() == 5);
     CATCH_REQUIRE(results[1].id() == 1);
-    CATCH_REQUIRE(results[2].id() == 6);
 
-    // So far, the iterator has yielded 6 of the 7 vectors in the dataset.
-    // This call to `next()` should only yield a single neighbor - the last on in the index.
-    itr.next();
-    CATCH_REQUIRE(itr.size() == 1);
+    // So far, the iterator has yielded 5 of the 7 vectors in the dataset.
+    // This call to `next()` should only yield two neighbors.
+    itr.next(batchsize);
+    CATCH_REQUIRE(itr.size() == 2);
     CATCH_REQUIRE(itr.done());
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 3);
     results = itr.results();
-    CATCH_REQUIRE(results[0].id() == 0);
+    CATCH_REQUIRE(results[0].id() == 6);
+    CATCH_REQUIRE(results[1].id() == 0);
 
     // Calling `next()` again should yield no more candidates.
-    itr.next();
+    itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 3);
     CATCH_REQUIRE(itr.done());
 
-    itr.next();
+    itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 2);
+    CATCH_REQUIRE(itr.batch_number() == 3);
     CATCH_REQUIRE(itr.done());
 
-    // Update with a new schedule.
+    // Update with a new query and increase the batch size.
     {
         auto newquery = std::vector<float>{2.25, 2.25, 2.25, 2.25};
-        auto schedule = svs::index::vamana::DefaultSchedule{base_parameters, 4};
-        itr.update(svs::lib::as_const_span(newquery), schedule);
+        itr.update(svs::lib::as_const_span(newquery));
     }
-    CATCH_REQUIRE(itr.batch() == 0);
+    batchsize = 4;
+    itr.next(batchsize);
+
+    CATCH_REQUIRE(itr.batch_number() == 1);
     CATCH_REQUIRE(itr.size() == 4);
     CATCH_REQUIRE(!itr.done());
     results = itr.results();
@@ -136,8 +147,8 @@ void test_default_schedule() {
     CATCH_REQUIRE(results[2].id() == 1);
     CATCH_REQUIRE(results[3].id() == 4);
 
-    itr.next();
-    CATCH_REQUIRE(itr.batch() == 1);
+    itr.next(batchsize);
+    CATCH_REQUIRE(itr.batch_number() == 2);
     CATCH_REQUIRE(itr.size() == 3);
     CATCH_REQUIRE(itr.done());
 
@@ -146,18 +157,49 @@ void test_default_schedule() {
     CATCH_REQUIRE(results[1].id() == 5);
     CATCH_REQUIRE(results[2].id() == 6);
 
-    itr.next();
+    itr.next(batchsize);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 1);
+    CATCH_REQUIRE(itr.batch_number() == 2);
     CATCH_REQUIRE(itr.done());
 
-    itr.next();
+    itr.next(batchsize + 1);
     CATCH_REQUIRE(itr.size() == 0);
-    CATCH_REQUIRE(itr.batch() == 1);
+    CATCH_REQUIRE(itr.batch_number() == 2);
     CATCH_REQUIRE(itr.done());
+
+    // Create another instance of batch iterator to test the setting of extra search buffer
+    // size than the default value
+    size_t extra_buffer_size = 25;
+    itr = [&]() {
+        auto query = std::vector<float>{3.25, 3.25, 3.25, 3.25};
+        return index.batch_iterator(svs::lib::as_const_span(query), extra_buffer_size);
+    }();
+
+    // Ensure the iterator is initialized correctly. No search happens at this point.
+    CATCH_REQUIRE(itr.size() == 0);
+    CATCH_REQUIRE(itr.batch_number() == 0);
+    buffer_config = itr.parameters_for_current_iteration().buffer_config_;
+    CATCH_REQUIRE(buffer_config.get_search_window_size() == 0);
+    CATCH_REQUIRE(buffer_config.get_total_capacity() == extra_buffer_size);
+
+    itr.next(4);
+    CATCH_REQUIRE(itr.size() == 4);
+    CATCH_REQUIRE(!itr.done());
+    CATCH_REQUIRE(itr.batch_number() == 1);
+    buffer_config = itr.parameters_for_current_iteration().buffer_config_;
+    CATCH_REQUIRE(buffer_config.get_search_window_size() == 4);
+    CATCH_REQUIRE(buffer_config.get_total_capacity() == extra_buffer_size + 4);
+
+    // Obtain a view of the current list candidates.
+    results = itr.results();
+    CATCH_REQUIRE(results.size() == 4);
+
+    // We constructed the dataset in such a way that we know what the results should be.
+    CATCH_REQUIRE(results[0].id() == 3);
+    CATCH_REQUIRE(results[1].id() == 4);
+    CATCH_REQUIRE(results[2].id() == 2);
+    CATCH_REQUIRE(results[3].id() == 5);
 }
 } // namespace
 
-CATCH_TEST_CASE("Vamana Iterator Example", "[index][vamana][iterator]") {
-    test_default_schedule();
-}
+CATCH_TEST_CASE("Vamana Iterator Example", "[index][vamana][iterator]") { test_iterator(); }

@@ -35,10 +35,14 @@
 #include "svs/third-party/toml.h"
 
 #include "svs/concepts/distance.h"
+#include "svs/core/distance.h"
 #include "svs/core/distance/euclidean.h"
+#include "svs/index/vamana/extensions.h"
 
 #include "catch2/catch_approx.hpp"
 #include "catch2/matchers/catch_matchers_templated.hpp"
+
+#include "catch2/catch_test_macros.hpp"
 
 namespace svs_test {
 
@@ -251,4 +255,66 @@ void mutate_table(
     std::initializer_list<Lens> lenses
 );
 
+/////
+///// Distance
+/////
+
+// Test get_distance for a given index, data type, and distance method
+struct GetDistanceTester {
+    template <
+        typename IndexType,
+        typename Distance,
+        typename DataType,
+        typename IdType = size_t>
+    static void test(
+        IndexType& index,
+        const Distance& distance_type,
+        const DataType& data,
+        const std::vector<IdType>& external_ids = {},
+        bool test_distance = true
+    ) {
+        if (!test_distance) {
+            std::cout << "Skipping get_distance test due to test flag\n";
+            return;
+        }
+
+        // Skip test if there aren't enough data points
+        if (index.size() == 0 || data.size() == 0) {
+            std::cout << "Skipping get_distance test due to insufficient data\n";
+            return;
+        }
+
+        constexpr double TOLERANCE = 1e-2;
+        const size_t query_id = 10;
+        size_t index_id = std::min<size_t>(100, index.size() - 1);
+
+        // Use external ID if provided
+        if (!external_ids.empty()) {
+            index_id = external_ids[0];
+        }
+
+        auto query = data.get_datum(query_id);
+        auto datum = data.get_datum(index_id);
+
+        // Get distance from index
+        double index_distance = index.get_distance(index_id, query);
+
+        // Get expected distance
+        Distance dist_copy = distance_type;
+        svs::distance::maybe_fix_argument(dist_copy, query);
+        double expected_distance = svs::distance::compute(dist_copy, query, datum);
+
+        // Test the distance calculation
+        double relative_diff =
+            std::abs((index_distance - expected_distance) / expected_distance);
+        CATCH_REQUIRE(relative_diff < TOLERANCE);
+
+        // Test out of bounds ID
+        if (index.size() > 0) {
+            CATCH_REQUIRE_THROWS_AS(
+                index.get_distance(index_id + 99999, query), svs::ANNException
+            );
+        }
+    }
+};
 } // namespace svs_test
