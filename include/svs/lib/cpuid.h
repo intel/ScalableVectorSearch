@@ -210,37 +210,19 @@ enum class ISAExt {
 
 // Define register ID values for ARM features detection
 #define ID_AA64PFR0_EL1 0
-#define ID_AA64PFR1_EL1 1
-#define ID_AA64ISAR0_EL1 2
-#define ID_AA64ISAR1_EL1 3
-#define ID_AA64MMFR0_EL1 4
-#define ID_AA64MMFR1_EL1 5
-#define ID_AA64MMFR2_EL1 6
-#define ID_AA64DFR0_EL1 7
-#define ID_AA64DFR1_EL1 8
-#define ID_AA64ZFR0_EL1 9
+#define ID_AA64ISAR0_EL1 1
+#define ID_AA64ISAR1_EL1 2
+#define ID_AA64ZFR0_EL1 3
 
 // Helper template to read system registers with mrs instruction
 template <unsigned int ID> inline uint64_t read_system_reg() {
     uint64_t val;
     if constexpr (ID == ID_AA64PFR0_EL1) {
         asm("mrs %0, id_aa64pfr0_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64PFR1_EL1) {
-        asm("mrs %0, id_aa64pfr1_el1" : "=r"(val));
     } else if constexpr (ID == ID_AA64ISAR0_EL1) {
         asm("mrs %0, id_aa64isar0_el1" : "=r"(val));
     } else if constexpr (ID == ID_AA64ISAR1_EL1) {
         asm("mrs %0, id_aa64isar1_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64MMFR0_EL1) {
-        asm("mrs %0, id_aa64mmfr0_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64MMFR1_EL1) {
-        asm("mrs %0, id_aa64mmfr1_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64MMFR2_EL1) {
-        asm("mrs %0, id_aa64mmfr2_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64DFR0_EL1) {
-        asm("mrs %0, id_aa64dfr0_el1" : "=r"(val));
-    } else if constexpr (ID == ID_AA64DFR1_EL1) {
-        asm("mrs %0, id_aa64dfr1_el1" : "=r"(val));
 #if !(defined(__APPLE__))
     } else if constexpr (ID == ID_AA64ZFR0_EL1) {
         asm("mrs %0, id_aa64zfr0_el1" : "=r"(val));
@@ -270,9 +252,6 @@ struct MSRFlag {
             switch (reg_id) {
                 case ID_AA64PFR0_EL1:
                     reg_val = read_system_reg<ID_AA64PFR0_EL1>();
-                    break;
-                case ID_AA64PFR1_EL1:
-                    reg_val = read_system_reg<ID_AA64PFR1_EL1>();
                     break;
                 case ID_AA64ISAR0_EL1:
                     reg_val = read_system_reg<ID_AA64ISAR0_EL1>();
