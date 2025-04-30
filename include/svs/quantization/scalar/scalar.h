@@ -253,13 +253,11 @@ template <typename Element, typename Data> struct Compressor {
         typename Alloc>
     data_type
     operator()(const Dataset& data, Pool& threadpool, const Alloc& allocator) const {
-        static constexpr size_t batch_size = 512;
-
         data_type compressed{data.size(), data.dimensions(), allocator};
 
         threads::parallel_for(
             threadpool,
-            threads::StaticPartition{queries.size()},
+            threads::StaticPartition{data.size()},
             [&](const auto& indices, uint64_t /*tid*/) {
                 threads::UnitRange range{indices};
                 // Allocate a buffer of given dimensionality, will be re-used for each datum
