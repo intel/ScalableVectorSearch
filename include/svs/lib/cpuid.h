@@ -198,7 +198,15 @@ inline const std::unordered_map<ISAExt, CPUIDFlag> ISAExtInfo = {
 
 #elif defined(__aarch64__)
 
-enum class ISAExt { SVE, SVE2 };
+enum class ISAExt {
+    // SVE family
+    SVE,
+    SVE2,
+
+    DOTPROD, // ARMv8.4-A
+    RNG,     // ARMv8.5-A
+    BF16,    // ARMv8.6-A
+};
 
 // Define register ID values for ARM features detection
 #define ID_AA64PFR0_EL1 0
@@ -233,8 +241,10 @@ template <unsigned int ID> inline uint64_t read_system_reg() {
         asm("mrs %0, id_aa64dfr0_el1" : "=r"(val));
     } else if constexpr (ID == ID_AA64DFR1_EL1) {
         asm("mrs %0, id_aa64dfr1_el1" : "=r"(val));
+#if !(defined(__APPLE__))
     } else if constexpr (ID == ID_AA64ZFR0_EL1) {
         asm("mrs %0, id_aa64zfr0_el1" : "=r"(val));
+#endif
     } else {
         val = 0;
     }
@@ -270,12 +280,13 @@ struct MSRFlag {
                 case ID_AA64ISAR1_EL1:
                     reg_val = read_system_reg<ID_AA64ISAR1_EL1>();
                     break;
+#if !(defined(__APPLE__))
                 case ID_AA64ZFR0_EL1:
-                    // First check if SVE is supported to avoid
                     if (extract_bits(read_system_reg<ID_AA64PFR0_EL1>(), 32, 4) != 0) {
                         reg_val = read_system_reg<ID_AA64ZFR0_EL1>();
                     }
                     break;
+#endif
                 default:
                     return false;
             }
@@ -290,7 +301,12 @@ struct MSRFlag {
 
 inline const std::unordered_map<ISAExt, MSRFlag> ISAExtInfo = {
     {ISAExt::SVE, {ID_AA64PFR0_EL1, 32, 4, 1, "sve"}},
+#if !(defined(__APPLE__))
     {ISAExt::SVE2, {ID_AA64ZFR0_EL1, 0, 4, 1, "sve2"}},
+#endif
+    {ISAExt::DOTPROD, {ID_AA64ISAR0_EL1, 24, 4, 1, "dotprod"}},
+    {ISAExt::RNG, {ID_AA64ISAR0_EL1, 60, 4, 1, "rng"}},
+    {ISAExt::BF16, {ID_AA64ISAR1_EL1, 44, 4, 1, "bf16"}},
 };
 
 #endif

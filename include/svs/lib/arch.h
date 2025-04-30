@@ -163,10 +163,10 @@ inline bool arch_is_supported(CPUArch arch) {
 #elif defined(__aarch64__)
 #if defined(__APPLE__)
         case CPUArch::m1:
-            return check_extensions(std::vector<ISAExt>{ISAExt::SVE});
+            return check_extensions(std::vector<ISAExt>{ISAExt::DOTPROD});
         case CPUArch::m2:
             return arch_is_supported(CPUArch::m1) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::SVE2});
+                   check_extensions(std::vector<ISAExt>{ISAExt::RNG, ISAExt::BF16});
 #else
         case CPUArch::neoverse_v1:
             return check_extensions(std::vector<ISAExt>{ISAExt::SVE});
