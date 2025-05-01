@@ -273,7 +273,7 @@ void dynamic_index_with_iterator(const Distance& distance, Data data) {
     }
 }
 
-CATCH_TEST_CASE("LVQ/Leanvec Vamana Iterator", "[integration][vamana][iterator][scalar]") {
+CATCH_TEST_CASE("SQDataset Vamana Iterator", "[integration][vamana][iterator][scalar]") {
     auto dist = svs::distance::DistanceL2();
     auto original = test_dataset::data_f32();
     constexpr size_t E = 128;
