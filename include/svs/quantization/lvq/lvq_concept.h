@@ -22,7 +22,7 @@
 
 #else // USE_PROPRIETARY
 
-#include "../../../../../include/svs/quantization/lvq/lvq.h"
+#include "svs/quantization/lvq/lvq.h"
 
 #endif // USE_PROPRIETARY
 

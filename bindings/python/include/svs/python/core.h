@@ -31,7 +31,7 @@
 
 #ifdef USE_PROPRIETARY
 
-#include "../../../../../../include/svs/fallback/fallback_python.h"
+#include "svs/fallback/fallback_python.h"
 
 #endif // USE_PROPRIETARY
 

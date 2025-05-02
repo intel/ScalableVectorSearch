@@ -24,7 +24,7 @@
 
 #else // USE_PROPRIETARY
 
-#include "../../../../include/svs/leanvec/leanvec.h"
+#include "svs/leanvec/leanvec.h"
 
 #endif // USE_PROPRIETARY
 
