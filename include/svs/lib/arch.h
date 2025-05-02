@@ -16,7 +16,12 @@
 
 #pragma once
 
+#include "svs/lib/arch_defines.h"
 #include "svs/lib/cpuid.h"
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace svs::arch {
 
@@ -55,182 +60,148 @@ enum class MicroArch {
     baseline = 0,
 };
 
-inline bool arch_is_supported(MicroArch arch) {
-    switch (arch) {
+struct MicroArchInfo {
+    std::optional<MicroArch> parent;
+    std::vector<ISAExt> extensions;
+    std::string name;
+};
+
+// Unordered map with MicroArch to MicroArchInfo mapping
+inline const std::unordered_map<MicroArch, MicroArchInfo>& get_microarch_info_map() {
+    static const std::unordered_map<MicroArch, MicroArchInfo> microarch_info = {
 #if defined(__x86_64__)
-        case MicroArch::nehalem:
-            return check_extensions(std::vector<ISAExt>{
-                ISAExt::MMX,
-                ISAExt::SSE,
-                ISAExt::SSE2,
-                ISAExt::SSE3,
-                ISAExt::SSSE3,
-                ISAExt::SSE4_1,
-                ISAExt::SSE4_2,
-                ISAExt::POPCNT,
-                ISAExt::CX16,
-                ISAExt::SAHF,
-                ISAExt::FXSR});
-        case MicroArch::westmere:
-            return arch_is_supported(MicroArch::nehalem) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::PCLMUL});
-        case MicroArch::sandybridge:
-            return arch_is_supported(MicroArch::westmere) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::AVX, ISAExt::XSAVE});
-        case MicroArch::ivybridge:
-            return arch_is_supported(MicroArch::sandybridge) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::FSGSBASE, ISAExt::RDRND, ISAExt::F16C});
-        case MicroArch::haswell:
-            return arch_is_supported(MicroArch::ivybridge) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::AVX2,
-                       ISAExt::BMI,
-                       ISAExt::BMI2,
-                       ISAExt::LZCNT,
-                       ISAExt::FMA,
-                       ISAExt::MOVBE});
-        case MicroArch::broadwell:
-            return arch_is_supported(MicroArch::haswell) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::RDSEED, ISAExt::ADCX, ISAExt::PREFETCHW});
-        case MicroArch::skylake:
-            return arch_is_supported(MicroArch::broadwell) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::AES,
-                       ISAExt::CLFLUSHOPT,
-                       ISAExt::XSAVEC,
-                       ISAExt::XSAVES,
-                       ISAExt::SGX});
-        case MicroArch::skylake_avx512:
-            return arch_is_supported(MicroArch::skylake) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::AVX512_F,
-                       ISAExt::CLWB,
-                       ISAExt::AVX512_VL,
-                       ISAExt::AVX512_BW,
-                       ISAExt::AVX512_DQ,
-                       ISAExt::AVX512_CD});
-        case MicroArch::cascadelake:
-            return arch_is_supported(MicroArch::skylake_avx512) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::AVX512_VNNI});
-        case MicroArch::cooperlake:
-            // N.B.: Cooper Lake supports AVX512_BF16, Ice Lake - doesn't, Sapphire Rapids
-            // and newer - do
-            return arch_is_supported(MicroArch::cascadelake) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::AVX512_BF16});
-        case MicroArch::icelake_client:
-            return arch_is_supported(MicroArch::cascadelake) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::PKU,
-                       ISAExt::AVX512_VBMI,
-                       ISAExt::AVX512_IFMA,
-                       ISAExt::SHA,
-                       ISAExt::GFNI,
-                       ISAExt::VAES,
-                       ISAExt::AVX512_VBMI2,
-                       ISAExt::VPCLMULQDQ,
-                       ISAExt::AVX512_BITALG,
-                       ISAExt::RDPID,
-                       ISAExt::AVX512_VPOPCNTDQ});
-        case MicroArch::icelake_server:
-            return arch_is_supported(MicroArch::icelake_client) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::PCONFIG, ISAExt::WBNOINVD, ISAExt::CLWB});
-        case MicroArch::sapphirerapids:
-            return arch_is_supported(MicroArch::icelake_server) &&
-                   check_extensions(std::vector<ISAExt>{
-                       ISAExt::MOVDIRI,
-                       ISAExt::MOVDIR64B,
-                       ISAExt::ENQCMD,
-                       ISAExt::CLDEMOTE,
-                       ISAExt::PTWRITE,
-                       ISAExt::WAITPKG,
-                       ISAExt::SERIALIZE,
-                       ISAExt::TSXLDTRK,
-                       ISAExt::UINTR,
-                       ISAExt::AMX_BF16,
-                       ISAExt::AMX_TILE,
-                       ISAExt::AMX_INT8,
-                       ISAExt::AVX_VNNI,
-                       ISAExt::AVX512_FP16,
-                       ISAExt::AVX512_BF16});
-        case MicroArch::graniterapids:
-            return arch_is_supported(MicroArch::sapphirerapids) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::AMX_FP16, ISAExt::PREFETCHI}
-                   );
-        case MicroArch::graniterapids_d:
-            return arch_is_supported(MicroArch::graniterapids) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::AMX_COMPLEX});
+        {MicroArch::nehalem,
+         {std::nullopt,
+          {ISAExt::MMX,
+           ISAExt::SSE,
+           ISAExt::SSE2,
+           ISAExt::SSE3,
+           ISAExt::SSSE3,
+           ISAExt::SSE4_1,
+           ISAExt::SSE4_2,
+           ISAExt::POPCNT,
+           ISAExt::CX16,
+           ISAExt::SAHF,
+           ISAExt::FXSR},
+          "nehalem"}},
+        {MicroArch::westmere, {MicroArch::nehalem, {ISAExt::PCLMUL}, "westmere"}},
+        {MicroArch::sandybridge,
+         {MicroArch::westmere, {ISAExt::AVX, ISAExt::XSAVE}, "sandybridge"}},
+        {MicroArch::ivybridge,
+         {MicroArch::sandybridge,
+          {ISAExt::FSGSBASE, ISAExt::RDRND, ISAExt::F16C},
+          "ivybridge"}},
+        {MicroArch::haswell,
+         {MicroArch::sandybridge,
+          {ISAExt::AVX2,
+           ISAExt::BMI,
+           ISAExt::BMI2,
+           ISAExt::LZCNT,
+           ISAExt::FMA,
+           ISAExt::MOVBE},
+          "haswell"}},
+        {MicroArch::broadwell,
+         {MicroArch::haswell,
+          {ISAExt::RDSEED, ISAExt::ADCX, ISAExt::PREFETCHW},
+          "broadwell"}},
+        {MicroArch::skylake,
+         {MicroArch::broadwell,
+          {ISAExt::AES, ISAExt::CLFLUSHOPT, ISAExt::XSAVEC, ISAExt::XSAVES, ISAExt::SGX},
+          "skylake"}},
+        {MicroArch::skylake_avx512,
+         {MicroArch::skylake,
+          {ISAExt::AVX512_F,
+           ISAExt::CLWB,
+           ISAExt::AVX512_VL,
+           ISAExt::AVX512_BW,
+           ISAExt::AVX512_DQ,
+           ISAExt::AVX512_CD},
+          "skylake_avx512"}},
+        {MicroArch::cascadelake,
+         {MicroArch::skylake_avx512, {ISAExt::AVX512_VNNI}, "cascadelake"}},
+        {MicroArch::cooperlake,
+         {MicroArch::cascadelake, {ISAExt::AVX512_BF16}, "cooperlake"}},
+        {MicroArch::icelake_client,
+         {MicroArch::cascadelake,
+          {ISAExt::PKU,
+           ISAExt::AVX512_VBMI,
+           ISAExt::AVX512_IFMA,
+           ISAExt::SHA,
+           ISAExt::GFNI,
+           ISAExt::VAES,
+           ISAExt::AVX512_VBMI2,
+           ISAExt::VPCLMULQDQ,
+           ISAExt::AVX512_BITALG,
+           ISAExt::RDPID,
+           ISAExt::AVX512_VPOPCNTDQ},
+          "icelake_client"}},
+        {MicroArch::icelake_server,
+         {MicroArch::icelake_client,
+          {ISAExt::PCONFIG, ISAExt::WBNOINVD, ISAExt::CLWB},
+          "icelake_server"}},
+        {MicroArch::sapphirerapids,
+         {MicroArch::icelake_server,
+          {ISAExt::MOVDIRI,
+           ISAExt::MOVDIR64B,
+           ISAExt::ENQCMD,
+           ISAExt::CLDEMOTE,
+           ISAExt::PTWRITE,
+           ISAExt::WAITPKG,
+           ISAExt::SERIALIZE,
+           ISAExt::TSXLDTRK,
+           ISAExt::UINTR,
+           ISAExt::AMX_BF16,
+           ISAExt::AMX_TILE,
+           ISAExt::AMX_INT8,
+           ISAExt::AVX_VNNI,
+           ISAExt::AVX512_FP16,
+           ISAExt::AVX512_BF16},
+          "sapphirerapids"}},
+        {MicroArch::graniterapids,
+         {MicroArch::sapphirerapids,
+          {ISAExt::AMX_FP16, ISAExt::PREFETCHI},
+          "graniterapids"}},
+        {MicroArch::graniterapids_d,
+         {MicroArch::graniterapids, {ISAExt::AMX_COMPLEX}, "graniterapids_d"}},
 #elif defined(__aarch64__)
 #if defined(__APPLE__)
-        case MicroArch::m1:
-            return check_extensions(std::vector<ISAExt>{ISAExt::M1});
-        case MicroArch::m2:
-            return check_extensions(std::vector<ISAExt>{ISAExt::M2});
+        {MicroArch::m1, {std::nullopt, {ISAExt::M1}, "m1"}},
+        {MicroArch::m2, {std::nullopt, {ISAExt::M2}, "m2"}},
 #else
-        case MicroArch::neoverse_v1:
-            return check_extensions(std::vector<ISAExt>{ISAExt::SVE});
-        case MicroArch::neoverse_n2:
-            return arch_is_supported(MicroArch::neoverse_v1) &&
-                   check_extensions(std::vector<ISAExt>{ISAExt::SVE2});
+        {MicroArch::neoverse_v1, {std::nullopt, {ISAExt::SVE}, "neoverse_v1"}},
+        {MicroArch::neoverse_n2, {MicroArch::neoverse_v1, {ISAExt::SVE2}, "neoverse_n2"}},
 #endif
 #endif
-        default:
-            return false;
-    }
+        {MicroArch::baseline, {std::nullopt, {}, "baseline"}}
+    };
+    return microarch_info;
 }
 
-// Function to convert MicroArch enum to string
-inline std::string microarch_to_string(MicroArch arch) {
-    switch (arch) {
-#if defined(__x86_64__)
-        case MicroArch::nehalem:
-            return "nehalem";
-        case MicroArch::westmere:
-            return "westmere";
-        case MicroArch::sandybridge:
-            return "sandybridge";
-        case MicroArch::ivybridge:
-            return "ivybridge";
-        case MicroArch::haswell:
-            return "haswell";
-        case MicroArch::broadwell:
-            return "broadwell";
-        case MicroArch::skylake:
-            return "skylake";
-        case MicroArch::skylake_avx512:
-            return "skylake_avx512";
-        case MicroArch::cascadelake:
-            return "cascadelake";
-        case MicroArch::cooperlake:
-            return "cooperlake";
-        case MicroArch::icelake_client:
-            return "icelake_client";
-        case MicroArch::icelake_server:
-            return "icelake_server";
-        case MicroArch::sapphirerapids:
-            return "sapphirerapids";
-        case MicroArch::graniterapids:
-            return "graniterapids";
-        case MicroArch::graniterapids_d:
-            return "graniterapids_d";
-#elif defined(__aarch64__)
-#if defined(__APPLE__)
-        case MicroArch::m1:
-            return "m1";
-        case MicroArch::m2:
-            return "m2";
-#else
-        case MicroArch::neoverse_v1:
-            return "neoverse_v1";
-        case MicroArch::neoverse_n2:
-            return "neoverse_n2";
-#endif
-#endif
-        default:
-            return "unknown";
+inline bool arch_is_supported(MicroArch arch) {
+    const auto& info_map = get_microarch_info_map();
+    auto it = info_map.find(arch);
+    if (it == info_map.end()) {
+        return false;
     }
+
+    const auto& info = it->second;
+
+    // First check if parent architecture is supported
+    if (info.parent.has_value() && !arch_is_supported(info.parent.value())) {
+        return false;
+    }
+
+    // Then check additional extensions
+    return check_extensions(info.extensions);
+}
+
+inline std::string microarch_to_string(MicroArch arch) {
+    const auto& info_map = get_microarch_info_map();
+    auto it = info_map.find(arch);
+    if (it != info_map.end()) {
+        return it->second.name;
+    }
+    return "unknown";
 }
 
 class MicroArchEnvironment {
@@ -250,66 +221,28 @@ class MicroArchEnvironment {
     MicroArchEnvironment() {
         const std::vector<MicroArch> compiled_archs = {
 #if defined(__x86_64__)
-#if defined(SVS_MICROARCH_SUPPORT_nehalem)
-            MicroArch::nehalem,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_westmere)
-            MicroArch::westmere,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_sandybridge)
-            MicroArch::sandybridge,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_ivybridge)
-            MicroArch::ivybridge,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_haswell)
-            MicroArch::haswell,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_broadwell)
-            MicroArch::broadwell,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_skylake)
-            MicroArch::skylake,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_skylake_avx512)
-            MicroArch::skylake_avx512,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_cascadelake)
-            MicroArch::cascadelake,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_cooperlake)
-            MicroArch::cooperlake,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_icelake_client)
-            MicroArch::icelake_client,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_icelake_server)
-            MicroArch::icelake_server,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_sapphirerapids)
-            MicroArch::sapphirerapids,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_graniterapids)
-            MicroArch::graniterapids,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_graniterapids_d)
-            MicroArch::graniterapids_d,
-#endif
+            SVS_MICROARCH_COMPILED_nehalem
+            SVS_MICROARCH_COMPILED_westmere
+            SVS_MICROARCH_COMPILED_sandybridge
+            SVS_MICROARCH_COMPILED_ivybridge
+            SVS_MICROARCH_COMPILED_haswell
+            SVS_MICROARCH_COMPILED_broadwell
+            SVS_MICROARCH_COMPILED_skylake
+            SVS_MICROARCH_COMPILED_skylake_avx512
+            SVS_MICROARCH_COMPILED_cascadelake
+            SVS_MICROARCH_COMPILED_cooperlake
+            SVS_MICROARCH_COMPILED_icelake_client
+            SVS_MICROARCH_COMPILED_icelake_server
+            SVS_MICROARCH_COMPILED_sapphirerapids
+            SVS_MICROARCH_COMPILED_graniterapids
+            SVS_MICROARCH_COMPILED_graniterapids_d
 #elif defined(__aarch64__)
 #if defined(__APPLE__)
-#if defined(SVS_MICROARCH_SUPPORT_m1)
-            MicroArch::m1,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_m2)
-            MicroArch::m2,
-#endif
+            SVS_MICROARCH_COMPILED_m1
+            SVS_MICROARCH_COMPILED_m2
 #else
-#if defined(SVS_MICROARCH_SUPPORT_neoverse_v1)
-            MicroArch::neoverse_v1,
-#endif
-#if defined(SVS_MICROARCH_SUPPORT_neoverse_n2)
-            MicroArch::neoverse_n2,
-#endif
+            SVS_MICROARCH_COMPILED_neoverse_v1
+            SVS_MICROARCH_COMPILED_neoverse_n2
 #endif
 #endif
         };
@@ -330,28 +263,30 @@ class MicroArchEnvironment {
     MicroArch max_arch_;
 };
 
-#define SVS_PACK_ARGS(...) __VA_ARGS__
-#define SVS_CLASS_METHOD_MICROARCH_CASE(microarch, cls, method, args) \
-    case svs::arch::MicroArch::microarch:                             \
-        return cls<svs::arch::MicroArch::microarch>::method(args);    \
-        break;
-#define SVS_TARGET_MICROARCH svs::arch::MicroArch::SVS_TUNE_TARGET
-
 #if defined(__x86_64__)
 
-#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                                \
-    svs::arch::MicroArch cpu_arch =                                                       \
-        svs::arch::MicroArchEnvironment::get_instance().get_microarch();                  \
-    switch (cpu_arch) {                                                                   \
-        SVS_CLASS_METHOD_MICROARCH_CASE(nehalem, cls, method, SVS_PACK_ARGS(args))        \
-        SVS_CLASS_METHOD_MICROARCH_CASE(haswell, cls, method, SVS_PACK_ARGS(args))        \
-        SVS_CLASS_METHOD_MICROARCH_CASE(skylake_avx512, cls, method, SVS_PACK_ARGS(args)) \
-        SVS_CLASS_METHOD_MICROARCH_CASE(cascadelake, cls, method, SVS_PACK_ARGS(args))    \
-        SVS_CLASS_METHOD_MICROARCH_CASE(icelake_client, cls, method, SVS_PACK_ARGS(args)) \
-        SVS_CLASS_METHOD_MICROARCH_CASE(sapphirerapids, cls, method, SVS_PACK_ARGS(args)) \
-        default:                                                                          \
-            return cls<svs::arch::MicroArch::baseline>::method(args);                     \
-            break;                                                                        \
+#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                                 \
+    svs::arch::MicroArch cpu_arch =                                                        \
+        svs::arch::MicroArchEnvironment::get_instance().get_microarch();                   \
+    switch (cpu_arch) {                                                                    \
+        SVS_CLASS_METHOD_MICROARCH_CASE_nehalem(cls, method, SVS_PACK_ARGS(args))          \
+        SVS_CLASS_METHOD_MICROARCH_CASE_westmere(cls, method, SVS_PACK_ARGS(args))         \
+        SVS_CLASS_METHOD_MICROARCH_CASE_sandybridge(cls, method, SVS_PACK_ARGS(args))      \
+        SVS_CLASS_METHOD_MICROARCH_CASE_ivybridge(cls, method, SVS_PACK_ARGS(args))        \
+        SVS_CLASS_METHOD_MICROARCH_CASE_haswell(cls, method, SVS_PACK_ARGS(args))          \
+        SVS_CLASS_METHOD_MICROARCH_CASE_broadwell(cls, method, SVS_PACK_ARGS(args))        \
+        SVS_CLASS_METHOD_MICROARCH_CASE_skylake(cls, method, SVS_PACK_ARGS(args))          \
+        SVS_CLASS_METHOD_MICROARCH_CASE_skylake_avx512(cls, method, SVS_PACK_ARGS(args))   \
+        SVS_CLASS_METHOD_MICROARCH_CASE_cascadelake(cls, method, SVS_PACK_ARGS(args))      \
+        SVS_CLASS_METHOD_MICROARCH_CASE_cooperlake(cls, method, SVS_PACK_ARGS(args))       \
+        SVS_CLASS_METHOD_MICROARCH_CASE_icelake_client(cls, method, SVS_PACK_ARGS(args))   \
+        SVS_CLASS_METHOD_MICROARCH_CASE_icelake_server(cls, method, SVS_PACK_ARGS(args))   \
+        SVS_CLASS_METHOD_MICROARCH_CASE_sapphirerapids(cls, method, SVS_PACK_ARGS(args))   \
+        SVS_CLASS_METHOD_MICROARCH_CASE_graniterapids(cls, method, SVS_PACK_ARGS(args))    \
+        SVS_CLASS_METHOD_MICROARCH_CASE_graniterapids_d(cls, method, SVS_PACK_ARGS(args))  \
+        default:                                                                           \
+            return cls<svs::arch::MicroArch::baseline>::method(args);                      \
+            break;                                                                         \
     }
 #elif defined(__aarch64__)
 
@@ -361,8 +296,8 @@ class MicroArchEnvironment {
     svs::arch::MicroArch cpu_arch =                                           \
         svs::arch::MicroArchEnvironment::get_instance().get_microarch();      \
     switch (cpu_arch) {                                                       \
-        SVS_CLASS_METHOD_MICROARCH_CASE(m1, cls, method, SVS_PACK_ARGS(args)) \
-        SVS_CLASS_METHOD_MICROARCH_CASE(m2, cls, method, SVS_PACK_ARGS(args)) \
+        SVS_CLASS_METHOD_MICROARCH_CASE_m1(cls, method, SVS_PACK_ARGS(args))  \
+        SVS_CLASS_METHOD_MICROARCH_CASE_m2(cls, method, SVS_PACK_ARGS(args))  \
         default:                                                              \
             return cls<svs::arch::MicroArch::baseline>::method(args);         \
             break;                                                            \
@@ -370,15 +305,15 @@ class MicroArchEnvironment {
 
 #else
 
-#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                             \
-    svs::arch::MicroArch cpu_arch =                                                    \
-        svs::arch::MicroArchEnvironment::get_instance().get_microarch();               \
-    switch (cpu_arch) {                                                                \
-        SVS_CLASS_METHOD_MICROARCH_CASE(neoverse_v1, cls, method, SVS_PACK_ARGS(args)) \
-        SVS_CLASS_METHOD_MICROARCH_CASE(neoverse_n2, cls, method, SVS_PACK_ARGS(args)) \
-        default:                                                                       \
-            return cls<svs::arch::MicroArch::baseline>::method(args);                  \
-            break;                                                                     \
+#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                               \
+    svs::arch::MicroArch cpu_arch =                                                      \
+        svs::arch::MicroArchEnvironment::get_instance().get_microarch();                 \
+    switch (cpu_arch) {                                                                  \
+        SVS_CLASS_METHOD_MICROARCH_CASE_neoverse_v1(cls, method, SVS_PACK_ARGS(args))    \
+        SVS_CLASS_METHOD_MICROARCH_CASE_neoverse_n2(cls, method, SVS_PACK_ARGS(args))    \
+        default:                                                                         \
+            return cls<svs::arch::MicroArch::baseline>::method(args);                    \
+            break;                                                                       \
     }
 
 #endif
