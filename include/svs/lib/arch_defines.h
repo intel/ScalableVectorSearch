@@ -169,7 +169,7 @@
     SVS_CLASS_METHOD_MICROARCH_CASE(m1, cls, method, SVS_PACK_ARGS(args))
 #else
 #define SVS_MICROARCH_COMPILED_m1
-#define SVS_CLASS_METHOD_MICROARCH_CASE_m1(cls, method, SVS_PACK_ARGS(args))
+#define SVS_CLASS_METHOD_MICROARCH_CASE_m1(cls, method, args)
 #endif
 
 #if defined(SVS_MICROARCH_SUPPORT_m2)
