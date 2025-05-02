@@ -115,10 +115,12 @@ inline bool arch_is_supported(MicroArch arch) {
             return arch_is_supported(MicroArch::skylake_avx512) &&
                    check_extensions(std::vector<ISAExt>{ISAExt::AVX512_VNNI});
         case MicroArch::cooperlake:
+            // N.B.: Cooper Lake supports AVX512_BF16, Ice Lake - doesn't, Sapphire Rapids
+            // and newer - do
             return arch_is_supported(MicroArch::cascadelake) &&
                    check_extensions(std::vector<ISAExt>{ISAExt::AVX512_BF16});
         case MicroArch::icelake_client:
-            return arch_is_supported(MicroArch::cooperlake) &&
+            return arch_is_supported(MicroArch::cascadelake) &&
                    check_extensions(std::vector<ISAExt>{
                        ISAExt::PKU,
                        ISAExt::AVX512_VBMI,
@@ -179,6 +181,58 @@ inline bool arch_is_supported(MicroArch arch) {
     }
 }
 
+// Function to convert MicroArch enum to string
+inline std::string microarch_to_string(MicroArch arch) {
+    switch (arch) {
+#if defined(__x86_64__)
+        case MicroArch::nehalem:
+            return "nehalem";
+        case MicroArch::westmere:
+            return "westmere";
+        case MicroArch::sandybridge:
+            return "sandybridge";
+        case MicroArch::ivybridge:
+            return "ivybridge";
+        case MicroArch::haswell:
+            return "haswell";
+        case MicroArch::broadwell:
+            return "broadwell";
+        case MicroArch::skylake:
+            return "skylake";
+        case MicroArch::skylake_avx512:
+            return "skylake_avx512";
+        case MicroArch::cascadelake:
+            return "cascadelake";
+        case MicroArch::cooperlake:
+            return "cooperlake";
+        case MicroArch::icelake_client:
+            return "icelake_client";
+        case MicroArch::icelake_server:
+            return "icelake_server";
+        case MicroArch::sapphirerapids:
+            return "sapphirerapids";
+        case MicroArch::graniterapids:
+            return "graniterapids";
+        case MicroArch::graniterapids_d:
+            return "graniterapids_d";
+#elif defined(__aarch64__)
+#if defined(__APPLE__)
+        case MicroArch::m1:
+            return "m1";
+        case MicroArch::m2:
+            return "m2";
+#else
+        case MicroArch::neoverse_v1:
+            return "neoverse_v1";
+        case MicroArch::neoverse_n2:
+            return "neoverse_n2";
+#endif
+#endif
+        default:
+            return "unknown";
+    }
+}
+
 class MicroArchEnvironment {
   public:
     static MicroArchEnvironment& get_instance() {
@@ -186,7 +240,11 @@ class MicroArchEnvironment {
         static MicroArchEnvironment instance;
         return instance;
     }
-    MicroArch get_cpu_arch() const { return max_arch_; }
+    MicroArch get_microarch() const { return max_arch_; }
+
+    const std::vector<MicroArch>& get_supported_microarchs() const {
+        return supported_archs_;
+    }
 
   private:
     MicroArchEnvironment() {
@@ -283,7 +341,7 @@ class MicroArchEnvironment {
 
 #define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                                \
     svs::arch::MicroArch cpu_arch =                                                       \
-        svs::arch::MicroArchEnvironment::get_instance().get_cpu_arch();                   \
+        svs::arch::MicroArchEnvironment::get_instance().get_microarch();                  \
     switch (cpu_arch) {                                                                   \
         SVS_CLASS_METHOD_MICROARCH_CASE(nehalem, cls, method, SVS_PACK_ARGS(args))        \
         SVS_CLASS_METHOD_MICROARCH_CASE(haswell, cls, method, SVS_PACK_ARGS(args))        \
@@ -301,7 +359,7 @@ class MicroArchEnvironment {
 
 #define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                    \
     svs::arch::MicroArch cpu_arch =                                           \
-        svs::arch::MicroArchEnvironment::get_instance().get_cpu_arch();       \
+        svs::arch::MicroArchEnvironment::get_instance().get_microarch();      \
     switch (cpu_arch) {                                                       \
         SVS_CLASS_METHOD_MICROARCH_CASE(m1, cls, method, SVS_PACK_ARGS(args)) \
         SVS_CLASS_METHOD_MICROARCH_CASE(m2, cls, method, SVS_PACK_ARGS(args)) \
@@ -314,7 +372,7 @@ class MicroArchEnvironment {
 
 #define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                             \
     svs::arch::MicroArch cpu_arch =                                                    \
-        svs::arch::MicroArchEnvironment::get_instance().get_cpu_arch();                \
+        svs::arch::MicroArchEnvironment::get_instance().get_microarch();               \
     switch (cpu_arch) {                                                                \
         SVS_CLASS_METHOD_MICROARCH_CASE(neoverse_v1, cls, method, SVS_PACK_ARGS(args)) \
         SVS_CLASS_METHOD_MICROARCH_CASE(neoverse_n2, cls, method, SVS_PACK_ARGS(args)) \

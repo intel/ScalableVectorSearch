@@ -26,6 +26,7 @@
 // SVS dependencies
 #include "svs/core/distance.h"
 #include "svs/core/io.h"
+#include "svs/lib/arch.h"
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/float16.h"
@@ -183,6 +184,35 @@ Args:
     source_file: The source file path to convert.
     destination_file: The destination file to generate.
         )"
+    );
+
+    // Get name of current microarch
+    m.def(
+        "microarch",
+        []() {
+            auto& env = svs::arch::MicroArchEnvironment::get_instance();
+            return svs::arch::microarch_to_string(env.get_microarch());
+        },
+        "Returns current microarchitecture."
+    );
+
+    // Get list of supported microarchs
+    m.def(
+        "supported_microarchs",
+        []() {
+            auto& env = svs::arch::MicroArchEnvironment::get_instance();
+            const auto& supported_archs = env.get_supported_microarchs();
+
+            std::vector<std::string> result;
+            result.reserve(supported_archs.size());
+
+            for (const auto& arch : supported_archs) {
+                result.push_back(svs::arch::microarch_to_string(arch));
+            }
+
+            return result;
+        },
+        "Returns a list of supported microarchitectures."
     );
 
     wrap_conversion(m);
