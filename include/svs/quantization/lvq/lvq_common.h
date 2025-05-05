@@ -17,7 +17,6 @@
 #pragma once
 
 // svs
-#include "eve/algo.hpp"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/kmeans.h"
