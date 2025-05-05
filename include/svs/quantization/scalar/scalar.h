@@ -204,15 +204,13 @@ struct MinMaxAccumulator {
 struct MinMax {
     template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
     MinMaxAccumulator operator()(const Dataset& data, Pool& threadpool) {
-        static constexpr size_t batch_size = 512;
-
         // Thread-local accumulators
         std::vector<MinMaxAccumulator> tls(threadpool.size());
 
         // Compute min and max values in dataset
         threads::parallel_for(
             threadpool,
-            threads::DynamicPartition(data.size(), batch_size),
+            threads::StaticPartition{data.size()},
             [&](const auto& indices, uint64_t tid) {
                 threads::UnitRange range{indices};
                 MinMaxAccumulator local;
