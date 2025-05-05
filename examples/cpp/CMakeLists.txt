@@ -37,7 +37,6 @@ endfunction()
 create_simple_example(saveload test_saveload saveload.cpp)
 create_simple_example(types test_types types.cpp)
 create_simple_example(vamana_iterator test_vamana_iterator vamana_iterator.cpp)
-create_simple_example(fallback test_fallback fallback.cpp)
 
 ## More complicated examples involving more extensive setup.
 
@@ -70,6 +69,19 @@ add_test(
     NAME test_custom_thread_pool
     COMMAND
         custom_thread_pool
+        data_f32.fvecs
+        queries_f32.fvecs
+        groundtruth_euclidean.ivecs
+)
+
+# The fallback executable.
+add_executable(fallback fallback.cpp)
+target_include_directories(fallback PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(fallback ${SVS_LIB} svs_compile_options svs_native_options)
+add_test(
+    NAME test_fallback
+    COMMAND
+        fallback
         data_f32.fvecs
         queries_f32.fvecs
         groundtruth_euclidean.ivecs
