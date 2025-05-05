@@ -31,7 +31,7 @@ struct Sequential {
 };
 
 template <size_t Lanes, size_t ElementsPerLane> struct Turbo {
-    static constexpr std::string name() {
+    static std::string name() {
         return fmt::format("turbo<{}x{}>", Lanes, ElementsPerLane);
     }
 };
