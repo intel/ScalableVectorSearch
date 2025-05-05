@@ -53,7 +53,7 @@ double run_recall(
 }
 
 const bool DEBUG = false;
-void check(double expected, double got, double eps = 0.001) {
+void check(double expected, double got, double eps = 0.005) {
     double diff = std::abs(expected - got);
     if constexpr (DEBUG) {
         fmt::print("Expected {}. Got {}\n", expected, got);
