@@ -39,7 +39,8 @@ from .common import \
     test_vamana_reference, \
     test_number_of_vectors, \
     test_dimensions, \
-    get_test_set
+    get_test_set, \
+    test_get_distance
 
 from .dataset import \
     UncompressedMatcher, \
@@ -483,6 +484,9 @@ class VamanaTester(unittest.TestCase):
 
         vamana = svs.Vamana.build(params, loader, distance, num_threads = num_threads)
         print(f"Building: {vamana.experimental_backend_string}")
+
+        # Test get distance
+        test_get_distance(vamana, distance)
 
         groundtruth_map = self._groundtruth_map()
         # Load the queries and groundtruth

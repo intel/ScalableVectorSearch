@@ -37,7 +37,6 @@ endfunction()
 create_simple_example(saveload test_saveload saveload.cpp)
 create_simple_example(types test_types types.cpp)
 create_simple_example(vamana_iterator test_vamana_iterator vamana_iterator.cpp)
-create_simple_example(custom_thread_pool test_custom_thread_pool custom_thread_pool.cpp)
 create_simple_example(fallback test_fallback fallback.cpp)
 
 ## More complicated examples involving more extensive setup.
@@ -49,6 +48,7 @@ create_simple_example(fallback test_fallback fallback.cpp)
 configure_file(../../data/test_dataset/data_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/queries_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
+
 # The vamana test executable.
 add_executable(vamana vamana.cpp)
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})
@@ -61,6 +61,20 @@ add_test(
         queries_f32.fvecs
         groundtruth_euclidean.ivecs
 )
+
+# The custom thread pool executable.
+add_executable(custom_thread_pool custom_thread_pool.cpp)
+target_include_directories(custom_thread_pool PRIVATE ${CMAKE_CURRENT_LIST_DIR})
+target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_native_options)
+add_test(
+    NAME test_custom_thread_pool
+    COMMAND
+        custom_thread_pool
+        data_f32.fvecs
+        queries_f32.fvecs
+        groundtruth_euclidean.ivecs
+)
+
 
 #####
 ##### Dispatcher

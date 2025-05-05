@@ -158,3 +158,53 @@ def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: in
     upper_bound = np.expand_dims(deltas, axis = 1)
     upper_bound = upper_bound + 0.0125 * upper_bound
     return np.all(np.abs(original - reconstructed) <= upper_bound)
+
+def test_get_distance(index, distance, data = svs.read_vecs(test_data_vecs), test_distance = True):
+    """
+    Test the get_distance method of an index by comparing its results with direct distance computation.
+
+    Arguments:
+        index: The SVS index object with get_distance method
+        distance: The distance type
+        data: The dataset used to build the index
+        test_distance: Whether to perform the distance test
+    """
+    # Skip get_distance_test if flag is set
+    if not test_distance:
+        return
+
+    tolerance=1e-2
+    query_id = 10
+    index_id = 100
+    dt = data.dtype
+    query_vector_raw = np.array(data[query_id], dtype=dt)
+    indexed_vector_raw = np.array(data[index_id], dtype=dt)
+    index_distance  = index.get_distance(index_id, query_vector_raw)
+    # Up cast to avoid overflow
+    query_vector = query_vector_raw.astype(np.float32)
+    indexed_vector = indexed_vector_raw.astype(np.float32)
+
+    # Compute distance based on distance type
+    if distance == svs.DistanceType.L2:
+        expected_distance = np.sum((query_vector - indexed_vector) ** 2)
+    elif distance == svs.DistanceType.MIP:
+        expected_distance = np.dot(query_vector, indexed_vector)
+    elif distance == svs.DistanceType.Cosine:
+        qn = np.linalg.norm(query_vector)
+        vn = np.linalg.norm(indexed_vector)
+        if qn == 0 or vn == 0:
+            expected_distance = 0.0
+        else:
+            expected_distance = (np.dot(query_vector, indexed_vector) / (qn * vn))
+    else:
+        raise ValueError(f"Unsupported DistanceType: {distance}")
+
+    relative_diff = abs((index_distance - expected_distance) / expected_distance)
+    assert relative_diff < tolerance
+
+    # Test out of bounds ID
+    try:
+        index.get_distance(index_id + 99999, query_vector_raw)
+        assert False, "Should have exception"
+    except Exception as e:
+        pass

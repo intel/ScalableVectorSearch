@@ -304,6 +304,30 @@ queries-per-second).
 
 See also: `svs.FlatSearchParameters`.)"
     );
+
+    for_standard_specializations([&flat]<typename Q, typename T, size_t N>() {
+        flat.def(
+            "get_distance",
+            [](svs::Flat& self, size_t external_id, py_contiguous_array_t<T> query_array) {
+                const T* data_ptr = query_array.data();
+                size_t len = query_array.size();
+                std::vector<T> vec(data_ptr, data_ptr + len);
+                return self.get_distance(external_id, vec);
+            },
+            py::arg("external_id"),
+            py::arg("query_vector"),
+            R"(
+    Compute the distance between the stored vector at `external_id` and the provided `query_vector`.
+
+    Args:
+        external_id: the external ID of the vector in the index
+        query_vector: a 1-D contiguous array whose length must match the index dimensionality
+
+    Returns:
+        float: the computed distance
+    )"
+        );
+    });
 }
 
 } // namespace svs::python::flat

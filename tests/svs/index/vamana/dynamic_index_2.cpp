@@ -19,6 +19,7 @@
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
 
@@ -262,6 +263,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
 
     // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto data_copy = data;
     auto num_points = data.size();
     auto queries = test_dataset::queries();
 
@@ -308,6 +310,12 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     );
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
+
+    // Test get_distance functionality
+    svs::DistanceDispatcher dispatcher(svs::L2);
+    dispatcher([&](auto dist) {
+        svs_test::GetDistanceTester::test(index, dist, data_copy, initial_indices);
+    });
 
     // Verify that we can get and set build parameters.
     CATCH_REQUIRE(index.get_alpha() == alpha);

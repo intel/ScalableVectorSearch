@@ -604,4 +604,37 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
 
 #endif // USE_PROPRIETARY
 
+/////
+///// Distance
+/////
+struct ComputeDistanceType {
+    template <typename Data, typename Distance, typename Query>
+    double operator()(
+        const Data& data, const Distance& distance, size_t internal_id, const Query& query
+    ) const {
+        return svs_invoke(*this, data, distance, internal_id, query);
+    }
+};
+// CPO for distance computation
+inline constexpr ComputeDistanceType get_distance_ext{};
+template <typename Data, typename Distance, typename Query>
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Data& data,
+    const Distance& distance,
+    size_t internal_id,
+    const Query& query
+) {
+    // Get distance
+    auto dist_f = single_search_setup(data, distance);
+    svs::distance::maybe_fix_argument(dist_f, query);
+
+    // Get the vector from the index
+    auto indexed_span = data.get_datum(internal_id);
+
+    // Compute the distance using the appropriate distance function
+    auto dist = svs::distance::compute(dist_f, query, indexed_span);
+    return static_cast<double>(dist);
+}
+
 } // namespace svs::index::vamana::extensions
