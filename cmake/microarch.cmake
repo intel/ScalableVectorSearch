@@ -123,5 +123,6 @@ function(create_microarch_instantiations)
 
         list(APPEND MICROARCH_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
     endforeach()
-    set(MICROARCH_OBJECT_FILES "${MICROARCH_OBJECT_FILES}" PARENT_SCOPE)
+    # Note: this specific way of setting the variable is required to make it available in all targeted scopes
+    set(MICROARCH_OBJECT_FILES "${MICROARCH_OBJECT_FILES}" CACHE INTERNAL "Microarchitecture-specific object files")
 endfunction()
