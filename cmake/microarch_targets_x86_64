@@ -1,5 +1,6 @@
 nehalem
 haswell
+x86_64_v4
 skylake_avx512
 cascadelake
 icelake_client

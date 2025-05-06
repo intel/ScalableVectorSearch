@@ -30,22 +30,19 @@ enum class MicroArch {
     // Refer to the GCC docs for the list of targeted architectures:
     // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
     nehalem,
-    x86_64_v2 = nehalem,
     westmere,
     sandybridge,
     ivybridge,
     haswell,
-    x86_64_v3 = haswell,
     broadwell,
     skylake,
+    x86_64_v4,
     skylake_avx512,
-    x86_64_v4 = skylake_avx512,
     cascadelake,
     cooperlake,
     icelake_client,
     icelake_server,
     sapphirerapids,
-    emeraldrapids = sapphirerapids,
     graniterapids,
     graniterapids_d,
 #elif defined(__aarch64__)
@@ -108,6 +105,14 @@ inline const std::unordered_map<MicroArch, MicroArchInfo>& get_microarch_info_ma
          {MicroArch::broadwell,
           {ISAExt::AES, ISAExt::CLFLUSHOPT, ISAExt::XSAVEC, ISAExt::XSAVES, ISAExt::SGX},
           "skylake"}},
+        {MicroArch::x86_64_v4,
+         {std::nullopt,
+          {ISAExt::AVX512_F,
+           ISAExt::AVX512_VL,
+           ISAExt::AVX512_BW,
+           ISAExt::AVX512_DQ,
+           ISAExt::AVX512_CD},
+          "x86_64_v4"}},
         {MicroArch::skylake_avx512,
          {MicroArch::skylake,
           {ISAExt::AVX512_F,
@@ -228,6 +233,7 @@ class MicroArchEnvironment {
             SVS_MICROARCH_COMPILED_haswell
             SVS_MICROARCH_COMPILED_broadwell
             SVS_MICROARCH_COMPILED_skylake
+            SVS_MICROARCH_COMPILED_x86_64_v4
             SVS_MICROARCH_COMPILED_skylake_avx512
             SVS_MICROARCH_COMPILED_cascadelake
             SVS_MICROARCH_COMPILED_cooperlake
@@ -276,6 +282,7 @@ class MicroArchEnvironment {
         SVS_CLASS_METHOD_MICROARCH_CASE_haswell(cls, method, SVS_PACK_ARGS(args))          \
         SVS_CLASS_METHOD_MICROARCH_CASE_broadwell(cls, method, SVS_PACK_ARGS(args))        \
         SVS_CLASS_METHOD_MICROARCH_CASE_skylake(cls, method, SVS_PACK_ARGS(args))          \
+        SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v4(cls, method, SVS_PACK_ARGS(args))        \
         SVS_CLASS_METHOD_MICROARCH_CASE_skylake_avx512(cls, method, SVS_PACK_ARGS(args))   \
         SVS_CLASS_METHOD_MICROARCH_CASE_cascadelake(cls, method, SVS_PACK_ARGS(args))      \
         SVS_CLASS_METHOD_MICROARCH_CASE_cooperlake(cls, method, SVS_PACK_ARGS(args))       \

@@ -87,6 +87,15 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_skylake(cls, method, args)
 #endif
 
+#if defined(SVS_MICROARCH_SUPPORT_x86_64_v4)
+#define SVS_MICROARCH_COMPILED_x86_64_v4 MicroArch::x86_64_v4,
+#define SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v4(cls, method, args) \
+    SVS_CLASS_METHOD_MICROARCH_CASE(x86_64_v4, cls, method, SVS_PACK_ARGS(args))
+#else
+#define SVS_MICROARCH_COMPILED_x86_64_v4
+#define SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v4(cls, method, args)
+#endif
+
 #if defined(SVS_MICROARCH_SUPPORT_skylake_avx512)
 #define SVS_MICROARCH_COMPILED_skylake_avx512 MicroArch::skylake_avx512,
 #define SVS_CLASS_METHOD_MICROARCH_CASE_skylake_avx512(cls, method, args) \
