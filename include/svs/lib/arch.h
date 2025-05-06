@@ -209,6 +209,16 @@ inline std::string microarch_to_string(MicroArch arch) {
     return "unknown";
 }
 
+inline MicroArch string_to_microarch(const std::string& arch_name) {
+    const auto& info_map = get_microarch_info_map();
+    for (const auto& [arch, info] : info_map) {
+        if (info.name == arch_name) {
+            return arch;
+        }
+    }
+    throw std::invalid_argument("Unknown microarchitecture name: " + arch_name);
+}
+
 class MicroArchEnvironment {
   public:
     static MicroArchEnvironment& get_instance() {
@@ -218,8 +228,20 @@ class MicroArchEnvironment {
     }
     MicroArch get_microarch() const { return max_arch_; }
 
+    void set_microarch(MicroArch arch) {
+        if (arch_is_supported(arch)) {
+            max_arch_ = arch;
+        } else {
+            throw std::invalid_argument("Unsupported microarchitecture");
+        }
+    }
+
     const std::vector<MicroArch>& get_supported_microarchs() const {
         return supported_archs_;
+    }
+
+    const std::vector<MicroArch>& get_compiled_microarchs() const {
+        return compiled_archs_;
     }
 
   private:

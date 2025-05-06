@@ -186,36 +186,54 @@ Args:
         )"
     );
 
-    // Get name of current microarch
-    m.def(
-        "microarch",
-        []() {
-            auto& env = svs::arch::MicroArchEnvironment::get_instance();
-            return svs::arch::microarch_to_string(env.get_microarch());
-        },
-        "Returns current microarchitecture."
-    );
-
-    // Get list of supported microarchs
-    m.def(
-        "supported_microarchs",
-        []() {
-            auto& env = svs::arch::MicroArchEnvironment::get_instance();
-            const auto& supported_archs = env.get_supported_microarchs();
-
-            std::vector<std::string> result;
-            result.reserve(supported_archs.size());
-
-            for (const auto& arch : supported_archs) {
-                result.push_back(svs::arch::microarch_to_string(arch));
-            }
-
-            return result;
-        },
-        "Returns a list of supported microarchitectures."
-    );
-
     wrap_conversion(m);
+
+    // Wrapper for svs::arch::MicroArchEnvironment
+    py::class_<svs::arch::MicroArchEnvironment>(m, "microarch", "Microarchitecture management singleton")
+        .def_static(
+            "get",
+            []() -> svs::arch::MicroArchEnvironment& {
+                return svs::arch::MicroArchEnvironment::get_instance();
+            },
+            py::return_value_policy::reference
+        )
+        .def_property_static(
+            "current",
+            [](py::object) {
+                auto& env = svs::arch::MicroArchEnvironment::get_instance();
+                return svs::arch::microarch_to_string(env.get_microarch());
+            },
+            [](py::object, const std::string& arch_name) {
+                auto& env = svs::arch::MicroArchEnvironment::get_instance();
+                auto arch = svs::arch::string_to_microarch(arch_name);
+                env.set_microarch(arch);
+            },
+            "Gets or sets the current microarchitecture."
+        )
+        .def_property_readonly_static(
+            "supported",
+            [](py::object) {
+                auto& env = svs::arch::MicroArchEnvironment::get_instance();
+                std::vector<std::string> result;
+                for (const auto& arch : env.get_supported_microarchs()) {
+                    result.push_back(svs::arch::microarch_to_string(arch));
+                }
+                return result;
+            },
+            "Returns a list of supported microarchitectures."
+        )
+        .def_property_readonly_static(
+            "compiled",
+            [](py::object) {
+                auto& env = svs::arch::MicroArchEnvironment::get_instance();
+                std::vector<std::string> result;
+                for (const auto& arch : env.get_compiled_microarchs()) {
+                    result.push_back(svs::arch::microarch_to_string(arch));
+                }
+                return result;
+            },
+            "Returns a list of compiled microarchitectures."
+        );
 
     // Allocators
     svs::python::allocators::wrap(m);

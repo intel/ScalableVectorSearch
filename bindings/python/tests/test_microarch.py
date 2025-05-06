@@ -19,9 +19,10 @@ import archspec.cpu as cpu
 
 class MicroarchTester(unittest.TestCase):
     def test_microarch(self):
-        supported_microarchs = svs.supported_microarchs()
+        supported_microarchs = svs.microarch.supported
         archspec_host_name = cpu.host().name
+        # TODO: better aliases handling
         if archspec_host_name == "icelake":
             archspec_host_name = "icelake_client"
         if archspec_host_name in supported_microarchs:
-            self.assertTrue(archspec_host_name == svs.microarch())
+            self.assertTrue(archspec_host_name == svs.microarch.current)
