@@ -28,6 +28,16 @@ jobs:
   test-dispatcher-linux-x86:
     name: Test Dispatcher (Linux x86)
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        cxx: [g++-11, g++-12, clang++-15]
+        include:
+          - cxx: g++-11
+            cc: gcc-11
+          - cxx: g++-12
+            cc: gcc-12
+          - cxx: clang++-15
+            cc: clang-15
     env:
       no_proxy: localhost,127.0.0.1
 
@@ -55,6 +65,9 @@ jobs:
           python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
       - name: Validate dispatcher under SDE  
+        env:
+          CXX: ${{ matrix.cxx }}
+          CC: ${{ matrix.cc }}
         run: |
           cd bindings/python
           pip install --force-reinstall .
