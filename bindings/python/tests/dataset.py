@@ -27,3 +27,19 @@ class UncompressedMatcher:
             return False
 
         return d["dataset"]["data_type"] == self.data_type
+
+# LVQ (fallback) datasets
+class LVQMatcher(UncompressedMatcher):
+    def __init__(self, primary: int, residual: int = 0):
+        super().__init__("float32")
+        self.primary = primary
+        self.residual = residual
+
+# LeanVec (fallback) datasets
+class LeanVecMatcher(UncompressedMatcher):
+    def __init__(self, primary_kind: str, secondary_kind: str, leanvec_dims: int, is_pca: bool = True):
+        super().__init__("float32")
+        self.primary_kind = primary_kind
+        self.secondary_kind = secondary_kind
+        self.leanvec_dims = leanvec_dims
+        self.is_pca = is_pca
