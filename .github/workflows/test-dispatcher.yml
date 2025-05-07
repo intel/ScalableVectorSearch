@@ -1,0 +1,52 @@
+name: Test ISA dispatcher
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  https_proxy: http://proxy-dmz.intel.com:912
+  http_proxy: http://proxy-dmz.intel.com:911
+  no_proxy: localhost,127.0.0.1
+
+jobs:
+  test-dispatcher:
+    name: Download SDE and Check Dispatcher
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget tar grep
+
+      - name: Download Intel SDE
+        run: |
+          wget --content-disposition "https://downloadmirror.intel.com/850782/sde-external-9.53.0-2025-03-16-lin.tar.xz"
+          tar -xf sde-external-*-lin.tar.xz
+          cd sde-external-*/  
+          export PATH="$PWD:$PATH"
+          echo "$PWD" >> $GITHUB_PATH
+          cd ..
+
+      - name: Install archspec and Get Host Microarch
+        run: |
+          python -m pip install archspec
+          python -c "import archspec.cpu; print(archspec.cpu.host().name)"
+
+      - name: Validate dispatcher under SDE  
+        run: |
+          cd bindings/python
+          pip install --force-reinstall .
+          for flag in nhm hsw skx clx icl spr; do
+            export SDE_FLAG=$flag
+            sde64 -$flag --  python -m unittest discover -p "test_dispatcher.py" -s .
+          done
