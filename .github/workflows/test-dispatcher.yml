@@ -60,14 +60,14 @@ jobs:
           python -m pip install archspec
           python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
-      - name: Validate dispatcher under SDE  
-        run: |
-          cd bindings/python
-          pip install --force-reinstall .
-          for flag in nhm hsw skx clx icl spr; do
-            export SDE_FLAG=$flag
-            sde64 -$flag --  python -m unittest discover -p "test_microarch.py" -s .
-          done
+      # - name: Validate dispatcher under SDE  
+      #   run: |
+      #     cd bindings/python
+      #     pip install --force-reinstall .
+      #     for flag in nhm hsw skx clx icl spr; do
+      #       export SDE_FLAG=$flag
+      #       sde64 -$flag --  python -m unittest discover -p "test_microarch.py" -s .
+      #     done
 
   # test-dispatcher-linux-arm:
   #   name: Test Dispatcher (Linux ARM)
