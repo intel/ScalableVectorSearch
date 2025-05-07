@@ -15,14 +15,25 @@
 import unittest
 import svs
 import archspec.cpu as cpu
-
+import os
 
 class MicroarchTester(unittest.TestCase):
     def test_microarch(self):
         supported_microarchs = svs.microarch.supported
-        archspec_host_name = cpu.host().name
-        # TODO: better aliases handling
-        if archspec_host_name == "icelake":
-            archspec_host_name = "icelake_client"
+        # Will be set in dispatcher pipeline
+        archspec_host_name = os.environ.get("SDE_FLAG")
+        if not archspec_host_name:
+            archspec_host_name = cpu.host().name
+        mapping = {
+            "nhm": "nehalem",
+            "hsw": "haswell",
+            "skx": "skylake_avx512",
+            "clx": "cascadelake",
+            "icl": "icelake_client",
+            "icelake": "icelake_client",
+            "spr": "sapphirerapids",
+        }
+        archspec_host_name = mapping.get(archspec_host_name, archspec_host_name)
+
         if archspec_host_name in supported_microarchs:
             self.assertTrue(archspec_host_name == svs.microarch.current)
