@@ -27,7 +27,7 @@ concurrency:
 jobs:
   test-dispatcher-linux-x86:
     name: Test Dispatcher (Linux x86)
-    runs-on: self-hosted
+    runs-on: ubuntu-22.04
     env:
       https_proxy: http://proxy-dmz.intel.com:912
       http_proxy: http://proxy-dmz.intel.com:911
@@ -60,93 +60,93 @@ jobs:
           python -m pip install archspec
           python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
-      # - name: Validate dispatcher under SDE  
-      #   run: |
-      #     cd bindings/python
-      #     pip install --force-reinstall .
-      #     for flag in nhm hsw skx clx icl spr; do
-      #       export SDE_FLAG=$flag
-      #       sde64 -$flag --  python -m unittest discover -p "test_microarch.py" -s .
-      #     done
+      - name: Validate dispatcher under SDE  
+        run: |
+          cd bindings/python
+          pip install --force-reinstall .
+          for flag in nhm hsw skx clx icl spr; do
+            export SDE_FLAG=$flag
+            sde64 -$flag --  python -m unittest discover -p "test_microarch.py" -s .
+          done
 
-  # test-dispatcher-linux-arm:
-  #   name: Test Dispatcher (Linux ARM)
-  #   runs-on: ubuntu-22.04-arm
-  #   strategy:
-  #     matrix:
-  #       cxx: [g++-11, g++-12, clang++-15]
-  #       include:
-  #         - cxx: g++-11
-  #           cc: gcc-11
-  #         - cxx: g++-12
-  #           cc: gcc-12
-  #         - cxx: clang++-15
-  #           cc: clang-15
+  test-dispatcher-linux-arm:
+    name: Test Dispatcher (Linux ARM)
+    runs-on: ubuntu-22.04-arm
+    strategy:
+      matrix:
+        cxx: [g++-11, g++-12, clang++-15]
+        include:
+          - cxx: g++-11
+            cc: gcc-11
+          - cxx: g++-12
+            cc: gcc-12
+          - cxx: clang++-15
+            cc: clang-15
 
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         submodules: recursive
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-  #     - name: Install archspec and Get Host Microarch
-  #       run: |
-  #         python -m pip install archspec
-  #         python -c "import archspec.cpu; print(archspec.cpu.host().name)"
+      - name: Install archspec and Get Host Microarch
+        run: |
+          python -m pip install archspec
+          python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
-  #     - name: Build and Test Python Bindings
-  #       env:
-  #         CXX: ${{ matrix.cxx }}
-  #         CC: ${{ matrix.cc }}
-  #       run: |
-  #         cd bindings/python
-  #         pip install --force-reinstall .
-  #         python -m unittest discover -p "test_microarch.py" -s .
+      - name: Build and Test Python Bindings
+        env:
+          CXX: ${{ matrix.cxx }}
+          CC: ${{ matrix.cc }}
+        run: |
+          cd bindings/python
+          pip install --force-reinstall .
+          python -m unittest discover -p "test_microarch.py" -s .
 
-  # test-dispatcher-macos:
-  #   name: Test Dispatcher (macOS)
-  #   runs-on: macos-latest
-  #   strategy:
-  #     matrix:
-  #       cxx: [clang++-15]
-  #       include:
-  #         - cxx: clang++-15
-  #           package: llvm@15
-  #           cc_name: clang
-  #           cxx_name: clang++
-  #           needs_prefix: true
+  test-dispatcher-macos:
+    name: Test Dispatcher (macOS)
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        cxx: [clang++-15]
+        include:
+          - cxx: clang++-15
+            package: llvm@15
+            cc_name: clang
+            cxx_name: clang++
+            needs_prefix: true
 
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         submodules: recursive
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-  #     - name: Install archspec and Get Host Microarch
-  #       run: |
-  #         python -m pip install archspec
-  #         python -c "import archspec.cpu; print(archspec.cpu.host().name)"
+      - name: Install archspec and Get Host Microarch
+        run: |
+          python -m pip install archspec
+          python -c "import archspec.cpu; print(archspec.cpu.host().name)"
 
-  #     - name: Install Compiler
-  #       run: |
-  #         echo "Installing ${{ matrix.package }}..."
-  #         brew install ${{ matrix.package }}
+      - name: Install Compiler
+        run: |
+          echo "Installing ${{ matrix.package }}..."
+          brew install ${{ matrix.package }}
 
-  #     - name: Build and Test Python Bindings
-  #       run: |
-  #         if [[ "${{ matrix.needs_prefix }}" == "true" ]]; then
-  #           # For non-default packages like llvm@15, get the install prefix
-  #           COMPILER_PREFIX=$(brew --prefix ${{ matrix.package }})
-  #           export CC="${COMPILER_PREFIX}/bin/${{ matrix.cc_name }}"
-  #           export CXX="${COMPILER_PREFIX}/bin/${{ matrix.cxx_name }}"
-  #         else
-  #           # For versioned GCC installs, the name is usually directly available
-  #           export CC="${{ matrix.cc_name }}"
-  #           export CXX="${{ matrix.cxx_name }}"
-  #         fi
+      - name: Build and Test Python Bindings
+        run: |
+          if [[ "${{ matrix.needs_prefix }}" == "true" ]]; then
+            # For non-default packages like llvm@15, get the install prefix
+            COMPILER_PREFIX=$(brew --prefix ${{ matrix.package }})
+            export CC="${COMPILER_PREFIX}/bin/${{ matrix.cc_name }}"
+            export CXX="${COMPILER_PREFIX}/bin/${{ matrix.cxx_name }}"
+          else
+            # For versioned GCC installs, the name is usually directly available
+            export CC="${{ matrix.cc_name }}"
+            export CXX="${{ matrix.cxx_name }}"
+          fi
           
-  #         cd bindings/python
-  #         pip install --force-reinstall .
-  #         python -m unittest discover -p "test_microarch.py" -s .
+          cd bindings/python
+          pip install --force-reinstall .
+          python -m unittest discover -p "test_microarch.py" -s .
