@@ -17,13 +17,12 @@ import svs
 import archspec.cpu as cpu
 import os
 
+
 class MicroarchTester(unittest.TestCase):
     def test_microarch(self):
         supported_microarchs = svs.microarch.supported
-        # Will be set in dispatcher pipeline
-        archspec_host_name = os.environ.get("SDE_FLAG")
-        if not archspec_host_name:
-            archspec_host_name = cpu.host().name
+        # Get emulated microarch from SDE_FLAG or use the host CPU
+        host_microarch = os.environ.get("SDE_FLAG", cpu.host().name)
         mapping = {
             "nhm": "nehalem",
             "hsw": "haswell",
@@ -33,7 +32,7 @@ class MicroarchTester(unittest.TestCase):
             "icelake": "icelake_client",
             "spr": "sapphirerapids",
         }
-        archspec_host_name = mapping.get(archspec_host_name, archspec_host_name)
+        host_microarch = mapping.get(host_microarch, host_microarch)
 
-        if archspec_host_name in supported_microarchs:
-            self.assertTrue(archspec_host_name == svs.microarch.current)
+        if host_microarch in supported_microarchs:
+            self.assertTrue(host_microarch == svs.microarch.current)

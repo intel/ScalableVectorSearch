@@ -93,6 +93,17 @@ jobs:
         CXX: ${{ matrix.cxx }}
         CC: ${{ matrix.cc }}
       run: |
+        if [[ "${{ matrix.needs_prefix }}" == "true" ]]; then
+          # For non-default packages like llvm@15, get the install prefix
+          COMPILER_PREFIX=$(brew --prefix ${{ matrix.package }})
+          export CC="${COMPILER_PREFIX}/bin/${{ matrix.cc_name }}"
+          export CXX="${COMPILER_PREFIX}/bin/${{ matrix.cxx_name }}"
+        else
+          # For versioned GCC installs, the name is usually directly available
+          export CC="${{ matrix.cc_name }}"
+          export CXX="${{ matrix.cxx_name }}"
+        fi
+
         cd bindings/python
         python -m pip install .
 
