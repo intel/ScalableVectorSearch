@@ -43,10 +43,9 @@ jobs:
     - name: Install cibuildwheel
       run: python -m pip install cibuildwheel
 
-    - name: Install archspec and Get Host Microarch
+    - name: Get CPU info
       run: |
-        python -m pip install archspec
-        python -c "import archspec.cpu; print(archspec.cpu.host().name)"
+        bash ${GITHUB_WORKSPACE}/.github/scripts/get_cpu_info.sh
 
     # Install inside the temporary working directory.
     - name: Build Wheel

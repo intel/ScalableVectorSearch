@@ -56,10 +56,11 @@ jobs:
        source /opt/intel/oneapi/setvars.sh
        printenv >> $GITHUB_ENV
 
-    - name: Install archspec and Get Host Microarch
-      run: |
-        python -m pip install archspec
-        python -c "import archspec.cpu; print(archspec.cpu.host().name)"
+    - name: Install Intel(R) SDE
+    - run: source ${GITHUB_WORKSPACE}/.github/scripts/install_sde.sh
+
+    - name: Get CPU info
+      run: bash ${GITHUB_WORKSPACE}/.github/scripts/get_cpu_info.sh
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
@@ -91,3 +92,20 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/examples/cpp
       run: ctest -C RelWithDebugInfo
+
+    - name: Build Python Bindings
+      env:
+        CXX: ${{ matrix.cxx }}
+        CC: ${{ matrix.cc }}
+      run: |
+        cd bindings/python
+        python -m pip install .
+
+    - name: Run Python Microarch Test with SDE
+      run: |
+        for flag in nhm hsw skx clx icl spr; do
+          echo "SDE emulation: $flag"
+          export SDE_FLAG=$flag
+          sde64 -$flag -- bash ${GITHUB_WORKSPACE}/.github/scripts/get_cpu_info.sh
+          sde64 -$flag -- python -m unittest discover -p "test_microarch.py" -s .
+        done
