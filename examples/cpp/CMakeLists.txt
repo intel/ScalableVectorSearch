@@ -37,6 +37,7 @@ endfunction()
 create_simple_example(saveload test_saveload saveload.cpp)
 create_simple_example(types test_types types.cpp)
 create_simple_example(vamana_iterator test_vamana_iterator vamana_iterator.cpp)
+create_simple_example(microarch_info test_microarch_info microarch_info.cpp)
 
 ## More complicated examples involving more extensive setup.
 
