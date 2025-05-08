@@ -1,6 +1,29 @@
 #!/bin/bash
+# Exit immediately if error
+set -e
 
-# Check AVX support using compiler intrinsics
+##### CPU Name #####
+if [[ -n "$SDE_FLAG" ]]; then
+    echo "CPU: SDE Emulation ($SDE_FLAG)"
+else
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        echo "CPU: $(cat /proc/cpuinfo | grep "model name" | head -1 | cut -d':' -f2 | xargs)"
+    elif [[ "$(uname -s)" == "Darwin" ]]; then
+        echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
+    else
+        echo "CPU: unsupported OS"
+    fi
+fi
+
+##### AVX Support #####
+ARCH=$(uname -m)
+# Only check AVX support on x86 architectures
+if [[ "$ARCH" != "x86_64" && "$ARCH" != "i386" && "$ARCH" != "i686" ]]; then
+    echo "AVX Support: Not applicable"
+    exit 0
+fi
+
+# Check AVX support with compiler intrinsics
 cat > check_avx.c <<'EOF'
 #include <stdio.h>
 #include <immintrin.h>
@@ -19,27 +42,17 @@ int main() {
 }
 EOF
 
-##### CPU Name #####
-if [[ -n "$SDE_FLAG" ]]; then
-    echo "CPU: SDE Emulated $SDE_FLAG"
-else
-    if [[ "$(uname -s)" == "Linux" ]]; then
-        echo "CPU: $(cat /proc/cpuinfo | grep "model name" | head -1 | cut -d':' -f2 | xargs)"
-    elif [[ "$(uname -s)" == "Darwin" ]]; then
-        echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
-    else
-        echo "CPU: Unknown (unsupported OS)"
-    fi
-fi
-
-###### AVX Support #####
+# Compile and run the AVX detection program
 echo -n "AVX Support: "
-gcc -O2 check_avx.c -o check_avx
-
-if [[ -n "$SDE_FLAG" ]]; then
-    sde64 -$SDE_FLAG -- ./check_avx
+if gcc -O2 check_avx.c -o check_avx 2>/dev/null; then
+    if [[ -n "$SDE_FLAG" ]]; then
+        sde64 -$SDE_FLAG -- ./check_avx
+    else
+        ./check_avx
+    fi
 else
-    ./check_avx
+    echo "Detection failed with compiler error"
 fi
 
-rm check_avx check_avx.c
+# Clean up
+rm -f check_avx check_avx.c
