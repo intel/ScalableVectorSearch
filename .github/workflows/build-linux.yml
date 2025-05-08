@@ -103,9 +103,10 @@ jobs:
 
     - name: Run Python Microarch Test with SDE
       run: |
+        cd bindings/python
         for flag in nhm hsw skx clx icl spr; do
           echo "SDE emulation: $flag"
           export SDE_FLAG=$flag
-          sde64 -$flag -- bash ${GITHUB_WORKSPACE}/.github/scripts/get_cpu_info.sh
+          sde64 -$flag -- python -c "import svs; svs.microarch.describe()"
           sde64 -$flag -- python -m unittest discover -p "test_microarch.py" -s .
         done

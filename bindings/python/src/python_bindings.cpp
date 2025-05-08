@@ -44,6 +44,7 @@
 // stl
 #include <filesystem>
 #include <optional>
+#include <iostream>
 
 namespace py = pybind11;
 
@@ -188,6 +189,13 @@ Args:
 
     wrap_conversion(m);
 
+    m.def(
+        "_print_cpu_extensions_status",
+        []() {
+            svs::arch::write_extensions_status(std::cout);
+        }
+    );
+
     // Wrapper for svs::arch::MicroArchEnvironment
     py::class_<svs::arch::MicroArchEnvironment>(m, "microarch", "Microarchitecture management singleton")
         .def_static(
@@ -233,6 +241,36 @@ Args:
                 return result;
             },
             "Returns a list of compiled microarchitectures."
+        )
+        .def_static(
+            "describe",
+            []() {
+                std::ostream& out = std::cout;
+                auto& arch_env = svs::arch::MicroArchEnvironment::get_instance();
+
+                // Print support status for all ISA extensions
+                svs::arch::write_extensions_status(out);
+
+                // Print current microarchitecture
+                auto current_arch = arch_env.get_microarch();
+                out << "\nCurrent µarch: " << svs::arch::microarch_to_string(current_arch) << std::endl;
+
+                // Print all supported microarchitectures
+                const auto& supported_archs = arch_env.get_supported_microarchs();
+                out << "\nSupported µarchs: ";
+                for (const auto& arch : supported_archs) {
+                    out << svs::arch::microarch_to_string(arch) << " ";
+                }
+                out << std::endl;
+
+                // Print all compiled microarchitectures
+                const auto& compiled_archs = arch_env.get_compiled_microarchs();
+                out << "\nCompiled µarchs: ";
+                for (const auto& arch : compiled_archs) {
+                    out << svs::arch::microarch_to_string(arch) << " ";
+                }
+                out << std::endl;
+            }
         );
 
     // Allocators

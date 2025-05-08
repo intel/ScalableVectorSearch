@@ -87,3 +87,17 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
+
+    - name: Build Python Bindings
+      env:
+        CXX: ${{ matrix.cxx }}
+        CC: ${{ matrix.cc }}
+      run: |
+        cd bindings/python
+        python -m pip install .
+
+    - name: Run Python Microarch Test
+      run: |
+        cd bindings/python
+        python -c "import svs; svs.microarch.describe()"
+        python -m unittest discover -p "test_microarch.py" -s .
