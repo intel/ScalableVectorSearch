@@ -57,7 +57,7 @@ jobs:
        printenv >> $GITHUB_ENV
 
     - name: Install Intel(R) SDE
-    - run: source ${GITHUB_WORKSPACE}/.github/scripts/install_sde.sh
+      run: source ${GITHUB_WORKSPACE}/.github/scripts/install_sde.sh
 
     - name: Get CPU info
       run: bash ${GITHUB_WORKSPACE}/.github/scripts/get_cpu_info.sh
