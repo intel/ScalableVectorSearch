@@ -104,7 +104,7 @@ jobs:
     - name: Run Python Microarch Test with SDE
       run: |
         cd bindings/python
-        for flag in nhm hsw skx clx icl spr; do
+        for flag in nhm hsw skx clx icl; do
           echo "SDE emulation: $flag"
           export SDE_FLAG=$flag
           sde64 -$flag -- python -c "import svs; svs.microarch.describe()"

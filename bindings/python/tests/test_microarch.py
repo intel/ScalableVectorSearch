@@ -20,7 +20,6 @@ import os
 
 class MicroarchTester(unittest.TestCase):
     def test_microarch(self):
-        supported_microarchs = svs.microarch.supported
         # Get emulated microarch from SDE_FLAG or use the host CPU
         host_microarch = os.environ.get("SDE_FLAG", cpu.host().name)
         mapping = {
@@ -34,5 +33,5 @@ class MicroarchTester(unittest.TestCase):
         }
         host_microarch = mapping.get(host_microarch, host_microarch)
 
-        if host_microarch in supported_microarchs:
+        if host_microarch in svs.microarch.compiled:
             self.assertTrue(host_microarch == svs.microarch.current)
