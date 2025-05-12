@@ -616,8 +616,7 @@ class MutableVamanaIndex {
     std::vector<size_t> add_points(
         const Points& points,
         const ExternalIds& external_ids,
-        bool reuse_empty = false,
-        svs::logging::logger_ptr logger = svs::logging::get()
+        bool reuse_empty = false
     ) {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
@@ -691,7 +690,7 @@ class MutableVamanaIndex {
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
-        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger);
+        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
@@ -939,10 +938,10 @@ class MutableVamanaIndex {
         auto entry_point = entry_point_[0];
         if (status_.at(entry_point) == SlotMetadata::Deleted) {
             auto logger = svs::logging::get();
-            svs::logging::debug(logger, "Replacing entry point.");
+            svs::logging::debug(logger_, "Replacing entry point.");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
-            svs::logging::debug(logger, "New point: {}", new_entry_point);
+            svs::logging::debug(logger_, "New point: {}", new_entry_point);
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
         }
@@ -1054,7 +1053,8 @@ class MutableVamanaIndex {
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger_
         );
 
         set_search_parameters(p);
