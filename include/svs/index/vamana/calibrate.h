@@ -503,7 +503,8 @@ VamanaSearchParameters calibrate(
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger
         );
         current = best;
 
