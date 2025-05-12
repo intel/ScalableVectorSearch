@@ -614,7 +614,10 @@ class MutableVamanaIndex {
     ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
     std::vector<size_t> add_points(
-        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
+        const Points& points,
+        const ExternalIds& external_ids,
+        bool reuse_empty = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
@@ -688,7 +691,7 @@ class MutableVamanaIndex {
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
-        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace);
+        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
