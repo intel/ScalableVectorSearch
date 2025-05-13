@@ -126,6 +126,9 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
 }
 
 CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
+    const size_t N = 128;
+    using Eltype = float;
+
     // Vector to store captured log messages
     std::vector<std::string> captured_logs;
     std::vector<std::string> global_captured_logs;
@@ -153,9 +156,8 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     original_logger->sinks().push_back(global_callback_sink);
 
     // Create some minimal data
-    std::vector<float> data = {1.0f, 2.0f};
-    auto graph = svs::graphs::SimpleGraph<uint32_t>(1, 64);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 1, 1);
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto graph = svs::graphs::SimpleGraph<uint32_t>(data.size(), 64);
     svs::distance::DistanceL2 distance_function;
     uint32_t entry_point = 0;
     auto threadpool = svs::threads::DefaultThreadPool(1);
@@ -165,7 +167,7 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     svs::index::vamana::VamanaIndex index(
         buildParams,
         std::move(graph),
-        std::move(data_view),
+        std::move(data),
         entry_point,
         distance_function,
         std::move(threadpool),

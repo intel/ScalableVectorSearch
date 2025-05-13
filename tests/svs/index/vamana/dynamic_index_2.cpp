@@ -332,7 +332,6 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
 
-    CATCH_REQUIRE(!captured_logs.empty());
     CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
 
@@ -484,15 +483,14 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
     original_logger->sinks().push_back(global_callback_sink);
 
     // Setup index
-    std::vector<float> data = {1.0f, 2.0f};
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
     std::vector<size_t> initial_indices(data.size());
     std::iota(initial_indices.begin(), initial_indices.end(), 0);
     svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
     auto threadpool = svs::threads::DefaultThreadPool(1);
     auto index = svs::index::vamana::MutableVamanaIndex(
         buildParams,
-        std::move(data_view),
+        std::move(data),
         initial_indices,
         svs::DistanceL2(),
         std::move(threadpool),
@@ -507,15 +505,14 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
 
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Default Logger Test", "[logging]") {
     // Setup index with default logger
-    std::vector<float> data = {1.0f, 2.0f};
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
     std::vector<size_t> initial_indices(data.size());
     std::iota(initial_indices.begin(), initial_indices.end(), 0);
     svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
     auto threadpool = svs::threads::DefaultThreadPool(1);
     auto index = svs::index::vamana::MutableVamanaIndex(
         buildParams,
-        std::move(data_view),
+        std::move(data),
         initial_indices,
         svs::DistanceL2(),
         std::move(threadpool)
