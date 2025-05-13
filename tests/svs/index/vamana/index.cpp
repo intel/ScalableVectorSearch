@@ -128,6 +128,7 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
 CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     // Vector to store captured log messages
     std::vector<std::string> captured_logs;
+    std::vector<std::string> global_captured_logs;
 
     // Create a callback sink to capture log messages
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
@@ -140,6 +141,16 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     // Create a logger with the callback sink
     auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
     test_logger->set_level(spdlog::level::trace);
+
+    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&global_captured_logs](const spdlog::details::log_msg& msg) {
+            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    global_callback_sink->set_level(spdlog::level::trace);
+
+    auto original_logger = svs::logging::get();
+    original_logger->sinks().push_back(global_callback_sink);
 
     // Create some minimal data
     std::vector<float> data = {1.0f, 2.0f};
@@ -162,6 +173,7 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     );
 
     // Verify the internal log messages
+    CATCH_REQUIRE(global_captured_logs.empty());
     CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
 }

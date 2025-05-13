@@ -519,8 +519,9 @@ VamanaSearchParameters calibrate(
     // Step 2: Optimize prefetch parameters.
     if (calibration_parameters.train_prefetchers_) {
         svs::logging::trace(logger, "Training Prefetchers.");
-        current =
-            calibration::tune_prefetch(calibration_parameters, index, current, do_search, logger);
+        current = calibration::tune_prefetch(
+            calibration_parameters, index, current, do_search, logger
+        );
     }
 
     // Finish up.

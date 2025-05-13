@@ -614,9 +614,7 @@ class MutableVamanaIndex {
     ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
     std::vector<size_t> add_points(
-        const Points& points,
-        const ExternalIds& external_ids,
-        bool reuse_empty = false
+        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
     ) {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
