@@ -257,14 +257,14 @@ template <> struct L2VNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 };
 
 // VNNI Dispatching
-template <size_t N> struct L2Impl<N, int8_t, int8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, int8_t, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, uint8_t, uint8_t, uarch> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
@@ -274,42 +274,42 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TARGET_MICROARCH> {
 #endif
 
 // Floating and Mixed Types
-template <size_t N> struct L2Impl<N, float, float, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, float, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, float, uint8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, uint8_t, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct L2Impl<N, float, int8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct L2Impl<N, float, Float16, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, float, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, Float16, float, uarch> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, Float16, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, Float16, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
@@ -325,7 +325,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16, SVS_TARGET_MICROARCH> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
-template <size_t N> struct L2Impl<N, float, float, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, float, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -345,7 +345,7 @@ template <size_t N> struct L2Impl<N, float, float, SVS_TARGET_MICROARCH> {
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, Float16, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, Float16, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -367,7 +367,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16, SVS_TARGET_MICROARCH> {
     }
 };
 
-template <size_t N> struct L2Impl<N, float, Float16, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -388,7 +388,7 @@ template <size_t N> struct L2Impl<N, float, Float16, SVS_TARGET_MICROARCH> {
     }
 };
 
-template <size_t N> struct L2Impl<N, float, int8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -412,7 +412,7 @@ template <size_t N> struct L2Impl<N, float, int8_t, SVS_TARGET_MICROARCH> {
     }
 };
 
-template <size_t N> struct L2Impl<N, int8_t, int8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, int8_t, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -439,7 +439,7 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t, SVS_TARGET_MICROARCH> {
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TARGET_MICROARCH> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, uint8_t, uint8_t, uarch> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
