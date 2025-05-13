@@ -179,7 +179,6 @@ VamanaSearchParameters optimize_split_buffer(
     const DoSearch& do_search,
     svs::logging::logger_ptr logger
 ) {
-    assert(logger != svs::logging::get());
     svs::logging::trace(logger, "Entering split buffer optimization routine");
     assert(
         current.buffer_config_.get_search_window_size() ==
@@ -350,7 +349,6 @@ VamanaSearchParameters tune_prefetch(
     const DoSearch& do_search,
     svs::logging::logger_ptr logger
 ) {
-    assert(logger != svs::logging::get());
     svs::logging::trace(logger, "Tuning prefetch parameters");
     const auto& prefetch_steps = calibration_parameters.prefetch_steps_;
     size_t max_lookahead = index.max_degree();
