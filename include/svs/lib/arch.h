@@ -29,7 +29,6 @@ enum class MicroArch {
 #if defined(__x86_64__)
     // Refer to the GCC docs for the list of targeted architectures:
     // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
-    x86_64_v2,
     nehalem,
     westmere,
     sandybridge,
@@ -68,16 +67,6 @@ struct MicroArchInfo {
 inline const std::unordered_map<MicroArch, MicroArchInfo>& get_microarch_info_map() {
     static const std::unordered_map<MicroArch, MicroArchInfo> microarch_info = {
 #if defined(__x86_64__)
-        {MicroArch::x86_64_v2,
-         {std::nullopt,
-          {ISAExt::SSE3,
-           ISAExt::SSSE3,
-           ISAExt::SSE4_1,
-           ISAExt::SSE4_2,
-           ISAExt::POPCNT,
-           ISAExt::CX16,
-           ISAExt::SAHF},
-          "x86_64_v2"}},
         {MicroArch::nehalem,
          {std::nullopt,
           {ISAExt::MMX,
@@ -259,7 +248,6 @@ class MicroArchEnvironment {
     MicroArchEnvironment() {
         const std::vector<MicroArch> compiled_archs = {
 #if defined(__x86_64__)
-            SVS_MICROARCH_COMPILED_x86_64_v2
             SVS_MICROARCH_COMPILED_nehalem
             SVS_MICROARCH_COMPILED_westmere
             SVS_MICROARCH_COMPILED_sandybridge
@@ -309,7 +297,6 @@ class MicroArchEnvironment {
     svs::arch::MicroArch cpu_arch =                                                        \
         svs::arch::MicroArchEnvironment::get_instance().get_microarch();                   \
     switch (cpu_arch) {                                                                    \
-        SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v2(cls, method, SVS_PACK_ARGS(args))        \
         SVS_CLASS_METHOD_MICROARCH_CASE_nehalem(cls, method, SVS_PACK_ARGS(args))          \
         SVS_CLASS_METHOD_MICROARCH_CASE_westmere(cls, method, SVS_PACK_ARGS(args))         \
         SVS_CLASS_METHOD_MICROARCH_CASE_sandybridge(cls, method, SVS_PACK_ARGS(args))      \

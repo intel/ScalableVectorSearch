@@ -24,15 +24,6 @@
 // TODO: autogenerate this list
 #if defined(__x86_64__)
 
-#if defined(SVS_MICROARCH_SUPPORT_x86_64_v2)
-#define SVS_MICROARCH_COMPILED_x86_64_v2 MicroArch::x86_64_v2,
-#define SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v2(cls, method, args) \
-    SVS_CLASS_METHOD_MICROARCH_CASE(x86_64_v2, cls, method, SVS_PACK_ARGS(args))
-#else
-#define SVS_MICROARCH_COMPILED_x86_64_v2
-#define SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v2(cls, method, args)
-#endif
-
 #if defined(SVS_MICROARCH_SUPPORT_nehalem)
 #define SVS_MICROARCH_COMPILED_nehalem MicroArch::nehalem,
 #define SVS_CLASS_METHOD_MICROARCH_CASE_nehalem(cls, method, args) \
