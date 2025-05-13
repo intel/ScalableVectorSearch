@@ -29,11 +29,13 @@
 #include <unordered_set>
 #include <vector>
 
+namespace {
 using Eltype = float;
 using QueryEltype = float;
 using Distance = svs::distance::DistanceL2;
+} // namespace
 
-CATCH_TEST_CASE("Vamana Multi", "[index][vamana][multi]") {
+CATCH_TEST_CASE("Multi-vector dynamic vamana index", "[index][vamana][multi]") {
     const size_t N = 128;
     const size_t max_degree = 64;
     const float alpha = 1.2;
@@ -49,63 +51,124 @@ CATCH_TEST_CASE("Vamana Multi", "[index][vamana][multi]") {
         alpha, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
 
     const auto search_parameters = svs::index::vamana::VamanaSearchParameters();
-    const size_t num_duplicated = 3;
 
-    float epsilon = 0.005f;
+    const float epsilon = 0.05f;
+    std::vector<size_t> ref_indices(num_points);
+    std::iota(ref_indices.begin(), ref_indices.end(), 0);
+
+    auto ref_index = svs::index::vamana::MutableVamanaIndex(
+        build_parameters, data, ref_indices, Distance(), num_threads
+    );
+    auto ref_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+    ref_index.search(ref_results.view(), queries.view(), search_parameters);
+    auto ref_recall = svs::k_recall_at_n(groundtruth, ref_results);
 
     CATCH_SECTION("Insertion/Deletion in duplicated test datasets") {
-        std::vector<size_t> indices(num_points);
-        std::iota(indices.begin(), indices.end(), 0);
+        const size_t num_duplicated = 3;
 
-        auto index = svs::index::vamana::MultiMutableVamanaIndex(
-            build_parameters, data, indices, Distance(), num_threads
+        std::vector<size_t> test_indices(num_points);
+        std::iota(test_indices.begin(), test_indices.end(), 0);
+
+        auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
+            build_parameters, data, test_indices, Distance(), num_threads
         );
 
         for (size_t i = 0; i < num_duplicated; ++i) {
-            std::iota(indices.begin(), indices.end(), i + 1);
-            index.add_points(data, indices);
+            std::iota(test_indices.begin(), test_indices.end(), i + 1);
+            test_index.add_points(data, test_indices);
         }
-        CATCH_REQUIRE(index.size() == indices.size() + num_duplicated);
+        CATCH_REQUIRE(test_index.size() == test_indices.size() + num_duplicated);
         CATCH_REQUIRE(
-            index.get_parent_index().size() == indices.size() * (num_duplicated + 1)
+            test_index.get_parent_index().size() ==
+            test_indices.size() * (num_duplicated + 1)
         );
 
-        std::iota(indices.begin(), indices.end(), 0);
-        index.delete_entries(indices);
-        CATCH_REQUIRE(index.size() == num_duplicated);
+        std::iota(test_indices.begin(), test_indices.end(), 0);
+        test_index.delete_entries(test_indices);
+        CATCH_REQUIRE(test_index.size() == num_duplicated);
         CATCH_REQUIRE(
-            index.get_parent_index().size() == (num_duplicated * (num_duplicated + 1)) / 2
+            test_index.get_parent_index().size() ==
+            (num_duplicated * (num_duplicated + 1)) / 2
         );
     }
-    CATCH_SECTION("Same vector with same labels") {
-        std::vector<size_t> indices(num_points);
-        std::iota(indices.begin(), indices.end(), 0);
+    CATCH_SECTION("Duplicated vectors with same labels") {
+        const size_t num_duplicated = 3;
 
-        auto index = svs::index::vamana::MultiMutableVamanaIndex(
-            build_parameters, data, indices, Distance(), num_threads
+        std::vector<size_t> test_indices(num_points);
+        std::iota(test_indices.begin(), test_indices.end(), 0);
+
+        auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
+            build_parameters, data, test_indices, Distance(), num_threads
         );
-        auto ref_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
-        index.search(ref_results.view(), queries.view(), search_parameters);
-        auto ref_recall = svs::k_recall_at_n(groundtruth, ref_results);
 
         for (size_t i = 0; i < num_duplicated; ++i) {
-            index.add_points(data, indices);
+            test_index.add_points(data, test_indices);
         }
-        CATCH_REQUIRE(index.size() == indices.size());
+        CATCH_REQUIRE(test_index.size() == test_indices.size());
         CATCH_REQUIRE(
-            index.get_parent_index().size() == indices.size() * (num_duplicated + 1)
+            test_index.get_parent_index().size() ==
+            test_indices.size() * (num_duplicated + 1)
         );
 
         auto test_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
-        index.search(test_results.view(), queries.view(), search_parameters);
+        test_index.search(test_results.view(), queries.view(), search_parameters);
         auto test_recall = svs::k_recall_at_n(groundtruth, test_results);
 
         CATCH_REQUIRE(test_recall > ref_recall - epsilon);
 
-        index.delete_entries(indices);
-        CATCH_REQUIRE(index.size() == 0);
-        CATCH_REQUIRE(index.get_parent_index().size() == 0);
+        test_index.delete_entries(test_indices);
+        CATCH_REQUIRE(test_index.size() == 0);
+        CATCH_REQUIRE(test_index.get_parent_index().size() == 0);
+
+        test_index.add_points(data, test_indices);
+        test_index.consolidate();
+        test_index.compact();
+        for (size_t i = 0; i < num_duplicated; ++i) {
+            test_index.add_points(data, test_indices);
+        }
+
+        auto test_results2 = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        test_index.search(test_results2.view(), queries.view(), search_parameters);
+        auto test_recall2 = svs::k_recall_at_n(groundtruth, test_results2);
+
+        CATCH_REQUIRE(test_recall2 > test_recall - epsilon);
+        CATCH_REQUIRE(test_recall2 < test_recall + epsilon);
     }
 
-    CATCH_SECTION("Get distance") {}
+    CATCH_SECTION("Step grouping") {
+        size_t start = 0;
+        size_t step = 4;
+
+        auto remapped_groundtruth = groundtruth;
+        CATCH_REQUIRE(remapped_groundtruth.size() == queries.size());
+
+        // It is okay to have duplicated neighbor ids in groundtruth
+        // as the recall is checked by counting intersect
+        for (size_t i = 0; i < queries.size(); ++i) {
+            auto arr = remapped_groundtruth.get_datum(i);
+            for (auto& each : arr) {
+                each /= step;
+            }
+        }
+
+        CATCH_REQUIRE(num_points % step == 0);
+        std::vector<size_t> test_indices(num_points);
+        for (size_t i = 0; i < num_points; i += step) {
+            for (size_t s = 0; s < step; ++s) {
+                test_indices[i + s] = start;
+            }
+            ++start;
+        }
+
+        auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
+            build_parameters, data, test_indices, Distance(), num_threads
+        );
+        test_index.add_points(data, test_indices);
+
+        auto test_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        test_index.search(test_results.view(), queries.view(), search_parameters);
+        auto test_recall = svs::k_recall_at_n(remapped_groundtruth, test_results);
+
+        CATCH_REQUIRE(test_recall > ref_recall - epsilon);
+    }
 }

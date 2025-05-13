@@ -56,11 +56,17 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         const auto& external_to_label = index_.get_external_to_label_lookup();
+        auto results_copy = results_;
         results_.clear();
         get_results_from_extra(batch_size);
 
         while (results_.size() < batch_size && !batch_iterator_.done()) {
-            batch_iterator_.next(batch_size, cancel);
+            try {
+                batch_iterator_.next(batch_size, cancel);
+            } catch (const ANNException& error) {
+                results_ = std::move(results_copy);
+                throw error;
+            }
             for (auto& result : batch_iterator_) {
                 auto label = external_to_label.at(result.id());
 
@@ -75,28 +81,28 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
                 }
             }
         }
+
+        ++iteration_;
         return;
     }
 
+    size_t batch_number() const { return iteration_; }
+
     void update(std::span<const QueryType> newquery) {
+        iteration_ = 0;
         returned_.clear();
         results_.clear();
         extra_results_.clear();
         batch_iterator_.update(newquery);
     }
 
-    /// @brief Returns an iterator to the beginning of the results.
     iterator begin() { return results_.begin(); }
-    /// @brief Returns an iterator to the end of the results.
     iterator end() { return results_.end(); }
-    /// @copydoc begin()
     const_iterator begin() const { return results_.begin(); }
-    /// @copydoc end()
     const_iterator end() const { return results_.end(); }
-    /// @copydoc begin()
     const_iterator cbegin() const { return results_.cbegin(); }
-    /// @copydoc begin()
     const_iterator cend() const { return results_.cend(); }
+    size_t size() const { return results_.size(); }
 
     bool done() const { return batch_iterator_.done() && extra_results_.empty(); }
 
@@ -124,21 +130,30 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     }
 
     Index& index_;
+    size_t iteration_ = 0;
     std::unordered_set<label_type> returned_;
     std::vector<Neighbor<label_type>> results_;
     std::vector<Neighbor<label_type>> extra_results_;
     BatchIterator<ParentIndex, QueryType> batch_iterator_;
 };
 
-template <typename Data, typename Dist> class MultiMutableVamanaIndex {
+template <graphs::MemoryGraph Graph, typename Data, typename Dist>
+class MultiMutableVamanaIndex {
   public:
-    using Graph = graphs::SimpleBlockedGraph<uint32_t>;
+    static constexpr bool supports_insertions = true;
+    static constexpr bool supports_deletions = true;
+    static constexpr bool supports_saving = false; // temporary disable for now
+    static constexpr bool needs_id_translation = true;
+
     using ParentIndex = MutableVamanaIndex<Graph, Data, Dist>;
     using Idx = typename ParentIndex::Idx;
     using search_parameters_type = typename ParentIndex::search_parameters_type;
     using external_id_type = typename ParentIndex::external_id_type;
+    using scratchspace_type = typename ParentIndex::scratchspace_type;
     using distance_type = Dist;
     using label_type = size_t;
+    using graph_type = Graph;
+    using data_type = Data;
 
   private:
     distance_type distance_;
@@ -163,7 +178,7 @@ template <typename Data, typename Dist> class MultiMutableVamanaIndex {
     }
 
   public:
-    template <typename ThreadPoolProto, typename Labels>
+    template <typename Labels, typename ThreadPoolProto>
     MultiMutableVamanaIndex(
         const VamanaBuildParameters& parameters,
         Data data,
@@ -182,7 +197,72 @@ template <typename Data, typename Dist> class MultiMutableVamanaIndex {
             std::move(adds),
             distance_,
             std::move(threadpool_proto),
-            logger
+            std::move(logger)
+        );
+    }
+
+    template <typename Labels, typename ThreadPoolProto>
+    MultiMutableVamanaIndex(
+        Graph graph,
+        Data data,
+        label_type entry_point,
+        Dist distance_function,
+        const Labels& labels,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : distance_(std::move(distance_function)) {
+        std::vector<external_id_type> adds;
+        adds.reserve(labels.size());
+        prepare_added_id_by_label(labels, adds);
+
+        index_ = std::make_unique<ParentIndex>(
+            std::move(graph),
+            std::move(data),
+            label_to_external_.at(entry_point),
+            distance_,
+            std::move(adds),
+            std::move(threadpool_proto),
+            std::move(logger)
+        );
+    }
+
+    // change translator to label -> external_id
+    // create a transformed translator where external_id == internal_id
+    template <threads::ThreadPool Pool>
+    MultiMutableVamanaIndex(
+        const VamanaIndexParameters& config,
+        data_type data,
+        graph_type graph,
+        const Dist& distance_function,
+        IDTranslator translator,
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : distance_(std::move(distance_function)) {
+        std::vector<label_type> labels(translator.size());
+        std::transform(
+            translator.begin(),
+            translator.end(),
+            labels.begin(),
+            [](const auto& ext_int) { return ext_int.first; }
+        );
+
+        std::vector<external_id_type> adds;
+        adds.reserve(translator.size());
+        prepare_added_id_by_label(labels, adds);
+
+        IDTranslator transformed_translator;
+        transformed_translator.insert(adds, threads::UnitRange<Idx>(0, adds.size()));
+
+        index_ = std::make_unique<ParentIndex>(
+            config,
+            std::move(data),
+            std::move(graph),
+            distance_,
+            transformed_translator,
+            std::move(threadpool),
+            std::move(logger)
         );
     }
 
@@ -242,6 +322,15 @@ template <typename Data, typename Dist> class MultiMutableVamanaIndex {
         index_->delete_entries(deletes);
     }
 
+    template <typename Query>
+    void search(
+        const Query& query,
+        scratchspace_type& scratch,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    ) const {
+        index_->search(query, scratch, cancel);
+    }
+
     template <typename I, data::ImmutableMemoryDataset Queries>
     void search(
         QueryResultView<I> results,
@@ -260,7 +349,7 @@ template <typename Data, typename Dist> class MultiMutableVamanaIndex {
 
                 // use batch iterator to search
                 for (auto i : is) {
-                    auto batch_iterator = generate_batch_iterator(queries.get_datum(i));
+                    auto batch_iterator = make_batch_iterator(queries.get_datum(i), 1);
                     batch_iterator.next(num_neighbors, cancel);
                     size_t j{0};
                     for (auto& res : batch_iterator) {
@@ -283,8 +372,11 @@ template <typename Data, typename Dist> class MultiMutableVamanaIndex {
     void consolidate() { index_->consolidate(); }
 
     template <typename QueryType>
-    auto generate_batch_iterator(std::span<const QueryType> query) const {
-        return MultiBatchIterator(*this, query, 1);
+    auto make_batch_iterator(
+        std::span<const QueryType> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
+    ) const {
+        return MultiBatchIterator(*this, query, extra_search_buffer_capacity);
     }
 
     void set_threadpool(threads::ThreadPoolHandle threadpool) {
@@ -313,6 +405,105 @@ template <typename Data, typename Dist> class MultiMutableVamanaIndex {
     }
 
     size_t size() const { return label_to_external_.size(); }
+
+    // scrathspace from parent index
+    scratchspace_type scratchspace(const search_parameters_type& sp) const {
+        return index_->scratchspace(sp);
+    }
+
+    // scrathspace from parent index
+    scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
+
+    // translate internal id -> external id -> label
+    label_type translate_internal_id(Idx i) const {
+        return external_to_label_.at(index_->translate_internal_id(i));
+    }
+
+    VamanaSearchParameters get_search_parameters() const { return index_->get(); }
 };
+
+///// Deduction Guides.
+// Guide for building.
+template <typename Data, typename Dist, typename ExternalIds>
+MultiMutableVamanaIndex(
+    const VamanaBuildParameters&, Data, const ExternalIds&, Dist, size_t
+) -> MultiMutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+
+template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
+MultiMutableVamanaIndex(const VamanaBuildParameters&, Data, const ExternalIds&, Dist, Pool)
+    -> MultiMutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+
+// Guide with logging
+template <typename Data, typename Dist, typename ExternalIds, threads::ThreadPool Pool>
+MultiMutableVamanaIndex(
+    const VamanaBuildParameters&,
+    Data,
+    const ExternalIds&,
+    Dist,
+    Pool,
+    svs::logging::logger_ptr
+) -> MultiMutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+
+template <
+    typename GraphLoader,
+    typename DataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_multi_dynamic_assemble(
+    const std::filesystem::path& config_path,
+    GraphLoader&& graph_loader,
+    DataLoader&& data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    // Set this to `true` to use the identity map for ID translation.
+    // This allows us to read files generated by the static index construction routines
+    // to easily benchmark the static versus dynamic implementation.
+    //
+    // This is an internal API and should not be considered officially supported nor stable.
+    bool debug_load_from_static = false,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    // Load the dataset
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    auto data = svs::detail::dispatch_load(SVS_FWD(data_loader), threadpool);
+
+    // Load the graph.
+    auto graph = svs::detail::dispatch_load(SVS_FWD(graph_loader), threadpool);
+
+    // Make sure the data and the graph have the same size.
+    auto datasize = data.size();
+    auto graphsize = graph.n_nodes();
+    if (datasize != graphsize) {
+        throw ANNEXCEPTION(
+            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
+        );
+    }
+    auto [parameters, translator] = lib::load_from_disk<detail::VamanaStateLoader>(
+        config_path, debug_load_from_static, datasize
+    );
+
+    // Make sure that the translator covers all the IDs in the graph and data.
+    auto translator_size = translator.size();
+    if (translator_size != datasize) {
+        throw ANNEXCEPTION(
+            "Translator has {} IDs but should have {}", translator_size, datasize
+        );
+    }
+
+    for (size_t i = 0; i < datasize; ++i) {
+        if (!translator.has_internal(i)) {
+            throw ANNEXCEPTION("Translator is missing internal id {}", i);
+        }
+    }
+
+    return MultiMutableVamanaIndex{
+        parameters,
+        std::move(data),
+        std::move(graph),
+        std::move(distance),
+        std::move(translator),
+        std::move(threadpool),
+        std::move(logger)};
+}
 
 } // namespace svs::index::vamana
