@@ -19,7 +19,7 @@ FetchContent_Declare(
     GIT_TAG v1.4.0
 )
 
-set(TSL_ROBIN_MAP_ENABLE_INSTALL ON)
+set(TSL_ROBIN_MAP_ENABLE_INSTALL ON CACHE BOOL "Enable robin-map install logic" FORCE)
 
 FetchContent_MakeAvailable(RobinMap)
 target_link_libraries(${SVS_LIB} INTERFACE tsl::robin_map)
