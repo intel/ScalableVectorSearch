@@ -22,6 +22,7 @@
 #include "tests/utils/vamana_reference.h"
 
 // catch2
+#include "catch2/catch_template_test_macros.hpp"
 #include "catch2/catch_test_macros.hpp"
 
 // stl
@@ -30,14 +31,33 @@
 #include <vector>
 
 namespace {
-using Eltype = float;
-using Distance = svs::distance::DistanceL2;
+
+template <typename Distance> float pick_alpha(Distance SVS_UNUSED(dist)) {
+    if constexpr (std::is_same_v<Distance, svs::DistanceL2>) {
+        return 1.2;
+    } else if constexpr (std::is_same_v<Distance, svs::DistanceIP>) {
+        return 0.95;
+    } else if constexpr (std::is_same_v<Distance, svs::DistanceCosineSimilarity>) {
+        return 0.95;
+    } else {
+        throw ANNEXCEPTION("Unsupported distance type!");
+    }
+}
+
 } // namespace
 
-CATCH_TEST_CASE("Multi-vector dynamic vamana index", "[index][vamana][multi]") {
+CATCH_TEMPLATE_TEST_CASE(
+    "Multi-vector dynamic vamana index",
+    "[index][vamana][multi]",
+    svs::DistanceL2,
+    svs::DistanceIP,
+    svs::DistanceCosineSimilarity
+) {
+    using Eltype = float;
+    using Distance = TestType;
     const size_t N = 128;
     const size_t max_degree = 64;
-    const float alpha = 1.2;
+    const float alpha = pick_alpha(Distance());
     const size_t num_threads = 4;
     const size_t num_neighbors = 10;
 

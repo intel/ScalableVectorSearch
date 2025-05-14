@@ -58,24 +58,22 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     ) {
         const auto& external_to_label = index_.get_external_to_label_lookup();
         auto results_copy = results_;
-        auto extra_results_copy = extra_results_;
         results_.clear();
         get_results_from_extra(batch_size);
 
         while (results_.size() < batch_size && !batch_iterator_.done()) {
             try {
-                batch_iterator_.next(batch_size + 10, cancel);
+                batch_iterator_.next(batch_size, cancel);
             } catch (const ANNException& error) {
                 results_ = std::move(results_copy);
-                extra_results_ = std::move(extra_results_copy);
                 throw error;
             }
             for (auto& result : batch_iterator_) {
                 auto label = external_to_label.at(result.id());
 
                 if (returned_.find(label) == returned_.end()) {
-                    returned_.insert(label);
                     if (results_.size() < batch_size) {
+                        returned_.insert(label);
                         results_.push_back(Neighbor<label_type>{label, result.distance()});
                     } else {
                         extra_results_.push_back(Neighbor<label_type>{
@@ -117,12 +115,12 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
         std::sort(extra_results_.rbegin(), extra_results_.rend(), TotalOrder(compare{}));
 
         while (results_.size() < batch_size && !extra_results_.empty()) {
-            auto top = extra_results_.front();
+            auto best = extra_results_.back();
             extra_results_.pop_back();
 
-            if (returned_.find(top.id()) == returned_.end()) {
-                returned_.insert(top.id());
-                results_.push_back(std::move(top));
+            if (returned_.find(best.id()) == returned_.end()) {
+                returned_.insert(best.id());
+                results_.push_back(std::move(best));
             }
         }
 
