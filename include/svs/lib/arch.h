@@ -374,8 +374,9 @@ auto dispatch_by_arch(Functor&& f, Args&&... args) {
 
         default:
             throw std::invalid_argument("Unsupported microarchitecture");
-            // clang-format on
+
     }
+    // clang-format on
 }
 
 // clang-format off
