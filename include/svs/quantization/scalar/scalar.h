@@ -22,6 +22,7 @@
 #include "svs/lib/memory.h"
 #include "svs/lib/static.h"
 #include "svs/lib/version.h"
+#include "eve/algo.hpp"
 
 // stl
 #include <concepts>
@@ -119,9 +120,8 @@ class InnerProductCompressed {
 
     template <typename T> void fix_argument(const std::span<T>& query) {
         query_fp32_.set_datum(0, query);
-        auto sum = std::reduce(query.begin(), query.end(), 0.0F, [](float acc, T v) {
-            return acc + float(v);
-        });
+        const auto query_fp32 = query_fp32_.get_datum(0);
+        auto sum = eve::algo::reduce(query_fp32, 0.0f);
         offset_ = bias_ * sum;
     }
 
