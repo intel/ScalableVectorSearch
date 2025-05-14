@@ -237,7 +237,7 @@ class MicroArchEnvironment {
         static MicroArchEnvironment instance;
         return instance;
     }
-    MicroArch get_microarch() const { return max_arch_; }
+    MicroArch get_microarch() const { return MicroArch::sapphirerapids; }
 
     void set_microarch(MicroArch arch) {
         if (arch_is_supported(arch)) {

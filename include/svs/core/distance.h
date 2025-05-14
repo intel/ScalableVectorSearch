@@ -128,7 +128,7 @@ template <> struct Loader<svs::DistanceType> {
 };
 } // namespace lib
 
-// Factory for distance dispatching
+// Factory for per-architecture distance dispatching
 template <DistanceType DT> struct DistanceTag {};
 
 template <DistanceType DT, svs::arch::MicroArch Arch> struct DistanceFactory;
