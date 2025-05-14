@@ -41,7 +41,7 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     using const_iterator = typename result_buffer_type::const_iterator;
 
     using ParentIndex = typename Index::ParentIndex;
-    using compare = Index::compare;
+    using compare = typename Index::compare;
 
   public:
     MultiBatchIterator(
