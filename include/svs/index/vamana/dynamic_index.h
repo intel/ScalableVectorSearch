@@ -688,7 +688,7 @@ class MutableVamanaIndex {
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
-        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace);
+        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
@@ -935,11 +935,10 @@ class MutableVamanaIndex {
         assert(entry_point_.size() == 1);
         auto entry_point = entry_point_[0];
         if (status_.at(entry_point) == SlotMetadata::Deleted) {
-            auto logger = svs::logging::get();
-            svs::logging::debug(logger, "Replacing entry point.");
+            svs::logging::debug(logger_, "Replacing entry point.");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
-            svs::logging::debug(logger, "New point: {}", new_entry_point);
+            svs::logging::debug(logger_, "New point: {}", new_entry_point);
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
         }
@@ -1051,7 +1050,8 @@ class MutableVamanaIndex {
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger_
         );
 
         set_search_parameters(p);
@@ -1267,6 +1267,15 @@ MutableVamanaIndex(
     svs::logging::logger_ptr
 ) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+template <typename Data, typename Dist, typename ExternalIds>
+MutableVamanaIndex(
+    const VamanaBuildParameters&,
+    Data,
+    const ExternalIds&,
+    Dist,
+    size_t,
+    svs::logging::logger_ptr
+) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 namespace detail {
 
 struct VamanaStateLoader {

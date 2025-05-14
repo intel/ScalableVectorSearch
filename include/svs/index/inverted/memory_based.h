@@ -577,7 +577,8 @@ auto auto_build(
         lib::as_const_span(centroids),
         parameters.primary_parameters_,
         distance,
-        std::move(threadpool)
+        std::move(threadpool),
+        logger
     );
 
     // Cluster the dataset with the help of the primary index.

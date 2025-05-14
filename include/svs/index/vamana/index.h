@@ -99,8 +99,12 @@ struct VamanaIndexParameters {
         return schema == serialization_schema && version <= save_version;
     }
 
-    static VamanaIndexParameters load_legacy(const lib::ContextFreeLoadTable& table) {
+    static VamanaIndexParameters load_legacy(
+        const lib::ContextFreeLoadTable& table,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
         svs::logging::warn(
+            logger,
             "Loading a legacy IndexParameters class. Please consider resaving this "
             "index to update the save version and prevent future breaking!\n"
         );

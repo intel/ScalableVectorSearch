@@ -158,7 +158,8 @@ data::SimpleData<float> train_impl(
     const KMeansParameters& parameters,
     const Data& data,
     Pool& threadpool,
-    Callback&& post_epoch_callback = lib::donothing()
+    Callback&& post_epoch_callback = lib::donothing(),
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     size_t ndims = data.dimensions();
     auto num_clusters = parameters.clusters;
@@ -211,7 +212,7 @@ data::SimpleData<float> train_impl(
             old_counts[i] = 0;
         }
     }
-    svs::logging::debug("{}", timer);
+    svs::logging::debug(logger, "{}", timer);
     return centroids;
 }
 
@@ -223,11 +224,12 @@ data::SimpleData<float> train(
     const KMeansParameters& parameters,
     const Data& data,
     ThreadPoolProto threadpool_proto,
-    Callback&& post_epoch_callback = lib::donothing()
+    Callback&& post_epoch_callback = lib::donothing(),
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return train_impl(
-        parameters, data, threadpool, std::forward<Callback>(post_epoch_callback)
+        parameters, data, threadpool, std::forward<Callback>(post_epoch_callback), logger
     );
 }
 
@@ -239,10 +241,11 @@ data::SimpleData<float> train(
     const KMeansParameters& parameters,
     const Data& data,
     Pool& threadpool,
-    Callback&& post_epoch_callback = lib::donothing()
+    Callback&& post_epoch_callback = lib::donothing(),
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     return train_impl(
-        parameters, data, threadpool, std::forward<Callback>(post_epoch_callback)
+        parameters, data, threadpool, std::forward<Callback>(post_epoch_callback), logger
     );
 }
 } // namespace svs
