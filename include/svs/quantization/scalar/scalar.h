@@ -22,7 +22,7 @@
 #include "svs/lib/memory.h"
 #include "svs/lib/static.h"
 #include "svs/lib/version.h"
-#include "eve/algo.hpp"
+#include "eve/module/algo.hpp"
 
 // stl
 #include <concepts>
