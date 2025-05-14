@@ -31,7 +31,6 @@
 
 namespace {
 using Eltype = float;
-using QueryEltype = float;
 using Distance = svs::distance::DistanceL2;
 } // namespace
 
@@ -138,6 +137,8 @@ CATCH_TEST_CASE("Multi-vector dynamic vamana index", "[index][vamana][multi]") {
     CATCH_SECTION("Step grouping") {
         size_t start = 0;
         size_t step = 4;
+        CATCH_REQUIRE(num_points % step == 0);
+        size_t num_groups = num_points / step;
 
         auto remapped_groundtruth = groundtruth;
         CATCH_REQUIRE(remapped_groundtruth.size() == queries.size());
@@ -151,7 +152,6 @@ CATCH_TEST_CASE("Multi-vector dynamic vamana index", "[index][vamana][multi]") {
             }
         }
 
-        CATCH_REQUIRE(num_points % step == 0);
         std::vector<size_t> test_indices(num_points);
         for (size_t i = 0; i < num_points; i += step) {
             for (size_t s = 0; s < step; ++s) {
@@ -170,5 +170,32 @@ CATCH_TEST_CASE("Multi-vector dynamic vamana index", "[index][vamana][multi]") {
         auto test_recall = svs::k_recall_at_n(remapped_groundtruth, test_results);
 
         CATCH_REQUIRE(test_recall > ref_recall - epsilon);
+
+        // test get_distance
+        for (size_t i = 0; i < queries.size(); ++i) {
+            size_t k = std::rand() % num_groups;
+            double ref_distance = svs::INVALID_DISTANCE;
+            for (size_t s = 0; s < step; ++s) {
+                if constexpr (std::is_same_v<Distance, svs::distance::DistanceL2>) {
+                    ref_distance = std::fmin(
+                        ref_distance,
+                        ref_index.get_distance(
+                            ref_indices[k * step + s], queries.get_datum(i)
+                        )
+                    );
+                } else {
+                    ref_distance = std::fmax(
+                        ref_distance,
+                        ref_index.get_distance(
+                            ref_indices[k * step + s], queries.get_datum(i)
+                        )
+                    );
+                }
+            }
+
+            double test_distance =
+                test_index.get_distance(test_indices[k * step], queries.get_datum(i));
+            CATCH_REQUIRE(test_distance == ref_distance);
+        }
     }
 }

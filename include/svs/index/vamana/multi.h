@@ -41,6 +41,7 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     using const_iterator = typename result_buffer_type::const_iterator;
 
     using ParentIndex = typename Index::ParentIndex;
+    using compare = Index::compare;
 
   public:
     MultiBatchIterator(
@@ -57,14 +58,16 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     ) {
         const auto& external_to_label = index_.get_external_to_label_lookup();
         auto results_copy = results_;
+        auto extra_results_copy = extra_results_;
         results_.clear();
         get_results_from_extra(batch_size);
 
         while (results_.size() < batch_size && !batch_iterator_.done()) {
             try {
-                batch_iterator_.next(batch_size, cancel);
+                batch_iterator_.next(batch_size + 10, cancel);
             } catch (const ANNException& error) {
                 results_ = std::move(results_copy);
+                extra_results_ = std::move(extra_results_copy);
                 throw error;
             }
             for (auto& result : batch_iterator_) {
@@ -110,11 +113,8 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
 
   private:
     void get_results_from_extra(size_t batch_size) {
-        std::sort(
-            extra_results_.begin(),
-            extra_results_.end(),
-            std::greater<Neighbor<label_type>>{}
-        );
+        // sort to get the best candidate from the back
+        std::sort(extra_results_.rbegin(), extra_results_.rend(), TotalOrder(compare{}));
 
         while (results_.size() < batch_size && !extra_results_.empty()) {
             auto top = extra_results_.front();
@@ -146,6 +146,7 @@ class MultiMutableVamanaIndex {
     static constexpr bool needs_id_translation = true;
 
     using ParentIndex = MutableVamanaIndex<Graph, Data, Dist>;
+    using compare = distance::compare_t<Dist>;
     using Idx = typename ParentIndex::Idx;
     using search_parameters_type = typename ParentIndex::search_parameters_type;
     using external_id_type = typename ParentIndex::external_id_type;
@@ -272,20 +273,31 @@ class MultiMutableVamanaIndex {
 
     template <typename Query>
     double get_distance(label_type label, const Query& query) const {
-        double min = std::numeric_limits<double>::max();
+        double best = INVALID_DISTANCE;
         auto it = label_to_external_.find(label);
+
         if (it != label_to_external_.end()) {
             auto& vectors = (*it).second;
             for (auto each : vectors) {
-                min = std::min(min, index_->get_distance(each, query));
+                best = std::min(
+                    best,
+                    index_->get_distance(each, query),
+                    [](const double a, const double b) {
+                        if (std::isnan(a))
+                            return false;
+                        if (std::isnan(b))
+                            return true;
+                        return compare{}(a, b);
+                    }
+                );
             }
         }
 
-        return min;
+        return best;
     }
 
     template <data::ImmutableMemoryDataset Points, typename Labels>
-    std::vector<label_type>
+    std::vector<external_id_type>
     add_points(const Points& points, const Labels& labels, bool reuse_empty = false) {
         const size_t num_points = points.size();
         const size_t num_labels = labels.size();
@@ -335,8 +347,7 @@ class MultiMutableVamanaIndex {
     void search(
         QueryResultView<I> results,
         const Queries& queries,
-        const search_parameters_type& SVS_UNUSED(sp
-        ), // In this version, we assume search parameters are the same as index
+        const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         auto& borrow_threadpool = index_->get_threadpool_handle();
@@ -346,13 +357,18 @@ class MultiMutableVamanaIndex {
             threads::StaticPartition{queries.size()},
             [&](const auto is, uint64_t SVS_UNUSED(tid)) {
                 size_t num_neighbors = results.n_neighbors();
+                size_t batch_size =
+                    std::max(num_neighbors, sp.buffer_config_.get_search_window_size());
 
                 // use batch iterator to search
                 for (auto i : is) {
-                    auto batch_iterator = make_batch_iterator(queries.get_datum(i), 1);
-                    batch_iterator.next(num_neighbors, cancel);
+                    auto batch_iterator = make_batch_iterator(queries.get_datum(i), 10);
+                    batch_iterator.next(batch_size, cancel);
                     size_t j{0};
                     for (auto& res : batch_iterator) {
+                        if (j == num_neighbors) {
+                            break;
+                        }
                         results.set(res, i, j++);
                     }
 
