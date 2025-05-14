@@ -1275,7 +1275,7 @@ MutableVamanaIndex(
     Dist,
     size_t,
     svs::logging::logger_ptr
-)-> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
+) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 namespace detail {
 
 struct VamanaStateLoader {

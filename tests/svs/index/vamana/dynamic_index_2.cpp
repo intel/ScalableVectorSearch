@@ -261,7 +261,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     const size_t num_threads = 10;
     const float alpha = 1.2;
 
-    //Set up log
+    // Set up log
     std::vector<std::string> captured_logs;
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
         [&captured_logs](const spdlog::details::log_msg& msg) {
@@ -327,7 +327,12 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(
-        parameters, std::move(data_mutable), initial_indices, Distance(), num_threads, test_logger
+        parameters,
+        std::move(data_mutable),
+        initial_indices,
+        Distance(),
+        num_threads,
+        test_logger
     );
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
