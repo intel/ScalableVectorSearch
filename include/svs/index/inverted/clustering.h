@@ -778,7 +778,8 @@ auto build_primary_index(
     std::span<const I> ids,
     const vamana::VamanaBuildParameters& vamana_parameters,
     const Distance& distance,
-    Pool threadpool
+    Pool threadpool,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     return vamana::auto_build(
         vamana_parameters,
@@ -792,7 +793,8 @@ auto build_primary_index(
         }),
         distance,
         std::move(threadpool),
-        HugepageAllocator<I>()
+        HugepageAllocator<I>(),
+        logger
     );
 }
 

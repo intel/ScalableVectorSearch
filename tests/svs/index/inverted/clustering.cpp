@@ -396,6 +396,8 @@ CATCH_TEST_CASE("Random Clustering - End to End", "[inverted][random_clustering]
 CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
     // Setup logger
     std::vector<std::string> captured_logs;
+    std::vector<std::string> global_captured_logs;
+
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
         [&captured_logs](const spdlog::details::log_msg& msg) {
             captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
@@ -404,6 +406,15 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
     callback_sink->set_level(spdlog::level::trace); // Capture all log levels
     auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
     test_logger->set_level(spdlog::level::trace);
+
+    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&global_captured_logs](const spdlog::details::log_msg& msg) {
+            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    global_callback_sink->set_level(spdlog::level::trace);
+    auto original_logger = svs::logging::get();
+    original_logger->sinks().push_back(global_callback_sink);
 
     // Setup cluster
     auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
@@ -427,12 +438,14 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
         svs::lib::as_const_span(centroids),
         vamana_parameters,
         svs::DistanceL2(),
-        std::move(threadpool)
+        std::move(threadpool),
+        test_logger
     );
     auto clustering = svs::index::inverted::cluster_with(
         data, svs::lib::as_const_span(centroids), clustering_parameters, index, test_logger
     );
 
     // Verify the internal log messages
-    CATCH_REQUIRE(captured_logs[0].find("Processing batch") != std::string::npos);
+    CATCH_REQUIRE(global_captured_logs.empty());
+    CATCH_REQUIRE(captured_logs[0].find("Number of syncs") != std::string::npos);
 }
