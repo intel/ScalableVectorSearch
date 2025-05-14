@@ -15,9 +15,9 @@
  */
 
 #define SVS_PACK_ARGS(...) __VA_ARGS__
-#define SVS_CLASS_METHOD_MICROARCH_CASE(microarch, cls, method, args) \
-    case svs::arch::MicroArch::microarch:                             \
-        return cls<svs::arch::MicroArch::microarch>::method(args);    \
+#define SVS_CLASS_METHOD_MICROARCH_CASE(microarch, cls, method, args)   \
+    case svs::arch::MicroArch::microarch:                               \
+        return cls<svs::arch::MicroArch::sapphirerapids>::method(args); \
         break;
 #define SVS_TARGET_MICROARCH svs::arch::MicroArch::SVS_TUNE_TARGET
 

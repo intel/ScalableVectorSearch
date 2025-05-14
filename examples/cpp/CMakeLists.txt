@@ -52,7 +52,7 @@ configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
 # The vamana test executable.
 add_executable(vamana vamana.cpp ${MICROARCH_OBJECT_FILES})
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(vamana ${SVS_LIB} svs_compile_options svs_microarch_options_base)
+target_link_libraries(vamana ${SVS_LIB} svs_compile_options svs_microarch_options_sapphirerapids)
 add_test(
     NAME test_vamana
     COMMAND

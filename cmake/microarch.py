@@ -17,10 +17,8 @@
 # (1) A text file with compiler optimization flags for each microarchitecture formatted for
 #     relatively easy consumption by CMake.
 #
-import archspec
 import archspec.cpu as cpu
 import argparse
-import json
 
 
 def build_parser():
@@ -53,7 +51,7 @@ def resolve_microarch(name: str):
 
 def dump_flags_for_cmake(flags: list, path: str):
     """
-    Save the optimization flags to a text file suitable for CMake to injest easily.
+    Save the optimization flags to a text file suitable for CMake to ingest easily.
 
     Each entry in `flags` will be interpreted as a set of compiler flags for some
     microarchitecture. By default, archspec passes this as a space-delimited string.
@@ -68,13 +66,10 @@ def dump_flags_for_cmake(flags: list, path: str):
         flags - A list of optimization flags.
         path - The file path where the output text file will be generated.
     """
+    # white-space separated to comma-separated & one architecture per line
+    string = "\n".join([",".join(f.split()) for f in flags])
     with open(path, "w") as file:
-        num_flags = len(flags)
-        for i, flag_set in enumerate(flags):
-            file.write(",".join(flag_set.split()))
-            # Add a new line if not the last flag set.
-            if i != (num_flags - 1):
-                file.write('\n')
+        file.write(string)
 
 def resolve_compiler(name: str):
     """
@@ -98,26 +93,15 @@ def run():
     compiler = resolve_compiler(args.compiler)
     compiler_version = args.compiler_version
 
-    # Communicate the compiler environment to the python runtime.
-    toolchain = {
-        "compiler": compiler,
-        "compiler_version": compiler_version,
-    }
+    # Generate optimization flags.
     suffix_to_microarch = {}
     optimization_flags = []
 
-    # Generate optimization flags.
     for arch in architectures:
         resolved = resolve_microarch(arch)
         suffix_to_microarch[arch] = resolved
         flags = cpu.TARGETS[resolved].optimization_flags(compiler, compiler_version)
         optimization_flags.append(flags)
-
-    # Dump the JSON output
-    pre_json_dict = {
-        "toolchain": toolchain,
-        "libraries": suffix_to_microarch,
-    }
 
     # Safe flags to file
     dump_flags_for_cmake(optimization_flags, output_text)
