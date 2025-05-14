@@ -990,7 +990,7 @@ auto auto_assemble(
 }
 
 /// @brief Verify parameters and set defaults if needed
-template <typename Dist>
+template <typename Dist, svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline>
 void verify_and_set_default_index_parameters(
     VamanaBuildParameters& parameters, Dist distance_function
 ) {
@@ -1010,7 +1010,7 @@ void verify_and_set_default_index_parameters(
     // Check supported distance type using std::is_same type trait
     using dist_type = std::decay_t<decltype(distance_function)>;
     // Create type flags for each distance type
-    constexpr bool is_L2 = std::is_same_v<dist_type, svs::distance::DistanceL2>;
+    constexpr bool is_L2 = std::is_same_v<dist_type, svs::distance::DistanceL2<Arch>>;
     constexpr bool is_IP = std::is_same_v<dist_type, svs::distance::DistanceIP>;
     constexpr bool is_Cosine =
         std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;

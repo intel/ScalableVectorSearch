@@ -288,8 +288,8 @@ template <typename Element, typename Data> struct Compressor {
 // Map from baseline distance functors to the local versions.
 template <typename T, typename ElementType> struct CompressedDistance;
 
-template <typename ElementType>
-struct CompressedDistance<distance::DistanceL2, ElementType> {
+template <typename ElementType, svs::arch::MicroArch Arch>
+struct CompressedDistance<distance::DistanceL2<Arch>, ElementType> {
     using type = EuclideanCompressed<ElementType>;
 };
 

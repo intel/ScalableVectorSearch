@@ -36,7 +36,7 @@ struct LegacyPruneStrategy {};
 template <typename Distance> struct PruneStrategy;
 
 // Strategy for L2
-template <> struct PruneStrategy<distance::DistanceL2> {
+template <svs::arch::MicroArch Arch> struct PruneStrategy<distance::DistanceL2<Arch>> {
     using type = ProgressivePruneStrategy;
 };
 

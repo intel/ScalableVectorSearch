@@ -102,7 +102,9 @@ template <svs::arch::MicroArch Arch> class L2 {
 /// \ref compute_distancel2 "compute" method and is thus capable of being extended
 /// externally.
 ///
-struct DistanceL2 {
+template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceL2 {
+    static constexpr svs::arch::MicroArch arch = Arch;
+
     /// Vectors are more similar if their distance is smaller.
     using compare = std::less<>;
 
@@ -127,7 +129,11 @@ struct DistanceL2 {
     }
 };
 
-inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
+template <svs::arch::MicroArch Arch1, svs::arch::MicroArch Arch2>
+inline constexpr bool operator==(DistanceL2<Arch1>, DistanceL2<Arch2>) {
+    constexpr bool same = Arch1 == Arch2;
+    return same;
+}
 
 ///
 /// @ingroup distance_overload
@@ -151,18 +157,14 @@ inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
 /// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
-template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
-float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db, svs::arch::MicroArch Arch>
+float compute(DistanceL2<Arch> /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     assert(a.size() == b.size());
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            L2, compute, SVS_PACK_ARGS(a.data(), b.data(), a.size())
-        );
+        return L2<Arch>::compute(a.data(), b.data(), a.size());
     } else {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            L2, compute<extent>, SVS_PACK_ARGS(a.data(), b.data())
-        );
+        return L2<Arch>::template compute<extent>(a.data(), b.data());
     }
 }
 

@@ -30,10 +30,10 @@
 
 namespace svs {
 
-// Documentation for these classes lives with the classes themselves.
-using DistanceL2 = distance::DistanceL2;
-using DistanceIP = distance::DistanceIP;
-using DistanceCosineSimilarity = distance::DistanceCosineSimilarity;
+// // Documentation for these classes lives with the classes themselves.
+// using DistanceL2 = distance::DistanceL2;
+// using DistanceIP = distance::DistanceIP;
+// using DistanceCosineSimilarity = distance::DistanceCosineSimilarity;
 
 ///
 /// @brief Runtime selector for built-in distance functions.
@@ -76,7 +76,8 @@ inline DistanceType parse_distance_type(std::string_view str) {
 namespace detail {
 template <typename Distance> struct DistanceTypeEnumMap;
 
-template <> struct DistanceTypeEnumMap<distance::DistanceL2> {
+template <typename svs::arch::MicroArch Arch>
+struct DistanceTypeEnumMap<distance::DistanceL2<Arch>> {
     static constexpr DistanceType value = DistanceType::L2;
 };
 template <> struct DistanceTypeEnumMap<distance::DistanceIP> {
@@ -103,13 +104,15 @@ template <typename Dist> struct DistanceConverter {
     static std::string_view description() { return name(distance_type_v<Dist>); }
 };
 
+template <svs::arch::MicroArch Arch>
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceL2<Arch>>
+    : DistanceConverter<svs::distance::DistanceL2<Arch>> {};
 template <>
-struct lib::DispatchConverter<DistanceType, DistanceL2> : DistanceConverter<DistanceL2> {};
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceIP>
+    : DistanceConverter<svs::distance::DistanceIP> {};
 template <>
-struct lib::DispatchConverter<DistanceType, DistanceIP> : DistanceConverter<DistanceIP> {};
-template <>
-struct lib::DispatchConverter<DistanceType, DistanceCosineSimilarity>
-    : DistanceConverter<DistanceCosineSimilarity> {};
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceCosineSimilarity>
+    : DistanceConverter<svs::distance::DistanceCosineSimilarity> {};
 
 // Saving and Loading.
 namespace lib {
@@ -159,14 +162,20 @@ class DistanceDispatcher {
     ///
     template <typename F, typename... Args> auto operator()(F&& f, Args&&... args) {
         switch (distance_type_) {
+            // TODO: Retrieve max arch
             case DistanceType::L2: {
-                return f(DistanceL2{}, std::forward<Args>(args)...);
+                return f(
+                    svs::distance::DistanceL2<svs::arch::MicroArch::baseline>{},
+                    std::forward<Args>(args)...
+                );
             }
             case DistanceType::MIP: {
-                return f(DistanceIP{}, std::forward<Args>(args)...);
+                return f(svs::distance::DistanceIP{}, std::forward<Args>(args)...);
             }
             case DistanceType::Cosine: {
-                return f(DistanceCosineSimilarity{}, std::forward<Args>(args)...);
+                return f(
+                    svs::distance::DistanceCosineSimilarity{}, std::forward<Args>(args)...
+                );
             }
         }
         throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
