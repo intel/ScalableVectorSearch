@@ -128,6 +128,23 @@ template <> struct Loader<svs::DistanceType> {
 };
 } // namespace lib
 
+// Factory for distance dispatching
+template <DistanceType DT> struct DistanceTag {};
+
+template <DistanceType DT, svs::arch::MicroArch Arch> struct DistanceFactory;
+
+template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::L2, Arch> {
+    using type = svs::distance::DistanceL2<Arch>;
+};
+
+template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::MIP, Arch> {
+    using type = svs::distance::DistanceIP;
+};
+
+template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::Cosine, Arch> {
+    using type = svs::distance::DistanceCosineSimilarity;
+};
+
 ///
 /// @brief Dynamically dispatch from an distance enum to a distance functor.
 ///
@@ -162,10 +179,15 @@ class DistanceDispatcher {
     ///
     template <typename F, typename... Args> auto operator()(F&& f, Args&&... args) {
         switch (distance_type_) {
-            // TODO: Retrieve max arch
             case DistanceType::L2: {
-                return f(
-                    svs::distance::DistanceL2<svs::arch::MicroArch::sapphirerapids>{},
+                return svs::arch::dispatch_by_arch(
+                    [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
+                        using Distance =
+                            typename DistanceFactory<DistanceType::L2, Arch>::type;
+                        return f(
+                            Distance{}, std::forward<decltype(inner_args)>(inner_args)...
+                        );
+                    },
                     std::forward<Args>(args)...
                 );
             }

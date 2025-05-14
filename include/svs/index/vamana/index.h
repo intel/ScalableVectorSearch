@@ -1011,7 +1011,7 @@ void verify_and_set_default_index_parameters(
     using dist_type = std::decay_t<decltype(distance_function)>;
 
     // Create type flags for each distance type
-    constexpr bool is_L2 = dist_type::type == true; // TODO: Use proper type
+    constexpr bool is_L2 = dist_type::distance_type == true; // TODO: Use proper type
     constexpr bool is_IP = std::is_same_v<dist_type, svs::distance::DistanceIP>;
     constexpr bool is_Cosine =
         std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;

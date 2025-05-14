@@ -104,7 +104,8 @@ template <svs::arch::MicroArch Arch> class L2 {
 ///
 template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceL2 {
     static constexpr svs::arch::MicroArch arch = Arch;
-    static constexpr bool type = true; // TODO: Use proper type, like DistanceType Enum
+    static constexpr bool distance_type =
+        true; // TODO: Use proper type, like DistanceType Enum
 
     /// Vectors are more similar if their distance is smaller.
     using compare = std::less<>;
