@@ -362,7 +362,7 @@ class MicroArchEnvironment {
         SVS_PACK_ARGS(a_type, b_type),                                          \
         SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)              \
     )
-// Generic distance extent macro
+// Generic distance extern macro (required for external linking to uarch-specific implementations)
 #if defined(__x86_64__)
 
 #define SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
@@ -407,7 +407,7 @@ class MicroArchEnvironment {
         SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)              \
     )
 
-// Cosine distance extent macro
+// Cosine distance extern macro (required for external linking to uarch-specific implementations)
 #if defined(__x86_64__)
 
 #define SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
@@ -432,13 +432,11 @@ class MicroArchEnvironment {
 #if defined(__APPLE__)
 
 #define SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
-    SVS_EXTERN_CLASS_METHOD_m1(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_m2(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long))
 
 #else
 
 #define SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
-    SVS_EXTERN_CLASS_METHOD_neoverse_v1(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_neoverse_n2(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long))
 
 #endif
