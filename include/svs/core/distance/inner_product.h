@@ -45,12 +45,12 @@ template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct 
 template <svs::arch::MicroArch Arch> class IP {
   public:
     template <typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b, size_t N) {
         return IPImpl<Dynamic, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic(N));
     }
 
     template <size_t N, typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b) {
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b) {
         return IPImpl<N, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic<N>());
     }
 };
@@ -428,5 +428,19 @@ template <size_t N, svs::arch::MicroArch uarch> struct IPImpl<N, uint8_t, uint8_
     SVS_INST_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(                                  \
         IP, svs::float16::Float16, svs::float16::Float16                                 \
     )
+
+#define SVS_EXTERN_IP_DISTANCE                                               \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, int8_t, int8_t)               \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, uint8_t, uint8_t)             \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, float)                 \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, uint8_t)               \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, int8_t)                \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, svs::float16::Float16) \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, svs::float16::Float16, float) \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(                                  \
+        IP, svs::float16::Float16, svs::float16::Float16                     \
+    )
+
+SVS_EXTERN_IP_DISTANCE
 
 } // namespace svs::distance

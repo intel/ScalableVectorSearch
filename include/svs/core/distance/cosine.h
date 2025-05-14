@@ -46,14 +46,14 @@ struct CosineSimilarityImpl;
 template <svs::arch::MicroArch Arch> class CosineSimilarity {
   public:
     template <typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b, float a_norm, size_t N) {
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b, float a_norm, size_t N) {
         return CosineSimilarityImpl<Dynamic, Ea, Eb, Arch>::compute(
             a, b, a_norm, lib::MaybeStatic(N)
         );
     }
 
     template <size_t N, typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b, float a_norm) {
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b, float a_norm) {
         return CosineSimilarityImpl<N, Ea, Eb, Arch>::compute(
             a, b, a_norm, lib::MaybeStatic<N>()
         );
@@ -366,5 +366,19 @@ template <size_t N, svs::arch::MicroArch uarch> struct CosineSimilarityImpl<N, F
     SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
         CosineSimilarity, svs::float16::Float16, svs::float16::Float16 \
     )
+
+#define SVS_EXTERN_COSINE_DISTANCE                                                                \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, int8_t, int8_t)               \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, uint8_t, uint8_t)             \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, float)                 \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, uint8_t)               \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, int8_t)                \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, svs::float16::Float16) \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, svs::float16::Float16, float) \
+    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                                \
+        CosineSimilarity, svs::float16::Float16, svs::float16::Float16                            \
+    )
+
+SVS_EXTERN_COSINE_DISTANCE
 
 } // namespace svs::distance

@@ -84,12 +84,12 @@ template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct 
 template <svs::arch::MicroArch Arch> class L2 {
   public:
     template <typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b, size_t N) {
         return L2Impl<Dynamic, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic(N));
     }
 
     template <size_t N, typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b) {
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b) {
         return L2Impl<N, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic<N>());
     }
 };
@@ -480,5 +480,19 @@ template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, uint8_t, uint8_
     SVS_INST_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(                                  \
         L2, svs::float16::Float16, svs::float16::Float16                                 \
     )
+
+#define SVS_EXTERN_L2_DISTANCE                                               \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, int8_t, int8_t)               \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, uint8_t, uint8_t)             \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, float)                 \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, uint8_t)               \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, int8_t)                \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, svs::float16::Float16) \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, svs::float16::Float16, float) \
+    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(                                  \
+        L2, svs::float16::Float16, svs::float16::Float16                     \
+    )
+
+SVS_EXTERN_L2_DISTANCE
 
 } // namespace svs::distance

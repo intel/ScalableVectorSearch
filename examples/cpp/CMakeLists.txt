@@ -63,7 +63,7 @@ add_test(
 )
 
 # The custom thread pool executable.
-add_executable(custom_thread_pool custom_thread_pool.cpp)
+add_executable(custom_thread_pool custom_thread_pool.cpp ${MICROARCH_OBJECT_FILES})
 target_include_directories(custom_thread_pool PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_microarch_options_base)
 add_test(
