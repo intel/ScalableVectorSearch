@@ -104,6 +104,7 @@ template <svs::arch::MicroArch Arch> class L2 {
 ///
 template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceL2 {
     static constexpr svs::arch::MicroArch arch = Arch;
+    static constexpr bool type = true; // TODO: Use proper type, like DistanceType Enum
 
     /// Vectors are more similar if their distance is smaller.
     using compare = std::less<>;
@@ -176,6 +177,7 @@ template <size_t N, typename Ea, typename Eb>
 float generic_l2(
     const Ea* a, const Eb* b, lib::MaybeStatic<N> length = lib::MaybeStatic<N>()
 ) {
+    std::cout << "generic" << std::endl;
     float result = 0;
     for (size_t i = 0; i < length.size(); ++i) {
         auto temp = static_cast<float>(a[i]) - static_cast<float>(b[i]);
@@ -279,6 +281,7 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TARGET_MICROARCH> {
 template <size_t N> struct L2Impl<N, float, float, SVS_TARGET_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
+        std::cout << "optimized" << std::endl;
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };

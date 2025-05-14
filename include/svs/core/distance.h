@@ -165,7 +165,7 @@ class DistanceDispatcher {
             // TODO: Retrieve max arch
             case DistanceType::L2: {
                 return f(
-                    svs::distance::DistanceL2<svs::arch::MicroArch::baseline>{},
+                    svs::distance::DistanceL2<svs::arch::MicroArch::sapphirerapids>{},
                     std::forward<Args>(args)...
                 );
             }
