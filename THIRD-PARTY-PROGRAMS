@@ -13,7 +13,7 @@ Third party programs and their corresponding required notices and/or license
 terms are listed below.
 
 --------------------------------------------------------------------------------
-1. robin-map (cmake/robin-map.cmake, https://github.com/Tessil/robin-map/tree/v1.0.1)
+1. robin-map (cmake/robin-map.cmake, https://github.com/Tessil/robin-map/tree/v1.4.0)
 
 MIT License
 
