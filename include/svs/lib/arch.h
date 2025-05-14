@@ -365,7 +365,7 @@ class MicroArchEnvironment {
 // Generic distance extent macro
 #if defined(__x86_64__)
 
-#define SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
+#define SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
     SVS_EXTERN_CLASS_METHOD_westmere(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_sandybridge(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_ivybridge(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)) \
@@ -386,14 +386,12 @@ class MicroArchEnvironment {
 
 #if defined(__APPLE__)
 
-#define SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
-    SVS_EXTERN_CLASS_METHOD_m1(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)) \
+#define SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
     SVS_EXTERN_CLASS_METHOD_m2(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long))
 
 #else
 
-#define SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
-    SVS_EXTERN_CLASS_METHOD_neoverse_v1(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)) \
+#define SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
     SVS_EXTERN_CLASS_METHOD_neoverse_n2(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long))
 
 #endif
@@ -412,7 +410,7 @@ class MicroArchEnvironment {
 // Cosine distance extent macro
 #if defined(__x86_64__)
 
-#define SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
+#define SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
     SVS_EXTERN_CLASS_METHOD_westmere(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_sandybridge(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_ivybridge(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
@@ -433,13 +431,13 @@ class MicroArchEnvironment {
 
 #if defined(__APPLE__)
 
-#define SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
+#define SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
     SVS_EXTERN_CLASS_METHOD_m1(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_m2(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long))
 
 #else
 
-#define SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
+#define SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(cls, a_type, b_type) \
     SVS_EXTERN_CLASS_METHOD_neoverse_v1(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)) \
     SVS_EXTERN_CLASS_METHOD_neoverse_n2(float, svs::distance::cls, compute, SVS_PACK_ARGS(a_type, b_type), SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long))
 

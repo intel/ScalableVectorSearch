@@ -482,14 +482,14 @@ template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, uint8_t, uint8_
     )
 
 #define SVS_EXTERN_L2_DISTANCE                                               \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, int8_t, int8_t)               \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, uint8_t, uint8_t)             \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, float)                 \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, uint8_t)               \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, int8_t)                \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, float, svs::float16::Float16) \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, svs::float16::Float16, float) \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(L2, svs::float16::Float16, svs::float16::Float16)
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, int8_t, int8_t)               \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, uint8_t, uint8_t)             \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, float, float)                 \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, float, uint8_t)               \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, float, int8_t)                \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, float, svs::float16::Float16) \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, svs::float16::Float16, float) \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(L2, svs::float16::Float16, svs::float16::Float16)
 
 SVS_EXTERN_L2_DISTANCE
 

@@ -376,18 +376,18 @@ struct CosineSimilarityImpl<N, Float16, Float16, uarch> {
     )
 
 #define SVS_EXTERN_COSINE_DISTANCE                                                    \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, int8_t, int8_t)   \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, uint8_t, uint8_t) \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, float)     \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, uint8_t)   \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, int8_t)    \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                    \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, int8_t, int8_t)   \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, uint8_t, uint8_t) \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, float)     \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, uint8_t)   \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(CosineSimilarity, float, int8_t)    \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                    \
         CosineSimilarity, float, svs::float16::Float16                                \
     )                                                                                 \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                    \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                    \
         CosineSimilarity, svs::float16::Float16, float                                \
     )                                                                                 \
-    SVS_EXTENT_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                    \
+    SVS_EXTERN_COSINE_DISTANCE_CLASS_BY_TYPENAMES(                                    \
         CosineSimilarity, svs::float16::Float16, svs::float16::Float16                \
     )
 

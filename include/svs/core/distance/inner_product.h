@@ -430,14 +430,14 @@ template <size_t N, svs::arch::MicroArch uarch> struct IPImpl<N, uint8_t, uint8_
     )
 
 #define SVS_EXTERN_IP_DISTANCE                                               \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, int8_t, int8_t)               \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, uint8_t, uint8_t)             \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, float)                 \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, uint8_t)               \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, int8_t)                \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, float, svs::float16::Float16) \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, svs::float16::Float16, float) \
-    SVS_EXTENT_DISTANCE_CLASS_BY_TYPENAMES(IP, svs::float16::Float16, svs::float16::Float16)
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, int8_t, int8_t)               \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, uint8_t, uint8_t)             \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, float, float)                 \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, float, uint8_t)               \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, float, int8_t)                \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, float, svs::float16::Float16) \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, svs::float16::Float16, float) \
+    SVS_EXTERN_DISTANCE_CLASS_BY_TYPENAMES(IP, svs::float16::Float16, svs::float16::Float16)
 
 SVS_EXTERN_IP_DISTANCE
 
