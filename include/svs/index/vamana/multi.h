@@ -331,7 +331,8 @@ class MultiMutableVamanaIndex {
         return adds;
     }
 
-    template <typename T> void delete_entries(const T& labels) {
+    // Return the number of deleted vectors
+    template <typename T> size_t delete_entries(const T& labels) {
         std::vector<external_id_type> deletes;
 
         for (auto& label : labels) {
@@ -346,6 +347,7 @@ class MultiMutableVamanaIndex {
             }
         }
         index_->delete_entries(deletes);
+        return deletes.size();
     }
 
     template <typename Query>

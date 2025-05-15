@@ -724,12 +724,13 @@ class MutableVamanaIndex {
     ///   Delete consolidation performs the actual removal of deleted entries from the
     ///   graph.
     ///
-    template <typename T> void delete_entries(const T& ids) {
+    template <typename T> size_t delete_entries(const T& ids) {
         translator_.check_external_exist(ids.begin(), ids.end());
         for (auto i : ids) {
             delete_entry(translator_.get_internal(i));
         }
         translator_.delete_external(ids);
+        return ids.size();
     }
 
     void delete_entry(size_t i) {
