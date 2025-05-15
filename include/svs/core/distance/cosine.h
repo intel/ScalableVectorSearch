@@ -68,10 +68,10 @@ template <svs::arch::MicroArch Arch> class CosineSimilarity {
 /// \ref compute_distancecosine "compute" method and is thus capable of being extended
 /// externally.
 ///
+template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline>
 struct DistanceCosineSimilarity {
   public:
-    static constexpr bool distance_type =
-        false; // TODO: Use proper type, like DistanceType Enum
+    static constexpr svs::DistanceType distance_type = svs::DistanceType::Cosine;
 
     /// Vectors are more similar if their similarity is greater.
     using compare = std::greater<>;
@@ -111,8 +111,11 @@ struct DistanceCosineSimilarity {
     }
 };
 
-inline constexpr bool operator==(DistanceCosineSimilarity, DistanceCosineSimilarity) {
-    return true;
+template <svs::arch::MicroArch Arch1, svs::arch::MicroArch Arch2>
+inline constexpr bool
+operator==(DistanceCosineSimilarity<Arch1>, DistanceCosineSimilarity<Arch2>) {
+    constexpr bool same = std::is_same_v<Arch1, Arch2>;
+    return same;
 }
 
 ///
@@ -139,21 +142,19 @@ inline constexpr bool operator==(DistanceCosineSimilarity, DistanceCosineSimilar
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
 /// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
-template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
-float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db, svs::arch::MicroArch Arch>
+float compute(
+    DistanceCosineSimilarity<Arch> distance, std::span<Ea, Da> a, std::span<Eb, Db> b
+) {
     assert(a.size() == b.size());
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            CosineSimilarity,
-            compute,
-            SVS_PACK_ARGS(a.data(), b.data(), distance.norm_, a.size())
+        return CosineSimilarity<Arch>::compute(
+            a.data(), b.data(), distance.norm_, a.size()
         );
     } else {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            CosineSimilarity,
-            compute<extent>,
-            SVS_PACK_ARGS(a.data(), b.data(), distance.norm_)
+        return CosineSimilarity<Arch>::template compute<extent>(
+            a.data(), b.data(), distance.norm_
         );
     }
 }

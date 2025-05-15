@@ -144,7 +144,7 @@ class InnerProductCompressed {
     float offset_ = 0;
 };
 
-class CosineSimilarityCompressed {
+template <svs::arch::MicroArch Arch> class CosineSimilarityCompressed {
   public:
     using compare = std::greater<>;
 
@@ -180,7 +180,7 @@ class CosineSimilarityCompressed {
     float scale_;
     float bias_;
 
-    distance::DistanceCosineSimilarity inner_;
+    distance::DistanceCosineSimilarity<Arch> inner_;
 };
 
 namespace detail {
@@ -293,14 +293,14 @@ struct CompressedDistance<distance::DistanceL2<Arch>, ElementType> {
     using type = EuclideanCompressed<ElementType>;
 };
 
-template <typename ElementType>
-struct CompressedDistance<distance::DistanceIP, ElementType> {
+template <typename ElementType, svs::arch::MicroArch Arch>
+struct CompressedDistance<distance::DistanceIP<Arch>, ElementType> {
     using type = InnerProductCompressed;
 };
 
-template <typename ElementType>
-struct CompressedDistance<distance::DistanceCosineSimilarity, ElementType> {
-    using type = CosineSimilarityCompressed;
+template <typename ElementType, svs::arch::MicroArch Arch>
+struct CompressedDistance<distance::DistanceCosineSimilarity<Arch>, ElementType> {
+    using type = CosineSimilarityCompressed<Arch>;
 };
 
 // Trait to identify whether a type has `uses_compressed_data`

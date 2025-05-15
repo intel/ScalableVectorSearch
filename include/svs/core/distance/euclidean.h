@@ -104,8 +104,7 @@ template <svs::arch::MicroArch Arch> class L2 {
 ///
 template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceL2 {
     static constexpr svs::arch::MicroArch arch = Arch;
-    static constexpr bool distance_type =
-        true; // TODO: Use proper type, like DistanceType Enum
+    static constexpr svs::DistanceType distance_type = svs::DistanceType::L2;
 
     /// Vectors are more similar if their distance is smaller.
     using compare = std::less<>;
@@ -133,7 +132,7 @@ template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct Dis
 
 template <svs::arch::MicroArch Arch1, svs::arch::MicroArch Arch2>
 inline constexpr bool operator==(DistanceL2<Arch1>, DistanceL2<Arch2>) {
-    constexpr bool same = Arch1 == Arch2;
+    constexpr bool same = std::is_same_v<Arch1, Arch2>;
     return same;
 }
 
@@ -148,6 +147,8 @@ inline constexpr bool operator==(DistanceL2<Arch1>, DistanceL2<Arch2>) {
 ///     this is to be discovered during runtime.
 /// @tparam Db The compile-time length of right-hand argument. May be ``svs::Dynamic`` if
 ///     this is to be discovered during runtime.
+/// @tparam MicroArch The desired microarch. One specialization per supported microarch will
+///     be compiled for run-time dispatching.
 ///
 /// @param a The left-hand vector. Typically, this position is used for the query.
 /// @param b The right-hand vector. Typically, this position is used for a dataset vector.

@@ -17,6 +17,7 @@
 #pragma once
 
 #include "svs/core/distance/cosine.h"
+#include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
 #include "svs/lib/dispatcher.h"
@@ -29,23 +30,6 @@
 ///
 
 namespace svs {
-
-// // Documentation for these classes lives with the classes themselves.
-// using DistanceL2 = distance::DistanceL2;
-// using DistanceIP = distance::DistanceIP;
-// using DistanceCosineSimilarity = distance::DistanceCosineSimilarity;
-
-///
-/// @brief Runtime selector for built-in distance functions.
-///
-enum DistanceType {
-    /// Minimize squared L2 distance. See: ``svs::distance::DistanceL2``.
-    L2,
-    /// Maximize inner product. See: ``svs::distance::DistanceIP``.
-    MIP,
-    /// Minimize cosine similarity. See: ``svs::distance::DistanceCosineSimilarity``.
-    Cosine
-};
 
 inline constexpr std::string_view name(DistanceType type) {
     switch (type) {
@@ -80,10 +64,12 @@ template <typename svs::arch::MicroArch Arch>
 struct DistanceTypeEnumMap<distance::DistanceL2<Arch>> {
     static constexpr DistanceType value = DistanceType::L2;
 };
-template <> struct DistanceTypeEnumMap<distance::DistanceIP> {
+template <typename svs::arch::MicroArch Arch>
+struct DistanceTypeEnumMap<distance::DistanceIP<Arch>> {
     static constexpr DistanceType value = DistanceType::MIP;
 };
-template <> struct DistanceTypeEnumMap<distance::DistanceCosineSimilarity> {
+template <typename svs::arch::MicroArch Arch>
+struct DistanceTypeEnumMap<distance::DistanceCosineSimilarity<Arch>> {
     static constexpr DistanceType value = DistanceType::Cosine;
 };
 } // namespace detail
@@ -107,12 +93,12 @@ template <typename Dist> struct DistanceConverter {
 template <svs::arch::MicroArch Arch>
 struct lib::DispatchConverter<DistanceType, svs::distance::DistanceL2<Arch>>
     : DistanceConverter<svs::distance::DistanceL2<Arch>> {};
-template <>
-struct lib::DispatchConverter<DistanceType, svs::distance::DistanceIP>
-    : DistanceConverter<svs::distance::DistanceIP> {};
-template <>
-struct lib::DispatchConverter<DistanceType, svs::distance::DistanceCosineSimilarity>
-    : DistanceConverter<svs::distance::DistanceCosineSimilarity> {};
+template <typename svs::arch::MicroArch Arch>
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceIP<Arch>>
+    : DistanceConverter<svs::distance::DistanceIP<Arch>> {};
+template <svs::arch::MicroArch Arch>
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceCosineSimilarity<Arch>>
+    : DistanceConverter<svs::distance::DistanceCosineSimilarity<Arch>> {};
 
 // Saving and Loading.
 namespace lib {
@@ -138,11 +124,11 @@ template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::L2, Ar
 };
 
 template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::MIP, Arch> {
-    using type = svs::distance::DistanceIP;
+    using type = svs::distance::DistanceIP<Arch>;
 };
 
 template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::Cosine, Arch> {
-    using type = svs::distance::DistanceCosineSimilarity;
+    using type = svs::distance::DistanceCosineSimilarity<Arch>;
 };
 
 ///

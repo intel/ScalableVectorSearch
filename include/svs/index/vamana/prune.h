@@ -41,10 +41,11 @@ template <svs::arch::MicroArch Arch> struct PruneStrategy<distance::DistanceL2<A
 };
 
 // Specialize IP to use the iterative strategy.
-template <> struct PruneStrategy<distance::DistanceIP> {
+template <svs::arch::MicroArch Arch> struct PruneStrategy<distance::DistanceIP<Arch>> {
     using type = IterativePruneStrategy;
 };
-template <> struct PruneStrategy<distance::DistanceCosineSimilarity> {
+template <svs::arch::MicroArch Arch>
+struct PruneStrategy<distance::DistanceCosineSimilarity<Arch>> {
     using type = IterativePruneStrategy;
 };
 

@@ -63,9 +63,8 @@ template <svs::arch::MicroArch Arch> class IP {
 /// \ref compute_distanceip "compute" method and is thus capable of being extended
 /// externally.
 ///
-struct DistanceIP {
-    static constexpr bool distance_type =
-        false; // TODO: Use proper type, like DistanceType Enum
+template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceIP {
+    static constexpr svs::DistanceType distance_type = svs::DistanceType::MIP;
 
     /// Vectors are more similar if their similarity is greater.
     using compare = std::greater<>;
@@ -92,7 +91,11 @@ struct DistanceIP {
     }
 };
 
-inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
+template <svs::arch::MicroArch Arch1, svs::arch::MicroArch Arch2>
+inline constexpr bool operator==(DistanceIP<Arch1>, DistanceIP<Arch2>) {
+    constexpr bool same = std::is_same_v<Arch1, Arch2>;
+    return same;
+}
 
 ///
 /// @ingroup distance_overload
@@ -116,18 +119,14 @@ inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
 /// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
-template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
-float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db, svs::arch::MicroArch Arch>
+float compute(DistanceIP<Arch> /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     assert(a.size() == b.size());
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            IP, compute, SVS_PACK_ARGS(a.data(), b.data(), a.size())
-        );
+        return IP<Arch>::compute(a.data(), b.data(), a.size());
     } else {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            IP, compute<extent>, SVS_PACK_ARGS(a.data(), b.data())
-        );
+        return IP<Arch>::template compute<extent>(a.data(), b.data());
     }
 }
 

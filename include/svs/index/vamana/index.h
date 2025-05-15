@@ -18,6 +18,8 @@
 
 // svs
 #include "svs/core/data.h"
+#include "svs/core/distance/cosine.h"
+#include "svs/core/distance/distance_core.h"
 #include "svs/core/graph.h"
 #include "svs/core/loading.h"
 #include "svs/core/medioid.h"
@@ -1007,14 +1009,13 @@ void verify_and_set_default_index_parameters(
         }
     }
 
-    // Check supported distance type using std::is_same type trait
+    // Check supported distance type using DistanceType tags
     using dist_type = std::decay_t<decltype(distance_function)>;
 
     // Create type flags for each distance type
-    constexpr bool is_L2 = dist_type::distance_type == true; // TODO: Use proper type
-    constexpr bool is_IP = std::is_same_v<dist_type, svs::distance::DistanceIP>;
-    constexpr bool is_Cosine =
-        std::is_same_v<dist_type, svs::distance::DistanceCosineSimilarity>;
+    constexpr bool is_L2 = dist_type::distance_type == svs::DistanceType::L2;
+    constexpr bool is_IP = dist_type::distance_type == svs::DistanceType::MIP;
+    constexpr bool is_Cosine = dist_type::distance_type == svs::DistanceType::Cosine;
 
     // Handle alpha based on distance type
     if constexpr (is_L2) {
