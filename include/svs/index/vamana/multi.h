@@ -71,14 +71,26 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
             }
             for (auto& result : batch_iterator_) {
                 auto label = external_to_label.at(result.id());
+                auto found_in_returned = returned_.find(label);
+                auto new_result = Neighbor<label_type>{label, result.distance()};
 
-                if (returned_.find(label) == returned_.end()) {
+                if (found_in_returned == returned_.end()) {
                     if (results_.size() < batch_size) {
                         returned_.insert(label);
-                        results_.push_back(Neighbor<label_type>{label, result.distance()});
+                        results_.push_back(std::move(new_result));
                     } else {
-                        extra_results_.push_back(Neighbor<label_type>{
-                            label, result.distance()});
+                        extra_results_.push_back(std::move(new_result));
+                    }
+                } else {
+                    // results_ should be small enough to use find
+                    auto found_in_results = std::find_if(
+                        results_.begin(),
+                        results_.end(),
+                        [label](const auto& res) { return res.id() == label; }
+                    );
+                    if (found_in_results != results_.end()) {
+                        *found_in_results =
+                            std::min(*found_in_results, new_result, TotalOrder(compare{}));
                     }
                 }
             }
@@ -205,7 +217,7 @@ class MultiMutableVamanaIndex {
     MultiMutableVamanaIndex(
         Graph graph,
         Data data,
-        label_type entry_point,
+        Idx entry_point,
         Dist distance_function,
         const Labels& labels,
         ThreadPoolProto threadpool_proto,
@@ -219,7 +231,7 @@ class MultiMutableVamanaIndex {
         index_ = std::make_unique<ParentIndex>(
             std::move(graph),
             std::move(data),
-            label_to_external_.at(entry_point).at(0),
+            entry_point,
             distance_,
             std::move(adds),
             std::move(threadpool_proto),
@@ -227,8 +239,9 @@ class MultiMutableVamanaIndex {
         );
     }
 
-    // change translator to label -> external_id
-    // create a transformed translator where external_id == internal_id
+    /// @brief Constructor for post re-load dynamic vamana index.
+    /// This constructor takes external IDs in translator as labels.
+    /// The span of internal ID's in translator should be exactly ``[0, data.size())`.
     template <threads::ThreadPool Pool>
     MultiMutableVamanaIndex(
         const VamanaIndexParameters& config,
@@ -240,6 +253,7 @@ class MultiMutableVamanaIndex {
         svs::logging::logger_ptr logger = svs::logging::get()
     )
         : distance_(std::move(distance_function)) {
+        // Create labels where labels = translator.external_ids
         std::vector<label_type> labels(translator.size());
         std::transform(
             translator.begin(),
@@ -252,15 +266,16 @@ class MultiMutableVamanaIndex {
         adds.reserve(translator.size());
         prepare_added_id_by_label(labels, adds);
 
-        IDTranslator transformed_translator;
-        transformed_translator.insert(adds, threads::UnitRange<Idx>(0, adds.size()));
+        // create a remapped translator where external_id == internal_id
+        IDTranslator remapped_translator;
+        remapped_translator.insert(adds, threads::UnitRange<Idx>(0, adds.size()));
 
         index_ = std::make_unique<ParentIndex>(
             config,
             std::move(data),
             std::move(graph),
             distance_,
-            transformed_translator,
+            remapped_translator,
             std::move(threadpool),
             std::move(logger)
         );
@@ -423,7 +438,9 @@ class MultiMutableVamanaIndex {
         return label_to_external_.find(e) != label_to_external_.end();
     }
 
-    size_t size() const { return label_to_external_.size(); }
+    size_t size() const { return index_->size(); }
+
+    size_t labelcount() const { return label_to_external_.size(); }
 
     // scrathspace from parent index
     scratchspace_type scratchspace(const search_parameters_type& sp) const {

@@ -82,6 +82,26 @@ CATCH_TEMPLATE_TEST_CASE(
     ref_index.search(ref_results.view(), queries.view(), search_parameters);
     auto ref_recall = svs::k_recall_at_n(groundtruth, ref_results);
 
+    // Original data label:
+    // 0 1 2 3
+    //
+    // For each duplicate iteration, insert each vector with label increase by one
+    // Suppose we duplicate three times (i.e., num_duplicated = 3):
+    //   1 2 3 4
+    //     2 3 4 5
+    //       3 4 5 6
+    //
+    // After deleting all the original labels, the remaining
+    // number of vectors will be :
+    // (num_duplicated * (num_duplicated + 1)) / 2
+    //
+    // For the above examples, after deleteing 0, 1, 2, 3
+    // the remaining vectors becomes:
+    //         4
+    //         4 5
+    //         4 5 6
+    // And the number of remaining vectors becomes
+    // (3 + 4) / 2 = 6 vectors
     CATCH_SECTION("Insertion/Deletion in duplicated test datasets") {
         const size_t num_duplicated = 3;
 
@@ -96,19 +116,13 @@ CATCH_TEMPLATE_TEST_CASE(
             std::iota(test_indices.begin(), test_indices.end(), i + 1);
             test_index.add_points(data, test_indices);
         }
-        CATCH_REQUIRE(test_index.size() == test_indices.size() + num_duplicated);
-        CATCH_REQUIRE(
-            test_index.get_parent_index().size() ==
-            test_indices.size() * (num_duplicated + 1)
-        );
+        CATCH_REQUIRE(test_index.labelcount() == ref_index.size() + num_duplicated);
+        CATCH_REQUIRE(test_index.size() == ref_index.size() * (num_duplicated + 1));
 
         std::iota(test_indices.begin(), test_indices.end(), 0);
         test_index.delete_entries(test_indices);
-        CATCH_REQUIRE(test_index.size() == num_duplicated);
-        CATCH_REQUIRE(
-            test_index.get_parent_index().size() ==
-            (num_duplicated * (num_duplicated + 1)) / 2
-        );
+        CATCH_REQUIRE(test_index.labelcount() == num_duplicated);
+        CATCH_REQUIRE(test_index.size() == (num_duplicated * (num_duplicated + 1)) / 2);
     }
     CATCH_SECTION("Duplicated vectors with same labels") {
         const size_t num_duplicated = 3;
@@ -123,11 +137,8 @@ CATCH_TEMPLATE_TEST_CASE(
         for (size_t i = 0; i < num_duplicated; ++i) {
             test_index.add_points(data, test_indices);
         }
-        CATCH_REQUIRE(test_index.size() == test_indices.size());
-        CATCH_REQUIRE(
-            test_index.get_parent_index().size() ==
-            test_indices.size() * (num_duplicated + 1)
-        );
+        CATCH_REQUIRE(test_index.labelcount() == test_indices.size());
+        CATCH_REQUIRE(test_index.size() == test_indices.size() * (num_duplicated + 1));
 
         auto test_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
         test_index.search(test_results.view(), queries.view(), search_parameters);
@@ -136,8 +147,8 @@ CATCH_TEMPLATE_TEST_CASE(
         CATCH_REQUIRE(test_recall > ref_recall - epsilon);
 
         test_index.delete_entries(test_indices);
+        CATCH_REQUIRE(test_index.labelcount() == 0);
         CATCH_REQUIRE(test_index.size() == 0);
-        CATCH_REQUIRE(test_index.get_parent_index().size() == 0);
 
         test_index.add_points(data, test_indices);
         test_index.consolidate();
