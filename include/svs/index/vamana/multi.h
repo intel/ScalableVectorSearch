@@ -40,7 +40,6 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     using compare = typename Index::compare;
 
   public:
-
     /// Random-access iterator to `value_type` over the current batch of results.
     using iterator = typename result_buffer_type::iterator;
     /// Random-access iterator to `const value_type` over the current batch of results.
@@ -420,7 +419,9 @@ class MultiMutableVamanaIndex {
         return index_->get_threadpool_handle();
     }
 
-    bool has_id(size_t e) const { return label_to_external_.find(e) != label_to_external_.end(); }
+    bool has_id(size_t e) const {
+        return label_to_external_.find(e) != label_to_external_.end();
+    }
 
     size_t size() const { return label_to_external_.size(); }
 
@@ -444,13 +445,23 @@ class MultiMutableVamanaIndex {
 
     size_t dimensions() const { return index_->dimensions(); }
 
-    void set_search_parameters(const VamanaSearchParameters& parameters) { index_->set_search_parameters(parameters); }
-    VamanaSearchParameters get_search_parameters() const { return index_->get_search_parameters(); }
+    void set_search_parameters(const VamanaSearchParameters& parameters) {
+        index_->set_search_parameters(parameters);
+    }
+    VamanaSearchParameters get_search_parameters() const {
+        return index_->get_search_parameters();
+    }
 
-    void set_construction_window_size(size_t window_size) { index_->set_construction_window_size(window_size); }
-    size_t get_construction_window_size() const { return index_->get_construction_window_size(); }
+    void set_construction_window_size(size_t window_size) {
+        index_->set_construction_window_size(window_size);
+    }
+    size_t get_construction_window_size() const {
+        return index_->get_construction_window_size();
+    }
 
-    void set_max_candidates(size_t max_candidate_pool_size) { index_->set_max_candidates(max_candidate_pool_size); }
+    void set_max_candidates(size_t max_candidate_pool_size) {
+        index_->set_max_candidates(max_candidate_pool_size);
+    }
     size_t get_max_candidates() const { return index_->get_max_candidates(); }
 
     void set_prune_to(size_t prune_to) { index_->set_prune_to(prune_to); }
@@ -459,10 +470,10 @@ class MultiMutableVamanaIndex {
     void set_alpha(float alpha) { index_->set_alpha(alpha); }
     float get_alpha() const { return index_->get_alpha(); }
 
-    void set_full_search_history(bool use_full_search_history) { index_->set_full_search_history(use_full_search_history); }
+    void set_full_search_history(bool use_full_search_history) {
+        index_->set_full_search_history(use_full_search_history);
+    }
     bool get_full_search_history() const { return index_->get_full_search_history(); }
-
-
 };
 
 ///// Deduction Guides.
