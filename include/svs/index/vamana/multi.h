@@ -35,17 +35,19 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
 
     // Private type aliases
     using result_buffer_type = std::vector<value_type>;
-    /// Random-access iterator to `value_type` over the current batch of results.
-    using iterator = typename result_buffer_type::iterator;
-    /// Random-access iterator to `const value_type` over the current batch of results.
-    using const_iterator = typename result_buffer_type::const_iterator;
 
     using ParentIndex = typename Index::ParentIndex;
     using compare = typename Index::compare;
 
   public:
+
+    /// Random-access iterator to `value_type` over the current batch of results.
+    using iterator = typename result_buffer_type::iterator;
+    /// Random-access iterator to `const value_type` over the current batch of results.
+    using const_iterator = typename result_buffer_type::const_iterator;
+
     MultiBatchIterator(
-        Index& index,
+        const Index& index,
         std::span<const QueryType> query,
         size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
     )
@@ -127,7 +129,7 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
         return;
     }
 
-    Index& index_;
+    const Index& index_;
     size_t iteration_ = 0;
     std::unordered_set<label_type> returned_;
     std::vector<Neighbor<label_type>> results_;
@@ -218,7 +220,7 @@ class MultiMutableVamanaIndex {
         index_ = std::make_unique<ParentIndex>(
             std::move(graph),
             std::move(data),
-            label_to_external_.at(entry_point),
+            label_to_external_.at(entry_point).at(0),
             distance_,
             std::move(adds),
             std::move(threadpool_proto),
@@ -418,6 +420,8 @@ class MultiMutableVamanaIndex {
         return index_->get_threadpool_handle();
     }
 
+    bool has_id(size_t e) const { return label_to_external_.find(e) != label_to_external_.end(); }
+
     size_t size() const { return label_to_external_.size(); }
 
     // scrathspace from parent index
@@ -433,7 +437,32 @@ class MultiMutableVamanaIndex {
         return external_to_label_.at(index_->translate_internal_id(i));
     }
 
-    VamanaSearchParameters get_search_parameters() const { return index_->get(); }
+    const Data& view_data() const { return index_->view_data(); }
+    const Graph& view_graph() const { return index_->view_graph(); }
+
+    void reset_performance_parameters() { index_->reset_performance_parameters(); }
+
+    size_t dimensions() const { return index_->dimensions(); }
+
+    void set_search_parameters(const VamanaSearchParameters& parameters) { index_->set_search_parameters(parameters); }
+    VamanaSearchParameters get_search_parameters() const { return index_->get_search_parameters(); }
+
+    void set_construction_window_size(size_t window_size) { index_->set_construction_window_size(window_size); }
+    size_t get_construction_window_size() const { return index_->get_construction_window_size(); }
+
+    void set_max_candidates(size_t max_candidate_pool_size) { index_->set_max_candidates(max_candidate_pool_size); }
+    size_t get_max_candidates() const { return index_->get_max_candidates(); }
+
+    void set_prune_to(size_t prune_to) { index_->set_prune_to(prune_to); }
+    size_t get_prune_to() const { return index_->get_prune_to(); }
+
+    void set_alpha(float alpha) { index_->set_alpha(alpha); }
+    float get_alpha() const { return index_->get_alpha(); }
+
+    void set_full_search_history(bool use_full_search_history) { index_->set_full_search_history(use_full_search_history); }
+    bool get_full_search_history() const { return index_->get_full_search_history(); }
+
+
 };
 
 ///// Deduction Guides.
