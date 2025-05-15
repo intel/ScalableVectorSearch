@@ -86,14 +86,12 @@ void test_types(T lo, T hi, size_t num_tests) {
         auto& arch_env = svs::arch::MicroArchEnvironment::get_instance();
         auto supported_archs = arch_env.get_supported_microarchs();
 
+        // Check the distance computation for all supported architectures.
         for (auto arch : supported_archs) {
             arch_env.set_microarch(arch);
             auto dist = svs::distance::DistanceCosineSimilarity{};
             dist.fix_argument(as_span(a));
-            auto result = svs::distance::compute(
-                dist, as_span(a), as_span(b)
-
-            );
+            auto result = svs::distance::compute(dist, as_span(a), as_span(b));
             CATCH_REQUIRE(result == expected);
         }
 
@@ -235,46 +233,46 @@ CATCH_TEST_CASE(
     "Benchmark CosineSimilarity Distance",
     "[distance][cosinesimilarity_distance][benchmark_suite][!benchmark]"
 ) {
-    // auto num_elements = 1000000;
-    // // Types: `float` and `float`
-    // run_benchmark<float, float, 128>(num_elements, -1.0f, 1.0f);
-    // run_benchmark<float, float, 0>(num_elements, -1.0f, 1.0f, 128);
-    // run_benchmark<float, float, 100>(num_elements, -1.0f, 1.0f);
-    // run_benchmark<float, float, 0>(num_elements, -1.0f, 1.0f, 100);
+    auto num_elements = 1000000;
+    // Types: `float` and `float`
+    run_benchmark<float, float, 128>(num_elements, -1.0f, 1.0f);
+    run_benchmark<float, float, 0>(num_elements, -1.0f, 1.0f, 128);
+    run_benchmark<float, float, 100>(num_elements, -1.0f, 1.0f);
+    run_benchmark<float, float, 0>(num_elements, -1.0f, 1.0f, 100);
 
-    // // Types: `float` and `svs::Float16`
-    // run_benchmark<float, svs::Float16, 128>(num_elements, -1.0f, 1.0f);
-    // run_benchmark<float, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 128);
-    // run_benchmark<float, svs::Float16, 100>(num_elements, -1.0f, 1.0f);
-    // run_benchmark<float, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 100);
+    // Types: `float` and `svs::Float16`
+    run_benchmark<float, svs::Float16, 128>(num_elements, -1.0f, 1.0f);
+    run_benchmark<float, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 128);
+    run_benchmark<float, svs::Float16, 100>(num_elements, -1.0f, 1.0f);
+    run_benchmark<float, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 100);
 
-    // // Types: `svs::Float16` and `svs::Float16`
-    // run_benchmark<svs::Float16, svs::Float16, 128>(num_elements, -1.0f, 1.0f);
-    // run_benchmark<svs::Float16, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 128);
-    // run_benchmark<svs::Float16, svs::Float16, 100>(num_elements, -1.0f, 1.0f);
-    // run_benchmark<svs::Float16, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 100);
+    // Types: `svs::Float16` and `svs::Float16`
+    run_benchmark<svs::Float16, svs::Float16, 128>(num_elements, -1.0f, 1.0f);
+    run_benchmark<svs::Float16, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 128);
+    run_benchmark<svs::Float16, svs::Float16, 100>(num_elements, -1.0f, 1.0f);
+    run_benchmark<svs::Float16, svs::Float16, 0>(num_elements, -1.0f, 1.0f, 100);
 
-    // // Types: `float` and `int8_t`
-    // run_benchmark<float, int8_t, 128>(num_elements, -128, 127);
-    // run_benchmark<float, int8_t, 0>(num_elements, -128, 127, 128);
-    // run_benchmark<float, int8_t, 100>(num_elements, -128, 127);
-    // run_benchmark<float, int8_t, 0>(num_elements, -128, 127, 100);
+    // Types: `float` and `int8_t`
+    run_benchmark<float, int8_t, 128>(num_elements, -128, 127);
+    run_benchmark<float, int8_t, 0>(num_elements, -128, 127, 128);
+    run_benchmark<float, int8_t, 100>(num_elements, -128, 127);
+    run_benchmark<float, int8_t, 0>(num_elements, -128, 127, 100);
 
-    // // Types: `float` and `uint8_t`
-    // run_benchmark<float, uint8_t, 128>(num_elements, 0, 255);
-    // run_benchmark<float, uint8_t, 0>(num_elements, 0, 255, 128);
-    // run_benchmark<float, uint8_t, 100>(num_elements, 0, 255);
-    // run_benchmark<float, uint8_t, 0>(num_elements, 0, 255, 100);
+    // Types: `float` and `uint8_t`
+    run_benchmark<float, uint8_t, 128>(num_elements, 0, 255);
+    run_benchmark<float, uint8_t, 0>(num_elements, 0, 255, 128);
+    run_benchmark<float, uint8_t, 100>(num_elements, 0, 255);
+    run_benchmark<float, uint8_t, 0>(num_elements, 0, 255, 100);
 
-    // // Types: `uint8_t` and `uint8_t`
-    // run_benchmark<uint8_t, uint8_t, 128>(num_elements, 0, 255);
-    // run_benchmark<uint8_t, uint8_t, 0>(num_elements, 0, 255, 128);
-    // run_benchmark<uint8_t, uint8_t, 100>(num_elements, 0, 255);
-    // run_benchmark<uint8_t, uint8_t, 0>(num_elements, 0, 255, 100);
+    // Types: `uint8_t` and `uint8_t`
+    run_benchmark<uint8_t, uint8_t, 128>(num_elements, 0, 255);
+    run_benchmark<uint8_t, uint8_t, 0>(num_elements, 0, 255, 128);
+    run_benchmark<uint8_t, uint8_t, 100>(num_elements, 0, 255);
+    run_benchmark<uint8_t, uint8_t, 0>(num_elements, 0, 255, 100);
 
-    // // Types: `int8_t` and `int8_t`
-    // run_benchmark<int8_t, int8_t, 128>(num_elements, -128, 127);
-    // run_benchmark<int8_t, int8_t, 0>(num_elements, -128, 127, 128);
-    // run_benchmark<int8_t, int8_t, 100>(num_elements, -128, 127);
-    // run_benchmark<int8_t, int8_t, 0>(num_elements, -128, 127, 100);
+    // Types: `int8_t` and `int8_t`
+    run_benchmark<int8_t, int8_t, 128>(num_elements, -128, 127);
+    run_benchmark<int8_t, int8_t, 0>(num_elements, -128, 127, 128);
+    run_benchmark<int8_t, int8_t, 100>(num_elements, -128, 127);
+    run_benchmark<int8_t, int8_t, 0>(num_elements, -128, 127, 100);
 }

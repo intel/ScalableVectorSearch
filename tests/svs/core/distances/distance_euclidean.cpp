@@ -67,18 +67,35 @@ void test_types(T lo, T hi, size_t num_tests) {
         svs_test::populate(b, generator_b, N);
         auto expected = Catch::Approx(euclidean_reference(a, b));
 
-        // Statically Sized Computation
-        CATCH_REQUIRE(
-            (svs::distance::L2<svs::arch::MicroArch::baseline>::compute<N>(
-                 a.data(), b.data()
-             ) == expected)
-        );
-        // Dynamically Sized Computation
-        CATCH_REQUIRE(
-            (svs::distance::L2<svs::arch::MicroArch::baseline>::compute(
-                 a.data(), b.data(), N
-             ) == expected)
-        );
+        auto as_span = [](auto v) { return std::span{v.data(), v.size()}; };
+        auto& arch_env = svs::arch::MicroArchEnvironment::get_instance();
+        auto supported_archs = arch_env.get_supported_microarchs();
+
+        // Check the distance computation for all supported architectures.
+        for (auto arch : supported_archs) {
+            arch_env.set_microarch(arch);
+            auto dist = svs::distance::DistanceL2{};
+            auto result = svs::distance::compute(dist, as_span(a), as_span(b));
+            CATCH_REQUIRE(result == expected);
+        }
+
+        // Checking statically and dynamically sized computation requires a direct
+        // call to the compute function. We pick any MicroArch, since all available
+        // are already tested above.
+        {
+            // Statically Sized Computation
+            auto dist = svs::distance::L2<svs::arch::MicroArch::baseline>::compute<N>(
+                a.data(), b.data()
+            );
+            CATCH_REQUIRE(dist == expected);
+        }
+        {
+            // Dynamically Sized Computation
+            auto dist = svs::distance::L2<svs::arch::MicroArch::baseline>::compute(
+                a.data(), b.data(), N
+            );
+            CATCH_REQUIRE(dist == expected);
+        }
     }
 }
 } // namespace
