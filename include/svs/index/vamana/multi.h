@@ -166,13 +166,16 @@ class MultiMutableVamanaIndex {
     using label_type = size_t;
     using graph_type = Graph;
     using data_type = Data;
+    using label_to_external_type =
+        std::unordered_map<label_type, std::vector<external_id_type>>;
+    using external_to_label_type = std::unordered_map<external_id_type, label_type>;
 
   private:
     distance_type distance_;
     external_id_type counter_{0};
     std::unique_ptr<ParentIndex> index_{nullptr};
-    std::unordered_map<label_type, std::vector<external_id_type>> label_to_external_;
-    std::unordered_map<external_id_type, label_type> external_to_label_;
+    label_to_external_type label_to_external_;
+    external_to_label_type external_to_label_;
 
     template <class Labels>
     void
@@ -281,8 +284,12 @@ class MultiMutableVamanaIndex {
         );
     }
 
-    const auto& get_label_to_external_lookup() const { return label_to_external_; }
-    const auto& get_external_to_label_lookup() const { return external_to_label_; }
+    const label_to_external_type& get_label_to_external_lookup() const {
+        return label_to_external_;
+    }
+    const external_to_label_type& get_external_to_label_lookup() const {
+        return external_to_label_;
+    }
     const ParentIndex& get_parent_index() const { return *index_; }
 
     template <typename Query>
