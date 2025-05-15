@@ -129,6 +129,8 @@ operator==(DistanceCosineSimilarity<Arch1>, DistanceCosineSimilarity<Arch2>) {
 ///     this is to be discovered during runtime.
 /// @tparam Db The compile-time length of right-hand argument. May be ``svs::Dynamic`` if
 ///     this is to be discovered during runtime.
+/// @tparam MicroArch The desired microarch. One specialization per supported microarch will
+///     be compiled for run-time dispatching.
 ///
 /// @param distance The cosine similarity distance functor. Must have had ``fix_argument``
 ///     called previously with left-hand argument ``a``.

@@ -108,6 +108,8 @@ inline constexpr bool operator==(DistanceIP<Arch1>, DistanceIP<Arch2>) {
 ///     this is to be discovered during runtime.
 /// @tparam Db The compile-time length of right-hand argument. May be ``svs::Dynamic`` if
 ///     this is to be discovered during runtime.
+/// @tparam MicroArch The desired microarch. One specialization per supported microarch will
+///     be compiled for run-time dispatching.
 ///
 /// @param a The left-hand vector. Typically, this position is used for the query.
 /// @param b The right-hand vector. Typically, this position is used for a dataset vector.
