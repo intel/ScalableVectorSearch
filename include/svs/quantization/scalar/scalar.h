@@ -17,12 +17,12 @@
 #pragma once
 
 // svs
+#include "eve/module/algo.hpp"
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
 #include "svs/lib/memory.h"
 #include "svs/lib/static.h"
 #include "svs/lib/version.h"
-#include "eve/module/algo.hpp"
 
 // stl
 #include <concepts>
