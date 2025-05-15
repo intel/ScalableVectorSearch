@@ -160,8 +160,8 @@ class DistanceDispatcher {
     ///     dispatcher will call ``f`` with the functor corresponding to the enum used
     ///     to construct the dispatcher.
     ///     For MicroArch-dispatching, all of this functionality is wrapped in a lambda
-    ///     which utilizes the DistanceFactory above to dispatch to the correct MicroArch
-    ///     implementation.
+    ///     which utilizes the DistanceFactory above to instantiate the distance with
+    ///     the correct MicroArch.
     ///
     ///     All other arguments will be forwarded to ``f`` beginning at argument position 2.
     /// @param args Arguments to forward to ``f``.
@@ -204,6 +204,7 @@ class DistanceDispatcher {
                     std::forward<Args>(args)...
                 );
         }
+
         throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
     }
 
