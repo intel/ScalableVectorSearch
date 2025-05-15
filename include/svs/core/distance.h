@@ -159,13 +159,16 @@ class DistanceDispatcher {
     /// @param f A function who takes distance functor for its first argument. The
     ///     dispatcher will call ``f`` with the functor corresponding to the enum used
     ///     to construct the dispatcher.
+    ///     For MicroArch-dispatching, all of this functionality is wrapped in a lambda
+    ///     which utilizes the DistanceFactory above to dispatch to the correct MicroArch
+    ///     implementation.
     ///
     ///     All other arguments will be forwarded to ``f`` beginning at argument position 2.
-    /// @param args Arguements to forward to ``f``.
+    /// @param args Arguments to forward to ``f``.
     ///
     template <typename F, typename... Args> auto operator()(F&& f, Args&&... args) {
         switch (distance_type_) {
-            case DistanceType::L2: {
+            case DistanceType::L2:
                 return svs::arch::dispatch_by_arch(
                     [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
                         using Distance =
@@ -176,15 +179,30 @@ class DistanceDispatcher {
                     },
                     std::forward<Args>(args)...
                 );
-            }
-            case DistanceType::MIP: {
-                return f(svs::distance::DistanceIP{}, std::forward<Args>(args)...);
-            }
-            case DistanceType::Cosine: {
-                return f(
-                    svs::distance::DistanceCosineSimilarity{}, std::forward<Args>(args)...
+
+            case DistanceType::MIP:
+                return svs::arch::dispatch_by_arch(
+                    [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
+                        using Distance =
+                            typename DistanceFactory<DistanceType::MIP, Arch>::type;
+                        return f(
+                            Distance{}, std::forward<decltype(inner_args)>(inner_args)...
+                        );
+                    },
+                    std::forward<Args>(args)...
                 );
-            }
+
+            case DistanceType::Cosine:
+                return svs::arch::dispatch_by_arch(
+                    [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
+                        using Distance =
+                            typename DistanceFactory<DistanceType::Cosine, Arch>::type;
+                        return f(
+                            Distance{}, std::forward<decltype(inner_args)>(inner_args)...
+                        );
+                    },
+                    std::forward<Args>(args)...
+                );
         }
         throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
     }
