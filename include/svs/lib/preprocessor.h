@@ -172,6 +172,7 @@ inline constexpr float VAMANA_WINDOW_SIZE_DEFAULT = 64;
 inline constexpr bool VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT = true;
 inline constexpr float VAMANA_ALPHA_MINIMIZE_DEFAULT = 1.2;
 inline constexpr float VAMANA_ALPHA_MAXIMIZE_DEFAULT = 0.95;
+inline constexpr double INVALID_DISTANCE = std::numeric_limits<double>::quiet_NaN();
 
 // Default value used for extra search buffer capacity in the batch iterator.
 inline constexpr size_t ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100;

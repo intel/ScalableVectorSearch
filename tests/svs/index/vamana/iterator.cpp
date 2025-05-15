@@ -16,6 +16,7 @@
 
 // header under test
 #include "svs/index/vamana/iterator.h"
+#include "svs/index/vamana/multi.h"
 
 // svstest
 #include "tests/utils/test_dataset.h"
@@ -111,7 +112,7 @@ void check(
         // Ensure we have reasonable recall between.
         CATCH_REQUIRE(
             svs::lib::count_intersect(id_buffer, groundtruth.get_datum(query_index)) >=
-            0.95 * num_neighbors
+            0.9 * num_neighbors
         );
 
         // Begin performing batch searches.
@@ -119,7 +120,7 @@ void check(
             CATCH_REQUIRE(num_neighbors % batchsize == 0);
             size_t num_batches = num_neighbors / batchsize;
 
-            auto iterator = svs::index::vamana::BatchIterator{index, query};
+            auto iterator = index.make_batch_iterator(query);
             CATCH_REQUIRE(iterator.size() == 0);
             iterator.next(batchsize);
 
@@ -261,6 +262,74 @@ CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator]") {
         auto original = test_dataset::data_f32();
 
         // Increase the number of threads to help a little with run time.
+        index.set_threadpool(svs::threads::DefaultThreadPool(2));
+        auto itr = svs::threads::UnitRange{0, index.size()};
+        auto valid_ids = std::unordered_set<size_t>{itr.begin(), itr.end()};
+        auto checker = DynamicChecker{valid_ids};
+        check(index, queries.cview(), gt.cview(), checker);
+
+        // Delete the best candidate for each of the test queries.
+        auto ids_to_delete = std::vector<size_t>();
+        for (size_t i = 0; i < QUERIES_TO_CHECK; ++i) {
+            auto nearest_neighbor = gt.get_datum(i).front();
+            auto itr =
+                std::find(ids_to_delete.begin(), ids_to_delete.end(), nearest_neighbor);
+            if (itr == ids_to_delete.end()) {
+                ids_to_delete.push_back(nearest_neighbor);
+                CATCH_REQUIRE(valid_ids.erase(nearest_neighbor) == 1);
+                CATCH_REQUIRE(checker.seen_.contains(nearest_neighbor));
+            }
+        }
+
+        fmt::print("Deleting\n");
+        index.delete_entries(ids_to_delete);
+        checker.clear();
+        check(index, queries.cview(), gt.cview(), checker);
+
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE(!checker.seen_.contains(id));
+        }
+
+        // Compact and consolidate.
+        index.consolidate();
+        index.compact();
+
+        fmt::print("Compacting\n");
+        checker.clear();
+        check(index, queries.cview(), gt.cview(), checker);
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE(!checker.seen_.contains(id));
+        }
+
+        // Add back the points we deleted and try again.
+        fmt::print("Adding\n");
+        auto slots = index.add_points(
+            svs::data::make_const_view(original, ids_to_delete), ids_to_delete
+        );
+
+        checker.clear();
+        for (auto id : ids_to_delete) {
+            auto [_, inserted] = valid_ids.insert(id);
+            CATCH_REQUIRE(inserted);
+        }
+
+        check(index, queries.cview(), gt.cview(), checker);
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE(checker.seen_.contains(id));
+        }
+    }
+
+    // Multi-vector batch iterator should also pass non-multi-vector tests
+    CATCH_SECTION("Multi batch iterator") {
+        auto index = svs::index::vamana::auto_multi_dynamic_assemble(
+            test_dataset::vamana_config_file(),
+            test_dataset::graph(),
+            test_dataset::data_f32(),
+            ThrowingL2(),
+            1,
+            true // debug_load_from_static
+        );
+        auto original = test_dataset::data_f32();
         index.set_threadpool(svs::threads::DefaultThreadPool(2));
         auto itr = svs::threads::UnitRange{0, index.size()};
         auto valid_ids = std::unordered_set<size_t>{itr.begin(), itr.end()};

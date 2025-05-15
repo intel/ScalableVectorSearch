@@ -48,6 +48,8 @@
 
 namespace svs::index::vamana {
 
+template <typename Index, typename QueryType> class BatchIterator;
+
 struct VamanaIndexParameters {
     // Members
   public:
@@ -886,6 +888,14 @@ class VamanaIndex {
 
         // Call extension for distance computation
         return extensions::get_distance_ext(data_, distance_, id, query);
+    }
+
+    template <typename QueryType>
+    auto make_batch_iterator(
+        std::span<const QueryType> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
+    ) const {
+        return BatchIterator(*this, query, extra_search_buffer_capacity);
     }
 };
 
