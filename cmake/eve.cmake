@@ -16,7 +16,7 @@ Include(FetchContent)
 FetchContent_Declare(
     eve
     GIT_REPOSITORY https://github.com/jfalcou/eve
-    GIT_TAG 1666dae546371ea11c84ffc197e98a372afaa988
+    GIT_TAG 95f69dd6ca0f6d8cc8faeefed3c845dda578231b
 )
 
 set(EVE_BUILD_TEST OFF)
