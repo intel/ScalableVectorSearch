@@ -46,6 +46,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Get CPU info
+      run: |
+        bash ${GITHUB_WORKSPACE}/.github/scripts/get_cpu_info.sh
+
     - name: Install Compiler
       run: |
         echo "Installing ${{ matrix.package }}..."
@@ -83,3 +87,28 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
+
+    - name: Build Python Bindings
+      env:
+        CXX: ${{ matrix.cxx }}
+        CC: ${{ matrix.cc }}
+      run: |
+        if [[ "${{ matrix.needs_prefix }}" == "true" ]]; then
+          # For non-default packages like llvm@15, get the install prefix
+          COMPILER_PREFIX=$(brew --prefix ${{ matrix.package }})
+          export CC="${COMPILER_PREFIX}/bin/${{ matrix.cc_name }}"
+          export CXX="${COMPILER_PREFIX}/bin/${{ matrix.cxx_name }}"
+        else
+          # For versioned GCC installs, the name is usually directly available
+          export CC="${{ matrix.cc_name }}"
+          export CXX="${{ matrix.cxx_name }}"
+        fi
+
+        cd bindings/python
+        python -m pip install .
+
+    - name: Run Python Microarch Test
+      run: |
+        cd bindings/python
+        python -c "import svs; svs.microarch.describe()"
+        python -m unittest discover -p "test_microarch.py" -s .
