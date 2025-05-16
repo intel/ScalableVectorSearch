@@ -89,10 +89,11 @@ void test_types(T lo, T hi, size_t num_tests) {
         // Check the distance computation for all supported architectures.
         for (auto arch : supported_archs) {
             arch_env.set_microarch(arch);
-            auto dist = svs::distance::DistanceCosineSimilarity{};
-            dist.fix_argument(as_span(a));
-            auto result = svs::distance::compute(dist, as_span(a), as_span(b));
-            CATCH_REQUIRE(result == expected);
+            auto dist_type = svs::distance::DistanceCosineSimilarity{};
+            dist_type.fix_argument(as_span(a));
+            auto dist = svs::distance::compute(dist_type, as_span(a), as_span(b));
+            CATCH_INFO("Testing architecture: " << svs::arch::microarch_to_string(arch));
+            CATCH_REQUIRE(dist == expected);
         }
 
         // Checking statically and dynamically sized computation requires a direct
