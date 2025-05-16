@@ -177,7 +177,7 @@ VamanaSearchParameters optimize_split_buffer(
     VamanaSearchParameters current,
     const F& compute_recall,
     const DoSearch& do_search,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger
 ) {
     svs::logging::trace(logger, "Entering split buffer optimization routine");
     assert(
@@ -334,7 +334,8 @@ std::pair<VamanaSearchParameters, bool> optimize_search_buffer(
             target_recall,
             current,
             compute_recall,
-            do_search
+            do_search,
+            logger
         );
     }
     return std::make_pair(current, converged);
@@ -346,7 +347,7 @@ VamanaSearchParameters tune_prefetch(
     Index& index,
     VamanaSearchParameters search_parameters,
     const DoSearch& do_search,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger
 ) {
     svs::logging::trace(logger, "Tuning prefetch parameters");
     const auto& prefetch_steps = calibration_parameters.prefetch_steps_;
@@ -480,7 +481,8 @@ VamanaSearchParameters calibrate(
     size_t num_neighbors,
     double target_recall,
     F&& compute_recall,
-    DoSearch&& do_search
+    DoSearch&& do_search,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Get the existing parameters and the default values decide which to use as the seed.
     auto default_parameters = VamanaSearchParameters();
@@ -492,20 +494,21 @@ VamanaSearchParameters calibrate(
 
     // Step 1: Optimize aspects of the search buffer if desired.
     if (calibration_parameters.should_optimize_search_buffer()) {
-        svs::logging::trace("Optimizing search buffer.");
+        svs::logging::trace(logger, "Optimizing search buffer.");
         auto [best, converged] = calibration::optimize_search_buffer<Index>(
             calibration_parameters,
             current,
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger
         );
         current = best;
 
         if (!converged) {
             svs::logging::warn(
-                "Target recall could not be achieved. Exiting optimization early."
+                logger, "Target recall could not be achieved. Exiting optimization early."
             );
             return current;
         }
@@ -513,9 +516,10 @@ VamanaSearchParameters calibrate(
 
     // Step 2: Optimize prefetch parameters.
     if (calibration_parameters.train_prefetchers_) {
-        svs::logging::trace("Training Prefetchers.");
-        current =
-            calibration::tune_prefetch(calibration_parameters, index, current, do_search);
+        svs::logging::trace(logger, "Training Prefetchers.");
+        current = calibration::tune_prefetch(
+            calibration_parameters, index, current, do_search, logger
+        );
     }
 
     // Finish up.
