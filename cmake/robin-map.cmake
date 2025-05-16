@@ -16,8 +16,10 @@ Include(FetchContent)
 FetchContent_Declare(
     RobinMap
     GIT_REPOSITORY https://github.com/Tessil/robin-map
-    GIT_TAG v1.0.1
+    GIT_TAG v1.4.0
 )
+
+set(TSL_ROBIN_MAP_ENABLE_INSTALL ON CACHE BOOL "Enable robin-map install logic" FORCE)
 
 FetchContent_MakeAvailable(RobinMap)
 target_link_libraries(${SVS_LIB} INTERFACE tsl::robin_map)

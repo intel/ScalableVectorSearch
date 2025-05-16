@@ -82,20 +82,39 @@ void test_types(T lo, T hi, size_t num_tests) {
                             .epsilon(COSINE_EPSILON)
                             .margin(COSINE_MARGIN);
 
-        // Statically Sized Computation
+        auto as_span = [](auto v) { return std::span{v.data(), v.size()}; };
+        auto& arch_env = svs::arch::MicroArchEnvironment::get_instance();
+        auto supported_archs = arch_env.get_supported_microarchs();
+
+        // Check the distance computation for all supported architectures.
+        for (auto arch : supported_archs) {
+            arch_env.set_microarch(arch);
+            auto dist = svs::distance::DistanceCosineSimilarity{};
+            dist.fix_argument(as_span(a));
+            auto result = svs::distance::compute(dist, as_span(a), as_span(b));
+            CATCH_REQUIRE(result == expected);
+        }
+
+        // Checking statically and dynamically sized computation requires a direct
+        // call to the compute function. We pick any MicroArch, since all available
+        // are already tested above.
         auto a_norm = svs::distance::norm(std::span{a.data(), a.size()});
-        CATCH_REQUIRE(
-            // TODO: replace baseline with something else?
-            (svs::distance::CosineSimilarity<svs::arch::MicroArch::baseline>::compute<N>(
-                 a.data(), b.data(), a_norm
-             ) == expected)
-        );
-        // Dynamically Sized Computation
-        auto dist =
-            svs::distance::CosineSimilarity<svs::arch::MicroArch::baseline>::compute(
-                a.data(), b.data(), a_norm, N
-            );
-        CATCH_REQUIRE((dist == expected));
+        {
+            // Statically Sized Computation
+            auto dist =
+                svs::distance::CosineSimilarity<svs::arch::MicroArch::baseline>::compute<N>(
+                    a.data(), b.data(), a_norm
+                );
+            CATCH_REQUIRE(dist == expected);
+        }
+        {
+            // Dynamically Sized Computation
+            auto dist =
+                svs::distance::CosineSimilarity<svs::arch::MicroArch::baseline>::compute(
+                    a.data(), b.data(), a_norm, N
+                );
+            CATCH_REQUIRE(dist == expected);
+        }
     }
 }
 } // anonymous namespace
