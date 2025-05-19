@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <iostream>
 #include <vector>
 
 namespace svs::arch {
@@ -222,7 +223,6 @@ inline MicroArch string_to_microarch(const std::string& arch_name) {
 class MicroArchEnvironment {
   public:
     static MicroArchEnvironment& get_instance() {
-        // TODO: ensure thread safety
         static MicroArchEnvironment instance;
         return instance;
     }
@@ -236,12 +236,34 @@ class MicroArchEnvironment {
         }
     }
 
+    void set_microarch(const std::string& arch) {
+        set_microarch(string_to_microarch(arch));
+    }
+
     const std::vector<MicroArch>& get_supported_microarchs() const {
         return supported_archs_;
     }
 
     const std::vector<MicroArch>& get_compiled_microarchs() const {
         return compiled_archs_;
+    }
+
+    void describe(std::ostream& out) const {
+        write_extensions_status(out);
+
+        out << "\nCurrent µarch: " << microarch_to_string(max_arch_) << std::endl;
+
+        out << "\nSupported µarchs: ";
+        for (const auto& arch : supported_archs_) {
+            out << microarch_to_string(arch) << " ";
+        }
+        out << std::endl;
+
+        out << "\nCompiled µarchs: ";
+        for (const auto& arch : compiled_archs_) {
+            out << microarch_to_string(arch) << " ";
+        }
+        out << std::endl;
     }
 
   private:

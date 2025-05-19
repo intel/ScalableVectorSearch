@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Dynamic loading logic.
-from .loader import library
+import svs._svs as _svs
 
 # Reexport all public functions and structs from the inner module.
-lib = library()
 globals().update(
-    {k : v for (k, v) in lib.__dict__.items() if not k.startswith("__")}
+    {k : v for (k, v) in _svs.__dict__.items() if not k.startswith("__")}
 )
 
 # Misc types and functions
@@ -33,4 +31,3 @@ from .common import \
 
 # Make the upgrader available without explicit import.
 from . import upgrader
-

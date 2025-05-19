@@ -21,7 +21,7 @@
         break;
 #define SVS_TARGET_MICROARCH svs::arch::MicroArch::SVS_TUNE_TARGET
 
-#define SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(              \
+#define SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(           \
     microarch, return_type, cls, method, template_args, args \
 )                                                            \
     extern template return_type                              \
@@ -35,7 +35,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_nehalem(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(nehalem, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_nehalem(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                            \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                         \
         nehalem,                                                                       \
         return_type,                                                                   \
         cls,                                                                           \
@@ -54,7 +54,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_westmere(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(westmere, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_westmere(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                          \
         westmere,                                                                       \
         return_type,                                                                    \
         cls,                                                                            \
@@ -73,7 +73,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_sandybridge(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(sandybridge, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_sandybridge(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                                \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
         sandybridge,                                                                       \
         return_type,                                                                       \
         cls,                                                                               \
@@ -92,7 +92,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_ivybridge(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(ivybridge, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_ivybridge(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                              \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                           \
         ivybridge,                                                                       \
         return_type,                                                                     \
         cls,                                                                             \
@@ -111,7 +111,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_haswell(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(haswell, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_haswell(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                            \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                         \
         haswell,                                                                       \
         return_type,                                                                   \
         cls,                                                                           \
@@ -130,7 +130,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_broadwell(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(broadwell, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_broadwell(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                              \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                           \
         broadwell,                                                                       \
         return_type,                                                                     \
         cls,                                                                             \
@@ -149,7 +149,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_skylake(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(skylake, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_skylake(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                            \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                         \
         skylake,                                                                       \
         return_type,                                                                   \
         cls,                                                                           \
@@ -168,7 +168,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v4(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(x86_64_v4, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_x86_64_v4(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                              \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                           \
         x86_64_v4,                                                                       \
         return_type,                                                                     \
         cls,                                                                             \
@@ -189,7 +189,7 @@
 #define SVS_EXTERN_CLASS_METHOD_skylake_avx512(   \
     return_type, cls, method, template_args, args \
 )                                                 \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(       \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(    \
         skylake_avx512,                           \
         return_type,                              \
         cls,                                      \
@@ -210,7 +210,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_cascadelake(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(cascadelake, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_cascadelake(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                                \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
         cascadelake,                                                                       \
         return_type,                                                                       \
         cls,                                                                               \
@@ -229,7 +229,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_cooperlake(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(cooperlake, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_cooperlake(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                               \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                            \
         cooperlake,                                                                       \
         return_type,                                                                      \
         cls,                                                                              \
@@ -250,7 +250,7 @@
 #define SVS_EXTERN_CLASS_METHOD_icelake_client(   \
     return_type, cls, method, template_args, args \
 )                                                 \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(       \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(    \
         icelake_client,                           \
         return_type,                              \
         cls,                                      \
@@ -273,7 +273,7 @@
 #define SVS_EXTERN_CLASS_METHOD_icelake_server(   \
     return_type, cls, method, template_args, args \
 )                                                 \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(       \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(    \
         icelake_server,                           \
         return_type,                              \
         cls,                                      \
@@ -296,7 +296,7 @@
 #define SVS_EXTERN_CLASS_METHOD_sapphirerapids(   \
     return_type, cls, method, template_args, args \
 )                                                 \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(       \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(    \
         sapphirerapids,                           \
         return_type,                              \
         cls,                                      \
@@ -319,7 +319,7 @@
 #define SVS_EXTERN_CLASS_METHOD_graniterapids(    \
     return_type, cls, method, template_args, args \
 )                                                 \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(       \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(    \
         graniterapids,                            \
         return_type,                              \
         cls,                                      \
@@ -340,7 +340,7 @@
 #define SVS_EXTERN_CLASS_METHOD_graniterapids_d(  \
     return_type, cls, method, template_args, args \
 )                                                 \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(       \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(    \
         graniterapids_d,                          \
         return_type,                              \
         cls,                                      \
@@ -365,7 +365,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_m1(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(m1, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_m1(return_type, cls, method, template_args, args)       \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                          \
         m1, return_type, cls, method, SVS_PACK_ARGS(template_args), SVS_PACK_ARGS(args) \
     )
 #else
@@ -379,7 +379,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_m2(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(m2, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_m2(return_type, cls, method, template_args, args)       \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                          \
         m2, return_type, cls, method, SVS_PACK_ARGS(template_args), SVS_PACK_ARGS(args) \
     )
 #else
@@ -395,7 +395,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_neoverse_v1(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(neoverse_v1, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_neoverse_v1(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                                \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
         neoverse_v1,                                                                       \
         return_type,                                                                       \
         cls,                                                                               \
@@ -414,7 +414,7 @@
 #define SVS_CLASS_METHOD_MICROARCH_CASE_neoverse_n2(cls, method, args) \
     SVS_CLASS_METHOD_MICROARCH_CASE(neoverse_n2, cls, method, SVS_PACK_ARGS(args))
 #define SVS_EXTERN_CLASS_METHOD_neoverse_n2(return_type, cls, method, template_args, args) \
-    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                                \
+    SVS_EXTERN_CLASS_METHOD_TMPL_BY_MICROARCH(                                             \
         neoverse_n2,                                                                       \
         return_type,                                                                       \
         cls,                                                                               \
