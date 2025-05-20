@@ -213,6 +213,29 @@ Calling this method should not affect recall.)"
     )"
     );
 
+    manager.def(
+        "get_distance",
+        [](Manager& self, size_t external_id, py_contiguous_array_t<float> query_array) {
+            // Get raw pointer + size from the Python array
+            const float* data_ptr = query_array.data();
+            size_t n = query_array.size();
+            std::vector<float> vec(data_ptr, data_ptr + n);
+            return self.get_distance(external_id, vec);
+        },
+        pybind11::arg("external_id"),
+        pybind11::arg("query_vector"),
+        R"(
+    Compute the distance between the stored vector at `external_id` and the provided `query_vector`.
+
+    Args:
+        external_id: the external ID of the vector in the index
+        query_vector: a 1-D contiguous array whose length must match the index dimensionality
+
+    Returns:
+        float: the computed distance
+    )"
+    );
+
     ///// Experiemntal Interfaces
     add_experimental_calibration<svs::Float16>(manager);
     add_experimental_calibration<float>(manager);

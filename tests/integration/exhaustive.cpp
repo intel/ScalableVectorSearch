@@ -71,7 +71,18 @@ template <
     typename Queries,
     typename GroundTruth,
     svs::threads::ThreadPool Pool = svs::threads::DefaultThreadPool>
-void test_flat(Index& index, const Queries& queries, const GroundTruth& groundtruth) {
+void test_flat(
+    Index& index,
+    const Queries& queries,
+    const GroundTruth& groundtruth,
+    svs::DistanceType distance_type
+) {
+    // Test get distance
+    auto dataset = svs::load_data<float>(test_dataset::data_svs_file());
+    // Test get_distance functionality
+    svs::DistanceDispatcher dispatcher(distance_type);
+    dispatcher([&](auto dist) { svs_test::GetDistanceTester::test(index, dist, dataset); });
+
     CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
     CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
 
@@ -145,19 +156,19 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
                 svs::distance::DistanceL2(),
                 svs::threads::ThreadPoolReferenceWrapper(threadpool)
             );
-            test_flat(temp, queries, groundtruth);
+            test_flat(temp, queries, groundtruth, svs::L2);
         }
 
         auto index =
             svs::index::flat::FlatIndex(std::move(data), svs::distance::DistanceL2{}, 1);
-        test_flat(index, queries, groundtruth);
+        test_flat(index, queries, groundtruth, svs::L2);
     }
 
     CATCH_SECTION("Flat Index - IP") {
         auto groundtruth = test_dataset::groundtruth_mip();
         auto index =
             svs::index::flat::FlatIndex(std::move(data), svs::distance::DistanceIP{}, 1);
-        test_flat(index, queries, groundtruth);
+        test_flat(index, queries, groundtruth, svs::MIP);
     }
 
     CATCH_SECTION("Flat Index - Cosine") {
@@ -165,14 +176,14 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
         auto index = svs::index::flat::FlatIndex(
             std::move(data), svs::distance::DistanceCosineSimilarity{}, 1
         );
-        test_flat(index, queries, groundtruth);
+        test_flat(index, queries, groundtruth, svs::Cosine);
     }
 
     CATCH_SECTION("Flat Index - Stateful") {
         auto groundtruth = test_dataset::groundtruth_euclidean();
         auto index =
             svs::index::flat::FlatIndex{std::move(data), svs_test::StatefulL2<float>{}, 1};
-        test_flat(index, queries, groundtruth);
+        test_flat(index, queries, groundtruth, svs::L2);
     }
 
     CATCH_SECTION("Flat Index With CppAyncThreadPool - IP") {
@@ -186,7 +197,7 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
             decltype(index),
             decltype(queries),
             decltype(groundtruth),
-            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
+            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth, svs::MIP);
         auto& threadpool =
             index.get_threadpool_handle().get<svs::threads::CppAsyncThreadPool>();
         threadpool.resize(3);
@@ -195,7 +206,7 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
             decltype(index),
             decltype(queries),
             decltype(groundtruth),
-            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
+            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth, svs::MIP);
     }
 
     CATCH_SECTION("Flat Index With QueueThreadPoolWrapper - Cosine") {
@@ -209,7 +220,7 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
             decltype(index),
             decltype(queries),
             decltype(groundtruth),
-            svs::threads::QueueThreadPoolWrapper>(index, queries, groundtruth);
+            svs::threads::QueueThreadPoolWrapper>(index, queries, groundtruth, svs::Cosine);
     }
 
     CATCH_SECTION("Flat Index With Different Thread Pools - Cosine") {
@@ -223,8 +234,8 @@ CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
             decltype(index),
             decltype(queries),
             decltype(groundtruth),
-            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth);
-        test_flat(index, queries, groundtruth);
+            svs::threads::CppAsyncThreadPool>(index, queries, groundtruth, svs::Cosine);
+        test_flat(index, queries, groundtruth, svs::Cosine);
     }
 }
 
@@ -249,18 +260,18 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             index.query_types() ==
             std::vector<svs::DataType>{svs::DataType::float32, svs::DataType::float16}
         );
-        test_flat(index, queries, test_dataset::groundtruth_euclidean());
+        test_flat(index, queries, test_dataset::groundtruth_euclidean(), svs::L2);
 
         // Also try float16 as the query to test heterogeneous query handling.
         auto queries_f16 =
             svs::data::SimpleData<svs::Float16>(queries.size(), queries.dimensions());
         svs::data::copy(queries, queries_f16);
-        test_flat(index, queries_f16, test_dataset::groundtruth_euclidean());
+        test_flat(index, queries_f16, test_dataset::groundtruth_euclidean(), svs::L2);
 
         // From Data
         index = svs::Flat::assemble<float>(std::move(data), svs::L2, 2);
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        test_flat(index, queries, test_dataset::groundtruth_euclidean());
+        test_flat(index, queries, test_dataset::groundtruth_euclidean(), svs::L2);
     }
 
     CATCH_SECTION("InnerProduct") {
@@ -269,12 +280,12 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()), svs::MIP, 2
         );
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        test_flat(index, queries, test_dataset::groundtruth_mip());
+        test_flat(index, queries, test_dataset::groundtruth_mip(), svs::MIP);
 
         // From Data
         index = svs::Flat::assemble<float>(std::move(data), svs::MIP, 2);
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        test_flat(index, queries, test_dataset::groundtruth_mip());
+        test_flat(index, queries, test_dataset::groundtruth_mip(), svs::MIP);
     }
 
     CATCH_SECTION("Cosine") {
@@ -283,12 +294,12 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()), svs::Cosine, 2
         );
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        test_flat(index, queries, test_dataset::groundtruth_cosine());
+        test_flat(index, queries, test_dataset::groundtruth_cosine(), svs::Cosine);
 
         // From Data
         index = svs::Flat::assemble<float>(std::move(data), svs::Cosine, 2);
         CATCH_REQUIRE(index.get_num_threads() == 2);
-        test_flat(index, queries, test_dataset::groundtruth_cosine());
+        test_flat(index, queries, test_dataset::groundtruth_cosine(), svs::Cosine);
     }
 
     CATCH_SECTION("Cosine With Different Thread Pools From File") {
@@ -308,7 +319,7 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::CppAsyncThreadPool>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
 
         index.set_threadpool(svs::threads::DefaultThreadPool(3));
@@ -317,7 +328,7 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::DefaultThreadPool>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
 
         test_flat<
@@ -325,14 +336,14 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::QueueThreadPoolWrapper>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
         test_flat<
             decltype(index),
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::SwitchNativeThreadPool>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
     }
 
@@ -346,7 +357,7 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::QueueThreadPoolWrapper>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
 
         index.set_threadpool(svs::threads::CppAsyncThreadPool(2));
@@ -356,7 +367,7 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::CppAsyncThreadPool>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
 
         test_flat<
@@ -364,14 +375,14 @@ CATCH_TEST_CASE("Flat Orchestrator Search", "[integration][exhaustive][orchestra
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::DefaultThreadPool>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
         test_flat<
             decltype(index),
             decltype(queries),
             decltype(test_dataset::groundtruth_cosine()),
             svs::threads::SwitchNativeThreadPool>(
-            index, queries, test_dataset::groundtruth_cosine()
+            index, queries, test_dataset::groundtruth_cosine(), svs::Cosine
         );
     }
 }

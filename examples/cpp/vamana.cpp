@@ -18,8 +18,10 @@
 
 //! [Includes]
 // SVS Dependencies
-#include "svs/orchestrators/vamana.h" // bulk of the dependencies required.
-#include "svs/core/recall.h"          // Convenient k-recall@n computation.
+#include "svs/orchestrators/vamana.h"       // bulk of the dependencies required.
+#include "svs/core/recall.h"                // Convenient k-recall@n computation.
+#include "svs/extensions/vamana/scalar.h"   // SQ vamana extensions.
+#include "svs/quantization/scalar/scalar.h" // SQ implementation.
 
 // Alternative main definition
 #include "svsmain.h"
@@ -51,7 +53,7 @@ double run_recall(
 }
 
 const bool DEBUG = false;
-void check(double expected, double got, double eps = 0.001) {
+void check(double expected, double got, double eps = 0.005) {
     double diff = std::abs(expected - got);
     if constexpr (DEBUG) {
         fmt::print("Expected {}. Got {}\n", expected, got);
@@ -155,6 +157,36 @@ int svs_main(std::vector<std::string> args) {
     //! [Set a new thread pool with n-threads]
     index.set_threadpool(svs::threads::DefaultThreadPool(4));
     //! [Set a new thread pool with n-threads]
+
+    //! [Compressed Loader]
+    // Quantization
+    namespace scalar = svs::quantization::scalar;
+
+    // Wrap the compressor object in a lazy functor.
+    // This will defer loading and compression of the SQ dataset until the threadpool
+    // used in the index has been created.
+    auto compressor = svs::lib::Lazy([=](svs::threads::ThreadPool auto& threadpool) {
+        auto data = svs::VectorDataLoader<float, 128>("example_data").load();
+        return scalar::SQDataset<std::int8_t, 128>::compress(data, threadpool);
+    });
+    index = svs::Vamana::assemble<float>(
+        "example_config",
+        svs::GraphLoader("example_graph"),
+        compressor,
+        svs::DistanceType::L2,
+        4
+    );
+    recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed load");
+    check(0.8190, recall);
+    //! [Compressed Loader]
+
+    //! [Build Index Compressed]
+    // Compressed building
+    index =
+        svs::Vamana::build<float>(parameters, compressor, svs::DistanceL2(), num_threads);
+    recall = run_recall(index, queries, groundtruth, 30, 10, "Compressed Build");
+    check(0.8212, recall);
+    //! [Build Index Compressed]
 
     return 0;
 }

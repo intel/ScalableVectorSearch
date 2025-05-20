@@ -19,6 +19,7 @@
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
 #include "svs/index/vamana/dynamic_index.h"
+#include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/timing.h"
 
@@ -260,8 +261,29 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     const size_t num_threads = 10;
     const float alpha = 1.2;
 
+    // Set up log
+    std::vector<std::string> captured_logs;
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace);
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
+    std::vector<std::string> global_captured_logs;
+    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&global_captured_logs](const spdlog::details::log_msg& msg) {
+            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    global_callback_sink->set_level(spdlog::level::trace);
+    auto original_logger = svs::logging::get();
+    original_logger->sinks().push_back(global_callback_sink);
+
     // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto data_copy = data;
     auto num_points = data.size();
     auto queries = test_dataset::queries();
 
@@ -272,7 +294,8 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
         div(num_points, 0.5 * modify_fraction),
         NUM_NEIGHBORS,
         queries,
-        0x12345678
+        0x12345678,
+        test_logger
     );
 
     auto num_indices_to_add = div(reference.size(), initial_fraction);
@@ -304,10 +327,24 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(
-        parameters, std::move(data_mutable), initial_indices, Distance(), num_threads
+        parameters,
+        std::move(data_mutable),
+        initial_indices,
+        Distance(),
+        num_threads,
+        test_logger
     );
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
+
+    CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
+
+    // Test get_distance functionality
+    svs::DistanceDispatcher dispatcher(svs::L2);
+    dispatcher([&](auto dist) {
+        svs_test::GetDistanceTester::test(index, dist, data_copy, initial_indices);
+    });
 
     // Verify that we can get and set build parameters.
     CATCH_REQUIRE(index.get_alpha() == alpha);
@@ -419,11 +456,14 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     CATCH_REQUIRE(index.size() == reloaded.size());
     // ID's preserved across runs.
     index.on_ids([&](size_t e) { CATCH_REQUIRE(reloaded.has_id(e)); });
+
+    CATCH_REQUIRE(global_captured_logs.empty());
 }
 
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]") {
     // Vector to store captured log messages
     std::vector<std::string> captured_logs;
+    std::vector<std::string> global_captured_logs;
 
     // Create a callback sink to capture log messages
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
@@ -437,16 +477,25 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
     auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
     test_logger->set_level(spdlog::level::trace);
 
+    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&global_captured_logs](const spdlog::details::log_msg& msg) {
+            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    global_callback_sink->set_level(spdlog::level::trace);
+
+    auto original_logger = svs::logging::get();
+    original_logger->sinks().push_back(global_callback_sink);
+
     // Setup index
-    std::vector<float> data = {1.0f, 2.0f};
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
     std::vector<size_t> initial_indices(data.size());
     std::iota(initial_indices.begin(), initial_indices.end(), 0);
     svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
     auto threadpool = svs::threads::DefaultThreadPool(1);
     auto index = svs::index::vamana::MutableVamanaIndex(
         buildParams,
-        std::move(data_view),
+        std::move(data),
         initial_indices,
         svs::DistanceL2(),
         std::move(threadpool),
@@ -454,21 +503,21 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
     );
 
     // Verify the internal log messages
+    CATCH_REQUIRE(global_captured_logs.empty());
     CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
 }
 
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Default Logger Test", "[logging]") {
     // Setup index with default logger
-    std::vector<float> data = {1.0f, 2.0f};
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
     std::vector<size_t> initial_indices(data.size());
     std::iota(initial_indices.begin(), initial_indices.end(), 0);
     svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
-    auto data_view = svs::data::SimpleDataView<float>(data.data(), 2, 1);
     auto threadpool = svs::threads::DefaultThreadPool(1);
     auto index = svs::index::vamana::MutableVamanaIndex(
         buildParams,
-        std::move(data_view),
+        std::move(data),
         initial_indices,
         svs::DistanceL2(),
         std::move(threadpool)

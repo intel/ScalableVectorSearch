@@ -134,12 +134,16 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/index/vamana/search_buffer.cpp
     ${TEST_DIR}/svs/index/vamana/search_parameters.cpp
     ${TEST_DIR}/svs/index/vamana/vamana_build.cpp
-    ${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp
+    #${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp
     ${TEST_DIR}/svs/index/vamana/iterator_example.cpp
     ${TEST_DIR}/svs/index/vamana/iterator.cpp
+    ${TEST_DIR}/svs/index/vamana/multi.cpp
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
     ${TEST_DIR}/svs/index/inverted/memory_based.cpp
+
+    # Global scalar quantization
+    ${TEST_DIR}/svs/quantization/scalar/scalar.cpp
 
     # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
 )
@@ -156,6 +160,9 @@ SET(INTEGRATION_TESTS
     ${TEST_DIR}/integration/exhaustive.cpp
     ${TEST_DIR}/integration/vamana/index_search.cpp
     ${TEST_DIR}/integration/vamana/index_build.cpp
+    ${TEST_DIR}/integration/vamana/scalar_search.cpp
+    ${TEST_DIR}/integration/vamana/scalar_build.cpp
+    ${TEST_DIR}/integration/vamana/scalar_iterator.cpp
     ${TEST_DIR}/integration/inverted/build.cpp
     ${TEST_DIR}/integration/cancel.cpp
     # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA

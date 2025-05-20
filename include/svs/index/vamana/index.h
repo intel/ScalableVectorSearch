@@ -48,6 +48,8 @@
 
 namespace svs::index::vamana {
 
+template <typename Index, typename QueryType> class BatchIterator;
+
 struct VamanaIndexParameters {
     // Members
   public:
@@ -99,8 +101,12 @@ struct VamanaIndexParameters {
         return schema == serialization_schema && version <= save_version;
     }
 
-    static VamanaIndexParameters load_legacy(const lib::ContextFreeLoadTable& table) {
+    static VamanaIndexParameters load_legacy(
+        const lib::ContextFreeLoadTable& table,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
         svs::logging::warn(
+            logger,
             "Loading a legacy IndexParameters class. Please consider resaving this "
             "index to update the save version and prevent future breaking!\n"
         );
@@ -859,6 +865,37 @@ class VamanaIndex {
     /// on the contained data structures.
     template <typename F> void experimental_escape_hatch(F&& f) const {
         std::invoke(SVS_FWD(f), graph_, data_, distance_, lib::as_const_span(entry_point_));
+    }
+
+    ///// Distance
+
+    /// @brief Compute the distance between a vector in the index and a query vector
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Check if id is valid
+        if (id >= size()) {
+            throw ANNEXCEPTION("ID {} is out of bounds for index of size {}!", id, size());
+        }
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Call extension for distance computation
+        return extensions::get_distance_ext(data_, distance_, id, query);
+    }
+
+    template <typename QueryType>
+    auto make_batch_iterator(
+        std::span<const QueryType> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
+    ) const {
+        return BatchIterator(*this, query, extra_search_buffer_capacity);
     }
 };
 

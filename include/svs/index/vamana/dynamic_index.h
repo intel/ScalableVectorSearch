@@ -23,6 +23,7 @@
 #include "svs/index/flat/flat.h"
 
 // svs
+#include "svs/concepts/distance.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
@@ -42,6 +43,8 @@
 #include "svs/lib/threads.h"
 
 namespace svs::index::vamana {
+
+template <typename Index, typename QueryType> class BatchIterator;
 
 /////
 ///// MutableVamanaIndex
@@ -687,7 +690,7 @@ class MutableVamanaIndex {
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
-        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace);
+        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
@@ -721,12 +724,13 @@ class MutableVamanaIndex {
     ///   Delete consolidation performs the actual removal of deleted entries from the
     ///   graph.
     ///
-    template <typename T> void delete_entries(const T& ids) {
+    template <typename T> size_t delete_entries(const T& ids) {
         translator_.check_external_exist(ids.begin(), ids.end());
         for (auto i : ids) {
             delete_entry(translator_.get_internal(i));
         }
         translator_.delete_external(ids);
+        return ids.size();
     }
 
     void delete_entry(size_t i) {
@@ -934,11 +938,10 @@ class MutableVamanaIndex {
         assert(entry_point_.size() == 1);
         auto entry_point = entry_point_[0];
         if (status_.at(entry_point) == SlotMetadata::Deleted) {
-            auto logger = svs::logging::get();
-            svs::logging::debug(logger, "Replacing entry point.");
+            svs::logging::debug(logger_, "Replacing entry point.");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
-            svs::logging::debug(logger, "New point: {}", new_entry_point);
+            svs::logging::debug(logger_, "New point: {}", new_entry_point);
             assert(!is_deleted(new_entry_point));
             entry_point_[0] = new_entry_point;
         }
@@ -1050,7 +1053,8 @@ class MutableVamanaIndex {
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger_
         );
 
         set_search_parameters(p);
@@ -1214,6 +1218,43 @@ class MutableVamanaIndex {
             }
         }
     }
+
+    ///// Distance
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename ExternalId, typename Query>
+    double get_distance(const ExternalId& external_id, const Query& query) const {
+        // Check if the external ID exists
+        if (!has_id(external_id)) {
+            throw ANNEXCEPTION(
+                "ID {} is out of bounds for index of size {}!", external_id, size()
+            );
+        }
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Translate external ID to internal ID
+        auto internal_id = translate_external_id(external_id);
+
+        // Call extension for distance computation
+        return extensions::get_distance_ext(data_, distance_, internal_id, query);
+    }
+
+    template <typename QueryType>
+    auto make_batch_iterator(
+        std::span<const QueryType> query,
+        size_t extra_search_buffer_capacity = svs::UNSIGNED_INTEGER_PLACEHOLDER
+    ) const {
+        return BatchIterator(*this, query, extra_search_buffer_capacity);
+    }
 };
 
 ///// Deduction Guides.
@@ -1237,6 +1278,15 @@ MutableVamanaIndex(
     svs::logging::logger_ptr
 ) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+template <typename Data, typename Dist, typename ExternalIds>
+MutableVamanaIndex(
+    const VamanaBuildParameters&,
+    Data,
+    const ExternalIds&,
+    Dist,
+    size_t,
+    svs::logging::logger_ptr
+) -> MutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 namespace detail {
 
 struct VamanaStateLoader {
