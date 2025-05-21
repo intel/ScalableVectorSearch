@@ -115,16 +115,36 @@ inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
 ///
 template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
 float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+    using namespace svs::arch;
     assert(a.size() == b.size());
+    auto uarch = MicroArchEnvironment::get_instance().get_microarch();
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            IP, compute, SVS_PACK_ARGS(a.data(), b.data(), a.size())
-        );
+#define SVS_MICROARCH_FUNC(uarch)                                           \
+    case MicroArch::uarch:                                                  \
+        return IP<MicroArch::uarch>::compute(a.data(), b.data(), a.size()); \
+        break;
+
+        switch (uarch) {
+            SVS_FOR_EACH_MICROARCH
+            default:
+                return IP<MicroArch::baseline>::compute(a.data(), b.data(), a.size());
+                break;
+        }
+#undef SVS_MICROARCH_FUNC
     } else {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            IP, compute<extent>, SVS_PACK_ARGS(a.data(), b.data())
-        );
+#define SVS_MICROARCH_FUNC(uarch)                                         \
+    case MicroArch::uarch:                                                \
+        return IP<MicroArch::uarch>::compute<extent>(a.data(), b.data()); \
+        break;
+
+        switch (uarch) {
+            SVS_FOR_EACH_MICROARCH
+            default:
+                return IP<MicroArch::baseline>::compute<extent>(a.data(), b.data());
+                break;
+        }
+#undef SVS_MICROARCH_FUNC
     }
 }
 
@@ -417,20 +437,24 @@ template <size_t N, svs::arch::MicroArch uarch> struct IPImpl<N, uint8_t, uint8_
 #endif
 
 // Templates of `float IP<svs::arch::MicroArch>::compute<...>(...)`.
-// `spec` value is either `extern template` for external linkage or `template` for instantiation.
-#define SVS_IP_DISTANCE_TEMPLATE(spec, uarch, a_type, b_type) \
-    spec float IP<svs::arch::MicroArch::uarch>::compute<a_type, b_type>(a_type const *, b_type const *, size_t);
+// `spec` value is either `extern template` for external linkage or `template` for
+// instantiation.
+#define SVS_IP_DISTANCE_TEMPLATE(spec, uarch, a_type, b_type)            \
+    spec float IP<svs::arch::MicroArch::uarch>::compute<a_type, b_type>( \
+        a_type const*, b_type const*, size_t                             \
+    );
 
 #define SVS_IP_DISTANCE_TEMPLATE_WITH_FIXED_N(spec, uarch, a_type, b_type, length) \
-    spec float IP<svs::arch::MicroArch::uarch>::compute<length, a_type, b_type>(a_type const *, b_type const *);
+    spec float IP<svs::arch::MicroArch::uarch>::                                   \
+        compute<length, a_type, b_type>(a_type const*, b_type const*);
 
 // NOTE: dispatching doesn't work for other distance instances than the listed below.
-#define SVS_IP_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch) \
-    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, int8_t, int8_t) \
-    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, uint8_t, uint8_t) \
-    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, float) \
-    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, uint8_t) \
-    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, int8_t) \
+#define SVS_IP_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch)             \
+    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, int8_t, int8_t)               \
+    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, uint8_t, uint8_t)             \
+    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, float)                 \
+    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, uint8_t)               \
+    SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, int8_t)                \
     SVS_IP_DISTANCE_TEMPLATE(spec, uarch, float, svs::float16::Float16) \
     SVS_IP_DISTANCE_TEMPLATE(spec, uarch, svs::float16::Float16, float) \
     SVS_IP_DISTANCE_TEMPLATE(spec, uarch, svs::float16::Float16, svs::float16::Float16)

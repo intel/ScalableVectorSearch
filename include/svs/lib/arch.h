@@ -18,10 +18,10 @@
 
 #include "svs/lib/arch_defines.h"
 #include "svs/lib/cpuid.h"
+#include <iostream>
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <iostream>
 #include <vector>
 
 namespace svs::arch {
@@ -32,9 +32,9 @@ namespace svs::arch {
 enum class MicroArch {
 // Use macros to list all uarch instead of duplicating the list from arch_defines.h
 #define SVS_MICROARCH_FUNC(uarch) uarch,
-SVS_FOR_EACH_MICROARCH
+    SVS_FOR_EACH_KNOWN_MICROARCH
 #undef SVS_MICROARCH_FUNC
-    baseline = 0,
+        baseline = 0,
 };
 
 struct MicroArchInfo {
@@ -248,8 +248,8 @@ class MicroArchEnvironment {
   private:
     MicroArchEnvironment() {
         const std::vector<MicroArch> compiled_archs = {
-#define SVS_MICROARCH_FUNC(uarch) SVS_MICROARCH_COMPILED_##uarch
-SVS_FOR_EACH_MICROARCH
+#define SVS_MICROARCH_FUNC(uarch) MicroArch::uarch,
+            SVS_FOR_EACH_MICROARCH
 #undef SVS_MICROARCH_FUNC
         };
         compiled_archs_ = compiled_archs;
@@ -268,63 +268,5 @@ SVS_FOR_EACH_MICROARCH
     std::vector<MicroArch> supported_archs_;
     MicroArch max_arch_;
 };
-
-#if defined(__x86_64__)
-
-#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                                 \
-    svs::arch::MicroArch cpu_arch =                                                        \
-        svs::arch::MicroArchEnvironment::get_instance().get_microarch();                   \
-    switch (cpu_arch) {                                                                    \
-        SVS_CLASS_METHOD_MICROARCH_CASE_nehalem(cls, method, SVS_PACK_ARGS(args))          \
-        SVS_CLASS_METHOD_MICROARCH_CASE_westmere(cls, method, SVS_PACK_ARGS(args))         \
-        SVS_CLASS_METHOD_MICROARCH_CASE_sandybridge(cls, method, SVS_PACK_ARGS(args))      \
-        SVS_CLASS_METHOD_MICROARCH_CASE_ivybridge(cls, method, SVS_PACK_ARGS(args))        \
-        SVS_CLASS_METHOD_MICROARCH_CASE_haswell(cls, method, SVS_PACK_ARGS(args))          \
-        SVS_CLASS_METHOD_MICROARCH_CASE_broadwell(cls, method, SVS_PACK_ARGS(args))        \
-        SVS_CLASS_METHOD_MICROARCH_CASE_skylake(cls, method, SVS_PACK_ARGS(args))          \
-        SVS_CLASS_METHOD_MICROARCH_CASE_x86_64_v4(cls, method, SVS_PACK_ARGS(args))        \
-        SVS_CLASS_METHOD_MICROARCH_CASE_skylake_avx512(cls, method, SVS_PACK_ARGS(args))   \
-        SVS_CLASS_METHOD_MICROARCH_CASE_cascadelake(cls, method, SVS_PACK_ARGS(args))      \
-        SVS_CLASS_METHOD_MICROARCH_CASE_cooperlake(cls, method, SVS_PACK_ARGS(args))       \
-        SVS_CLASS_METHOD_MICROARCH_CASE_icelake_client(cls, method, SVS_PACK_ARGS(args))   \
-        SVS_CLASS_METHOD_MICROARCH_CASE_icelake_server(cls, method, SVS_PACK_ARGS(args))   \
-        SVS_CLASS_METHOD_MICROARCH_CASE_sapphirerapids(cls, method, SVS_PACK_ARGS(args))   \
-        SVS_CLASS_METHOD_MICROARCH_CASE_graniterapids(cls, method, SVS_PACK_ARGS(args))    \
-        SVS_CLASS_METHOD_MICROARCH_CASE_graniterapids_d(cls, method, SVS_PACK_ARGS(args))  \
-        default:                                                                           \
-            return cls<svs::arch::MicroArch::baseline>::method(args);                      \
-            break;                                                                         \
-    }
-#elif defined(__aarch64__)
-
-#if defined(__APPLE__)
-
-#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                    \
-    svs::arch::MicroArch cpu_arch =                                           \
-        svs::arch::MicroArchEnvironment::get_instance().get_microarch();      \
-    switch (cpu_arch) {                                                       \
-        SVS_CLASS_METHOD_MICROARCH_CASE_m1(cls, method, SVS_PACK_ARGS(args))  \
-        SVS_CLASS_METHOD_MICROARCH_CASE_m2(cls, method, SVS_PACK_ARGS(args))  \
-        default:                                                              \
-            return cls<svs::arch::MicroArch::baseline>::method(args);         \
-            break;                                                            \
-    }
-
-#else
-
-#define SVS_DISPATCH_CLASS_BY_MICROARCH(cls, method, args)                               \
-    svs::arch::MicroArch cpu_arch =                                                      \
-        svs::arch::MicroArchEnvironment::get_instance().get_microarch();                 \
-    switch (cpu_arch) {                                                                  \
-        SVS_CLASS_METHOD_MICROARCH_CASE_neoverse_v1(cls, method, SVS_PACK_ARGS(args))    \
-        SVS_CLASS_METHOD_MICROARCH_CASE_neoverse_n2(cls, method, SVS_PACK_ARGS(args))    \
-        default:                                                                         \
-            return cls<svs::arch::MicroArch::baseline>::method(args);                    \
-            break;                                                                       \
-    }
-
-#endif
-
-#endif
 
 } // namespace svs::arch

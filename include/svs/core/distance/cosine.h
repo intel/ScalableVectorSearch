@@ -138,20 +138,44 @@ inline constexpr bool operator==(DistanceCosineSimilarity, DistanceCosineSimilar
 ///
 template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
 float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+    using namespace svs::arch;
     assert(a.size() == b.size());
+    auto uarch = MicroArchEnvironment::get_instance().get_microarch();
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            CosineSimilarity,
-            compute,
-            SVS_PACK_ARGS(a.data(), b.data(), distance.norm_, a.size())
-        );
+#define SVS_MICROARCH_FUNC(uarch)                           \
+    case MicroArch::uarch:                                  \
+        return CosineSimilarity<MicroArch::uarch>::compute( \
+            a.data(), b.data(), distance.norm_, a.size()    \
+        );                                                  \
+        break;
+
+        switch (uarch) {
+            SVS_FOR_EACH_MICROARCH
+            default:
+                return CosineSimilarity<MicroArch::baseline>::compute(
+                    a.data(), b.data(), distance.norm_, a.size()
+                );
+                break;
+        }
+#undef SVS_MICROARCH_FUNC
     } else {
-        SVS_DISPATCH_CLASS_BY_MICROARCH(
-            CosineSimilarity,
-            compute<extent>,
-            SVS_PACK_ARGS(a.data(), b.data(), distance.norm_)
-        );
+#define SVS_MICROARCH_FUNC(uarch)                                   \
+    case MicroArch::uarch:                                          \
+        return CosineSimilarity<MicroArch::uarch>::compute<extent>( \
+            a.data(), b.data(), distance.norm_                      \
+        );                                                          \
+        break;
+
+        switch (uarch) {
+            SVS_FOR_EACH_MICROARCH
+            default:
+                return CosineSimilarity<MicroArch::baseline>::compute<extent>(
+                    a.data(), b.data(), distance.norm_
+                );
+                break;
+        }
+#undef SVS_MICROARCH_FUNC
     }
 }
 
@@ -348,20 +372,26 @@ struct CosineSimilarityImpl<N, Float16, Float16, uarch> {
 #endif
 
 // Templates of `float CosineSimilarity<svs::arch::MicroArch>::compute<...>(...)`.
-// `spec` value is either `extern template` for external linkage or `template` for instantiation.
-#define SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, a_type, b_type) \
-    spec float CosineSimilarity<svs::arch::MicroArch::uarch>::compute<a_type, b_type>(a_type const *, b_type const *, float, size_t);
+// `spec` value is either `extern template` for external linkage or `template` for
+// instantiation.
+#define SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, a_type, b_type)                      \
+    spec float CosineSimilarity<svs::arch::MicroArch::uarch>::compute<a_type, b_type>( \
+        a_type const*, b_type const*, float, size_t                                    \
+    );
 
 #define SVS_COSINE_DISTANCE_TEMPLATE_WITH_FIXED_N(spec, uarch, a_type, b_type, length) \
-    spec float CosineSimilarity<svs::arch::MicroArch::uarch>::compute<length, a_type, b_type>(a_type const *, b_type const *, float);
+    spec float                                                                         \
+    CosineSimilarity<svs::arch::MicroArch::uarch>::compute<length, a_type, b_type>(    \
+        a_type const*, b_type const*, float                                            \
+    );
 
 // NOTE: dispatching doesn't work for other distance instances than the listed below.
-#define SVS_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, int8_t, int8_t) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, uint8_t, uint8_t) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, float) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, int8_t) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, uint8_t) \
+#define SVS_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch)             \
+    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, int8_t, int8_t)               \
+    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, uint8_t, uint8_t)             \
+    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, float)                 \
+    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, int8_t)                \
+    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, uint8_t)               \
     SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, svs::float16::Float16) \
     SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, svs::float16::Float16, float) \
     SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, svs::float16::Float16, svs::float16::Float16)
