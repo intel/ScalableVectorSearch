@@ -828,7 +828,8 @@ class VamanaIndex {
         const GroundTruth& groundtruth,
         size_t num_neighbors,
         double target_recall,
-        const CalibrationParameters& calibration_parameters = {}
+        const CalibrationParameters& calibration_parameters = {},
+        logging::logger_ptr logger = svs::logging::get()
     ) {
         // Preallocate the destination for search.
         // Further, reference the search lambda in the recall lambda.
@@ -850,7 +851,8 @@ class VamanaIndex {
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger
         );
         set_search_parameters(p);
         return p;
@@ -997,7 +999,7 @@ auto auto_assemble(
         I{},
         std::move(distance),
         std::move(threadpool),
-        std::move(logger)};
+        logger};
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;

@@ -41,6 +41,7 @@
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
+#include "spdlog/sinks/callback_sink.h"
 
 namespace {
 
@@ -130,6 +131,7 @@ void run_tests(
     const svs::data::SimpleData<float>& queries_all,
     const svs::data::SimpleData<uint32_t>& groundtruth_all,
     const std::vector<svsbenchmark::vamana::ConfigAndResult>& expected_results,
+    svs::logging::logger_ptr logger,
     bool test_calibration = false
 ) {
     // If we make a change that somehow improves accuracy, we'll want to know.
@@ -222,7 +224,7 @@ void run_tests(
     c.train_prefetchers_ = false;
 
     index.experimental_calibrate(
-        queries, groundtruth, first_result.num_neighbors_, first_result.recall_, c
+        queries, groundtruth, first_result.num_neighbors_, first_result.recall_, c, logger
     );
     auto recall = svs::k_recall_at_n(
         groundtruth,
@@ -235,6 +237,28 @@ void run_tests(
 } // namespace
 
 CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
+    // Set up log
+    std::vector<std::string> captured_logs;
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace);
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
+
+    std::vector<std::string> global_captured_logs;
+    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&global_captured_logs](const spdlog::details::log_msg& msg) {
+            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    global_callback_sink->set_level(spdlog::level::trace);
+    auto original_logger = std::make_shared<spdlog::logger>("original_logger", global_callback_sink);
+    original_logger->set_level(spdlog::level::trace);
+    svs::logging::set(original_logger);
+
     auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
     const auto queries = test_dataset::queries();
     auto temp_dir = svs_test::temp_directory();
@@ -253,7 +277,8 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             svs::GraphLoader(test_dataset::graph_file()),
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()),
             distance_type,
-            2
+            2,
+            test_logger
         );
 
         CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
@@ -267,19 +292,19 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             verify_reconstruction(index, original_data);
             first = false;
         }
-
-        run_tests(index, queries, groundtruth, expected_results.config_and_recall_, true);
+        run_tests(index, queries, groundtruth, expected_results.config_and_recall_, test_logger, true);
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
             svs::GraphLoader(test_dataset::graph_file()),
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()),
             distance_type,
-            svs::threads::CppAsyncThreadPool(2)
+            svs::threads::CppAsyncThreadPool(2),
+            test_logger
         );
 
         run_tests<svs::threads::CppAsyncThreadPool>(
-            index, queries, groundtruth, expected_results.config_and_recall_, true
+            index, queries, groundtruth, expected_results.config_and_recall_, test_logger, true
         );
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
@@ -287,11 +312,12 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             svs::GraphLoader(test_dataset::graph_file()),
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()),
             distance_type,
-            svs::threads::QueueThreadPoolWrapper(2)
+            svs::threads::QueueThreadPoolWrapper(2),
+            test_logger
         );
 
         run_tests<svs::threads::QueueThreadPoolWrapper>(
-            index, queries, groundtruth, expected_results.config_and_recall_, true
+            index, queries, groundtruth, expected_results.config_and_recall_, test_logger, true
         );
         // Save and reload.
         svs_test::prepare_temp_directory();
@@ -316,7 +342,8 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             svs::GraphLoader(graph_dir),
             svs::VectorDataLoader<float>(data_dir),
             distance_type,
-            1
+            1,
+            test_logger
         );
         // Data Properties
         CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
@@ -337,12 +364,13 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         threadpool.resize(2);
         CATCH_REQUIRE(index.get_num_threads() == 2);
         run_tests<svs::threads::CppAsyncThreadPool>(
-            index, queries, groundtruth, expected_results.config_and_recall_
+            index, queries, groundtruth, expected_results.config_and_recall_, test_logger
         );
 
         index.set_threadpool(svs::threads::SwitchNativeThreadPool(2));
         run_tests<svs::threads::SwitchNativeThreadPool>(
-            index, queries, groundtruth, expected_results.config_and_recall_
+            index, queries, groundtruth, expected_results.config_and_recall_, test_logger
         );
     }
+    CATCH_REQUIRE(global_captured_logs.empty());
 }
