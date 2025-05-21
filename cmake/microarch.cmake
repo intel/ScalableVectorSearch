@@ -74,11 +74,7 @@ execute_process(
         --microarchitectures ${SVS_MICROARCHS}
     COMMAND_ERROR_IS_FATAL ANY
 )
-
 file(STRINGS "${FLAGS_TEXT_FILE}" OPTIMIZATION_FLAGS)
-message("Flags: ${OPTIMIZATION_FLAGS}")
-list(LENGTH OPTIMIZATION_FLAGS OPT_FLAGS_LENGTH)
-message("Length of flags: ${OPT_FLAGS_LENGTH}")
 
 #####
 ##### Helper targets to support required microarchs and apply relevant compiler optimizations.
@@ -90,12 +86,12 @@ add_library(svs_microarch_options_base INTERFACE)
 add_library(svs::microarch_options_base ALIAS svs_microarch_options_base)
 
 # Get opt. flags for base microarch
-list(POP_FRONT SVS_MICROARCHS BASE_MICROARCH)
-list(POP_FRONT OPTIMIZATION_FLAGS BASE_OPT_FLAGS)
+list(GET SVS_MICROARCHS 0 BASE_MICROARCH)
+list(GET OPTIMIZATION_FLAGS 0 BASE_OPT_FLAGS)
 string(REPLACE "," ";" BASE_OPT_FLAGS ${BASE_OPT_FLAGS})
 message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 
-target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS} -DSVS_MICROARCH_SUPPORT_${BASE_MICROARCH} -DSVS_TUNE_TARGET=${BASE_MICROARCH})
+target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS})
 
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
     # Tell the microarch dispatcher to include this microarch branch
@@ -107,7 +103,7 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
     # Create a new target for this microarch
     add_library(svs_microarch_options_${MICROARCH} INTERFACE)
     add_library(svs::microarch_options_${MICROARCH} ALIAS svs_microarch_options_${MICROARCH})
-    target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_TUNE_TARGET=${MICROARCH})
+    target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH})
 endforeach()
 
 set(MICROARCH_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/microarch_instantiations.cpp")
