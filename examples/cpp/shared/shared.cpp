@@ -40,7 +40,6 @@ std::string gtfname = "gt.vecs";
 
 const std::filesystem::path& config_path = "./config";
 const std::filesystem::path& graph_path = "./graph";
-// const std::filesystem::path& data_path = "./data";
 const std::filesystem::path& config_path_dynamic = "./config_dynamic";
 const std::filesystem::path& graph_path_dynamic = "./graph_dynamic";
 
@@ -112,7 +111,6 @@ void vamana_search(Data& data, Distance distance) {
     }
 
     auto recall = svs::k_recall_at_n(groundtruth, query_result, n_neighbors, n_neighbors);
-    // fmt::print("Raw QPS: {:7.3f} \n", fmt::join(qps, ", "));
     fmt::print(
         "Vamana Distance: {}, sws: {}, Recall: {}, Max QPS: {:7.3f} \n",
         svs::name(svs::distance_type_v<Distance>),
