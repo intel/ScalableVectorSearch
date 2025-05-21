@@ -344,33 +344,4 @@ template <size_t N> struct CosineSimilarityImpl<N, Float16, Float16, SVS_TARGET_
 };
 
 #endif
-
-// NOTE: dispatching doesn't work for other CosineSimilarity instances than the listed
-// below.
-#define SVS_INSTANTIATE_COSINE_DISTANCE_BY_MICROARCH                   \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, signed char, signed char                     \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, unsigned char, unsigned char                 \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, float, float                                 \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, float, unsigned char                         \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, float, signed char                           \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, float, svs::float16::Float16                 \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, svs::float16::Float16, float                 \
-    )                                                                  \
-    SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(         \
-        CosineSimilarity, svs::float16::Float16, svs::float16::Float16 \
-    )
-
 } // namespace svs::distance

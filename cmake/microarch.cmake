@@ -110,19 +110,24 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
     target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_TUNE_TARGET=${MICROARCH})
 endforeach()
 
-set(MICROARCH_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/microarch_instantiations.cpp")
-
-# function to create a set of object files with microarch instantiations
 function(create_microarch_instantiations)
     set(MICROARCH_OBJECT_FILES "")
     foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
         set(OBJ_NAME "microarch_${MICROARCH}")
-        add_library(${OBJ_NAME} OBJECT ${MICROARCH_CPP_FILES})
+        set(SRC_FILE "${PROJECT_SOURCE_DIR}/include/svs/core/distance/instantiations/microarch_${MICROARCH}.cpp")
 
-        target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt svs_microarch_options_${MICROARCH})
+        if(NOT EXISTS "${SRC_FILE}")
+            message(FATAL_ERROR "Missing source file for microarch: ${SRC_FILE}")
+        endif()
+
+        add_library(${OBJ_NAME} OBJECT ${SRC_FILE})
+
+        target_link_libraries(${OBJ_NAME}
+            PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt svs_microarch_options_${MICROARCH}
+        )
 
         list(APPEND MICROARCH_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
     endforeach()
-    # Note: this specific way of setting the variable is required to make it available in all targeted scopes
+
     set(MICROARCH_OBJECT_FILES "${MICROARCH_OBJECT_FILES}" CACHE INTERNAL "Microarchitecture-specific object files")
 endfunction()

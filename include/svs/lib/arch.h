@@ -378,28 +378,4 @@ auto dispatch_by_arch(Functor&& f, Args&&... args) {
     }
     // clang-format on
 }
-
-#define SVS_INST_CLASS_METHOD_TMPL_BY_MICROARCH(  \
-    return_type, cls, method, template_args, args \
-)                                                 \
-    template return_type cls<SVS_TARGET_MICROARCH>::method<template_args>(args);
-// Generic distance dispatching macro
-#define SVS_INST_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(cls, a_type, b_type) \
-    SVS_INST_CLASS_METHOD_TMPL_BY_MICROARCH(                                    \
-        float,                                                                  \
-        svs::distance::cls,                                                     \
-        compute,                                                                \
-        SVS_PACK_ARGS(a_type, b_type),                                          \
-        SVS_PACK_ARGS(a_type const*, b_type const*, unsigned long)              \
-    )
-// Cosine distance dispatching macro
-#define SVS_INST_COSINE_DISTANCE_CLASS_BY_MICROARCH_AND_TYPENAMES(cls, a_type, b_type) \
-    SVS_INST_CLASS_METHOD_TMPL_BY_MICROARCH(                                           \
-        float,                                                                         \
-        svs::distance::cls,                                                            \
-        compute,                                                                       \
-        SVS_PACK_ARGS(a_type, b_type),                                                 \
-        SVS_PACK_ARGS(a_type const*, b_type const*, float, unsigned long)              \
-    )
-
 } // namespace svs::arch
