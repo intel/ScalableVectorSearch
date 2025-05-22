@@ -1,16 +1,24 @@
-#!/usr/bin/env python3
+# Copyright 2025 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 import os
 import sys
 from itertools import product
 
 # Base types
-types = [
-    "float const",
-    "int8_t const",
-    "uint8_t const",
-    "svs::float16::Float16 const"
-]
+types = ["float const", "int8_t const", "uint8_t const", "svs::float16::Float16 const"]
 
 # Extra mixed type combinations
 extra_type_pairs = [
@@ -18,13 +26,13 @@ extra_type_pairs = [
     ("float const", "int8_t const"),
     ("float const", "svs::float16::Float16 const"),
     ("svs::float16::Float16 const", "float const"),
-    ("svs::float16::Float16 const", "svs::float16::Float16 const")
+    ("svs::float16::Float16 const", "svs::float16::Float16 const"),
 ]
 
 # Unique (ea, eb) pairs only
 type_pairs = set(product(types, repeat=2)).union(extra_type_pairs)
 
-extents = [ "Dynamic", "64", "96", "100", "128", "512", "768" ]
+extents = ["Dynamic", "64", "96", "100", "128", "512", "768"]
 
 arch_platform_map = {
     # "x86_64_v2": "defined(__x86_64__)",
@@ -51,18 +59,18 @@ arch_platform_map = {
 }
 
 
-HEADER = '''#include <span>
+HEADER = """#include <span>
 
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
 #include "svs/core/distance/cosine.h"
 #include "svs/core/distance/distance_core.h"
 
-// clang-format off'''
+// clang-format off"""
 
-FOOTER = '''// clang-format on
+FOOTER = """// clang-format on
 #endif // ARCH GUARD
-'''
+"""
 
 
 def write_cpp_file(arch: str, output_dir: str):
@@ -78,9 +86,15 @@ def write_cpp_file(arch: str, output_dir: str):
 
     for ea, eb in sorted(type_pairs):
         for extent in extents:
-            lines.append(f"template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceL2<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);")
-            lines.append(f"template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceIP<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);")
-            lines.append(f"template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceCosineSimilarity<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);")
+            lines.append(
+                f"template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceL2<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);"
+            )
+            lines.append(
+                f"template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceIP<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);"
+            )
+            lines.append(
+                f"template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceCosineSimilarity<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);"
+            )
 
     lines.append("} // namespace svs::distance")
     lines.append(FOOTER)
@@ -96,11 +110,11 @@ def write_header_file(output_dir: str):
     lines = [
         "#pragma once",
         "#include <span>",
-        "#include \"svs/core/distance/euclidean.h\"",
-        "#include \"svs/core/distance/inner_product.h\"",
-        "#include \"svs/core/distance/cosine.h\"",
-        "#include \"svs/core/distance/distance_core.h\"",
-        "namespace svs::distance {"
+        '#include "svs/core/distance/euclidean.h"',
+        '#include "svs/core/distance/inner_product.h"',
+        '#include "svs/core/distance/cosine.h"',
+        '#include "svs/core/distance/distance_core.h"',
+        "namespace svs::distance {",
     ]
 
     for arch, guard in arch_platform_map.items():
@@ -108,9 +122,15 @@ def write_header_file(output_dir: str):
         lines.append(f"#if {guard}")
         for ea, eb in product(types, repeat=2):
             for extent in extents:
-                lines.append(f"extern template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceL2<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);")
-                lines.append(f"extern template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceIP<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);")
-                lines.append(f"extern template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceCosineSimilarity<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);")
+                lines.append(
+                    f"extern template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceL2<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);"
+                )
+                lines.append(
+                    f"extern template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceIP<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);"
+                )
+                lines.append(
+                    f"extern template float compute<{ea}, {eb}, {extent}, {extent}, {arch_enum}>(DistanceCosineSimilarity<{arch_enum}>, std::span<{ea}, {extent}>, std::span<{eb}, {extent}>);"
+                )
         lines.append(f"#endif // {guard}")
     lines.append("} // namespace svs::distance")
 
@@ -119,9 +139,13 @@ def write_header_file(output_dir: str):
 
     print(f"Generated: {path}")
 
+
 def main():
     if len(sys.argv) != 3:
-        print("Usage: generate_distance_instantiations.py <output_directory>", file=sys.stderr)
+        print(
+            "Usage: generate_distance_instantiations.py <output_directory>",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     output_dir = sys.argv[1]
