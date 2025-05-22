@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "svs/lib/arch_defines.h"
 #include "svs/lib/cpuid.h"
+#include "svs/lib/microarch_macros.h"
 #include <iostream>
 #include <optional>
 #include <string>
@@ -30,7 +30,7 @@ namespace svs::arch {
 // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
 // https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
 enum class MicroArch {
-// Use macros to list all uarch instead of duplicating the list from arch_defines.h
+// Use macros to list all uarch instead of duplicating the list from microarch_macros.h
 #define SVS_MICROARCH_FUNC(uarch) uarch,
     SVS_FOR_EACH_KNOWN_MICROARCH
 #undef SVS_MICROARCH_FUNC

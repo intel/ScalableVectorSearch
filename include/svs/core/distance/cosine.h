@@ -372,29 +372,22 @@ struct CosineSimilarityImpl<N, Float16, Float16, uarch> {
 #endif
 
 // Templates of `float CosineSimilarity<svs::arch::MicroArch>::compute<...>(...)`.
-// `spec` value is either `extern template` for external linkage or `template` for
-// instantiation.
-#define SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, a_type, b_type)                      \
+// `spec` value is either `extern template` for external linkage
+// or `template` for instantiation.
+#define SVS_COSINE_DISTANCE_DYNAMIC_TEMPLATE(spec, uarch, a_type, b_type)              \
     spec float CosineSimilarity<svs::arch::MicroArch::uarch>::compute<a_type, b_type>( \
         a_type const*, b_type const*, float, size_t                                    \
     );
 
-#define SVS_COSINE_DISTANCE_TEMPLATE_WITH_FIXED_N(spec, uarch, a_type, b_type, length) \
-    spec float                                                                         \
-    CosineSimilarity<svs::arch::MicroArch::uarch>::compute<length, a_type, b_type>(    \
-        a_type const*, b_type const*, float                                            \
+#define SVS_COSINE_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, a_type, b_type, length)   \
+    spec float                                                                      \
+    CosineSimilarity<svs::arch::MicroArch::uarch>::compute<length, a_type, b_type>( \
+        a_type const*, b_type const*, float                                         \
     );
 
 // NOTE: dispatching doesn't work for other distance instances than the listed below.
-#define SVS_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch)             \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, int8_t, int8_t)               \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, uint8_t, uint8_t)             \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, float)                 \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, int8_t)                \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, uint8_t)               \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, float, svs::float16::Float16) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, svs::float16::Float16, float) \
-    SVS_COSINE_DISTANCE_TEMPLATE(spec, uarch, svs::float16::Float16, svs::float16::Float16)
+#define SVS_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch) \
+    SVS_DISTANCE_TEMPLATES_BY_MICROARCH(COSINE, spec, uarch)
 
 #define SVS_INSTANTIATE_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(uarch) \
     SVS_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(template, uarch)

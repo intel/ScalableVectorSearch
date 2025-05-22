@@ -20,17 +20,29 @@ set(svs_microarch_cmake_included true)
 # N.B.: first microarch listed in targets file is treated as "base" microarch
 # which is used to build base object files, shared libs and executables
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-    file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_x86_64" SVS_MICROARCHS)
+    file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_x86_64" SVS_SUPPORTED_MICROARCHS)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     if(APPLE)
-        file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_aarch64_darwin" SVS_MICROARCHS)
+        file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_aarch64_darwin" SVS_SUPPORTED_MICROARCHS)
     else()
-        file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_aarch64" SVS_MICROARCHS)
+        file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_targets_aarch64" SVS_SUPPORTED_MICROARCHS)
     endif()
 else()
     message(FATAL_ERROR "Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
+# List all known microarchs
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+    file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_list_x86_64" SVS_KNOWN_MICROARCHS)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+    if(APPLE)
+        file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_list_aarch64_darwin" SVS_KNOWN_MICROARCHS)
+    else()
+        file(STRINGS "${CMAKE_CURRENT_LIST_DIR}/microarch_list_aarch64" SVS_KNOWN_MICROARCHS)
+    endif()
+else()
+    message(FATAL_ERROR "Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+endif()
 
 # Try to find the Python executable.
 #
@@ -71,10 +83,26 @@ execute_process(
         ${FLAGS_TEXT_FILE}
         --compiler ${CMAKE_CXX_COMPILER_ID}
         --compiler-version ${CMAKE_CXX_COMPILER_VERSION}
-        --microarchitectures ${SVS_MICROARCHS}
+        --microarchitectures ${SVS_SUPPORTED_MICROARCHS}
     COMMAND_ERROR_IS_FATAL ANY
 )
 file(STRINGS "${FLAGS_TEXT_FILE}" OPTIMIZATION_FLAGS)
+
+# Run the python script to generate a header with microarch-specific macros.
+set(GENERATOR_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/generate_microarch_macros.py")
+set(MICROARCH_MACROS_PROTOTYPE_HEADER "${CMAKE_CURRENT_LIST_DIR}/microarch_macros.h")
+set(MICROARCH_MACROS_HEADER "${PROJECT_SOURCE_DIR}/include/svs/lib/microarch_macros.h")
+
+execute_process(
+    COMMAND
+        ${SVS_PYTHON_EXECUTABLE}
+        ${GENERATOR_SCRIPT}
+        --proto-header-file ${MICROARCH_MACROS_PROTOTYPE_HEADER}
+        --output-header-file ${MICROARCH_MACROS_HEADER}
+        --known-uarchs ${SVS_KNOWN_MICROARCHS}
+        --supported-uarchs ${SVS_SUPPORTED_MICROARCHS}
+    COMMAND_ERROR_IS_FATAL ANY
+)
 
 #####
 ##### Helper targets to support required microarchs and apply relevant compiler optimizations.
@@ -86,14 +114,14 @@ add_library(svs_microarch_options_base INTERFACE)
 add_library(svs::microarch_options_base ALIAS svs_microarch_options_base)
 
 # Get opt. flags for base microarch
-list(GET SVS_MICROARCHS 0 BASE_MICROARCH)
+list(GET SVS_SUPPORTED_MICROARCHS 0 BASE_MICROARCH)
 list(GET OPTIMIZATION_FLAGS 0 BASE_OPT_FLAGS)
 string(REPLACE "," ";" BASE_OPT_FLAGS ${BASE_OPT_FLAGS})
 message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 
 target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS})
 
-foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
+foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
     # Tell the microarch dispatcher to include this microarch branch
     target_compile_options(svs_microarch_options_base INTERFACE -DSVS_MICROARCH_SUPPORT_${MICROARCH})
 
@@ -111,7 +139,7 @@ set(MICROARCH_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/microarch_instantiations.cpp"
 # function to create a set of object files with microarch instantiations
 function(create_microarch_instantiations)
     set(MICROARCH_OBJECT_FILES "")
-    foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
+    foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
         set(OBJ_NAME "microarch_${MICROARCH}")
         add_library(${OBJ_NAME} OBJECT ${MICROARCH_CPP_FILES})
 
