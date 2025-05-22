@@ -103,7 +103,7 @@ void test_types(T lo, T hi, size_t num_tests) {
         {
             // Statically Sized Computation
             auto dist =
-                svs::distance::CosineSimilarity<svs::arch::MicroArch::baseline>::compute<N>(
+                svs::distance::CosineSimilarity<svs::arch::MicroArch::base>::compute<N>(
                     a.data(), b.data(), a_norm
                 );
             CATCH_REQUIRE(dist == expected);
@@ -111,7 +111,7 @@ void test_types(T lo, T hi, size_t num_tests) {
         {
             // Dynamically Sized Computation
             auto dist =
-                svs::distance::CosineSimilarity<svs::arch::MicroArch::baseline>::compute(
+                svs::distance::CosineSimilarity<svs::arch::MicroArch::base>::compute(
                     a.data(), b.data(), a_norm, N
                 );
             CATCH_REQUIRE(dist == expected);

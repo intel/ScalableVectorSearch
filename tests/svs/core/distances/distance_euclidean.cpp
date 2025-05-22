@@ -85,14 +85,14 @@ void test_types(T lo, T hi, size_t num_tests) {
         // are already tested above.
         {
             // Statically Sized Computation
-            auto dist = svs::distance::L2<svs::arch::MicroArch::baseline>::compute<N>(
+            auto dist = svs::distance::L2<svs::arch::MicroArch::base>::compute<N>(
                 a.data(), b.data()
             );
             CATCH_REQUIRE(dist == expected);
         }
         {
             // Dynamically Sized Computation
-            auto dist = svs::distance::L2<svs::arch::MicroArch::baseline>::compute(
+            auto dist = svs::distance::L2<svs::arch::MicroArch::base>::compute(
                 a.data(), b.data(), N
             );
             CATCH_REQUIRE(dist == expected);

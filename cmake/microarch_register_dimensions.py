@@ -32,6 +32,11 @@ def main():
     for dim in args.dimensions:
         header_content = header_content.replace(prefix, prefix + appendix.format(dim=dim))
 
+    prefix = "return (false"
+    appendix = "\n        || (n == {dim})"
+    for dim in args.dimensions:
+        header_content = header_content.replace(prefix, prefix + appendix.format(dim=dim))
+
     with open(args.header_file, "w") as f:
         f.write(header_content)
 

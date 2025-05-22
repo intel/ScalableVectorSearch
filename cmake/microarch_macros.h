@@ -62,3 +62,9 @@
 #define SVS_FOR_EACH_MICROARCH
 
 #define SVS_FOR_EACH_KNOWN_MICROARCH
+
+namespace svs::lib {
+    inline constexpr bool extent_is_registered(size_t n) {
+        return (false);
+    };
+}

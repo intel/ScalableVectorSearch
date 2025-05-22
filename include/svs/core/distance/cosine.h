@@ -142,7 +142,7 @@ float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<
     assert(a.size() == b.size());
     auto uarch = MicroArchEnvironment::get_instance().get_microarch();
     constexpr size_t extent = lib::extract_extent(Da, Db);
-    if constexpr (extent == Dynamic) {
+    if constexpr (extent == Dynamic || !lib::extent_is_registered(extent)) {
 #define SVS_MICROARCH_FUNC(uarch)                           \
     case MicroArch::uarch:                                  \
         return CosineSimilarity<MicroArch::uarch>::compute( \
@@ -153,7 +153,7 @@ float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<
         switch (uarch) {
             SVS_FOR_EACH_MICROARCH
             default:
-                return CosineSimilarity<MicroArch::baseline>::compute(
+                return CosineSimilarity<MicroArch::base>::compute(
                     a.data(), b.data(), distance.norm_, a.size()
                 );
                 break;
@@ -170,7 +170,7 @@ float compute(DistanceCosineSimilarity distance, std::span<Ea, Da> a, std::span<
         switch (uarch) {
             SVS_FOR_EACH_MICROARCH
             default:
-                return CosineSimilarity<MicroArch::baseline>::compute<extent>(
+                return CosineSimilarity<MicroArch::base>::compute<extent>(
                     a.data(), b.data(), distance.norm_
                 );
                 break;

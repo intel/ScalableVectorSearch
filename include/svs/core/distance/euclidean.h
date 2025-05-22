@@ -157,7 +157,7 @@ float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     assert(a.size() == b.size());
     auto uarch = MicroArchEnvironment::get_instance().get_microarch();
     constexpr size_t extent = lib::extract_extent(Da, Db);
-    if constexpr (extent == Dynamic) {
+    if constexpr (extent == Dynamic || !lib::extent_is_registered(extent)) {
 #define SVS_MICROARCH_FUNC(uarch)                                           \
     case MicroArch::uarch:                                                  \
         return L2<MicroArch::uarch>::compute(a.data(), b.data(), a.size()); \
@@ -166,7 +166,7 @@ float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
         switch (uarch) {
             SVS_FOR_EACH_MICROARCH
             default:
-                return L2<MicroArch::baseline>::compute(a.data(), b.data(), a.size());
+                return L2<MicroArch::base>::compute(a.data(), b.data(), a.size());
                 break;
         }
 #undef SVS_MICROARCH_FUNC
@@ -179,7 +179,7 @@ float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
         switch (uarch) {
             SVS_FOR_EACH_MICROARCH
             default:
-                return L2<MicroArch::baseline>::compute<extent>(a.data(), b.data());
+                return L2<MicroArch::base>::compute<extent>(a.data(), b.data());
                 break;
         }
 #undef SVS_MICROARCH_FUNC

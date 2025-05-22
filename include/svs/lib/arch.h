@@ -34,7 +34,7 @@ enum class MicroArch {
 #define SVS_MICROARCH_FUNC(uarch) uarch,
     SVS_FOR_EACH_KNOWN_MICROARCH
 #undef SVS_MICROARCH_FUNC
-        baseline = 0,
+        base = 0,
 };
 
 struct MicroArchInfo {
@@ -157,7 +157,6 @@ inline const std::unordered_map<MicroArch, MicroArchInfo>& get_microarch_info_ma
         {MicroArch::neoverse_n2, {MicroArch::neoverse_v1, {ISAExt::SVE2}, "neoverse_n2"}},
 #endif
 #endif
-        {MicroArch::baseline, {std::nullopt, {}, "baseline"}}
     };
     return microarch_info;
 }
@@ -253,7 +252,7 @@ class MicroArchEnvironment {
 #undef SVS_MICROARCH_FUNC
         };
         compiled_archs_ = compiled_archs;
-        max_arch_ = MicroArch::baseline;
+        max_arch_ = MicroArch::base;
         for (const auto& arch : compiled_archs_) {
             if (arch_is_supported(arch)) {
                 supported_archs_.push_back(arch);
