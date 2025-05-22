@@ -108,14 +108,14 @@ endif()
 ##### Install Logic
 #####
 
-include(GNUInstallDirs)
+include(GNUInstallDirs) 
 
 # Location of auxiliary generated cmake files to help consumers of this package.
 set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_devel svs_compile_options svs_microarch_options_base
+    TARGETS svs_devel svs_compile_options svs_native_options
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )

@@ -196,7 +196,7 @@ target_compile_definitions(tests PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
 
 target_link_libraries(tests PRIVATE ${SVS_LIB})
 target_link_libraries(
-    tests PRIVATE svs_compile_options svs_microarch_options_base svs_benchmark_library
+    tests PRIVATE svs_compile_options ${MICROARCH_OBJECT_FILES} svs_benchmark_library
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 

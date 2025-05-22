@@ -22,7 +22,7 @@ function(create_utility exe file)
     target_link_libraries(${exe} PRIVATE ${SVS_LIB})
 
     # Get common compiler options with the unit tests.
-    target_link_libraries(${exe} PRIVATE svs_compile_options svs_microarch_options_base)
+    target_link_libraries(${exe} PRIVATE svs_compile_options ${MICROARCH_OBJECT_FILES})
 
     # Link with third-party executables.
     target_link_libraries(${exe} PRIVATE fmt::fmt)

@@ -18,6 +18,8 @@
 
 #include "svs/lib/arch.h"
 
+#include "svs/core/distance/instantiations/distance_instantiations.h"
+
 //! [Includes]
 // SVS Dependencies
 #include "svs/core/recall.h"                // Convenient k-recall@n computation.

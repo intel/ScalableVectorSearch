@@ -84,30 +84,29 @@ message("Length of flags: ${OPT_FLAGS_LENGTH}")
 ##### Helper targets to support required microarchs and apply relevant compiler optimizations.
 #####
 
-# Set up "base" target to include opt. flags for base microarch
-# and flags to enable support of other microarchs in dispatcher
+# Create base meta-target to collect common defines
 add_library(svs_microarch_options_base INTERFACE)
 add_library(svs::microarch_options_base ALIAS svs_microarch_options_base)
 
-# Get opt. flags for base microarch
-list(POP_FRONT SVS_MICROARCHS BASE_MICROARCH)
-list(POP_FRONT OPTIMIZATION_FLAGS BASE_OPT_FLAGS)
-string(REPLACE "," ";" BASE_OPT_FLAGS ${BASE_OPT_FLAGS})
-message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
+# Add support and compiled defines to base target
+foreach(MICROARCH IN LISTS SVS_MICROARCHS)
+    target_compile_options(svs_microarch_options_base INTERFACE
+        -DSVS_MICROARCH_SUPPORT_${MICROARCH}
+        -DSVS_MICROARCH_COMPILED_${MICROARCH}
+    )
+endforeach()
 
-target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS} -DSVS_MICROARCH_SUPPORT_${BASE_MICROARCH} -DSVS_TUNE_TARGET=${BASE_MICROARCH})
-
+# Add per-microarch optimization targets
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_MICROARCHS OPTIMIZATION_FLAGS)
-    # Tell the microarch dispatcher to include this microarch branch
-    target_compile_options(svs_microarch_options_base INTERFACE -DSVS_MICROARCH_SUPPORT_${MICROARCH})
-
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
-    message("Opt.flags[${MICROARCH}]: ${OPT_FLAGS}")
 
-    # Create a new target for this microarch
     add_library(svs_microarch_options_${MICROARCH} INTERFACE)
     add_library(svs::microarch_options_${MICROARCH} ALIAS svs_microarch_options_${MICROARCH})
-    target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_TUNE_TARGET=${MICROARCH})
+    target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE
+        ${OPT_FLAGS}
+        -DSVS_TARGET_MICROARCH=${MICROARCH}
+        -DSVS_MICROARCH_COMPILED_${MICROARCH}
+    )
 endforeach()
 
 function(create_microarch_instantiations)
@@ -121,7 +120,6 @@ function(create_microarch_instantiations)
         endif()
 
         add_library(${OBJ_NAME} OBJECT ${SRC_FILE})
-
         target_link_libraries(${OBJ_NAME}
             PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt svs_microarch_options_${MICROARCH}
         )
@@ -129,5 +127,5 @@ function(create_microarch_instantiations)
         list(APPEND MICROARCH_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
     endforeach()
 
-    set(MICROARCH_OBJECT_FILES "${MICROARCH_OBJECT_FILES}" CACHE INTERNAL "Microarchitecture-specific object files")
+    set(MICROARCH_OBJECT_FILES "${MICROARCH_OBJECT_FILES}" PARENT_SCOPE)
 endfunction()

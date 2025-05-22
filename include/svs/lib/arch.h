@@ -16,12 +16,19 @@
 
 #pragma once
 
-#include "svs/lib/arch_defines.h"
 #include "svs/lib/cpuid.h"
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+// microarch optimization selected for the current translation unit
+#ifndef SVS_TARGET_MICROARCH
+// default to max available microarch
+#define SVS_TUNIT_MICROARCH svs::arch::MicroArch::max
+#else
+#define SVS_TUNIT_MICROARCH svs::arch::MicroArch::SVS_TARGET_MICROARCH
+#endif
 
 namespace svs::arch {
 
@@ -55,6 +62,7 @@ enum class MicroArch {
     neoverse_n2,
 #endif
 #endif
+    max,
     baseline = 0,
 };
 
@@ -265,38 +273,71 @@ class MicroArchEnvironment {
 
   private:
     MicroArchEnvironment() {
-        // clang-format off
         const std::vector<MicroArch> compiled_archs = {
-#if defined(__x86_64__)
-            SVS_MICROARCH_COMPILED_x86_64_v2
-            SVS_MICROARCH_COMPILED_nehalem
-            SVS_MICROARCH_COMPILED_westmere
-            SVS_MICROARCH_COMPILED_sandybridge
-            SVS_MICROARCH_COMPILED_ivybridge
-            SVS_MICROARCH_COMPILED_haswell
-            SVS_MICROARCH_COMPILED_broadwell
-            SVS_MICROARCH_COMPILED_skylake
-            SVS_MICROARCH_COMPILED_x86_64_v4
-            SVS_MICROARCH_COMPILED_skylake_avx512
-            SVS_MICROARCH_COMPILED_cascadelake
-            SVS_MICROARCH_COMPILED_cooperlake
-            SVS_MICROARCH_COMPILED_icelake_client
-            SVS_MICROARCH_COMPILED_icelake_server
-            SVS_MICROARCH_COMPILED_sapphirerapids
-            SVS_MICROARCH_COMPILED_graniterapids
-            SVS_MICROARCH_COMPILED_graniterapids_d
-#elif defined(__aarch64__)
-#if defined(__APPLE__)
-            SVS_MICROARCH_COMPILED_m1
-            SVS_MICROARCH_COMPILED_m2
-#else
-            SVS_MICROARCH_COMPILED_neoverse_v1
-            SVS_MICROARCH_COMPILED_neoverse_n2
+#if defined(SVS_MICROARCH_COMPILED_x86_64_v2)
+            MicroArch::x86_64_v2,
 #endif
+#if defined(SVS_MICROARCH_COMPILED_nehalem)
+            MicroArch::nehalem,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_westmere)
+            MicroArch::westmere,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_sandybridge)
+            MicroArch::sandybridge,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_ivybridge)
+            MicroArch::ivybridge,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_haswell)
+            MicroArch::haswell,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_broadwell)
+            MicroArch::broadwell,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_skylake)
+            MicroArch::skylake,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_x86_64_v4)
+            MicroArch::x86_64_v4,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_skylake_avx512)
+            MicroArch::skylake_avx512,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_cascadelake)
+            MicroArch::cascadelake,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_cooperlake)
+            MicroArch::cooperlake,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_icelake_client)
+            MicroArch::icelake_client,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_icelake_server)
+            MicroArch::icelake_server,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_sapphirerapids)
+            MicroArch::sapphirerapids,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_graniterapids)
+            MicroArch::graniterapids,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_graniterapids_d)
+            MicroArch::graniterapids_d,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_m1)
+            MicroArch::m1,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_m2)
+            MicroArch::m2,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_neoverse_v1)
+            MicroArch::neoverse_v1,
+#endif
+#if defined(SVS_MICROARCH_COMPILED_neoverse_n2)
+            MicroArch::neoverse_n2,
 #endif
         };
-        // clang-format on
-        compiled_archs_ = compiled_archs;
         max_arch_ = MicroArch::baseline;
         for (const auto& arch : compiled_archs_) {
             if (arch_is_supported(arch)) {

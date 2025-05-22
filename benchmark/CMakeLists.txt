@@ -104,7 +104,7 @@ target_link_libraries(
     PUBLIC
         ${SVS_LIB}
         svs_compile_options
-        svs_microarch_options_base
+        ${MICROARCH_OBJECT_FILES}
         fmt::fmt
 )
 
