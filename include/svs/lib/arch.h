@@ -267,79 +267,78 @@ class MicroArchEnvironment {
         return supported_archs_;
     }
 
-    const std::vector<MicroArch>& get_compiled_microarchs() const {
-        return compiled_archs_;
-    }
-
-  private:
-    MicroArchEnvironment() {
-        const std::vector<MicroArch> compiled_archs = {
+    static const std::vector<MicroArch> get_compiled_microarchs() {
+        return {
 #if defined(SVS_MICROARCH_COMPILED_x86_64_v2)
             MicroArch::x86_64_v2,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_nehalem)
-            MicroArch::nehalem,
+                MicroArch::nehalem,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_westmere)
-            MicroArch::westmere,
+                MicroArch::westmere,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_sandybridge)
-            MicroArch::sandybridge,
+                MicroArch::sandybridge,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_ivybridge)
-            MicroArch::ivybridge,
+                MicroArch::ivybridge,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_haswell)
-            MicroArch::haswell,
+                MicroArch::haswell,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_broadwell)
-            MicroArch::broadwell,
+                MicroArch::broadwell,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_skylake)
-            MicroArch::skylake,
+                MicroArch::skylake,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_x86_64_v4)
-            MicroArch::x86_64_v4,
+                MicroArch::x86_64_v4,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_skylake_avx512)
-            MicroArch::skylake_avx512,
+                MicroArch::skylake_avx512,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_cascadelake)
-            MicroArch::cascadelake,
+                MicroArch::cascadelake,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_cooperlake)
-            MicroArch::cooperlake,
+                MicroArch::cooperlake,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_icelake_client)
-            MicroArch::icelake_client,
+                MicroArch::icelake_client,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_icelake_server)
-            MicroArch::icelake_server,
+                MicroArch::icelake_server,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_sapphirerapids)
-            MicroArch::sapphirerapids,
+                MicroArch::sapphirerapids,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_graniterapids)
-            MicroArch::graniterapids,
+                MicroArch::graniterapids,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_graniterapids_d)
-            MicroArch::graniterapids_d,
+                MicroArch::graniterapids_d,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_m1)
-            MicroArch::m1,
+                MicroArch::m1,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_m2)
-            MicroArch::m2,
+                MicroArch::m2,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_neoverse_v1)
-            MicroArch::neoverse_v1,
+                MicroArch::neoverse_v1,
 #endif
 #if defined(SVS_MICROARCH_COMPILED_neoverse_n2)
-            MicroArch::neoverse_n2,
+                MicroArch::neoverse_n2,
 #endif
         };
+    }
+
+  private:
+    MicroArchEnvironment() {
         max_arch_ = MicroArch::baseline;
-        for (const auto& arch : compiled_archs_) {
+        for (const auto& arch : get_compiled_microarchs()) {
             if (arch_is_supported(arch)) {
                 supported_archs_.push_back(arch);
                 if (static_cast<int>(arch) > static_cast<int>(max_arch_)) {
@@ -349,7 +348,6 @@ class MicroArchEnvironment {
         }
     }
 
-    std::vector<MicroArch> compiled_archs_;
     std::vector<MicroArch> supported_archs_;
     MicroArch max_arch_;
 };
