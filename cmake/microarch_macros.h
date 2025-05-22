@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <stdexcept>
+
 // clang-format off
 
 #define SVS_PACK_ARGS(...) __VA_ARGS__
@@ -65,6 +67,10 @@
 
 namespace svs::lib {
     inline constexpr bool extent_is_registered(size_t n) {
+        if (n == 0) {
+            // Unnecessary check to avoid "unused variable n" compilation error.
+            throw std::logic_error("Static length cannot be 0!");
+        }
         return (false);
     };
 }
