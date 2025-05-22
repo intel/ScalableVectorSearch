@@ -139,9 +139,6 @@ message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS})
 
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
-    # Tell the microarch dispatcher to include this microarch branch
-    target_compile_options(svs_microarch_options_base INTERFACE -DSVS_MICROARCH_SUPPORT_${MICROARCH})
-
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
     message("Opt.flags[${MICROARCH}]: ${OPT_FLAGS}")
 
