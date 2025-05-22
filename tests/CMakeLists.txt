@@ -209,3 +209,4 @@ include(CTest)
 include(Catch)
 catch_discover_tests(tests)
 
+svs_register_static_dimensions(87 100 128)

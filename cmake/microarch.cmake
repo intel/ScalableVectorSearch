@@ -89,7 +89,7 @@ execute_process(
 file(STRINGS "${FLAGS_TEXT_FILE}" OPTIMIZATION_FLAGS)
 
 # Run the python script to generate a header with microarch-specific macros.
-set(GENERATOR_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/generate_microarch_macros.py")
+set(GENERATOR_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/microarch_generate_macros.py")
 set(MICROARCH_MACROS_PROTOTYPE_HEADER "${CMAKE_CURRENT_LIST_DIR}/microarch_macros.h")
 set(MICROARCH_MACROS_HEADER "${PROJECT_SOURCE_DIR}/include/svs/lib/microarch_macros.h")
 
@@ -103,6 +103,23 @@ execute_process(
         --supported-uarchs ${SVS_SUPPORTED_MICROARCHS}
     COMMAND_ERROR_IS_FATAL ANY
 )
+
+#####
+##### Helper function to register specified static dimensions for dispatching by microarch.
+#####
+
+set(DIM_REGISTRY_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/microarch_register_dimensions.py")
+
+function(svs_register_static_dimensions)
+    execute_process(
+        COMMAND
+            ${SVS_PYTHON_EXECUTABLE}
+            ${DIM_REGISTRY_SCRIPT}
+            --header-file ${MICROARCH_MACROS_HEADER}
+            --dimensions ${ARGN}
+        COMMAND_ERROR_IS_FATAL ANY
+    )
+endfunction()
 
 #####
 ##### Helper targets to support required microarchs and apply relevant compiler optimizations.
