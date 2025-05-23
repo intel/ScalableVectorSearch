@@ -964,7 +964,8 @@ class MutableVamanaIndex {
             max_candidates_,
             alpha_,
             distance_,
-            check_is_deleted
+            check_is_deleted,
+            logger_
         );
 
         // After consolidation - set all `Deleted` slots to `Empty`.
