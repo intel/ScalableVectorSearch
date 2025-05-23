@@ -30,7 +30,8 @@ namespace svs::arch {
 // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
 // https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
 enum class MicroArch {
-// Use macros to list all uarch instead of duplicating the list from microarch_macros.h
+// Using `foreach (uarch: known_uarch_list)` macro to list all known uarchs
+// for uarch support map instead of duplicating the list from microarch_macros.h
 #define SVS_MICROARCH_FUNC(uarch) uarch,
     SVS_FOR_EACH_KNOWN_MICROARCH
 #undef SVS_MICROARCH_FUNC
@@ -229,28 +230,21 @@ class MicroArchEnvironment {
     void describe(std::ostream& out) const {
         write_extensions_status(out);
 
-        out << "\nCurrent µarch: " << microarch_to_string(max_arch_) << std::endl;
+        out << "\nCurrent microarchitecture: " << microarch_to_string(max_arch_)
+            << std::endl;
 
-        out << "\nSupported µarchs: ";
-        for (const auto& arch : supported_archs_) {
-            out << microarch_to_string(arch) << " ";
-        }
-        out << std::endl;
-
-        out << "\nCompiled µarchs: ";
-        for (const auto& arch : compiled_archs_) {
-            out << microarch_to_string(arch) << " ";
-        }
-        out << std::endl;
+        output_microarchs(out, "Supported", supported_archs_);
+        output_microarchs(out, "Compiled", compiled_archs_);
+        output_microarchs(out, "Known", known_archs_);
     }
 
   private:
     MicroArchEnvironment() {
-        const std::vector<MicroArch> compiled_archs = {
 #define SVS_MICROARCH_FUNC(uarch) MicroArch::uarch,
-            SVS_FOR_EACH_MICROARCH
+        const std::vector<MicroArch> known_archs = {SVS_FOR_EACH_KNOWN_MICROARCH};
+        const std::vector<MicroArch> compiled_archs = {SVS_FOR_EACH_MICROARCH};
 #undef SVS_MICROARCH_FUNC
-        };
+        known_archs_ = known_archs;
         compiled_archs_ = compiled_archs;
         max_arch_ = MicroArch::base;
         for (const auto& arch : compiled_archs_) {
@@ -263,6 +257,17 @@ class MicroArchEnvironment {
         }
     }
 
+    void output_microarchs(
+        std::ostream& out, std::string name, const std::vector<MicroArch> microarchs
+    ) const {
+        out << name << " microarchitectures: ";
+        for (const auto& arch : microarchs) {
+            out << microarch_to_string(arch) << " ";
+        }
+        out << std::endl;
+    }
+
+    std::vector<MicroArch> known_archs_;
     std::vector<MicroArch> compiled_archs_;
     std::vector<MicroArch> supported_archs_;
     MicroArch max_arch_;

@@ -120,31 +120,29 @@ float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     auto uarch = MicroArchEnvironment::get_instance().get_microarch();
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic || !lib::extent_is_registered(extent)) {
+        switch (uarch) {
 #define SVS_MICROARCH_FUNC(uarch)                                           \
     case MicroArch::uarch:                                                  \
         return IP<MicroArch::uarch>::compute(a.data(), b.data(), a.size()); \
         break;
-
-        switch (uarch) {
             SVS_FOR_EACH_MICROARCH
+#undef SVS_MICROARCH_FUNC
             default:
                 return IP<MicroArch::base>::compute(a.data(), b.data(), a.size());
                 break;
         }
-#undef SVS_MICROARCH_FUNC
     } else {
+        switch (uarch) {
 #define SVS_MICROARCH_FUNC(uarch)                                         \
     case MicroArch::uarch:                                                \
         return IP<MicroArch::uarch>::compute<extent>(a.data(), b.data()); \
         break;
-
-        switch (uarch) {
             SVS_FOR_EACH_MICROARCH
+#undef SVS_MICROARCH_FUNC
             default:
                 return IP<MicroArch::base>::compute<extent>(a.data(), b.data());
                 break;
         }
-#undef SVS_MICROARCH_FUNC
     }
 }
 
