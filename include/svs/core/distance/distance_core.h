@@ -24,6 +24,28 @@
 #include <cmath>
 #include <span>
 
+namespace svs {
+// TODO: Figure out how these statements were used for docs
+
+// // Documentation for these classes lives with the classes themselves.
+// using DistanceL2 = distance::DistanceL2;
+// using DistanceIP = distance::DistanceIP;
+// using DistanceCosineSimilarity = distance::DistanceCosineSimilarity;
+
+// TODO: Figure out if it's okay to move this to distance_core.h
+///
+/// @brief Runtime selector for built-in distance functions.
+///
+enum DistanceType {
+    /// Minimize squared L2 distance. See: ``svs::distance::DistanceL2``.
+    L2,
+    /// Maximize inner product. See: ``svs::distance::DistanceIP``.
+    MIP,
+    /// Minimize cosine similarity. See: ``svs::distance::DistanceCosineSimilarity``.
+    Cosine
+};
+} // namespace svs
+
 namespace svs::distance {
 
 using default_accum_type = float;

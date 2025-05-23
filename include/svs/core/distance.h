@@ -17,6 +17,7 @@
 #pragma once
 
 #include "svs/core/distance/cosine.h"
+#include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
 #include "svs/lib/dispatcher.h"
@@ -29,23 +30,6 @@
 ///
 
 namespace svs {
-
-// Documentation for these classes lives with the classes themselves.
-using DistanceL2 = distance::DistanceL2;
-using DistanceIP = distance::DistanceIP;
-using DistanceCosineSimilarity = distance::DistanceCosineSimilarity;
-
-///
-/// @brief Runtime selector for built-in distance functions.
-///
-enum DistanceType {
-    /// Minimize squared L2 distance. See: ``svs::distance::DistanceL2``.
-    L2,
-    /// Maximize inner product. See: ``svs::distance::DistanceIP``.
-    MIP,
-    /// Minimize cosine similarity. See: ``svs::distance::DistanceCosineSimilarity``.
-    Cosine
-};
 
 inline constexpr std::string_view name(DistanceType type) {
     switch (type) {
@@ -76,13 +60,16 @@ inline DistanceType parse_distance_type(std::string_view str) {
 namespace detail {
 template <typename Distance> struct DistanceTypeEnumMap;
 
-template <> struct DistanceTypeEnumMap<distance::DistanceL2> {
+template <typename svs::arch::MicroArch Arch>
+struct DistanceTypeEnumMap<distance::DistanceL2<Arch>> {
     static constexpr DistanceType value = DistanceType::L2;
 };
-template <> struct DistanceTypeEnumMap<distance::DistanceIP> {
+template <typename svs::arch::MicroArch Arch>
+struct DistanceTypeEnumMap<distance::DistanceIP<Arch>> {
     static constexpr DistanceType value = DistanceType::MIP;
 };
-template <> struct DistanceTypeEnumMap<distance::DistanceCosineSimilarity> {
+template <typename svs::arch::MicroArch Arch>
+struct DistanceTypeEnumMap<distance::DistanceCosineSimilarity<Arch>> {
     static constexpr DistanceType value = DistanceType::Cosine;
 };
 } // namespace detail
@@ -103,13 +90,15 @@ template <typename Dist> struct DistanceConverter {
     static std::string_view description() { return name(distance_type_v<Dist>); }
 };
 
-template <>
-struct lib::DispatchConverter<DistanceType, DistanceL2> : DistanceConverter<DistanceL2> {};
-template <>
-struct lib::DispatchConverter<DistanceType, DistanceIP> : DistanceConverter<DistanceIP> {};
-template <>
-struct lib::DispatchConverter<DistanceType, DistanceCosineSimilarity>
-    : DistanceConverter<DistanceCosineSimilarity> {};
+template <svs::arch::MicroArch Arch>
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceL2<Arch>>
+    : DistanceConverter<svs::distance::DistanceL2<Arch>> {};
+template <typename svs::arch::MicroArch Arch>
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceIP<Arch>>
+    : DistanceConverter<svs::distance::DistanceIP<Arch>> {};
+template <svs::arch::MicroArch Arch>
+struct lib::DispatchConverter<DistanceType, svs::distance::DistanceCosineSimilarity<Arch>>
+    : DistanceConverter<svs::distance::DistanceCosineSimilarity<Arch>> {};
 
 // Saving and Loading.
 namespace lib {
@@ -124,6 +113,23 @@ template <> struct Loader<svs::DistanceType> {
     }
 };
 } // namespace lib
+
+// Factory for per-architecture distance dispatching
+template <DistanceType DT> struct DistanceTag {};
+
+template <DistanceType DT, svs::arch::MicroArch Arch> struct DistanceFactory;
+
+template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::L2, Arch> {
+    using type = svs::distance::DistanceL2<Arch>;
+};
+
+template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::MIP, Arch> {
+    using type = svs::distance::DistanceIP<Arch>;
+};
+
+template <svs::arch::MicroArch Arch> struct DistanceFactory<DistanceType::Cosine, Arch> {
+    using type = svs::distance::DistanceCosineSimilarity<Arch>;
+};
 
 ///
 /// @brief Dynamically dispatch from an distance enum to a distance functor.
@@ -153,22 +159,52 @@ class DistanceDispatcher {
     /// @param f A function who takes distance functor for its first argument. The
     ///     dispatcher will call ``f`` with the functor corresponding to the enum used
     ///     to construct the dispatcher.
+    ///     For MicroArch-dispatching, all of this functionality is wrapped in a lambda
+    ///     which utilizes the DistanceFactory above to instantiate the distance with
+    ///     the correct MicroArch.
     ///
     ///     All other arguments will be forwarded to ``f`` beginning at argument position 2.
-    /// @param args Arguements to forward to ``f``.
+    /// @param args Arguments to forward to ``f``.
     ///
     template <typename F, typename... Args> auto operator()(F&& f, Args&&... args) {
         switch (distance_type_) {
-            case DistanceType::L2: {
-                return f(DistanceL2{}, std::forward<Args>(args)...);
-            }
-            case DistanceType::MIP: {
-                return f(DistanceIP{}, std::forward<Args>(args)...);
-            }
-            case DistanceType::Cosine: {
-                return f(DistanceCosineSimilarity{}, std::forward<Args>(args)...);
-            }
+            case DistanceType::L2:
+                return svs::arch::dispatch_by_arch(
+                    [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
+                        using Distance =
+                            typename DistanceFactory<DistanceType::L2, Arch>::type;
+                        return f(
+                            Distance{}, std::forward<decltype(inner_args)>(inner_args)...
+                        );
+                    },
+                    std::forward<Args>(args)...
+                );
+
+            case DistanceType::MIP:
+                return svs::arch::dispatch_by_arch(
+                    [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
+                        using Distance =
+                            typename DistanceFactory<DistanceType::MIP, Arch>::type;
+                        return f(
+                            Distance{}, std::forward<decltype(inner_args)>(inner_args)...
+                        );
+                    },
+                    std::forward<Args>(args)...
+                );
+
+            case DistanceType::Cosine:
+                return svs::arch::dispatch_by_arch(
+                    [&]<svs::arch::MicroArch Arch>(auto&&... inner_args) -> decltype(auto) {
+                        using Distance =
+                            typename DistanceFactory<DistanceType::Cosine, Arch>::type;
+                        return f(
+                            Distance{}, std::forward<decltype(inner_args)>(inner_args)...
+                        );
+                    },
+                    std::forward<Args>(args)...
+                );
         }
+
         throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
     }
 

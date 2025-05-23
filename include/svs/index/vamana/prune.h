@@ -36,15 +36,16 @@ struct LegacyPruneStrategy {};
 template <typename Distance> struct PruneStrategy;
 
 // Strategy for L2
-template <> struct PruneStrategy<distance::DistanceL2> {
+template <svs::arch::MicroArch Arch> struct PruneStrategy<distance::DistanceL2<Arch>> {
     using type = ProgressivePruneStrategy;
 };
 
 // Specialize IP to use the iterative strategy.
-template <> struct PruneStrategy<distance::DistanceIP> {
+template <svs::arch::MicroArch Arch> struct PruneStrategy<distance::DistanceIP<Arch>> {
     using type = IterativePruneStrategy;
 };
-template <> struct PruneStrategy<distance::DistanceCosineSimilarity> {
+template <svs::arch::MicroArch Arch>
+struct PruneStrategy<distance::DistanceCosineSimilarity<Arch>> {
     using type = IterativePruneStrategy;
 };
 

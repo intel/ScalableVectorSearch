@@ -19,6 +19,7 @@
 // svs
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/simd_utils.h"
+#include "svs/lib/arch.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/saveload.h"
@@ -71,7 +72,7 @@
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb> struct L2Impl;
+template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct L2Impl;
 
 // Generic Entry Point
 // Call as one of either:
@@ -80,16 +81,16 @@ template <size_t N, typename Ea, typename Eb> struct L2Impl;
 // (2) L2::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
-class L2 {
+template <svs::arch::MicroArch Arch> class L2 {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        return L2Impl<Dynamic, Ea, Eb>::compute(a, b, lib::MaybeStatic(N));
+        return L2Impl<Dynamic, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic(N));
     }
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
-        return L2Impl<N, Ea, Eb>::compute(a, b, lib::MaybeStatic<N>());
+        return L2Impl<N, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic<N>());
     }
 };
 
@@ -101,7 +102,10 @@ class L2 {
 /// \ref compute_distancel2 "compute" method and is thus capable of being extended
 /// externally.
 ///
-struct DistanceL2 {
+template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceL2 {
+    static constexpr svs::arch::MicroArch arch = Arch;
+    static constexpr svs::DistanceType distance_type = svs::DistanceType::L2;
+
     /// Vectors are more similar if their distance is smaller.
     using compare = std::less<>;
 
@@ -126,7 +130,11 @@ struct DistanceL2 {
     }
 };
 
-inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
+template <svs::arch::MicroArch Arch1, svs::arch::MicroArch Arch2>
+inline constexpr bool operator==(DistanceL2<Arch1>, DistanceL2<Arch2>) {
+    constexpr bool same = std::is_same_v<Arch1, Arch2>;
+    return same;
+}
 
 ///
 /// @ingroup distance_overload
@@ -139,6 +147,8 @@ inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
 ///     this is to be discovered during runtime.
 /// @tparam Db The compile-time length of right-hand argument. May be ``svs::Dynamic`` if
 ///     this is to be discovered during runtime.
+/// @tparam MicroArch The desired microarch. One specialization per supported microarch will
+///     be compiled for run-time dispatching.
 ///
 /// @param a The left-hand vector. Typically, this position is used for the query.
 /// @param b The right-hand vector. Typically, this position is used for a dataset vector.
@@ -150,14 +160,14 @@ inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
 /// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
-template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
-float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db, svs::arch::MicroArch Arch>
+float compute(DistanceL2<Arch> /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     assert(a.size() == b.size());
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        return L2::compute(a.data(), b.data(), a.size());
+        return L2<Arch>::compute(a.data(), b.data(), a.size());
     } else {
-        return L2::compute<extent>(a.data(), b.data());
+        return L2<Arch>::template compute<extent>(a.data(), b.data());
     }
 }
 
@@ -169,6 +179,7 @@ template <size_t N, typename Ea, typename Eb>
 float generic_l2(
     const Ea* a, const Eb* b, lib::MaybeStatic<N> length = lib::MaybeStatic<N>()
 ) {
+    std::cout << "generic" << std::endl;
     float result = 0;
     for (size_t i = 0; i < length.size(); ++i) {
         auto temp = static_cast<float>(a[i]) - static_cast<float>(b[i]);
@@ -177,7 +188,7 @@ float generic_l2(
     return result;
 }
 
-template <size_t N, typename Ea, typename Eb> struct L2Impl {
+template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct L2Impl {
     static constexpr float
     compute(const Ea* a, const Eb* b, lib::MaybeStatic<N> length = lib::MaybeStatic<N>()) {
         return generic_l2(a, b, length);
@@ -252,14 +263,14 @@ template <> struct L2VNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 };
 
 // VNNI Dispatching
-template <size_t N> struct L2Impl<N, int8_t, int8_t> {
+template <size_t N> struct L2Impl<N, int8_t, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
+template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
@@ -269,42 +280,43 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
 #endif
 
 // Floating and Mixed Types
-template <size_t N> struct L2Impl<N, float, float> {
+template <size_t N> struct L2Impl<N, float, float, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
+        std::cout << "optimized" << std::endl;
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, float, uint8_t> {
+template <size_t N> struct L2Impl<N, float, uint8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct L2Impl<N, float, int8_t> {
+template <size_t N> struct L2Impl<N, float, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct L2Impl<N, float, Float16> {
+template <size_t N> struct L2Impl<N, float, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, float> {
+template <size_t N> struct L2Impl<N, Float16, float, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, Float16> {
+template <size_t N> struct L2Impl<N, Float16, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
@@ -320,7 +332,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
-template <size_t N> struct L2Impl<N, float, float> {
+template <size_t N> struct L2Impl<N, float, float, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -340,7 +352,7 @@ template <size_t N> struct L2Impl<N, float, float> {
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, Float16> {
+template <size_t N> struct L2Impl<N, Float16, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -362,7 +374,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16> {
     }
 };
 
-template <size_t N> struct L2Impl<N, float, Float16> {
+template <size_t N> struct L2Impl<N, float, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -383,7 +395,7 @@ template <size_t N> struct L2Impl<N, float, Float16> {
     }
 };
 
-template <size_t N> struct L2Impl<N, float, int8_t> {
+template <size_t N> struct L2Impl<N, float, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -407,7 +419,7 @@ template <size_t N> struct L2Impl<N, float, int8_t> {
     }
 };
 
-template <size_t N> struct L2Impl<N, int8_t, int8_t> {
+template <size_t N> struct L2Impl<N, int8_t, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -434,7 +446,7 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t> {
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
+template <size_t N> struct L2Impl<N, uint8_t, uint8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;

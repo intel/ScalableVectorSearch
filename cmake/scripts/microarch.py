@@ -17,13 +17,9 @@
 # (1) A text file with compiler optimization flags for each microarchitecture formatted for
 #     relatively easy consumption by CMake.
 #
-# (2) A JSON manifest file describing the micreoarchitecture for each compiled library
-#     that the python library can use to select the correct shared library.
-#
-import archspec
 import archspec.cpu as cpu
 import argparse
-import json
+
 
 def build_parser():
     parser = argparse.ArgumentParser()
@@ -31,7 +27,6 @@ def build_parser():
         "cmake_flags_text_file",
         help = "file path to where CMake's text file will go."
     )
-    parser.add_argument("python_output_json_file")
     parser.add_argument("--compiler", required = True)
     parser.add_argument("--compiler-version", required = True)
     parser.add_argument(
@@ -48,6 +43,7 @@ def resolve_microarch(name: str):
     """
     custom_aliases = {
         "native": cpu.host().name,
+        "icelake_client": "icelake",
     }
     # Allow the custom aliases to override the current name.
     # If an alias doesn't exist, juse pass the name straight through.
@@ -55,7 +51,7 @@ def resolve_microarch(name: str):
 
 def dump_flags_for_cmake(flags: list, path: str):
     """
-    Save the optimization flags to a text file suitable for CMake to injest easily.
+    Save the optimization flags to a text file suitable for CMake to ingest easily.
 
     Each entry in `flags` will be interpreted as a set of compiler flags for some
     microarchitecture. By default, archspec passes this as a space-delimited string.
@@ -70,13 +66,10 @@ def dump_flags_for_cmake(flags: list, path: str):
         flags - A list of optimization flags.
         path - The file path where the output text file will be generated.
     """
+    # white-space separated to comma-separated & one architecture per line
+    string = "\n".join([",".join(f.split()) for f in flags])
     with open(path, "w") as file:
-        num_flags = len(flags)
-        for i, flag_set in enumerate(flags):
-            file.write(",".join(flag_set.split()))
-            # Add a new line if not the last flag set.
-            if i != (num_flags - 1):
-                file.write('\n')
+        file.write(string)
 
 def resolve_compiler(name: str):
     """
@@ -85,6 +78,7 @@ def resolve_compiler(name: str):
     aliases = {
         "GNU": "gcc",
         "Clang": "clang",
+        "AppleClang": "clang",
         "IntelLLVM": "oneapi",
     }
     return aliases.get(name, name)
@@ -96,39 +90,21 @@ def run():
     # Extract elements from the parser
     architectures = args.microarchitectures
     output_text = args.cmake_flags_text_file
-    output_json = args.python_output_json_file
     compiler = resolve_compiler(args.compiler)
     compiler_version = args.compiler_version
 
-    # Communicate the compiler environment to the python runtime.
-    toolchain = {
-        "compiler": compiler,
-        "compiler_version": compiler_version,
-    }
+    # Generate optimization flags.
     suffix_to_microarch = {}
     optimization_flags = []
 
-    # Generate optimization flags.
     for arch in architectures:
         resolved = resolve_microarch(arch)
         suffix_to_microarch[arch] = resolved
         flags = cpu.TARGETS[resolved].optimization_flags(compiler, compiler_version)
         optimization_flags.append(flags)
 
-    # Dump the JSON output
-    pre_json_dict = {
-        "toolchain": toolchain,
-        "libraries": suffix_to_microarch,
-    }
-    with open(output_json, "w") as file:
-        file.write(json.dumps(pre_json_dict, indent = 4))
-
     # Safe flags to file
     dump_flags_for_cmake(optimization_flags, output_text)
-
-    # Print flags to stdout
-    for flags in optimization_flags:
-        print(flags)
 
 #####
 ##### Execute as script.
