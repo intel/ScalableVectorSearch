@@ -38,10 +38,10 @@
 #include "fmt/core.h"
 
 // tests
+#include "spdlog/sinks/callback_sink.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
-#include "spdlog/sinks/callback_sink.h"
 
 namespace {
 
@@ -236,7 +236,7 @@ void run_tests(
 }
 } // namespace
 
-CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
+CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") {
     // Set up log
     std::vector<std::string> captured_logs;
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
@@ -255,7 +255,8 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         }
     );
     global_callback_sink->set_level(spdlog::level::trace);
-    auto original_logger = std::make_shared<spdlog::logger>("original_logger", global_callback_sink);
+    auto original_logger =
+        std::make_shared<spdlog::logger>("original_logger", global_callback_sink);
     original_logger->set_level(spdlog::level::trace);
     svs::logging::set(original_logger);
 
@@ -292,7 +293,14 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
             verify_reconstruction(index, original_data);
             first = false;
         }
-        run_tests(index, queries, groundtruth, expected_results.config_and_recall_, test_logger, true);
+        run_tests(
+            index,
+            queries,
+            groundtruth,
+            expected_results.config_and_recall_,
+            test_logger,
+            true
+        );
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
@@ -304,7 +312,12 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         );
 
         run_tests<svs::threads::CppAsyncThreadPool>(
-            index, queries, groundtruth, expected_results.config_and_recall_, test_logger, true
+            index,
+            queries,
+            groundtruth,
+            expected_results.config_and_recall_,
+            test_logger,
+            true
         );
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
@@ -317,7 +330,12 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         );
 
         run_tests<svs::threads::QueueThreadPoolWrapper>(
-            index, queries, groundtruth, expected_results.config_and_recall_, test_logger, true
+            index,
+            queries,
+            groundtruth,
+            expected_results.config_and_recall_,
+            test_logger,
+            true
         );
         // Save and reload.
         svs_test::prepare_temp_directory();

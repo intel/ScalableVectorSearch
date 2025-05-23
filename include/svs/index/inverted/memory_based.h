@@ -408,7 +408,8 @@ template <typename Index, typename Cluster> class InvertedIndex {
         QueryResultView<Idx> results,
         const Queries& queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
     ) {
         threads::parallel_for(
             threadpool_,

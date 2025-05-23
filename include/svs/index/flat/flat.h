@@ -319,7 +319,8 @@ class FlatIndex {
         const data::ConstSimpleDataView<QueryType>& queries,
         const search_parameters_type& search_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        Pred predicate = lib::Returns(lib::Const<true>())
+        Pred predicate = lib::Returns(lib::Const<true>()),
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         const size_t data_max_size = data_.size();
 
@@ -347,7 +348,8 @@ class FlatIndex {
                 scratch,
                 search_parameters,
                 cancel,
-                predicate
+                predicate,
+                logger
             );
             start = stop;
         }
@@ -377,7 +379,8 @@ class FlatIndex {
         sorter_type& scratch,
         const search_parameters_type& search_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        Pred predicate = lib::Returns(lib::Const<true>())
+        Pred predicate = lib::Returns(lib::Const<true>()),
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // Process all queries.
         threads::parallel_for(
@@ -398,7 +401,8 @@ class FlatIndex {
                     scratch,
                     distances,
                     cancel,
-                    predicate
+                    predicate,
+                    logger
                 );
             }
         );
@@ -420,7 +424,8 @@ class FlatIndex {
         sorter_type& scratch,
         distance::BroadcastDistance<DistFull>& distance_functors,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        Pred predicate = lib::Returns(lib::Const<true>())
+        Pred predicate = lib::Returns(lib::Const<true>()),
+        logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
     ) {
         assert(distance_functors.size() >= query_indices.size());
         auto accessor = extensions::accessor(data_);

@@ -48,7 +48,8 @@ struct TestIndex {
         svs::data::ConstSimpleDataView<float> queries,
         SearchParameters p,
         const svs::lib::DefaultPredicate& cancel =
-            svs::lib::Returns(svs::lib::Const<false>())
+            svs::lib::Returns(svs::lib::Const<false>()),
+        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
     ) const {
         CATCH_REQUIRE(result.n_neighbors() == expected_num_neighbors_);
         CATCH_REQUIRE(result.n_queries() == expected_num_queries_);

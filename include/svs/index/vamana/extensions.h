@@ -19,6 +19,7 @@
 #include "svs/concepts/distance.h"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/core/logging.h"
 #include "svs/core/medioid.h"
 #include "svs/core/query_result.h"
 #include "svs/index/vamana/greedy_search.h"
@@ -417,9 +418,10 @@ struct VamanaSingleSearchType {
         Scratch& scratch,
         const Query& query,
         const Search& search,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) const {
-        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, cancel);
+        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, cancel, logger);
     }
 };
 
@@ -442,7 +444,8 @@ SVS_FORCE_INLINE void svs_invoke(
     Distance& distance,
     const Query& query,
     const Search& search,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Check if request to cancel the search
     if (cancel()) {
@@ -450,7 +453,7 @@ SVS_FORCE_INLINE void svs_invoke(
     }
     // Perform graph search.
     auto accessor = data::GetDatumAccessor();
-    search(query, accessor, distance, search_buffer);
+    search(query, accessor, distance, search_buffer, logger);
 }
 
 ///
@@ -497,7 +500,8 @@ struct VamanaPerThreadBatchSearchType {
         QueryResultView<I>& result,
         threads::UnitRange<size_t> thread_indices,
         const Search& search,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) const {
         svs::svs_invoke(
             *this,
@@ -508,7 +512,8 @@ struct VamanaPerThreadBatchSearchType {
             result,
             thread_indices,
             search,
-            cancel
+            cancel,
+            logger
         );
     }
 };
@@ -533,7 +538,8 @@ void svs_invoke(
     QueryResultView<I>& result,
     threads::UnitRange<size_t> thread_indices,
     const Search& search,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Fallback implementation
     size_t num_neighbors = result.n_neighbors();
@@ -544,7 +550,7 @@ void svs_invoke(
         }
         // Perform search - results will be queued in the search buffer.
         single_search(
-            dataset, search_buffer, distance, queries.get_datum(i), search, cancel
+            dataset, search_buffer, distance, queries.get_datum(i), search, cancel, logger
         );
 
         // Copy back results.

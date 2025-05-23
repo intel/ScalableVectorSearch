@@ -467,7 +467,11 @@ class VamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
+                   const auto& query,
+                   auto& accessor,
+                   auto& distance,
+                   auto& buffer,
+                   auto& logger
                ) {
             greedy_search(
                 graph_,
@@ -479,7 +483,8 @@ class VamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
-                cancel
+                cancel,
+                logger
             );
         };
     }
@@ -502,7 +507,8 @@ class VamanaIndex {
     void search(
         const Query& query,
         scratchspace_type& scratch,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
     ) const {
         extensions::single_search(
             data_,
@@ -554,7 +560,8 @@ class VamanaIndex {
         QueryResultView<I> result,
         const Queries& queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
     ) {
         threads::parallel_for(
             threadpool_,
@@ -829,14 +836,16 @@ class VamanaIndex {
         size_t num_neighbors,
         double target_recall,
         const CalibrationParameters& calibration_parameters = {},
-        logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // Preallocate the destination for search.
         // Further, reference the search lambda in the recall lambda.
         auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
 
         auto do_search = [&](const search_parameters_type& p) {
-            this->search(results.view(), queries, p);
+            this->search(
+                results.view(), queries, p, lib::Returns(lib::Const<false>()), logger
+            );
         };
 
         auto compute_recall = [&](const search_parameters_type& p) {
