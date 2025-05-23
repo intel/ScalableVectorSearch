@@ -133,8 +133,8 @@ void greedy_search(
     const Builder& builder,
     Tracker& search_tracker,
     GreedySearchPrefetchParameters prefetch_parameters = {},
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-    logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+    logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get(),
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     using I = typename Graph::index_type;
 
@@ -225,8 +225,8 @@ void greedy_search(
     const Initializer& initializer,
     const Builder& builder = NeighborBuilder(),
     GreedySearchPrefetchParameters prefetch_parameters = {},
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     auto null_tracker = NullTracker{};
     greedy_search(
@@ -240,8 +240,8 @@ void greedy_search(
         builder,
         null_tracker,
         prefetch_parameters,
-        cancel,
-        logger
+        logger,
+        cancel
     );
 }
 } // namespace svs::index::vamana

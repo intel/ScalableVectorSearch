@@ -290,8 +290,8 @@ template <typename Index, typename QueryType> class BatchIterator {
                     RestartInitializer<I>{entry_points, restart_search_copy},
                     parent_->internal_search_builder(),
                     scratchspace_.prefetch_parameters,
-                    cancel,
-                    logger
+                    logger,
+                    cancel
                 );
 
                 if constexpr (Index::needs_id_translation) {

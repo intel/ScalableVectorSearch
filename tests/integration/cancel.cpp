@@ -66,7 +66,9 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         auto these_groundtruth =
             test_dataset::get_test_set(groundtruth, expected.num_queries_);
         index.set_search_parameters(sp);
-        auto results = index.search(these_queries, expected.num_neighbors_, timeout);
+        auto results = index.search(
+            these_queries, expected.num_neighbors_, svs::logging::get(), timeout
+        );
         auto recall = svs::k_recall_at_n(
             these_groundtruth, results, expected.num_neighbors_, expected.recall_k_
         );
@@ -102,7 +104,8 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         auto groundtruth = test_dataset::get_test_set(groundtruth_all, queries_in_test_set);
         index.set_search_parameters(expected.search_parameters_);
         index.set_threadpool(svs::threads::DefaultThreadPool(num_threads));
-        auto results = index.search(queries, expected.num_neighbors_, timeout);
+        auto results =
+            index.search(queries, expected.num_neighbors_, svs::logging::get(), timeout);
         auto recall = svs::k_recall_at_n(
             groundtruth, results, expected.num_neighbors_, expected.recall_k_
         );
@@ -123,7 +126,9 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         auto timeout = [&]() { return ++counter >= 2; };
         auto index =
             svs::index::flat::FlatIndex(std::move(data), svs::distance::DistanceL2{}, 1);
-        svs::index::search_batch_into(index, result.view(), queries.cview(), timeout);
+        svs::index::search_batch_into(
+            index, result.view(), queries.cview(), svs::logging::get(), timeout
+        );
 
         // recall should be very bad due to timeout
         CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) < 0.5);
@@ -138,7 +143,9 @@ CATCH_TEST_CASE("Cancel", "[integration][cancel]") {
         svs::Flat index = svs::Flat::assemble<svs::lib::Types<float, svs::Float16>>(
             svs::VectorDataLoader<float>(test_dataset::data_svs_file()), svs::L2, 2
         );
-        svs::index::search_batch_into(index, result.view(), queries.cview(), timeout);
+        svs::index::search_batch_into(
+            index, result.view(), queries.cview(), svs::logging::get(), timeout
+        );
 
         // recall should be very bad due to timeout
         CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) < 0.5);

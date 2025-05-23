@@ -21,6 +21,7 @@
 #include "catch2/catch_test_macros.hpp"
 
 // svs
+#include "spdlog/sinks/callback_sink.h"
 #include "svs/core/distance.h"
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
@@ -43,7 +44,11 @@ inline constexpr bool is_flat_index_v<svs::index::flat::FlatIndex<Args...>> = tr
 // In this test, we predicate out the even indices and only return odd indices.
 // The test checks that no even indices occur in the result.
 template <typename Index, typename Queries>
-void test_predicate(Index& index, const Queries& queries) {
+void test_predicate(
+    Index& index,
+    const Queries& queries,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
     const size_t num_neighbors = 10;
     auto result = svs::QueryResult<size_t>(queries.size(), num_neighbors);
 
@@ -55,6 +60,7 @@ void test_predicate(Index& index, const Queries& queries) {
         result.view(),
         queries.cview(),
         index.get_search_parameters(),
+        logger,
         []() { return false; },
         predicate
     );
@@ -75,7 +81,8 @@ void test_flat(
     Index& index,
     const Queries& queries,
     const GroundTruth& groundtruth,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Test get distance
     auto dataset = svs::load_data<float>(test_dataset::data_svs_file());
@@ -129,7 +136,7 @@ void test_flat(
 
     // Test predicated search.
     if constexpr (is_flat_index_v<Index>) {
-        test_predicate(index, queries);
+        test_predicate(index, queries, logger);
     }
 }
 } // namespace
@@ -140,6 +147,28 @@ void test_flat(
 
 // Test the single-threaded implementation.
 CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
+    // Set up log
+    std::vector<std::string> captured_logs;
+    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&captured_logs](const spdlog::details::log_msg& msg) {
+            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    callback_sink->set_level(spdlog::level::trace);
+    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
+    test_logger->set_level(spdlog::level::trace);
+
+    std::vector<std::string> global_captured_logs;
+    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+        [&global_captured_logs](const spdlog::details::log_msg& msg) {
+            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+        }
+    );
+    global_callback_sink->set_level(spdlog::level::trace);
+    auto original_logger =
+        std::make_shared<spdlog::logger>("original_logger", global_callback_sink);
+    original_logger->set_level(spdlog::level::trace);
+    svs::logging::set(original_logger);
     auto queries = test_dataset::queries();
     auto data = svs::load_data<float>(test_dataset::data_svs_file());
 

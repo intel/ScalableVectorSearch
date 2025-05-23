@@ -483,8 +483,8 @@ class VamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
-                cancel,
-                logger
+                logger,
+                cancel
             );
         };
     }
@@ -507,15 +507,16 @@ class VamanaIndex {
     void search(
         const Query& query,
         scratchspace_type& scratch,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel)
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            logger
         );
     }
 
@@ -560,8 +561,8 @@ class VamanaIndex {
         QueryResultView<I> result,
         const Queries& queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::parallel_for(
             threadpool_,
@@ -598,6 +599,7 @@ class VamanaIndex {
                     result,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
+                    logger,
                     cancel
                 );
             }
@@ -843,9 +845,7 @@ class VamanaIndex {
         auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
 
         auto do_search = [&](const search_parameters_type& p) {
-            this->search(
-                results.view(), queries, p, lib::Returns(lib::Const<false>()), logger
-            );
+            this->search(results.view(), queries, p, logger);
         };
 
         auto compute_recall = [&](const search_parameters_type& p) {

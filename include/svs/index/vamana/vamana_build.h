@@ -371,7 +371,6 @@ class VamanaBuilder {
                             NeighborBuilder(),
                             tracker,
                             prefetch_hint_,
-                            lib::Returns(lib::Const<false>()),
                             logger
                         );
                     }

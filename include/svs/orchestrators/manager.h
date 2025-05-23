@@ -80,8 +80,8 @@ template <typename IFace> class ManagerInterface : public IFace {
         svs::QueryResultView<size_t> results,
         AnonymousArray<2> data,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) = 0;
 
     // Data Interface
@@ -144,8 +144,8 @@ class ManagerImpl : public ManagerInterface<IFace> {
         QueryResultView<size_t> result,
         AnonymousArray<2> data,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) override {
         // See if we have a specialization for this particular query type.
         // If so, invoke that specialization, otherwise throw
@@ -155,7 +155,7 @@ class ManagerImpl : public ManagerInterface<IFace> {
             [&]<typename T>(lib::Type<T> SVS_UNUSED(type)) {
                 const auto view = data::ConstSimpleDataView<T>(data);
                 svs::index::search_batch_into_with(
-                    implementation_, result, view, search_parameters, cancel, logger
+                    implementation_, result, view, search_parameters, logger, cancel
                 );
             },
             [&](svs::DataType data_type) {
@@ -221,11 +221,11 @@ template <typename IFace> class IndexManager {
         QueryResultView<size_t> result,
         data::ConstSimpleDataView<QueryType> queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         impl_->search(
-            result, AnonymousArray<2>(queries), search_parameters, cancel, logger
+            result, AnonymousArray<2>(queries), search_parameters, logger, cancel
         );
     }
 
@@ -236,11 +236,11 @@ template <typename IFace> class IndexManager {
     QueryResult<size_t> search(
         const Queries& queries,
         size_t num_neighbors,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         return svs::index::search_batch(
-            *this, queries.cview(), num_neighbors, cancel, logger
+            *this, queries.cview(), num_neighbors, logger, cancel
         );
     }
 

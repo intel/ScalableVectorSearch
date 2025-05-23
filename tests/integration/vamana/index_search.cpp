@@ -132,6 +132,7 @@ void run_tests(
     const svs::data::SimpleData<uint32_t>& groundtruth_all,
     const std::vector<svsbenchmark::vamana::ConfigAndResult>& expected_results,
     svs::logging::logger_ptr logger,
+    std::vector<std::string>& global_captured_logs,
     bool test_calibration = false
 ) {
     // If we make a change that somehow improves accuracy, we'll want to know.
@@ -184,7 +185,8 @@ void run_tests(
         for (auto num_threads : {1, 2}) {
             index.set_threadpool(Pool(num_threads));
             // Float32
-            auto results = index.search(queries, expected.num_neighbors_);
+            auto results = index.search(queries, expected.num_neighbors_, logger);
+            CATCH_REQUIRE(global_captured_logs.empty());
             auto recall = svs::k_recall_at_n(
                 groundtruth, results, expected.num_neighbors_, expected.recall_k_
             );
@@ -194,7 +196,8 @@ void run_tests(
             // Test Float16 results, but only on the first iteration.
             // Otherwise, skip it to keep run times down.
             if (first) {
-                results = index.search(queries_f16, expected.num_neighbors_);
+                results = index.search(queries_f16, expected.num_neighbors_, logger);
+                CATCH_REQUIRE(global_captured_logs.empty());
                 recall = svs::k_recall_at_n(
                     groundtruth, results, expected.num_neighbors_, expected.recall_k_
                 );
@@ -203,7 +206,9 @@ void run_tests(
                 first = false;
             }
         }
+        CATCH_REQUIRE(global_captured_logs.empty());
     }
+    CATCH_REQUIRE(global_captured_logs.empty());
 
     // Make sure calibration works.
     if (!test_calibration) {
@@ -226,17 +231,20 @@ void run_tests(
     index.experimental_calibrate(
         queries, groundtruth, first_result.num_neighbors_, first_result.recall_, c, logger
     );
+    CATCH_REQUIRE(global_captured_logs.empty());
+
     auto recall = svs::k_recall_at_n(
         groundtruth,
-        index.search(queries, first_result.num_neighbors_),
+        index.search(queries, first_result.num_neighbors_, logger),
         first_result.num_neighbors_,
         first_result.recall_k_
     );
     CATCH_REQUIRE(recall >= first_result.recall_);
+    CATCH_REQUIRE(global_captured_logs.empty());
 }
 } // namespace
 
-CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") {
+CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
     // Set up log
     std::vector<std::string> captured_logs;
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
@@ -281,6 +289,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
             2,
             test_logger
         );
+        CATCH_REQUIRE(global_captured_logs.empty());
 
         CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
         CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
@@ -293,14 +302,17 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
             verify_reconstruction(index, original_data);
             first = false;
         }
+        CATCH_REQUIRE(global_captured_logs.empty());
         run_tests(
             index,
             queries,
             groundtruth,
             expected_results.config_and_recall_,
             test_logger,
+            global_captured_logs,
             true
         );
+        CATCH_REQUIRE(global_captured_logs.empty());
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
@@ -310,6 +322,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
             svs::threads::CppAsyncThreadPool(2),
             test_logger
         );
+        CATCH_REQUIRE(global_captured_logs.empty());
 
         run_tests<svs::threads::CppAsyncThreadPool>(
             index,
@@ -317,8 +330,10 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
             groundtruth,
             expected_results.config_and_recall_,
             test_logger,
+            global_captured_logs,
             true
         );
+        CATCH_REQUIRE(global_captured_logs.empty());
 
         index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>>(
             test_dataset::vamana_config_file(),
@@ -328,6 +343,7 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
             svs::threads::QueueThreadPoolWrapper(2),
             test_logger
         );
+        CATCH_REQUIRE(global_captured_logs.empty());
 
         run_tests<svs::threads::QueueThreadPoolWrapper>(
             index,
@@ -335,8 +351,11 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
             groundtruth,
             expected_results.config_and_recall_,
             test_logger,
+            global_captured_logs,
             true
         );
+        CATCH_REQUIRE(global_captured_logs.empty());
+
         // Save and reload.
         svs_test::prepare_temp_directory();
 
@@ -382,12 +401,22 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration1][search][vamana]") 
         threadpool.resize(2);
         CATCH_REQUIRE(index.get_num_threads() == 2);
         run_tests<svs::threads::CppAsyncThreadPool>(
-            index, queries, groundtruth, expected_results.config_and_recall_, test_logger
+            index,
+            queries,
+            groundtruth,
+            expected_results.config_and_recall_,
+            test_logger,
+            global_captured_logs
         );
 
         index.set_threadpool(svs::threads::SwitchNativeThreadPool(2));
         run_tests<svs::threads::SwitchNativeThreadPool>(
-            index, queries, groundtruth, expected_results.config_and_recall_, test_logger
+            index,
+            queries,
+            groundtruth,
+            expected_results.config_and_recall_,
+            test_logger,
+            global_captured_logs
         );
     }
     CATCH_REQUIRE(global_captured_logs.empty());

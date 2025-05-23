@@ -418,10 +418,10 @@ struct VamanaSingleSearchType {
         Scratch& scratch,
         const Query& query,
         const Search& search,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, cancel, logger);
+        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, logger, cancel);
     }
 };
 
@@ -444,8 +444,8 @@ SVS_FORCE_INLINE void svs_invoke(
     Distance& distance,
     const Query& query,
     const Search& search,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Check if request to cancel the search
     if (cancel()) {
@@ -500,8 +500,8 @@ struct VamanaPerThreadBatchSearchType {
         QueryResultView<I>& result,
         threads::UnitRange<size_t> thread_indices,
         const Search& search,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         svs::svs_invoke(
             *this,
@@ -512,8 +512,8 @@ struct VamanaPerThreadBatchSearchType {
             result,
             thread_indices,
             search,
-            cancel,
-            logger
+            logger,
+            cancel
         );
     }
 };
@@ -538,8 +538,8 @@ void svs_invoke(
     QueryResultView<I>& result,
     threads::UnitRange<size_t> thread_indices,
     const Search& search,
-    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Fallback implementation
     size_t num_neighbors = result.n_neighbors();
@@ -550,7 +550,7 @@ void svs_invoke(
         }
         // Perform search - results will be queued in the search buffer.
         single_search(
-            dataset, search_buffer, distance, queries.get_datum(i), search, cancel, logger
+            dataset, search_buffer, distance, queries.get_datum(i), search, logger, cancel
         );
 
         // Copy back results.

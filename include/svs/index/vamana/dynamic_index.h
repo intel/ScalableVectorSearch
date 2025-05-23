@@ -464,8 +464,8 @@ class MutableVamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
-                cancel,
-                logger
+                logger,
+                cancel
             );
             // Take a pass over the search buffer to remove any deleted elements that
             // might remain.
@@ -479,14 +479,15 @@ class MutableVamanaIndex {
         const Query& query,
         scratchspace_type& scratch,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel)
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            logger
         );
     }
 
@@ -495,8 +496,8 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
-        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::parallel_for(
             threadpool_,
@@ -523,6 +524,7 @@ class MutableVamanaIndex {
                     results,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
+                    logger,
                     cancel
                 );
             }
