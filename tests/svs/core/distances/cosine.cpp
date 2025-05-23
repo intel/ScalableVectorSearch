@@ -82,15 +82,40 @@ void test_types(T lo, T hi, size_t num_tests) {
                             .epsilon(COSINE_EPSILON)
                             .margin(COSINE_MARGIN);
 
-        // Statically Sized Computation
+        auto as_span = [](auto v) { return std::span{v.data(), v.size()}; };
+        auto& arch_env = svs::arch::MicroArchEnvironment::get_instance();
+        auto supported_archs = arch_env.get_supported_microarchs();
+
+        // Check the distance computation for all supported architectures.
+        for (auto arch : supported_archs) {
+            arch_env.set_microarch(arch);
+            auto dist_type = svs::distance::DistanceCosineSimilarity{};
+            dist_type.fix_argument(as_span(a));
+            auto dist = svs::distance::compute(dist_type, as_span(a), as_span(b));
+            CATCH_INFO("Testing architecture: " << svs::arch::microarch_to_string(arch));
+            CATCH_REQUIRE(dist == expected);
+        }
+
+        // Checking statically and dynamically sized computation requires a direct
+        // call to the compute function. We pick any MicroArch, since all available
+        // are already tested above.
         auto a_norm = svs::distance::norm(std::span{a.data(), a.size()});
-        CATCH_REQUIRE(
-            (svs::distance::CosineSimilarity::compute<N>(a.data(), b.data(), a_norm) ==
-             expected)
-        );
-        // Dynamically Sized Computation
-        auto dist = svs::distance::CosineSimilarity::compute(a.data(), b.data(), a_norm, N);
-        CATCH_REQUIRE((dist == expected));
+        {
+            // Statically Sized Computation
+            auto dist =
+                svs::distance::CosineSimilarity<svs::arch::MicroArch::base>::compute<N>(
+                    a.data(), b.data(), a_norm
+                );
+            CATCH_REQUIRE(dist == expected);
+        }
+        {
+            // Dynamically Sized Computation
+            auto dist =
+                svs::distance::CosineSimilarity<svs::arch::MicroArch::base>::compute(
+                    a.data(), b.data(), a_norm, N
+                );
+            CATCH_REQUIRE(dist == expected);
+        }
     }
 }
 } // anonymous namespace

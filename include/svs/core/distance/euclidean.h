@@ -19,6 +19,7 @@
 // svs
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/simd_utils.h"
+#include "svs/lib/arch.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/saveload.h"
@@ -71,7 +72,7 @@
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb> struct L2Impl;
+template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct L2Impl;
 
 // Generic Entry Point
 // Call as one of either:
@@ -80,16 +81,16 @@ template <size_t N, typename Ea, typename Eb> struct L2Impl;
 // (2) L2::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
-class L2 {
+template <svs::arch::MicroArch Arch> class L2 {
   public:
     template <typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        return L2Impl<Dynamic, Ea, Eb>::compute(a, b, lib::MaybeStatic(N));
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b, size_t N) {
+        return L2Impl<Dynamic, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic(N));
     }
 
     template <size_t N, typename Ea, typename Eb>
-    static constexpr float compute(const Ea* a, const Eb* b) {
-        return L2Impl<N, Ea, Eb>::compute(a, b, lib::MaybeStatic<N>());
+    SVS_NOINLINE static float compute(const Ea* a, const Eb* b) {
+        return L2Impl<N, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic<N>());
     }
 };
 
@@ -152,12 +153,34 @@ inline constexpr bool operator==(DistanceL2, DistanceL2) { return true; }
 ///
 template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
 float compute(DistanceL2 /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+    using namespace svs::arch;
     assert(a.size() == b.size());
+    auto uarch = MicroArchEnvironment::get_instance().get_microarch();
     constexpr size_t extent = lib::extract_extent(Da, Db);
-    if constexpr (extent == Dynamic) {
-        return L2::compute(a.data(), b.data(), a.size());
+    if constexpr (extent == Dynamic || !lib::extent_is_registered(extent)) {
+        switch (uarch) {
+#define SVS_MICROARCH_FUNC(uarch)                                           \
+    case MicroArch::uarch:                                                  \
+        return L2<MicroArch::uarch>::compute(a.data(), b.data(), a.size()); \
+        break;
+            SVS_FOR_EACH_MICROARCH
+#undef SVS_MICROARCH_FUNC
+            default:
+                return L2<MicroArch::base>::compute(a.data(), b.data(), a.size());
+                break;
+        }
     } else {
-        return L2::compute<extent>(a.data(), b.data());
+        switch (uarch) {
+#define SVS_MICROARCH_FUNC(uarch)                                         \
+    case MicroArch::uarch:                                                \
+        return L2<MicroArch::uarch>::compute<extent>(a.data(), b.data()); \
+        break;
+            SVS_FOR_EACH_MICROARCH
+#undef SVS_MICROARCH_FUNC
+            default:
+                return L2<MicroArch::base>::compute<extent>(a.data(), b.data());
+                break;
+        }
     }
 }
 
@@ -177,7 +200,7 @@ float generic_l2(
     return result;
 }
 
-template <size_t N, typename Ea, typename Eb> struct L2Impl {
+template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct L2Impl {
     static constexpr float
     compute(const Ea* a, const Eb* b, lib::MaybeStatic<N> length = lib::MaybeStatic<N>()) {
         return generic_l2(a, b, length);
@@ -252,14 +275,14 @@ template <> struct L2VNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 };
 
 // VNNI Dispatching
-template <size_t N> struct L2Impl<N, int8_t, int8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, int8_t, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, uint8_t, uint8_t, uarch> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
@@ -269,42 +292,42 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
 #endif
 
 // Floating and Mixed Types
-template <size_t N> struct L2Impl<N, float, float> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, float, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, float, uint8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, uint8_t, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct L2Impl<N, float, int8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct L2Impl<N, float, Float16> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, float> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, Float16, float, uarch> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, Float16> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, Float16, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
@@ -320,7 +343,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
-template <size_t N> struct L2Impl<N, float, float> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, float, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -340,7 +363,7 @@ template <size_t N> struct L2Impl<N, float, float> {
     }
 };
 
-template <size_t N> struct L2Impl<N, Float16, Float16> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, Float16, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -362,7 +385,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16> {
     }
 };
 
-template <size_t N> struct L2Impl<N, float, Float16> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, Float16, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -383,7 +406,7 @@ template <size_t N> struct L2Impl<N, float, Float16> {
     }
 };
 
-template <size_t N> struct L2Impl<N, float, int8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, float, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -407,7 +430,7 @@ template <size_t N> struct L2Impl<N, float, int8_t> {
     }
 };
 
-template <size_t N> struct L2Impl<N, int8_t, int8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, int8_t, int8_t, uarch> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -434,7 +457,7 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t> {
     }
 };
 
-template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
+template <size_t N, svs::arch::MicroArch uarch> struct L2Impl<N, uint8_t, uint8_t, uarch> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -462,4 +485,32 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t> {
 };
 
 #endif
+
+// Templates of `float L2<svs::arch::MicroArch>::compute<...>(...)`.
+// `spec` value is either `extern template` for external linkage
+// or `template` for instantiation.
+#define SVS_L2_DISTANCE_DYNAMIC_TEMPLATE(spec, uarch, a_type, b_type)    \
+    spec float L2<svs::arch::MicroArch::uarch>::compute<a_type, b_type>( \
+        a_type const*, b_type const*, size_t                             \
+    );
+
+#define SVS_L2_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, a_type, b_type, length) \
+    spec float L2<svs::arch::MicroArch::uarch>::                              \
+        compute<length, a_type, b_type>(a_type const*, b_type const*);
+
+// NOTE: dispatching doesn't work for other distance instances than the listed below.
+#define SVS_L2_DISTANCE_TEMPLATES_BY_MICROARCH(spec, uarch) \
+    SVS_DISTANCE_TEMPLATES_BY_MICROARCH(L2, spec, uarch)
+
+#define SVS_INSTANTIATE_L2_DISTANCE_TEMPLATES_BY_MICROARCH(uarch) \
+    SVS_L2_DISTANCE_TEMPLATES_BY_MICROARCH(template, uarch)
+
+#define SVS_EXTERN_L2_DISTANCE_TEMPLATES_BY_MICROARCH(uarch) \
+    SVS_L2_DISTANCE_TEMPLATES_BY_MICROARCH(extern template, uarch)
+
+// Equal to `foreach(uarch : uarch_list) { extern L2<uarch>::compute(...) }`
+#define SVS_MICROARCH_FUNC(uarch) SVS_EXTERN_L2_DISTANCE_TEMPLATES_BY_MICROARCH(uarch)
+SVS_FOR_EACH_MICROARCH
+#undef SVS_MICROARCH_FUNC
+
 } // namespace svs::distance

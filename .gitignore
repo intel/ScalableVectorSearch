@@ -20,3 +20,6 @@ __pycache__/
 
 # Example generated files.
 example_data_*/
+
+# Auto-generated microarch macros header
+include/svs/lib/microarch_macros.h
