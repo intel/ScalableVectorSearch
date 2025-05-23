@@ -147,28 +147,6 @@ void test_flat(
 
 // Test the single-threaded implementation.
 CATCH_TEST_CASE("Flat Index Search", "[integration][exhaustive][index]") {
-    // Set up log
-    std::vector<std::string> captured_logs;
-    auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
-        [&captured_logs](const spdlog::details::log_msg& msg) {
-            captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
-        }
-    );
-    callback_sink->set_level(spdlog::level::trace);
-    auto test_logger = std::make_shared<spdlog::logger>("test_logger", callback_sink);
-    test_logger->set_level(spdlog::level::trace);
-
-    std::vector<std::string> global_captured_logs;
-    auto global_callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
-        [&global_captured_logs](const spdlog::details::log_msg& msg) {
-            global_captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
-        }
-    );
-    global_callback_sink->set_level(spdlog::level::trace);
-    auto original_logger =
-        std::make_shared<spdlog::logger>("original_logger", global_callback_sink);
-    original_logger->set_level(spdlog::level::trace);
-    svs::logging::set(original_logger);
     auto queries = test_dataset::queries();
     auto data = svs::load_data<float>(test_dataset::data_svs_file());
 
