@@ -1041,7 +1041,8 @@ class MutableVamanaIndex {
         const GroundTruth& groundtruth,
         size_t num_neighbors,
         double target_recall,
-        const CalibrationParameters& calibration_parameters = {}
+        const CalibrationParameters& calibration_parameters = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // Preallocate the destination for search.
         // Further, reference the search lambda in the recall lambda.
@@ -1064,7 +1065,7 @@ class MutableVamanaIndex {
             target_recall,
             compute_recall,
             do_search,
-            logger_
+            logger
         );
 
         set_search_parameters(p);
