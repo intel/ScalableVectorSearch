@@ -21,6 +21,7 @@
 #include "catch2/catch_test_macros.hpp"
 
 // svs
+#include "spdlog/sinks/callback_sink.h"
 #include "svs/core/distance.h"
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
@@ -43,7 +44,11 @@ inline constexpr bool is_flat_index_v<svs::index::flat::FlatIndex<Args...>> = tr
 // In this test, we predicate out the even indices and only return odd indices.
 // The test checks that no even indices occur in the result.
 template <typename Index, typename Queries>
-void test_predicate(Index& index, const Queries& queries) {
+void test_predicate(
+    Index& index,
+    const Queries& queries,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
     const size_t num_neighbors = 10;
     auto result = svs::QueryResult<size_t>(queries.size(), num_neighbors);
 
@@ -55,6 +60,7 @@ void test_predicate(Index& index, const Queries& queries) {
         result.view(),
         queries.cview(),
         index.get_search_parameters(),
+        logger,
         []() { return false; },
         predicate
     );
@@ -75,7 +81,8 @@ void test_flat(
     Index& index,
     const Queries& queries,
     const GroundTruth& groundtruth,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Test get distance
     auto dataset = svs::load_data<float>(test_dataset::data_svs_file());
@@ -129,7 +136,7 @@ void test_flat(
 
     // Test predicated search.
     if constexpr (is_flat_index_v<Index>) {
-        test_predicate(index, queries);
+        test_predicate(index, queries, logger);
     }
 }
 } // namespace

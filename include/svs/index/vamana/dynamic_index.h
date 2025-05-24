@@ -447,7 +447,11 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
+                   const auto& query,
+                   auto& accessor,
+                   auto& distance,
+                   auto& buffer,
+                   auto& logger
                ) {
             // Perform the greedy search using the provided resources.
             greedy_search(
@@ -460,6 +464,7 @@ class MutableVamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
+                logger,
                 cancel
             );
             // Take a pass over the search buffer to remove any deleted elements that
@@ -473,14 +478,16 @@ class MutableVamanaIndex {
     void search(
         const Query& query,
         scratchspace_type& scratch,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel)
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            logger
         );
     }
 
@@ -489,6 +496,7 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::parallel_for(
@@ -516,6 +524,7 @@ class MutableVamanaIndex {
                     results,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
+                    logger,
                     cancel
                 );
             }
@@ -955,7 +964,8 @@ class MutableVamanaIndex {
             max_candidates_,
             alpha_,
             distance_,
-            check_is_deleted
+            check_is_deleted,
+            logger_
         );
 
         // After consolidation - set all `Deleted` slots to `Empty`.
@@ -1031,7 +1041,8 @@ class MutableVamanaIndex {
         const GroundTruth& groundtruth,
         size_t num_neighbors,
         double target_recall,
-        const CalibrationParameters& calibration_parameters = {}
+        const CalibrationParameters& calibration_parameters = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // Preallocate the destination for search.
         // Further, reference the search lambda in the recall lambda.
@@ -1054,7 +1065,7 @@ class MutableVamanaIndex {
             target_recall,
             compute_recall,
             do_search,
-            logger_
+            logger
         );
 
         set_search_parameters(p);
