@@ -91,7 +91,7 @@ file(STRINGS "${FLAGS_TEXT_FILE}" OPTIMIZATION_FLAGS)
 # Run the python script to generate a header with microarch-specific macros.
 set(GENERATOR_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/microarch_generate_macros.py")
 set(MICROARCH_MACROS_PROTOTYPE_HEADER "${CMAKE_CURRENT_LIST_DIR}/microarch_macros.h")
-set(MICROARCH_MACROS_HEADER "${PROJECT_SOURCE_DIR}/include/svs/lib/microarch_macros.h")
+set(MICROARCH_MACROS_HEADER "${CMAKE_CURRENT_LIST_DIR}/../include/svs/lib/microarch_macros.h")
 
 execute_process(
     COMMAND

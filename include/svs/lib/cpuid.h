@@ -320,15 +320,12 @@ inline bool check_extensions(std::vector<ISAExt> exts) {
     return true;
 }
 
-template <typename StreamType> inline void write_extensions_status(StreamType& stream) {
+inline void write_extensions_status(std::ostream& out) {
     const auto& ext_info = get_isa_ext_info();
-
-    stream << "CPU Extensions Support Status:" << std::endl;
-    stream << "-----------------------------" << std::endl;
-
+    out << "CPU Extensions Status:" << std::endl;
     for (const auto& [ext, info] : ext_info) {
-        stream << info.name << ": "
-               << (check_extension(ext) ? "Supported" : "Not supported") << std::endl;
+        out << "    " << info.name << ": "
+            << (check_extension(ext) ? "Supported" : "Not supported") << std::endl;
     }
 }
 

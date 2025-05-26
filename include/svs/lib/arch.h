@@ -44,7 +44,7 @@ struct MicroArchInfo {
     std::string name;
 };
 
-// Unordered map with MicroArch to MicroArchInfo mapping
+// Unordered map with information about each microarchitecture.
 inline const std::unordered_map<MicroArch, MicroArchInfo>& get_microarch_info_map() {
     static const std::unordered_map<MicroArch, MicroArchInfo> microarch_info = {
 #if defined(__x86_64__)
@@ -230,7 +230,7 @@ class MicroArchEnvironment {
     void describe(std::ostream& out) const {
         write_extensions_status(out);
 
-        out << "\nCurrent microarchitecture: " << microarch_to_string(max_arch_)
+        out << "\nCurrent microarchitecture:\n    " << microarch_to_string(max_arch_)
             << std::endl;
 
         output_microarchs(out, "Supported", supported_archs_);
@@ -260,7 +260,7 @@ class MicroArchEnvironment {
     void output_microarchs(
         std::ostream& out, std::string name, const std::vector<MicroArch> microarchs
     ) const {
-        out << name << " microarchitectures: ";
+        out << name << " microarchitectures:\n    ";
         for (const auto& arch : microarchs) {
             out << microarch_to_string(arch) << " ";
         }

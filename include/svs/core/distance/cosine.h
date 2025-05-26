@@ -377,7 +377,7 @@ struct CosineSimilarityImpl<N, Float16, Float16, uarch> {
         a_type const*, b_type const*, float, size_t                                    \
     );
 
-#define SVS_COSINE_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, a_type, b_type, length)   \
+#define SVS_COSINE_DISTANCE_STATIC_TEMPLATE(spec, uarch, a_type, b_type, length)    \
     spec float                                                                      \
     CosineSimilarity<svs::arch::MicroArch::uarch>::compute<length, a_type, b_type>( \
         a_type const*, b_type const*, float                                         \

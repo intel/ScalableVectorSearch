@@ -27,11 +27,14 @@ def main():
     with open(args.header_file, "r") as f:
         header_content = f.read()
 
+    # add dimensions to the `SVS_DISTANCE_TEMPLATES_BY_MICROARCH` macro
+    # for external linkage and instantiation of static distance templates
     prefix = "#define SVS_DISTANCE_TEMPLATES_BY_MICROARCH(dist, spec, uarch)"
-    appendix = "\\\n    SVS_DISTANCE_FIXED_N_TEMPLATES_BY_MICROARCH(dist, spec, uarch, {dim})"
+    appendix = "\\\n    SVS_DISTANCE_STATIC_TEMPLATES_BY_MICROARCH(dist, spec, uarch, {dim})"
     for dim in args.dimensions:
         header_content = header_content.replace(prefix, prefix + appendix.format(dim=dim))
 
+    # add dimensions to the `extent_is_registered` constant expression
     prefix = "return (false"
     appendix = "\n        || (n == {dim})"
     for dim in args.dimensions:

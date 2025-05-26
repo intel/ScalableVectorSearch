@@ -442,8 +442,8 @@ template <size_t N, svs::arch::MicroArch uarch> struct IPImpl<N, uint8_t, uint8_
         a_type const*, b_type const*, size_t                             \
     );
 
-#define SVS_IP_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, a_type, b_type, length) \
-    spec float IP<svs::arch::MicroArch::uarch>::                              \
+#define SVS_IP_DISTANCE_STATIC_TEMPLATE(spec, uarch, a_type, b_type, length) \
+    spec float IP<svs::arch::MicroArch::uarch>::                             \
         compute<length, a_type, b_type>(a_type const*, b_type const*);
 
 // NOTE: dispatching doesn't work for other distance instances than the listed below.

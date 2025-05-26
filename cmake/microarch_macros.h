@@ -38,23 +38,23 @@
     SVS_##dist##_DISTANCE_DYNAMIC_TEMPLATE(spec, uarch, svs::float16::Float16, float)   \
     SVS_##dist##_DISTANCE_DYNAMIC_TEMPLATE(spec, uarch, svs::float16::Float16, svs::float16::Float16)
 
-#define SVS_DISTANCE_FIXED_N_TEMPLATES_BY_MICROARCH(dist, spec, uarch, length)                  \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, int8_t, int8_t, length)                 \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, int8_t, uint8_t, length)                \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, int8_t, float, length)                  \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, int8_t, svs::float16::Float16, length)  \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, uint8_t, int8_t, length)                \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, uint8_t, uint8_t, length)               \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, uint8_t, float, length)                 \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, uint8_t, svs::float16::Float16, length) \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, float, int8_t, length)                  \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, float, uint8_t, length)                 \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, float, float, length)                   \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, float, svs::float16::Float16, length)   \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, svs::float16::Float16, int8_t, length)  \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, svs::float16::Float16, uint8_t, length) \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, svs::float16::Float16, float, length)   \
-    SVS_##dist##_DISTANCE_FIXED_N_TEMPLATE(spec, uarch, svs::float16::Float16, svs::float16::Float16, length)
+#define SVS_DISTANCE_STATIC_TEMPLATES_BY_MICROARCH(dist, spec, uarch, length)                  \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, int8_t, int8_t, length)                 \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, int8_t, uint8_t, length)                \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, int8_t, float, length)                  \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, int8_t, svs::float16::Float16, length)  \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, uint8_t, int8_t, length)                \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, uint8_t, uint8_t, length)               \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, uint8_t, float, length)                 \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, uint8_t, svs::float16::Float16, length) \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, float, int8_t, length)                  \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, float, uint8_t, length)                 \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, float, float, length)                   \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, float, svs::float16::Float16, length)   \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, svs::float16::Float16, int8_t, length)  \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, svs::float16::Float16, uint8_t, length) \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, svs::float16::Float16, float, length)   \
+    SVS_##dist##_DISTANCE_STATIC_TEMPLATE(spec, uarch, svs::float16::Float16, svs::float16::Float16, length)
 
 #define SVS_DISTANCE_TEMPLATES_BY_MICROARCH(dist, spec, uarch) \
     SVS_DISTANCE_DYNAMIC_TEMPLATES_BY_MICROARCH(dist, spec, uarch)
@@ -68,7 +68,7 @@
 namespace svs::lib {
     inline constexpr bool extent_is_registered(size_t n) {
         if (n == 0) {
-            // Unnecessary check to avoid "unused variable n" compilation error.
+            // Unnecessary check to avoid "unused parameter 'n'" compilation error.
             throw std::logic_error("Static length cannot be 0!");
         }
         return (false);
