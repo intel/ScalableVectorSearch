@@ -35,6 +35,5 @@ find_library(SVS_SHARED svs_shared_library)
 set(SVS_CXX_STANDARD 20)
 SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Werror -Wall -Wextra -Wpedantic" )
 
-add_executable(shared shared.cpp)
+add_executable(shared shared.cpp ${MICROARCH_OBJECT_FILES})
 target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
-
