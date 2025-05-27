@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#pragma once
+// header under test
+#include "svs/third-party/eve.h"
 
-#include "eve/detection.hpp"
-#include "eve/module/core.hpp"
-#include "eve/wide.hpp"
+// catch2
+#include "catch2/catch_test_macros.hpp"
 
-namespace svs {
+CATCH_TEST_CASE("evelib", "[eve]") {
+    eve::wide<float, eve::fixed<4>> x = {1.0f, 2.0f, 3.0f, 4.0f};
 
-// Helper alias to cut down of visual clutter.
-// Most internal uses of `wide` explicitly request the register width as well.
-template <typename T, int64_t N> using wide_ = eve::wide<T, eve::fixed<N>>;
-
-} // namespace svs
+    eve::wide<float, eve::fixed<4>> expected = {2.0f, 4.0f, 6.0f, 8.0f};
+    CATCH_REQUIRE(eve::all(2 * x == expected));
+}
