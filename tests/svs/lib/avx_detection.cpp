@@ -19,6 +19,7 @@
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include <iostream>
 
 CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
     std::cout << "Checking AVX availability...\n";

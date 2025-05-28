@@ -16,15 +16,25 @@
 
 #pragma once
 
-#include "svs/lib/exception.h"
 #include "svs/third-party/eve.h"
 #include <dlfcn.h>
-#include <filesystem>
 
 namespace svs::detail {
 
-inline bool is_avx2_supported() { return eve::is_supported(eve::avx2); }
+inline bool is_avx2_supported() {
+#if defined(__aarch64__)
+    return false;
+#else
+    return eve::is_supported(eve::avx2);
+#endif
+}
 
-inline bool is_avx512_supported() { return eve::is_supported(eve::avx512); }
+inline bool is_avx512_supported() {
+#if defined(__aarch64__)
+    return false;
+#else
+    return eve::is_supported(eve::avx512);
+#endif
+}
 
 } // namespace svs::detail

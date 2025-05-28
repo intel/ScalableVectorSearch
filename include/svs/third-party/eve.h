@@ -17,13 +17,3 @@
 #pragma once
 
 #include "eve/detection.hpp"
-#include "eve/module/core.hpp"
-#include "eve/wide.hpp"
-
-namespace svs {
-
-// Helper alias to cut down of visual clutter.
-// Most internal uses of `wide` explicitly request the register width as well.
-template <typename T, int64_t N> using wide_ = eve::wide<T, eve::fixed<N>>;
-
-} // namespace svs

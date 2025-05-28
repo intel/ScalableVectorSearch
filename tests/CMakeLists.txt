@@ -95,7 +95,6 @@ set(TEST_SOURCES
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp
     ${TEST_DIR}/svs/third-party/toml.cpp
-    ${TEST_DIR}/svs/third-party/eve.cpp
     # Benchmark
     ${TEST_DIR}/benchmark/benchmark.cpp
     # Concepts
