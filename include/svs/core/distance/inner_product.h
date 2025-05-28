@@ -19,6 +19,7 @@
 // svs
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/simd_utils.h"
+#include "svs/lib/arch.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/saveload.h"
@@ -32,7 +33,7 @@
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb> struct IPImpl;
+template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct IPImpl;
 
 // Generic Entry Point
 // Call as one of either:
@@ -41,16 +42,16 @@ template <size_t N, typename Ea, typename Eb> struct IPImpl;
 // (2) IP::compute<length>(a, b)
 // ```
 // Where (2) is when length is known at compile time and (1) is when length is not.
-class IP {
+template <svs::arch::MicroArch Arch> class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        return IPImpl<Dynamic, Ea, Eb>::compute(a, b, lib::MaybeStatic(N));
+        return IPImpl<Dynamic, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic(N));
     }
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
-        return IPImpl<N, Ea, Eb>::compute(a, b, lib::MaybeStatic<N>());
+        return IPImpl<N, Ea, Eb, Arch>::compute(a, b, lib::MaybeStatic<N>());
     }
 };
 
@@ -62,7 +63,9 @@ class IP {
 /// \ref compute_distanceip "compute" method and is thus capable of being extended
 /// externally.
 ///
-struct DistanceIP {
+template <svs::arch::MicroArch Arch = svs::arch::MicroArch::baseline> struct DistanceIP {
+    static constexpr svs::DistanceType distance_type = svs::DistanceType::MIP;
+
     /// Vectors are more similar if their similarity is greater.
     using compare = std::greater<>;
 
@@ -88,7 +91,11 @@ struct DistanceIP {
     }
 };
 
-inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
+template <svs::arch::MicroArch Arch1, svs::arch::MicroArch Arch2>
+inline constexpr bool operator==(DistanceIP<Arch1>, DistanceIP<Arch2>) {
+    constexpr bool same = std::is_same_v<Arch1, Arch2>;
+    return same;
+}
 
 ///
 /// @ingroup distance_overload
@@ -101,6 +108,8 @@ inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
 ///     this is to be discovered during runtime.
 /// @tparam Db The compile-time length of right-hand argument. May be ``svs::Dynamic`` if
 ///     this is to be discovered during runtime.
+/// @tparam MicroArch The desired microarch. One specialization per supported microarch will
+///     be compiled for run-time dispatching.
 ///
 /// @param a The left-hand vector. Typically, this position is used for the query.
 /// @param b The right-hand vector. Typically, this position is used for a dataset vector.
@@ -112,14 +121,14 @@ inline constexpr bool operator==(DistanceIP, DistanceIP) { return true; }
 /// - Specifying the size parameters ``Da`` and ``Db`` can greatly improve performance.
 /// - Compiling and executing on an Intel(R) AVX-512 system will improve performance.
 ///
-template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db>
-float compute(DistanceIP /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
+template <Arithmetic Ea, Arithmetic Eb, size_t Da, size_t Db, svs::arch::MicroArch Arch>
+float compute(DistanceIP<Arch> /*unused*/, std::span<Ea, Da> a, std::span<Eb, Db> b) {
     assert(a.size() == b.size());
     constexpr size_t extent = lib::extract_extent(Da, Db);
     if constexpr (extent == Dynamic) {
-        return IP::compute(a.data(), b.data(), a.size());
+        return IP<Arch>::compute(a.data(), b.data(), a.size());
     } else {
-        return IP::compute<extent>(a.data(), b.data());
+        return IP<Arch>::template compute<extent>(a.data(), b.data());
     }
 }
 
@@ -138,7 +147,7 @@ float generic_ip(
     return result;
 }
 
-template <size_t N, typename Ea, typename Eb> struct IPImpl {
+template <size_t N, typename Ea, typename Eb, svs::arch::MicroArch Arch> struct IPImpl {
     static float
     compute(const Ea* a, const Eb* b, lib::MaybeStatic<N> length = lib::MaybeStatic<N>()) {
         return generic_ip(a, b, length);
@@ -207,14 +216,14 @@ template <> struct IPVNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 };
 
 // VNNI Dispatching
-template <size_t N> struct IPImpl<N, int8_t, int8_t> {
+template <size_t N> struct IPImpl<N, int8_t, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
     }
 };
 
-template <size_t N> struct IPImpl<N, uint8_t, uint8_t> {
+template <size_t N> struct IPImpl<N, uint8_t, uint8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
@@ -224,42 +233,42 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t> {
 #endif
 
 // Floating and Mixed Types
-template <size_t N> struct IPImpl<N, float, float> {
+template <size_t N> struct IPImpl<N, float, float, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct IPImpl<N, float, uint8_t> {
+template <size_t N> struct IPImpl<N, float, uint8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct IPImpl<N, float, int8_t> {
+template <size_t N> struct IPImpl<N, float, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     };
 };
 
-template <size_t N> struct IPImpl<N, float, Float16> {
+template <size_t N> struct IPImpl<N, float, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct IPImpl<N, Float16, float> {
+template <size_t N> struct IPImpl<N, Float16, float, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
 
-template <size_t N> struct IPImpl<N, Float16, Float16> {
+template <size_t N> struct IPImpl<N, Float16, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
@@ -274,7 +283,7 @@ template <size_t N> struct IPImpl<N, Float16, Float16> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
-template <size_t N> struct IPImpl<N, float, float> {
+template <size_t N> struct IPImpl<N, float, float, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -293,7 +302,7 @@ template <size_t N> struct IPImpl<N, float, float> {
     }
 };
 
-template <size_t N> struct IPImpl<N, Float16, Float16> {
+template <size_t N> struct IPImpl<N, Float16, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -314,7 +323,7 @@ template <size_t N> struct IPImpl<N, Float16, Float16> {
     }
 };
 
-template <size_t N> struct IPImpl<N, float, Float16> {
+template <size_t N> struct IPImpl<N, float, Float16, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -334,7 +343,7 @@ template <size_t N> struct IPImpl<N, float, Float16> {
     }
 };
 
-template <size_t N> struct IPImpl<N, float, int8_t> {
+template <size_t N> struct IPImpl<N, float, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -357,7 +366,7 @@ template <size_t N> struct IPImpl<N, float, int8_t> {
     }
 };
 
-template <size_t N> struct IPImpl<N, int8_t, int8_t> {
+template <size_t N> struct IPImpl<N, int8_t, int8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;
@@ -383,7 +392,7 @@ template <size_t N> struct IPImpl<N, int8_t, int8_t> {
     }
 };
 
-template <size_t N> struct IPImpl<N, uint8_t, uint8_t> {
+template <size_t N> struct IPImpl<N, uint8_t, uint8_t, SVS_TUNIT_MICROARCH> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         constexpr size_t vector_size = 8;

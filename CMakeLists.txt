@@ -67,6 +67,7 @@ target_compile_options(
 
 include("cmake/options.cmake")
 
+include("cmake/microarch.cmake")
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
@@ -79,6 +80,8 @@ include("cmake/toml.cmake")
 #####
 ##### Build Objects
 #####
+
+create_microarch_instantiations()
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)
@@ -105,7 +108,7 @@ endif()
 ##### Install Logic
 #####
 
-include(GNUInstallDirs)
+include(GNUInstallDirs) 
 
 # Location of auxiliary generated cmake files to help consumers of this package.
 set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
