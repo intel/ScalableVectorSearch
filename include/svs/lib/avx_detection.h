@@ -16,7 +16,10 @@
 
 #pragma once
 
+#if defined(__aarch64__)
 #include "svs/third-party/eve.h"
+#endif
+
 #include <dlfcn.h>
 
 namespace svs::detail {
