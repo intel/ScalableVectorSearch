@@ -118,7 +118,10 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
     const_iterator cend() const { return results_.cend(); }
     size_t size() const { return results_.size(); }
 
-    bool done() const { return batch_iterator_.done() && extra_results_.empty(); }
+    bool done() const {
+        return (batch_iterator_.done() && extra_results_.empty()) ||
+               (returned_.size() == index_.labelcount());
+    }
 
     std::span<const value_type> contents() const { return lib::as_const_span(results_); }
 
