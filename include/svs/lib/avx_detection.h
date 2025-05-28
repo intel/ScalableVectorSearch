@@ -16,7 +16,7 @@
 
 #pragma once
 
-#if defined(__aarch64__)
+#ifdef __x86_64__
 #include "svs/third-party/eve.h"
 #endif
 
@@ -25,18 +25,18 @@
 namespace svs::detail {
 
 inline bool is_avx2_supported() {
-#if defined(__aarch64__)
-    return false;
-#else
+#ifdef __x86_64__
     return eve::is_supported(eve::avx2);
+#else
+    return false;
 #endif
 }
 
 inline bool is_avx512_supported() {
-#if defined(__aarch64__)
-    return false;
-#else
+#ifdef __x86_64__
     return eve::is_supported(eve::avx512);
+#else
+    return false;
 #endif
 }
 
