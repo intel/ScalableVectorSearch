@@ -161,6 +161,7 @@ class GraphConsolidator {
     Pool& threadpool_;
     const Distance& distance_;
     ConsolidationParameters params_;
+    svs::logging::logger_ptr logger_;
 
   public:
     // Constructor
@@ -169,13 +170,15 @@ class GraphConsolidator {
         const Data& data,
         Pool& threadpool,
         const Distance& distance,
-        const ConsolidationParameters& params
+        const ConsolidationParameters& params,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : graph_{graph}
         , data_{data}
         , threadpool_{threadpool}
         , distance_{distance}
-        , params_{params} {
+        , params_{params}
+        , logger_{logger} {
         assert(graph.n_nodes() == data.size());
     }
 
@@ -362,10 +365,12 @@ void consolidate(
     size_t max_candidate_pool_size,
     float alpha,
     const Distance& distance,
-    Deleted&& is_deleted
+    Deleted&& is_deleted,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
-    auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
+    auto consolidator =
+        GraphConsolidator{graph, data, threadpool, distance, params, logger};
     consolidator(is_deleted);
 }
 

@@ -371,11 +371,15 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     /// @returns The number of points added and the time spend adding those points.
     ///
     template <typename MutableIndex>
-    std::pair<size_t, double> add_points(MutableIndex& index, size_t num_points) {
+    std::pair<size_t, double> add_points(
+        MutableIndex& index,
+        size_t num_points,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
         auto [vectors, indices] = generate(num_points);
         // Add the points to the index.
         auto tic = lib::now();
-        index.add_points(vectors, indices);
+        index.add_points(vectors, indices, false, logger);
         double time = lib::time_difference(tic);
         return std::make_pair(indices.size(), time);
     }
@@ -412,10 +416,14 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
     }
 
     template <typename MutableIndex>
-    std::pair<size_t, double> delete_points(MutableIndex& index, size_t num_points) {
+    std::pair<size_t, double> delete_points(
+        MutableIndex& index,
+        size_t num_points,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
         auto points = get_delete_points(num_points);
         auto tic = svs::lib::now();
-        index.delete_entries(points);
+        index.delete_entries(points, logger);
         double time = svs::lib::time_difference(tic);
         return std::make_pair(num_points, time);
     }
