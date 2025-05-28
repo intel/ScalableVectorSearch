@@ -81,7 +81,7 @@ include("cmake/toml.cmake")
 ##### Build Objects
 #####
 
-create_microarch_instantiations()
+create_microarch_instantiations("cmake/microarch_instantiations.cpp")
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)

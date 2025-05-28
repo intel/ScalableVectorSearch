@@ -148,14 +148,12 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_F
     target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH})
 endforeach()
 
-set(MICROARCH_CPP_FILES "${CMAKE_CURRENT_LIST_DIR}/microarch_instantiations.cpp")
-
 # function to create a set of object files with microarch instantiations
 function(create_microarch_instantiations)
     set(MICROARCH_OBJECT_FILES "")
     foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
         set(OBJ_NAME "microarch_${MICROARCH}")
-        add_library(${OBJ_NAME} OBJECT ${MICROARCH_CPP_FILES})
+        add_library(${OBJ_NAME} OBJECT ${ARGN})
 
         target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt svs_microarch_options_${MICROARCH})
 
