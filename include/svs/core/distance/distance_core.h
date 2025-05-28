@@ -26,6 +26,8 @@
 
 namespace svs::distance {
 
+enum class AVX_AVAILABILITY { NONE, AVX2, AVX512 };
+
 using default_accum_type = float;
 
 template <Arithmetic Accum, typename T, size_t Extent>
