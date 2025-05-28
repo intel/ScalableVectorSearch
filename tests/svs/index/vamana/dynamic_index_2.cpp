@@ -202,13 +202,14 @@ void test_loop(
     const Queries& queries,
     size_t num_points,
     size_t consolidate_every,
-    size_t iterations
+    size_t iterations,
+    svs::logging::logger_ptr logger
 ) {
     size_t consolidate_count = 0;
     for (size_t i = 0; i < iterations; ++i) {
         // Add Points
         {
-            auto [points, time] = reference.add_points(index, num_points);
+            auto [points, time] = reference.add_points(index, num_points, logger);
             CATCH_REQUIRE(points <= num_points);
             CATCH_REQUIRE(points > num_points - reference.bucket_size());
             index.debug_check_invariants(true);
@@ -217,7 +218,7 @@ void test_loop(
 
         // Delete Points
         {
-            auto [points, time] = reference.delete_points(index, num_points);
+            auto [points, time] = reference.delete_points(index, num_points, logger);
             CATCH_REQUIRE(points <= num_points);
             CATCH_REQUIRE(points > num_points - reference.bucket_size());
             index.debug_check_invariants(true);
@@ -278,8 +279,10 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
         }
     );
     global_callback_sink->set_level(spdlog::level::trace);
-    auto original_logger = svs::logging::get();
-    original_logger->sinks().push_back(global_callback_sink);
+    auto original_logger =
+        std::make_shared<spdlog::logger>("original_logger", global_callback_sink);
+    original_logger->set_level(spdlog::level::trace);
+    svs::logging::set(original_logger);
 
     // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
@@ -386,7 +389,9 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
         true
     );
 
-    test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
+    test_loop(
+        index, reference, queries, div(reference.size(), modify_fraction), 2, 6, test_logger
+    );
 
     // Try saving the index.
     svs_test::prepare_temp_directory();

@@ -369,7 +369,8 @@ void consolidate(
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
-    auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params, logger};
+    auto consolidator =
+        GraphConsolidator{graph, data, threadpool, distance, params, logger};
     consolidator(is_deleted);
 }
 

@@ -483,7 +483,7 @@ class VamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
-                logger,
+                logger_ ? logger_ : logger,
                 cancel
             );
         };
@@ -516,7 +516,7 @@ class VamanaIndex {
             scratch.scratch,
             query,
             greedy_search_closure(scratch.prefetch_parameters, cancel),
-            logger
+            logger_ ? logger_ : logger
         );
     }
 
@@ -599,7 +599,7 @@ class VamanaIndex {
                     result,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
-                    logger,
+                    logger_ ? logger_ : logger,
                     cancel
                 );
             }
@@ -845,7 +845,7 @@ class VamanaIndex {
         auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
 
         auto do_search = [&](const search_parameters_type& p) {
-            this->search(results.view(), queries, p, logger);
+            this->search(results.view(), queries, p, logger_ ? logger_ : logger);
         };
 
         auto compute_recall = [&](const search_parameters_type& p) {
@@ -861,7 +861,7 @@ class VamanaIndex {
             target_recall,
             compute_recall,
             do_search,
-            logger
+            logger_ ? logger_ : logger
         );
         set_search_parameters(p);
         return p;
