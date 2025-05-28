@@ -27,22 +27,4 @@ inline bool is_avx2_supported() { return eve::is_supported(eve::avx2); }
 
 inline bool is_avx512_supported() { return eve::is_supported(eve::avx512); }
 
-inline auto load_shared_lib(const std::filesystem::path& f_dir = "./") {
-    static auto selector = [&]() {
-        void* handle = nullptr;
-        if (!handle && is_avx512_supported())
-            handle = dlopen((f_dir / "libsvs_shared_library_avx512.so").c_str(), RTLD_NOW);
-        if (!handle && is_avx2_supported())
-            handle = dlopen((f_dir / "libsvs_shared_library_avx2.so").c_str(), RTLD_NOW);
-        if (!handle)
-            handle = dlopen((f_dir / "libsvs_shared_library.so").c_str(), RTLD_NOW);
-
-        if (!handle) {
-            throw ANNEXCEPTION("Unable to load the shared library!");
-        }
-        return handle;
-    }();
-    return selector;
-}
-
 } // namespace svs::detail

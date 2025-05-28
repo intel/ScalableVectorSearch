@@ -15,7 +15,7 @@
  */
 
 // header under test
-#include "svs/lib/avx.h"
+#include "svs/lib/avx_detection.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
