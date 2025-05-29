@@ -32,7 +32,9 @@ def main():
     prefix = "#define SVS_DISTANCE_TEMPLATES_BY_MICROARCH(dist, spec, uarch)"
     appendix = "\\\n    SVS_DISTANCE_STATIC_TEMPLATES_BY_MICROARCH(dist, spec, uarch, {dim})"
     for dim in args.dimensions:
-        header_content = header_content.replace(prefix, prefix + appendix.format(dim=dim))
+        new_entry = appendix.format(dim=dim)
+        if new_entry not in header_content:
+            header_content = header_content.replace(prefix, prefix + new_entry)
 
     # add dimensions to the `extent_is_registered` constant expression
     prefix = "return (false"

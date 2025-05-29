@@ -53,3 +53,5 @@ create_utility(logging logging.cpp)
 
 # # Benchmark
 # create_utility(benchmark_index_build benchmarks/index_build.cpp)
+
+svs_register_static_dimensions(96)
