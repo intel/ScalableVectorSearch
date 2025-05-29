@@ -14,13 +14,8 @@
  * limitations under the License.
  */
 
-#include "svs/core/distance/cosine.h"
-#include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
 
 using namespace svs::distance;
 
-// Equal to `foreach(uarch : uarch_list) { instantiate(Dist<uarch>::compute(...)) }`
-SVS_INSTANTIATE_COSINE_DISTANCE_TEMPLATES_BY_MICROARCH(SVS_MICROARCH_TARGET)
-SVS_INSTANTIATE_L2_DISTANCE_TEMPLATES_BY_MICROARCH(SVS_MICROARCH_TARGET)
 SVS_INSTANTIATE_IP_DISTANCE_TEMPLATES_BY_MICROARCH(SVS_MICROARCH_TARGET)

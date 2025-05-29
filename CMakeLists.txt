@@ -81,7 +81,13 @@ include("cmake/toml.cmake")
 ##### Build Objects
 #####
 
-create_microarch_instantiations("cmake/microarch_instantiations.cpp")
+set(MICROARCH_INSTANCE_FILES
+    cmake/microarch_instantiations/cosine.cpp
+    cmake/microarch_instantiations/euclidean.cpp
+    cmake/microarch_instantiations/inner_product.cpp
+)
+
+create_microarch_instantiations(${MICROARCH_INSTANCE_FILES})
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)
