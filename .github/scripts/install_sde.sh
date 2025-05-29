@@ -1,4 +1,5 @@
-# Copyright 2023 Intel Corporation
+#!/bin/bash
+# Copyright 2025 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,22 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import svs._svs as _svs
-
-# Reexport all public functions and structs from the inner module.
-globals().update(
-    {k : v for (k, v) in _svs.__dict__.items() if not k.startswith("__")}
-)
-
-# Misc types and functions
-from .common import \
-    np_to_svs, \
-    read_npy, \
-    read_vecs, \
-    write_vecs, \
-    read_svs, \
-    k_recall_at, \
-    generate_test_dataset
-
-# Make the upgrader available without explicit import.
-from . import upgrader
+wget --content-disposition "https://downloadmirror.intel.com/850782/sde-external-9.53.0-2025-03-16-lin.tar.xz"
+tar -xf sde-external-*-lin.tar.xz
+cd sde-external-*/
+echo "$PWD" >> $GITHUB_PATH

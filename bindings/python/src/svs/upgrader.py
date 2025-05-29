@@ -18,13 +18,12 @@ import os
 import shutil
 from pathlib import Path
 
-from .loader import library
-_lib = library()
+import svs._svs as _svs
 
 DEFAULT_SCHEMA_FILE = "serialization.toml"
 
 def _reformat_toml(path):
-    _lib.__reformat_toml(path)
+    _svs.__reformat_toml(path)
 
 def _is_reserved(key: str):
     return key.startswith("__")

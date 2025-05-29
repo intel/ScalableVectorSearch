@@ -141,16 +141,23 @@ template <typename T, typename Distance, size_t N> void test_distance_single(T l
     // A buffer into which we decompress the int8 values
     std::vector<float> rhs(N);
 
-    for (size_t i = 0; i < num_tests; ++i) {
-        auto datum = compressed.get_datum(i);
-        std::transform(datum.begin(), datum.end(), rhs.begin(), decompress);
-        auto rhs_span = std::span(rhs);
-        float reference = svs::distance::compute(distance, query.get_datum(0), rhs_span);
-        auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
+    auto& arch_env = svs::arch::MicroArchEnvironment::get_instance();
+    auto supported_archs = arch_env.get_supported_microarchs();
 
-        // Calculate compressed distance and compare with reference
-        float result = compressed_distance.compute(compressed.get_datum(i));
-        CATCH_REQUIRE(result == expected);
+    for (auto arch : supported_archs) {
+        for (size_t i = 0; i < num_tests; ++i) {
+            arch_env.set_microarch(arch);
+            auto datum = compressed.get_datum(i);
+            std::transform(datum.begin(), datum.end(), rhs.begin(), decompress);
+            auto rhs_span = std::span(rhs);
+            float reference =
+                svs::distance::compute(distance, query.get_datum(0), rhs_span);
+            auto expected = Catch::Approx(reference).epsilon(0.01).margin(0.01);
+
+            // Calculate compressed distance and compare with reference
+            float result = compressed_distance.compute(compressed.get_datum(i));
+            CATCH_REQUIRE(result == expected);
+        }
     }
 }
 
