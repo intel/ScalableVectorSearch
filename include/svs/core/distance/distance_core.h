@@ -28,12 +28,6 @@ namespace svs::distance {
 
 enum class AVX_AVAILABILITY { NONE, AVX2, AVX512 };
 
-// Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx> struct L2Impl;
-template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx>
-struct CosineSimilarityImpl;
-template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx> struct IPImpl;
-
 constexpr std::array<size_t, 6> supported_dim_list{64, 96, 100, 128, 512, 768};
 
 template <size_t N> constexpr bool is_dim_supported() {

@@ -216,7 +216,7 @@ float generic_l2(
 }
 
 template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx> struct L2Impl {
-    SVS_NOINLINE static constexpr float
+    SVS_NOINLINE static float
     compute(const Ea* a, const Eb* b, lib::MaybeStatic<N> length = lib::MaybeStatic<N>()) {
         return generic_l2(a, b, length);
     }
@@ -508,15 +508,23 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 #endif
 
 // TODO: seperate AV2 and AVX512
-#define DISTANCE_L2_TEMPLATE_HELPER(SPEC, N, AVX)                             \
-    SPEC struct L2Impl<N, float, float, AVX>;                                 \
-    SPEC struct L2Impl<N, float, uint8_t, AVX>;                               \
-    SPEC struct L2Impl<N, float, int8_t, AVX>;                                \
-    SPEC struct L2Impl<N, float, svs::float16::Float16, AVX>;                 \
-    SPEC struct L2Impl<N, svs::float16::Float16, float, AVX>;                 \
-    SPEC struct L2Impl<N, svs::float16::Float16, svs::float16::Float16, AVX>; \
-    SPEC struct L2Impl<N, int8_t, int8_t, AVX>;                               \
-    SPEC struct L2Impl<N, uint8_t, uint8_t, AVX>;
+#define DISTANCE_L2_TEMPLATE_HELPER(SPEC, N, AVX)               \
+    SPEC struct L2Impl<N, float, float, AVX>;                   \
+    SPEC struct L2Impl<N, float, int8_t, AVX>;                  \
+    SPEC struct L2Impl<N, float, uint8_t, AVX>;                 \
+    SPEC struct L2Impl<N, float, svs::float16::Float16, AVX>;   \
+    SPEC struct L2Impl<N, int8_t, float, AVX>;                  \
+    SPEC struct L2Impl<N, int8_t, int8_t, AVX>;                 \
+    SPEC struct L2Impl<N, int8_t, uint8_t, AVX>;                \
+    SPEC struct L2Impl<N, int8_t, svs::float16::Float16, AVX>;  \
+    SPEC struct L2Impl<N, uint8_t, float, AVX>;                 \
+    SPEC struct L2Impl<N, uint8_t, int8_t, AVX>;                \
+    SPEC struct L2Impl<N, uint8_t, uint8_t, AVX>;               \
+    SPEC struct L2Impl<N, uint8_t, svs::float16::Float16, AVX>; \
+    SPEC struct L2Impl<N, svs::float16::Float16, float, AVX>;   \
+    SPEC struct L2Impl<N, svs::float16::Float16, int8_t, AVX>;  \
+    SPEC struct L2Impl<N, svs::float16::Float16, uint8_t, AVX>; \
+    SPEC struct L2Impl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
 
 #define DISTANCE_L2_INSTANTIATE_TEMPLATE(N, AVX) \
     DISTANCE_L2_TEMPLATE_HELPER(template, N, AVX)
