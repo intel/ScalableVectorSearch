@@ -200,7 +200,7 @@ float generic_cosine_similarity(
 
 template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx>
 struct CosineSimilarityImpl {
-    static float compute(
+    SVS_NOINLINE static float compute(
         const Ea* a,
         const Eb* b,
         float a_norm,
@@ -395,8 +395,6 @@ struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
 
 // TODO: connect with dim_supported_list
 
-SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
-#if SVS_AVX512_F
 DISTANCE_CS_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
@@ -404,6 +402,5 @@ DISTANCE_CS_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
-#endif
 
 } // namespace svs::distance
