@@ -15,6 +15,10 @@
 # function to create a set of object files with microarch instantiations
 
 add_library(svs_x86_options_base INTERFACE)
+set(X86_OBJECT_FILES "")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
+    return()
+endif()
 target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
 
 set(SVS_X86_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")

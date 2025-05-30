@@ -86,12 +86,12 @@ class L2 {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        if (svs::detail::is_avx512_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                 a, b, lib::MaybeStatic(N)
             );
         }
-        if (svs::detail::is_avx2_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
             return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                 a, b, lib::MaybeStatic(N)
             );
@@ -103,7 +103,7 @@ class L2 {
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
-        if (svs::detail::is_avx512_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                     a, b, lib::MaybeStatic<N>()
@@ -114,7 +114,7 @@ class L2 {
                 );
             }
         }
-        if (svs::detail::is_avx2_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                     a, b, lib::MaybeStatic<N>()
@@ -293,7 +293,7 @@ template <> struct L2VNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        if (svs::detail::is_avx512vnni_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
         }
         return generic_l2(a, b, length);
@@ -303,7 +303,7 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        if (svs::detail::is_avx512vnni_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
         }
         return generic_l2(a, b, length);

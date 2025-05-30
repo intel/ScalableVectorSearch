@@ -46,12 +46,12 @@ class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        if (svs::detail::is_avx512_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                 a, b, lib::MaybeStatic(N)
             );
         }
-        if (svs::detail::is_avx2_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
             return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                 a, b, lib::MaybeStatic(N)
             );
@@ -63,7 +63,7 @@ class IP {
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
-        if (svs::detail::is_avx512_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                     a, b, lib::MaybeStatic<N>()
@@ -74,7 +74,7 @@ class IP {
                 );
             }
         }
-        if (svs::detail::is_avx2_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                     a, b, lib::MaybeStatic<N>()
@@ -247,7 +247,7 @@ template <> struct IPVNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        if (svs::detail::is_avx512vnni_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
         }
         return generic_ip(a, b, length);
@@ -257,7 +257,7 @@ template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        if (svs::detail::is_avx512vnni_supported()) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
         }
         return generic_ip(a, b, length);

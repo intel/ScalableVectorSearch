@@ -16,52 +16,44 @@
 
 #pragma once
 
-#ifdef __x86_64__
-#include "eve/detection.hpp"
-#endif
-
 #include <dlfcn.h>
 
 namespace svs::detail {
 
-inline bool is_avx2_supported() {
 #ifdef __x86_64__
-    return eve::is_supported(eve::avx2);
-#else
-    return false;
-#endif
-}
+struct AVXRuntimeFlags {
+    AVXRuntimeFlags() {
+        unsigned int eax, ebx, ecx, edx;
 
-inline bool is_avx512_supported() {
-#ifdef __x86_64__
-    return eve::is_supported(eve::avx512);
-#else
-    return false;
-#endif
-}
+        __asm__ __volatile__("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(0));
 
-inline bool is_avx512vnni_supported() {
-#ifdef __x86_64__
-    unsigned int eax, ebx, ecx, edx;
+        bool extended_features = eax >= 7;
 
-    // Check if CPUID supports extended features (leaf 7)
-    __asm__ __volatile__("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(0));
+        __asm__ __volatile__("cpuid"
+                             : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                             : "a"(7), "c"(0));
 
-    // If the highest supported leaf is less than 7, extended features are not supported
-    if (eax < 7) {
-        return false;
+        avx2 = extended_features && ((ebx & (1 << 5)) != 0);
+        avx512f = extended_features && ((ebx & (1 << 16)) != 0);
+        avx512vnni = extended_features && ((ecx & (1 << 11)) != 0);
     }
 
-    // Get extended features (leaf 7, sub-leaf 0)
-    __asm__ __volatile__("cpuid"
-                         : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
-                         : "a"(7), "c"(0));
+    bool is_avx2_supported() const noexcept { return avx2; }
+    bool is_avx512f_supported() const noexcept { return avx512f; }
+    bool is_avx512vnni_supported() const noexcept { return avx512vnni; }
 
-    // Check for AVX512_VNNI support (bit 11 of ECX)
-    return (ecx & (1 << 11)) != 0;
+    bool avx2;
+    bool avx512f;
+    bool avx512vnni;
+};
 #else
-    return false;
+struct AVXRuntimeFlags {
+    bool is_avx2_supported() const noexcept { return false; }
+    bool is_avx512f_supported() const noexcept { return false; }
+    bool is_avx512vnni_supported() const noexcept { return false; }
+};
 #endif
-}
+
+inline const AVXRuntimeFlags avx_runtime_flags = {};
 
 } // namespace svs::detail
