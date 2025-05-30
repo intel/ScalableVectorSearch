@@ -65,14 +65,24 @@ class CosineSimilarity {
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm) {
         if (svs::detail::is_avx512_supported()) {
-            return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
-                a, b, a_norm, lib::MaybeStatic<N>()
-            );
+            if constexpr (is_dim_supported<N>()) {
+                return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                    a, b, a_norm, lib::MaybeStatic<N>()
+                );
+            } else {
+                return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::
+                    compute(a, b, a_norm, lib::MaybeStatic(N));
+            }
         }
         if (svs::detail::is_avx2_supported()) {
-            return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
-                a, b, a_norm, lib::MaybeStatic<N>()
-            );
+            if constexpr (is_dim_supported<N>()) {
+                return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, a_norm, lib::MaybeStatic<N>()
+                );
+            } else {
+                return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::
+                    compute(a, b, a_norm, lib::MaybeStatic(N));
+            }
         }
         return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::NONE>::compute(
             a, b, a_norm, lib::MaybeStatic<N>()
@@ -361,4 +371,49 @@ struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
 };
 
 #endif
+
+#define DISTANCE_CS_TEMPLATE_HELPER(SPEC, N, AVX)                           \
+    SPEC struct CosineSimilarityImpl<N, float, float, AVX>;                 \
+    SPEC struct CosineSimilarityImpl<N, float, int8_t, AVX>;                \
+    SPEC struct CosineSimilarityImpl<N, float, uint8_t, AVX>;               \
+    SPEC struct CosineSimilarityImpl<N, float, svs::float16::Float16, AVX>; \
+    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, float, AVX>; \
+    SPEC struct CosineSimilarityImpl<                                       \
+        N,                                                                  \
+        svs::float16::Float16,                                              \
+        svs::float16::Float16,                                              \
+        AVX>;                                                               \
+    SPEC struct CosineSimilarityImpl<N, int8_t, float, AVX>;                \
+    SPEC struct CosineSimilarityImpl<N, int8_t, int8_t, AVX>;               \
+    SPEC struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX>;
+
+#define DISTANCE_CS_INSTANTIATE_TEMPLATE(N, AVX) \
+    DISTANCE_CS_TEMPLATE_HELPER(template, N, AVX)
+
+#define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
+    DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX)
+
+// TODO: connect with dim_supported_list
+SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
+#if SVS_AVX2
+DISTANCE_CS_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
+#endif
+
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+#if SVS_AVX512_F
+DISTANCE_CS_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
+#endif
+
 } // namespace svs::distance

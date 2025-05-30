@@ -104,14 +104,26 @@ class L2 {
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
         if (svs::detail::is_avx512_supported()) {
-            return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
-                a, b, lib::MaybeStatic<N>()
-            );
+            if constexpr (is_dim_supported<N>()) {
+                return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                    a, b, lib::MaybeStatic<N>()
+                );
+            } else {
+                return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
         }
         if (svs::detail::is_avx2_supported()) {
-            return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
-                a, b, lib::MaybeStatic<N>()
-            );
+            if constexpr (is_dim_supported<N>()) {
+                return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, lib::MaybeStatic<N>()
+                );
+            } else {
+                return L2Impl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
         }
         return L2Impl<N, Ea, Eb, AVX_AVAILABILITY::NONE>::compute(
             a, b, lib::MaybeStatic<N>()
@@ -284,6 +296,7 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
         // if(lib::is_VNNI_supported()) {
         // return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
         //}
+        std::cerr << "22222\n";
         return generic_l2(a, b, length);
     }
 };
@@ -294,6 +307,7 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512>
         // if(lib::is_VNNI_supported()) {
         // return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
         //}
+        std::cerr << "22222\n";
         return generic_l2(a, b, length);
     }
 };
@@ -304,6 +318,7 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512>
 template <size_t N> struct L2Impl<N, float, float, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
+        std::cerr << "22222\n";
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
@@ -311,6 +326,7 @@ template <size_t N> struct L2Impl<N, float, float, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, float, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
+        std::cerr << "22222\n";
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
@@ -318,6 +334,7 @@ template <size_t N> struct L2Impl<N, float, uint8_t, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, float, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
+        std::cerr << "22222\n";
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
@@ -325,6 +342,7 @@ template <size_t N> struct L2Impl<N, float, int8_t, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, float, Float16, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
+        std::cerr << "22222\n";
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
@@ -332,6 +350,7 @@ template <size_t N> struct L2Impl<N, float, Float16, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, Float16, float, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
+        std::cerr << "22222\n";
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     }
 };
@@ -339,6 +358,7 @@ template <size_t N> struct L2Impl<N, Float16, float, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
+        std::cerr << "22222\n";
         return simd::generic_simd_op(L2FloatOp<16>{}, a, b, length);
     };
 };
@@ -493,4 +513,45 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 };
 
 #endif
+
+// TODO: seperate AV2 and AVX512
+#define DISTANCE_L2_TEMPLATE_HELPER(SPEC, N, AVX)                             \
+    SPEC struct L2Impl<N, float, float, AVX>;                                 \
+    SPEC struct L2Impl<N, float, uint8_t, AVX>;                               \
+    SPEC struct L2Impl<N, float, int8_t, AVX>;                                \
+    SPEC struct L2Impl<N, float, svs::float16::Float16, AVX>;                 \
+    SPEC struct L2Impl<N, svs::float16::Float16, float, AVX>;                 \
+    SPEC struct L2Impl<N, svs::float16::Float16, svs::float16::Float16, AVX>; \
+    SPEC struct L2Impl<N, int8_t, int8_t, AVX>;                               \
+    SPEC struct L2Impl<N, uint8_t, uint8_t, AVX>;
+
+#define DISTANCE_L2_INSTANTIATE_TEMPLATE(N, AVX) \
+    DISTANCE_L2_TEMPLATE_HELPER(template, N, AVX)
+
+#define DISTANCE_L2_EXTERN_TEMPLATE(N, AVX) \
+    DISTANCE_L2_TEMPLATE_HELPER(extern template, N, AVX)
+
+// TODO: connect with dim_supported_list
+SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
+#if SVS_AVX2
+DISTANCE_L2_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX2);
+DISTANCE_L2_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX2);
+DISTANCE_L2_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX2);
+DISTANCE_L2_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX2);
+DISTANCE_L2_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
+DISTANCE_L2_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
+DISTANCE_L2_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
+#endif
+
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+#if SVS_AVX512_F
+DISTANCE_L2_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
+DISTANCE_L2_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
+DISTANCE_L2_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
+DISTANCE_L2_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
+DISTANCE_L2_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
+DISTANCE_L2_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
+DISTANCE_L2_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
+#endif
+
 } // namespace svs::distance

@@ -17,7 +17,7 @@
 #pragma once
 
 #ifdef __x86_64__
-#include "svs/third-party/eve.h"
+#include "eve/detection.hpp"
 #endif
 
 #include <dlfcn.h>
