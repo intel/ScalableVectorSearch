@@ -40,4 +40,28 @@ inline bool is_avx512_supported() {
 #endif
 }
 
+inline bool is_avx512vnni_supported() {
+#ifdef __x86_64__
+    unsigned int eax, ebx, ecx, edx;
+
+    // Check if CPUID supports extended features (leaf 7)
+    __asm__ __volatile__("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(0));
+
+    // If the highest supported leaf is less than 7, extended features are not supported
+    if (eax < 7) {
+        return false;
+    }
+
+    // Get extended features (leaf 7, sub-leaf 0)
+    __asm__ __volatile__("cpuid"
+                         : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                         : "a"(7), "c"(0));
+
+    // Check for AVX512_VNNI support (bit 11 of ECX)
+    return (ecx & (1 << 11)) != 0;
+#else
+    return false;
+#endif
+}
+
 } // namespace svs::detail

@@ -293,9 +293,9 @@ template <> struct L2VNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int1
 template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        // if(lib::is_VNNI_supported()) {
-        // return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
-        //}
+        if (svs::detail::is_avx512vnni_supported()) {
+            return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
+        }
         return generic_l2(a, b, length);
     }
 };
@@ -303,9 +303,9 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
 template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        // if(lib::is_VNNI_supported()) {
-        // return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
-        //}
+        if (svs::detail::is_avx512vnni_supported()) {
+            return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
+        }
         return generic_l2(a, b, length);
     }
 };

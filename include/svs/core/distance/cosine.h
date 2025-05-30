@@ -261,27 +261,30 @@ template <size_t N>
 struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        // auto sum = _mm512_setzero_epi32();
-        // auto bnorm_accum = _mm512_setzero_epi32();
-        // auto mask = create_mask<32>(length);
-        // auto all = no_mask<32>();
+        if (svs::detail_is_avx512vnni_supported()) {
+            auto sum = _mm512_setzero_epi32();
+            auto bnorm_accum = _mm512_setzero_epi32();
+            auto mask = create_mask<32>(length);
+            auto all = no_mask<32>();
 
-        // for (size_t j = 0; j < length.size(); j += 32) {
-        // auto temp_a =
-        //_mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
-        // auto va = _mm512_cvtepi8_epi16(temp_a);
+            for (size_t j = 0; j < length.size(); j += 32) {
+                auto temp_a =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
+                auto va = _mm512_cvtepi8_epi16(temp_a);
 
-        // auto temp_b =
-        //_mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
-        // auto vb = _mm512_cvtepi8_epi16(temp_b);
+                auto temp_b =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
+                auto vb = _mm512_cvtepi8_epi16(temp_b);
 
-        // bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
-        // sum = _mm512_dpwssd_epi32(sum, va, vb);
-        //}
+                bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
+                sum = _mm512_dpwssd_epi32(sum, va, vb);
+            }
 
-        // float b_norm =
-        // std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum))); return
-        // lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) / (a_norm * b_norm);
+            float b_norm =
+                std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
+            return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
+                   (a_norm * b_norm);
+        }
         return generic_cosine_similarity(a, b, a_norm, length);
     }
 };
@@ -290,26 +293,29 @@ template <size_t N>
 struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        // auto sum = _mm512_setzero_epi32();
-        // auto bnorm_accum = _mm512_setzero_epi32();
-        // auto mask = create_mask<32>(length);
-        // auto all = no_mask<32>();
+        if (svs::detail_is_avx512vnni_supported()) {
+            auto sum = _mm512_setzero_epi32();
+            auto bnorm_accum = _mm512_setzero_epi32();
+            auto mask = create_mask<32>(length);
+            auto all = no_mask<32>();
 
-        // for (size_t j = 0; j < length.size(); j += 32) {
-        // auto temp_a =
-        //_mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
-        // auto va = _mm512_cvtepu8_epi16(temp_a);
+            for (size_t j = 0; j < length.size(); j += 32) {
+                auto temp_a =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
+                auto va = _mm512_cvtepu8_epi16(temp_a);
 
-        // auto temp_b =
-        //_mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
-        // auto vb = _mm512_cvtepu8_epi16(temp_b);
+                auto temp_b =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
+                auto vb = _mm512_cvtepu8_epi16(temp_b);
 
-        // bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
-        // sum = _mm512_dpwssd_epi32(sum, va, vb);
-        //}
-        // float b_norm =
-        // std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum))); return
-        // lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) / (a_norm * b_norm);
+                bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
+                sum = _mm512_dpwssd_epi32(sum, va, vb);
+            }
+            float b_norm =
+                std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
+            return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
+                   (a_norm * b_norm);
+        }
         return generic_cosine_similarity(a, b, a_norm, length);
     }
 };

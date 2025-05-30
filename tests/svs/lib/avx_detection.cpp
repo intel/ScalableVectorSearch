@@ -23,7 +23,8 @@
 
 CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
     std::cout << "Checking AVX availability...\n";
-    std::cout << "AVX 2: " << std::boolalpha << svs::detail::is_avx2_supported() << "\n";
-    std::cout << "AVX 512: " << std::boolalpha << svs::detail::is_avx512_supported()
+    std::cout << "AVX2: " << std::boolalpha << svs::detail::is_avx2_supported() << "\n";
+    std::cout << "AVX512: " << std::boolalpha << svs::detail::is_avx512_supported() << "\n";
+    std::cout << "AVX512VNNI: " << std::boolalpha << svs::detail::is_avx512vnni_supported()
               << "\n";
 }
