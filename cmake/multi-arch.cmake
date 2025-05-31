@@ -53,5 +53,5 @@ function(create_x86_instantiations)
         list(APPEND X86_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
     endforeach()
 
-    set(X86_OBJECT_FILES "${X86_OBJECT_FILES}" PARENT_SCOPE)
+    set(X86_OBJECT_FILES "${X86_OBJECT_FILES}" CACHE INTERNAL "X86-specific object files")
 endfunction()
