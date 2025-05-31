@@ -18,8 +18,7 @@ import struct
 import os
 
 import numpy as np
-from .loader import library
-lib = library()
+import svs._svs as _svs
 
 def np_to_svs(nptype):
     """
@@ -34,29 +33,29 @@ def np_to_svs(nptype):
     """
     # Signed
     if nptype == np.int8:
-        return lib.int8
+        return _svs.int8
     if nptype == np.int16:
-        return lib.int16
+        return _svs.int16
     if nptype == np.int32:
-        return lib.int32
+        return _svs.int32
     if nptype == np.int64:
-        return lib.int64
+        return _svs.int64
     # Unsigned
     if nptype == np.uint8:
-        return lib.uint8
+        return _svs.uint8
     if nptype == np.uint16:
-        return lib.uint16
+        return _svs.uint16
     if nptype == np.uint32:
-        return lib.uint32
+        return _svs.uint32
     if nptype == np.uint64:
-        return lib.uint64
+        return _svs.uint64
     # Float
     if nptype == np.float16:
-        return lib.float16
+        return _svs.float16
     if nptype == np.float32:
-        return lib.float32
+        return _svs.float32
     if nptype == np.float64:
-        return lib.float64
+        return _svs.float64
 
     raise Exception(f"Could not convert {nptype} to a svs.DataType enum!");
 
@@ -221,7 +220,7 @@ def generate_test_dataset(
         query_seed = None,
         num_threads = 1,
         num_neighbors: int = 100,
-        distance = lib.DistanceType.L2
+        distance = _svs.DistanceType.L2
         ):
     """
     Generate a sample dataset consisting of the base data, queries, and groundtruth all in
@@ -259,7 +258,7 @@ def generate_test_dataset(
     write_vecs(queries, os.path.join(directory, "queries.fvecs"))
 
     print("Generating Groundtruth")
-    index = lib.Flat(data, distance, num_threads = num_threads)
+    index = _svs.Flat(data, distance, num_threads = num_threads)
     I, _ = index.search(queries, num_neighbors)
     write_vecs(I.astype(np.uint32), os.path.join(directory, "groundtruth.ivecs"))
 

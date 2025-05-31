@@ -89,7 +89,7 @@ svs::Vamana build_index(
 }
 } // namespace
 
-CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana]") {
+CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana][uncompressed]") {
     auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
 
     // How far these results may deviate from previously generated results.

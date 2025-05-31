@@ -24,10 +24,10 @@ endif()
 #
 # [1] A simple executable is one that takes no commandline arguments.
 function(create_simple_example exe test file)
-    add_executable(${exe} ${file})
+    add_executable(${exe} ${file} ${X86_OBJECT_FILES})
     target_include_directories(${exe} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     # Link to our library
-    target_link_libraries(${exe} ${SVS_LIB} svs_compile_options svs_native_options)
+    target_link_libraries(${exe} ${SVS_LIB} svs_compile_options svs_x86_options_base)
     # Create a test.
     # No-op if the `include(CTest)` line above is not executed.
     add_test(${test} ${exe})
@@ -49,9 +49,9 @@ configure_file(../../data/test_dataset/queries_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
 
 # The vamana test executable.
-add_executable(vamana vamana.cpp)
+add_executable(vamana vamana.cpp ${X86_OBJECT_FILES})
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(vamana ${SVS_LIB} svs_compile_options svs_native_options)
+target_link_libraries(vamana ${SVS_LIB} svs_compile_options svs_x86_options_base)
 add_test(
     NAME test_vamana
     COMMAND
@@ -62,9 +62,9 @@ add_test(
 )
 
 # The custom thread pool executable.
-add_executable(custom_thread_pool custom_thread_pool.cpp)
+add_executable(custom_thread_pool custom_thread_pool.cpp ${X86_OBJECT_FILES})
 target_include_directories(custom_thread_pool PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_native_options)
+target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_x86_options_base)
 add_test(
     NAME test_custom_thread_pool
     COMMAND
@@ -79,9 +79,9 @@ add_test(
 ##### Dispatcher
 #####
 
-add_executable(dispatcher dispatcher.cpp)
+add_executable(dispatcher dispatcher.cpp ${X86_OBJECT_FILES})
 target_include_directories(dispatcher PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(dispatcher ${SVS_LIB} svs_compile_options svs_native_options)
+target_link_libraries(dispatcher ${SVS_LIB} svs_compile_options svs_x86_options_base)
 
 # Here we go.
 add_test(

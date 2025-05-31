@@ -75,10 +75,13 @@ include("cmake/robin-map.cmake")
 include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
+include("cmake/multi-arch.cmake")
 
 #####
 ##### Build Objects
 #####
+
+create_x86_instantiations()
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)

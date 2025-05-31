@@ -16,28 +16,44 @@
 
 #pragma once
 
-#ifdef __x86_64__
-#include "svs/third-party/eve.h"
-#endif
-
 #include <dlfcn.h>
 
 namespace svs::detail {
 
-inline bool is_avx2_supported() {
 #ifdef __x86_64__
-    return eve::is_supported(eve::avx2);
-#else
-    return false;
-#endif
-}
+struct AVXRuntimeFlags {
+    AVXRuntimeFlags() {
+        unsigned int eax, ebx, ecx, edx;
 
-inline bool is_avx512_supported() {
-#ifdef __x86_64__
-    return eve::is_supported(eve::avx512);
+        __asm__ __volatile__("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(0));
+
+        bool extended_features = eax >= 7;
+
+        __asm__ __volatile__("cpuid"
+                             : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
+                             : "a"(7), "c"(0));
+
+        avx2 = extended_features && ((ebx & (1 << 5)) != 0);
+        avx512f = extended_features && ((ebx & (1 << 16)) != 0);
+        avx512vnni = extended_features && ((ecx & (1 << 11)) != 0);
+    }
+
+    bool is_avx2_supported() const noexcept { return avx2; }
+    bool is_avx512f_supported() const noexcept { return avx512f; }
+    bool is_avx512vnni_supported() const noexcept { return avx512vnni; }
+
+    bool avx2;
+    bool avx512f;
+    bool avx512vnni;
+};
 #else
-    return false;
+struct AVXRuntimeFlags {
+    bool is_avx2_supported() const noexcept { return false; }
+    bool is_avx512f_supported() const noexcept { return false; }
+    bool is_avx512vnni_supported() const noexcept { return false; }
+};
 #endif
-}
+
+inline const AVXRuntimeFlags avx_runtime_flags = {};
 
 } // namespace svs::detail
