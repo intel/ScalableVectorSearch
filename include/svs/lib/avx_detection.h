@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,28 @@
 
 #pragma once
 
-#include "eve/detection.hpp"
-#include "eve/module/core.hpp"
-#include "eve/wide.hpp"
+#ifdef __x86_64__
+#include "svs/third-party/eve.h"
+#endif
 
-namespace svs {
+#include <dlfcn.h>
 
-// Helper alias to cut down of visual clutter.
-// Most internal uses of `wide` explicitly request the register width as well.
-template <typename T, int64_t N> using wide_ = eve::wide<T, eve::fixed<N>>;
+namespace svs::detail {
 
-} // namespace svs
+inline bool is_avx2_supported() {
+#ifdef __x86_64__
+    return eve::is_supported(eve::avx2);
+#else
+    return false;
+#endif
+}
+
+inline bool is_avx512_supported() {
+#ifdef __x86_64__
+    return eve::is_supported(eve::avx512);
+#else
+    return false;
+#endif
+}
+
+} // namespace svs::detail

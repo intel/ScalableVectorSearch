@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#pragma once
+// header under test
+#include "svs/lib/avx_detection.h"
 
-#include "eve/detection.hpp"
-#include "eve/module/core.hpp"
-#include "eve/wide.hpp"
+// catch2
+#include "catch2/catch_test_macros.hpp"
+#include <iostream>
 
-namespace svs {
-
-// Helper alias to cut down of visual clutter.
-// Most internal uses of `wide` explicitly request the register width as well.
-template <typename T, int64_t N> using wide_ = eve::wide<T, eve::fixed<N>>;
-
-} // namespace svs
+CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
+    std::cout << "Checking AVX availability...\n";
+    std::cout << "AVX 2: " << std::boolalpha << svs::detail::is_avx2_supported() << "\n";
+    std::cout << "AVX 512: " << std::boolalpha << svs::detail::is_avx512_supported()
+              << "\n";
+}
