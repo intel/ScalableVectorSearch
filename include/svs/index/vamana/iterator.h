@@ -326,7 +326,7 @@ template <typename Index, typename QueryType> class BatchIterator {
     bool restart_search_ = true; // Whether the next search should restart from scratch.
     size_t extra_search_buffer_capacity_ =
         svs::UNSIGNED_INTEGER_PLACEHOLDER; // Extra buffer capacity for the next search.
-    bool is_exhausted_ = false; // Whether the iterator is exhausted.
+    bool is_exhausted_ = false;            // Whether the iterator is exhausted.
 };
 
 // Deduction Guides
