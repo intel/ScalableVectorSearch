@@ -295,6 +295,8 @@ class MultiMutableVamanaIndex {
     }
     const ParentIndex& get_parent_index() const { return *index_; }
 
+    svs::logging::logger_ptr get_logger() const { return index_->get_logger(); }
+
     template <typename Query>
     double get_distance(label_type label, const Query& query) const {
         double best = INVALID_DISTANCE;

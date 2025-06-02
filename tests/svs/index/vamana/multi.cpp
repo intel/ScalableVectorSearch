@@ -229,4 +229,15 @@ CATCH_TEMPLATE_TEST_CASE(
             CATCH_REQUIRE(test_distance == ref_distance);
         }
     }
+
+    CATCH_SECTION("Logging") {
+        std::vector<size_t> test_indices(num_points);
+        std::iota(test_indices.begin(), test_indices.end(), 0);
+
+        auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
+            build_parameters, data, test_indices, Distance(), num_threads
+        );
+
+        CATCH_REQUIRE(ref_index.get_logger() == test_index.get_logger());
+    }
 }
