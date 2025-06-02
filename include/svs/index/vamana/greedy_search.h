@@ -19,6 +19,7 @@
 #include "svs/concepts/data.h"
 #include "svs/concepts/distance.h"
 #include "svs/concepts/graph.h"
+#include "svs/core/logging.h"
 #include "svs/index/vamana/search_buffer.h"
 
 #include <algorithm>
@@ -132,6 +133,7 @@ void greedy_search(
     const Builder& builder,
     Tracker& search_tracker,
     GreedySearchPrefetchParameters prefetch_parameters = {},
+    logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get(),
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     using I = typename Graph::index_type;
@@ -223,6 +225,7 @@ void greedy_search(
     const Initializer& initializer,
     const Builder& builder = NeighborBuilder(),
     GreedySearchPrefetchParameters prefetch_parameters = {},
+    svs::logging::logger_ptr logger = svs::logging::get(),
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     auto null_tracker = NullTracker{};
@@ -237,6 +240,7 @@ void greedy_search(
         builder,
         null_tracker,
         prefetch_parameters,
+        logger,
         cancel
     );
 }
