@@ -378,32 +378,10 @@ struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
 
 #endif
 
-#define DISTANCE_CS_TEMPLATE_HELPER(SPEC, N, AVX)                             \
-    SPEC struct CosineSimilarityImpl<N, float, float, AVX>;                   \
-    SPEC struct CosineSimilarityImpl<N, float, int8_t, AVX>;                  \
-    SPEC struct CosineSimilarityImpl<N, float, uint8_t, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct CosineSimilarityImpl<N, int8_t, float, AVX>;                  \
-    SPEC struct CosineSimilarityImpl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct CosineSimilarityImpl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, float, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+#if defined(__x86_64__)
 
-#define DISTANCE_CS_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(template, N, AVX)
-
-#define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX)
-
+#include "svs/multi-arch/x86/preprocessor.h"
 // TODO: connect with dim_supported_list
-
 DISTANCE_CS_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
 DISTANCE_CS_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
@@ -420,4 +398,5 @@ DISTANCE_CS_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
 DISTANCE_CS_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
 DISTANCE_CS_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
 
+#endif
 } // namespace svs::distance

@@ -75,13 +75,37 @@ include("cmake/robin-map.cmake")
 include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
-include("cmake/multi-arch.cmake")
 
 #####
 ##### Build Objects
 #####
 
-create_x86_instantiations()
+#TODO: refactor
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+    add_library(svs_x86_options_base INTERFACE)
+    target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
+    include("cmake/multi-arch.cmake")
+
+    set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
+    set(SVS_X86_SRC_FILES
+      "${SVS_X86_SRC_DIR}/avx2.cpp"
+      "${SVS_X86_SRC_DIR}/avx512.cpp"
+    )
+
+    set(SVS_X86_OBJ_NAMES
+      "avx2"
+      "avx512"
+    )
+    set(svs_x86_options "")
+    add_library(svs_x86_avx2 INTERFACE)
+    add_library(svs_x86_avx512 INTERFACE)
+    target_compile_options(svs_x86_avx2 INTERFACE -march=skylake -mtune=skylake)
+    target_compile_options(svs_x86_avx512 INTERFACE -march=cascadelake -mtune=cascadelake)
+    list(APPEND svs_x86_options svs_x86_avx2)
+    list(APPEND svs_x86_options svs_x86_avx512)
+
+    create_x86_instantiations("${SVS_X86_SRC_FILES}" "${SVS_X86_OBJ_NAMES}" "${svs_x86_options}")
+endif()
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)

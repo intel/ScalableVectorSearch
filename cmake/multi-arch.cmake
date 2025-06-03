@@ -14,42 +14,17 @@
 
 # function to create a set of object files with microarch instantiations
 
-add_library(svs_x86_options_base INTERFACE)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64)")
-    function(create_x86_instantiations)
-    endfunction()
-    return()
-endif()
-target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
-
-set(SVS_X86_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
-
-
-# TODO: refactor
-set(svs_x86_avx_list "avx2" "avx512")
-
-add_library(svs_x86_avx2 INTERFACE)
-add_library(svs_x86_avx512 INTERFACE)
-target_compile_options(svs_x86_avx2 INTERFACE -march=skylake -mtune=skylake)
-target_compile_options(svs_x86_avx512 INTERFACE -march=cascadelake -mtune=cascadelake)
-
-set(svs_x86_options "")
-list(APPEND svs_x86_options svs_x86_avx2)
-list(APPEND svs_x86_options svs_x86_avx512)
-
-function(create_x86_instantiations)
+function(create_x86_instantiations src_files obj_names x86_options)
     set(X86_OBJECT_FILES "")
-    foreach(avx x86_option IN ZIP_LISTS svs_x86_avx_list svs_x86_options)
-        set(OBJ_NAME "x86_${avx}")
-        set(SRC_FILE "${SVS_X86_DIR}/${avx}.cpp")
-        if(NOT EXISTS "${SRC_FILE}")
-           message(FATAL_ERROR "Missing source file for x86: ${SRC_FILE}")
+    foreach(src obj_name x86_option IN ZIP_LISTS src_files obj_names x86_options)
+        if(NOT EXISTS "${src}")
+           message(FATAL_ERROR "Missing source file for x86: ${src}")
         endif()
-        add_library(${OBJ_NAME} OBJECT ${SRC_FILE})
+        add_library(${obj_name} OBJECT ${src})
 
-        target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${x86_option})
+        target_link_libraries(${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${x86_option})
 
-        list(APPEND X86_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
+        list(APPEND X86_OBJECT_FILES $<TARGET_OBJECTS:${obj_name}>)
     endforeach()
 
     set(X86_OBJECT_FILES "${X86_OBJECT_FILES}" CACHE INTERNAL "X86-specific object files")
