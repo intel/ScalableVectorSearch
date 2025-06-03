@@ -69,12 +69,12 @@ auto create_lvq_data() {
 template <typename Data, typename Distance>
 void vamana_build(Data& data, Distance distance) {
     auto parameters = svs::index::vamana::VamanaBuildParameters{
-        1.2,                 // alpha
-        64,                  // graph max degree
-        128,                 // search window size
-        750,                 // max candidate pool size
-        60,                  // prune to degree
-        true,                // full search history
+        1.2,  // alpha
+        64,   // graph max degree
+        128,  // search window size
+        750,  // max candidate pool size
+        60,   // prune to degree
+        true, // full search history
     };
 
     auto tic = svs::lib::now();
