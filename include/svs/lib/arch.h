@@ -84,7 +84,7 @@ inline const std::unordered_map<MicroArch, MicroArchInfo>& get_microarch_info_ma
           "broadwell"}},
         {MicroArch::skylake,
          {MicroArch::broadwell,
-          {ISAExt::AES, ISAExt::CLFLUSHOPT, ISAExt::XSAVEC, ISAExt::XSAVES, ISAExt::SGX},
+          {ISAExt::AES, ISAExt::CLFLUSHOPT, ISAExt::XSAVEC, ISAExt::XSAVES},
           "skylake"}},
         {MicroArch::x86_64_v4,
          {std::nullopt,
