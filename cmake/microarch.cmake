@@ -149,13 +149,14 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_F
 endforeach()
 
 # function to create a set of object files with microarch instantiations
-function(create_microarch_instantiations)
+function(create_microarch_instantiations link_target)
     set(MICROARCH_OBJECT_FILES "")
     foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
         set(OBJ_NAME "microarch_${MICROARCH}")
         add_library(${OBJ_NAME} OBJECT ${ARGN})
 
-        target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt svs_microarch_options_${MICROARCH})
+        target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options svs_microarch_options_${MICROARCH})
+        target_sources(${link_target} INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
 
         list(APPEND MICROARCH_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
     endforeach()

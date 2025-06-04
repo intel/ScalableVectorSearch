@@ -35,8 +35,6 @@ set(SVS_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(SVS_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
 add_library(${SVS_LIB} INTERFACE)
-set_target_properties(${SVS_LIB} PROPERTIES EXPORT_NAME svs)
-add_library(svs::svs ALIAS ${SVS_LIB})
 
 # Runtime include directories are established in the installation logic.
 target_include_directories(
@@ -78,6 +76,15 @@ include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
 #####
+##### Export Target
+#####
+
+add_library(svs_export INTERFACE)
+set_target_properties(svs_export PROPERTIES EXPORT_NAME svs)
+target_link_libraries(svs_export INTERFACE ${SVS_LIB} )
+add_library(svs::svs ALIAS svs_export)
+
+#####
 ##### Build Objects
 #####
 
@@ -87,7 +94,7 @@ set(MICROARCH_INSTANCE_FILES
     cmake/microarch_instantiations/inner_product.cpp
 )
 
-create_microarch_instantiations(${MICROARCH_INSTANCE_FILES})
+create_microarch_instantiations(svs_export ${MICROARCH_INSTANCE_FILES})
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)

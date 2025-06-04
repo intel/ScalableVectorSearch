@@ -24,10 +24,10 @@ endif()
 #
 # [1] A simple executable is one that takes no commandline arguments.
 function(create_simple_example exe test file)
-    add_executable(${exe} ${file} ${MICROARCH_OBJECT_FILES})
+    add_executable(${exe} ${file})
     target_include_directories(${exe} PRIVATE ${CMAKE_CURRENT_LIST_DIR})
     # Link to our library
-    target_link_libraries(${exe} ${SVS_LIB} svs_compile_options svs_microarch_options_base)
+    target_link_libraries(${exe} svs::svs svs_compile_options svs_microarch_options_base)
     # Create a test.
     # No-op if the `include(CTest)` line above is not executed.
     add_test(${test} ${exe})
@@ -50,9 +50,9 @@ configure_file(../../data/test_dataset/queries_f32.fvecs . COPYONLY)
 configure_file(../../data/test_dataset/groundtruth_euclidean.ivecs . COPYONLY)
 
 # The vamana test executable.
-add_executable(vamana vamana.cpp ${MICROARCH_OBJECT_FILES})
+add_executable(vamana vamana.cpp)
 target_include_directories(vamana PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(vamana ${SVS_LIB} svs_compile_options svs_microarch_options_base)
+target_link_libraries(vamana svs::svs svs_compile_options svs_microarch_options_base)
 add_test(
     NAME test_vamana
     COMMAND
@@ -63,9 +63,9 @@ add_test(
 )
 
 # The custom thread pool executable.
-add_executable(custom_thread_pool custom_thread_pool.cpp ${MICROARCH_OBJECT_FILES})
+add_executable(custom_thread_pool custom_thread_pool.cpp)
 target_include_directories(custom_thread_pool PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(custom_thread_pool ${SVS_LIB} svs_compile_options svs_microarch_options_base)
+target_link_libraries(custom_thread_pool svs::svs svs_compile_options svs_microarch_options_base)
 add_test(
     NAME test_custom_thread_pool
     COMMAND
@@ -80,9 +80,9 @@ add_test(
 ##### Dispatcher
 #####
 
-add_executable(dispatcher dispatcher.cpp ${MICROARCH_OBJECT_FILES})
+add_executable(dispatcher dispatcher.cpp)
 target_include_directories(dispatcher PRIVATE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(dispatcher ${SVS_LIB} svs_compile_options svs_microarch_options_base)
+target_link_libraries(dispatcher svs::svs svs_compile_options svs_microarch_options_base)
 
 # Here we go.
 add_test(
