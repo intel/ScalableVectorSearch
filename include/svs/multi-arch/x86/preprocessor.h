@@ -35,10 +35,10 @@
     SPEC struct L2Impl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
 
 #define DISTANCE_L2_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_L2_TEMPLATE_HELPER(template, N, AVX)
+    DISTANCE_L2_TEMPLATE_HELPER(template, N, AVX);
 
 #define DISTANCE_L2_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_L2_TEMPLATE_HELPER(extern template, N, AVX)
+    DISTANCE_L2_TEMPLATE_HELPER(extern template, N, AVX);
 
 #define DISTANCE_IP_TEMPLATE_HELPER(SPEC, N, AVX)               \
     SPEC struct IPImpl<N, float, float, AVX>;                   \
@@ -59,10 +59,10 @@
     SPEC struct IPImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
 
 #define DISTANCE_IP_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_IP_TEMPLATE_HELPER(template, N, AVX)
+    DISTANCE_IP_TEMPLATE_HELPER(template, N, AVX);
 
 #define DISTANCE_IP_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_IP_TEMPLATE_HELPER(extern template, N, AVX)
+    DISTANCE_IP_TEMPLATE_HELPER(extern template, N, AVX);
 
 #define DISTANCE_CS_TEMPLATE_HELPER(SPEC, N, AVX)                             \
     SPEC struct CosineSimilarityImpl<N, float, float, AVX>;                   \
@@ -83,7 +83,8 @@
     SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
 
 #define DISTANCE_CS_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(template, N, AVX)
+    DISTANCE_CS_TEMPLATE_HELPER(template, N, AVX);
 
 #define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX)
+    DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX);
+
