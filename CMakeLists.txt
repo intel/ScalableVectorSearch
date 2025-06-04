@@ -81,8 +81,8 @@ include("cmake/toml.cmake")
 #####
 
 #TODO: refactor
+add_library(svs_x86_options_base INTERFACE)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-    add_library(svs_x86_options_base INTERFACE)
     target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
     include("cmake/multi-arch.cmake")
 
