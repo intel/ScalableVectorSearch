@@ -125,7 +125,7 @@ set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_export svs_devel svs_compile_options svs_microarch_options_base
+    TARGETS svs_export svs_devel svs_compile_options svs_microarch_options_base svs_microarchs
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )

@@ -138,6 +138,7 @@ message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS})
 
 # Generate object files for each microarchitecture
+add_library(svs_microarchs INTERFACE)
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
     message("Opt.flags[${MICROARCH}]: ${OPT_FLAGS}")
@@ -147,5 +148,7 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_F
     add_library(${OBJ_NAME} OBJECT ${SVS_MICROARCH_INSTANCE_FILES})
     target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options)
     target_compile_options(${OBJ_NAME} PRIVATE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH} -fPIC)
-    target_sources(svs_export INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
+    target_sources(svs_microarchs INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
 endforeach()
+
+target_link_libraries(svs_export INTERFACE svs_microarchs)
