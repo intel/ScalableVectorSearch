@@ -126,7 +126,6 @@ endfunction()
 #####
 
 # Set up "base" target to include opt. flags for base microarch
-# and flags to enable support of other microarchs in dispatcher
 add_library(svs_microarch_options_base INTERFACE)
 add_library(svs::microarch_options_base ALIAS svs_microarch_options_base)
 
@@ -137,40 +136,16 @@ string(REPLACE "," ";" BASE_OPT_FLAGS ${BASE_OPT_FLAGS})
 message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 
 target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS})
-install(
-    TARGETS svs_microarch_options_base
-    EXPORT svs-targets
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
 
+# Generate object files for each microarchitecture
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
     message("Opt.flags[${MICROARCH}]: ${OPT_FLAGS}")
 
-    # Create a new target for this microarch
-    add_library(svs_microarch_options_${MICROARCH} INTERFACE)
-    add_library(svs::microarch_options_${MICROARCH} ALIAS svs_microarch_options_${MICROARCH})
-    target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH})
+    # Object with MicroArch template instantiations
+    set(OBJ_NAME "microarch_${MICROARCH}")
+    add_library(${OBJ_NAME} OBJECT ${SVS_MICROARCH_INSTANCE_FILES})
+    target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options)
+    target_compile_options(${OBJ_NAME} PRIVATE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH} -fPIC)
+    target_sources(svs_export INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
 endforeach()
-
-# function to create a set of object files with microarch instantiations
-function(create_microarch_instantiations link_target)
-    set(MICROARCH_OBJECT_FILES "")
-    foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
-        set(OBJ_NAME "microarch_${MICROARCH}")
-        add_library(${OBJ_NAME} OBJECT ${ARGN})
-
-        target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options svs_microarch_options_${MICROARCH})
-        target_sources(${link_target} INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
-
-        install(
-            TARGETS svs_microarch_options_${MICROARCH} ${OBJ_NAME}
-            EXPORT svs-targets
-            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        )
-
-        list(APPEND MICROARCH_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
-    endforeach()
-    # Note: this specific way of setting the variable is required to make it available in all targeted scopes
-    set(MICROARCH_OBJECT_FILES "${MICROARCH_OBJECT_FILES}" CACHE INTERNAL "Microarchitecture-specific object files")
-endfunction()
