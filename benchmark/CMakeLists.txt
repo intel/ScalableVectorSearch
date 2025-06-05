@@ -113,4 +113,4 @@ set(EXE_FILES src/main.cpp)
 add_executable(svs_benchmark ${EXE_FILES})
 target_link_libraries(svs_benchmark PRIVATE svs_benchmark_library)
 
-svs_register_static_dimensions(96 200 768)
+svs_register_static_dimensions(96 100 128 200 768)
