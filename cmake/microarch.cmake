@@ -149,6 +149,18 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_F
     target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options)
     target_compile_options(${OBJ_NAME} PRIVATE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH} -fPIC)
     target_sources(svs_microarchs INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
+
+    install(
+        TARGETS ${OBJ_NAME}
+        EXPORT svs-targets
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 endforeach()
 
 target_link_libraries(svs_export INTERFACE svs_microarchs)
+
+install(
+    TARGETS svs_microarch_options_base svs_microarchs
+    EXPORT svs-targets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
