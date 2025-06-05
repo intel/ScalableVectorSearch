@@ -151,11 +151,6 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_F
     add_library(svs_microarch_options_${MICROARCH} INTERFACE)
     add_library(svs::microarch_options_${MICROARCH} ALIAS svs_microarch_options_${MICROARCH})
     target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH})
-    install(
-        TARGETS svs_microarch_options_${MICROARCH}
-        EXPORT svs-targets
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-    )
 endforeach()
 
 # function to create a set of object files with microarch instantiations
@@ -167,6 +162,12 @@ function(create_microarch_instantiations link_target)
 
         target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options svs_microarch_options_${MICROARCH})
         target_sources(${link_target} INTERFACE $<TARGET_OBJECTS:${OBJ_NAME}>)
+
+        install(
+            TARGETS svs_microarch_options_${MICROARCH} ${OBJ_NAME}
+            EXPORT svs-targets
+            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        )
 
         list(APPEND MICROARCH_OBJECT_FILES $<TARGET_OBJECTS:${OBJ_NAME}>)
     endforeach()
