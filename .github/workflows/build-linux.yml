@@ -83,7 +83,7 @@ jobs:
 
     - name: Validate MicroArch symbols
       working-directory: ${{ runner.temp }}/build
-      run: python ../tools/validate_microarch_symbols.py .
+      run: python ${GITHUB_WORKSPACE}/tools/validate_microarch_symbols.py .
 
     - name: Run tests
       env:
