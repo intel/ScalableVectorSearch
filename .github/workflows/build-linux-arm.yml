@@ -69,6 +69,10 @@ jobs:
       working-directory: ${{ runner.temp }}/build
       run: make -j$(nproc)
 
+    - name: Validate MicroArch symbols
+      working-directory: ${{ runner.temp }}/build
+      run: python ../tools/validate_microarch_symbols.py .
+
     - name: Run tests
       env:
           CTEST_OUTPUT_ON_FAILURE: 1
