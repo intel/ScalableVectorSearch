@@ -12,20 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# function to create a set of object files with microarch instantiations
+add_library(svs_x86_options_base INTERFACE)
+add_library(svs::x86_options_base ALIAS svs_x86_options_base)
+target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
 
-function(create_x86_instantiations src_files obj_names x86_options)
-    set(X86_OBJECT_FILES "")
-    foreach(src obj_name x86_option IN ZIP_LISTS src_files obj_names x86_options)
-        if(NOT EXISTS "${src}")
-           message(FATAL_ERROR "Missing source file for x86: ${src}")
-        endif()
-        add_library(${obj_name} OBJECT ${src})
+set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
+set(SVS_X86_SRC_FILES
+  "${SVS_X86_SRC_DIR}/avx2.cpp"
+  "${SVS_X86_SRC_DIR}/avx512.cpp"
+)
 
-        target_link_libraries(${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${x86_option})
+set(SVS_X86_OBJ_NAMES
+  "avx2"
+  "avx512"
+)
+add_library(svs_x86_avx2 INTERFACE)
+add_library(svs_x86_avx512 INTERFACE)
+target_compile_options(svs_x86_avx2 INTERFACE -march=haswell -mtune=haswell)
+target_compile_options(svs_x86_avx512 INTERFACE -march=cascadelake -mtune=cascadelake)
+set(svs_x86_options
+  svs_x86_avx2
+  svs_x86_avx512
+)
 
-        list(APPEND X86_OBJECT_FILES $<TARGET_OBJECTS:${obj_name}>)
-    endforeach()
+add_library(svs_x86_objects STATIC)
+foreach(SRC OBJ_NAME x86_option IN ZIP_LISTS SVS_X86_SRC_FILES SVS_X86_OBJ_NAMES svs_x86_options)
+    if(NOT EXISTS "${SRC}")
+       message(FATAL_ERROR "Missing source file for: ${SRC}")
+    endif()
+    add_library(${OBJ_NAME} OBJECT ${SRC})
 
-    set(X86_OBJECT_FILES "${X86_OBJECT_FILES}" CACHE INTERNAL "X86-specific object files")
-endfunction()
+    target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${x86_option})
+
+    target_sources(svs_x86_objects PRIVATE $<TARGET_OBJECTS:${OBJ_NAME}>)
+endforeach()
+target_link_libraries(svs_export INTERFACE svs_x86_objects)

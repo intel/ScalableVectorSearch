@@ -35,8 +35,10 @@ set(SVS_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(SVS_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
 add_library(${SVS_LIB} INTERFACE)
-set_target_properties(${SVS_LIB} PROPERTIES EXPORT_NAME svs)
-add_library(svs::svs ALIAS ${SVS_LIB})
+add_library(svs_export INTERFACE)
+set_target_properties(svs_export PROPERTIES EXPORT_NAME svs)
+target_link_libraries(svs_export INTERFACE ${SVS_LIB})
+add_library(svs::svs ALIAS svs_export)
 
 # Runtime include directories are established in the installation logic.
 target_include_directories(
@@ -67,6 +69,10 @@ target_compile_options(
 
 include("cmake/options.cmake")
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+  include("cmake/multi-arch.cmake")
+endif()
+
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
@@ -79,33 +85,6 @@ include("cmake/toml.cmake")
 #####
 ##### Build Objects
 #####
-
-#TODO: refactor
-add_library(svs_x86_options_base INTERFACE)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-    target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
-    include("cmake/multi-arch.cmake")
-
-    set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
-    set(SVS_X86_SRC_FILES
-      "${SVS_X86_SRC_DIR}/avx2.cpp"
-      "${SVS_X86_SRC_DIR}/avx512.cpp"
-    )
-
-    set(SVS_X86_OBJ_NAMES
-      "avx2"
-      "avx512"
-    )
-    set(svs_x86_options "")
-    add_library(svs_x86_avx2 INTERFACE)
-    add_library(svs_x86_avx512 INTERFACE)
-    target_compile_options(svs_x86_avx2 INTERFACE -march=skylake -mtune=skylake)
-    target_compile_options(svs_x86_avx512 INTERFACE -march=cascadelake -mtune=cascadelake)
-    list(APPEND svs_x86_options svs_x86_avx2)
-    list(APPEND svs_x86_options svs_x86_avx512)
-
-    create_x86_instantiations("${SVS_X86_SRC_FILES}" "${SVS_X86_OBJ_NAMES}" "${svs_x86_options}")
-endif()
 
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)

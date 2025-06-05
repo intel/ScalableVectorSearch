@@ -13,13 +13,13 @@
 # limitations under the License.
 
 function(create_utility exe file)
-    add_executable(${exe} ${file} ${X86_OBJECT_FILES})
+    add_executable(${exe} ${file})
     target_include_directories(
         ${exe}
         PRIVATE ${CMAKE_CURRENT_LIST_DIR}
     )
     # Get header directory and C++ 20
-    target_link_libraries(${exe} PRIVATE ${SVS_LIB})
+    target_link_libraries(${exe} PRIVATE svs::svs)
 
     # Get common compiler options with the unit tests.
     target_link_libraries(${exe} PRIVATE svs_compile_options svs_x86_options_base)

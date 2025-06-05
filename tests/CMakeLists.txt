@@ -188,7 +188,7 @@ if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     list(APPEND TEST_SOURCES ${NUMA_TESTS})
 endif()
 
-add_executable(tests ${TEST_SOURCES} ${X86_OBJECT_FILES})
+add_executable(tests ${TEST_SOURCES})
 
 # Path to the test dataset.
 set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data")
@@ -196,9 +196,9 @@ set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data")
 # Communicate to the test application where it can find test data sets.
 target_compile_definitions(tests PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
 
-target_link_libraries(tests PRIVATE ${SVS_LIB})
+target_link_libraries(tests PRIVATE svs::svs)
 target_link_libraries(
-  tests PRIVATE svs_compile_options svs_x86_options_base svs_benchmark_library ${X86_OBJECT_FILES}
+  tests PRIVATE svs_compile_options svs_x86_options_base svs_benchmark_library
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 
