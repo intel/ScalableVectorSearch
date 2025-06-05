@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_library(svs_x86_options_base INTERFACE)
-add_library(svs::x86_options_base ALIAS svs_x86_options_base)
-target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
-
 set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
 set(SVS_X86_SRC_FILES
   "${SVS_X86_SRC_DIR}/avx2.cpp"

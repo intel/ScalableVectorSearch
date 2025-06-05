@@ -69,8 +69,11 @@ target_compile_options(
 
 include("cmake/options.cmake")
 
+add_library(svs_x86_options_base INTERFACE)
+add_library(svs::x86_options_base ALIAS svs_x86_options_base)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-  include("cmake/multi-arch.cmake")
+    target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
+    include("cmake/multi-arch.cmake")
 endif()
 
 include("cmake/clang-tidy.cmake")
