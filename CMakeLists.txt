@@ -81,7 +81,7 @@ include("cmake/toml.cmake")
 
 add_library(svs_export INTERFACE)
 set_target_properties(svs_export PROPERTIES EXPORT_NAME svs)
-target_link_libraries(svs_export INTERFACE ${SVS_LIB} )
+target_link_libraries(svs_export INTERFACE ${SVS_LIB})
 add_library(svs::svs ALIAS svs_export)
 
 #####
@@ -128,7 +128,7 @@ set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_devel svs_compile_options svs_microarch_options_base
+    TARGETS svs_export svs_devel svs_compile_options svs_microarch_options_base
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -179,4 +179,3 @@ install(FILES
     ${SVS_CMAKE_FIND_FILES}
     DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
-
