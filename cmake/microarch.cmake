@@ -137,6 +137,11 @@ string(REPLACE "," ";" BASE_OPT_FLAGS ${BASE_OPT_FLAGS})
 message("Opt.flags[base=${BASE_MICROARCH}]: ${BASE_OPT_FLAGS}")
 
 target_compile_options(svs_microarch_options_base INTERFACE ${BASE_OPT_FLAGS})
+install(
+    TARGETS svs_microarch_options_base
+    EXPORT svs-targets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
 foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_FLAGS)
     string(REPLACE "," ";" OPT_FLAGS ${OPT_FLAGS})
@@ -146,6 +151,11 @@ foreach(MICROARCH OPT_FLAGS IN ZIP_LISTS SVS_SUPPORTED_MICROARCHS OPTIMIZATION_F
     add_library(svs_microarch_options_${MICROARCH} INTERFACE)
     add_library(svs::microarch_options_${MICROARCH} ALIAS svs_microarch_options_${MICROARCH})
     target_compile_options(svs_microarch_options_${MICROARCH} INTERFACE ${OPT_FLAGS} -DSVS_MICROARCH_TARGET=${MICROARCH})
+    install(
+        TARGETS svs_microarch_options_${MICROARCH}
+        EXPORT svs-targets
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    )
 endforeach()
 
 # function to create a set of object files with microarch instantiations
