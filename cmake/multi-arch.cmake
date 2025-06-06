@@ -18,7 +18,7 @@ set(SVS_X86
   "${SVS_X86_SRC_DIR}/avx512.cpp,avx512,cascadelake"
 )
 
-add_library(svs_x86_objects STATIC)
+set(SVS_X86_OBJECT_FILES)
 foreach(x86_info IN LISTS SVS_X86)
     string(REPLACE "," ";" x86_info "${x86_info}")
     list(GET x86_info 0 src)
@@ -27,16 +27,19 @@ foreach(x86_info IN LISTS SVS_X86)
     set(lib_name "svs_x86_${avx}")
     add_library(${lib_name} INTERFACE)
     target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
+    set(obj_name ${arch}_obj)
 
-    add_library(${arch}_obj OBJECT ${src})
-    target_link_libraries(${arch}_obj PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name})
-    set_target_properties(${arch}_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_sources(svs_x86_objects PRIVATE $<TARGET_OBJECTS:${arch}_obj>)
+    add_library(${obj_name} OBJECT ${src})
+    target_link_libraries(${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name})
+    set_target_properties(${obj_name} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    list(APPEND SVS_X86_OBJECT_FILES $<TARGET_OBJECTS:${obj_name}>)
 endforeach()
+
+add_library(svs_x86_objects STATIC ${SVS_X86_OBJECT_FILES})
+target_link_libraries(svs_export INTERFACE svs_x86_objects)
 
 install(
     TARGETS svs_x86_objects
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
-target_link_libraries(svs_export INTERFACE svs_x86_objects)
