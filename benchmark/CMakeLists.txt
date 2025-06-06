@@ -102,9 +102,9 @@ endif()
 target_link_libraries(
     svs_benchmark_library
     PUBLIC
-        ${SVS_LIB}
+        svs::svs
         svs_compile_options
-        svs_native_options
+        svs_microarch_options_base
         fmt::fmt
 )
 
@@ -112,3 +112,5 @@ target_link_libraries(
 set(EXE_FILES src/main.cpp)
 add_executable(svs_benchmark ${EXE_FILES})
 target_link_libraries(svs_benchmark PRIVATE svs_benchmark_library)
+
+svs_register_static_dimensions(96 100 128 200 768)

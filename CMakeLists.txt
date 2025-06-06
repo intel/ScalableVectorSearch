@@ -34,9 +34,14 @@ set(SVS_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(SVS_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(SVS_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
+# SVS targets:
+# - svs_devel (${SVS_LIB}) - the internal target
+# - svs_export (svs::svs) - the exported target for end users of the library
 add_library(${SVS_LIB} INTERFACE)
-set_target_properties(${SVS_LIB} PROPERTIES EXPORT_NAME svs)
-add_library(svs::svs ALIAS ${SVS_LIB})
+add_library(svs_export INTERFACE)
+set_target_properties(svs_export PROPERTIES EXPORT_NAME svs)
+target_link_libraries(svs_export INTERFACE ${SVS_LIB})
+add_library(svs::svs ALIAS svs_export)
 
 # Runtime include directories are established in the installation logic.
 target_include_directories(
@@ -61,12 +66,20 @@ target_compile_options(
     "-DSVS_VERSION_PATCH=${SVS_VERSION_PATCH}"
 )
 
+# Provide microarchitecture-specific template instantiations.
+set(SVS_MICROARCH_INSTANCE_FILES
+    cmake/microarch_instantiations/cosine.cpp
+    cmake/microarch_instantiations/euclidean.cpp
+    cmake/microarch_instantiations/inner_product.cpp
+)
+
 #####
 ##### Options and extra build steps
 #####
 
 include("cmake/options.cmake")
 
+include("cmake/microarch.cmake")
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
@@ -112,7 +125,7 @@ set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_devel svs_compile_options svs_native_options
+    TARGETS svs_export svs_devel svs_compile_options
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -163,4 +176,3 @@ install(FILES
     ${SVS_CMAKE_FIND_FILES}
     DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
-

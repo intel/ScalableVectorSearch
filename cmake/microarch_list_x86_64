@@ -1,0 +1,16 @@
+nehalem
+westmere
+sandybridge
+ivybridge
+haswell
+broadwell
+skylake
+x86_64_v4
+skylake_avx512
+cascadelake
+cooperlake
+icelake_client
+icelake_server
+sapphirerapids
+graniterapids
+graniterapids_d
