@@ -113,4 +113,5 @@ jobs:
           export SDE_FLAG=$flag
           sde64 -$flag -- python -c "import svs; svs.microarch.describe()"
           sde64 -$flag -- python -m unittest discover -p "test_microarch.py" -s .
+          sde64 -$flag -- python -m unittest discover -p "example*.py" -s ${GITHUB_WORKSPACE}/examples/python
         done
