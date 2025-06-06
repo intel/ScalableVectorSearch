@@ -196,9 +196,9 @@ set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data")
 # Communicate to the test application where it can find test data sets.
 target_compile_definitions(tests PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
 
-target_link_libraries(tests PRIVATE ${SVS_LIB})
+target_link_libraries(tests PRIVATE svs::svs)
 target_link_libraries(
-    tests PRIVATE svs_compile_options svs_native_options svs_benchmark_library
+  tests PRIVATE svs_compile_options svs_x86_options_base svs_benchmark_library
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 

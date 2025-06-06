@@ -19,10 +19,10 @@ function(create_utility exe file)
         PRIVATE ${CMAKE_CURRENT_LIST_DIR}
     )
     # Get header directory and C++ 20
-    target_link_libraries(${exe} PRIVATE ${SVS_LIB})
+    target_link_libraries(${exe} PRIVATE svs::svs)
 
     # Get common compiler options with the unit tests.
-    target_link_libraries(${exe} PRIVATE svs_compile_options svs_native_options)
+    target_link_libraries(${exe} PRIVATE svs_compile_options svs_x86_options_base)
 
     # Link with third-party executables.
     target_link_libraries(${exe} PRIVATE fmt::fmt)

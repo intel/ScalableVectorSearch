@@ -26,6 +26,19 @@
 
 namespace svs::distance {
 
+enum class AVX_AVAILABILITY { NONE, AVX2, AVX512 };
+
+constexpr std::array<size_t, 8> supported_dim_list{64, 96, 100, 128, 160, 200, 512, 768};
+
+template <size_t N> constexpr bool is_dim_supported() {
+    for (auto i : supported_dim_list) {
+        if (i == N) {
+            return true;
+        }
+    }
+    return false;
+}
+
 using default_accum_type = float;
 
 template <Arithmetic Accum, typename T, size_t Extent>

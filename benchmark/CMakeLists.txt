@@ -102,9 +102,9 @@ endif()
 target_link_libraries(
     svs_benchmark_library
     PUBLIC
-        ${SVS_LIB}
+        svs::svs
         svs_compile_options
-        svs_native_options
+        svs_x86_options_base
         fmt::fmt
 )
 
