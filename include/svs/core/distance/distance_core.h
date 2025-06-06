@@ -39,16 +39,6 @@ template <size_t N> constexpr bool is_dim_supported() {
     return false;
 }
 
-// template <size_t N>
-// constexpr size_t update_dim() {
-// if constexpr(is_dim_supported<N>()) {
-// return N;
-//}
-// else {
-// return Dynamic;
-//}
-//}
-
 using default_accum_type = float;
 
 template <Arithmetic Accum, typename T, size_t Extent>
