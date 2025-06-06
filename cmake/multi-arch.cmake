@@ -13,33 +13,30 @@
 # limitations under the License.
 
 set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
-set(SVS_X86_SRC_FILES
-  "${SVS_X86_SRC_DIR}/avx2.cpp"
-  "${SVS_X86_SRC_DIR}/avx512.cpp"
-)
-
-set(SVS_X86_OBJ_NAMES
-  "avx2"
-  "avx512"
-)
-add_library(svs_x86_avx2 INTERFACE)
-add_library(svs_x86_avx512 INTERFACE)
-target_compile_options(svs_x86_avx2 INTERFACE -march=haswell -mtune=haswell)
-target_compile_options(svs_x86_avx512 INTERFACE -march=cascadelake -mtune=cascadelake)
-set(svs_x86_options
-  svs_x86_avx2
-  svs_x86_avx512
+set(SVS_X86
+  "${SVS_X86_SRC_DIR}/avx2.cpp,avx2,haswell"
+  "${SVS_X86_SRC_DIR}/avx512.cpp,avx512,cascadelake"
 )
 
 add_library(svs_x86_objects STATIC)
-foreach(SRC OBJ_NAME x86_option IN ZIP_LISTS SVS_X86_SRC_FILES SVS_X86_OBJ_NAMES svs_x86_options)
-    if(NOT EXISTS "${SRC}")
-       message(FATAL_ERROR "Missing source file for: ${SRC}")
-    endif()
-    add_library(${OBJ_NAME} OBJECT ${SRC})
+foreach(x86_info IN LISTS SVS_X86)
+    string(REPLACE "," ";" x86_info "${x86_info}")
+    list(GET x86_info 0 src)
+    list(GET x86_info 1 avx)
+    list(GET x86_info 2 arch)
+    set(lib_name "svs_x86_${avx}")
+    add_library(${lib_name} INTERFACE)
+    target_compile_options(${lib_name} INTERFACE -march=${arch} -mtune=${arch})
 
-    target_link_libraries(${OBJ_NAME} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${x86_option})
-
-    target_sources(svs_x86_objects PRIVATE $<TARGET_OBJECTS:${OBJ_NAME}>)
+    add_library(${arch}_obj OBJECT ${src})
+    target_link_libraries(${arch}_obj PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name})
+    set_target_properties(${arch}_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_sources(svs_x86_objects PRIVATE $<TARGET_OBJECTS:${arch}_obj>)
 endforeach()
+
+install(
+    TARGETS svs_x86_objects
+    EXPORT svs-targets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 target_link_libraries(svs_export INTERFACE svs_x86_objects)
