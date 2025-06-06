@@ -296,7 +296,8 @@ template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
         }
-        return generic_l2(a, b, length);
+        // fallback to AVX2
+        return L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, length);
     }
 };
 
@@ -306,7 +307,8 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512>
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(L2VNNIOp<int16_t, 32>(), a, b, length);
         }
-        return generic_l2(a, b, length);
+        // fallback to AVX2
+        return L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, length);
     }
 };
 

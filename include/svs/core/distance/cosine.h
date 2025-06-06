@@ -53,6 +53,7 @@ class CosineSimilarity {
             );
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
+            // We do not support AVX2 on CS yet, but it will fallabck to generic anyway
             return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                 a, b, a_norm, lib::MaybeStatic(N)
             );
@@ -285,7 +286,7 @@ struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
             return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
                    (a_norm * b_norm);
         }
-        return generic_cosine_similarity(a, b, a_norm, length);
+        return CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, a_norm, length);
     }
 };
 
@@ -316,7 +317,7 @@ struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
             return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
                    (a_norm * b_norm);
         }
-        return generic_cosine_similarity(a, b, a_norm, length);
+        return CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, a_norm, length);
     }
 };
 
