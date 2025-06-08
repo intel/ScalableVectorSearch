@@ -206,7 +206,7 @@ class VamanaBuilder {
         float alpha,
         Idx entry_point,
         logging::Level level = logging::Level::Info,
-        logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         construct(
             alpha, entry_point, threads::UnitRange<size_t>{0, data_.size()}, level, logger
@@ -219,7 +219,7 @@ class VamanaBuilder {
         Idx entry_point,
         const R& range,
         logging::Level level = logging::Level::Info,
-        logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         size_t num_nodes = range.size();
         size_t num_batches = std::max(
@@ -256,7 +256,11 @@ class VamanaBuilder {
             // because it seems to generally yield better results.
             auto x = timer.push_back("generate neighbors");
             generate_neighbors(
-                threads::IteratorPair{start, stop}, params_.alpha, entry_points, timer
+                threads::IteratorPair{start, stop},
+                params_.alpha,
+                entry_points,
+                timer,
+                logger
             );
             search_time += lib::as_seconds(x.finish());
 
@@ -313,7 +317,8 @@ class VamanaBuilder {
         const R& indices,
         float alpha,
         const std::vector<Idx>& entry_points,
-        lib::Timer& timer
+        lib::Timer& timer,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         auto range = threads::StaticPartition{indices};
 
@@ -365,7 +370,8 @@ class VamanaBuilder {
                             vamana::EntryPointInitializer{lib::as_const_span(entry_points)},
                             NeighborBuilder(),
                             tracker,
-                            prefetch_hint_
+                            prefetch_hint_,
+                            logger
                         );
                     }
 
