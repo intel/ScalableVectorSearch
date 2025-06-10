@@ -286,7 +286,9 @@ struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
             return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
                    (a_norm * b_norm);
         }
-        return CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, a_norm, length);
+        // Fallback to AVX512
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 
@@ -317,7 +319,9 @@ struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
             return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
                    (a_norm * b_norm);
         }
-        return CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, a_norm, length);
+        // Fallback to AVX512
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 

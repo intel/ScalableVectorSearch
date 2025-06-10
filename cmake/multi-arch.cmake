@@ -31,7 +31,6 @@ foreach(x86_info IN LISTS SVS_X86)
 
     add_library(${obj_name} OBJECT ${src})
     target_link_libraries(${obj_name} PRIVATE ${SVS_LIB} svs::compile_options fmt::fmt ${lib_name})
-    set_target_properties(${obj_name} PROPERTIES POSITION_INDEPENDENT_CODE ON)
     list(APPEND SVS_X86_OBJECT_FILES $<TARGET_OBJECTS:${obj_name}>)
 endforeach()
 
