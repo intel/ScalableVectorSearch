@@ -126,6 +126,7 @@ template <typename Index, typename QueryType> class BatchIterator {
     void initialize_buffer() {
         auto config = SearchBufferConfig{0, extra_search_buffer_capacity_};
         scratchspace_.buffer.change_maxsize(config);
+        scratchspace_.buffer.clear();
     }
 
     /// @brief Increments the search window and capacity by `batch_size` for the next
