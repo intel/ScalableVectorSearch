@@ -469,6 +469,26 @@ class MultiMutableVamanaIndex {
         return external_to_label_.at(index_->translate_internal_id(i));
     }
 
+    /// @brief Call the functor with all labels in the index.
+    /// 
+    /// @param f A functor with an overloaded ``operator()(size_t)`` method. Called on
+    ///     each external ID in the index.
+    ///
+    template <typename F> void on_ids(F&& f) const {
+        for (auto pair : label_to_external_) {
+            f(pair.first);
+        }
+    }
+
+    ///
+    /// @brief Return a vector of all valid labels present in the index.
+    ///
+    std::vector<size_t> external_ids() const {
+        std::vector<size_t> ids{};
+        on_ids([&ids](size_t id) { ids.push_back(id); });
+        return ids;
+    }
+
     const Data& view_data() const { return index_->view_data(); }
     const Graph& view_graph() const { return index_->view_graph(); }
 
