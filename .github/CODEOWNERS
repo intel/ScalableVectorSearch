@@ -1,27 +1,24 @@
-# Default owner for anything not listed below
-*                       @ibhati
-
 # C/C++ library code
-/include/               @ibhati @aaron-dl-lin
-/cmake/                 @ibhati
-/tests/                 @aaron-dl-lin @ibhati
-/benchmark/             @ibhati
-/tools/                 @ibhati
-/utils/                 @ibhati
+/include/               @ibhati @aaron-dl-lin @Alexsandruss @ahuber21
+/cmake/                 @mihaic @ibhati @aaron-dl-lin @Alexsandruss @ahuber21 
+/tests/                 @mihaic @ibhati @aaron-dl-lin @Alexsandruss @ahuber21 @yuejiaointel 
+/benchmark/             @mihaic @ibhati @aaron-dl-lin @Alexsandruss @ahuber21 
+/tools/                 @mihaic @ibhati @aaron-dl-lin @Alexsandruss @ahuber21 
+/utils/                 @mihaic @ibhati @aaron-dl-lin @Alexsandruss @ahuber21 
 
 # Python and other language bindings
-/bindings/              @ethanglaser
+/bindings/              @ethanglaser @ibhati @aaron-dl-lin @Alexsandruss @ahuber21
 
 # Examples and datasets
-/examples/              @ibhati @aaron-dl-lin
-/data/                  @ibhati
+/examples/              @ibhati @aaron-dl-lin @ahuber21
+/data/                  @ibhati @ahuber21
 
 # Docker and build environment
-/docker/                @mihaic
+/docker/                @mihaic @ahuber21 
+
+# CI and infra
+/.github                @mihaic @homksei @yuejiaointel
 
 # Documentation and meta files
-/README.md              @aguerreb @napetrov
-/HISTORY.md             @aguerreb @napetrov
-/SECURITY.md            @aguerreb @napetrov
-/NEWS.md                @aguerreb @napetrov
+/*.md                   @aguerreb @napetrov
 /THIRD-PARTY-PROGRAMS   @aguerreb @napetrov
