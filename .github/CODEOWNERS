@@ -1,0 +1,27 @@
+# Default owner for anything not listed below
+*                       @ibhati
+
+# C/C++ library code
+/include/               @ibhati @aaron-dl-lin
+/cmake/                 @ibhati
+/tests/                 @aaron-dl-lin @ibhati
+/benchmark/             @ibhati
+/tools/                 @ibhati
+/utils/                 @ibhati
+
+# Python and other language bindings
+/bindings/              @ethanglaser
+
+# Examples and datasets
+/examples/              @ibhati @aaron-dl-lin
+/data/                  @ibhati
+
+# Docker and build environment
+/docker/                @mihaic
+
+# Documentation and meta files
+/README.md              @aguerreb @napetrov
+/HISTORY.md             @aguerreb @napetrov
+/SECURITY.md            @aguerreb @napetrov
+/NEWS.md                @aguerreb @napetrov
+/THIRD-PARTY-PROGRAMS   @aguerreb @napetrov
