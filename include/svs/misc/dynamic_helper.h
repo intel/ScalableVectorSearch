@@ -155,7 +155,8 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
         size_t bucket_size,
         size_t num_neighbors,
         const Queries& queries,
-        uint64_t rng_seed
+        uint64_t rng_seed,
+        svs::logging::logger_ptr logger = svs::logging::get()
     )
         : data_{std::move(data)}
         , num_queries_{queries.size()}
@@ -214,7 +215,7 @@ template <typename Idx, typename Eltype, size_t N, typename Dist> class Referenc
             reserve_buckets_.emplace_back(ids, std::move(bucket_groundtruth));
             start = stop;
         }
-        svs::logging::debug("{}", timer);
+        svs::logging::debug(logger, "{}", timer);
     }
 
     /// @brief Return the total number of elements in the dataset.

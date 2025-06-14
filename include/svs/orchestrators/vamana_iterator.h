@@ -160,12 +160,13 @@ class VamanaIterator {
     /// This can be helpful for measuring performance and verifying recall values.
     void restart_next_search() const { impl_->restart_next_search(); }
 
-    /// @brief Return whether or not all entries in the index have been yielded.
+    /// @brief Returns whether iterator can find more neighbors or not for the given query.
     ///
-    /// This transition is triggered by an invocation of ``next()``.
-    /// After ``done() == true``, future calls to ``next()`` will yield an empty set of
-    /// candidates and will not change the results of ``batch_number()`` or
-    /// ``parameters_for_current_iteration()``.
+    /// The iterator is considered done when all the available nodes have been yielded or
+    /// when the search can not find any more neighbors. The transition from not done to
+    /// done will be triggered by a call to ``next()``. The contents of ``batch_number()``
+    /// and ``parameters_for_current_iteration()`` will then remain unchanged by subsequent
+    /// invocations of ``next()``.
     bool done() const { return impl_->done(); }
 
     /// @brief Update the iterator with a new query.

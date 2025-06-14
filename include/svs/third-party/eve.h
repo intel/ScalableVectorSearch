@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "eve/detection.hpp"
 #include "eve/module/core.hpp"
 #include "eve/wide.hpp"
 

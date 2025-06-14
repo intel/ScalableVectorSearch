@@ -91,6 +91,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/version.cpp
     ${TEST_DIR}/svs/lib/uuid.cpp
     ${TEST_DIR}/svs/lib/concurrency/readwrite_protected.cpp
+    ${TEST_DIR}/svs/lib/avx_detection.cpp
     # Third Party
     ${TEST_DIR}/svs/third-party/fmt.cpp
     ${TEST_DIR}/svs/third-party/toml.cpp
@@ -137,6 +138,7 @@ set(TEST_SOURCES
     #${TEST_DIR}/svs/index/vamana/iterator_schedule.cpp
     ${TEST_DIR}/svs/index/vamana/iterator_example.cpp
     ${TEST_DIR}/svs/index/vamana/iterator.cpp
+    ${TEST_DIR}/svs/index/vamana/multi.cpp
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
     ${TEST_DIR}/svs/index/inverted/memory_based.cpp
@@ -194,9 +196,9 @@ set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data")
 # Communicate to the test application where it can find test data sets.
 target_compile_definitions(tests PRIVATE SVS_TEST_DATA_DIR="${DATA_DIRECTORY}")
 
-target_link_libraries(tests PRIVATE ${SVS_LIB})
+target_link_libraries(tests PRIVATE svs::svs)
 target_link_libraries(
-    tests PRIVATE svs_compile_options svs_native_options svs_benchmark_library
+  tests PRIVATE svs_compile_options svs_x86_options_base svs_benchmark_library
 )
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 

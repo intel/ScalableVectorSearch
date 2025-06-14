@@ -19,6 +19,7 @@
 // svs
 #include "svs/core/distance/distance_core.h"
 #include "svs/core/distance/simd_utils.h"
+#include "svs/lib/avx_detection.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/static.h"
 
@@ -32,7 +33,8 @@
 
 namespace svs::distance {
 // Forward declare implementation to allow entry point to be near the top.
-template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl;
+template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx>
+struct CosineSimilarityImpl;
 
 // Generic Entry Point
 // Call as one of either:
@@ -45,14 +47,45 @@ class CosineSimilarity {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm, size_t N) {
-        return CosineSimilarityImpl<Dynamic, Ea, Eb>::compute(
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
+            return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                a, b, a_norm, lib::MaybeStatic(N)
+            );
+        }
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
+            // We do not support AVX2 on CS yet, but it will fallabck to generic anyway
+            return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                a, b, a_norm, lib::MaybeStatic(N)
+            );
+        }
+        return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::NONE>::compute(
             a, b, a_norm, lib::MaybeStatic(N)
         );
     }
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, float a_norm) {
-        return CosineSimilarityImpl<N, Ea, Eb>::compute(
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
+            if constexpr (is_dim_supported<N>()) {
+                return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                    a, b, a_norm, lib::MaybeStatic<N>()
+                );
+            } else {
+                return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::
+                    compute(a, b, a_norm, lib::MaybeStatic(N));
+            }
+        }
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
+            if constexpr (is_dim_supported<N>()) {
+                return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, a_norm, lib::MaybeStatic<N>()
+                );
+            } else {
+                return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::
+                    compute(a, b, a_norm, lib::MaybeStatic(N));
+            }
+        }
+        return CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::NONE>::compute(
             a, b, a_norm, lib::MaybeStatic<N>()
         );
     }
@@ -166,8 +199,9 @@ float generic_cosine_similarity(
     return result / (a_norm * std::sqrt(accum));
 };
 
-template <size_t N, typename Ea, typename Eb> struct CosineSimilarityImpl {
-    static float compute(
+template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx>
+struct CosineSimilarityImpl {
+    SVS_NOINLINE static float compute(
         const Ea* a,
         const Eb* b,
         float a_norm,
@@ -224,61 +258,77 @@ template <> struct CosineFloatOp<16> : public svs::simd::ConvertToFloat<16> {
 // Small Integers
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
-template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t> {
+template <size_t N>
+struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto bnorm_accum = _mm512_setzero_epi32();
-        auto mask = create_mask<32>(length);
-        auto all = no_mask<32>();
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
+            auto sum = _mm512_setzero_epi32();
+            auto bnorm_accum = _mm512_setzero_epi32();
+            auto mask = create_mask<32>(length);
+            auto all = no_mask<32>();
 
-        for (size_t j = 0; j < length.size(); j += 32) {
-            auto temp_a =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepi8_epi16(temp_a);
+            for (size_t j = 0; j < length.size(); j += 32) {
+                auto temp_a =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
+                auto va = _mm512_cvtepi8_epi16(temp_a);
 
-            auto temp_b =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepi8_epi16(temp_b);
+                auto temp_b =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
+                auto vb = _mm512_cvtepi8_epi16(temp_b);
 
-            bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
-            sum = _mm512_dpwssd_epi32(sum, va, vb);
+                bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
+                sum = _mm512_dpwssd_epi32(sum, va, vb);
+            }
+
+            float b_norm =
+                std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
+            return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
+                   (a_norm * b_norm);
         }
-
-        float b_norm = std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) / (a_norm * b_norm);
+        // Fallback to AVX512
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, uint8_t, uint8_t> {
+template <size_t N>
+struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
-        auto sum = _mm512_setzero_epi32();
-        auto bnorm_accum = _mm512_setzero_epi32();
-        auto mask = create_mask<32>(length);
-        auto all = no_mask<32>();
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
+            auto sum = _mm512_setzero_epi32();
+            auto bnorm_accum = _mm512_setzero_epi32();
+            auto mask = create_mask<32>(length);
+            auto all = no_mask<32>();
 
-        for (size_t j = 0; j < length.size(); j += 32) {
-            auto temp_a =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
-            auto va = _mm512_cvtepu8_epi16(temp_a);
+            for (size_t j = 0; j < length.size(); j += 32) {
+                auto temp_a =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, a + j);
+                auto va = _mm512_cvtepu8_epi16(temp_a);
 
-            auto temp_b =
-                _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
-            auto vb = _mm512_cvtepu8_epi16(temp_b);
+                auto temp_b =
+                    _mm256_maskz_loadu_epi8(islast<32>(length, j) ? mask : all, b + j);
+                auto vb = _mm512_cvtepu8_epi16(temp_b);
 
-            bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
-            sum = _mm512_dpwssd_epi32(sum, va, vb);
+                bnorm_accum = _mm512_dpwssd_epi32(bnorm_accum, vb, vb);
+                sum = _mm512_dpwssd_epi32(sum, va, vb);
+            }
+            float b_norm =
+                std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
+            return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
+                   (a_norm * b_norm);
         }
-        float b_norm = std::sqrt(static_cast<float>(_mm512_reduce_add_epi32(bnorm_accum)));
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) / (a_norm * b_norm);
+        // Fallback to AVX512
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 
 #endif
 
 // Floating and Mixed Types
-template <size_t N> struct CosineSimilarityImpl<N, float, float> {
+template <size_t N> struct CosineSimilarityImpl<N, float, float, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
@@ -286,7 +336,8 @@ template <size_t N> struct CosineSimilarityImpl<N, float, float> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t> {
+template <size_t N>
+struct CosineSimilarityImpl<N, float, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
@@ -294,7 +345,8 @@ template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t> {
     };
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, float, int8_t> {
+template <size_t N>
+struct CosineSimilarityImpl<N, float, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
@@ -302,7 +354,8 @@ template <size_t N> struct CosineSimilarityImpl<N, float, int8_t> {
     };
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, float, Float16> {
+template <size_t N>
+struct CosineSimilarityImpl<N, float, Float16, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
@@ -310,7 +363,8 @@ template <size_t N> struct CosineSimilarityImpl<N, float, Float16> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, Float16, float> {
+template <size_t N>
+struct CosineSimilarityImpl<N, Float16, float, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
@@ -318,13 +372,40 @@ template <size_t N> struct CosineSimilarityImpl<N, Float16, float> {
     }
 };
 
-template <size_t N> struct CosineSimilarityImpl<N, Float16, Float16> {
+template <size_t N>
+struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>{}, a, b, length);
         return sum / (std::sqrt(norm) * a_norm);
     }
 };
+
+#endif
+
+#if defined(__x86_64__)
+
+#include "svs/multi-arch/x86/preprocessor.h"
+// TODO: connect with dim_supported_list
+DISTANCE_CS_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
+DISTANCE_CS_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
+
+DISTANCE_CS_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
+DISTANCE_CS_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
 
 #endif
 } // namespace svs::distance

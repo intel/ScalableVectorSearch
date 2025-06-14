@@ -43,9 +43,10 @@
 namespace scalar = svs::quantization::scalar;
 namespace {
 
+template <typename T>
 void run_search(
     svs::Vamana& index,
-    const svs::data::SimpleData<float>& queries_all,
+    const svs::data::SimpleData<T>& queries_all,
     const svs::data::SimpleData<uint32_t>& groundtruth_all,
     const std::vector<svsbenchmark::vamana::ConfigAndResult>& expected_results
 ) {
@@ -70,9 +71,9 @@ void run_search(
     }
 }
 
-template <scalar::IsSQData Data, typename Distance>
+template <scalar::IsSQData Data, typename Distance, typename T>
 void test_search(
-    Data data, const Distance& distance, const svs::data::SimpleData<float>& queries
+    Data data, const Distance& distance, const svs::data::SimpleData<T>& queries
 ) {
     size_t num_threads = 2;
 
@@ -83,7 +84,7 @@ void test_search(
     auto groundtruth = test_dataset::load_groundtruth(svs::distance_type_v<Distance>);
 
     // Make a copy of the original data to use for reconstruction comparison.
-    auto index = svs::Vamana::assemble<float>(
+    auto index = svs::Vamana::assemble<T>(
         test_dataset::vamana_config_file(),
         svs::GraphLoader(test_dataset::graph_file()),
         std::move(data),
@@ -107,7 +108,7 @@ void test_search(
     // Reload
     {
         auto reloaded_data = svs::lib::load_from_disk<Data>(data_dir);
-        auto reloaded = svs::Vamana::assemble<float>(
+        auto reloaded = svs::Vamana::assemble<T>(
             config_dir,
             svs::GraphLoader(graph_dir),
             std::move(reloaded_data),
@@ -130,14 +131,34 @@ CATCH_TEST_CASE("SQDataset Vamana Search", "[integration][search][vamana][scalar
     auto queries = test_dataset::queries();
     auto extents = std::make_tuple(svs::lib::Val<N>(), svs::lib::Val<svs::Dynamic>());
 
+    auto queries_fp16 =
+        svs::data::SimpleData<svs::Float16>{queries.size(), queries.dimensions()};
+    svs::data::copy(queries, queries_fp16);
+
     svs::lib::foreach (extents, [&]<size_t E>(svs::lib::Val<E> /*unused*/) {
         fmt::print("Scalar quantization search - Extent {}\n", E);
         auto data = svs::data::SimpleData<float, E>::load(datafile);
-        auto compressed = scalar::SQDataset<std::int8_t, E>::compress(data);
 
-        // Sequential tests
-        test_search(compressed, svs::distance::DistanceL2(), queries);
-        test_search(compressed, svs::distance::DistanceIP(), queries);
-        test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries);
+        auto compressed_int8 = scalar::SQDataset<std::int8_t>::compress(data);
+        auto compressed_uint8 = scalar::SQDataset<std::uint8_t>::compress(data);
+        auto compressed_types = std::make_tuple(compressed_int8, compressed_uint8);
+
+        svs::lib::foreach (compressed_types, [&](auto compressed) {
+            using type = std::decay_t<decltype(compressed)>;
+            fmt::
+                print("Compressed type {}\n", svs::datatype_v<typename type::element_type>);
+
+            // Sequential tests
+            test_search(compressed, svs::distance::DistanceL2(), queries);
+            test_search(compressed, svs::distance::DistanceIP(), queries);
+            test_search(compressed, svs::distance::DistanceCosineSimilarity(), queries);
+
+            // FP16 queries
+            test_search(compressed, svs::distance::DistanceL2(), queries_fp16);
+            test_search(compressed, svs::distance::DistanceIP(), queries_fp16);
+            test_search(
+                compressed, svs::distance::DistanceCosineSimilarity(), queries_fp16
+            );
+        });
     });
 }

@@ -126,6 +126,7 @@ template <typename Index, typename QueryType> class BatchIterator {
     void initialize_buffer() {
         auto config = SearchBufferConfig{0, extra_search_buffer_capacity_};
         scratchspace_.buffer.change_maxsize(config);
+        scratchspace_.buffer.clear();
     }
 
     /// @brief Increments the search window and capacity by `batch_size` for the next
@@ -182,6 +183,7 @@ template <typename Index, typename QueryType> class BatchIterator {
         iteration_ = 0;
         yielded_.clear();
         results_.clear();
+        is_exhausted_ = false;
     }
 
     /// @brief Adapts an internal neighbor to an external neighbor.
@@ -217,12 +219,14 @@ template <typename Index, typename QueryType> class BatchIterator {
     /// @brief Return the batch number corresponding to the current buffer.
     size_t batch_number() const { return iteration_; }
 
-    /// @brief Return whether the entire entries in the index have been yielded.
+    /// @brief Returns whether iterator can find more neighbors or not for the given query.
     ///
-    /// The transition from not done to done will be triggered by a call to ``next()``.
-    /// The contents of ``batch_number()`` and ``parameters_for_current_iteration()`` will
-    /// then remain unchanged by subsequent invocations of ``next()``.
-    bool done() const { return yielded_.size() == parent_->size(); }
+    /// The iterator is considered done when all the available nodes have been yielded or
+    /// when the search can not find any more neighbors. The transition from not done to
+    /// done will be triggered by a call to ``next()``. The contents of ``batch_number()``
+    /// and ``parameters_for_current_iteration()`` will then remain unchanged by subsequent
+    /// invocations of ``next()``.
+    bool done() const { return (yielded_.size() == parent_->size() || is_exhausted_); }
 
     /// @brief Forces the next iteration to restart the search from scratch.
     void restart_next_search() { restart_search_ = true; }
@@ -306,6 +310,11 @@ template <typename Index, typename QueryType> class BatchIterator {
         ++iteration_;
         restart_search_ = false;
         copy_from_scratch(batch_size);
+        // If result is empty after calling next(), mark the iterator as exhausted.
+        // The iterator will not be able to find any more neighbors.
+        if (results_.size() == 0 && batch_size > 0) {
+            is_exhausted_ = true;
+        }
     }
 
   private:
@@ -318,6 +327,7 @@ template <typename Index, typename QueryType> class BatchIterator {
     bool restart_search_ = true; // Whether the next search should restart from scratch.
     size_t extra_search_buffer_capacity_ =
         svs::UNSIGNED_INTEGER_PLACEHOLDER; // Extra buffer capacity for the next search.
+    bool is_exhausted_ = false;            // Whether the iterator is exhausted.
 };
 
 // Deduction Guides
