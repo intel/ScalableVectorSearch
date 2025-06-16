@@ -250,8 +250,8 @@ template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
         }
-        // fallback to AVX2
-        return IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, length);
+        // fallback to AVX512
+        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
 
@@ -261,8 +261,8 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512>
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
             return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
         }
-        // fallback to AVX2
-        return IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, length);
+        // fallback to AVX512
+        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
     }
 };
 

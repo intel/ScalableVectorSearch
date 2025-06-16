@@ -68,14 +68,6 @@ target_compile_options(
 #####
 
 include("cmake/options.cmake")
-
-add_library(svs_x86_options_base INTERFACE)
-add_library(svs::x86_options_base ALIAS svs_x86_options_base)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-    target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
-    include("cmake/multi-arch.cmake")
-endif()
-
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
@@ -84,6 +76,13 @@ include("cmake/robin-map.cmake")
 include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
+
+add_library(svs_x86_options_base INTERFACE)
+add_library(svs::x86_options_base ALIAS svs_x86_options_base)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+    target_compile_options(svs_x86_options_base INTERFACE -march=ivybridge -mtune=ivybridge)
+    include("cmake/multi-arch.cmake")
+endif()
 
 #####
 ##### Build Objects
@@ -121,7 +120,7 @@ set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_export svs_devel svs_compile_options svs_native_options
+    TARGETS svs_export svs_devel svs_compile_options svs_native_options svs_x86_options_base
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
