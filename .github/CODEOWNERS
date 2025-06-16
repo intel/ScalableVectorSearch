@@ -17,7 +17,7 @@
 /docker/                @mihaic @ahuber21 
 
 # CI and infra
-/.github                @mihaic @homksei @yuejiaointel
+/.github                @mihaic @homksei @yuejiaointel @ethanglaser
 
 # Documentation and meta files
 /*.md                   @aguerreb @napetrov
