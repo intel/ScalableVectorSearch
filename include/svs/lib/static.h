@@ -69,7 +69,7 @@ template <size_t N> class MaybeStatic {
 };
 
 ///
-/// @brief Specilization of ``svs::lib::MaybeStatic<N>`` for runtime sizes.
+/// @brief Specialization of ``svs::lib::MaybeStatic<N>`` for runtime sizes.
 ///
 /// Instances of this class will have a memory footprint of 8-bytes to store the
 /// runtime size.

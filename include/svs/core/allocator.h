@@ -18,7 +18,7 @@
 
 ///
 /// @file
-/// @brief Implements commont large-scale allocators used by the many data structures.
+/// @brief Implements common large-scale allocators used by the many data structures.
 ///
 
 ///
@@ -44,7 +44,7 @@
 
 // <linux/mman.h> provides some linux-specific flags like
 // MAP_POPULATE, MAP_NORESERVE, MAP_HUGETLB.
-// They can be used only with linux, and are not availiable
+// They can be used only with linux, and are not available
 // for MacOS
 
 #if defined(__linux__)

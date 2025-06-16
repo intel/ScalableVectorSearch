@@ -155,7 +155,7 @@ class DistanceDispatcher {
     ///     to construct the dispatcher.
     ///
     ///     All other arguments will be forwarded to ``f`` beginning at argument position 2.
-    /// @param args Arguements to forward to ``f``.
+    /// @param args Arguments to forward to ``f``.
     ///
     template <typename F, typename... Args> auto operator()(F&& f, Args&&... args) {
         switch (distance_type_) {

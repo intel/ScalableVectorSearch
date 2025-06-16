@@ -46,7 +46,7 @@ namespace svs::index::vamana {
 ///   This multi-phase approach allows for parallelism with both phases without worrying
 ///   about mutating the graph while reading from it.
 ///
-///   This parameter controlls how large of a batch is processed during each phase.
+///   This parameter controls how large of a batch is processed during each phase.
 ///
 /// * `prune_to`: The number of candidates to prune to.
 ///
@@ -118,7 +118,7 @@ template <std::integral I> class BulkUpdate {
     Matrix<I> neighbors_;
     Vector<I> lengths_;
     // N.B.: Use a `Vector` instead of a `std::vector` because `std::vector`
-    // specialized on `bool` and will thus cannot be guarentee coherent updates from
+    // specialized on `bool` and will thus cannot be guarantee coherent updates from
     // multiple threads.
     Vector<bool> needs_update_;
 };

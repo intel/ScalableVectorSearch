@@ -91,7 +91,7 @@ offset(const std::array<size_t, N>& dims, const std::array<size_t, N>& inds) {
     return offset;
 }
 
-// All types showing up as paramters in the dimension tuple of the DenseArray should
+// All types showing up as parameters in the dimension tuple of the DenseArray should
 // either be `size_t` or `Val<N>` for some `N`.
 //
 // Often, though, the integer dimensions may get passed as different kinds of integers.
@@ -271,11 +271,11 @@ template <typename T, typename Dims, typename Alloc = lib::Allocator<T>> class D
     }
 
     ///
-    /// @brief Return the extent (compiletime value) of the `i`th dimension.
+    /// @brief Return the extent (compile time value) of the `i`th dimension.
     ///
     /// @tparam i The dimensions to query. Must be in `[0, ndims()]`.
     ///
-    /// If the queried dimension is dynamically sized, returns ``svs::Dyanmic``.
+    /// If the queried dimension is dynamically sized, returns ``svs::Dynamic``.
     ///
     template <size_t i> [[nodiscard]] static constexpr size_t getextent() {
         return array_impl::getextent<i, Dims>();
@@ -289,7 +289,7 @@ template <typename T, typename Dims, typename Alloc = lib::Allocator<T>> class D
     // Given `ndims()` indices, compute the linear offset from the base pointer for the
     // element pointed to by those indices.
     //
-    // TODO: Add a bounds chekcing version and allow bounds checking to be a compile-time
+    // TODO: Add a bounds checking version and allow bounds checking to be a compile-time
     // option for debugging.
     template <typename... Is> [[nodiscard]] size_t offset(Is&&... indices) const {
         return array_impl::offset(dims_, SVS_FWD(indices)...);
@@ -561,11 +561,11 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
     }
 
     ///
-    /// @brief Return the extent (compiletime value) of the `i`th dimension.
+    /// @brief Return the extent (compile time value) of the `i`th dimension.
     ///
     /// @tparam i The dimensions to query. Must be in `[0, ndims()]`.
     ///
-    /// If the queried dimension is dynamically sized, returns ``svs::Dyanmic``.
+    /// If the queried dimension is dynamically sized, returns ``svs::Dynamic``.
     ///
     template <size_t i> [[nodiscard]] static constexpr size_t getextent() {
         return array_impl::getextent<i, Dims>();
@@ -579,7 +579,7 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
     // Given `ndims()` indices, compute the linear offset from the base pointer for the
     // element pointed to by those indices.
     //
-    // TODO: Add a bounds chekcing version and allow bounds checking to be a compile-time
+    // TODO: Add a bounds checking version and allow bounds checking to be a compile-time
     // option for debugging.
     template <typename... Is> [[nodiscard]] size_t offset(Is&&... indices) const {
         return array_impl::offset(dims_, SVS_FWD(indices)...);

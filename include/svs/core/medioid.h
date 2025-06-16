@@ -221,7 +221,7 @@ Op op_pairwise(
 /// Compute the component-wise means of `dataset`, returning the result as a
 /// `std::vector<double>`.
 ///
-/// Optional argument `predicate` can be used to skip arbitray data points.
+/// Optional argument `predicate` can be used to skip arbitrary data points.
 /// Only indices `i` where `predicate(i)` returns `true` will be accumulated in the
 /// medioid computation.
 ///

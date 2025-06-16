@@ -104,7 +104,7 @@ constexpr bool in(Types<Ts...> SVS_UNUSED(typelist) = {}) {
 
 ///
 /// @ingroup lib_public_types
-/// @brief Return whether the requested runtime type is in the compiletime type list.
+/// @brief Return whether the requested runtime type is in the compile time type list.
 ///
 /// @param datatype The runtime data type.
 /// @param typelist The list of accepted types.
@@ -214,7 +214,7 @@ constexpr Val<N / M> operator/(Val<N> /*unused*/, Val<M> /*unused*/) {
 template <size_t N> constexpr auto forward_extent(size_t x) {
     if (x != N) {
         throw ANNEXCEPTION(
-            "Tring to forward a compile time value of {} with a runtime value of {}!", N, x
+            "Trying to forward a compile time value of {} with a runtime value of {}!", N, x
         );
     }
     return Val<N>{};
@@ -222,7 +222,7 @@ template <size_t N> constexpr auto forward_extent(size_t x) {
 template <> inline constexpr auto forward_extent<Dynamic>(size_t x) { return x; }
 
 // The result type of extent forwarding.
-// The arguemnt "0" is simply used as a place-holder to get the correct type.
+// The argument "0" is simply used as a place-holder to get the correct type.
 template <size_t N> using forward_extent_t = decltype(forward_extent<Val<N>>(0));
 
 template <typename T> inline constexpr bool is_val_type_v = false;

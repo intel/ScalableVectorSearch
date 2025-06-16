@@ -144,7 +144,7 @@ class AutoTime {
 };
 
 ///
-/// @brief A timer class supporting nested, dynamicly scoped timing and pretty printing.
+/// @brief A timer class supporting nested, dynamically scoped timing and pretty printing.
 ///
 /// !!! NOTE
 ///
@@ -388,7 +388,7 @@ inline std::chrono::nanoseconds AutoTime::finish() {
 
 template <> struct fmt::formatter<svs::lib::Timer> : svs::format_empty {
     auto format(const svs::lib::Timer& timer, auto& ctx) const {
-        // TODO: Figure out the right way to propage the context into the inner formatting
+        // TODO: Figure out the right way to propagate the context into the inner formatting
         // to save on some memory.
         return fmt::format_to(ctx.out(), "{}", timer.format());
     }

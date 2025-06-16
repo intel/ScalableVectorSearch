@@ -530,7 +530,7 @@ template <typename Ret, typename... Args> class DispatchTarget {
 
     /// @brief Construct a DispatchTarget around the callable ``f`` with no documentation.
     ///
-    /// @param tag Indicate no argument conversion documention is required.
+    /// @param tag Indicate no argument conversion documentation is required.
     /// @param f The function to wrap for dispatch. The wrapped functor must have a
     ///     const-qualified call operator and *no* non-const-qualified call operator.
     ///
@@ -554,7 +554,7 @@ template <typename Ret, typename... Args> class DispatchTarget {
 
     /// @brief Construct a DispatchTarget around the callable ``f`` with documentation.
     ///
-    /// @param tag Indicate argument conversion documention is required.
+    /// @param tag Indicate argument conversion documentation is required.
     /// @param f The function to wrap for dispatch. The wrapped functor must have a
     ///     const-qualified call operator and *no* non-const-qualified call operator.
     ///

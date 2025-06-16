@@ -161,7 +161,7 @@ inline bool operator==(Float16 x, Float16 y) { return float{x} == float{y}; }
 
 using Float16 = float16::Float16;
 
-// SVS local arithmetric trait.
+// SVS local arithmetic trait.
 template <> inline constexpr bool is_arithmetic_v<Float16> = true;
 template <> inline constexpr bool is_signed_v<Float16> = true;
 template <> inline constexpr bool allow_lossy_conversion<float, Float16> = true;
