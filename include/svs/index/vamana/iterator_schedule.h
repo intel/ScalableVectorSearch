@@ -189,7 +189,7 @@ class LinearSchedule {
     /// the scaling for buffer capacity must be at least as large as the scaling for the
     /// search window size.
     ///
-    /// This invariant is automatically guarenteed by the ``vamana::SearchBufferConfig``.
+    /// This invariant is automatically guaranteed by the ``vamana::SearchBufferConfig``.
     ///
     /// @code{cpp}
     /// auto schedule = svs::index::vamana::LinearSchedule{...};
@@ -237,7 +237,7 @@ class LinearSchedule {
     /// @endcode
     /// To yield the same number of neighbors on each iteration, set the scaling to 0;
     ///
-    /// Note that the number of yielded neighbors is not guarenteed to be the requested
+    /// Note that the number of yielded neighbors is not guaranteed to be the requested
     /// batchsize depending on the scaling of the buffer configuration.
     LinearSchedule& batch_size_scaling(uint16_t scaling) {
         scale_batch_size_ = scaling;
@@ -249,7 +249,7 @@ class LinearSchedule {
     /// This means the batch iterator will attempt to return the same number of neighbors
     /// on each iteration.
     ///
-    /// Note that the number of yielded neighbors is not guarenteed to be the requested
+    /// Note that the number of yielded neighbors is not guaranteed to be the requested
     /// batchsize depending on the scaling of the buffer configuration.
     LinearSchedule& disable_batch_size_scaling() { return batch_size_scaling(0); }
 
@@ -268,7 +268,7 @@ class LinearSchedule {
         auto p = base_parameters_;
         p.buffer_config_.increment({scale_search_window_ * i, scale_buffer_capacity_ * i});
 
-        // `narrow_cast` guarenteed to succeed since we've already ruled out negative
+        // `narrow_cast` guaranteed to succeed since we've already ruled out negative
         // values for `enable_filter_after_`.
         if (enable_filter_after_ > -1 &&
             i >= lib::narrow_cast<size_t>(enable_filter_after_)) {

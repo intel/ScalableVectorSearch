@@ -278,6 +278,6 @@ int svs_main(std::vector<std::string> args) {
     return 0;
 }
 
-// Special main providing some helpful utilties.
+// Special main providing some helpful utilities.
 SVS_DEFINE_MAIN();
 //! [Example All]

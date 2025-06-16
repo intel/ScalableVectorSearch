@@ -33,7 +33,7 @@
 #include <span>
 #include <type_traits>
 
-// Implementation Notes regarding Intel(R) AVX Extentions
+// Implementation Notes regarding Intel(R) AVX Extensions
 // Top most entry in the bulleted list underneath each type pair <T,U> is the preferred
 // implementation based on the available extension.
 //

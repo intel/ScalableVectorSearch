@@ -57,7 +57,7 @@ class ContextFreeSaveable {
     // Serialized objects need a schema as well, which is essentially a unique name
     // associated with the serialized TOML table.
     //
-    // The combination of schema and name allow speculative loading code some guarentee
+    // The combination of schema and name allow speculative loading code some guarantee
     // as to the expected contents and types of a table.
     static constexpr std::string_view serialization_schema = "example_context_free";
 

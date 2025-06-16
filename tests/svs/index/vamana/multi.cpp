@@ -95,7 +95,7 @@ CATCH_TEMPLATE_TEST_CASE(
     // number of vectors will be :
     // (num_duplicated * (num_duplicated + 1)) / 2
     //
-    // For the above examples, after deleteing 0, 1, 2, 3
+    // For the above examples, after deleting 0, 1, 2, 3
     // the remaining vectors becomes:
     //         4
     //         4 5

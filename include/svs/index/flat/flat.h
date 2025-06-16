@@ -142,7 +142,7 @@ struct FlatParameters {
 /// @tparam Data The full type of the dataset being indexed.
 /// @tparam Dist The distance functor used to compare queries with the elements of the
 ///     dataset.
-/// @tparam Ownership Implementation detail and may be ommitted for most use cases.
+/// @tparam Ownership Implementation detail and may be omitted for most use cases.
 ///
 /// The mid-level implementation for the flat index that uses exhaustive search to find
 /// the exact nearest neighbors (within the limitations of possibly quantization error

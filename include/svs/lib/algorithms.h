@@ -25,7 +25,7 @@
 
 ///
 /// @defgroup algorithms Library Algorithms.
-/// @brief Helper algorihms.
+/// @brief Helper algorithms.
 ///
 
 namespace svs::lib {

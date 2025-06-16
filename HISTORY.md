@@ -161,7 +161,7 @@ Finally, if environment variable based initialization is not desired, it can be 
   **Reconstruction Semantics**
   * Uncompressed data is returned directly (potentially promoting to `float32`).
   * LVQ compressed data is reconstructed using this highest precision possible. For two
-    level datasets, boths levels will be used.
+    level datasets, both levels will be used.
   * LeanVec datasets will reconstruct using the full-precision secondary dataset.
 
 * Added an upgrade tool `pysvs.upgrader.upgrade` to upgrade the serialization layout of SVS
@@ -440,7 +440,7 @@ removal.
 * Version `v0.0.2` of serialized LVQ datasets is *broken*, the current version is now
   `v0.0.3`. This change was made to facilitate a canonical on-disk representation of LVQ.
 
-  Goind forward, previously saved LVQ formats can be reloaded using different runtime
+  Going forward, previously saved LVQ formats can be reloaded using different runtime
   alignments and different packing strategies without requiring whole dataset recompression.
 
   Any previously saved datasets will need to be regenerated from uncompressed data.

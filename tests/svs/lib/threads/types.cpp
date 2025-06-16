@@ -35,7 +35,7 @@ CATCH_TEST_CASE("Thread Helper Types", "[core][threads]") {
         // Legacy Iterator.
         CATCH_SECTION("Legacy Iterator") {
             auto iter = IndexIterator{5};
-            // Dereferencable.
+            // Dereferenceable.
             CATCH_REQUIRE(*iter == 5);
             // Incrementable.
             ++iter;
@@ -90,7 +90,7 @@ CATCH_TEST_CASE("Thread Helper Types", "[core][threads]") {
                 CATCH_REQUIRE(a == b);
             }
 
-            // Increemnt and decrement are inverses of eachother.
+            // Increment and decrement are inverses of each other.
             {
                 auto a = IndexIterator{10};
                 auto b = a;

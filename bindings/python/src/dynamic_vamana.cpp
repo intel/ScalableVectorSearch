@@ -154,7 +154,7 @@ the index monotonically increasing.
 const char* COMPACT_DOCSTRING = R"(
 Remove any holes created in the graph and data by renumbering internal IDs.
 Shrink the underlying data structures.
-Following ``consolidate``, this can potentialy reduce the memory footprint of the index
+Following ``consolidate``, this can potentially reduce the memory footprint of the index
 if a sufficient number of points were deleted.
 )";
 
@@ -264,7 +264,7 @@ void wrap(py::module& m) {
     add_threading_interface(vamana);
     add_data_interface(vamana);
 
-    // Vamana specific extentions.
+    // Vamana specific extensions.
     vamana::add_interface(vamana);
 
     // Dynamic interface.
@@ -358,7 +358,7 @@ auxiliary files that are needed when saving the various components of the index.
 
 If the directory does not exist, it will be created if its parent exists.
 
-It is the caller's responsibilty to ensure that no existing data will be
+It is the caller's responsibility to ensure that no existing data will be
 overwritten when saving the index to this directory.
     )"
     );
