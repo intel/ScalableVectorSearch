@@ -136,7 +136,7 @@ class ScopedModuleNameOverride {
 } // namespace
 
 PYBIND11_MODULE(_svs, m) {
-    // Internall, the top level `__init__.py` imports everything from the C++ module named
+    // Internally, the top level `__init__.py` imports everything from the C++ module named
     // `_svs`.
     //
     // Performing the name override makes the definitions inside the C++ bindings

@@ -76,7 +76,7 @@ class DynamicVamanaTester(unittest.TestCase):
             I, D = reloaded.search(reference.queries, num_neighbors)
             reloaded_recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
 
-            # Because saving triggers graph compaction, we can't guarentee that the reloaded
+            # Because saving triggers graph compaction, we can't guarantee that the reloaded
             # recall is the same as the original index.
             print(f"    Reloaded Recall: {reloaded_recall}")
             self.assertTrue(reloaded_recall < expected_recall + recall_delta)
