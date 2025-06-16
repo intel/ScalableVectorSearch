@@ -106,7 +106,7 @@ template <typename F> double timed(size_t repeats, bool ignore_first, F&& f) {
 
 // The main idea is to introduce a stateful of the basic euclidean distance type.
 // Many of the algorithms in the code base should work with both stateless and stateful
-// distances, occaisonally with optimizations implemented for the stateless functions.
+// distances, occasionally with optimizations implemented for the stateless functions.
 //
 // Introducing a stateful version lets us test the stateful paths.
 template <typename T> struct StatefulL2 {

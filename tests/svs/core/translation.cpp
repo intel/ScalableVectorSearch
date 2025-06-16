@@ -17,7 +17,7 @@
 // header under test.
 #include "svs/core/translation.h"
 
-// misc utilties
+// misc utilities
 #include "svs/lib/narrow.h"
 
 // Test utils

@@ -690,7 +690,7 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
         CATCH_REQUIRE(eq(buffer[4], {0, 100, true}));
     }
 
-    // One behavior of the MutableBuffer is that it will continue to acrue candidates until
+    // One behavior of the MutableBuffer is that it will continue to accrue candidates until
     // the target number of valid candidates is achieved.
     //
     // If these valid candidates are all very near the query, the queued invalid
@@ -863,7 +863,7 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
             CATCH_REQUIRE(b.valid() == 3);
             CATCH_REQUIRE(!b.full());
 
-            // Invariant 6 hasn't kicked in, so we aren't guarenteed a valid last element.
+            // Invariant 6 hasn't kicked in, so we aren't guaranteed a valid last element.
             b.sort();
             CATCH_REQUIRE(b.size() == 5);
             CATCH_REQUIRE(b.valid() == 3);
