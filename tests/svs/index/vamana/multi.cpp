@@ -269,7 +269,7 @@ CATCH_TEMPLATE_TEST_CASE(
         );
         auto test_results_2 = svs::QueryResult<size_t>(queries.size(), num_neighbors);
         test_index_2.search(test_results_2.view(), queries.view(), search_parameters);
-        auto test_recall_2 = svs::k_recall_at_n(groundtruth, test_results);
+        auto test_recall_2 = svs::k_recall_at_n(groundtruth, test_results_2);
 
         CATCH_REQUIRE(test_index.size() == test_index_2.size());
         CATCH_REQUIRE(test_index.dimensions() == test_index_2.dimensions());
