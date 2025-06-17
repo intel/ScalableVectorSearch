@@ -65,7 +65,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     using const_reference = std::span<const Idx>;
 
     ///
-    /// @brief Construct an emptry graph of the desired size.
+    /// @brief Construct an empty graph of the desired size.
     ///
     /// @param num_nodes The number of nodes in the graph.
     /// @param max_degree The maximum degree of the graph.
@@ -342,7 +342,7 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
     using parent_type::get_data;
 
     ///
-    /// @brief Consturct a new empty graph.
+    /// @brief Construct a new empty graph.
     ///
     /// @param num_nodes The number of nodes in the graph.
     /// @param max_degree The maximum allowable degree in the graph.

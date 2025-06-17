@@ -133,7 +133,7 @@ def read_svs(filename: str, dtype = np.float32):
     with open(filename, "rb") as fin:
         # Read through the magic number
         struct.unpack('q', fin.read(8))
-        # Read throug the UUID
+        # Read through the UUID
         _uuid = struct.unpack('q', fin.read(8))
         _uuid = struct.unpack('q', fin.read(8))
 
@@ -159,7 +159,7 @@ def write_vecs(array: np.array, filename: str, skip_check: bool = False):
     Result:
         The array is saved to the requested file.
 
-    File extention to array element type:
+    File extension to array element type:
 
         * fvecs: np.float32
         * hvecs: np.float16
@@ -201,7 +201,7 @@ def write_vecs(array: np.array, filename: str, skip_check: bool = False):
             io.write(array[i,:].tobytes())
 
 def random_dataset(nvectors: int, ndims: int, dtype = np.float32, seed = None):
-    # Use the `RandomState` generator for it's strong backward-compatibility guarentee.
+    # Use the `RandomState` generator for it's strong backward-compatibility guarantee.
     # I.E., we don't care about performance. We want reproducibility here.
     rng = np.random.RandomState(seed = seed)
     if dtype in (np.float16, np.float32):

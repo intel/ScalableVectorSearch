@@ -133,7 +133,7 @@ concept SpinAbort = requires(F f) {
 ///
 /// This function also accepts an optional fourth element `f` that will be called every
 /// time the value of `var` is sampled *during the busy wait loop* (i.e., it is not
-/// guarenteed that `f` will ever be called).
+/// guaranteed that `f` will ever be called).
 ///
 /// The callable `f` provides a methods for aborting the spin loop and must satisfy
 /// ```
@@ -226,7 +226,7 @@ struct ActionTelemetry {
 
 ///
 /// The default startup thunk used by threads.
-/// A "startup thunk" is a bit of code that may return a handle to a resouce to live
+/// A "startup thunk" is a bit of code that may return a handle to a resource to live
 /// through-out the duration of a Thread's lifetime.
 ///
 /// Model as a struct instead of a free function to help out static analysis tools.
@@ -458,7 +458,7 @@ template <typename Telemetry = telemetry::NoTelemetry> class ThreadControlBlock 
     }
 
     ///
-    /// Block until it is guarenteed that the worker thread is fully gone to sleep on
+    /// Block until it is guaranteed that the worker thread is fully gone to sleep on
     /// the condition variable.
     ///
     void wait_until_fully_asleep() {
@@ -784,7 +784,7 @@ class ThreadError : public std::runtime_error {
 // Working with the control block, the actual `std::thread` object is external to the
 // block.
 //
-// The `Thread` struct here packages everything together into a more useable interface.
+// The `Thread` struct here packages everything together into a more usable interface.
 template <typename T = telemetry::NoTelemetry> class ThreadImpl {
   public:
     template <typename F = DefaultStartup>

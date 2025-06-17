@@ -541,7 +541,7 @@ auxiliary files that are needed when saving the various components of the index.
 
 If the directory does not exist, it will be created if its parent exists.
 
-It is the caller's responsibilty to ensure that no existing data will be
+It is the caller's responsibility to ensure that no existing data will be
 overwritten when saving the index to this directory.
     )"
     );

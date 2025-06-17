@@ -146,7 +146,7 @@ struct BuildJobBase {
     size_t num_threads_;
 
   public:
-    ///// Contructor
+    ///// Constructor
     BuildJobBase(
         std::string_view description,
         svsbenchmark::Dataset dataset,

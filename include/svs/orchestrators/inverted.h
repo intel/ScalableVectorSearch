@@ -25,7 +25,7 @@ class InvertedInterface {
   public:
     using search_parameters_type = svs::index::inverted::InvertedSearchParameters;
 
-    ///// Beckend Information Inteface
+    ///// Beckend Information Interface
     virtual std::string experimental_backend_string() const = 0;
 
     ///// Saving
@@ -79,7 +79,7 @@ class InvertedImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
 /////
 
 class Inverted : public manager::IndexManager<InvertedInterface> {
-    // Type Alises
+    // Type Aliases
   public:
     using base_type = manager::IndexManager<InvertedInterface>;
     using search_parameters_type = typename InvertedInterface::search_parameters_type;

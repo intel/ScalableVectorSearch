@@ -48,7 +48,7 @@ namespace svs::index::vamana {
 //      straight-forward and is imposed by the `SearchBufferConfig` class.
 //
 // * `search_buffer_capacity >= num_neighbors`: The index implementations currently
-//      detect when this contraints if violated and silently set the search window size
+//      detect when this constraints if violated and silently set the search window size
 //      to `num_neighbors` in this case because they depend on the search buffer
 //      containing at least `num_neighbors`.
 //
@@ -75,7 +75,7 @@ namespace svs::index::vamana {
 //    `search_buffer_capacity` fixed at `num_neighbors`.
 //
 // The algorithm first conducts a binary search over `search_window_size` for a non-split
-// buffer to determing an upper bound on the search window size.
+// buffer to determine an upper bound on the search window size.
 //
 // Then determine if a split buffer may be useful by either checking for an extension to
 // `svs::index::vamana::extensions::UsesReranking` or by detecting if we're operating

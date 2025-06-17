@@ -71,7 +71,7 @@ consteval bool is_one_or_zero(const char* ptr) {
 // Prefix the variable with "unused" to that if it ever *IS* used by the function that
 // we get a compiler error.
 //
-// Doxygen needs to explicilty define this macro in order to process the code correctly.
+// Doxygen needs to explicitly define this macro in order to process the code correctly.
 #define SVS_UNUSED(x) unused_##x SVS_UNUSED_ATTRIBUTE
 
 // Force inline

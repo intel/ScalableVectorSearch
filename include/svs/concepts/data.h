@@ -61,14 +61,14 @@ namespace data {
 ///    // Require that ``T`` has the type alias ``T::value_type``.
 ///    //
 ///    // Note that the the alias does not necessarily need to be a "value_type" in the
-///    // sence of C++ value type. In other words, it can (and probably should be for
+///    // sense of C++ value type. In other words, it can (and probably should be for
 ///    // performance reasons be a reference).
 ///    typename T::value_type;
 ///
 ///    // Require that ``T`` has the type alias ``T::const_value_type``.
 ///    //
 ///    // Note that the the alias does not necessarily need to be a "value_type" in the
-///    // sence of C++ value type. In other words, it can (and probably should be for
+///    // sense of C++ value type. In other words, it can (and probably should be for
 ///    // performance reasons be a reference).
 ///    typename T::const_value_type;
 /// };

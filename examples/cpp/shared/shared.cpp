@@ -136,5 +136,5 @@ int svs_main(std::vector<std::string> SVS_UNUSED(args)) {
     return 0;
 }
 
-// Special main providing some helpful utilties.
+// Special main providing some helpful utilities.
 SVS_DEFINE_MAIN();

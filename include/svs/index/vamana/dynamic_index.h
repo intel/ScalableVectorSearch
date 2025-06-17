@@ -60,7 +60,7 @@ class MultiMutableVamanaIndex;
 /// * Valid: Valid and present in the associated dataset.
 /// * Deleted: Exists in the associated dataset, but should be considered as "deleted"
 /// and not returned from any search algorithms.
-/// * Empty: Non-existant and unreachable from standard entry points.
+/// * Empty: Non-existent and unreachable from standard entry points.
 ///
 /// Only used for `MutableVamanaIndex`.
 ///
@@ -589,7 +589,7 @@ class MutableVamanaIndex {
     /// @brief Clear the adjacency lists for the given local ids.
     ///
     /// This ensures that during the rebuild-phase, we don't get any zombie (previously
-    /// deleted nodes) occuring in the new adjacency lists.
+    /// deleted nodes) occurring in the new adjacency lists.
     ///
     template <std::integral I> void clear_lists(const std::vector<I>& local_ids) {
         threads::parallel_for(
@@ -1364,7 +1364,7 @@ auto auto_dynamic_assemble(
 
     // // Unload the ID translator and config parameters.
     // auto reloader = lib::LoadOverride{[&](const lib::LoadTable& table) {
-    //     // If loading from the static index, then the table we recieve is itself the
+    //     // If loading from the static index, then the table we receive is itself the
     //     // parameters table.
     //     //
     //     // There will also be no index translation, so we use the identity translation

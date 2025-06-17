@@ -47,7 +47,7 @@ Neighbor<size_t> find_nearest(const Query& query, const Data& data) {
     }
 
     // The case where the distance is infinity and the id remains unchanged from sentinel_v,
-    // reset to the first index to return to the exsiting neighbor.
+    // reset to the first index to return to the existing neighbor.
     if (nearest.id() >= data.size()) {
         nearest = Neighbor<size_t>(0, nearest.distance());
     }
@@ -84,7 +84,7 @@ struct MeanSquaredErrorCallback {
 
 const size_t KMEANS_DEFAULT_SEED = 0xc0ffee;
 
-/// @brief Parameters controlling the k-means algortihm.
+/// @brief Parameters controlling the k-means algorithm.
 struct KMeansParameters {
     KMeansParameters(
         size_t clusters_,

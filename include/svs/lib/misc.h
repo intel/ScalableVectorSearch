@@ -77,7 +77,7 @@ template <typename T, size_t N> struct SpanLikeImpl<std::span<T, N>> {
 } // namespace detail
 template <typename T> inline constexpr bool is_spanlike_v = detail::SpanLikeImpl<T>::value;
 
-/// @brief Concept encompasing any span type of span.
+/// @brief Concept encompassing any span type of span.
 template <typename T>
 concept AnySpanLike = requires { is_spanlike_v<T>; };
 
@@ -234,7 +234,7 @@ template <auto V> struct Const {
 };
 
 ///
-/// Functor that returns its stored results from `operator()` regardless of the arguemnts
+/// Functor that returns its stored results from `operator()` regardless of the arguments
 /// passed.
 ///
 template <typename T> class Returns {
@@ -291,8 +291,8 @@ class PowerOfTwo {
 };
 
 ///
-/// Compute the rounded-down division of the `numberator` by the `denominator`.
-/// Faster than normal division since the denominator is guarenteed to be a power of two.
+/// Compute the rounded-down division of the `numerator` by the `denominator`.
+/// Faster than normal division since the denominator is guaranteed to be a power of two.
 ///
 inline constexpr size_t operator/(size_t numerator, PowerOfTwo denominator) {
     return numerator >> denominator.raw();
@@ -300,7 +300,7 @@ inline constexpr size_t operator/(size_t numerator, PowerOfTwo denominator) {
 
 ///
 /// Compute the modulus of `numberator` and `denominator`.
-/// Faster than normal division since the denominator is guarenteed to be a power of two.
+/// Faster than normal division since the denominator is guaranteed to be a power of two.
 ///
 inline constexpr size_t operator%(size_t numerator, PowerOfTwo denominator) {
     return numerator & denominator.mod_mask();
@@ -308,13 +308,13 @@ inline constexpr size_t operator%(size_t numerator, PowerOfTwo denominator) {
 
 ///
 /// Compute the product `x` * `y`;
-/// Faster the normal multiplication because `y` is guarenteed to be a power of two.
+/// Faster the normal multiplication because `y` is guaranteed to be a power of two.
 ///
 inline constexpr size_t operator*(size_t x, PowerOfTwo y) { return x << y.raw(); }
 
 ///
 /// Compute the product `x` * `y`;
-/// Faster the normal multiplication because `x` is guarenteed to be a power of two.
+/// Faster the normal multiplication because `x` is guaranteed to be a power of two.
 ///
 inline constexpr size_t operator*(PowerOfTwo x, size_t y) { return y << x.raw(); }
 
@@ -324,7 +324,7 @@ inline PowerOfTwo prevpow2(size_t value) {
     }
     size_t leading_zeros = std::countl_zero(value);
     // Maximum possible number of leading zeros.
-    // Subtract 1 because we have already ruled out the posibilty that the input
+    // Subtract 1 because we have already ruled out the possibilty that the input
     // value is zero.
     const size_t max_leading_zeros = 8 * sizeof(size_t) - 1;
     return PowerOfTwo{max_leading_zeros - leading_zeros};

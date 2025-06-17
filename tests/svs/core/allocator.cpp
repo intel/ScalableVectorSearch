@@ -107,7 +107,7 @@ CATCH_TEST_CASE("Testing Allocator", "[allocators]") {
                 for (size_t i = 0; i < nelements; ++i) {
                     *(base + i) = i;
                 }
-                // Desctructor for `ptr` runs here.
+                // Destructor for `ptr` runs here.
             }
             // Load the file again.
             // This time, mark the policy as `MustCreate` to make sure we get an error

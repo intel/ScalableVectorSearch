@@ -103,7 +103,7 @@ void test_flat(
     CATCH_REQUIRE(q.data_batch_size_ == 0);
     CATCH_REQUIRE(q.query_batch_size_ == 0);
 
-    // Make sure that changing the number of threads works as exected.
+    // Make sure that changing the number of threads works as expected.
     // Should not change the end result.
     auto result = svs::QueryResult<size_t>(groundtruth.size(), groundtruth.dimensions());
 

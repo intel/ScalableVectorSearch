@@ -30,7 +30,7 @@ CATCH_TEST_CASE("MaybeStatic", "[core]") {
         CATCH_REQUIRE(svs::lib::MaybeStatic(10).size() == 10);
         CATCH_REQUIRE(svs::lib::MaybeStatic(200).size() == 200);
 
-        // Test that the default constructor for dynamicly size `MaybeStatic` is
+        // Test that the default constructor for dynamically sized `MaybeStatic` is
         // deleted.
         CATCH_REQUIRE(
             std::is_default_constructible_v<svs::lib::MaybeStatic<svs::Dynamic>> == false
