@@ -287,6 +287,6 @@ CATCH_TEMPLATE_TEST_CASE(
         );
         CATCH_REQUIRE(test_index.view_data() == test_index_2.view_data());
 
-        CATCH_REQUIRE(test_recall > test_recall_2 - epsilon);
+        CATCH_REQUIRE(test_recall_2 > test_recall - epsilon);
     }
 }
