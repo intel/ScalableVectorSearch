@@ -654,6 +654,8 @@ MultiMutableVamanaIndex(
     svs::logging::logger_ptr
 ) -> MultiMutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+enum class MultiMutableVamanaLoad { FROM_MULTI, FROM_DYNAMIC, FROM_STATIC };
+
 namespace detail {
 
 struct MultiVamanaStateLoader {
@@ -667,26 +669,40 @@ struct MultiVamanaStateLoader {
                 version == lib::Version(0, 0, 0));
     }
 
-    // Provide a compatibility path for loading dynamic vamana datasets.
-    static MultiVamanaStateLoader
-    load(const lib::LoadTable& table, bool load_from_dynamic) {
-        if (load_from_dynamic) {
-            return MultiVamanaStateLoader{
-                SVS_LOAD_MEMBER_AT_(table, parameters),
-                svs::lib::load_at<IDTranslator>(table, "translation"),
-                std::vector<label_type>{}};
+    // Provide compatibility paths for loading dynamic or static vamana datasets.
+    static MultiVamanaStateLoader load(
+        const lib::LoadTable& table,
+        const MultiMutableVamanaLoad load_from,
+        const size_t assume_datasize
+    ) {
+        switch (load_from) {
+            case MultiMutableVamanaLoad::FROM_MULTI: {
+                auto num_labels = lib::load_at<size_t>(table, "num_labels");
+                std::vector<label_type> labels;
+                labels.reserve(num_labels);
+                auto resolved = table.resolve_at("filename");
+                auto stream = lib::open_read(resolved);
+                for (size_t i = 0; i < num_labels; ++i) {
+                    labels.push_back(lib::read_binary<label_type>(stream));
+                }
+                return MultiVamanaStateLoader{
+                    SVS_LOAD_MEMBER_AT_(table, parameters),
+                    IDTranslator{},
+                    std::move(labels)};
+            }
+            case MultiMutableVamanaLoad::FROM_DYNAMIC:
+                return MultiVamanaStateLoader{
+                    SVS_LOAD_MEMBER_AT_(table, parameters),
+                    svs::lib::load_at<IDTranslator>(table, "translation"),
+                    std::vector<label_type>{}};
+            case MultiMutableVamanaLoad::FROM_STATIC:
+                return MultiVamanaStateLoader{
+                    lib::load<VamanaIndexParameters>(table),
+                    IDTranslator::Identity(assume_datasize),
+                    std::vector<label_type>{}};
+            default:
+                throw ANNEXCEPTION("Invalid multi vamana load type");
         }
-
-        auto num_labels = lib::load_at<size_t>(table, "num_labels");
-        std::vector<label_type> labels;
-        labels.reserve(num_labels);
-        auto resolved = table.resolve_at("filename");
-        auto stream = lib::open_read(resolved);
-        for (size_t i = 0; i < num_labels; ++i) {
-            labels.push_back(lib::read_binary<label_type>(stream));
-        }
-        return MultiVamanaStateLoader{
-            SVS_LOAD_MEMBER_AT_(table, parameters), IDTranslator{}, std::move(labels)};
     }
 
     ///// Members
@@ -707,9 +723,9 @@ auto auto_multi_dynamic_assemble(
     DataLoader&& data_loader,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    /// This flag provides a compatibility path for directly loading dynamic vamana
-    /// datasets.
-    bool load_from_dynamic = false,
+    /// This flag provides compatibility paths for directly loading dynamic vamana or static
+    /// vamana datasets.
+    MultiMutableVamanaLoad load_from = MultiMutableVamanaLoad::FROM_MULTI,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Load the dataset
@@ -728,40 +744,53 @@ auto auto_multi_dynamic_assemble(
         );
     }
     auto [parameters, translator, labels] =
-        lib::load_from_disk<detail::MultiVamanaStateLoader>(config_path, load_from_dynamic);
+        lib::load_from_disk<detail::MultiVamanaStateLoader>(
+            config_path, load_from, datasize
+        );
 
-    if (load_from_dynamic) {
-        // Make sure that the translator covers all the IDs in the graph and data.
-        auto translator_size = translator.size();
-        if (translator_size != datasize) {
-            throw ANNEXCEPTION(
-                "Translator has {} IDs but should have {}", translator_size, datasize
-            );
-        }
-
-        for (size_t i = 0; i < datasize; ++i) {
-            if (!translator.has_internal(i)) {
-                throw ANNEXCEPTION("Translator is missing internal id {}", i);
+    switch (load_from) {
+        case MultiMutableVamanaLoad::FROM_MULTI: {
+            if (labels.size() != datasize) {
+                throw ANNEXCEPTION(
+                    "Labels has {} IDs but should have {}", labels.size(), datasize
+                );
             }
+            return MultiMutableVamanaIndex{
+                parameters,
+                std::move(data),
+                std::move(graph),
+                std::move(distance),
+                labels,
+                std::move(threadpool),
+                std::move(logger)};
         }
+        case MultiMutableVamanaLoad::FROM_DYNAMIC:
+        case MultiMutableVamanaLoad::FROM_STATIC: {
+            // Make sure that the translator covers all the IDs in the graph and data.
+            auto translator_size = translator.size();
+            if (translator_size != datasize) {
+                throw ANNEXCEPTION(
+                    "Translator has {} IDs but should have {}", translator_size, datasize
+                );
+            }
 
-        return MultiMutableVamanaIndex{
-            parameters,
-            std::move(data),
-            std::move(graph),
-            std::move(distance),
-            std::move(translator),
-            std::move(threadpool),
-            std::move(logger)};
-    } else {
-        return MultiMutableVamanaIndex{
-            parameters,
-            std::move(data),
-            std::move(graph),
-            std::move(distance),
-            labels,
-            std::move(threadpool),
-            std::move(logger)};
+            for (size_t i = 0; i < datasize; ++i) {
+                if (!translator.has_internal(i)) {
+                    throw ANNEXCEPTION("Translator is missing internal id {}", i);
+                }
+            }
+
+            return MultiMutableVamanaIndex{
+                parameters,
+                std::move(data),
+                std::move(graph),
+                std::move(distance),
+                std::move(translator),
+                std::move(threadpool),
+                std::move(logger)};
+        }
+        default:
+            throw ANNEXCEPTION("Invalid multi vamana load type");
     }
 }
 

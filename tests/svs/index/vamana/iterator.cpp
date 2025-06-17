@@ -327,7 +327,7 @@ CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator]") {
             test_dataset::data_f32(),
             ThrowingL2(),
             1,
-            true // debug_load_from_static
+            svs::index::vamana::MultiMutableVamanaLoad::FROM_STATIC
         );
         auto original = test_dataset::data_f32();
         index.set_threadpool(svs::threads::DefaultThreadPool(2));
