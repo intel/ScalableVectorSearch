@@ -240,4 +240,53 @@ CATCH_TEMPLATE_TEST_CASE(
 
         CATCH_REQUIRE(ref_index.get_logger() == test_index.get_logger());
     }
+
+    CATCH_SECTION("Save/Load") {
+        svs_test::prepare_temp_directory();
+        auto dir = svs_test::temp_directory();
+        auto config_dir = dir / "config";
+        auto graph_dir = dir / "graph";
+        auto data_dir = dir / "data";
+        std::vector<size_t> test_indices(num_points);
+        for (auto& i : test_indices) {
+            i = rand();
+        }
+        auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
+            build_parameters, data, test_indices, Distance(), num_threads
+        );
+        auto test_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        test_index.search(test_results.view(), queries.view(), search_parameters);
+        auto test_recall = svs::k_recall_at_n(groundtruth, test_results);
+
+        test_index.save(config_dir, graph_dir, data_dir);
+
+        auto test_index_2 = svs::index::vamana::auto_multi_dynamic_assemble(
+            config_dir,
+            svs::GraphLoader(graph_dir),
+            svs::VectorDataLoader<float>(data_dir),
+            Distance(),
+            svs::threads::CppAsyncThreadPool(2)
+        );
+        auto test_results_2 = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        test_index_2.search(test_results_2.view(), queries.view(), search_parameters);
+        auto test_recall_2 = svs::k_recall_at_n(groundtruth, test_results);
+
+        CATCH_REQUIRE(test_index.size() == test_index_2.size());
+        CATCH_REQUIRE(test_index.dimensions() == test_index_2.dimensions());
+        // Index Properties
+        CATCH_REQUIRE(test_index.get_alpha() == test_index_2.get_alpha());
+        CATCH_REQUIRE(
+            test_index.get_construction_window_size() ==
+            test_index_2.get_construction_window_size()
+        );
+        CATCH_REQUIRE(test_index.get_max_candidates() == test_index_2.get_max_candidates());
+        CATCH_REQUIRE(test_index.max_degree() == test_index_2.max_degree());
+        CATCH_REQUIRE(test_index.get_prune_to() == test_index_2.get_prune_to());
+        CATCH_REQUIRE(
+            test_index.get_full_search_history() == test_index_2.get_full_search_history()
+        );
+        CATCH_REQUIRE(test_index.view_data() == test_index_2.view_data());
+
+        CATCH_REQUIRE(test_recall > test_recall_2 - epsilon);
+    }
 }
