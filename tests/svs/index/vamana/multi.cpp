@@ -249,7 +249,7 @@ CATCH_TEMPLATE_TEST_CASE(
         auto data_dir = dir / "data";
         std::vector<size_t> test_indices(num_points);
         for (auto& i : test_indices) {
-            i = rand();
+            i = std::rand();
         }
         auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
             build_parameters, data, test_indices, Distance(), num_threads
