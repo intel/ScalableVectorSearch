@@ -175,7 +175,7 @@ endif()
 
 # Fix Clang complaining about the sized delete operator.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
-    target_compile_options(${SVS_LIB} INTERFACE -fno-sized-deallocation)
+    target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation)
 endif()
 
 # Provide better diagnostics for broken templates.
