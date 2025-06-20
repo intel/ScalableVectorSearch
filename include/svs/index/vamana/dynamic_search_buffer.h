@@ -35,7 +35,7 @@ namespace svs::index::vamana {
 
 ///
 /// A search buffer that allows entries to be predicated out.
-/// The search buffer will still nagivate through those entries, but it won't include
+/// The search buffer will still navigate through those entries, but it won't include
 /// them in its final result.
 ///
 template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
@@ -117,7 +117,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// Copy the portions of the MutableBuffer that matter for the purposes of scratch
     /// space.
     ///
-    /// Perserves the sizes of various containers but not necessarily the values.
+    /// Preserves the sizes of various containers but not necessarily the values.
     MutableBuffer shallow_copy() const {
         // We don't care about the contents of the buffer - just its size.
         // Therefore, we can construct a new buffer from scratch.
@@ -264,7 +264,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     ///
     /// These invariants are restored upon calling `sort()`.
     ///
-    /// Therefore, sequencies of `push_back` must always be followed by a call to `sort`.
+    /// Therefore, sequences of `push_back` must always be followed by a call to `sort`.
     void push_back(value_type neighbor) {
         // Follow the contract of not appending more valid elements than the capacity
         // allows.
@@ -309,7 +309,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             // Several options:
             // (1) This is the entry that causes us to cross the valid threshold. If so,
             //     then we need to move `roi_end_` to the last valid entry;
-            // (2) We've previsouly crossed the threshold and this entry is skipped.
+            // (2) We've previously crossed the threshold and this entry is skipped.
             //     If this is the case, then we must bump `roi_end_` if this neighbor
             //     is inserted below.
             if (this_valid) {

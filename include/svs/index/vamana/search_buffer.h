@@ -162,7 +162,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     /// Copy the portions of the SearchBuffer that matter for the purposes of scratch
     /// space.
     ///
-    /// Perserves the sizes of various containers but not necessarily the values.
+    /// Preserves the sizes of various containers but not necessarily the values.
     ///
     SearchBuffer shallow_copy() const {
         // We care about the contents of the buffer - just its size.
@@ -257,10 +257,10 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     /// @brief Access the neighbor at position `i`.
     const_reference operator[](size_t i) const { return candidates_[i]; }
 
-    /// @brief Return the furtherst valid neighbor.
+    /// @brief Return the furthest valid neighbor.
     reference back() { return candidates_[size_ - 1]; }
 
-    /// @brief Return the furtherst valid neighbor.
+    /// @brief Return the furthest valid neighbor.
     const_reference back() const { return candidates_[size_ - 1]; }
 
     /// @brief Return the position of the best unvisited neighbor.
@@ -390,7 +390,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
             } while (back != start);
         }
 
-        // We're explicitly avoiding moving the underlying range in this implementaion,
+        // We're explicitly avoiding moving the underlying range in this implementation,
         // so we don't need to worry about iterator invalidation.
         //
         // Nevertheless, probably safe to compute the actual index because messing around

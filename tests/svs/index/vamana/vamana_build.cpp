@@ -64,7 +64,7 @@ void test_enabled_tracker(vamana::OptionalTracker<uint32_t>& tracker) {
 }
 } // namespace
 
-CATCH_TEST_CASE("Index Build Utilties", "[vamana][vamana_build]") {
+CATCH_TEST_CASE("Index Build Utilities", "[vamana][vamana_build]") {
     CATCH_SECTION("OptionalTracker") {
         // Ensure that the tracker satisfies the constraint requirement.
         static_assert(vamana::

@@ -535,7 +535,7 @@ CATCH_TEST_CASE("Simple Threading", "[core][threads]") {
     CATCH_REQUIRE(block.is_shutdown());
 }
 
-CATCH_TEST_CASE("Extented Test", "[core][threads]") {
+CATCH_TEST_CASE("Extended Test", "[core][threads]") {
     using namespace std::chrono_literals;
     using ActionTelemetry = svs::threads::telemetry::ActionTelemetry;
 

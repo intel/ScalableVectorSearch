@@ -130,7 +130,7 @@ struct BuildAdaptorType {
     /// )
     /// @endcode
     ///
-    /// Where the contraint on the ``Data`` template argument (and potentially on
+    /// Where the constraint on the ``Data`` template argument (and potentially on
     /// ``Distance``) is used for overload resolution.
     ///
     /// See the referenced link for an example of what the expected adaptor API.

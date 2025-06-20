@@ -216,7 +216,7 @@ class IDTranslator {
     /// @param internal_ids A container with the internal ids to delete. Must implement a
     ///     forward iterator. Furthermore, all entries must be unique (not checked).
     /// @param check Check if all ids actually exist in the translation table. This is only
-    ///     safe to set to ``false`` if it can be guarenteed that all entries in
+    ///     safe to set to ``false`` if it can be guaranteed that all entries in
     ///     ``internal_ids`` exist in the table.
     ///
     /// Note, if ``check == true`` and an internal id is found not to exist, the underlying
@@ -242,7 +242,7 @@ class IDTranslator {
     /// @param external_ids A container with the external ids to delete. Must implement a
     ///     forward iterator. Furthermore, all entries must be unique (not checked).
     /// @param check Check if all ids actually exist in the translation table. This is only
-    ///     safe to set to ``false`` if it can be guarenteed that all entries in
+    ///     safe to set to ``false`` if it can be guaranteed that all entries in
     ///     ``external_ids`` exist in the table.
     ///
     /// Note, if ``check == true`` and an external id is found not to exist, the underlying

@@ -22,7 +22,7 @@
 
 #include "tests/utils/benchmarks.h"
 
-// Tests for utilties
+// Tests for utilities
 CATCH_TEST_CASE("Testing Name Generation", "[testing_utilities]") {
     std::ostringstream stream{};
     // type_names

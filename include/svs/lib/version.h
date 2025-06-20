@@ -73,7 +73,7 @@ template <std::integral T> [[nodiscard]] T parse_int(std::string_view view) {
 ///     manner.
 /// * PATCH versions are for backwards compatible bug fixes.
 ///
-/// In general, no guarentees are made with a version number "v0.0.x".
+/// In general, no guarantees are made with a version number "v0.0.x".
 /// Such items are experimental and should not be relied upon.
 ///
 /// Version numbers "v0.x.y" represent actively changing APIs and should be used with care.

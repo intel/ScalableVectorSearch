@@ -47,7 +47,7 @@ target_include_directories(
 )
 
 # We use C++ 20 features in our exposed headers.
-# Anyone using us as a depdency and including our headers will need to be C++20 compatible.
+# Anyone using us as a dependency and including our headers will need to be C++20 compatible.
 #
 # Keep this variable in-sync with the `SVS_CXX_STANDARD` given below.
 # We need to manually set the standard for `spdlog`
@@ -148,7 +148,7 @@ configure_package_config_file(
     INSTALL_DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
 
-# Don't make compatibility guarentees until we reach a compatibility milestone.
+# Don't make compatibility guarantees until we reach a compatibility milestone.
 write_basic_package_version_file(
     ${VERSION_CONFIG}
     VERSION ${SVS_VERSION}

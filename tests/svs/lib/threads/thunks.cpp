@@ -67,7 +67,7 @@ CATCH_TEST_CASE("Thread Thunks", "[core][threads]") {
         CATCH_REQUIRE(v.empty());
         CATCH_REQUIRE(u.empty());
 
-        ///// Parition 3
+        ///// Partition 3
         wrapped(3);
         CATCH_REQUIRE(v.size() == 2);
         CATCH_REQUIRE(u.size() == 2);
@@ -141,7 +141,7 @@ CATCH_TEST_CASE("Thread Thunks", "[core][threads]") {
         CATCH_REQUIRE(v.empty());
         CATCH_REQUIRE(u.empty());
 
-        ///// Parition 3
+        ///// Partition 3
         wrapped(3);
         CATCH_REQUIRE(v.size() == 2);
         CATCH_REQUIRE(u.size() == 2);

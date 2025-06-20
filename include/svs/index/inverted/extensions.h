@@ -59,7 +59,7 @@ namespace svs::index::inverted {
 //     }
 //
 //     ///// Saving and Loading.
-//     // N.B.: Keep staticly sized serializers compatible with dynamically sized ones.
+//     // N.B.: Keep statically sized serializers compatible with dynamically sized ones.
 //     static constexpr lib::Version save_version{0, 0, 0};
 //     lib::SaveTable save() const {
 //         return lib::SaveTable(save_version, {SVS_LIST_SAVE_(dimensions)});
@@ -159,7 +159,7 @@ data::ConstDataView<data::SimpleData<T, Extent, Alloc>, std::span<const I>> svs_
 }
 
 // Default Implementation.
-// TODO: Repition!!
+// TODO: Repetition!!
 template <typename T, size_t Extent, typename Alloc, typename NewAlloc>
 svs::data::SimpleData<T, Extent, Alloc> svs_invoke(
     svs::tag_t<create_auxiliary_dataset>,

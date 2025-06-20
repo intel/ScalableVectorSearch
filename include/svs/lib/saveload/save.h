@@ -198,7 +198,7 @@ concept HasZeroArgSaveTo = requires(const T& x) {
 ///
 /// The expected return type is either ``svs::lib::SaveTable`` or ``svs::lib::SaveNode``.
 ///
-/// This class is automically defined for classes ``T`` with appropriate ``save()`` methods.
+/// This class is automatically defined for classes ``T`` with appropriate ``save()`` methods.
 ///
 template <typename T> struct Saver {
     static SaveTable save(const T& x)
@@ -271,18 +271,18 @@ template <typename T> auto save(const T& x) { return detail::exit_hook(Saver<T>:
 ///
 /// @param x The class to save.
 ///
-/// Requires the class to implment context-free saving.
+/// Requires the class to implement context-free saving.
 /// Ensures that the return type is a ``toml::table``.
 ///
 template <typename T> toml::table save_to_table(const T& x) {
     static_assert(
         std::is_same_v<decltype(svs::lib::save(x)), toml::table>,
-        "Save to Table is only enabled for classes returing TOML tables."
+        "Save to Table is only enabled for classes returning TOML tables."
     );
     return lib::save(x);
 }
 
-/// @brief Class allowing a lamba to be used for ad-hoc saving.
+/// @brief Class allowing a lambda to be used for ad-hoc saving.
 template <typename F> class SaveOverride {
   public:
     /// @brief Construct a new ``SaveOverride`` around the callable ``f``.

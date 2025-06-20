@@ -53,7 +53,7 @@ template <> inline constexpr bool allow_lossy_conversion<double, float> = true;
 namespace type_traits {
 ///
 /// Construct a sentinel element for type T with respect to the comparison function `Cmp`.
-/// The sentinal value ``s`` should satisfy
+/// The sentinel value ``s`` should satisfy
 /// ```
 /// cmp(x, s) == true
 /// ```

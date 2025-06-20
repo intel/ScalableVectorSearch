@@ -208,7 +208,7 @@ inline size_t cpus_on_node(size_t node) {
     if (node > nnodes) {
         throw std::out_of_range(
             "Node " + std::to_string(node) +
-            " is larget than the number of nodes on the system (" + std::to_string(nnodes) +
+            " is larger than the number of nodes on the system (" + std::to_string(nnodes) +
             ")."
         );
     }
@@ -276,7 +276,7 @@ template <typename T> class NumaLocal {
 
     const T& get() const { return get_checked(); }
     T& get() {
-        // Const-cast is okay because we're guarenteed to be in a non-const context.
+        // Const-cast is okay because we're guaranteed to be in a non-const context.
         return const_cast<T&>(get_checked());
     }
 

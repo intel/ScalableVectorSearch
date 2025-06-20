@@ -393,7 +393,7 @@ inline ContextFreeNodeView<toml::node> node_view(const std::unique_ptr<toml::nod
 /// for efficiency reasons. These view do now extent the lifetime of the table they are
 /// working through.
 ///
-/// This class provides a stable, owning base that can be used to launch deserialzation
+/// This class provides a stable, owning base that can be used to launch deserialization
 /// attempts.
 class ContextFreeSerializedObject {
   public:
@@ -459,7 +459,7 @@ class ContextFreeSerializedObject {
     }
 
   private:
-    // Use a ``shared_ptr`` for the cases where we need to expliciltly clone contexts.
+    // Use a ``shared_ptr`` for the cases where we need to explicitly clone contexts.
     std::shared_ptr<const toml::table> node_;
 };
 

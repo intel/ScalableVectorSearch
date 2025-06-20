@@ -76,7 +76,7 @@ CATCH_TEST_CASE("Recall", "[core][recall]") {
             svs::k_recall_at_n(groundtruth, results, 2, 5), svs::ANNException
         );
 
-        // Set "k" > groundtruth.dimensinos()
+        // Set "k" > groundtruth.dimensions()
         results = svs::data::SimpleData<int64_t>(1, 10);
         CATCH_REQUIRE_THROWS_AS(
             svs::k_recall_at_n(groundtruth, results), svs::ANNException
