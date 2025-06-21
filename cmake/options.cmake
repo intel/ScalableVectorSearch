@@ -162,6 +162,7 @@ target_compile_options(
         -Wpedantic
         -Wno-gnu-zero-variadic-macro-arguments
         -Wno-parentheses # GCC in CI has issues without it
+        -fsized-deallocation
 )
 
 
