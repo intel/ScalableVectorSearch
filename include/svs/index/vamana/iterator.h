@@ -263,40 +263,45 @@ template <typename Index, typename QueryType> class BatchIterator {
                                                const auto& SVS_UNUSED(distance),
                                                std::span<const I> entry_points
                                            ) {
-            auto search_closure =
-                [&](const auto& query, const auto& accessor, auto& d, auto& buffer) {
-                    constexpr vamana::extensions::UsesReranking<
-                        std::remove_const_t<std::remove_reference_t<decltype(data)>>>
-                        uses_reranking{};
-                    if constexpr (uses_reranking()) {
-                        distance::maybe_fix_argument(d, query);
-                        for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
-                            auto& neighbor = buffer[j];
-                            auto id = neighbor.id();
-                            auto new_distance =
-                                distance::compute(d, query, data.get_primary(id));
-                            neighbor.set_distance(new_distance);
-                        }
-                        buffer.sort();
+            auto search_closure = [&](const auto& query,
+                                      const auto& accessor,
+                                      auto& d,
+                                      auto& buffer,
+                                      svs::logging::logger_ptr logger =
+                                          svs::logging::get()) {
+                constexpr vamana::extensions::UsesReranking<
+                    std::remove_const_t<std::remove_reference_t<decltype(data)>>>
+                    uses_reranking{};
+                if constexpr (uses_reranking()) {
+                    distance::maybe_fix_argument(d, query);
+                    for (size_t j = 0, jmax = buffer.size(); j < jmax; ++j) {
+                        auto& neighbor = buffer[j];
+                        auto id = neighbor.id();
+                        auto new_distance =
+                            distance::compute(d, query, data.get_primary(id));
+                        neighbor.set_distance(new_distance);
                     }
+                    buffer.sort();
+                }
 
-                    vamana::greedy_search(
-                        graph,
-                        data,
-                        accessor,
-                        query,
-                        d,
-                        buffer,
-                        RestartInitializer<I>{entry_points, restart_search_copy},
-                        parent_->internal_search_builder(),
-                        scratchspace_.prefetch_parameters,
-                        cancel
-                    );
+                vamana::greedy_search(
+                    graph,
+                    data,
+                    accessor,
+                    query,
+                    d,
+                    buffer,
+                    RestartInitializer<I>{entry_points, restart_search_copy},
+                    parent_->internal_search_builder(),
+                    scratchspace_.prefetch_parameters,
+                    logger,
+                    cancel
+                );
 
-                    if constexpr (Index::needs_id_translation) {
-                        buffer.cleanup();
-                    }
-                };
+                if constexpr (Index::needs_id_translation) {
+                    buffer.cleanup();
+                }
+            };
 
             extensions::single_search(
                 data,

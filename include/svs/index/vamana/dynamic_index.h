@@ -452,7 +452,11 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
+                   const auto& query,
+                   auto& accessor,
+                   auto& distance,
+                   auto& buffer,
+                   auto& logger
                ) {
             // Perform the greedy search using the provided resources.
             greedy_search(
@@ -465,6 +469,7 @@ class MutableVamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
+                logger_ ? logger_ : logger,
                 cancel
             );
             // Take a pass over the search buffer to remove any deleted elements that
@@ -478,14 +483,16 @@ class MutableVamanaIndex {
     void search(
         const Query& query,
         scratchspace_type& scratch,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) const {
         extensions::single_search(
             data_,
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel)
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            logger_ ? logger_ : logger
         );
     }
 
@@ -494,6 +501,7 @@ class MutableVamanaIndex {
         QueryResultView<I> results,
         const Queries& queries,
         const search_parameters_type& sp,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::parallel_for(
@@ -521,6 +529,7 @@ class MutableVamanaIndex {
                     results,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
+                    logger,
                     cancel
                 );
             }
@@ -621,7 +630,10 @@ class MutableVamanaIndex {
     ///
     template <data::ImmutableMemoryDataset Points, class ExternalIds>
     std::vector<size_t> add_points(
-        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
+        const Points& points,
+        const ExternalIds& external_ids,
+        bool reuse_empty = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         const size_t num_points = points.size();
         const size_t num_ids = external_ids.size();
@@ -695,7 +707,9 @@ class MutableVamanaIndex {
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
             graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
-        builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
+        builder.construct(
+            alpha_, entry_point(), slots, logging::Level::Trace, logger_ ? logger_ : logger
+        );
         // Mark all added entries as valid.
         for (const auto& i : slots) {
             status_[i] = SlotMetadata::Valid;
@@ -729,16 +743,20 @@ class MutableVamanaIndex {
     ///   Delete consolidation performs the actual removal of deleted entries from the
     ///   graph.
     ///
-    template <typename T> size_t delete_entries(const T& ids) {
+    template <typename T>
+    size_t
+    delete_entries(const T& ids, svs::logging::logger_ptr logger = svs::logging::get()) {
         translator_.check_external_exist(ids.begin(), ids.end());
         for (auto i : ids) {
-            delete_entry(translator_.get_internal(i));
+            delete_entry(translator_.get_internal(i), logger_ ? logger_ : logger);
         }
         translator_.delete_external(ids);
         return ids.size();
     }
 
-    void delete_entry(size_t i) {
+    void delete_entry(
+        size_t i, svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+    ) {
         SlotMetadata& meta = getindex(status_, i);
         assert(meta == SlotMetadata::Valid);
         meta = SlotMetadata::Deleted;
@@ -773,7 +791,10 @@ class MutableVamanaIndex {
     /// @param batch_size Granularity at which points are shuffled. Setting this higher can
     ///     improve performance but requires more working memory.
     ///
-    void compact(Idx batch_size = 1'000) {
+    void compact(
+        Idx batch_size = 1'000,
+        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get()
+    ) {
         // Step 1: Compute a prefix-sum matching each valid internal index to its new
         // internal index.
         //
@@ -960,7 +981,8 @@ class MutableVamanaIndex {
             max_candidates_,
             alpha_,
             distance_,
-            check_is_deleted
+            check_is_deleted,
+            logger_ ? logger_ : logger_
         );
 
         // After consolidation - set all `Deleted` slots to `Empty`.
@@ -1036,7 +1058,8 @@ class MutableVamanaIndex {
         const GroundTruth& groundtruth,
         size_t num_neighbors,
         double target_recall,
-        const CalibrationParameters& calibration_parameters = {}
+        const CalibrationParameters& calibration_parameters = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // Preallocate the destination for search.
         // Further, reference the search lambda in the recall lambda.
@@ -1059,7 +1082,7 @@ class MutableVamanaIndex {
             target_recall,
             compute_recall,
             do_search,
-            logger_
+            logger
         );
 
         set_search_parameters(p);
