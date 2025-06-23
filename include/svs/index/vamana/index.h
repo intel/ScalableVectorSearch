@@ -412,7 +412,9 @@ class VamanaIndex {
         }
         build_parameters_ = parameters;
         // verify the parameters before set local var
-        verify_and_set_default_index_parameters(build_parameters_, distance_function, logger);
+        verify_and_set_default_index_parameters(
+            build_parameters_, distance_function, logger
+        );
         auto builder = VamanaBuilder(
             graph_,
             data_,
@@ -1006,7 +1008,9 @@ auto auto_assemble(
 /// @brief Verify parameters and set defaults if needed
 template <typename Dist>
 void verify_and_set_default_index_parameters(
-    VamanaBuildParameters& parameters, Dist distance_function, svs::logging::logger_ptr logger = svs::logging::get()
+    VamanaBuildParameters& parameters,
+    Dist distance_function,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Set default values
     if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
@@ -1056,13 +1060,18 @@ void verify_and_set_default_index_parameters(
     }
 
     // Print all parameters
-    svs::logging::log(logger, Level::Info, 
-    "Vamana Build Parameters: alpha={}, graph_max_degree={}, max_candidate_pool_size={}, prune_to={}, window_size={}, use_full_search_history={}",
-    parameters.alpha,
-    parameters.graph_max_degree,
-    parameters.max_candidate_pool_size,
-    parameters.prune_to,
-    parameters.window_size,
-    parameters.use_full_search_history);
+    svs::logging::log(
+        logger,
+        logging::Level::Info,
+        "Vamana Build Parameters: alpha={}, graph_max_degree={}, "
+        "max_candidate_pool_size={}, prune_to={}, window_size={}, "
+        "use_full_search_history={}",
+        parameters.alpha,
+        parameters.graph_max_degree,
+        parameters.max_candidate_pool_size,
+        parameters.prune_to,
+        parameters.window_size,
+        parameters.use_full_search_history
+    );
 }
 } // namespace svs::index::vamana

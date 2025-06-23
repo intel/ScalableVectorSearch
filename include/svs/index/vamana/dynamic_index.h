@@ -225,7 +225,9 @@ class MutableVamanaIndex {
         , build_parameters_(parameters)
         , logger_{std::move(logger)} {
         // Verify and set defaults directly on the input parameters
-        verify_and_set_default_index_parameters(build_parameters_, distance_function, logger_);
+        verify_and_set_default_index_parameters(
+            build_parameters_, distance_function, logger_
+        );
 
         // Set graph again as verify function might change graph_max_degree parameter
         graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
