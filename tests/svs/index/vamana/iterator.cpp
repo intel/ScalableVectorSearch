@@ -245,9 +245,9 @@ struct DynamicChecker {
 
 CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator]") {
     // This tests the general behavior of the iterator for correctness.
-    // It is not concerned with whether the returned neighbors are acurate.
+    // It is not concerned with whether the returned neighbors are accurate.
     //
-    // That reponsibility is delegated to the integration tests.
+    // That responsibility is delegated to the integration tests.
     auto queries = test_dataset::queries();
     auto gt = test_dataset::groundtruth_euclidean();
     CATCH_SECTION("Static Index") {
@@ -327,7 +327,7 @@ CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator]") {
             test_dataset::data_f32(),
             ThrowingL2(),
             1,
-            true // debug_load_from_static
+            svs::index::vamana::MultiMutableVamanaLoad::FROM_STATIC
         );
         auto original = test_dataset::data_f32();
         index.set_threadpool(svs::threads::DefaultThreadPool(2));

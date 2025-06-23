@@ -121,7 +121,7 @@ template <size_t N> class VisitedFilter<uint32_t, N> {
     /// This function may spuriously return ``false``.
     bool contains(integer_type key) const { return check(key, values_[hash(key)]); }
 
-    // Internel method for testing.
+    // Internal method for testing.
     value_type at(size_t i) const { return values_.at(i); }
 
   private:

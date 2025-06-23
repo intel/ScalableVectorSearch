@@ -245,9 +245,41 @@ class MultiMutableVamanaIndex {
         );
     }
 
+    /// @brief Constructor for post re-load multi dynamic vamana index.
+    template <threads::ThreadPool Pool>
+    MultiMutableVamanaIndex(
+        const VamanaIndexParameters& config,
+        data_type data,
+        graph_type graph,
+        const Dist& distance_function,
+        const std::vector<label_type>& labels,
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : distance_(std::move(distance_function)) {
+        std::vector<external_id_type> adds;
+        adds.reserve(labels.size());
+        prepare_added_id_by_label(labels, adds);
+
+        // create a remapped translator where external_id == internal_id
+        IDTranslator remapped_translator;
+        remapped_translator.insert(adds, threads::UnitRange<Idx>(0, adds.size()));
+
+        index_ = std::make_unique<ParentIndex>(
+            config,
+            std::move(data),
+            std::move(graph),
+            distance_,
+            remapped_translator,
+            std::move(threadpool),
+            std::move(logger)
+        );
+    }
+
     /// @brief Constructor for post re-load dynamic vamana index.
-    /// This constructor takes external IDs in translator as labels.
-    /// The span of internal ID's in translator should be exactly ``[0, data.size())`.
+    /// This constructor provides a compatibility path for directly loading dynamic vamana
+    /// datasets. This constructor takes external IDs in translator as labels. The span of
+    /// internal ID's in translator should be exactly ``[0, data.size())`.
     template <threads::ThreadPool Pool>
     MultiMutableVamanaIndex(
         const VamanaIndexParameters& config,
@@ -470,7 +502,7 @@ class MultiMutableVamanaIndex {
     }
 
     /// @brief Call the functor with all labels in the index.
-    /// 
+    ///
     /// @param f A functor with an overloaded ``operator()(size_t)`` method. Called on
     ///     each external ID in the index.
     ///
@@ -525,6 +557,79 @@ class MultiMutableVamanaIndex {
         index_->set_full_search_history(use_full_search_history);
     }
     bool get_full_search_history() const { return index_->get_full_search_history(); }
+
+    size_t max_degree() const { return index_->max_degree(); }
+
+    constexpr std::string_view name() const { return "multi dynamic vamana index"; }
+
+    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& graph_directory,
+        const std::filesystem::path& data_directory
+    ) {
+        // Post-consolidation, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
+        consolidate();
+        compact();
+
+        // Since data is in order of external ids,
+        // convert a map of external ids to label types into a sorted vector of labels based
+        // on external ids.
+        std::vector<std::pair<external_id_type, label_type>> ext_lab_vec(
+            external_to_label_.begin(), external_to_label_.end()
+        );
+        std::sort(ext_lab_vec.begin(), ext_lab_vec.end(), [](const auto& a, const auto& b) {
+            return a.first < b.first;
+        });
+
+        std::vector<label_type> labels(ext_lab_vec.size());
+        std::transform(
+            ext_lab_vec.begin(),
+            ext_lab_vec.end(),
+            labels.begin(),
+            [](const auto& ext_lab) { return ext_lab.second; }
+        );
+        size_t num_labels = ext_lab_vec.size();
+
+        // Save auxiliary data structures.
+        lib::save_to_disk(
+            lib::SaveOverride([&](const lib::SaveContext& ctx) {
+                // Save labels to a file.
+                auto filename = ctx.generate_name("labels", "binary");
+                auto stream = lib::open_write(filename);
+                for (const auto& l : ext_lab_vec) {
+                    lib::write_binary(stream, l.first);
+                }
+
+                // Save the construction parameters.
+                auto parameters = VamanaIndexParameters{
+                    index_->entry_point_.front(),
+                    {get_alpha(),
+                     max_degree(),
+                     get_construction_window_size(),
+                     get_max_candidates(),
+                     get_prune_to(),
+                     get_full_search_history()},
+                    get_search_parameters()};
+
+                return lib::SaveTable(
+                    "multi_vamana_dynamic_auxiliary_parameters",
+                    save_version,
+                    {{"name", lib::save(name())},
+                     {"parameters", lib::save(parameters, ctx)},
+                     {"num_labels", lib::save(num_labels, ctx)},
+                     {"filename", lib::save(filename.filename())}}
+                );
+            }),
+            config_directory
+        );
+
+        // Data
+        lib::save_to_disk(index_->data_, data_directory);
+        // Graph
+        lib::save_to_disk(index_->graph_, graph_directory);
+    }
 };
 
 ///// Deduction Guides.
@@ -549,6 +654,64 @@ MultiMutableVamanaIndex(
     svs::logging::logger_ptr
 ) -> MultiMutableVamanaIndex<graphs::SimpleBlockedGraph<uint32_t>, Data, Dist>;
 
+enum class MultiMutableVamanaLoad { FROM_MULTI, FROM_DYNAMIC, FROM_STATIC };
+
+namespace detail {
+
+struct MultiVamanaStateLoader {
+    using label_type = size_t;
+    ///// Loading
+    static bool
+    check_load_compatibility(std::string_view schema, const lib::Version& version) {
+        // We provide the option to load from a dynamic index.
+        return VamanaIndexParameters::check_load_compatibility(schema, version) ||
+               (schema == "multi_vamana_dynamic_auxiliary_parameters" &&
+                version == lib::Version(0, 0, 0));
+    }
+
+    // Provide compatibility paths for loading dynamic or static vamana datasets.
+    static MultiVamanaStateLoader load(
+        const lib::LoadTable& table,
+        const MultiMutableVamanaLoad load_from,
+        const size_t assume_datasize
+    ) {
+        switch (load_from) {
+            case MultiMutableVamanaLoad::FROM_MULTI: {
+                auto num_labels = lib::load_at<size_t>(table, "num_labels");
+                std::vector<label_type> labels;
+                labels.reserve(num_labels);
+                auto resolved = table.resolve_at("filename");
+                auto stream = lib::open_read(resolved);
+                for (size_t i = 0; i < num_labels; ++i) {
+                    labels.push_back(lib::read_binary<label_type>(stream));
+                }
+                return MultiVamanaStateLoader{
+                    SVS_LOAD_MEMBER_AT_(table, parameters),
+                    IDTranslator{},
+                    std::move(labels)};
+            }
+            case MultiMutableVamanaLoad::FROM_DYNAMIC:
+                return MultiVamanaStateLoader{
+                    SVS_LOAD_MEMBER_AT_(table, parameters),
+                    svs::lib::load_at<IDTranslator>(table, "translation"),
+                    std::vector<label_type>{}};
+            case MultiMutableVamanaLoad::FROM_STATIC:
+                return MultiVamanaStateLoader{
+                    lib::load<VamanaIndexParameters>(table),
+                    IDTranslator::Identity(assume_datasize),
+                    std::vector<label_type>{}};
+            default:
+                throw ANNEXCEPTION("Invalid multi vamana load type");
+        }
+    }
+
+    ///// Members
+    VamanaIndexParameters parameters_;
+    IDTranslator translator_;
+    std::vector<label_type> labels_;
+};
+} // namespace detail
+
 template <
     typename GraphLoader,
     typename DataLoader,
@@ -560,12 +723,9 @@ auto auto_multi_dynamic_assemble(
     DataLoader&& data_loader,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    // Set this to `true` to use the identity map for ID translation.
-    // This allows us to read files generated by the static index construction routines
-    // to easily benchmark the static versus dynamic implementation.
-    //
-    // This is an internal API and should not be considered officially supported nor stable.
-    bool debug_load_from_static = false,
+    /// This flag provides compatibility paths for directly loading dynamic vamana or static
+    /// vamana datasets.
+    MultiMutableVamanaLoad load_from = MultiMutableVamanaLoad::FROM_MULTI,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Load the dataset
@@ -583,32 +743,55 @@ auto auto_multi_dynamic_assemble(
             "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
         );
     }
-    auto [parameters, translator] = lib::load_from_disk<detail::VamanaStateLoader>(
-        config_path, debug_load_from_static, datasize
-    );
-
-    // Make sure that the translator covers all the IDs in the graph and data.
-    auto translator_size = translator.size();
-    if (translator_size != datasize) {
-        throw ANNEXCEPTION(
-            "Translator has {} IDs but should have {}", translator_size, datasize
+    auto [parameters, translator, labels] =
+        lib::load_from_disk<detail::MultiVamanaStateLoader>(
+            config_path, load_from, datasize
         );
-    }
 
-    for (size_t i = 0; i < datasize; ++i) {
-        if (!translator.has_internal(i)) {
-            throw ANNEXCEPTION("Translator is missing internal id {}", i);
+    switch (load_from) {
+        case MultiMutableVamanaLoad::FROM_MULTI: {
+            if (labels.size() != datasize) {
+                throw ANNEXCEPTION(
+                    "Labels has {} IDs but should have {}", labels.size(), datasize
+                );
+            }
+            return MultiMutableVamanaIndex{
+                parameters,
+                std::move(data),
+                std::move(graph),
+                std::move(distance),
+                labels,
+                std::move(threadpool),
+                std::move(logger)};
         }
-    }
+        case MultiMutableVamanaLoad::FROM_DYNAMIC:
+        case MultiMutableVamanaLoad::FROM_STATIC: {
+            // Make sure that the translator covers all the IDs in the graph and data.
+            auto translator_size = translator.size();
+            if (translator_size != datasize) {
+                throw ANNEXCEPTION(
+                    "Translator has {} IDs but should have {}", translator_size, datasize
+                );
+            }
 
-    return MultiMutableVamanaIndex{
-        parameters,
-        std::move(data),
-        std::move(graph),
-        std::move(distance),
-        std::move(translator),
-        std::move(threadpool),
-        std::move(logger)};
+            for (size_t i = 0; i < datasize; ++i) {
+                if (!translator.has_internal(i)) {
+                    throw ANNEXCEPTION("Translator is missing internal id {}", i);
+                }
+            }
+
+            return MultiMutableVamanaIndex{
+                parameters,
+                std::move(data),
+                std::move(graph),
+                std::move(distance),
+                std::move(translator),
+                std::move(threadpool),
+                std::move(logger)};
+        }
+        default:
+            throw ANNEXCEPTION("Invalid multi vamana load type");
+    }
 }
 
 } // namespace svs::index::vamana

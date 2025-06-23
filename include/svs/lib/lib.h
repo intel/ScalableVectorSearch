@@ -18,7 +18,7 @@ static_assert(false, "Header file meant for documentation purposes only!");
 
 ///
 /// @defgroup lib SVS Library
-/// @brief Library utilities for Similary Search.
+/// @brief Library utilities for Similarly Search.
 ///
 
 ///

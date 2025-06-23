@@ -284,7 +284,7 @@ class SwitchNativeThreadPool {
 };
 
 /////
-///// A handy refernce wrapper for situations where we only want to share a thread pool
+///// A handy reference wrapper for situations where we only want to share a thread pool
 /////
 template <ThreadPool Pool> class ThreadPoolReferenceWrapper {
   public:

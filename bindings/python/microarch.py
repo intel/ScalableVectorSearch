@@ -50,7 +50,7 @@ def resolve_microarch(name: str):
         "native": cpu.host().name,
     }
     # Allow the custom aliases to override the current name.
-    # If an alias doesn't exist, juse pass the name straight through.
+    # If an alias doesn't exist, just pass the name straight through.
     return custom_aliases.get(name, name)
 
 def dump_flags_for_cmake(flags: list, path: str):

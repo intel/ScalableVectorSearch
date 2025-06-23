@@ -72,7 +72,7 @@ class ReferenceDataset:
         return self.current_ids
 
     def ground_truth(self, num_neighbors: int):
-        # Gather the dataset into a contiguous chunck to pass to the ground truth
+        # Gather the dataset into a contiguous chunk to pass to the ground truth
         # calculation.
         ids_np = np.array(list(self.current_ids), dtype = np.uint64)
         sub_dataset = self.raw_data[ids_np, :]

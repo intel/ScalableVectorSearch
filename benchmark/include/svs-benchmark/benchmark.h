@@ -242,7 +242,7 @@ class ExecutableDispatcher {
 // new results as they become available and regularly saves results.
 //
 // It *does* involve many copies of the underlying TOML data, but I believe the tradoff in
-// data safety greatly outweights any extra time spent moving around TOML data.
+// data safety greatly outweighs any extra time spent moving around TOML data.
 class Checkpoint {
   private:
     toml::table data_{};
@@ -265,7 +265,7 @@ class Checkpoint {
         // Make sure to handle the case where this is the first data being registered
         // with the given key.
         //
-        // This is not the most efficient implemenation because we make unnecessary copies,
+        // This is not the most efficient implementation because we make unnecessary copies,
         // but the complexitry required to correctly applying incremental data does not
         // seem to be worth it.
         auto data_copy = data_;
@@ -304,7 +304,7 @@ struct BuildTime {
     }
 };
 
-/// Class shared to record the time taken to load an index into a useable form.
+/// Class shared to record the time taken to load an index into a usable form.
 struct LoadTime {
   public:
     double load_time_;

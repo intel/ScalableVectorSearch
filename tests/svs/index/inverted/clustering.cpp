@@ -100,7 +100,7 @@ CATCH_TEST_CASE("Random Clustering", "[inverted][random_clustering]") {
         constexpr size_t data_size = 10000;
         auto ids = inverted::randomly_select_centroids(data_size, data_size / 10, 0xc0ffee);
 
-        // Make sure we have the currect number of IDs and that they are all in-bounds.
+        // Make sure we have the correct number of IDs and that they are all in-bounds.
         CATCH_REQUIRE(ids.size() == data_size * 0.1);
         for (auto id : ids) {
             CATCH_REQUIRE(id < data_size);

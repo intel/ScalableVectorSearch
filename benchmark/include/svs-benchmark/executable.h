@@ -71,7 +71,7 @@ inline constexpr IsValidate is_validate{};
 ///     // Return an example job to serve as a prototype.
 ///     job_type example() const;
 ///
-///     // The name assoicated with the job. This will be used to both pull jobs from
+///     // The name associated with the job. This will be used to both pull jobs from
 ///     // the input TOML file as well as be the key under which results will be collected
 ///     // in output TOML file.
 ///     std::convertible_to<std::string> name() const;
@@ -100,7 +100,7 @@ inline constexpr IsValidate is_validate{};
 ///
 template <typename Implementation>
 class JobBasedExecutable : private Implementation, public Benchmark {
-    // Type Alises
+    // Type Aliases
   public:
     using job_type = typename Implementation::job_type;
     using dispatcher_type = typename Implementation::dispatcher_type;
@@ -254,13 +254,13 @@ class JobBasedExecutable : private Implementation, public Benchmark {
 ///
 ///     // Return a dispatcher for the executable.
 ///     // Each test must take `const job_type&` as an argument and return a destructurable
-///     // pair consiting of a string key and a `toml::table` of results.
+///     // pair consisting of a string key and a `toml::table` of results.
 ///     std::vector</*implementation-defined*/> tests() const;
 ///
 ///     // Return an example job to serve as a prototype.
 ///     job_type example() const;
 ///
-///     // The name assoicated with the job. This will be used to both pull jobs from
+///     // The name associated with the job. This will be used to both pull jobs from
 ///     // the input TOML file as well as be the key under which results will be collected
 ///  T   // in output TOML file.
 ///     std::convertible_to<std::string> name() const;
@@ -289,7 +289,7 @@ class JobBasedExecutable : private Implementation, public Benchmark {
 ///
 template <typename Implementation>
 class TestBasedExecutable : private Implementation, public Benchmark {
-    // Type Alises
+    // Type Aliases
   public:
     using job_type = typename Implementation::job_type;
 

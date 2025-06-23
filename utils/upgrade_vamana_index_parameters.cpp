@@ -35,7 +35,7 @@ Upgrades from version v0.0.1 or v0.0.2 to v0.0.3.
 
 Arguments:
     src - The path to the previous config file.
-    dst - The destionation directory for the upgraded file.
+    dst - The destination directory for the upgraded file.
 )";
 
 void show_help() { fmt::print("{}\n", HELP); }

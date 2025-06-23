@@ -102,7 +102,7 @@ class FlatTester(unittest.TestCase):
         )
 
         # Test querying.
-        # Return as many neighbors as we have exising groundtruth for.
+        # Return as many neighbors as we have existing groundtruth for.
         num_neighbors = groundtruth.shape[-1]
         results = flat.search(queries, num_neighbors)
 

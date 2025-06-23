@@ -110,7 +110,7 @@ template <typename Idx> class BackedgeBuffer {
     using map_type = tsl::robin_map<Idx, set_type>;
 
   private:
-    // The number of elements assigned to each bucket - starting sequentialy from zero.
+    // The number of elements assigned to each bucket - starting sequentially from zero.
     // Used to determine which bucket an index belongs to.
     size_t bucket_size_;
     std::vector<map_type> buckets_;

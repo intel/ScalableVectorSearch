@@ -95,7 +95,7 @@ template <std::random_access_iterator I> IteratorPair(I, I) -> IteratorPair<I>;
 
 ///
 /// The ID of a thread in a pool.
-/// Guarenteed to be in the half open interval `[0,pool.size())` and unique to each
+/// Guaranteed to be in the half open interval `[0,pool.size())` and unique to each
 /// worker thread in the pool.
 ///
 class SequentialThreadID {

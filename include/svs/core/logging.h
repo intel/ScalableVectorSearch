@@ -227,7 +227,7 @@ inline logger_ptr default_logger() {
 inline logger_ptr default_logger() { return default_logger_(null_sink(), Level::Off); }
 #endif
 
-// Opt-in to slightly less code repitition for function definition by providing compile-time
+// Opt-in to slightly less code repetition for function definition by providing compile-time
 // transformation from string literals to the level enum.
 consteval svs::logging::Level parselevel(std::string_view str) {
     if (str == "trace") {
@@ -272,7 +272,7 @@ inline logger_ptr get() { return global_logger().get(); }
 ///
 /// @param logger A shared pointer to any ``spdlog::logger``.
 ///
-/// This function is safe to call in a multi-threaded contex but it is the user's
+/// This function is safe to call in a multi-threaded context but it is the user's
 /// responsibility to ensure that all sinks registered with the logger are multi-thread
 /// safe.
 inline void set(const logger_ptr& logger) { global_logger().set(logger); }

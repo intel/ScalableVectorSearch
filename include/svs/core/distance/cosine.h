@@ -53,7 +53,7 @@ class CosineSimilarity {
             );
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
-            // We do not support AVX2 on CS yet, but it will fallabck to generic anyway
+            // We do not support AVX2 on CS yet, but it will fallback to generic anyway
             return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                 a, b, a_norm, lib::MaybeStatic(N)
             );
@@ -146,7 +146,7 @@ inline constexpr bool operator==(DistanceCosineSimilarity, DistanceCosineSimilar
 ///
 /// @ingroup distance_overload
 /// @anchor compute_distancecosine
-/// @brief Compute the Cosine simmilarity between two vectors in R^n.
+/// @brief Compute the Cosine similarity between two vectors in R^n.
 ///
 /// @tparam Ea The element type for each component of the left-hand argument.
 /// @tparam Eb The element type for each component of the right-hand argument.

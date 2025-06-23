@@ -150,7 +150,7 @@ struct Matcher {
     }
 
     // Don't support deduction on the try-load path.
-    // Deduction throws too many exceptions to handle corectly right now.
+    // Deduction throws too many exceptions to handle correctly right now.
     static lib::TryLoadResult<Matcher> try_load_direct(
         const std::filesystem::path& SVS_UNUSED(path),
         svs::DataType SVS_UNUSED(type_hint) = svs::DataType::undef,
@@ -478,7 +478,7 @@ class SimpleData {
     void compact(
         std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
     ) {
-        // Alllocate scratch space.
+        // Allocate scratch space.
         batchsize = std::min(batchsize, size());
         auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
         compact_data(*this, buffer, new_to_old, threadpool);
@@ -771,7 +771,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     template <std::integral I, threads::ThreadPool Pool>
     void
     compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000) {
-        // Alllocate scratch space.
+        // Allocate scratch space.
         batchsize = std::min(batchsize, size());
         auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
         compact_data(*this, buffer, new_to_old, threadpool);
