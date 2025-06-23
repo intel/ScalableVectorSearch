@@ -296,9 +296,9 @@ class VamanaBuilder {
             }
         }
         svs::logging::log(
-            logger, level, "Completed pass using window size {}.", params_.window_size
+            logger, Level::Debug, "Completed pass using window size {}.", params_.window_size
         );
-        svs::logging::log(logger, level, "{}", timer);
+        svs::logging::log(logger, Level::Debug, "{}", timer);
     }
 
     ///
