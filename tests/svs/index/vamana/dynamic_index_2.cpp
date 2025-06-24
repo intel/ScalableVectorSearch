@@ -263,9 +263,12 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
 
     // Set up log
     std::vector<std::string> captured_logs;
+    std::vector<svs::logging::Level> captured_levels;
+
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
-        [&captured_logs](const spdlog::details::log_msg& msg) {
+        [&captured_logs, &captured_levels](const spdlog::details::log_msg& msg) {
             captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+            captured_levels.push_back(svs::logging::detail::from_spdlog(msg.level));
         }
     );
     callback_sink->set_level(spdlog::level::trace);
@@ -323,7 +326,8 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     }
 
     svs::index::vamana::VamanaBuildParameters parameters{
-        1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
+        1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true
+    };
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(
@@ -337,8 +341,14 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     double build_time = svs::lib::time_difference(tic);
     index.debug_check_invariants(false);
 
-    CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
-    CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[0].find("Total / % Measured:") != std::string::npos);
+    CATCH_REQUIRE(captured_levels[0] == svs::logging::Level::Debug);
+    CATCH_REQUIRE(captured_logs[1].find("Vamana Build Parameters:") != std::string::npos);
+    CATCH_REQUIRE(captured_levels[1] == svs::logging::Level::Info);
+    CATCH_REQUIRE(captured_logs[2].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_levels[2] == svs::logging::Level::Trace);
+    CATCH_REQUIRE(captured_logs[3].find("Batch Size:") != std::string::npos);
+    CATCH_REQUIRE(captured_levels[3] == svs::logging::Level::Trace);
 
     // Test get_distance functionality
     svs::DistanceDispatcher dispatcher(svs::L2);
@@ -504,8 +514,9 @@ CATCH_TEST_CASE("Dynamic MutableVamanaIndex Per-Index Logging Test", "[logging]"
 
     // Verify the internal log messages
     CATCH_REQUIRE(global_captured_logs.empty());
-    CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
-    CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
 }
 
 CATCH_TEST_CASE("Dynamic MutableVamanaIndex Default Logger Test", "[logging]") {

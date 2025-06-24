@@ -143,13 +143,17 @@ struct VamanaIndexParameters {
                 lib::load_at<size_t>(table, "construction_window_size"),
                 lib::load_at<size_t>(table, "max_candidates"),
                 prune_to,
-                use_full_search_history},
+                use_full_search_history
+            },
             VamanaSearchParameters{
                 SearchBufferConfig{
-                    lib::load_at<size_t>(table, "default_search_window_size")},
+                    lib::load_at<size_t>(table, "default_search_window_size")
+                },
                 lib::load_at<bool>(table, "visited_set"),
                 4,
-                1}};
+                1
+            }
+        };
     }
 
     static VamanaIndexParameters load(const lib::ContextFreeLoadTable& table) {
@@ -406,13 +410,16 @@ class VamanaIndex {
               entry_point,
               std::move(distance_function),
               std::move(threadpool),
-              logger} {
+              logger
+          } {
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION("Wrong sizes!");
         }
         build_parameters_ = parameters;
         // verify the parameters before set local var
-        verify_and_set_default_index_parameters(build_parameters_, distance_function);
+        verify_and_set_default_index_parameters(
+            build_parameters_, distance_function, logger
+        );
         auto builder = VamanaBuilder(
             graph_,
             data_,
@@ -422,9 +429,9 @@ class VamanaIndex {
             extensions::estimate_prefetch_parameters(data_)
         );
 
-        builder.construct(1.0F, entry_point_[0], logging::Level::Info, logger);
+        builder.construct(1.0F, entry_point_[0], logging::Level::Trace, logger);
         builder.construct(
-            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger
+            build_parameters_.alpha, entry_point_[0], logging::Level::Trace, logger
         );
     }
 
@@ -449,7 +456,8 @@ class VamanaIndex {
                 sp.search_buffer_visited_set_
             ),
             extensions::single_search_setup(data_, distance_),
-            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+            {sp.prefetch_lookahead_, sp.prefetch_step_}
+        };
     }
 
     /// @brief Return scratch-space resources for external threading with default parameters
@@ -567,11 +575,12 @@ class VamanaIndex {
                 auto search_buffer = search_buffer_type{
                     SearchBufferConfig(search_parameters.buffer_config_),
                     distance::comparator(distance_),
-                    search_parameters.search_buffer_visited_set_};
+                    search_parameters.search_buffer_visited_set_
+                };
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    search_parameters.prefetch_lookahead_,
-                    search_parameters.prefetch_step_};
+                    search_parameters.prefetch_lookahead_, search_parameters.prefetch_step_
+                };
 
                 // Increase the search window size if the defaults are not suitable for the
                 // requested number of neighbors.
@@ -801,7 +810,8 @@ class VamanaIndex {
     ) const {
         // Construct and save runtime parameters.
         auto parameters = VamanaIndexParameters{
-            entry_point_.front(), build_parameters_, get_search_parameters()};
+            entry_point_.front(), build_parameters_, get_search_parameters()
+        };
 
         // Config
         lib::save_to_disk(parameters, config_directory);
@@ -937,7 +947,7 @@ auto auto_build(
 
     // Default graph.
     auto verified_parameters = parameters;
-    verify_and_set_default_index_parameters(verified_parameters, distance);
+    verify_and_set_default_index_parameters(verified_parameters, distance, logger);
     auto graph =
         default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
@@ -948,7 +958,8 @@ auto auto_build(
         lib::narrow<I>(entry_point),
         std::move(distance),
         std::move(threadpool),
-        logger};
+        logger
+    };
 }
 
 ///
@@ -997,7 +1008,8 @@ auto auto_assemble(
         I{},
         std::move(distance),
         std::move(threadpool),
-        std::move(logger)};
+        std::move(logger)
+    };
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;
@@ -1006,7 +1018,9 @@ auto auto_assemble(
 /// @brief Verify parameters and set defaults if needed
 template <typename Dist>
 void verify_and_set_default_index_parameters(
-    VamanaBuildParameters& parameters, Dist distance_function
+    VamanaBuildParameters& parameters,
+    Dist distance_function,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     // Set default values
     if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
@@ -1054,5 +1068,20 @@ void verify_and_set_default_index_parameters(
     if (parameters.prune_to > parameters.graph_max_degree) {
         throw std::invalid_argument("prune_to must be <= graph_max_degree");
     }
+
+    // Print all parameters
+    svs::logging::log(
+        logger,
+        logging::Level::Info,
+        "Vamana Build Parameters: alpha={}, graph_max_degree={}, "
+        "max_candidate_pool_size={}, prune_to={}, window_size={}, "
+        "use_full_search_history={}",
+        parameters.alpha,
+        parameters.graph_max_degree,
+        parameters.max_candidate_pool_size,
+        parameters.prune_to,
+        parameters.window_size,
+        parameters.use_full_search_history
+    );
 }
 } // namespace svs::index::vamana

@@ -225,7 +225,9 @@ class MutableVamanaIndex {
         , build_parameters_(parameters)
         , logger_{std::move(logger)} {
         // Verify and set defaults directly on the input parameters
-        verify_and_set_default_index_parameters(build_parameters_, distance_function);
+        verify_and_set_default_index_parameters(
+            build_parameters_, distance_function, logger_
+        );
 
         // Set graph again as verify function might change graph_max_degree parameter
         graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
@@ -248,9 +250,9 @@ class MutableVamanaIndex {
         auto builder = VamanaBuilder(
             graph_, data_, distance_, build_parameters_, threadpool_, prefetch_parameters
         );
-        builder.construct(1.0f, entry_point_[0], logging::Level::Info, logger_);
+        builder.construct(1.0f, entry_point_[0], logging::Level::Trace, logger_);
         builder.construct(
-            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger_
+            build_parameters_.alpha, entry_point_[0], logging::Level::Trace, logger_
         );
     }
 
@@ -298,7 +300,8 @@ class MutableVamanaIndex {
                 sp.search_buffer_visited_set_
             ),
             extensions::single_search_setup(data_, distance_),
-            {sp.prefetch_lookahead_, sp.prefetch_step_}};
+            {sp.prefetch_lookahead_, sp.prefetch_step_}
+        };
     }
 
     scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
@@ -505,7 +508,8 @@ class MutableVamanaIndex {
                     search_buffer_type{sp.buffer_config_, distance::comparator(distance_)};
 
                 auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                    sp.prefetch_lookahead_, sp.prefetch_step_
+                };
 
                 // Legalize search buffer for this search.
                 if (buffer.target() < num_neighbors) {
@@ -688,13 +692,15 @@ class MutableVamanaIndex {
             construction_window_size_,
             max_candidates_,
             prune_to_,
-            use_full_search_history_};
+            use_full_search_history_
+        };
 
         auto sp = get_search_parameters();
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
-            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
+            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters
+        };
         builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
@@ -996,7 +1002,8 @@ class MutableVamanaIndex {
                      get_max_candidates(),
                      prune_to_,
                      get_full_search_history()},
-                    get_search_parameters()};
+                    get_search_parameters()
+                };
 
                 return lib::SaveTable(
                     "vamana_dynamic_auxiliary_parameters",
@@ -1310,7 +1317,8 @@ struct VamanaStateLoader {
         if (debug_load_from_static) {
             return VamanaStateLoader{
                 lib::load<VamanaIndexParameters>(table),
-                IDTranslator::Identity(assume_datasize)};
+                IDTranslator::Identity(assume_datasize)
+            };
         }
 
         return VamanaStateLoader{
@@ -1411,7 +1419,8 @@ auto auto_dynamic_assemble(
         std::move(distance),
         std::move(translator),
         std::move(threadpool),
-        std::move(logger)};
+        std::move(logger)
+    };
 }
 
 } // namespace svs::index::vamana

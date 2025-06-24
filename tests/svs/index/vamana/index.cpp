@@ -176,8 +176,9 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
 
     // Verify the internal log messages
     CATCH_REQUIRE(global_captured_logs.empty());
-    CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
-    CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
 }
 
 CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
