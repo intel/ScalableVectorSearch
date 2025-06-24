@@ -265,9 +265,9 @@ CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging]") {
         );
         CATCH_REQUIRE(captured_levels[0] == svs::logging::Level::Info);
         CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
-        CATCH_REQUIRE(captured_levels[1] == svs::logging::Level::Info);
+        CATCH_REQUIRE(captured_levels[1] == svs::logging::Level::Trace);
         CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
-        CATCH_REQUIRE(captured_levels[2] == svs::logging::Level::Info);
+        CATCH_REQUIRE(captured_levels[2] == svs::logging::Level::Trace);
         auto default_logger = svs::logging::get();
         CATCH_REQUIRE(vamana_index.get_logger() != default_logger);
     }
