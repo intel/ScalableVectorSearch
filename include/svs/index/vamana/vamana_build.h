@@ -205,7 +205,7 @@ class VamanaBuilder {
     void construct(
         float alpha,
         Idx entry_point,
-        logging::Level level = logging::Level::Info,
+        logging::Level level = logging::Level::Trace,
         logging::logger_ptr logger = svs::logging::get()
     ) {
         construct(
@@ -218,7 +218,7 @@ class VamanaBuilder {
         float alpha,
         Idx entry_point,
         const R& range,
-        logging::Level level = logging::Level::Info,
+        logging::Level level = logging::Level::Trace,
         logging::logger_ptr logger = svs::logging::get()
     ) {
         size_t num_nodes = range.size();
