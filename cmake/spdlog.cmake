@@ -32,7 +32,7 @@ set(SPDLOG_FMT_EXTERNAL YES CACHE BOOL "" FORCE)
 FetchContent_Declare(
     spdlog
     GIT_REPOSITORY https://github.com/gabime/spdlog
-    GIT_TAG v1.13.0
+    GIT_TAG v1.15.3
 )
 FetchContent_MakeAvailable(spdlog)
 target_link_libraries(${SVS_LIB} INTERFACE spdlog::spdlog)
