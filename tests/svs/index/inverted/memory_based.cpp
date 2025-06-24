@@ -70,6 +70,6 @@ CATCH_TEST_CASE("InvertedIndex Logging Test", "[logging]") {
 
     // Verify the internal log messages
     CATCH_REQUIRE(global_captured_logs.empty());
-    CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
-    CATCH_REQUIRE(captured_logs[1].find("Number of syncs") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Vamana Build Parameters:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[2].find("Number of syncs") != std::string::npos);
 }
