@@ -37,10 +37,13 @@ class DynamicVamanaInterface : public VamanaInterface {
         size_t dim0,
         size_t dim1,
         std::span<const size_t> ids,
-        bool reuse_empty = false
+        bool reuse_empty = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) = 0;
 
-    virtual void delete_points(std::span<const size_t> ids) = 0;
+    virtual void delete_points(
+        std::span<const size_t> ids, svs::logging::logger_ptr logger = svs::logging::get()
+    ) = 0;
     virtual void consolidate() = 0;
     virtual void compact(size_t batchsize = 1'000'000) = 0;
 
@@ -71,13 +74,18 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         size_t dim0,
         size_t dim1,
         std::span<const size_t> ids,
-        bool reuse_empty = false
+        bool reuse_empty = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) override {
         auto points = data::ConstSimpleDataView<float>(data, dim0, dim1);
-        impl().add_points(points, ids, reuse_empty);
+        impl().add_points(points, ids, reuse_empty, logger);
     }
 
-    void delete_points(std::span<const size_t> ids) override { impl().delete_entries(ids); }
+    void delete_points(
+        std::span<const size_t> ids, svs::logging::logger_ptr logger = svs::logging::get()
+    ) override {
+        impl().delete_entries(ids, logger);
+    }
     void consolidate() override { impl().consolidate(); }
     void compact(size_t batchsize) override { impl().compact(batchsize); }
 
@@ -174,16 +182,19 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     DynamicVamana& add_points(
         data::ConstSimpleDataView<float> points,
         std::span<const size_t> ids,
-        bool reuse_empty = false
+        bool reuse_empty = false,
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         impl_->add_points(
-            points.data(), points.size(), points.dimensions(), ids, reuse_empty
+            points.data(), points.size(), points.dimensions(), ids, reuse_empty, logger
         );
         return *this;
     }
 
-    DynamicVamana& delete_points(std::span<const size_t> ids) {
-        impl_->delete_points(ids);
+    DynamicVamana& delete_points(
+        std::span<const size_t> ids, svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
+        impl_->delete_points(ids, logger);
         return *this;
     }
 

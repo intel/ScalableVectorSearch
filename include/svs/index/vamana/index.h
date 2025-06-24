@@ -467,7 +467,11 @@ class VamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         return [&, prefetch_parameters](
-                   const auto& query, auto& accessor, auto& distance, auto& buffer
+                   const auto& query,
+                   auto& accessor,
+                   auto& distance,
+                   auto& buffer,
+                   auto& logger
                ) {
             greedy_search(
                 graph_,
@@ -479,6 +483,7 @@ class VamanaIndex {
                 vamana::EntryPointInitializer<Idx>{lib::as_const_span(entry_point_)},
                 internal_search_builder(),
                 prefetch_parameters,
+                logger_ ? logger_ : logger,
                 cancel
             );
         };
@@ -502,6 +507,7 @@ class VamanaIndex {
     void search(
         const Query& query,
         scratchspace_type& scratch,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         extensions::single_search(
@@ -509,7 +515,8 @@ class VamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel)
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            logger_ ? logger_ : logger
         );
     }
 
@@ -554,6 +561,7 @@ class VamanaIndex {
         QueryResultView<I> result,
         const Queries& queries,
         const search_parameters_type& search_parameters,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::parallel_for(
@@ -591,6 +599,7 @@ class VamanaIndex {
                     result,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
+                    logger_ ? logger_ : logger,
                     cancel
                 );
             }
@@ -828,14 +837,15 @@ class VamanaIndex {
         const GroundTruth& groundtruth,
         size_t num_neighbors,
         double target_recall,
-        const CalibrationParameters& calibration_parameters = {}
+        const CalibrationParameters& calibration_parameters = {},
+        svs::logging::logger_ptr logger = svs::logging::get()
     ) {
         // Preallocate the destination for search.
         // Further, reference the search lambda in the recall lambda.
         auto results = svs::QueryResult<size_t>{queries.size(), num_neighbors};
 
         auto do_search = [&](const search_parameters_type& p) {
-            this->search(results.view(), queries, p);
+            this->search(results.view(), queries, p, logger_ ? logger_ : logger);
         };
 
         auto compute_recall = [&](const search_parameters_type& p) {
@@ -850,7 +860,8 @@ class VamanaIndex {
             num_neighbors,
             target_recall,
             compute_recall,
-            do_search
+            do_search,
+            logger_ ? logger_ : logger
         );
         set_search_parameters(p);
         return p;
@@ -997,7 +1008,7 @@ auto auto_assemble(
         I{},
         std::move(distance),
         std::move(threadpool),
-        std::move(logger)};
+        logger};
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
     index.apply(config);
     return index;

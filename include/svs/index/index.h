@@ -18,6 +18,7 @@
 
 // svs
 #include "svs/concepts/data.h"
+#include "svs/core/logging.h"
 #include "svs/core/query_result.h"
 
 // stl
@@ -47,11 +48,12 @@ void search_batch_into_with(
     svs::QueryResultView<I> result,
     const Queries& queries,
     const search_parameters_t<Index>& search_parameters,
+    svs::logging::logger_ptr logger = svs::logging::get(),
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Assert pre-conditions.
     assert(result.n_queries() == queries.size());
-    index.search(result, queries, search_parameters, cancel);
+    index.search(result, queries, search_parameters, logger, cancel);
 }
 
 // Apply default search parameters
@@ -60,10 +62,11 @@ void search_batch_into(
     Index& index,
     svs::QueryResultView<I> result,
     const Queries& queries,
+    svs::logging::logger_ptr logger = svs::logging::get(),
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     svs::index::search_batch_into_with(
-        index, result, queries, index.get_search_parameters(), cancel
+        index, result, queries, index.get_search_parameters(), logger, cancel
     );
 }
 
@@ -74,11 +77,12 @@ svs::QueryResult<size_t> search_batch_with(
     const Queries& queries,
     size_t num_neighbors,
     const search_parameters_t<Index>& search_parameters,
+    svs::logging::logger_ptr logger = svs::logging::get(),
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     auto result = svs::QueryResult<size_t>{queries.size(), num_neighbors};
     svs::index::search_batch_into_with(
-        index, result.view(), queries, search_parameters, cancel
+        index, result.view(), queries, search_parameters, logger, cancel
     );
     return result;
 }
@@ -89,10 +93,11 @@ svs::QueryResult<size_t> search_batch(
     Index& index,
     const Queries& queries,
     size_t num_neighbors,
+    svs::logging::logger_ptr logger = svs::logging::get(),
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     return svs::index::search_batch_with(
-        index, queries, num_neighbors, index.get_search_parameters(), cancel
+        index, queries, num_neighbors, index.get_search_parameters(), logger, cancel
     );
 }
 } // namespace svs::index

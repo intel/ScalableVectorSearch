@@ -408,6 +408,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
         QueryResultView<Idx> results,
         const Queries& queries,
         const search_parameters_type& search_parameters,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         threads::parallel_for(
@@ -431,7 +432,7 @@ template <typename Index, typename Cluster> class InvertedIndex {
 
                     auto&& query = queries.get_datum(i);
                     // Primary Index Search
-                    index_.search(query, scratch, cancel);
+                    index_.search(query, scratch, logger, cancel);
 
                     auto& d = scratch.scratch;
                     auto compare = distance::comparator(d);

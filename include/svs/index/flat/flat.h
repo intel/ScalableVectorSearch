@@ -318,6 +318,7 @@ class FlatIndex {
         QueryResultView<size_t> result,
         const data::ConstSimpleDataView<QueryType>& queries,
         const search_parameters_type& search_parameters,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
@@ -346,6 +347,7 @@ class FlatIndex {
                 threads::UnitRange(start, stop),
                 scratch,
                 search_parameters,
+                logger,
                 cancel,
                 predicate
             );
@@ -376,6 +378,7 @@ class FlatIndex {
         const threads::UnitRange<size_t>& data_indices,
         sorter_type& scratch,
         const search_parameters_type& search_parameters,
+        svs::logging::logger_ptr logger = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {
@@ -397,6 +400,7 @@ class FlatIndex {
                     threads::UnitRange(query_indices),
                     scratch,
                     distances,
+                    logger,
                     cancel,
                     predicate
                 );
@@ -419,6 +423,7 @@ class FlatIndex {
         const threads::UnitRange<size_t>& query_indices,
         sorter_type& scratch,
         distance::BroadcastDistance<DistFull>& distance_functors,
+        logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get(),
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
         Pred predicate = lib::Returns(lib::Const<true>())
     ) {

@@ -47,6 +47,7 @@ struct TestIndex {
         svs::QueryResultView<size_t> result,
         svs::data::ConstSimpleDataView<float> queries,
         SearchParameters p,
+        svs::logging::logger_ptr SVS_UNUSED(logger) = svs::logging::get(),
         const svs::lib::DefaultPredicate& cancel =
             svs::lib::Returns(svs::lib::Const<false>())
     ) const {
