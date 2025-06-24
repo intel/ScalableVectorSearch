@@ -447,5 +447,6 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
 
     // Verify the internal log messages
     CATCH_REQUIRE(global_captured_logs.empty());
-    CATCH_REQUIRE(captured_logs[0].find("Number of syncs") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Number of syncs") != std::string::npos);
 }

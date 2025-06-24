@@ -256,8 +256,11 @@ CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging]") {
         );
 
         // Verify the custom logger captured the log messages
-        CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
-        CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+        CATCH_REQUIRE(
+            captured_logs[0].find("Vamana Build Parameters:") != std::string::npos
+        );
+        CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
+        CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
         auto default_logger = svs::logging::get();
         CATCH_REQUIRE(vamana_index.get_logger() != default_logger);
     }
