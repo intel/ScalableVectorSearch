@@ -326,8 +326,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     }
 
     svs::index::vamana::VamanaBuildParameters parameters{
-        1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true
-    };
+        1.2, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(
@@ -344,7 +343,7 @@ CATCH_TEST_CASE("Testing Graph Index", "[graph_index][dynamic_index]") {
     CATCH_REQUIRE(captured_logs[0].find("Total / % Measured:") != std::string::npos);
     CATCH_REQUIRE(captured_levels[0] == svs::logging::Level::Debug);
     CATCH_REQUIRE(captured_logs[1].find("Vamana Build Parameters:") != std::string::npos);
-    CATCH_REQUIRE(captured_levels[1] == svs::logging::Level::Info);
+    CATCH_REQUIRE(captured_levels[1] == svs::logging::Level::Debug);
     CATCH_REQUIRE(captured_logs[2].find("Number of syncs:") != std::string::npos);
     CATCH_REQUIRE(captured_levels[2] == svs::logging::Level::Trace);
     CATCH_REQUIRE(captured_logs[3].find("Batch Size:") != std::string::npos);
