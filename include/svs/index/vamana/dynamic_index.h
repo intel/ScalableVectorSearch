@@ -703,7 +703,14 @@ class MutableVamanaIndex {
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
-            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters, logger_
+            graph_,
+            data_,
+            distance_,
+            parameters,
+            threadpool_,
+            prefetch_parameters,
+            logger_,
+            logging::Level::Trace
         };
         builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
         // Mark all added entries as valid.

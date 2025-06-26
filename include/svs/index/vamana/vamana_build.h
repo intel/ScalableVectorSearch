@@ -124,8 +124,11 @@ template <typename Idx> class BackedgeBuffer {
         , bucket_locks_{parameters.num_buckets_} {}
 
     BackedgeBuffer(size_t num_elements, size_t bucket_size)
-        : BackedgeBuffer(BackedgeBufferParameters{
-              bucket_size, lib::div_round_up(num_elements, bucket_size)}) {}
+        : BackedgeBuffer(
+              BackedgeBufferParameters{
+                  bucket_size, lib::div_round_up(num_elements, bucket_size)
+              }
+          ) {}
 
     // Add a point.
     void add_edge(Idx src, Idx dst) {
@@ -185,7 +188,8 @@ class VamanaBuilder {
         const VamanaBuildParameters& params,
         Pool& threadpool,
         GreedySearchPrefetchParameters prefetch_hint = {},
-        svs::logging::logger_ptr logger = svs::logging::get()
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        logging::Level level = logging::Level::Debug
     )
         : graph_{graph}
         , data_{data}
@@ -198,7 +202,7 @@ class VamanaBuilder {
         // Print all parameters
         svs::logging::log(
             logger,
-            logging::Level::Debug,
+            level,
             "Vamana Build Parameters: alpha={}, graph_max_degree={}, "
             "max_candidate_pool_size={}, prune_to={}, window_size={}, "
             "use_full_search_history={}",
@@ -335,9 +339,7 @@ class VamanaBuilder {
         update_type updates{threadpool_.size()};
         auto main = timer.push_back("main");
         threads::parallel_for(
-            threadpool_,
-            range,
-            [&](const auto& local_indices, uint64_t tid) {
+            threadpool_, range, [&](const auto& local_indices, uint64_t tid) {
                 // Thread local variables
                 auto& thread_local_updates = updates.at(tid);
 
@@ -488,9 +490,7 @@ class VamanaBuilder {
         auto range = threads::StaticPartition{indices};
         backedge_buffer_.reset();
         threads::parallel_for(
-            threadpool_,
-            range,
-            [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
+            threadpool_, range, [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
                 for (auto node_id : is) {
                     for (auto other_id : graph_.get_node(node_id)) {
                         std::lock_guard lock{vertex_locks_[other_id]};
@@ -539,7 +539,8 @@ class VamanaBuilder {
                                 i,
                                 distance::compute(
                                     general_distance, src_data, general_accessor(data_, i)
-                                )};
+                                )
+                            };
                         };
 
                         candidates.clear();
