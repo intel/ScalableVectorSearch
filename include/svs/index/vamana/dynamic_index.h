@@ -225,9 +225,7 @@ class MutableVamanaIndex {
         , build_parameters_(parameters)
         , logger_{std::move(logger)} {
         // Verify and set defaults directly on the input parameters
-        verify_and_set_default_index_parameters(
-            build_parameters_, distance_function, logger_
-        );
+        verify_and_set_default_index_parameters(build_parameters_, distance_function);
 
         // Set graph again as verify function might change graph_max_degree parameter
         graph_ = Graph{data_.size(), build_parameters_.graph_max_degree};
@@ -248,7 +246,13 @@ class MutableVamanaIndex {
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         auto builder = VamanaBuilder(
-            graph_, data_, distance_, build_parameters_, threadpool_, prefetch_parameters
+            graph_,
+            data_,
+            distance_,
+            build_parameters_,
+            threadpool_,
+            prefetch_parameters,
+            logger_
         );
         builder.construct(1.0f, entry_point_[0], logging::Level::Trace, logger_);
         builder.construct(

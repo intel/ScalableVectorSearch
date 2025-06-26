@@ -412,9 +412,7 @@ class VamanaIndex {
         }
         build_parameters_ = parameters;
         // verify the parameters before set local var
-        verify_and_set_default_index_parameters(
-            build_parameters_, distance_function, logger
-        );
+        verify_and_set_default_index_parameters(build_parameters_, distance_function);
         auto builder = VamanaBuilder(
             graph_,
             data_,
@@ -939,7 +937,7 @@ auto auto_build(
 
     // Default graph.
     auto verified_parameters = parameters;
-    verify_and_set_default_index_parameters(verified_parameters, distance, logger);
+    verify_and_set_default_index_parameters(verified_parameters, distance);
     auto graph =
         default_graph(data.size(), verified_parameters.graph_max_degree, graph_allocator);
     using I = typename decltype(graph)::index_type;
@@ -1008,9 +1006,7 @@ auto auto_assemble(
 /// @brief Verify parameters and set defaults if needed
 template <typename Dist>
 void verify_and_set_default_index_parameters(
-    VamanaBuildParameters& parameters,
-    Dist distance_function,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    VamanaBuildParameters& parameters, Dist distance_function
 ) {
     // Set default values
     if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
@@ -1058,20 +1054,5 @@ void verify_and_set_default_index_parameters(
     if (parameters.prune_to > parameters.graph_max_degree) {
         throw std::invalid_argument("prune_to must be <= graph_max_degree");
     }
-
-    // Print all parameters
-    svs::logging::log(
-        logger,
-        logging::Level::Debug,
-        "Vamana Build Parameters: alpha={}, graph_max_degree={}, "
-        "max_candidate_pool_size={}, prune_to={}, window_size={}, "
-        "use_full_search_history={}",
-        parameters.alpha,
-        parameters.graph_max_degree,
-        parameters.max_candidate_pool_size,
-        parameters.prune_to,
-        parameters.window_size,
-        parameters.use_full_search_history
-    );
 }
 } // namespace svs::index::vamana
