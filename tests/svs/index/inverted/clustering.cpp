@@ -288,7 +288,8 @@ void test_end_to_end_clustering(
     });
 
     auto vamana_parameters = svs::index::vamana::VamanaBuildParameters{
-        construction_alpha, 64, 200, 1000, 60, true};
+        construction_alpha, 64, 200, 1000, 60, true
+    };
 
     // Build the index once and reuse it multiple times to help speed up tests.
     for (size_t max_replicas : {2, 8}) {
@@ -447,6 +448,6 @@ CATCH_TEST_CASE("Clustering with Logger", "[logging]") {
 
     // Verify the internal log messages
     CATCH_REQUIRE(global_captured_logs.empty());
-    CATCH_REQUIRE(captured_logs[1].find("Vamana Build Parameters:") != std::string::npos);
-    CATCH_REQUIRE(captured_logs[2].find("Number of syncs") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
+    CATCH_REQUIRE(captured_logs[1].find("Number of syncs") != std::string::npos);
 }
