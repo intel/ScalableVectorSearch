@@ -288,8 +288,7 @@ void test_end_to_end_clustering(
     });
 
     auto vamana_parameters = svs::index::vamana::VamanaBuildParameters{
-        construction_alpha, 64, 200, 1000, 60, true
-    };
+        construction_alpha, 64, 200, 1000, 60, true};
 
     // Build the index once and reuse it multiple times to help speed up tests.
     for (size_t max_replicas : {2, 8}) {

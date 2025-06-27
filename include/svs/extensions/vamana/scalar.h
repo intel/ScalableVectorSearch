@@ -69,7 +69,6 @@ template <IsSQData Data, typename Distance> struct VamanaBuildAdaptor {
     general_distance_type& general_distance() { return distance_; }
     data::GetDatumAccessor general_accessor() const { return data::GetDatumAccessor{}; }
 
-
     template <typename Query, NeighborLike N>
     SVS_FORCE_INLINE Neighbor<typename N::index_type> post_search_modify(
         const Data& SVS_UNUSED(data),

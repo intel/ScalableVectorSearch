@@ -578,8 +578,7 @@ class DecompressionAccessor {
         : decompressor_{data.get_scale(), data.get_bias()} {}
 
     // Access
-    template <IsSQData Data>
-    std::span<const float> operator()(const Data& data, size_t i) {
+    template <IsSQData Data> std::span<const float> operator()(const Data& data, size_t i) {
         return decompressor_(data.get_datum(i));
     }
 

@@ -15,11 +15,11 @@
  */
 
 // svs
-#include "svs/orchestrators/vamana.h"
 #include "svs/extensions/vamana/scalar.h"
-#include "svs/quantization/scalar/scalar.h"
 #include "svs/core/data/simple.h"
 #include "svs/lib/meta.h"
+#include "svs/orchestrators/vamana.h"
+#include "svs/quantization/scalar/scalar.h"
 
 #include "tests/svs/core/data/data.h"
 #include "tests/utils/generators.h"
