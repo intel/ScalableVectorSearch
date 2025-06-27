@@ -93,6 +93,9 @@ template <typename ElementType> class EuclideanCompressed {
         return scale_sq_ * distance::compute(inner, view_query(), y);
     }
 
+    float get_scale() const { return scale_; }
+    float get_bias() const { return bias_; }
+
   private:
     data::SimpleData<ElementType> query_compressed_;
     float scale_;
@@ -138,6 +141,9 @@ class InnerProductCompressed {
         return scale_ * ip + offset_;
     }
 
+    float get_scale() const { return scale_; }
+    float get_bias() const { return bias_; }
+
   private:
     data::SimpleData<float> query_fp32_;
     float scale_;
@@ -176,6 +182,9 @@ class CosineSimilarityCompressed {
         });
         return distance::compute(inner_, view_query(), std::span<const float>(y_decomp));
     }
+
+    float get_scale() const { return scale_; }
+    float get_bias() const { return bias_; }
 
   private:
     data::SimpleData<float> query_fp32_;
@@ -325,6 +334,26 @@ using compressed_distance_t =
 template <typename T>
 concept IsSQData = detail::compressed_data_trait_v<T>;
 
+class Decompressor {
+  public:
+    Decompressor() = delete;
+    Decompressor(float scale, float bias)
+        : scale_(scale)
+        , bias_(bias) {}
+
+    template <typename T> std::span<const float> operator()(const T& y) {
+        std::transform(y.begin(), y.end(), buffer_.begin(), [&](auto v) {
+            return detail::decompress<float>(v, scale_, bias_);
+        });
+        return lib::as_const_span(buffer_);
+    }
+
+  private:
+    float scale_ = {};
+    float bias_ = {};
+    std::vector<float> buffer_ = {};
+};
+
 inline constexpr std::string_view scalar_quantization_serialization_schema =
     "scalar_quantization_dataset";
 inline constexpr lib::Version scalar_quantization_save_version = lib::Version(0, 0, 0);
@@ -387,6 +416,9 @@ class SQDataset {
         data_.set_datum(i, buffer);
         // TODO: Float16 truncation check? (see codec.h, line 1[14)
     }
+
+    ///// Decompressor
+    Decompressor decompressor() const { return Decompressor{scale_, bias_}; }
 
     template <data::ImmutableMemoryDataset Dataset>
     static SQDataset compress(const Dataset& data, const allocator_type& allocator = {}) {
@@ -467,6 +499,102 @@ class SQDataset {
     /// @brief Prefetch data in the dataset.
     void prefetch(size_t i) const { data_.prefetch(i); }
 };
+
+/////
+///// Support for index building.
+/////
+
+///
+/// Adaptor to adjust a distance function with type `Distance` to enable index building
+/// over a compressed dataset.
+///
+/// Essentially, allows for distance computations between two elements of a compressed
+/// dataset.
+///
+template <typename Distance> class DecompressionAdaptor {
+  public:
+    using distance_type = Distance;
+    using compare = distance::compare_t<distance_type>;
+    static constexpr bool implicit_broadcast = false;
+    static constexpr bool must_fix_argument = true;
+
+    DecompressionAdaptor(const distance_type& inner, size_t size_hint = 0)
+        : inner_{inner}
+        , decompressed_(size_hint) {}
+
+    DecompressionAdaptor(distance_type&& inner, size_t size_hint = 0)
+        : inner_{std::move(inner)}
+        , decompressed_(size_hint) {}
+
+    ///
+    /// @brief Construct the internal portion of DecompressionAdaptor directly.
+    ///
+    /// The goal of the decompression adaptor is to wrap around an inner distance functor
+    /// and decompress the left-hand component when requested, forwarding the decompressed
+    /// value to the inner functor upon future distance computations.
+    ///
+    /// The inner distance functor may have non-trivial state associated with it.
+    /// This constructor allows to construction of that inner functor directly to avoid
+    /// a copy or move constructor.
+    ///
+    template <typename... Args>
+    DecompressionAdaptor(std::in_place_t SVS_UNUSED(tag), Args&&... args)
+        : inner_{std::forward<Args>(args)...}
+        , decompressed_() {}
+
+    DecompressionAdaptor shallow_copy() const {
+        return DecompressionAdaptor(inner_, decompressed_.size());
+    }
+
+    // Distance API.
+    template <typename Left> void fix_argument(Left left) {
+        decompressed_.resize(left.size());
+        std::transform(left.begin(), left.end(), decompressed_.begin(), [&](auto v) {
+            return detail::decompress<float>(v, inner_.get_scale(), inner_.get_bias());
+        });
+        inner_.fix_argument(view());
+    }
+
+    template <typename Right> float compute(const Right& right) const {
+        return distance::compute(inner_, view(), right);
+    }
+
+    std::span<const float> view() const { return decompressed_; }
+
+  private:
+    distance_type inner_;
+    std::vector<float> decompressed_;
+};
+
+/////
+///// Decompression Accessor
+/////
+
+// A composition of ``GetDatumAccessor`` and a vector decompressor.
+class DecompressionAccessor {
+  public:
+    template <IsSQData Data>
+    DecompressionAccessor(const Data& data)
+        : decompressor_{data.get_scale(), data.get_bias()} {}
+
+    // Access
+    template <IsSQData Data>
+    std::span<const float> operator()(const Data& data, size_t i) {
+        return decompressor_(data.get_datum(i));
+    }
+
+  private:
+    scalar::Decompressor decompressor_;
+};
+
+template <IsSQData Data, typename Distance>
+DecompressionAdaptor<compressed_distance_t<Distance, typename Data::element_type>>
+adapt_for_self(const Data& data, const Distance& SVS_UNUSED(distance)) {
+    return DecompressionAdaptor<
+        compressed_distance_t<Distance, typename Data::element_type>>(
+        std::in_place, data.get_scale(), data.get_bias(), data.dimensions()
+    );
+}
 
 } // namespace scalar
 } // namespace quantization
