@@ -435,11 +435,11 @@ DynamicPartition(const R&, size_t) -> DynamicPartition<typename R::const_iterato
 // Comment out the code until the issue is resolved in an upcoming fmt update
 // Related test: tests/svs/lib/threads/types.cpp::printing
 // Formatting
-//template <typename T>
-//struct fmt::formatter<svs::threads::UnitRange<T>> : svs::format_empty {
-    //auto format(const svs::threads::UnitRange<T>& x, auto& ctx) const {
-        //return fmt::format_to(
-            //ctx.out(), "UnitRange<{}>({}, {})", svs::datatype_v<T>, x.start(), x.stop()
-        //);
-    //}
+// template <typename T>
+// struct fmt::formatter<svs::threads::UnitRange<T>> : svs::format_empty {
+// auto format(const svs::threads::UnitRange<T>& x, auto& ctx) const {
+// return fmt::format_to(
+// ctx.out(), "UnitRange<{}>({}, {})", svs::datatype_v<T>, x.start(), x.stop()
+//);
+//}
 //};

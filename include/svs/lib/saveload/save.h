@@ -198,7 +198,8 @@ concept HasZeroArgSaveTo = requires(const T& x) {
 ///
 /// The expected return type is either ``svs::lib::SaveTable`` or ``svs::lib::SaveNode``.
 ///
-/// This class is automatically defined for classes ``T`` with appropriate ``save()`` methods.
+/// This class is automatically defined for classes ``T`` with appropriate ``save()``
+/// methods.
 ///
 template <typename T> struct Saver {
     static SaveTable save(const T& x)
