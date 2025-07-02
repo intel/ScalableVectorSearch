@@ -80,7 +80,7 @@ include("cmake/toml.cmake")
 add_library(svs_x86_options_base INTERFACE)
 add_library(svs::x86_options_base ALIAS svs_x86_options_base)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-    target_compile_options(svs_x86_options_base INTERFACE -march=x86-64 -mtune=generic)
+    target_compile_options(svs_x86_options_base INTERFACE -march=x86-64 -mtune=generic -ffunction-sections -fdata-sections)
     include("cmake/multi-arch.cmake")
 endif()
 

@@ -118,7 +118,7 @@ endif()
 if (SVS_NO_AVX512)
     # AVX512F is the base for the Intel(R) AVX-512 instruction set.
     # Adding the `-mno-avx512f` flag will disable all Intel(R) AVX-512 dependent instructions.
-    target_compile_options(${SVS_LIB} INTERFACE -mno-avx512f)
+    target_compile_options(${SVS_LIB} INTERFACE -mno-avx512f -ffunction-sections -fdata-sections)
 endif()
 
 # Enable bounds-checking by default for non-release builds.
@@ -146,7 +146,7 @@ endif()
 
 add_library(svs_native_options INTERFACE)
 add_library(svs::native_options ALIAS svs_native_options)
-target_compile_options(svs_native_options INTERFACE -march=native -mtune=native)
+target_compile_options(svs_native_options INTERFACE -march=native -mtune=native -ffunction-sections -fdata-sections)
 
 # Use an internal INTERFACE target to apply the same build options to both the
 # unit test and the compiled binaries.
@@ -162,11 +162,13 @@ target_compile_options(
         -Wpedantic
         -Wno-gnu-zero-variadic-macro-arguments
         -Wno-parentheses # GCC in CI has issues without it
+        -ffunction-sections
+        -fdata-sections
 )
 
 
 if(CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebugInfo)
-    target_compile_options(svs_compile_options INTERFACE -O3)
+    target_compile_options(svs_compile_options INTERFACE -O3 -ffunction-sections -fdata-sections)
 endif()
 
 #####
@@ -175,7 +177,7 @@ endif()
 
 # Fix Clang complaining about the sized delete operator.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
-    target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation)
+    target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation -ffunction-sections -fdata-sections)
 endif()
 
 # Provide better diagnostics for broken templates.
@@ -185,6 +187,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         INTERFACE
         -fconcepts-diagnostics-depth=10
         -ftemplate-backtrace-limit=0
+        -ffunction-sections
+        -fdata-sections
     )
 
     if (CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 12.0)
@@ -193,7 +197,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         #
         # Since we're largely header-only and can't separately compile distance related
         # functions, the best we can do is disable the offending checks.
-        target_compile_options(svs_compile_options INTERFACE -Wno-uninitialized)
+        target_compile_options(svs_compile_options INTERFACE -Wno-uninitialized -ffunction-sections -fdata-sections)
     endif()
 endif()
 
