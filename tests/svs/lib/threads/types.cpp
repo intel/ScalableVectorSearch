@@ -200,10 +200,10 @@ CATCH_TEST_CASE("Thread Helper Types", "[core][threads]") {
             CATCH_REQUIRE(*(r.end() - 1) == 99);
         }
 
-        //CATCH_SECTION("Printing") {
-            //auto range = svs::threads::UnitRange<size_t>(100, 200);
-            //auto repr = fmt::format("{}", range);
-            //CATCH_REQUIRE(repr == "UnitRange<uint64>(100, 200)");
+        // CATCH_SECTION("Printing") {
+        // auto range = svs::threads::UnitRange<size_t>(100, 200);
+        // auto repr = fmt::format("{}", range);
+        // CATCH_REQUIRE(repr == "UnitRange<uint64>(100, 200)");
         //}
 
         CATCH_SECTION("Indexing") {

@@ -184,7 +184,9 @@ class VamanaBuilder {
         Dist distance_function,
         const VamanaBuildParameters& params,
         Pool& threadpool,
-        GreedySearchPrefetchParameters prefetch_hint = {}
+        GreedySearchPrefetchParameters prefetch_hint = {},
+        svs::logging::logger_ptr logger = svs::logging::get(),
+        logging::Level level = logging::Level::Debug
     )
         : graph_{graph}
         , data_{data}
@@ -194,6 +196,20 @@ class VamanaBuilder {
         , threadpool_{threadpool}
         , vertex_locks_(data.size())
         , backedge_buffer_{data.size(), 1000} {
+        // Print all parameters
+        svs::logging::log(
+            logger,
+            level,
+            "Vamana Build Parameters: alpha={}, graph_max_degree={}, "
+            "max_candidate_pool_size={}, prune_to={}, window_size={}, "
+            "use_full_search_history={}",
+            params.alpha,
+            params.graph_max_degree,
+            params.max_candidate_pool_size,
+            params.prune_to,
+            params.window_size,
+            params.use_full_search_history
+        );
         // Check class invariants.
         if (graph_.n_nodes() != data_.size()) {
             throw ANNEXCEPTION(
@@ -296,12 +312,9 @@ class VamanaBuilder {
             }
         }
         svs::logging::log(
-            logger,
-            logging::Level::Debug,
-            "Completed pass using window size {}.",
-            params_.window_size
+            logger, level, "Completed pass using window size {}.", params_.window_size
         );
-        svs::logging::log(logger, logging::Level::Debug, "{}", timer);
+        svs::logging::log(logger, level, "{}", timer);
     }
 
     ///
