@@ -37,6 +37,7 @@ set(CPP_FILES
     src/vamana.cpp
     src/vamana_common.cpp
     src/svs_mkl.cpp
+    src/ivf.cpp
 )
 
 set(LIB_NAME "_svs")

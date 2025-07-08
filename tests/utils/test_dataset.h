@@ -58,6 +58,9 @@ std::filesystem::path groundtruth_mip_file();
 // Groundtruth of for the queries with respect to the dataset using cosine similarity.
 std::filesystem::path groundtruth_cosine_file();
 
+// The directory containing the IVF clustering.
+std::filesystem::path clustering_directory();
+
 ///// Helper Functions
 svs::data::SimpleData<float> queries();
 svs::data::SimpleData<uint32_t> groundtruth_euclidean();

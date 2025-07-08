@@ -22,6 +22,7 @@
 ///
 
 // local deps
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/float16.h"
 #include "svs/third-party/fmt.h"
@@ -50,6 +51,7 @@ enum class DataType {
     int32,
     int64,
     float16,
+    bfloat16,
     float32,
     float64,
     byte,
@@ -73,6 +75,9 @@ template <> inline constexpr std::string_view name<DataType::int64>() { return "
 
 template <> inline constexpr std::string_view name<DataType::float16>() {
     return "float16";
+}
+template <> inline constexpr std::string_view name<DataType::bfloat16>() {
+        return "bfloat16";
 }
 template <> inline constexpr std::string_view name<DataType::float32>() {
     return "float32";
@@ -101,6 +106,7 @@ inline constexpr std::string_view name(DataType type) {
         case DataType::int64: { return name<DataType::int64>(); }
 
         case DataType::float16: { return name<DataType::float16>(); }
+        case DataType::bfloat16: { return name<DataType::bfloat16>(); }
         case DataType::float32: { return name<DataType::float32>(); }
         case DataType::float64: { return name<DataType::float64>(); }
 
@@ -126,6 +132,7 @@ inline constexpr size_t element_size(DataType type) {
         case DataType::int64: { return sizeof(int64_t); }
 
         case DataType::float16: { return sizeof(svs::Float16); }
+        case DataType::bfloat16: { return sizeof(svs::BFloat16); }
         case DataType::float32: { return sizeof(float); }
         case DataType::float64: { return sizeof(double); }
 
@@ -139,6 +146,9 @@ inline constexpr size_t element_size(DataType type) {
 inline constexpr DataType parse_datatype_floating(std::string_view name) {
     if (name == "float16") {
         return DataType::float16;
+    }
+    if (name == "bfloat16") {
+        return DataType::bfloat16;
     }
     if (name == "float32") {
         return DataType::float32;
@@ -191,7 +201,7 @@ inline constexpr DataType parse_datatype(std::string_view name) {
     }
 
     // Floating point.
-    if (name.starts_with("float")) {
+    if (name.starts_with("float") || name.starts_with("bfloat")) {
         return parse_datatype_floating(name);
     }
     if (name.starts_with("uint")) {
@@ -263,6 +273,7 @@ template <> struct CppType<DataType::int32> { using type = int32_t; };
 template <> struct CppType<DataType::int64> { using type = int64_t; };
 
 template <> struct CppType<DataType::float16> { using type = Float16; };
+template <> struct CppType<DataType::bfloat16> { using type = BFloat16; };
 template <> struct CppType<DataType::float32> { using type = float; };
 template <> struct CppType<DataType::float64> { using type = double; };
 
@@ -289,6 +300,7 @@ template<> inline constexpr DataType datatype_v<int32_t> = DataType::int32;
 template<> inline constexpr DataType datatype_v<int64_t> = DataType::int64;
 
 template<> inline constexpr DataType datatype_v<Float16> = DataType::float16;
+template<> inline constexpr DataType datatype_v<BFloat16> = DataType::bfloat16;
 template<> inline constexpr DataType datatype_v<float> = DataType::float32;
 template<> inline constexpr DataType datatype_v<double> = DataType::float64;
 

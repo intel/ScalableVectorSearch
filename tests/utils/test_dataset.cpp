@@ -78,6 +78,10 @@ std::filesystem::path groundtruth_cosine_file() {
     return dataset_directory() / "groundtruth_cosine.ivecs";
 }
 
+std::filesystem::path clustering_directory() {
+        return dataset_directory() / "ivf_clustering";
+}
+
 svs::data::SimpleData<float> queries() { return svs::load_data<float>(query_file()); }
 svs::data::SimpleData<uint32_t> groundtruth_euclidean() {
     return svs::load_data<uint32_t>(groundtruth_euclidean_file());

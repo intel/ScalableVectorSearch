@@ -3,3 +3,5 @@ mkl_dimatcopy
 LAPACKE_dgesvd
 mkl_get_max_threads
 MKL_Free_Buffers
+cblas_gemm_bf16bf16f32
+cblas_gemm_f16f16f32

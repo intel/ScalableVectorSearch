@@ -48,6 +48,17 @@ set(SHARED_LIBRARY_FILES
     src/inverted/memory/executables/memory_test.cpp
 )
 
+# ivf
+if (SVS_EXPERIMENTAL_BUILD_IVF)
+    list(APPEND SHARED_LIBRARY_FILES
+        src/ivf/uncompressed.cpp
+        src/ivf/search.cpp
+        src/ivf/build.cpp
+        src/ivf/test.cpp
+    )
+endif()
+
+
 add_library(svs_benchmark_library SHARED ${SHARED_LIBRARY_FILES})
 target_include_directories(svs_benchmark_library PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
 
