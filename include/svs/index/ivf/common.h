@@ -33,7 +33,7 @@
 // external
 #include "tsl/robin_set.h"
 
-//Intel(R) MKL
+// Intel(R) MKL
 #include <mkl.h>
 
 // stl
@@ -199,9 +199,7 @@ auto convert_data(Data& src, Pool& threadpool) {
 
 // Partial specialization to preserve the dimensionality and Allocation type
 template <typename T, size_t Extent, typename Alloc, threads::ThreadPool Pool>
-auto convert_data(
-    svs::data::SimpleData<float, Extent, Alloc>& src, Pool& threadpool
-) {
+auto convert_data(svs::data::SimpleData<float, Extent, Alloc>& src, Pool& threadpool) {
     using allocator_type = svs::lib::rebind_allocator_t<T, Alloc>;
     allocator_type rebound_alloctor = {};
 
@@ -212,8 +210,7 @@ auto convert_data(
     return dst;
 }
 
-template <typename T, data::ImmutableMemoryDataset Data>
-auto convert_data(Data& src) {
+template <typename T, data::ImmutableMemoryDataset Data> auto convert_data(Data& src) {
     auto dst = svs::data::SimpleData<T>(src.size(), src.dimensions());
     auto threadpool = threads::as_threadpool(1);
     convert_data(src, dst, threadpool);
@@ -280,7 +277,8 @@ void compute_matmul(
     }
 }
 
-inline static void generate_unique_ids(std::vector<size_t>& ids, size_t id_range, std::mt19937& rng) {
+inline static void
+generate_unique_ids(std::vector<size_t>& ids, size_t id_range, std::mt19937& rng) {
     size_t n = ids.size();
     tsl::robin_set<size_t> seen;
     seen.reserve(n);
@@ -479,9 +477,7 @@ void centroid_split(
 }
 
 template <typename Data, threads::ThreadPool Pool>
-void generate_norms(
-    Data& data, std::vector<float>& norms, Pool& threadpool
-) {
+void generate_norms(Data& data, std::vector<float>& norms, Pool& threadpool) {
     norms.resize(data.size());
     threads::parallel_for(
         threadpool,

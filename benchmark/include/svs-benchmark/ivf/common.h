@@ -33,9 +33,7 @@ SVS_BENCHMARK_FOR_TESTS_ONLY inline search::SearchParameters test_search_paramet
 
 SVS_BENCHMARK_FOR_TESTS_ONLY inline std::vector<svs::index::ivf::IVFSearchParameters>
 test_search_configs() {
-    return std::vector<svs::index::ivf::IVFSearchParameters>(
-        {{{10, 1.0}, {50, 1.0}}}
-    );
+    return std::vector<svs::index::ivf::IVFSearchParameters>({{{10, 1.0}, {50, 1.0}}});
 }
 
 } // namespace svsbenchmark::ivf

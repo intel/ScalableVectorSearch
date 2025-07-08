@@ -225,7 +225,8 @@ auto hierarchical_kmeans_clustering_impl(
                                    ? clusters_level1_all[cluster].size()
                                    : max_data_per_cluster;
     }
-    auto data_level2 = data::SimpleData<BuildType, Dims, Alloc>{max_data_per_cluster, ndims};
+    auto data_level2 =
+        data::SimpleData<BuildType, Dims, Alloc>{max_data_per_cluster, ndims};
     auto assignments_level2_all = std::vector<size_t>(max_data_per_cluster);
 
     size_t cluster_start = 0;

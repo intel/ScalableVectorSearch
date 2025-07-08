@@ -77,7 +77,7 @@ template <> inline constexpr std::string_view name<DataType::float16>() {
     return "float16";
 }
 template <> inline constexpr std::string_view name<DataType::bfloat16>() {
-        return "bfloat16";
+    return "bfloat16";
 }
 template <> inline constexpr std::string_view name<DataType::float32>() {
     return "float32";

@@ -39,12 +39,12 @@ void test_hierarchical_kmeans_clustering(const Data& data, Distance distance) {
                 for (float training_fraction : {0.55}) {
                     for (size_t l1_clusters : {0, 9}) {
                         auto params = ivf::IVFBuildParameters()
-                            .num_centroids(n_centroids)
-                            .minibatch_size(minibatch)
-                            .num_iterations(iters)
-                            .is_hierarchical(true)
-                            .training_fraction(training_fraction)
-                            .hierarchical_level1_clusters(l1_clusters);
+                                          .num_centroids(n_centroids)
+                                          .minibatch_size(minibatch)
+                                          .num_iterations(iters)
+                                          .is_hierarchical(true)
+                                          .training_fraction(training_fraction)
+                                          .hierarchical_level1_clusters(l1_clusters);
 
                         auto threadpool = svs::threads::as_threadpool(10);
                         auto [centroids, clusters] =

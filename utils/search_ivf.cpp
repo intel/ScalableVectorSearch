@@ -135,7 +135,8 @@ void search_index(
 
     fmt::print("Raw QPS: {:7.3f} \n", fmt::join(qps, ", "));
     fmt::print(
-        "Batch Size: {}, Recall: {:.4f}, QPS (Avg: {:7.3f}, Max: {:7.3f}, StdDev: {:7.3f} ) "
+        "Batch Size: {}, Recall: {:.4f}, QPS (Avg: {:7.3f}, Max: {:7.3f}, StdDev: {:7.3f} "
+        ") "
         "\n",
         batchsize,
         svs::k_recall_at_n(groundtruth, query_results, 10, 10),

@@ -18,10 +18,10 @@
 
 // svs-benchmark
 #include "svs-benchmark/benchmark.h"
-#include "svs-benchmark/test.h"
 #include "svs-benchmark/ivf/build.h"
 #include "svs-benchmark/ivf/search.h"
 #include "svs-benchmark/ivf/static_traits.h"
+#include "svs-benchmark/test.h"
 
 // svs
 #include "svs/orchestrators/ivf.h"

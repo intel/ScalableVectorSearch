@@ -39,9 +39,9 @@
 #include "fmt/core.h"
 
 // tests
+#include "tests/utils/ivf_reference.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
-#include "tests/utils/ivf_reference.h"
 
 namespace {
 
@@ -110,17 +110,11 @@ void test_search(
     );
 
     auto index = svs::IVF::assemble_from_file<float, svs::BFloat16>(
-        test_dataset::clustering_directory(),
-        data,
-        distance,
-        num_threads,
-        num_inner_threads
+        test_dataset::clustering_directory(), data, distance, num_threads, num_inner_threads
     );
     CATCH_REQUIRE(index.get_num_threads() == num_threads);
 
-    run_search(
-        index, queries, groundtruth, expected_result.config_and_recall_
-    );
+    run_search(index, queries, groundtruth, expected_result.config_and_recall_);
     CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
 }
 

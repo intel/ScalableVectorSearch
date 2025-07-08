@@ -44,9 +44,7 @@ struct IVFState {
     size_t num_threads_;
 
   public:
-    IVFState(
-        svs::index::ivf::IVFSearchParameters search_parameters, size_t num_threads
-    )
+    IVFState(svs::index::ivf::IVFSearchParameters search_parameters, size_t num_threads)
         : search_parameters_{search_parameters}
         , num_threads_{num_threads} {}
 
@@ -128,8 +126,7 @@ struct SearchJob {
     svs::DistanceType get_distance() const { return distance_; }
 
     // Return the preset search configurations.
-    const std::vector<svs::index::ivf::IVFSearchParameters>&
-    get_search_configs() const {
+    const std::vector<svs::index::ivf::IVFSearchParameters>& get_search_configs() const {
         return preset_parameters_;
     }
 

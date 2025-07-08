@@ -44,8 +44,9 @@ void test_kmeans_clustering(const Data& data, Distance distance) {
                                       .is_hierarchical(false)
                                       .training_fraction(training_fraction);
                     auto threadpool = svs::threads::as_threadpool(10);
-                    auto [centroids, clusters] =
-                        ivf::kmeans_clustering<BuildType>(params, data, distance, threadpool);
+                    auto [centroids, clusters] = ivf::kmeans_clustering<BuildType>(
+                        params, data, distance, threadpool
+                    );
 
                     CATCH_REQUIRE(centroids.size() == n_centroids);
                     CATCH_REQUIRE(centroids.dimensions() == data.dimensions());

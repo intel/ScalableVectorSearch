@@ -544,7 +544,10 @@ void wrap(py::module& m) {
         .def_readwrite("num_iterations", &IVFBuildParameters::num_iterations_)
         .def_readwrite("is_hierarchical", &IVFBuildParameters::is_hierarchical_)
         .def_readwrite("training_fraction", &IVFBuildParameters::training_fraction_)
-        .def_readwrite("hierarchical_level1_clusters", &IVFBuildParameters::hierarchical_level1_clusters_);
+        .def_readwrite(
+            "hierarchical_level1_clusters",
+            &IVFBuildParameters::hierarchical_level1_clusters_
+        );
 
     /// Search Parameters
     using IVFSearchParameters = svs::index::ivf::IVFSearchParameters;

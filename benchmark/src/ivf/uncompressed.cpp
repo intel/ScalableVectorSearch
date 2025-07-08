@@ -99,18 +99,11 @@ toml::table run_static_uncompressed(
     auto data = svs::data::SimpleData<T, N>::load(job.data_);
     auto tic = svs::lib::now();
     auto clustering = svs::IVF::build_clustering<Q>(
-        job.build_parameters_,
-        data,
-        distance,
-        job.num_threads_
+        job.build_parameters_, data, distance, job.num_threads_
     );
     double build_time = svs::lib::time_difference(tic);
-    auto index = svs::IVF::assemble_from_clustering<Q>(
-        clustering,
-        data,
-        distance,
-        job.num_threads_
-    );
+    auto index =
+        svs::IVF::assemble_from_clustering<Q>(clustering, data, distance, job.num_threads_);
 
     // Save the index if requested by the caller.
     job.maybe_save_index(clustering);
@@ -161,10 +154,7 @@ svsbenchmark::TestFunctionReturn test_search(const IVFTest& job) {
         );
     });
     auto index = svs::IVF::assemble_from_file<float, svs::BFloat16>(
-        job.index_config_,
-        data_loader,
-        Distance(),
-        job.num_threads_
+        job.index_config_, data_loader, Distance(), job.num_threads_
     );
     double load_time = svs::lib::time_difference(tic);
     auto queries = svs::data::SimpleData<float>::load(job.queries_f32_);
@@ -181,8 +171,7 @@ svsbenchmark::TestFunctionReturn test_search(const IVFTest& job) {
 
     return TestFunctionReturn{
         .key_ = "ivf_test_search",
-        .results_ =
-            svs::lib::save_to_table(ivf::ExpectedResult(std::move(kind), results))};
+        .results_ = svs::lib::save_to_table(ivf::ExpectedResult(std::move(kind), results))};
 }
 
 template <typename Eltype, typename Distance, bool Hierarchical = true>
@@ -191,8 +180,8 @@ svsbenchmark::TestFunctionReturn test_build(const IVFTest& job) {
     constexpr svs::DistanceType distance = svs::distance_type_v<Distance>;
     const auto& groundtruth_path = job.groundtruth_for(distance);
 
-    auto build_parameters = svs::index::ivf::IVFBuildParameters{
-        128, 10000, 10, Hierarchical, 0.1};
+    auto build_parameters =
+        svs::index::ivf::IVFBuildParameters{128, 10000, 10, Hierarchical, 0.1};
 
     auto kind = svsbenchmark::Uncompressed(svs::datatype_v<Eltype>);
 
@@ -224,10 +213,7 @@ svsbenchmark::TestFunctionReturn test_build(const IVFTest& job) {
     );
     double build_time = svs::lib::time_difference(tic);
     auto index = svs::IVF::assemble_from_clustering<float>(
-        clustering,
-        data,
-        distance,
-        job.num_threads_
+        clustering, data, distance, job.num_threads_
     );
 
     auto queries = svs::data::SimpleData<float>::load(job.queries_f32_);
@@ -244,8 +230,7 @@ svsbenchmark::TestFunctionReturn test_build(const IVFTest& job) {
 
     return TestFunctionReturn{
         .key_ = "ivf_test_build",
-        .results_ =
-            svs::lib::save_to_table(ivf::ExpectedResult(std::move(kind), results))};
+        .results_ = svs::lib::save_to_table(ivf::ExpectedResult(std::move(kind), results))};
 }
 
 } // namespace

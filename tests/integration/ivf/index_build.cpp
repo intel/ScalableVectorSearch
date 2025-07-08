@@ -30,9 +30,9 @@
 #include "catch2/catch_test_macros.hpp"
 
 // tests
+#include "tests/utils/ivf_reference.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
-#include "tests/utils/ivf_reference.h"
 
 // stl
 #include <array>
@@ -51,16 +51,11 @@ auto build_index(
     const Distance& dist_type
 ) {
     auto data = svs::data::SimpleData<float, D>::load(data_path);
-    auto clustering = svs::IVF::build_clustering<E>(
-        parameters, data, dist_type, num_threads
-    );
+    auto clustering =
+        svs::IVF::build_clustering<E>(parameters, data, dist_type, num_threads);
 
     return svs::IVF::assemble_from_clustering<float>(
-        std::move(clustering),
-        std::move(data),
-        dist_type,
-        num_threads,
-        num_inner_threads
+        std::move(clustering), std::move(data), dist_type, num_threads, num_inner_threads
     );
 }
 

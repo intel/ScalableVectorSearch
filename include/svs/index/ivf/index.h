@@ -119,7 +119,6 @@ class IVFIndex {
     ///
     threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
 
-
     size_t size() const { return centroids_.size(); }
     size_t dimensions() const { return centroids_.dimensions(); }
 

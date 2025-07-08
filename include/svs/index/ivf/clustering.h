@@ -284,9 +284,7 @@ template <typename Data, std::integral I> struct DenseCluster {
     }
 
     auto get_datum(size_t id) const { return data_.get_datum(id); }
-    auto get_secondary(size_t id) const {
-        return data_.get_secondary(id);
-    }
+    auto get_secondary(size_t id) const { return data_.get_secondary(id); }
     auto get_global_id(size_t local_id) const { return ids_[local_id]; }
     const Data& view_cluster() const { return data_; }
 

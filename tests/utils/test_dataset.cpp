@@ -79,7 +79,7 @@ std::filesystem::path groundtruth_cosine_file() {
 }
 
 std::filesystem::path clustering_directory() {
-        return dataset_directory() / "ivf_clustering";
+    return dataset_directory() / "ivf_clustering";
 }
 
 svs::data::SimpleData<float> queries() { return svs::load_data<float>(query_file()); }
