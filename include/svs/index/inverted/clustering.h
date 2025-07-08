@@ -726,7 +726,7 @@ void post_process_neighbors(
                 data,
                 data::GetDatumAccessor{},
                 f,
-                std::numeric_limits<I>::max(), // Guarenteed to not be in the results.
+                std::numeric_limits<I>::max(), // Guaranteed to not be in the results.
                 lib::as_const_span(neighbor_buffer),
                 result_buffer
             );

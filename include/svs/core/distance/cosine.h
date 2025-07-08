@@ -53,7 +53,7 @@ class CosineSimilarity {
             );
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
-            // We do not support AVX2 on CS yet, but it will fallabck to generic anyway
+            // We do not support AVX2 on CS yet, but it will fallback to generic anyway
             return CosineSimilarityImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
                 a, b, a_norm, lib::MaybeStatic(N)
             );
@@ -146,7 +146,7 @@ inline constexpr bool operator==(DistanceCosineSimilarity, DistanceCosineSimilar
 ///
 /// @ingroup distance_overload
 /// @anchor compute_distancecosine
-/// @brief Compute the Cosine simmilarity between two vectors in R^n.
+/// @brief Compute the Cosine similarity between two vectors in R^n.
 ///
 /// @tparam Ea The element type for each component of the left-hand argument.
 /// @tparam Eb The element type for each component of the right-hand argument.
@@ -286,7 +286,9 @@ struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
             return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
                    (a_norm * b_norm);
         }
-        return CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, a_norm, length);
+        // Fallback to AVX512
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 
@@ -317,7 +319,9 @@ struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512> {
             return lib::narrow_cast<float>(_mm512_reduce_add_epi32(sum)) /
                    (a_norm * b_norm);
         }
-        return CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>::compute(a, b, a_norm, length);
+        // Fallback to AVX512
+        auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<16>(), a, b, length);
+        return sum / (std::sqrt(norm) * a_norm);
     }
 };
 

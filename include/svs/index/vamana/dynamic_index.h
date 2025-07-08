@@ -44,7 +44,10 @@
 
 namespace svs::index::vamana {
 
+// Forward declaration
 template <typename Index, typename QueryType> class BatchIterator;
+template <graphs::MemoryGraph Graph, typename Data, typename Dist>
+class MultiMutableVamanaIndex;
 
 /////
 ///// MutableVamanaIndex
@@ -57,7 +60,7 @@ template <typename Index, typename QueryType> class BatchIterator;
 /// * Valid: Valid and present in the associated dataset.
 /// * Deleted: Exists in the associated dataset, but should be considered as "deleted"
 /// and not returned from any search algorithms.
-/// * Empty: Non-existant and unreachable from standard entry points.
+/// * Empty: Non-existent and unreachable from standard entry points.
 ///
 /// Only used for `MutableVamanaIndex`.
 ///
@@ -106,6 +109,8 @@ class ValidBuilder {
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
 class MutableVamanaIndex {
+    friend class MultiMutableVamanaIndex<Graph, Data, Dist>;
+
   public:
     // Traits
     static constexpr bool supports_insertions = true;
@@ -241,11 +246,17 @@ class MutableVamanaIndex {
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         auto builder = VamanaBuilder(
-            graph_, data_, distance_, build_parameters_, threadpool_, prefetch_parameters
+            graph_,
+            data_,
+            distance_,
+            build_parameters_,
+            threadpool_,
+            prefetch_parameters,
+            logger_
         );
-        builder.construct(1.0f, entry_point_[0], logging::Level::Info, logger_);
+        builder.construct(1.0f, entry_point_[0], logging::Level::Trace, logger_);
         builder.construct(
-            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger_
+            build_parameters_.alpha, entry_point_[0], logging::Level::Trace, logger_
         );
     }
 
@@ -584,7 +595,7 @@ class MutableVamanaIndex {
     /// @brief Clear the adjacency lists for the given local ids.
     ///
     /// This ensures that during the rebuild-phase, we don't get any zombie (previously
-    /// deleted nodes) occuring in the new adjacency lists.
+    /// deleted nodes) occurring in the new adjacency lists.
     ///
     template <std::integral I> void clear_lists(const std::vector<I>& local_ids) {
         threads::parallel_for(
@@ -689,7 +700,14 @@ class MutableVamanaIndex {
         auto prefetch_parameters =
             GreedySearchPrefetchParameters{sp.prefetch_lookahead_, sp.prefetch_step_};
         VamanaBuilder builder{
-            graph_, data_, distance_, parameters, threadpool_, prefetch_parameters};
+            graph_,
+            data_,
+            distance_,
+            parameters,
+            threadpool_,
+            prefetch_parameters,
+            logger_,
+            logging::Level::Trace};
         builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
         // Mark all added entries as valid.
         for (const auto& i : slots) {
@@ -1359,7 +1377,7 @@ auto auto_dynamic_assemble(
 
     // // Unload the ID translator and config parameters.
     // auto reloader = lib::LoadOverride{[&](const lib::LoadTable& table) {
-    //     // If loading from the static index, then the table we recieve is itself the
+    //     // If loading from the static index, then the table we receive is itself the
     //     // parameters table.
     //     //
     //     // There will also be no index translation, so we use the identity translation

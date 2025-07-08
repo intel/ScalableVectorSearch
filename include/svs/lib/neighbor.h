@@ -31,7 +31,7 @@ namespace svs {
 /// For example, traditional graph searches usually want to store an extra boolean flag
 /// to indicate whether a particular neighbor has been expanded.
 ///
-/// We would like to be able to add arbitrary metadata while perserving core functionality
+/// We would like to be able to add arbitrary metadata while preserving core functionality
 /// like hashing, ordering etc.
 ///
 /// Don't use `operator==()` to compare the equality of neighbor ids because the semantics

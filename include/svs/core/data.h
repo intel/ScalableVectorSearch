@@ -91,7 +91,7 @@ struct UnspecializedVectorDataLoader {
 ///
 /// @tparam T The element type of the encoded vectors.
 ///     Typically, this will be a floating point type like ``float`` or ``svs::Float16``
-///     but may be an integer type as well for certain datsets.
+///     but may be an integer type as well for certain datasets.
 /// @tparam Extent The compile-time dimensionality of the vectors to be read.
 ///     May provide a performance boost if given. Default: ``svs::Dynamic``.
 /// @tparam Allocator The allocator to use for the memory backing the data when loaded.

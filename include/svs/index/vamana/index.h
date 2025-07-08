@@ -419,12 +419,13 @@ class VamanaIndex {
             distance_,
             build_parameters_,
             threadpool_,
-            extensions::estimate_prefetch_parameters(data_)
+            extensions::estimate_prefetch_parameters(data_),
+            logger
         );
 
-        builder.construct(1.0F, entry_point_[0], logging::Level::Info, logger);
+        builder.construct(1.0F, entry_point_[0], logging::Level::Trace, logger);
         builder.construct(
-            build_parameters_.alpha, entry_point_[0], logging::Level::Info, logger
+            build_parameters_.alpha, entry_point_[0], logging::Level::Trace, logger
         );
     }
 

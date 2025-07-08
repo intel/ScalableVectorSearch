@@ -47,7 +47,7 @@ target_include_directories(
 )
 
 # We use C++ 20 features in our exposed headers.
-# Anyone using us as a depdency and including our headers will need to be C++20 compatible.
+# Anyone using us as a dependency and including our headers will need to be C++20 compatible.
 #
 # Keep this variable in-sync with the `SVS_CXX_STANDARD` given below.
 # We need to manually set the standard for `spdlog`
@@ -68,14 +68,6 @@ target_compile_options(
 #####
 
 include("cmake/options.cmake")
-
-add_library(svs_x86_options_base INTERFACE)
-add_library(svs::x86_options_base ALIAS svs_x86_options_base)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-    target_compile_options(svs_x86_options_base INTERFACE -march=nehalem -mtune=nehalem)
-    include("cmake/multi-arch.cmake")
-endif()
-
 include("cmake/clang-tidy.cmake")
 include("cmake/eve.cmake")
 include("cmake/pthread.cmake")
@@ -91,6 +83,12 @@ if(SVS_EXPERIMENTAL_BUILD_IVF)
     target_compile_options(${SVS_LIB} INTERFACE "-DSVS_HAVE_MKL=1")
 endif()
 
+add_library(svs_x86_options_base INTERFACE)
+add_library(svs::x86_options_base ALIAS svs_x86_options_base)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+    target_compile_options(svs_x86_options_base INTERFACE -march=x86-64 -mtune=generic)
+    include("cmake/multi-arch.cmake")
+endif()
 
 #####
 ##### Build Objects
@@ -128,7 +126,7 @@ set(LIB_CONFIG_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/svs")
 
 # Install headers and target information.
 install(
-    TARGETS svs_export svs_devel svs_compile_options svs_native_options
+    TARGETS svs_export svs_devel svs_compile_options svs_native_options svs_x86_options_base
     EXPORT svs-targets
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
@@ -156,7 +154,7 @@ configure_package_config_file(
     INSTALL_DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
 
-# Don't make compatibility guarentees until we reach a compatibility milestone.
+# Don't make compatibility guarantees until we reach a compatibility milestone.
 write_basic_package_version_file(
     ${VERSION_CONFIG}
     VERSION ${SVS_VERSION}

@@ -90,7 +90,7 @@ constexpr std::string_view HELP =
 The required arguments are as follows:
 (1) Query Element Type (string). Options: (int8, uint8, float)
 (2) Data Element Type (string). Options: (int8, uint8, float, float16)
-(3) Query File Path (string). Supported extentions: (.vecs, .bin)
+(3) Query File Path (string). Supported extensions: (.vecs, .bin)
 (4) Search Window Size (integer)
 (5) Number of neighbors to recall (integer)
 (6) Number of threads (integer)
@@ -136,7 +136,7 @@ int svs_main(std::vector<std::string>&& args) {
         dist_type = svs::DistanceType::Cosine;
     else {
         throw ANNEXCEPTION(
-            "Unsupported distance type. Valid values: L2/MIP/Cosine. Recieved: ",
+            "Unsupported distance type. Valid values: L2/MIP/Cosine. Received: ",
             distance_type,
             '!'
         );

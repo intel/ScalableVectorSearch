@@ -102,7 +102,7 @@ Compiled specializations are listed below:
 
 template <typename BenchmarkType> struct Exe {
   public:
-    // type alises
+    // type aliases
     using job_type = associated_job_t<BenchmarkType>;
     using dispatcher_type = typename BuildDispatcher<BenchmarkType>::type;
 

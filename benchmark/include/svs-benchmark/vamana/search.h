@@ -131,7 +131,7 @@ struct SearchJob {
         return search_parameters_;
     }
 
-    // Compatbility with `ExpectedResults`
+    // Compatibility with `ExpectedResults`
     static std::nullopt_t get_build_parameters() { return std::nullopt; }
     svs::DistanceType get_distance() const { return distance_; }
 

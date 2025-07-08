@@ -63,7 +63,7 @@ void run_test(const Queries& queries, ThreadPoolProto threadpool_proto) {
     auto distance = Distance();
     auto strategy = Strategy();
 
-    // Distance between the obtained results and reference ressults.
+    // Distance between the obtained results and reference results.
     const double epsilon = 0.01;
 
     constexpr svs::DistanceType distance_type = svs::distance_type_v<decltype(distance)>;

@@ -97,7 +97,7 @@ template <typename T> class ReadWriteProtected {
         // state.
         //
         // Further, we return by value rather than r-value reference (though the returned
-        // object should be constructed by its move consructor).
+        // object should be constructed by its move constructor).
         //
         // This is because if we return an r-value reference, then we no longer hold the
         // lock after returning and that r-value could be modified.

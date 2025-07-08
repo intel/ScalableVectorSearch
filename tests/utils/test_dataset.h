@@ -31,7 +31,7 @@ namespace test_dataset {
 ///// Paths
 // The directory containing the reference dataset.
 std::filesystem::path dataset_directory();
-// The directory containint test reference results.
+// The directory containing test reference results.
 std::filesystem::path reference_directory();
 // A fvecs file with known contents.
 std::filesystem::path reference_vecs_file();
@@ -79,7 +79,7 @@ svs::data::SimpleData<uint32_t> load_groundtruth(svs::DistanceType distance);
 ///
 /// @brief Return a reference to the last `queries_in_test_set` entries in `queries`.
 ///
-/// **NOTE**: The returned item is a view into the orignal queries. As such, is `queries`'s
+/// **NOTE**: The returned item is a view into the original queries. As such, is `queries`'s
 /// destructor runs, then the returned view will be left danglinc.
 ///
 template <typename T, size_t N, typename Allocator>

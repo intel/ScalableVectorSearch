@@ -430,7 +430,7 @@ template <size_t N> class AnonymousArray {
   public:
     explicit AnonymousArray() = default;
 
-    /// @brief Consruct an anonymous array around the pointer.
+    /// @brief Construct an anonymous array around the pointer.
     template <typename T, typename... Dims>
         requires(sizeof...(Dims) == N)
     explicit AnonymousArray(const T* data, Dims... dims)

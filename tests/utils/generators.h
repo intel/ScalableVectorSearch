@@ -38,7 +38,7 @@
 // 8-bit sized types.
 //
 // Thus, use the `CatchGenerator` type aliases to selectively convert small integers to
-// larger intergers, relying on type conversion when they are inserted into the vectors.
+// larger integers, relying on type conversion when they are inserted into the vectors.
 //
 // This also provides an entry point for intercepting `svs::float16` and doing that
 // conversion as well.

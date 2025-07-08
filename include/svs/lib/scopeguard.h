@@ -59,7 +59,7 @@ struct AlwaysFalse {
 /// This is a class that provides a RAII style callback/cleanup mechanism at the end of
 /// a scoped block.
 ///
-/// When this object's desctructor is run, it will invoke
+/// When this object's destructor is run, it will invoke
 /// ```c++
 /// std::remove_reference_t<T>::operator()()
 /// ```
@@ -102,7 +102,7 @@ struct AlwaysFalse {
 /// ```
 ///
 /// @tparam T The type of the callback operator. May be a reference type if the ScopeGuard
-///     was constructed from an l-value refences to the provided callback.
+///     was constructed from an l-value references to the provided callback.
 /// @tparam Dismissable Boolean value parameter indicating whether or not this ScopeGuard
 ///     is dismissable.
 ///

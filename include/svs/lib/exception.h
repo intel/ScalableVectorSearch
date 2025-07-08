@@ -68,7 +68,7 @@ namespace lib {
 ///
 class ANNException : public std::runtime_error {
   public:
-    /// @brief Construct a new excpetion with the given error message.
+    /// @brief Construct a new exception with the given error message.
     inline explicit ANNException(const std::string& message)
         : std::runtime_error{message} {}
 

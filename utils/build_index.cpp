@@ -125,7 +125,7 @@ int svs_main(std::vector<std::string> args) {
         dist_type = svs::DistanceType::Cosine;
     else {
         throw ANNEXCEPTION(
-            "Unsupported distance type. Valid values: L2/MIP/Cosine. Recieved: ",
+            "Unsupported distance type. Valid values: L2/MIP/Cosine. Received: ",
             distance_type,
             '!'
         );

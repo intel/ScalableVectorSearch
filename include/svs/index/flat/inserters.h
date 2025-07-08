@@ -110,7 +110,7 @@ template <typename T, typename Cmp>
 HeapInserter(T begin, T end, Cmp compare_) -> HeapInserter<T, Cmp>;
 
 ///
-/// Bulk inserter managing mulitple sets of nearest neighbors.
+/// Bulk inserter managing multiple sets of nearest neighbors.
 ///
 
 template <typename T, typename Cmp> class BulkInserter {

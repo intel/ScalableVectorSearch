@@ -213,11 +213,14 @@ CATCH_TEST_CASE(
 }
 
 // Helper function to create a logger with a callback
-std::shared_ptr<spdlog::logger> create_test_logger(std::vector<std::string>& captured_logs
+std::shared_ptr<spdlog::logger> create_test_logger(
+    std::vector<std::string>& captured_logs,
+    std::vector<svs::logging::Level>& captured_levels
 ) {
     auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
-        [&captured_logs](const spdlog::details::log_msg& msg) {
+        [&captured_logs, &captured_levels](const spdlog::details::log_msg& msg) {
             captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+            captured_levels.push_back(svs::logging::detail::from_spdlog(msg.level));
         }
     );
     callback_sink->set_level(spdlog::level::trace);
@@ -242,7 +245,8 @@ CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging]") {
 
     CATCH_SECTION("With Custom Logger") {
         std::vector<std::string> captured_logs;
-        auto custom_logger = create_test_logger(captured_logs);
+        std::vector<svs::logging::Level> captured_levels;
+        auto custom_logger = create_test_logger(captured_logs, captured_levels);
 
         // Create VamanaIndex, which will call the builder and construct
         VamanaIndex vamana_index(
@@ -256,8 +260,14 @@ CATCH_TEST_CASE("VamanaIndex Logging Tests", "[logging]") {
         );
 
         // Verify the custom logger captured the log messages
-        CATCH_REQUIRE(captured_logs[0].find("Number of syncs:") != std::string::npos);
-        CATCH_REQUIRE(captured_logs[1].find("Batch Size:") != std::string::npos);
+        CATCH_REQUIRE(
+            captured_logs[0].find("Vamana Build Parameters:") != std::string::npos
+        );
+        CATCH_REQUIRE(captured_levels[0] == svs::logging::Level::Debug);
+        CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
+        CATCH_REQUIRE(captured_levels[1] == svs::logging::Level::Trace);
+        CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
+        CATCH_REQUIRE(captured_levels[2] == svs::logging::Level::Trace);
         auto default_logger = svs::logging::get();
         CATCH_REQUIRE(vamana_index.get_logger() != default_logger);
     }

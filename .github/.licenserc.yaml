@@ -44,6 +44,7 @@ header:
     - 'LICENSE'
     - 'THIRD-PARTY-PROGRAMS'
     - '.github/renovate.json'
+    - '.github/CODEOWNERS'
     - 'cmake/mkl_functions'
     - 'cmake/patches/tomlplusplus_v330.patch'
     - 'docker/x86_64/manylinux2014/oneAPI.repo'

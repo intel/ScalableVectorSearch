@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-static_assert(false, "Header file meant for documentation purposes only!");
+#include "svs/index/flat/flat.h"
+#include "svs/quantization/scalar/scalar.h"
 
-///
-/// @defgroup lib SVS Library
-/// @brief Library utilities for Similarly Search.
-///
+namespace svs::quantization::scalar {
 
-///
-/// @ingroup lib
-/// @defgroup lib_public Public facing components of Lib
-///
+template <IsSQData Data, typename Distance>
+auto svs_invoke(
+    svs::tag_t<svs::index::flat::extensions::distance>,
+    const Data& data,
+    const Distance& SVS_UNUSED(distance)
+) {
+    return compressed_distance_t<Distance, typename Data::element_type>(
+        data.get_scale(), data.get_bias(), data.dimensions()
+    );
+}
 
-///
-/// @ingroup lib
-/// @defgroup lib_internal Internal components of Lib
-///
+} // namespace svs::quantization::scalar

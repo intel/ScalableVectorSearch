@@ -87,4 +87,3 @@
 
 #define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
     DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX);
-
