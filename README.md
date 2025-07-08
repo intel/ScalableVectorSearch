@@ -51,9 +51,9 @@ different configurations of SVS yield significantly increased performance (measu
 SVS is primarily optimized for large-scale similarity search but it still offers [state-of-the-art performance
 at million-scale](https://intel.github.io/ScalableVectorSearch/benchs/static/previous/small_scale_benchs.html).
 
-Best performance is obtained with 4th generation (Sapphire Rapids) by making use of Intel(R) AVX-512 instructions,
-with excellent results also with 2nd and 3rd Intel &reg; Xeon &reg; processors (Cascade Lake
-and Ice Lake).
+Best performance is obtained with Xeon 6 processors (Granite Rapids), by making use of Intel(R) AVX-512 instructions,
+with excellent results also with 2nd through 5th gen Intel &reg; Xeon &reg; processors (Cascade Lake,
+Ice Lake, Sapphire Rapids, and Emerald Rapids).
 
 Performance will be degraded if Intel(R) AVX-512 instructions are not available.
 A warning message will appear when loading the SVS Python module if the system does not support
