@@ -28,7 +28,7 @@ SVS provides vector similarity search:
 * and **state-of-the-art speed**,
 * while enabling the use of **less memory** than its alternatives.
 
-This enables application and framework developers using similarity search to unleash its performance on Intel &reg; Xeon CPUs (2nd generation and newer).
+This enables application and framework developers using similarity search to unleash its performance on Intel(R) Xeon(R) CPUs (2nd generation and newer).
 
 SVS offers a fully-featured and yet simple Python API, compatible with most standard libraries.
 SVS is written in C++ to facilitate its integration into performance-critical applications.
@@ -51,8 +51,8 @@ different configurations of SVS yield significantly increased performance (measu
 SVS is primarily optimized for large-scale similarity search but it still offers [state-of-the-art performance
 at million-scale](https://intel.github.io/ScalableVectorSearch/benchs/static/previous/small_scale_benchs.html).
 
-Best performance is obtained with Xeon 6 processors (Granite Rapids), by making use of Intel(R) AVX-512 instructions,
-with excellent results also with 2nd through 5th gen Intel &reg; Xeon &reg; processors (Cascade Lake,
+Best performance is obtained with Intel(R) Xeon(R) 6 processors (Granite Rapids), by making use of Intel(R) AVX-512 instructions,
+with excellent results also with 2nd through 5th gen Intel(R) Xeon(R) processors (Cascade Lake,
 Ice Lake, Sapphire Rapids, and Emerald Rapids).
 
 Performance will be degraded if Intel(R) AVX-512 instructions are not available.
@@ -65,10 +65,12 @@ SVS supports:
 * Similarity functions: Euclidean distance, inner product, cosine similarity.
 * Vectors with individual values encoded as: float32, float16, uint8, int8.
 * Vector compression (including Locally-adaptive Vector Quantization [[ABHT23]](#1))
-* Optimizations for Intel &reg; Xeon &reg; processors:
+* Optimizations for Intel(R) Xeon(R) processors:
   - 2nd generation (Cascade Lake)
   - 3rd generation (Ice Lake)
   - 4th generation (Sapphire Rapids)
+  - 5th generation (Emerald Rapids)
+  - 6th generation (Granite Rapids)
 
 See [Roadmap](https://intel.github.io/ScalableVectorSearch/roadmap.html) for upcoming features.
 
