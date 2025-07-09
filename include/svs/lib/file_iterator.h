@@ -54,9 +54,10 @@ template <typename T, typename U> io_convert_type_t<T, U> io_convert(U u) {
     return narrow<io_convert_type_t<T, U>>(u);
 }
 
-// We expect the conversion to `Float16` to be lossy.
+// We expect the conversion to `Float16` and `BFloat16` to be lossy.
 // Hence, don't require precise narrowing.
 template <> inline Float16 io_convert<Float16, float>(float u) { return Float16(u); }
+template <> inline BFloat16 io_convert<BFloat16, float>(float u) { return BFloat16(u); }
 
 /////
 ///// Iterator Helpers

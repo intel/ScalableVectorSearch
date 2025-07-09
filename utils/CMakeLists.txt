@@ -46,9 +46,17 @@ create_utility(upgrade_vamana_index_parameters upgrade_vamana_index_parameters.c
 create_utility(build_index build_index.cpp)
 create_utility(compute_recall compute_recall.cpp)
 create_utility(convert_data_to_float16 convert_data_to_float16.cpp)
+create_utility(convert_data_to_bfloat16 convert_data_to_bfloat16.cpp)
 create_utility(search_index search_index.cpp)
 create_utility(consolidate characterization/consolidate.cpp)
 create_utility(logging logging.cpp)
+
+# IVF build and search
+if (SVS_EXPERIMENTAL_BUILD_IVF)
+    create_utility(build_ivf build_ivf.cpp)
+    create_utility(search_ivf search_ivf.cpp)
+endif()
+
 # create_utility(mutable characterization/mutable.cpp)
 
 # # Benchmark

@@ -55,6 +55,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/utils/schemas.cpp
     ${TEST_DIR}/utils/test_dataset.cpp
     ${TEST_DIR}/utils/vamana_reference.cpp
+    ${TEST_DIR}/utils/ivf_reference.cpp
     # Lib
     ${TEST_DIR}/svs/lib/algorithms.cpp
     ${TEST_DIR}/svs/lib/array.cpp
@@ -65,6 +66,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/lib/invoke.cpp
     ${TEST_DIR}/svs/lib/file.cpp
     ${TEST_DIR}/svs/lib/file_iterator.cpp
+    ${TEST_DIR}/svs/lib/bfloat16.cpp
     ${TEST_DIR}/svs/lib/float16.cpp
     ${TEST_DIR}/svs/lib/memory.cpp
     ${TEST_DIR}/svs/lib/meta.cpp
@@ -169,6 +171,14 @@ SET(INTEGRATION_TESTS
     # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
 )
 
+if (SVS_EXPERIMENTAL_BUILD_IVF)
+    message("Enabling IVF Integration tests!")
+    list(APPEND INTEGRATION_TESTS
+        ${TEST_DIR}/integration/ivf/index_build.cpp
+        ${TEST_DIR}/integration/ivf/index_search.cpp
+    )
+endif()
+
 if ((NOT CMAKE_BUILD_TYPE STREQUAL "Debug") OR SVS_FORCE_INTEGRATION_TESTS)
     message("Enabling Integration Tests!")
     list(APPEND TEST_SOURCES ${INTEGRATION_TESTS})
@@ -186,6 +196,15 @@ set(NUMA_TESTS
 if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     message("Enabling NUMA tests!")
     list(APPEND TEST_SOURCES ${NUMA_TESTS})
+endif()
+
+if (SVS_EXPERIMENTAL_BUILD_IVF)
+    message("Enabling IVF tests!")
+    list(APPEND TEST_SOURCES
+        ${TEST_DIR}/svs/index/ivf/kmeans.cpp
+        ${TEST_DIR}/svs/index/ivf/hierarchical_kmeans.cpp
+        ${TEST_DIR}/svs/index/ivf/common.cpp
+    )
 endif()
 
 add_executable(tests ${TEST_SOURCES})

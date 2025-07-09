@@ -25,6 +25,7 @@ namespace svs_test::data {
 // A mock dataset with integer entries.
 class MockDataset {
   public:
+    using element_type = int64_t;
     using value_type = int64_t;
     using const_value_type = int64_t;
 

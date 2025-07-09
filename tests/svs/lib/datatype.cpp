@@ -65,6 +65,7 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
         CATCH_REQUIRE(svs::parse_datatype("int128") == DataType::undef);
 
         test<svs::Float16, DataType::float16>("float16");
+        test<svs::BFloat16, DataType::bfloat16>("bfloat16");
         test<float, DataType::float32>("float32");
         test<double, DataType::float64>("float64");
         CATCH_REQUIRE(svs::parse_datatype("float128") == DataType::undef);
@@ -86,12 +87,15 @@ CATCH_TEST_CASE("Data Type", "[core][datatype]") {
         // Use in a hash table.
         std::unordered_map<DataType, int> table{};
         table[DataType::float16] = 5;
+        table[DataType::bfloat16] = 6;
         table[DataType::float32] = 10;
         CATCH_REQUIRE(!table.contains(DataType::int8));
         CATCH_REQUIRE(table.contains(DataType::float16));
+        CATCH_REQUIRE(table.contains(DataType::bfloat16));
         CATCH_REQUIRE(table.contains(DataType::float32));
 
         CATCH_REQUIRE(table[DataType::float16] == 5);
+        CATCH_REQUIRE(table[DataType::bfloat16] == 6);
         CATCH_REQUIRE(table[DataType::float32] == 10);
     }
 
