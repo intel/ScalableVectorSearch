@@ -94,7 +94,7 @@ option(SVS_EXPERIMENTAL_ENABLE_NUMA
 
 option(SVS_EXPERIMENTAL_BUILD_IVF
     "Build IVF implementation. Requires Intel(R) MKL support"
-    OFF # disabled by default
+    ON # disabled by default
 )
 
 #####

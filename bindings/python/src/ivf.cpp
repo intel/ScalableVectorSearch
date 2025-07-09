@@ -132,7 +132,7 @@ void register_ivf_assembly_from_file(Dispatcher& dispatcher) {
 }
 
 using IVFAssembleTypes =
-    std::variant<UnspecializedVectorDataLoader, LVQ, LeanVec, svs::lib::SerializedObject>;
+    std::variant<UnspecializedVectorDataLoader, svs::lib::SerializedObject>;
 
 /////
 ///// Build From File
