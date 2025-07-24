@@ -29,7 +29,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(svs)
 
 list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
-find_package(svs REQUIRED)
+
+# No need when test from private
+if(NOT SVS_TEST_PUBLIC_EXAMPLES)
+    find_package(svs REQUIRED)
+endif()
+
 find_library(SVS_SHARED svs_shared_library)
 
 set(SVS_CXX_STANDARD 20)
@@ -39,7 +44,7 @@ add_executable(shared shared.cpp)
 target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
 
 # Testing without native flag for different archs
-if(SVS_TEST_EXAMPLES)
+if(SVS_TEST_PUBLIC_EXAMPLES)
     set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -std=gnu++20 -Werror -Wall -Wextra -Wpedantic")
     target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs svs_x86_options_base)
 endif()
