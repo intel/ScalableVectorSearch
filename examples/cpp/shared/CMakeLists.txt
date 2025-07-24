@@ -40,5 +40,8 @@ target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
 
 # Testing without native flag for different archs
 if(SVS_TEST_EXAMPLES)
+    find_package(fmt REQUIRED)
+    find_package(spdlog REQUIRED)
+    target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs fmt::fmt spdlog::spdlog)
     set(CMAKE_CXX_FLAGS "-O3 -DNDEBUG -std=gnu++20 -Werror -Wall -Wextra -Wpedantic")
 endif()
