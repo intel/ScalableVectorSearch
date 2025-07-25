@@ -8,6 +8,8 @@
 
 * Automatic ISA dispatching with optimizations based on AVX support
 
+* Enabled compatibility with ARM and MacOS
+
 * Enhanced logging capabilities
 
 * Updated vamana iterator API
