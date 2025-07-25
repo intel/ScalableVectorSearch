@@ -2,7 +2,7 @@
 
 ## Additions and Changes
 
-* Addition of scalar quantization dataset with fp16 support
+* Addition of scalar quantization dataset with int8 support
 
 * Introduced multi-vector index and batch iterator support
 
