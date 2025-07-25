@@ -19,5 +19,3 @@
   * Static library provided in addition to .so
   
   * Intel(R) MKL linked within the shared library - no need for Intel(R) MKL in user environment
-
-* Various fixes and support regarding [RediSearch VectorSimilarity](https://github.com/RedisAI/VectorSimilarity) integration efforts
