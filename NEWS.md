@@ -2,7 +2,7 @@
 
 ## Additions and Changes
 
-* Addition of scalar quantization dataset with int8 support
+* Addition of 8-bit scalar quantization support to C++ interface
 
 * Introduced multi-vector index and batch iterator support
 
