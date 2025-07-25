@@ -4,7 +4,7 @@
 
 * Addition of 8-bit scalar quantization support to C++ interface
 
-* Introduced multi-vector index and batch iterator support
+* Introduced multi-vector index and batch iterator support that allows multiple vectors to be mapped to the same external ID
 
 * Automatic ISA dispatching with optimizations based on AVX support
 
