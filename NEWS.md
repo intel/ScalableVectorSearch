@@ -1,13 +1,23 @@
-# SVS 0.0.7 Release Notes
+# SVS 0.0.8 Release Notes
 
 ## Additions and Changes
 
-* Implemented batch iterator support for hybrid search
+* Addition of 8-bit scalar quantization support to C++ interface
 
-* Added support for custom threading and memory allocation
+* Introduced multi-vector index and batch iterator support that allows multiple vectors to be mapped to the same external ID
 
-* Introduced a timeout feature for search calls
+* Automatic ISA dispatching with optimizations based on AVX support
 
-* Introduced `reuse_empty` flag in dynamic Vamana, enabling users to choose whether to reuse empty entries that may exist after deletion and consolidation
+* Enabled compatibility with ARM and MacOS
 
-* Enhanced heuristics in the Vamana construct to improve efficiency when adding a small number of points.
+* Enhanced logging capabilities
+
+* Updated vamana iterator API
+
+* Broader [shared library](https://github.com/intel/ScalableVectorSearch/releases) support:
+
+  * gcc-11+, clang-18+, glibc 2.26+ compatibility
+  
+  * Static library provided in addition to .so
+  
+  * Intel(R) MKL linked within the shared library - no need for Intel(R) MKL in user environment
