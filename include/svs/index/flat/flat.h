@@ -153,7 +153,7 @@ struct FlatParameters {
 /// search the whole dataset.
 ///
 template <
-    data::ImmutableMemoryDataset Data,
+    typename Data,
     typename Dist,
     typename Ownership = OwnsMembers>
 class FlatIndex {
@@ -524,7 +524,7 @@ class FlatIndex {
 /// returning a Vamana compatible dataset. Concrete examples include:
 ///
 /// * An instance of ``VectorDataLoader``.
-/// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
+/// * An implementation of ``svs::data::SimpleData`` (passed by value).
 ///
 
 ///
@@ -562,14 +562,12 @@ auto auto_assemble(
 }
 
 /// @brief Alias for a short-lived flat index.
-template <data::ImmutableMemoryDataset Data, typename Dist>
+template <typename Data, typename Dist>
 using TemporaryFlatIndex = FlatIndex<Data, Dist, ReferencesMembers>;
 
-template <data::ImmutableMemoryDataset Data, typename Dist, typename ThreadPoolProto>
-TemporaryFlatIndex<Data, Dist>
-temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
-    return TemporaryFlatIndex<Data, Dist>{
-        data, distance, threads::as_threadpool(std::move(threadpool_proto))};
+template <typename Data, typename Dist, typename ThreadPoolProto>
+auto temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
+    using IndexType = FlatIndex<Data, Dist, ReferencesMembers>;
+    return IndexType{data, distance, threads::as_threadpool(std::move(threadpool_proto))};
 }
-
 } // namespace svs::index::flat
