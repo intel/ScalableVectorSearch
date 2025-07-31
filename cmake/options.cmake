@@ -92,9 +92,9 @@ option(SVS_EXPERIMENTAL_ENABLE_NUMA
     OFF # disabled by default
 )
 
-option(SVS_EXPERIMENTAL_BUILD_IVF
-    "Build IVF implementation. Requires Intel(R) MKL support"
-    ON # disabled by default
+option(SVS_EXPERIMENTAL_ENABLE_IVF
+    "Enable IVF implementation. Requires Intel(R) MKL support"
+    OFF # disabled by default
 )
 
 #####
@@ -143,6 +143,12 @@ if (SVS_INITIALIZE_LOGGER)
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=1)
 else()
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=0)
+endif()
+
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_IVF=1)
+else()
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_IVF=0)
 endif()
 
 #####

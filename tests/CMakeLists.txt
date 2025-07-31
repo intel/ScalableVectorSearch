@@ -171,7 +171,7 @@ SET(INTEGRATION_TESTS
     # ${TEST_DIR}/integration/numa_search.cpp -- requires SVS_EXPERIMENTAL_ENABLE_NUMA
 )
 
-if (SVS_EXPERIMENTAL_BUILD_IVF)
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
     message("Enabling IVF Integration tests!")
     list(APPEND INTEGRATION_TESTS
         ${TEST_DIR}/integration/ivf/index_build.cpp
@@ -198,7 +198,7 @@ if (SVS_EXPERIMENTAL_ENABLE_NUMA)
     list(APPEND TEST_SOURCES ${NUMA_TESTS})
 endif()
 
-if (SVS_EXPERIMENTAL_BUILD_IVF)
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
     message("Enabling IVF tests!")
     list(APPEND TEST_SOURCES
         ${TEST_DIR}/svs/index/ivf/kmeans.cpp

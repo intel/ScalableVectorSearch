@@ -49,7 +49,7 @@ set(SHARED_LIBRARY_FILES
 )
 
 # ivf
-if (SVS_EXPERIMENTAL_BUILD_IVF)
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
     list(APPEND SHARED_LIBRARY_FILES
         src/ivf/uncompressed.cpp
         src/ivf/search.cpp

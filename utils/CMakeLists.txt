@@ -52,7 +52,7 @@ create_utility(consolidate characterization/consolidate.cpp)
 create_utility(logging logging.cpp)
 
 # IVF build and search
-if (SVS_EXPERIMENTAL_BUILD_IVF)
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
     create_utility(build_ivf build_ivf.cpp)
     create_utility(search_ivf search_ivf.cpp)
 endif()
