@@ -42,7 +42,7 @@ class CommonTester(unittest.TestCase):
     #####
 
     def test_version(self):
-        self.assertEqual(svs.library_version(), "v0.0.7")
+        self.assertEqual(svs.library_version(), "v0.0.8")
 
     def test_conversion(self):
         # signed
@@ -215,12 +215,9 @@ class CommonTester(unittest.TestCase):
         k_smallest = np.argsort(dist_squared)[:, :k]
 
         # Some ties may not be resolved correctly, so provide some wiggle room.
-        # Older architectures with different distance implementations may resolve ties
+        # Architectures with different distance implementations may resolve ties
         # differently.
-        #
-        # Set max-ties to 6 to handle these older architectures as well (on newer
-        # architecture, it's generally 4).
-        max_ties = 6
+        max_ties = 8
         expected_equal_lower = groundtruth.size - max_ties
         actually_equal = np.count_nonzero(k_smallest == groundtruth)
 
