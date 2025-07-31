@@ -20,7 +20,12 @@
 #include "svs/python/core.h"
 #include "svs/python/dynamic_vamana.h"
 #include "svs/python/flat.h"
+
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
+#if SVS_ENABLE_IVF
 #include "svs/python/ivf.h"
+#endif // SVS_ENABLE_IVF
+
 #include "svs/python/svs_mkl.h"
 #include "svs/python/vamana.h"
 
@@ -245,5 +250,8 @@ Args:
     svs::python::dynamic_vamana::wrap(m);
 
     // IVF
+    SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
+#if SVS_ENABLE_IVF
     svs::python::ivf::wrap(m);
+#endif // SVS_ENABLE_IVF
 }

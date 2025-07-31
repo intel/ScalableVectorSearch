@@ -37,8 +37,15 @@ set(CPP_FILES
     src/vamana.cpp
     src/vamana_common.cpp
     src/svs_mkl.cpp
-    src/ivf.cpp
 )
+
+# ivf
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
+    list(APPEND CPP_FILES
+        src/ivf.cpp
+    )
+endif()
+
 
 set(LIB_NAME "_svs")
 pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES})

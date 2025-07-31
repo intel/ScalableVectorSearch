@@ -55,7 +55,6 @@ set(TEST_SOURCES
     ${TEST_DIR}/utils/schemas.cpp
     ${TEST_DIR}/utils/test_dataset.cpp
     ${TEST_DIR}/utils/vamana_reference.cpp
-    ${TEST_DIR}/utils/ivf_reference.cpp
     # Lib
     ${TEST_DIR}/svs/lib/algorithms.cpp
     ${TEST_DIR}/svs/lib/array.cpp
@@ -201,6 +200,7 @@ endif()
 if (SVS_EXPERIMENTAL_ENABLE_IVF)
     message("Enabling IVF tests!")
     list(APPEND TEST_SOURCES
+        ${TEST_DIR}/utils/ivf_reference.cpp
         ${TEST_DIR}/svs/index/ivf/kmeans.cpp
         ${TEST_DIR}/svs/index/ivf/hierarchical_kmeans.cpp
         ${TEST_DIR}/svs/index/ivf/common.cpp
