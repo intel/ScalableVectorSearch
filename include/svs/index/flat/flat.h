@@ -513,6 +513,28 @@ class FlatIndex {
         // Call extension for distance computation
         return svs::index::flat::extensions::get_distance_ext(data_, distance_, id, query);
     }
+
+    ///// Saving and Loading
+
+    void save(const std::filesystem::path& data_directory) const {
+        lib::save_to_disk(data_, data_directory);
+    }
+
+    template <typename ThreadPoolProto>
+    static FlatIndex load(
+        const std::filesystem::path& data_directory,
+        Dist distance,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    ) {
+        Data data = lib::load_from_disk<Data>(data_directory);
+        return FlatIndex(
+            std::move(data),
+            std::move(distance),
+            std::move(threadpool_proto),
+            std::move(logger)
+        );
+    }
 };
 
 ///
@@ -572,10 +594,5 @@ temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto
     return TemporaryFlatIndex<Data, Dist>{
         data, distance, threads::as_threadpool(std::move(threadpool_proto))
     };
-}
-///// Saving and Loading
-
-void save(const std::filesystem::path& data_directory) const {
-    lib::save_to_disk(data_, data_directory);
 }
 } // namespace svs::index::flat
