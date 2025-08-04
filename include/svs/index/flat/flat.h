@@ -519,22 +519,6 @@ class FlatIndex {
     void save(const std::filesystem::path& data_directory) const {
         lib::save_to_disk(data_, data_directory);
     }
-
-    template <typename ThreadPoolProto>
-    static FlatIndex load(
-        const std::filesystem::path& data_directory,
-        Dist distance,
-        ThreadPoolProto threadpool_proto,
-        svs::logging::logger_ptr logger = svs::logging::get()
-    ) {
-        Data data = lib::load_from_disk<Data>(data_directory);
-        return FlatIndex(
-            std::move(data),
-            std::move(distance),
-            std::move(threadpool_proto),
-            std::move(logger)
-        );
-    }
 };
 
 ///

@@ -16,6 +16,7 @@
 
 #include "svs/index/flat/flat.h"
 #include "svs/core/logging.h"
+#include "svs/orchestrators/exhaustive.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -65,4 +66,43 @@ CATCH_TEST_CASE("FlatIndex Logging Test", "[logging]") {
     CATCH_REQUIRE(global_captured_logs.empty());
     CATCH_REQUIRE(captured_logs.size() == 1);
     CATCH_REQUIRE(captured_logs[0] == "Test FlatIndex Logging");
+}
+
+CATCH_TEST_CASE("FlatIndex Save and Test", "[flat][save][load]") {
+    // Prepare data
+    std::vector<float> data{1.0f, 2.0f, 3.0f, 4.0f};
+    auto dataView = svs::data::SimpleDataView<float>(data.data(), 2, 2);
+    svs::distance::DistanceL2 dist;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    // Build the index
+    auto index = svs::index::flat::FlatIndex(
+        dataView, dist, std::move(threadpool), svs::logging::get()
+    );
+
+    // Saving the index
+    //! [Saving]
+    std::string save_path = "example_data";
+    index.save(save_path);
+    //! [Saving]
+
+    // Reloading a saved index
+    //! [Loading]
+    auto threadpool2 = svs::threads::DefaultThreadPool(1);
+    auto loaded_index = svs::Flat::assemble<float>(
+        svs::VectorDataLoader<float>(save_path), dist, std::move(threadpool2)
+    );
+    //! [Loading]
+
+    // Verify loaded index by searching
+    std::vector<float> query{1.0f, 2.0f};
+    auto queryView = svs::data::SimpleDataView<float>(query.data(), 1, 2);
+    auto result = loaded_index.search(queryView, 1);
+
+    // The nearest neighbor should be index 0
+    CATCH_REQUIRE(result.n_queries() == 1);
+    CATCH_REQUIRE(result.n_neighbors() == 1);
+
+    // Clean up
+    std::filesystem::remove_all(save_path);
 }
