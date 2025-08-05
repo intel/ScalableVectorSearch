@@ -77,6 +77,16 @@ void test_flat(
     const GroundTruth& groundtruth,
     svs::DistanceType distance_type
 ) {
+    // Save and load
+    if constexpr (std::is_same_v<std::decay_t<Index>, svs::Flat>) {
+        svs_test::prepare_temp_directory();
+        auto temp_dir = svs_test::temp_directory();
+        index.save(temp_dir);
+        index = svs::Flat::assemble<svs::lib::Types<float, svs::Float16>>(
+            svs::VectorDataLoader<float>(temp_dir), distance_type, index.get_num_threads()
+        );
+    }
+
     // Test get distance
     auto dataset = svs::load_data<float>(test_dataset::data_svs_file());
     // Test get_distance functionality
