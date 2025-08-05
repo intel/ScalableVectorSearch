@@ -514,7 +514,6 @@ class FlatIndex {
     }
 
     ///// Saving
-
     void save(const std::filesystem::path& data_directory) const {
         lib::save_to_disk(data_, data_directory);
     }
