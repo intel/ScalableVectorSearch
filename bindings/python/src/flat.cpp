@@ -223,6 +223,31 @@ void wrap(py::module& m) {
     add_threading_interface(flat);
     add_data_interface(flat);
 
+    // Load
+    flat.def_static(
+        "assemble",
+        &svs::python::flat::detail::assemble,
+        py::arg("data_loader"),
+        py::arg("distance") = svs::L2,
+        py::arg("query_type") = svs::DataType::float32,
+        py::arg("num_threads") = 1
+    );
+
+    // Save
+    flat.def(
+        "save",
+        [](const svs::Flat& self, const std::string& data_directory) {
+            self.save(data_directory);
+        },
+        py::arg("data_directory"),
+        R"(
+Save the Flat index to disk.
+
+Args:
+    data_directory: Directory where the index data will be saved.
+)"
+    );
+
     ///// Search Parameters
     py::class_<svs::index::flat::FlatParameters> flat_parameters(
         m,

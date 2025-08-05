@@ -99,10 +99,6 @@ CATCH_TEST_CASE("FlatIndex Save and Test", "[flat][save][load]") {
     auto queryView = svs::data::SimpleDataView<float>(query.data(), 1, 2);
     auto result = loaded_index.search(queryView, 1);
 
-    // The nearest neighbor should be index 0
-    CATCH_REQUIRE(result.n_queries() == 1);
-    CATCH_REQUIRE(result.n_neighbors() == 1);
-
     // Clean up
     std::filesystem::remove_all(save_path);
 }

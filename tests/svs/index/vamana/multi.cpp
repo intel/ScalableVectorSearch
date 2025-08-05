@@ -279,8 +279,9 @@ CATCH_TEMPLATE_TEST_CASE(
         CATCH_REQUIRE(test_results.n_neighbors() == test_results_2.n_neighbors());
         for (size_t i = 0; i < test_results.n_queries(); ++i) {
             for (size_t j = 0; j < test_results.n_neighbors(); ++j) {
-                CATCH_REQUIRE(test_results.indices().at(i, j) ==
-                              test_results_2.indices().at(i, j));
+                CATCH_REQUIRE(
+                    test_results.indices().at(i, j) == test_results_2.indices().at(i, j)
+                );
             }
         }
 
