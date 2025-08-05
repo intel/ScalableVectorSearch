@@ -578,4 +578,5 @@ temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto
         data, distance, threads::as_threadpool(std::move(threadpool_proto))
     };
 }
+
 } // namespace svs::index::flat
