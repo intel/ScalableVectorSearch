@@ -16,7 +16,6 @@
 
 #include "svs/index/flat/flat.h"
 #include "svs/core/logging.h"
-#include "svs/orchestrators/exhaustive.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
