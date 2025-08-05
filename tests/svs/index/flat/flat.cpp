@@ -77,7 +77,7 @@ CATCH_TEST_CASE("FlatIndex Save and Test", "[flat][save][load]") {
 
     // Build the index
     auto index = svs::index::flat::FlatIndex(
-        dataView, dist, std::move(threadpool), svs::logging::get()
+        std::move(dataView), dist, std::move(threadpool), svs::logging::get()
     );
 
     // Saving the index
