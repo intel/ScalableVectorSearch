@@ -57,7 +57,7 @@ def np_to_svs(nptype):
     if nptype == np.float64:
         return _svs.float64
 
-    raise Exception(f"Could not convert {nptype} to a svs.DataType enum!");
+    raise Exception(f"Could not convert {nptype} to a svs.DataType enum!")
 
 def read_npy(filename: str):
     """
@@ -279,3 +279,29 @@ def k_recall_at(gt_idx, result_idx, k: int, at: int):
     ls_recall = [len(intersect) for intersect in ls_intersection]
 
     return sum(ls_recall) / (len(ls_recall) * k)
+
+def get_lvq_range(data: np.array):
+    """
+    For a given uncompressed dataset, get the difference between the minimum and maximum
+    values for each vector after LVQ-style preprocessing.
+
+    This pre-processing involves removing the component-wise average of the dataset.
+
+    This is not an efficient function.
+
+    Args:
+        - data: A 2-D numpy array
+
+    Returns:
+        - A 1-D numpy array returning the difference between each vector's maximum and
+          minimum component after pre-processing.
+    """
+
+    assert(data.ndim == 2)
+    center = np.sum(data, axis = 0, dtype = np.float64) / data.shape[0]
+    centered_data = data - center
+
+    # Obtain the minimum and maximum values for each dimension.
+    mins = np.min(centered_data, axis = 1)
+    maxs = np.max(centered_data, axis = 1)
+    return maxs - mins
