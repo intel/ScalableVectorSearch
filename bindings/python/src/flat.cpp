@@ -197,6 +197,10 @@ Method {}:
     );
 }
 
+void save_index(svs::Flat& index, const std::string& data_directory) {
+    index.save(data_directory);
+}
+
 constexpr std::string_view flat_parameters_name = "FlatSearchParameters";
 
 } // namespace detail
@@ -223,28 +227,24 @@ void wrap(py::module& m) {
     add_threading_interface(flat);
     add_data_interface(flat);
 
-    // Load
-    flat.def_static(
-        "assemble",
-        &svs::python::flat::detail::assemble,
-        py::arg("data_loader"),
-        py::arg("distance") = svs::L2,
-        py::arg("query_type") = svs::DataType::float32,
-        py::arg("num_threads") = 1
-    );
-
     // Save
     flat.def(
         "save",
-        [](const svs::Flat& self, const std::string& data_directory) {
-            self.save(data_directory);
-        },
+        &detail::save_index,
         py::arg("data_directory"),
         R"(
-Save the Flat index to disk.
+Save a constructed Flat index to disk.
 
 Args:
-    data_directory: Directory where the index data will be saved.
+    data_directory: Directory where the dataset will be saved.
+
+Note: All directories should be separate to avoid accidental name collision with any
+auxiliary files that are needed when saving the various components of the index.
+
+If the directory does not exist, it will be created if its parent exists.
+
+It is the caller's responsibility to ensure that no existing data will be
+overwritten when saving the index to this directory.
 )"
     );
 
