@@ -45,7 +45,7 @@ namespace svs::index::ivf {
 // Small epsilon value used for floating-point comparisons to avoid precision
 // issues.  The value 1/1024 (approximately 0.0009765625) is chosen as a reasonable
 // threshold for numerical stability in algorithms such as k-means clustering, where exact
-// equality of floating-point values is rare due to rounding errors.
+constexpr double EPSILON = 1.0 / 1024.0;
 
 /// @brief Parameters controlling the IVF build/k-means algortihm.
 struct IVFBuildParameters {
