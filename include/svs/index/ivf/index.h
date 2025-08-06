@@ -35,6 +35,10 @@
 
 namespace svs::index::ivf {
 
+// The maximum batch size for queries is set to 10,000 to balance memory usage and
+// performance. This value was chosen based on empirical testing to avoid excessive memory
+// allocation while supporting large batch operations typical in high-throughput
+// environments.
 const size_t MAX_QUERY_BATCH_SIZE = 10000;
 
 template <typename Centroids, typename Cluster, typename Dist, typename ThreadPoolProto>

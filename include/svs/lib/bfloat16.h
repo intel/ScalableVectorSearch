@@ -60,7 +60,7 @@ inline uint16_t float_to_bfloat16_untyped(const float x) {
 
 } // namespace detail
 
-// On GCC - we need to add this attribute so that BFloat16 members can appear inside
+// On GCC, we need to add this attribute so that BFloat16 members can appear inside
 // packed structs.
 class __attribute__((packed)) BFloat16 {
   public:

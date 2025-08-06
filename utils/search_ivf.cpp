@@ -185,7 +185,7 @@ int svs_main(std::vector<std::string>&& args) {
     const size_t n_inner_threads = std::stoull(args[i++]);
     const auto& clustering_path = args[i++];
     const auto& data_path = args[i++];
-    const int nreps = std::stoull(args[i++]);
+    const size_t nreps = std::stoull(args[i++]);
     const auto& distance_type = args[i++];
 
     auto dist_disp = [&]<typename dist_type>(dist_type dist) {
