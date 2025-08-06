@@ -157,10 +157,12 @@ class FlatTester(unittest.TestCase):
         groundtruth = svs.read_vecs(test_groundtruth_l2)
         save_path = "flat_save_reload_tmp"
 
-        def save_reload_and_test(flat_index, queries, groundtruth, data, test_distance=True):
+        def save_and_load(flat_index, save_path):
             flat_index.save(save_path)
             loaded = svs.Flat(svs.VectorDataLoader(save_path), svs.DistanceType.L2, num_threads=1)
-            self._do_test(loaded, queries, groundtruth, svs.DistanceType.L2, data=data, test_distance=test_distance)
+            return loaded
+
+        def remove_dir(save_path):
             if os.path.isdir(save_path):
                 shutil.rmtree(save_path)
             elif os.path.exists(save_path):
@@ -169,7 +171,9 @@ class FlatTester(unittest.TestCase):
         # Test `float32`
         print("Flat, From Array, Float32")
         flat = svs.Flat(data_f32, svs.DistanceType.L2)
-        save_reload_and_test(flat, queries_f32, groundtruth, data_f32)
+        flat = save_and_load(flat, save_path)
+        self._do_test(flat, queries_f32, groundtruth, svs.DistanceType.L2, data_f32)
+        remove_dir(save_path)
 
         # Test `float16`
         print("Flat, From Array, Float16")
@@ -177,14 +181,18 @@ class FlatTester(unittest.TestCase):
         queries_f16 = queries_f32.astype('float16')
         flat = svs.Flat(data_f16, svs.DistanceType.L2)
         # Do not test get distance for fp16 data as py_contiguous_array_t does not support it
-        save_reload_and_test(flat, queries_f16, groundtruth, data_f16, test_distance=False)
+        flat = save_and_load(flat, save_path)
+        self._do_test(flat, queries_f16, groundtruth, svs.DistanceType.L2, data_f16, test_distance = False)
+        remove_dir(save_path)
 
         # Test `int8`
         print("Flat, From Array, Int8")
         data_i8 = data_f32.astype('int8')
         queries_i8 = queries_f32.astype('int8')
         flat = svs.Flat(data_i8, svs.DistanceType.L2)
-        save_reload_and_test(flat, queries_i8, groundtruth, data_i8)
+        flat = save_and_load(flat, save_path)
+        self._do_test(flat, queries_i8, groundtruth, svs.DistanceType.L2, data=data_i8)
+        remove_dir(save_path)
 
         # Test 'uint8'
         # The dataset is stored as values that can be encoded as `int8`.
@@ -194,4 +202,6 @@ class FlatTester(unittest.TestCase):
         data_u8 = (data_f32 + 128).astype('uint8')
         queries_u8 = (queries_f32 + 128).astype('uint8')
         flat = svs.Flat(data_u8, svs.DistanceType.L2)
-        save_reload_and_test(flat, queries_u8, groundtruth, data_u8)
+        flat = save_and_load(flat, save_path)
+        self._do_test(flat, queries_u8, groundtruth, svs.DistanceType.L2, data=data_u8)
+        remove_dir(save_path)
