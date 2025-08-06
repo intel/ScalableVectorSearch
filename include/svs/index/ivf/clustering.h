@@ -109,7 +109,7 @@ template <data::ImmutableMemoryDataset Data, std::integral I> class Clustering {
     size_t size() const { return clusters_.size(); }
 
     void check_valid(size_t cluster_id) const {
-        if (cluster_id > size()) {
+        if (cluster_id >= size()) {
             throw ANNEXCEPTION(
                 "Cluster id {} can't be higher than the number of clusters!",
                 cluster_id,

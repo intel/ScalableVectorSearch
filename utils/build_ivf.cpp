@@ -118,7 +118,7 @@ int svs_main(std::vector<std::string> args) {
         dist_disp(svs::distance::DistanceIP{});
     } else {
         throw ANNEXCEPTION(
-            "Unsupported distance type. Valid values: L2/MIP. Recieved: ",
+            "Unsupported distance type. Valid values: L2/MIP. Received: ",
             distance_type,
             '!'
         );

@@ -3,7 +3,7 @@
  *
  *    The code in this file is a modified version of code from Microsoft Corporation,
  *    published under an MIT License. This modified version is licensed under the
- *    Apache License, Version 2.0
+ *    GNU Affero General Public License version 3
  *
  *    ORIGINAL LICENSE
  *    ------------------------------------------------------------------------------

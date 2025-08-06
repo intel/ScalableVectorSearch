@@ -25,7 +25,7 @@ class IVFInterface {
   public:
     using search_parameters_type = svs::index::ivf::IVFSearchParameters;
 
-    ///// Beckend Information Inteface
+    ///// Backend information interface
     virtual std::string experimental_backend_string() const = 0;
 };
 

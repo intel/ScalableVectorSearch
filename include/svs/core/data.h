@@ -126,7 +126,7 @@ class VectorDataLoader {
 
     template <typename Other>
     VectorDataLoader(const UnspecializedVectorDataLoader<Other>& other)
-        : VectorDataLoader{other.path_} {
+        : VectorDataLoader{other.path_, other.allocator_} {
         // Validate the refinement.
         if (datatype_v<T> != other.type_) {
             throw ANNEXCEPTION("Type mismatch!");
