@@ -115,6 +115,7 @@ void test_flat(
         CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) > expected_recall);
     }
 
+    // Set different data and query batch sizes.
     auto batch_size_search_test = [&](Index& idx) {
         idx.set_threadpool(Pool(2));
         for (size_t query_batch_size : {0, 10}) {
@@ -133,7 +134,7 @@ void test_flat(
         test_predicate(index, queries);
     }
 
-    // Save/load and rerun batch size search/recall for svs::Flat
+    // Save and load test
     if constexpr (std::is_same_v<std::decay_t<Index>, svs::Flat>) {
         svs_test::prepare_temp_directory();
         auto temp_dir = svs_test::temp_directory();
