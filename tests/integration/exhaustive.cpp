@@ -116,20 +116,33 @@ void test_flat(
     }
 
     // Set different data and query batch sizes.
-    index.set_threadpool(Pool(2));
-    for (size_t query_batch_size : {0, 10}) {
-        for (size_t data_batch_size : {0, 100}) {
-            svs::index::search_batch_into_with(
-                index, result.view(), queries.cview(), {data_batch_size, query_batch_size}
-            );
-
-            CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) > expected_recall);
+    auto batch_size_search_test = [&](Index& idx) {
+        idx.set_threadpool(Pool(2));
+        for (size_t query_batch_size : {0, 10}) {
+            for (size_t data_batch_size : {0, 100}) {
+                svs::index::search_batch_into_with(
+                    idx, result.view(), queries.cview(), {data_batch_size, query_batch_size}
+                );
+                CATCH_REQUIRE(svs::k_recall_at_n(groundtruth, result) > expected_recall);
+            }
         }
-    }
+    };
+    batch_size_search_test(index);
 
     // Test predicated search.
     if constexpr (is_flat_index_v<Index>) {
         test_predicate(index, queries);
+    }
+
+    // Test save and load
+    if constexpr (std::is_same_v<std::decay_t<Index>, svs::Flat>) {
+        svs_test::prepare_temp_directory();
+        auto temp_dir = svs_test::temp_directory();
+        index.save(temp_dir);
+        index = svs::Flat::assemble<svs::lib::Types<float, svs::Float16>>(
+            svs::VectorDataLoader<float>(temp_dir), distance_type, index.get_num_threads()
+        );
+        batch_size_search_test(index);
     }
 }
 } // namespace

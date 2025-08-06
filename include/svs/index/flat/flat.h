@@ -512,6 +512,11 @@ class FlatIndex {
         // Call extension for distance computation
         return svs::index::flat::extensions::get_distance_ext(data_, distance_, id, query);
     }
+
+    ///// Saving
+    void save(const std::filesystem::path& data_directory) const {
+        lib::save_to_disk(data_, data_directory);
+    }
 };
 
 ///

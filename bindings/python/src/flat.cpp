@@ -197,6 +197,10 @@ Method {}:
     );
 }
 
+void save_index(svs::Flat& index, const std::string& data_directory) {
+    index.save(data_directory);
+}
+
 constexpr std::string_view flat_parameters_name = "FlatSearchParameters";
 
 } // namespace detail
@@ -222,6 +226,24 @@ void wrap(py::module& m) {
     // Add threading layer.
     add_threading_interface(flat);
     add_data_interface(flat);
+
+    // Save
+    flat.def(
+        "save",
+        &detail::save_index,
+        py::arg("data_directory"),
+        R"(
+Save a constructed Flat index to disk.
+
+Args:
+    data_directory: Directory where the dataset will be saved.
+
+If the directory does not exist, it will be created if its parent exists.
+
+It is the caller's responsibility to ensure that no existing data will be
+overwritten when saving the index to this directory.
+)"
+    );
 
     ///// Search Parameters
     py::class_<svs::index::flat::FlatParameters> flat_parameters(
