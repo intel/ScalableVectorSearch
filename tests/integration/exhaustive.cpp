@@ -132,10 +132,8 @@ void test_flat(
     // Test predicated search.
     if constexpr (is_flat_index_v<Index>) {
         test_predicate(index, queries);
-    }
 
-    // Save and load test
-    if constexpr (std::is_same_v<std::decay_t<Index>, svs::Flat>) {
+        // Save and load test
         svs_test::prepare_temp_directory();
         auto temp_dir = svs_test::temp_directory();
         index.save(temp_dir);
