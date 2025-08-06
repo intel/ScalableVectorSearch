@@ -151,7 +151,6 @@ class FlatTester(unittest.TestCase):
         )
 
     def save_reload_and_test(self, flat_index, queries, groundtruth, data, test_distance=True):
-        import shutil
         save_path = "flat_save_reload_tmp"
         flat_index.save(save_path)
         loaded = svs.Flat(svs.VectorDataLoader(save_path), svs.DistanceType.L2, num_threads=1)
