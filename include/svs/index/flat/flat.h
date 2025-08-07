@@ -153,7 +153,7 @@ struct FlatParameters {
 /// search the whole dataset.
 ///
 template <
-    typename Data,
+    data::ImmutableMemoryDataset Data,
     typename Dist,
     typename Ownership = OwnsMembers>
 class FlatIndex {
@@ -383,13 +383,14 @@ class FlatIndex {
         threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{
-                queries.size(),
-                compute_query_batch_size(search_parameters, queries.size())},
+                queries.size(), compute_query_batch_size(search_parameters, queries.size())
+            },
             [&](const auto& query_indices, uint64_t /*tid*/) {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
                 distance::BroadcastDistance distances{
-                    extensions::distance(data_, distance_), query_indices.size()};
+                    extensions::distance(data_, distance_), query_indices.size()
+                };
 
                 search_patch(
                     queries,
@@ -512,6 +513,11 @@ class FlatIndex {
         // Call extension for distance computation
         return svs::index::flat::extensions::get_distance_ext(data_, distance_, id, query);
     }
+
+    ///// Saving
+    void save(const std::filesystem::path& data_directory) const {
+        lib::save_to_disk(data_, data_directory);
+    }
 };
 
 ///
@@ -524,7 +530,7 @@ class FlatIndex {
 /// returning a Vamana compatible dataset. Concrete examples include:
 ///
 /// * An instance of ``VectorDataLoader``.
-/// * An implementation of ``svs::data::SimpleData`` (passed by value).
+/// * An implementation of ``svs::data::ImmutableMemoryDataset`` (passed by value).
 ///
 
 ///
@@ -562,12 +568,15 @@ auto auto_assemble(
 }
 
 /// @brief Alias for a short-lived flat index.
-template <typename Data, typename Dist>
+template <data::ImmutableMemoryDataset Data, typename Dist>
 using TemporaryFlatIndex = FlatIndex<Data, Dist, ReferencesMembers>;
 
-template <typename Data, typename Dist, typename ThreadPoolProto>
-auto temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
-    using IndexType = FlatIndex<Data, Dist, ReferencesMembers>;
-    return IndexType{data, distance, threads::as_threadpool(std::move(threadpool_proto))};
+template <data::ImmutableMemoryDataset Data, typename Dist, typename ThreadPoolProto>
+TemporaryFlatIndex<Data, Dist>
+temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto) {
+    return TemporaryFlatIndex<Data, Dist>{
+        data, distance, threads::as_threadpool(std::move(threadpool_proto))
+    };
 }
+
 } // namespace svs::index::flat
