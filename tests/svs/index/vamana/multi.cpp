@@ -248,8 +248,12 @@ CATCH_TEMPLATE_TEST_CASE(
         auto graph_dir = dir / "graph";
         auto data_dir = dir / "data";
         std::vector<size_t> test_indices(num_points);
+        // Fill the test indices with labels in the range of num_labels
+        // to ensure that there are labels mapped to more than 1 vector.
+        const size_t per_label = 2;
+        const auto num_labels = num_points / per_label;
         for (auto& i : test_indices) {
-            i = std::rand();
+            i = std::rand() % num_labels;
         }
         auto test_index = svs::index::vamana::MultiMutableVamanaIndex(
             build_parameters, data, test_indices, Distance(), num_threads
@@ -270,6 +274,16 @@ CATCH_TEMPLATE_TEST_CASE(
         auto test_results_2 = svs::QueryResult<size_t>(queries.size(), num_neighbors);
         test_index_2.search(test_results_2.view(), queries.view(), search_parameters);
         auto test_recall_2 = svs::k_recall_at_n(groundtruth, test_results_2);
+
+        // Check that the results are the same
+        CATCH_REQUIRE(test_results.n_neighbors() == test_results_2.n_neighbors());
+        for (size_t i = 0; i < test_results.n_queries(); ++i) {
+            for (size_t j = 0; j < test_results.n_neighbors(); ++j) {
+                CATCH_REQUIRE(
+                    test_results.indices().at(i, j) == test_results_2.indices().at(i, j)
+                );
+            }
+        }
 
         CATCH_REQUIRE(test_index.size() == test_index_2.size());
         CATCH_REQUIRE(test_index.dimensions() == test_index_2.dimensions());

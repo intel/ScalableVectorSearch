@@ -583,14 +583,14 @@ class MultiMutableVamanaIndex {
             return a.first < b.first;
         });
 
-        std::vector<label_type> labels(ext_lab_vec.size());
+        size_t num_labels = ext_lab_vec.size();
+        std::vector<label_type> labels(num_labels);
         std::transform(
             ext_lab_vec.begin(),
             ext_lab_vec.end(),
             labels.begin(),
             [](const auto& ext_lab) { return ext_lab.second; }
         );
-        size_t num_labels = ext_lab_vec.size();
 
         // Save auxiliary data structures.
         lib::save_to_disk(
@@ -598,9 +598,7 @@ class MultiMutableVamanaIndex {
                 // Save labels to a file.
                 auto filename = ctx.generate_name("labels", "binary");
                 auto stream = lib::open_write(filename);
-                for (const auto& l : ext_lab_vec) {
-                    lib::write_binary(stream, l.first);
-                }
+                lib::write_binary(stream, labels);
 
                 // Save the construction parameters.
                 auto parameters = VamanaIndexParameters{
@@ -678,13 +676,10 @@ struct MultiVamanaStateLoader {
         switch (load_from) {
             case MultiMutableVamanaLoad::FROM_MULTI: {
                 auto num_labels = lib::load_at<size_t>(table, "num_labels");
-                std::vector<label_type> labels;
-                labels.reserve(num_labels);
+                std::vector<label_type> labels(num_labels);
                 auto resolved = table.resolve_at("filename");
                 auto stream = lib::open_read(resolved);
-                for (size_t i = 0; i < num_labels; ++i) {
-                    labels.push_back(lib::read_binary<label_type>(stream));
-                }
+                lib::read_binary(stream, labels);
                 return MultiVamanaStateLoader{
                     SVS_LOAD_MEMBER_AT_(table, parameters),
                     IDTranslator{},

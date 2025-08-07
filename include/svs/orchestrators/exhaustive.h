@@ -44,6 +44,7 @@ class FlatInterface {
 
     // Non-templated virtual method for distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
+    virtual void save(const std::filesystem::path& data_directory) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = FlatInterface>
@@ -77,6 +78,11 @@ class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
             }
         );
     }
+
+    ///// Saving
+    void save(const std::filesystem::path& data_directory) const override {
+        this->impl().save(data_directory);
+    }
 };
 
 // Forward Declarations
@@ -92,6 +98,14 @@ class Flat : public manager::IndexManager<FlatInterface> {
 
     explicit Flat(std::unique_ptr<manager::ManagerInterface<FlatInterface>> impl)
         : base_type{std::move(impl)} {}
+
+    ///// Saving
+
+    /// @brief Save the Flat index to disk.
+    /// @param data_directory Directory where the index data will be saved.
+    void save(const std::filesystem::path& data_directory) const {
+        impl_->save(data_directory);
+    }
 
     ///// Loading
 
