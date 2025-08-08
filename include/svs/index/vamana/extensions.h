@@ -425,6 +425,30 @@ struct VamanaSingleSearchType {
     }
 };
 
+// In rare cases, the search buffer may not be filled with enough results.
+// This can occur in dynamic indexes when many vectors have been deleted
+// and the graph becomes sparsely connected. It's a corner case and should
+// not happen frequently, but when it does, we may need to supplement the buffer
+// with additional results.
+template <typename Index, typename SearchBuffer, typename Query>
+void check_and_supplement_search_buffer(
+    const Index& index,
+    SearchBuffer& search_buffer,
+    const Query& query
+) {
+    if (search_buffer.valid() < search_buffer.size()) {
+        for (auto external_id : index.external_ids()) {
+            auto internal_id = index.translate_external_id(external_id);
+            auto dist = index.get_distance(external_id, query);
+            auto builder = index.internal_search_builder();
+            search_buffer.insert(builder(internal_id, dist));
+
+            if (search_buffer.valid() >= search_buffer.size()) {
+                break;
+            }
+        }
+    }
+}
 /// Customization point object for processing single queries.
 inline constexpr VamanaSingleSearchType single_search{};
 
@@ -456,26 +480,11 @@ SVS_FORCE_INLINE void svs_invoke(
     auto accessor = data::GetDatumAccessor();
     search(query, accessor, distance, search_buffer);
 
-    // In rare cases, the search buffer may not be filled with enough results.
-    // This can occur in dynamic indexes when many vectors have been deleted
-    // and the graph becomes sparsely connected. It's a corner case and should
-    // not happen frequently, but when it does, we may need to supplement the buffer
-    // with additional results.
     if constexpr (Index::needs_id_translation) {
-        if (search_buffer.valid() < search_buffer.size()) {
-            for (auto external_id : index.external_ids()) {
-                auto internal_id = index.translate_external_id(external_id);
-                auto dist = index.get_distance(external_id, query);
-                auto builder = index.internal_search_builder();
-                search_buffer.insert(builder(internal_id, dist));
-
-                if (search_buffer.valid() >= search_buffer.size()){
-                    break;
-                }
-            }
-        }
+        check_and_supplement_search_buffer(index, search_buffer, query);
     }
 }
+
 
 ///
 /// @brief Customization point for working with a batch of threads.
