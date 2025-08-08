@@ -193,11 +193,14 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// @brief Return the number of valid elements currently contained in the buffer.
     size_t valid() const { return valid_; }
 
-    /// @brief Return the target number of valid candidates.
-    size_t target() const { return valid_capacity_; }
+    /// @brief Return the target valid capacity as equivalent to buffer capacity
+    size_t target_capacity() const { return valid_capacity_; }
+
+    /// @brief Return the target valid candidates as equivalent to the search window
+    size_t target_window() const { return target_valid_; }
 
     /// @brief Return whether or not the buffer contains its target number of candidates.
-    bool full() const { return valid() == target(); }
+    bool full() const { return valid() == target_capacity(); }
 
     /// @brief Return the candidate at index `i`.
     ///
@@ -577,7 +580,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// If the number of valid candidates is *less* than the target, a negative number
     /// is returned.
     int64_t slack() const {
-        return lib::narrow_cast<int64_t>(valid()) - lib::narrow_cast<int64_t>(target());
+        return lib::narrow_cast<int64_t>(valid()) - lib::narrow_cast<int64_t>(target_capacity());
     }
 
     /// Return the index of the first preceding valid candidate beginning at the provided
@@ -597,7 +600,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 template <typename Idx, typename Cmp>
 std::ostream& operator<<(std::ostream& io, const MutableBuffer<Idx, Cmp>& buffer) {
     return io << "MutableBuffer<" << datatype_v<Idx> << ">("
-              << "target_valid = " << buffer.target()
+              << "target_valid = " << buffer.target_capacity()
               << ", best_unvisited = " << buffer.best_unvisited()
               << ", valid = " << buffer.valid() << ", size = " << buffer.size() << ")";
 }
