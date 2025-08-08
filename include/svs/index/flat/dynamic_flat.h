@@ -197,6 +197,18 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         return slots;
     }
 
+    ///
+    /// @brief Call the functor with all external IDs in the index.
+    ///
+    /// @param f A functor with an overloaded ``operator()(size_t)`` method. Called on
+    ///     each external ID in the index.
+    ///
+    template <typename F> void on_ids(F&& f) const {
+        for (auto pair : translator_) {
+            f(pair.first);
+        }
+    }
+
   private:
     /// @brief Copy points from the source dataset into the specified slots.
     template <data::ImmutableMemoryDataset Points>
