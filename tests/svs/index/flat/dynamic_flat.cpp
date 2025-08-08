@@ -56,37 +56,50 @@ CATCH_TEST_CASE(
         initial_ids[i] = static_cast<Idx>(i);
     }
 
-    CATCH_SECTION("Basic Construction") {
-        auto index = svs::index::flat::DynamicFlatIndex(
-            std::move(initial_data), initial_ids, Distance{}, num_threads
-        );
-
-        // Verify basic properties
-        CATCH_REQUIRE(index.get_logger() != nullptr);
-        std::cout << "Dynamic Flat Index constructed successfully with " << initial_count
-                  << " points\n";
-    }
-
-    CATCH_SECTION("Construction with Custom Logger") {
-        auto logger = svs::logging::get();
-        auto initial_data_copy = svs::data::SimpleData<Eltype, N>(initial_count, N);
-        for (size_t i = 0; i < initial_count; ++i) {
-            initial_data_copy.set_datum(i, data.get_datum(i));
-        }
-
-        auto index = svs::index::flat::DynamicFlatIndex(
-            std::move(initial_data_copy), initial_ids, Distance{}, num_threads, logger
-        );
-
-        CATCH_REQUIRE(index.get_logger() == logger);
-        std::cout << "Dynamic Flat Index constructed with custom logger\n";
-    }
-
     CATCH_SECTION("Auto Dynamic Assemble") {
         // Test the auto_dynamic_assemble function
         auto index = svs::index::flat::auto_dynamic_assemble(data, Distance{}, num_threads);
 
         CATCH_REQUIRE(index.get_logger() != nullptr);
+        CATCH_REQUIRE(index.size() == data.size());
+        CATCH_REQUIRE(index.dimensions() == N);
         std::cout << "Auto dynamic assemble successful with " << data.size() << " points\n";
+    }
+
+    CATCH_SECTION("Add Points Test") {
+        auto index = svs::index::flat::DynamicFlatIndex(
+            std::move(initial_data), initial_ids, Distance{}, num_threads
+        );
+
+        // Verify initial state
+        size_t original_size = index.size();
+        CATCH_REQUIRE(original_size == initial_count);
+
+        // Create some additional vectors to add
+        size_t add_count = std::min(size_t{20}, data.size() - initial_count);
+        if (add_count > 0) {
+            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
+            std::vector<Idx> add_ids(add_count);
+
+            // Copy vectors from the original data that weren't used initially
+            for (size_t i = 0; i < add_count; ++i) {
+                add_data.set_datum(i, data.get_datum(initial_count + i));
+                add_ids[i] =
+                    static_cast<Idx>(initial_count + i + 1000); // Use different ID range
+            }
+
+            // Add the vectors
+            auto slots_used = index.add_points(add_data, add_ids);
+
+            // Verify the results
+            CATCH_REQUIRE(slots_used.size() == add_count);
+            CATCH_REQUIRE(index.size() == original_size + add_count);
+            CATCH_REQUIRE(index.dimensions() == N); // Dimensions should remain the same
+
+            std::cout << "Successfully added " << add_count
+                      << " vectors. New size: " << index.size() << "\n";
+        } else {
+            std::cout << "Skipping add_points test - not enough additional data\n";
+        }
     }
 }

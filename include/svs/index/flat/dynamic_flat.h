@@ -103,6 +103,111 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
 
     /// @brief Getter method for logger
     svs::logging::logger_ptr get_logger() const { return logger_; }
+
+    /// @brief Return the number of independent entries in the index.
+    size_t size() const {
+        size_t count = 0;
+        for (const auto& status : status_) {
+            if (status == SlotMetadata::Valid) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    /// @brief Return the logical number of dimensions of the indexed vectors.
+    size_t dimensions() const { return data_.dimensions(); }
+
+    /// @brief Add the points with the given external IDs to the dataset.
+    ///
+    /// When `delete_entries` is called, a soft deletion is performed, marking the entries
+    /// as `deleted`. When `consolidate` is called, the state of these deleted entries
+    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
+    /// the memory is scanned from the beginning to locate and fill these empty entries with
+    /// new points.
+    ///
+    /// @param points Dataset of points to add.
+    /// @param external_ids The external IDs of the corresponding points. Must be a
+    ///     container implementing forward iteration.
+    /// @param reuse_empty A flag that determines whether to reuse empty entries that may
+    /// exist after deletion and consolidation. When enabled, scan from the beginning to
+    /// find and fill these empty entries when adding new points.
+    ///
+    template <data::ImmutableMemoryDataset Points, class ExternalIds>
+    std::vector<size_t> add_points(
+        const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
+    ) {
+        const size_t num_points = points.size();
+        const size_t num_ids = external_ids.size();
+        if (num_points != num_ids) {
+            throw ANNEXCEPTION(
+                "Number of points ({}) not equal to the number of external ids ({})!",
+                num_points,
+                num_ids
+            );
+        }
+
+        // Gather all empty slots.
+        std::vector<size_t> slots{};
+        slots.reserve(num_points);
+        bool have_room = false;
+
+        size_t s = reuse_empty ? 0 : first_empty_;
+        size_t smax = status_.size();
+        for (; s < smax; ++s) {
+            if (status_[s] == SlotMetadata::Empty) {
+                slots.push_back(s);
+            }
+            if (slots.size() == num_points) {
+                have_room = true;
+                break;
+            }
+        }
+
+        // Check if we have enough indices. If we don't, we need to resize the data.
+        if (!have_room) {
+            size_t needed = num_points - slots.size();
+            size_t current_size = data_.size();
+            size_t new_size = current_size + needed;
+            data_.resize(new_size);
+            status_.resize(new_size, SlotMetadata::Empty);
+
+            // Append the correct number of extra slots.
+            threads::UnitRange<size_t> extra_points{current_size, current_size + needed};
+            slots.insert(slots.end(), extra_points.begin(), extra_points.end());
+        }
+        assert(slots.size() == num_points);
+
+        // Try to update the id translation now that we have internal ids.
+        // If this fails, we still haven't mutated the index data structure so we're safe
+        // to throw an exception.
+        translator_.insert(external_ids, slots);
+
+        // Copy the given points into the data.
+        copy_points(points, slots);
+
+        // Mark all added entries as valid.
+        for (const auto& i : slots) {
+            status_[i] = SlotMetadata::Valid;
+        }
+
+        if (!slots.empty()) {
+            first_empty_ = std::max(first_empty_, slots.back() + 1);
+        }
+        return slots;
+    }
+
+  private:
+    /// @brief Copy points from the source dataset into the specified slots.
+    template <data::ImmutableMemoryDataset Points>
+    void copy_points(const Points& points, const std::vector<size_t>& slots) {
+        assert(points.size() == slots.size());
+        for (size_t i = 0; i < points.size(); ++i) {
+            data_.set_datum(slots[i], points.get_datum(i));
+        }
+    }
+
+  public:
 };
 
 ///// Deduction Guides.
