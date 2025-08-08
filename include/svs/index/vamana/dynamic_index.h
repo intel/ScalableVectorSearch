@@ -515,7 +515,7 @@ class MutableVamanaIndex {
                     sp.prefetch_lookahead_, sp.prefetch_step_};
 
                 // Legalize search buffer for this search.
-                if (buffer.target() < num_neighbors) {
+                if (buffer.target_capacity() < num_neighbors) {
                     buffer.change_maxsize(num_neighbors);
                 }
                 auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);

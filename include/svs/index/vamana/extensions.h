@@ -434,14 +434,14 @@ template <typename Index, typename SearchBuffer, typename Query>
 void check_and_supplement_search_buffer(
     const Index& index, SearchBuffer& search_buffer, const Query& query
 ) {
-    if (search_buffer.valid() < search_buffer.target()) {
+    if (search_buffer.valid() < search_buffer.target_window() &&
+        search_buffer.valid() < index.size()) {
         for (auto external_id : index.external_ids()) {
             auto internal_id = index.translate_external_id(external_id);
             auto dist = index.get_distance(external_id, query);
             auto builder = index.internal_search_builder();
             search_buffer.insert(builder(internal_id, dist));
-
-            if (search_buffer.valid() >= search_buffer.target()) {
+            if (search_buffer.valid() >= search_buffer.target_window()) {
                 break;
             }
         }
