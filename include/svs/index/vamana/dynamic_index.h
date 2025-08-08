@@ -527,6 +527,7 @@ class MutableVamanaIndex {
                     results,
                     threads::UnitRange{is},
                     greedy_search_closure(prefetch_parameters, cancel),
+                    *this,
                     cancel
                 );
             }

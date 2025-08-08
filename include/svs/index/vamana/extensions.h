@@ -488,7 +488,8 @@ struct VamanaPerThreadBatchSearchType {
         typename Scratch,
         data::ImmutableMemoryDataset Queries,
         std::integral I,
-        typename Search>
+        typename Search,
+        typename Index>
     SVS_FORCE_INLINE void operator()(
         const Data& data,
         SearchBuffer& search_buffer,
@@ -497,6 +498,7 @@ struct VamanaPerThreadBatchSearchType {
         QueryResultView<I>& result,
         threads::UnitRange<size_t> thread_indices,
         const Search& search,
+        const Index& index,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
         svs::svs_invoke(
@@ -508,6 +510,7 @@ struct VamanaPerThreadBatchSearchType {
             result,
             thread_indices,
             search,
+            index,
             cancel
         );
     }
@@ -523,7 +526,8 @@ template <
     typename Distance,
     typename Queries,
     std::integral I,
-    typename Search>
+    typename Search,
+    typename Index>
 void svs_invoke(
     svs::tag_t<per_thread_batch_search>,
     const Data& dataset,
@@ -533,6 +537,7 @@ void svs_invoke(
     QueryResultView<I>& result,
     threads::UnitRange<size_t> thread_indices,
     const Search& search,
+    const Index& index,
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Fallback implementation
@@ -546,6 +551,26 @@ void svs_invoke(
         single_search(
             dataset, search_buffer, distance, queries.get_datum(i), search, cancel
         );
+
+        // In rare cases, the search buffer may not be filled with enough results.
+        // This can occur in dynamic indexes when many vectors have been deleted
+        // and the graph becomes sparsely connected. It's a corner case and should
+        // not happen frequently, but when it does, we may need to supplement the buffer
+        // with additional results.
+        if constexpr (Index::needs_id_translation) {
+            if (search_buffer.valid() < num_neighbors) {
+                for (auto external_id : index.external_ids()) {
+                    auto internal_id = index.translate_external_id(external_id);
+                    auto dist = index.get_distance(external_id, queries.get_datum(0));
+                    auto builder = index.internal_search_builder();
+                    search_buffer.insert(builder(internal_id, dist));
+
+                    if (search_buffer.valid() >= num_neighbors) {
+                        break;
+                    }
+                }
+            }
+        }
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {
