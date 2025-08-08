@@ -410,16 +410,18 @@ struct VamanaSingleSearchType {
         typename SearchBuffer,
         typename Scratch,
         typename Query,
-        typename Search>
+        typename Search,
+        typename Index>
     void operator()(
         const Data& data,
         SearchBuffer& search_buffer,
         Scratch& scratch,
         const Query& query,
         const Search& search,
+        const Index& index,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, cancel);
+        svs::svs_invoke(*this, data, search_buffer, scratch, query, search, index, cancel);
     }
 };
 
@@ -434,7 +436,8 @@ template <
     typename SearchBuffer,
     typename Distance,
     typename Query,
-    typename Search>
+    typename Search,
+    typename Index>
 SVS_FORCE_INLINE void svs_invoke(
     svs::tag_t<single_search>,
     const Data& SVS_UNUSED(dataset),
@@ -442,6 +445,7 @@ SVS_FORCE_INLINE void svs_invoke(
     Distance& distance,
     const Query& query,
     const Search& search,
+    const Index& index,
     const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
 ) {
     // Check if request to cancel the search
@@ -451,6 +455,26 @@ SVS_FORCE_INLINE void svs_invoke(
     // Perform graph search.
     auto accessor = data::GetDatumAccessor();
     search(query, accessor, distance, search_buffer);
+
+    // In rare cases, the search buffer may not be filled with enough results.
+    // This can occur in dynamic indexes when many vectors have been deleted
+    // and the graph becomes sparsely connected. It's a corner case and should
+    // not happen frequently, but when it does, we may need to supplement the buffer
+    // with additional results.
+    if constexpr (Index::needs_id_translation) {
+        if (search_buffer.valid() < search_buffer.size()) {
+            for (auto external_id : index.external_ids()) {
+                auto internal_id = index.translate_external_id(external_id);
+                auto dist = index.get_distance(external_id, query);
+                auto builder = index.internal_search_builder();
+                search_buffer.insert(builder(internal_id, dist));
+
+                if (search_buffer.valid() >= search_buffer.size()){
+                    break;
+                }
+            }
+        }
+    }
 }
 
 ///
@@ -549,28 +573,8 @@ void svs_invoke(
         }
         // Perform search - results will be queued in the search buffer.
         single_search(
-            dataset, search_buffer, distance, queries.get_datum(i), search, cancel
+            dataset, search_buffer, distance, queries.get_datum(i), search, index, cancel
         );
-
-        // In rare cases, the search buffer may not be filled with enough results.
-        // This can occur in dynamic indexes when many vectors have been deleted
-        // and the graph becomes sparsely connected. It's a corner case and should
-        // not happen frequently, but when it does, we may need to supplement the buffer
-        // with additional results.
-        if constexpr (Index::needs_id_translation) {
-            if (search_buffer.valid() < num_neighbors) {
-                for (auto external_id : index.external_ids()) {
-                    auto internal_id = index.translate_external_id(external_id);
-                    auto dist = index.get_distance(external_id, queries.get_datum(0));
-                    auto builder = index.internal_search_builder();
-                    search_buffer.insert(builder(internal_id, dist));
-
-                    if (search_buffer.valid() >= num_neighbors) {
-                        break;
-                    }
-                }
-            }
-        }
 
         // Copy back results.
         for (size_t j = 0; j < num_neighbors; ++j) {

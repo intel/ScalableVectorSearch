@@ -303,7 +303,8 @@ template <typename Index, typename QueryType> class BatchIterator {
                 scratchspace_.buffer,
                 scratchspace_.scratch,
                 lib::as_const_span(query_),
-                search_closure
+                search_closure,
+                *parent_
             );
         });
 

@@ -491,7 +491,8 @@ class MutableVamanaIndex {
             scratch.buffer,
             scratch.scratch,
             query,
-            greedy_search_closure(scratch.prefetch_parameters, cancel)
+            greedy_search_closure(scratch.prefetch_parameters, cancel),
+            *this
         );
     }
 
