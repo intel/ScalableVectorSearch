@@ -39,6 +39,14 @@ set(CPP_FILES
     src/svs_mkl.cpp
 )
 
+# ivf
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
+    list(APPEND CPP_FILES
+        src/ivf.cpp
+    )
+endif()
+
+
 set(LIB_NAME "_svs")
 pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES})
 target_link_libraries(${LIB_NAME} PRIVATE pybind11::module)
