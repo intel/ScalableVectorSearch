@@ -70,16 +70,11 @@ void test_loop(
     size_t consolidate_every,
     size_t iterations
 ) {
-    // Suppress unused variable warnings for now
-    (void)queries;
-    (void)consolidate_every;
-
     size_t consolidate_count = 0;
     for (size_t i = 0; i < iterations; ++i) {
         // Add Points
         {
             auto [points, time] = reference.add_points(index, num_points);
-            (void)time; // Suppress unused warning
             CATCH_REQUIRE(points <= num_points);
             CATCH_REQUIRE(points > num_points - reference.bucket_size());
         }
@@ -87,12 +82,10 @@ void test_loop(
         // Delete Points
         {
             auto [points, time] = reference.delete_points(index, num_points);
-            (void)time; // Suppress unused warning
             CATCH_REQUIRE(points <= num_points);
             CATCH_REQUIRE(points > num_points - reference.bucket_size());
         }
     }
-    (void)consolidate_count; // Suppress unused warning
 }
 
 CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
@@ -148,7 +141,6 @@ CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
         std::move(data_mutable), initial_indices, Distance(), num_threads
     );
     double build_time = svs::lib::time_difference(tic);
-    (void)build_time; // Suppress unused warning
 
     reference.configure_extra_checks(true);
     CATCH_REQUIRE(reference.extra_checks_enabled());
