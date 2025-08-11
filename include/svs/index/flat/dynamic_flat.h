@@ -32,6 +32,7 @@
 #include "svs/core/translation.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/invoke.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
@@ -62,6 +63,15 @@ enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 }
 ///
 template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatIndex {
   public:
+    // Traits
+    static constexpr bool supports_insertions = true;
+    static constexpr bool supports_deletions = true;
+    static constexpr bool supports_saving = false; // Not implemented yet
+    static constexpr bool needs_id_translation = true;
+
+    // Type Aliases
+    using internal_id_type = size_t;
+    using external_id_type = size_t;
     using distance_type = Dist;
     using data_type = Data;
     using search_parameters_type = FlatParameters;
@@ -106,17 +116,45 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
 
     /// @brief Return the number of independent entries in the index.
     size_t size() const {
-        size_t count = 0;
-        for (const auto& status : status_) {
-            if (status == SlotMetadata::Valid) {
-                ++count;
-            }
-        }
-        return count;
+        // NB: Index translation should always be kept in-sync with the number of valid
+        // elements.
+        return translator_.size();
     }
 
     /// @brief Return the logical number of dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
+
+    ///// Index translation.
+
+    ///
+    /// @brief Get the internal ID mapped to be `e`.
+    ///
+    /// @param e The external ID to translate to an internal ID.
+    ///
+    /// Requires that mapping for `e` exists. Otherwise, all bets are off.
+    ///
+    /// @see has_id, translate_internal_id
+    ///
+    size_t translate_external_id(size_t e) const { return translator_.get_internal(e); }
+
+    ///
+    /// @brief Check whether the external ID `e` exists in the index.
+    ///
+    bool has_id(size_t e) const { return translator_.has_external(e); }
+
+    ///
+    /// @brief Get the external ID mapped to be `i`.
+    ///
+    /// @param i The internal ID to translate to an external ID.
+    ///
+    /// Requires that mapping for `i` exists. Otherwise, all bets are off.
+    ///
+    size_t translate_internal_id(size_t i) const { return translator_.get_external(i); }
+
+    ///
+    /// @brief Get the raw data for external id `e`.
+    ///
+    auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
 
     /// @brief Add the points with the given external IDs to the dataset.
     ///
@@ -195,6 +233,100 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
             first_empty_ = std::max(first_empty_, slots.back() + 1);
         }
         return slots;
+    }
+
+    ///
+    /// Delete all IDs stored in the random-access container `ids`.
+    ///
+    /// Pre-conditions:
+    /// * All indices present in `ids` belong to valid slots.
+    ///
+    /// Post-conditions:
+    /// * Deleted slots will not be returned in future calls `search`.
+    ///
+    /// Implementation Notes:
+    /// * The deletion that happens is a "soft" deletion. This means that the corresponding
+    ///   entries are still present in the dataset, and will be traversed during searches.
+    ///
+    ///   However, entries marked as `deleted` will not be returned from searches.
+    ///
+    /// * Delete consolidation should happen once a large enough percentage of slots have
+    ///   been soft deleted.
+    ///
+    ///   Delete consolidation performs the actual removal of deleted entries from the
+    ///   dataset.
+    ///
+    template <typename T> size_t delete_entries(const T& ids) {
+        translator_.check_external_exist(ids.begin(), ids.end());
+        for (auto i : ids) {
+            delete_entry(translator_.get_internal(i));
+        }
+        translator_.delete_external(ids);
+        return ids.size();
+    }
+
+    void delete_entry(size_t i) {
+        SlotMetadata& meta = getindex(status_, i);
+        assert(meta == SlotMetadata::Valid);
+        meta = SlotMetadata::Deleted;
+    }
+
+    bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
+
+    ///
+    /// @brief Return all the non-missing internal IDs.
+    ///
+    /// This includes both valid and soft-deleted entries.
+    ///
+    std::vector<size_t> nonmissing_indices() const {
+        auto indices = std::vector<size_t>();
+        indices.reserve(size());
+        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+            if (!is_deleted(i)) {
+                indices.push_back(i);
+            }
+        }
+        return indices;
+    }
+
+    ///
+    /// @brief Compact the data structure.
+    ///
+    /// @param batch_size Granularity at which points are shuffled. Setting this higher can
+    ///     improve performance but requires more working memory.
+    ///
+    void compact(size_t batch_size = 1'000) {
+        // Step 1: Compute a prefix-sum matching each valid internal index to its new
+        // internal index.
+        //
+        // In the returned data structure, an entry `j` at index `i` means that the
+        // data at index `j` is to be moved to index `i`.
+        auto new_to_old_id_map = nonmissing_indices();
+
+        // Compact the data.
+        data_.compact(lib::as_const_span(new_to_old_id_map), threadpool_, batch_size);
+
+        ///// Finishing steps.
+        size_t max_index = new_to_old_id_map.size();
+        // Resize the data.
+        data_.resize(max_index);
+        first_empty_ = max_index;
+
+        // Compact metadata and ID remapping.
+        for (size_t new_id = 0; new_id < max_index; ++new_id) {
+            auto old_id = getindex(new_to_old_id_map, new_id);
+            // No work to be done if there was no remapping.
+            if (new_id == old_id) {
+                continue;
+            }
+
+            auto status = getindex(status_, old_id);
+            status_[new_id] = status;
+            if (status == SlotMetadata::Valid) {
+                translator_.remap_internal_id(old_id, new_id);
+            }
+        }
+        status_.resize(max_index);
     }
 
     ///

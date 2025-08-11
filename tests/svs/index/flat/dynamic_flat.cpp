@@ -102,4 +102,136 @@ CATCH_TEST_CASE(
             std::cout << "Skipping add_points test - not enough additional data\n";
         }
     }
+
+    CATCH_SECTION("Delete Entries Test") {
+        auto index = svs::index::flat::DynamicFlatIndex(
+            std::move(initial_data), initial_ids, Distance{}, num_threads
+        );
+
+        // First, add some points so we have more to work with
+        size_t add_count = std::min(size_t{20}, data.size() - initial_count);
+        std::vector<Idx> added_ids;
+
+        if (add_count > 0) {
+            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
+            std::vector<Idx> add_ids(add_count);
+
+            for (size_t i = 0; i < add_count; ++i) {
+                add_data.set_datum(i, data.get_datum(initial_count + i));
+                add_ids[i] = static_cast<Idx>(initial_count + i + 1000);
+            }
+            added_ids = add_ids;
+
+            index.add_points(add_data, add_ids);
+        }
+
+        // Verify initial state after additions
+        size_t size_before_deletion = index.size();
+        std::cout << "Size before deletion: " << size_before_deletion << "\n";
+
+        // Test deletion with some of the original IDs
+        std::vector<Idx> ids_to_delete;
+        size_t num_to_delete = std::min(size_t{5}, size_before_deletion);
+
+        // Delete some original IDs
+        for (size_t i = 0; i < num_to_delete && i < initial_ids.size(); ++i) {
+            ids_to_delete.push_back(initial_ids[i]);
+        }
+
+        // Also delete some added IDs if we have them
+        size_t added_to_delete = std::min(size_t{3}, added_ids.size());
+        for (size_t i = 0; i < added_to_delete; ++i) {
+            ids_to_delete.push_back(added_ids[i]);
+        }
+
+        // Verify all IDs exist before deletion
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE(index.has_id(id));
+        }
+
+        // Perform deletion
+        size_t deleted_count = index.delete_entries(ids_to_delete);
+        CATCH_REQUIRE(deleted_count == ids_to_delete.size());
+
+        // Verify size decreased
+        CATCH_REQUIRE(index.size() == size_before_deletion - ids_to_delete.size());
+
+        // Verify deleted IDs no longer exist in the index
+        for (auto id : ids_to_delete) {
+            CATCH_REQUIRE_FALSE(index.has_id(id));
+        }
+
+        std::cout << "Successfully deleted " << deleted_count
+                  << " entries. New size: " << index.size() << "\n";
+
+        // Test deleting non-existent ID should throw
+        std::vector<Idx> non_existent_ids = {99999};
+        CATCH_REQUIRE_THROWS(index.delete_entries(non_existent_ids));
+    }
+
+    CATCH_SECTION("Compact Test") {
+        auto index = svs::index::flat::DynamicFlatIndex(
+            std::move(initial_data), initial_ids, Distance{}, num_threads
+        );
+
+        // First, add some points
+        size_t add_count = std::min(size_t{30}, data.size() - initial_count);
+        std::vector<Idx> added_ids;
+
+        if (add_count > 0) {
+            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
+            std::vector<Idx> add_ids(add_count);
+
+            for (size_t i = 0; i < add_count; ++i) {
+                add_data.set_datum(i, data.get_datum(initial_count + i));
+                add_ids[i] = static_cast<Idx>(initial_count + i + 1000);
+            }
+            added_ids = add_ids;
+            index.add_points(add_data, add_ids);
+        }
+
+        // Delete some entries to create fragmentation
+        std::vector<Idx> ids_to_delete;
+        size_t num_to_delete = std::min(size_t{10}, index.size() / 2);
+
+        // Delete every other original ID to create fragmentation
+        for (size_t i = 0; i < num_to_delete && i * 2 < initial_ids.size(); ++i) {
+            ids_to_delete.push_back(initial_ids[i * 2]);
+        }
+
+        // Also delete some added IDs
+        size_t added_to_delete = std::min(size_t{5}, added_ids.size());
+        for (size_t i = 0; i < added_to_delete; ++i) {
+            ids_to_delete.push_back(added_ids[i]);
+        }
+
+        if (!ids_to_delete.empty()) {
+            index.delete_entries(ids_to_delete);
+        }
+
+        size_t size_before_compact = index.size();
+        std::cout << "Size before compact: " << size_before_compact << "\n";
+
+        // Get all existing IDs before compaction for verification
+        std::vector<size_t> ids_before_compact;
+        index.on_ids([&ids_before_compact](size_t id) {
+            ids_before_compact.push_back(id);
+        });
+
+        // Perform compaction
+        index.compact();
+
+        // Verify size is preserved
+        CATCH_REQUIRE(index.size() == size_before_compact);
+
+        // Verify all IDs still exist after compaction
+        for (auto id : ids_before_compact) {
+            CATCH_REQUIRE(index.has_id(id));
+        }
+
+        // Verify dimensions are preserved
+        CATCH_REQUIRE(index.dimensions() == N);
+
+        std::cout << "Successfully compacted. Size after compact: " << index.size() << "\n";
+    }
 }
