@@ -42,7 +42,6 @@ using Distance = svs::distance::DistanceL2;
 const size_t N = 128;
 
 const size_t NUM_NEIGHBORS = 10;
-const double TARGET_RECALL = 0.95;
 
 ///
 /// Utility Methods
