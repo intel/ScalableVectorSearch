@@ -10,11 +10,7 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See            CATCH_REQUIRE(original_result.index(q, k) == loaded_result.index(q, k));
-            CATCH_REQUIRE(
-                std::abs(original_result.distance(q, k) - loaded_result.distance(q, k)) <
-                eps
-            );License for the specific language governing permissions and
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
@@ -231,5 +227,50 @@ CATCH_TEST_CASE(
         CATCH_REQUIRE(index.dimensions() == N);
 
         std::cout << "Successfully compacted. Size after compact: " << index.size() << "\n";
+    }
+
+    CATCH_SECTION("Save and Load Test") {
+        auto index = svs::index::flat::DynamicFlatIndex(
+            std::move(initial_data), initial_ids, Distance{}, num_threads
+        );
+
+        // Add some points to make the test more meaningful
+        size_t add_count = std::min(size_t{15}, data.size() - initial_count);
+        if (add_count > 0) {
+            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
+            std::vector<Idx> add_ids(add_count);
+
+            for (size_t i = 0; i < add_count; ++i) {
+                add_data.set_datum(i, data.get_datum(initial_count + i));
+                add_ids[i] = static_cast<Idx>(initial_count + i + 2000);
+            }
+            index.add_points(add_data, add_ids);
+        }
+
+        size_t size_before_save = index.size();
+        std::cout << "Size before save: " << size_before_save << "\n";
+
+        // Create temporary directory for saving
+        auto temp_dir = std::filesystem::temp_directory_path() / "dynamic_flat_save_test";
+        std::filesystem::create_directories(temp_dir);
+        auto data_dir = temp_dir / "data";
+
+        // Save the index (data only)
+        index.save(data_dir);
+
+        // Load the index back
+        auto loaded_index = svs::index::flat::auto_dynamic_assemble(
+            SVS_LAZY(svs::data::SimpleData<Eltype>::load(data_dir)), Distance{}, num_threads
+        );
+
+        // Verify the loaded index properties
+        CATCH_REQUIRE(loaded_index.size() == size_before_save);
+        CATCH_REQUIRE(loaded_index.dimensions() == N);
+
+        std::cout << "Successfully saved and loaded index with " << loaded_index.size()
+                  << " points\n";
+
+        // Clean up temporary files
+        std::filesystem::remove_all(temp_dir);
     }
 }

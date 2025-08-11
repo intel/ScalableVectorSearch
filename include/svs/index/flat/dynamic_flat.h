@@ -17,6 +17,7 @@
 #pragma once
 
 // stdlib
+#include <filesystem>
 #include <memory>
 
 // Include the flat index
@@ -66,7 +67,7 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     // Traits
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
-    static constexpr bool supports_saving = false; // Not implemented yet
+    static constexpr bool supports_saving = true;
     static constexpr bool needs_id_translation = true;
 
     // Type Aliases
@@ -329,6 +330,18 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         status_.resize(max_index);
     }
 
+    ///// Saving
+
+    /// @brief Save the index to disk.
+    void save(const std::filesystem::path& data_directory) {
+        // Compact before saving to remove deleted entries
+        compact();
+        lib::save_to_disk(data_, data_directory);
+    }
+
+    /// @brief Get a descriptive name for this index type.
+    constexpr std::string_view name() const { return "dynamic flat index"; }
+
     ///
     /// @brief Call the functor with all external IDs in the index.
     ///
@@ -375,6 +388,32 @@ auto auto_dynamic_assemble(
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
 
     // For initial construction, create sequential external IDs
+    auto external_ids = threads::UnitRange<size_t>(0, data.size());
+
+    return DynamicFlatIndex(
+        std::move(data),
+        external_ids,
+        std::move(distance),
+        std::move(threadpool),
+        std::move(logger)
+    );
+}
+
+///
+/// @brief Load a saved Dynamic Flat index (data-only, no config file needed).
+///
+template <typename DataLoader, typename Distance, typename ThreadPoolProto>
+auto auto_dynamic_assemble(
+    DataLoader&& data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    auto data =
+        svs::detail::dispatch_load(std::forward<DataLoader>(data_loader), threadpool);
+
+    // For loading, create sequential external IDs matching the data size
     auto external_ids = threads::UnitRange<size_t>(0, data.size());
 
     return DynamicFlatIndex(
