@@ -736,7 +736,7 @@ CATCH_TEST_CASE("MutableBuffer", "[core][search_buffer]") {
         CATCH_SECTION("Full Buffer") {
             // We should be able to add elements to the buffer.
             // Valid elements should only be appended until 4 have been added.
-            CATCH_REQUIRE(b.target() == 4);
+            CATCH_REQUIRE(b.target_capacity() == 4);
             CATCH_REQUIRE(b.size() == 0);
             CATCH_REQUIRE(b.valid() == 0);
             CATCH_REQUIRE(!b.full());
