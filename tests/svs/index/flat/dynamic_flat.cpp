@@ -36,8 +36,6 @@ using Idx = uint32_t;
 using Eltype = float;
 using Distance = svs::distance::DistanceL2;
 const size_t N = 128;
-const size_t NUM_NEIGHBORS = 10;
-const double TARGET_RECALL = 0.95;
 
 CATCH_TEST_CASE(
     "Dynamic Flat Index Basic Constructor Test", "[dynamic_flat][constructor]"
