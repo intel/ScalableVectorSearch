@@ -61,16 +61,13 @@ template <typename... Args> std::string stringify(Args&&... args) {
 /// Main Loop.
 ///
 
-template <typename MutableIndex, typename Queries>
+template <typename MutableIndex>
 void test_loop(
     MutableIndex& index,
     svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>& reference,
-    const Queries& queries,
     size_t num_points,
-    size_t consolidate_every,
     size_t iterations
 ) {
-    size_t consolidate_count = 0;
     for (size_t i = 0; i < iterations; ++i) {
         // Add Points
         {
@@ -136,14 +133,12 @@ CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
         }
     }
 
-    auto tic = svs::lib::now();
     auto index = svs::index::flat::DynamicFlatIndex(
         std::move(data_mutable), initial_indices, Distance(), num_threads
     );
-    double build_time = svs::lib::time_difference(tic);
 
     reference.configure_extra_checks(true);
     CATCH_REQUIRE(reference.extra_checks_enabled());
 
-    test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
+    test_loop(index, reference, div(reference.size(), modify_fraction), 6);
 }
