@@ -20,6 +20,7 @@
 #include "svs/index/flat/flat.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/timing.h"
+#include "svs/misc/dynamic_helper.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -28,252 +29,130 @@
 // catch
 #include "catch2/catch_test_macros.hpp"
 
+// stl
+#include <algorithm>
+#include <cmath>
+#include <random>
+#include <sstream>
+
 using Idx = uint32_t;
 using Eltype = float;
+using QueryEltype = float;
 using Distance = svs::distance::DistanceL2;
 const size_t N = 128;
 
-CATCH_TEST_CASE(
-    "Dynamic Flat Index Basic Constructor Test", "[dynamic_flat][constructor]"
+const size_t NUM_NEIGHBORS = 10;
+const double TARGET_RECALL = 0.95;
+
+///
+/// Utility Methods
+///
+
+template <std::integral I> I div(I i, float fraction) {
+    return svs::lib::narrow<I>(std::floor(svs::lib::narrow<float>(i) * fraction));
+}
+
+template <typename... Args> std::string stringify(Args&&... args) {
+    std::ostringstream stream{};
+    ((stream << args), ...);
+    return stream.str();
+}
+
+///
+/// Main Loop.
+///
+
+template <typename MutableIndex, typename Queries>
+void test_loop(
+    MutableIndex& index,
+    svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>& reference,
+    const Queries& queries,
+    size_t num_points,
+    size_t consolidate_every,
+    size_t iterations
 ) {
-    // Load test data
+    // Suppress unused variable warnings for now
+    (void)queries;
+    (void)consolidate_every;
+
+    size_t consolidate_count = 0;
+    for (size_t i = 0; i < iterations; ++i) {
+        // Add Points
+        {
+            auto [points, time] = reference.add_points(index, num_points);
+            (void)time; // Suppress unused warning
+            CATCH_REQUIRE(points <= num_points);
+            CATCH_REQUIRE(points > num_points - reference.bucket_size());
+        }
+
+        // Delete Points
+        {
+            auto [points, time] = reference.delete_points(index, num_points);
+            (void)time; // Suppress unused warning
+            CATCH_REQUIRE(points <= num_points);
+            CATCH_REQUIRE(points > num_points - reference.bucket_size());
+        }
+    }
+    (void)consolidate_count; // Suppress unused warning
+}
+
+CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
+#if defined(NDEBUG)
+    const float initial_fraction = 0.25;
+    const float modify_fraction = 0.05;
+#else
+    const float initial_fraction = 0.05;
+    const float modify_fraction = 0.005;
+#endif
+    const size_t num_threads = 10;
+
+    // Load the base dataset and queries.
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
-    auto num_threads = 4;
+    auto num_points = data.size();
+    auto queries = test_dataset::queries();
 
-    // Create initial data
-    auto initial_count = std::min(size_t{100}, data.size());
-    auto initial_data = svs::data::SimpleData<Eltype, N>(initial_count, N);
-    std::vector<Idx> initial_ids(initial_count);
+    auto reference = svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>(
+        std::move(data),
+        Distance(),
+        num_threads,
+        div(num_points, 0.5 * modify_fraction),
+        NUM_NEIGHBORS,
+        queries,
+        0x12345678
+    );
 
-    for (size_t i = 0; i < initial_count; ++i) {
-        initial_data.set_datum(i, data.get_datum(i));
-        initial_ids[i] = static_cast<Idx>(i);
-    }
+    auto num_indices_to_add = div(reference.size(), initial_fraction);
 
-    CATCH_SECTION("Auto Dynamic Assemble") {
-        // Test the auto_dynamic_assemble function
-        auto index = svs::index::flat::auto_dynamic_assemble(data, Distance{}, num_threads);
+    // Construct a blocked dataset consisting of initial fraction of the base dataset.
+    auto data_mutable = svs::data::BlockedData<Eltype, N>(num_indices_to_add, N);
+    std::vector<Idx> initial_indices{};
+    {
+        auto [vectors, indices] = reference.generate(num_indices_to_add);
+        // Copy assign ``initial_indices``
+        auto num_points_added = indices.size();
+        CATCH_REQUIRE(vectors.size() == num_points_added);
+        CATCH_REQUIRE(num_points_added <= num_indices_to_add);
+        CATCH_REQUIRE(num_points_added > num_indices_to_add - reference.bucket_size());
 
-        CATCH_REQUIRE(index.get_logger() != nullptr);
-        CATCH_REQUIRE(index.size() == data.size());
-        CATCH_REQUIRE(index.dimensions() == N);
-        std::cout << "Auto dynamic assemble successful with " << data.size() << " points\n";
-    }
+        initial_indices = indices;
+        if (vectors.size() != num_indices_to_add || indices.size() != num_indices_to_add) {
+            throw ANNEXCEPTION("Something when horribly wrong!");
+        }
 
-    CATCH_SECTION("Add Points Test") {
-        auto index = svs::index::flat::DynamicFlatIndex(
-            std::move(initial_data), initial_ids, Distance{}, num_threads
-        );
-
-        // Verify initial state
-        size_t original_size = index.size();
-        CATCH_REQUIRE(original_size == initial_count);
-
-        // Create some additional vectors to add
-        size_t add_count = std::min(size_t{20}, data.size() - initial_count);
-        if (add_count > 0) {
-            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
-            std::vector<Idx> add_ids(add_count);
-
-            // Copy vectors from the original data that weren't used initially
-            for (size_t i = 0; i < add_count; ++i) {
-                add_data.set_datum(i, data.get_datum(initial_count + i));
-                add_ids[i] =
-                    static_cast<Idx>(initial_count + i + 1000); // Use different ID range
-            }
-
-            // Add the vectors
-            auto slots_used = index.add_points(add_data, add_ids);
-
-            // Verify the results
-            CATCH_REQUIRE(slots_used.size() == add_count);
-            CATCH_REQUIRE(index.size() == original_size + add_count);
-            CATCH_REQUIRE(index.dimensions() == N); // Dimensions should remain the same
-
-            std::cout << "Successfully added " << add_count
-                      << " vectors. New size: " << index.size() << "\n";
-        } else {
-            std::cout << "Skipping add_points test - not enough additional data\n";
+        for (size_t i = 0; i < num_indices_to_add; ++i) {
+            data_mutable.set_datum(i, vectors.get_datum(i));
         }
     }
 
-    CATCH_SECTION("Delete Entries Test") {
-        auto index = svs::index::flat::DynamicFlatIndex(
-            std::move(initial_data), initial_ids, Distance{}, num_threads
-        );
+    auto tic = svs::lib::now();
+    auto index = svs::index::flat::DynamicFlatIndex(
+        std::move(data_mutable), initial_indices, Distance(), num_threads
+    );
+    double build_time = svs::lib::time_difference(tic);
+    (void)build_time; // Suppress unused warning
 
-        // First, add some points so we have more to work with
-        size_t add_count = std::min(size_t{20}, data.size() - initial_count);
-        std::vector<Idx> added_ids;
+    reference.configure_extra_checks(true);
+    CATCH_REQUIRE(reference.extra_checks_enabled());
 
-        if (add_count > 0) {
-            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
-            std::vector<Idx> add_ids(add_count);
-
-            for (size_t i = 0; i < add_count; ++i) {
-                add_data.set_datum(i, data.get_datum(initial_count + i));
-                add_ids[i] = static_cast<Idx>(initial_count + i + 1000);
-            }
-            added_ids = add_ids;
-
-            index.add_points(add_data, add_ids);
-        }
-
-        // Verify initial state after additions
-        size_t size_before_deletion = index.size();
-        std::cout << "Size before deletion: " << size_before_deletion << "\n";
-
-        // Test deletion with some of the original IDs
-        std::vector<Idx> ids_to_delete;
-        size_t num_to_delete = std::min(size_t{5}, size_before_deletion);
-
-        // Delete some original IDs
-        for (size_t i = 0; i < num_to_delete && i < initial_ids.size(); ++i) {
-            ids_to_delete.push_back(initial_ids[i]);
-        }
-
-        // Also delete some added IDs if we have them
-        size_t added_to_delete = std::min(size_t{3}, added_ids.size());
-        for (size_t i = 0; i < added_to_delete; ++i) {
-            ids_to_delete.push_back(added_ids[i]);
-        }
-
-        // Verify all IDs exist before deletion
-        for (auto id : ids_to_delete) {
-            CATCH_REQUIRE(index.has_id(id));
-        }
-
-        // Perform deletion
-        size_t deleted_count = index.delete_entries(ids_to_delete);
-        CATCH_REQUIRE(deleted_count == ids_to_delete.size());
-
-        // Verify size decreased
-        CATCH_REQUIRE(index.size() == size_before_deletion - ids_to_delete.size());
-
-        // Verify deleted IDs no longer exist in the index
-        for (auto id : ids_to_delete) {
-            CATCH_REQUIRE_FALSE(index.has_id(id));
-        }
-
-        std::cout << "Successfully deleted " << deleted_count
-                  << " entries. New size: " << index.size() << "\n";
-
-        // Test deleting non-existent ID should throw
-        std::vector<Idx> non_existent_ids = {99999};
-        CATCH_REQUIRE_THROWS(index.delete_entries(non_existent_ids));
-    }
-
-    CATCH_SECTION("Compact Test") {
-        auto index = svs::index::flat::DynamicFlatIndex(
-            std::move(initial_data), initial_ids, Distance{}, num_threads
-        );
-
-        // First, add some points
-        size_t add_count = std::min(size_t{30}, data.size() - initial_count);
-        std::vector<Idx> added_ids;
-
-        if (add_count > 0) {
-            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
-            std::vector<Idx> add_ids(add_count);
-
-            for (size_t i = 0; i < add_count; ++i) {
-                add_data.set_datum(i, data.get_datum(initial_count + i));
-                add_ids[i] = static_cast<Idx>(initial_count + i + 1000);
-            }
-            added_ids = add_ids;
-            index.add_points(add_data, add_ids);
-        }
-
-        // Delete some entries to create fragmentation
-        std::vector<Idx> ids_to_delete;
-        size_t num_to_delete = std::min(size_t{10}, index.size() / 2);
-
-        // Delete every other original ID to create fragmentation
-        for (size_t i = 0; i < num_to_delete && i * 2 < initial_ids.size(); ++i) {
-            ids_to_delete.push_back(initial_ids[i * 2]);
-        }
-
-        // Also delete some added IDs
-        size_t added_to_delete = std::min(size_t{5}, added_ids.size());
-        for (size_t i = 0; i < added_to_delete; ++i) {
-            ids_to_delete.push_back(added_ids[i]);
-        }
-
-        if (!ids_to_delete.empty()) {
-            index.delete_entries(ids_to_delete);
-        }
-
-        size_t size_before_compact = index.size();
-        std::cout << "Size before compact: " << size_before_compact << "\n";
-
-        // Get all existing IDs before compaction for verification
-        std::vector<size_t> ids_before_compact;
-        index.on_ids([&ids_before_compact](size_t id) {
-            ids_before_compact.push_back(id);
-        });
-
-        // Perform compaction
-        index.compact();
-
-        // Verify size is preserved
-        CATCH_REQUIRE(index.size() == size_before_compact);
-
-        // Verify all IDs still exist after compaction
-        for (auto id : ids_before_compact) {
-            CATCH_REQUIRE(index.has_id(id));
-        }
-
-        // Verify dimensions are preserved
-        CATCH_REQUIRE(index.dimensions() == N);
-
-        std::cout << "Successfully compacted. Size after compact: " << index.size() << "\n";
-    }
-
-    CATCH_SECTION("Save and Load Test") {
-        auto index = svs::index::flat::DynamicFlatIndex(
-            std::move(initial_data), initial_ids, Distance{}, num_threads
-        );
-
-        // Add some points to make the test more meaningful
-        size_t add_count = std::min(size_t{15}, data.size() - initial_count);
-        if (add_count > 0) {
-            auto add_data = svs::data::SimpleData<Eltype, N>(add_count, N);
-            std::vector<Idx> add_ids(add_count);
-
-            for (size_t i = 0; i < add_count; ++i) {
-                add_data.set_datum(i, data.get_datum(initial_count + i));
-                add_ids[i] = static_cast<Idx>(initial_count + i + 2000);
-            }
-            index.add_points(add_data, add_ids);
-        }
-
-        size_t size_before_save = index.size();
-        std::cout << "Size before save: " << size_before_save << "\n";
-
-        // Create temporary directory for saving
-        auto temp_dir = std::filesystem::temp_directory_path() / "dynamic_flat_save_test";
-        std::filesystem::create_directories(temp_dir);
-        auto data_dir = temp_dir / "data";
-
-        // Save the index (data only)
-        index.save(data_dir);
-
-        // Load the index back
-        auto loaded_index = svs::index::flat::auto_dynamic_assemble(
-            SVS_LAZY(svs::data::SimpleData<Eltype>::load(data_dir)),
-            Distance{},
-            num_threads,
-            svs::logging::get()
-        );
-
-        // Verify the loaded index properties
-        CATCH_REQUIRE(loaded_index.size() == size_before_save);
-        CATCH_REQUIRE(loaded_index.dimensions() == N);
-
-        std::cout << "Successfully saved and loaded index with " << loaded_index.size()
-                  << " points\n";
-
-        // Clean up temporary files
-        std::filesystem::remove_all(temp_dir);
-    }
+    test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
 }

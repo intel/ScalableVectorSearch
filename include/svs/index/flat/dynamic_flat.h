@@ -125,6 +125,32 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     /// @brief Return the logical number of dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
 
+    /// @brief Get the current search parameters.
+    search_parameters_type get_search_parameters() const { return search_parameters_; }
+
+    /// @brief Set the search parameters.
+    void set_search_parameters(const search_parameters_type& params) {
+        search_parameters_ = params;
+    }
+
+    /// @brief Iterate over all external IDs.
+    template <typename F> void on_ids(F&& f) const {
+        // Use the translator to iterate over all external IDs
+        for (size_t i = 0; i < data_.size(); ++i) {
+            if (status_[i] == SlotMetadata::Valid) {
+                f(translator_.get_external(i));
+            }
+        }
+    }
+
+    /// @brief Get external IDs (compatibility method for dynamic_helper.h)
+    auto external_ids() const {
+        std::vector<size_t> ids;
+        ids.reserve(size());
+        on_ids([&ids](size_t id) { ids.push_back(id); });
+        return ids;
+    }
+
     ///// Index translation.
 
     ///
@@ -342,18 +368,6 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     /// @brief Get a descriptive name for this index type.
     constexpr std::string_view name() const { return "dynamic flat index"; }
 
-    ///
-    /// @brief Call the functor with all external IDs in the index.
-    ///
-    /// @param f A functor with an overloaded ``operator()(size_t)`` method. Called on
-    ///     each external ID in the index.
-    ///
-    template <typename F> void on_ids(F&& f) const {
-        for (auto pair : translator_) {
-            f(pair.first);
-        }
-    }
-
   private:
     /// @brief Copy points from the source dataset into the specified slots.
     template <data::ImmutableMemoryDataset Points>
@@ -388,32 +402,6 @@ auto auto_dynamic_assemble(
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
 
     // For initial construction, create sequential external IDs
-    auto external_ids = threads::UnitRange<size_t>(0, data.size());
-
-    return DynamicFlatIndex(
-        std::move(data),
-        external_ids,
-        std::move(distance),
-        std::move(threadpool),
-        std::move(logger)
-    );
-}
-
-///
-/// @brief Load a saved Dynamic Flat index (data-only, no config file needed).
-///
-template <typename DataLoader, typename Distance, typename ThreadPoolProto>
-auto auto_dynamic_assemble(
-    DataLoader&& data_loader,
-    Distance distance,
-    ThreadPoolProto threadpool_proto,
-    svs::logging::logger_ptr logger
-) {
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto data =
-        svs::detail::dispatch_load(std::forward<DataLoader>(data_loader), threadpool);
-
-    // For loading, create sequential external IDs matching the data size
     auto external_ids = threads::UnitRange<size_t>(0, data.size());
 
     return DynamicFlatIndex(
