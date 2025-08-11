@@ -260,7 +260,10 @@ CATCH_TEST_CASE(
 
         // Load the index back
         auto loaded_index = svs::index::flat::auto_dynamic_assemble(
-            SVS_LAZY(svs::data::SimpleData<Eltype>::load(data_dir)), Distance{}, num_threads
+            SVS_LAZY(svs::data::SimpleData<Eltype>::load(data_dir)),
+            Distance{},
+            num_threads,
+            svs::logging::get()
         );
 
         // Verify the loaded index properties

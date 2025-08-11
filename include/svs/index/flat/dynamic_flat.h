@@ -407,7 +407,7 @@ auto auto_dynamic_assemble(
     DataLoader&& data_loader,
     Distance distance,
     ThreadPoolProto threadpool_proto,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data =
