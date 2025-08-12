@@ -4,6 +4,6 @@ Bugfix release for multi-vector dynamic vamana index save/load functionality.
 
 ## Additions and Changes
 
-* Extended "Multi-vector dynamic vamana index" test section "Save/Load" to enforce multi-vector initialization and compare search results before and after saving/loading.
-
-* Fixed labels saving/loading in `MultiMutableVamanaIndex`.
+* fix: Multi-vector dynamic vamana index Save/Load functionality (#162)
+* feature: save and load in flat index (#163)
+* fix: Handle corner in dynamic index with insufficient valid search results (#164)
