@@ -1,7 +1,5 @@
 # SVS 0.0.9 Release Notes
 
-Bugfix release for multi-vector dynamic vamana index save/load functionality.
-
 ## Additions and Changes
 
 * fix: Multi-vector dynamic vamana index Save/Load functionality (#162)
