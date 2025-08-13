@@ -73,6 +73,11 @@ option(SVS_INITIALIZE_LOGGER
     ON # enabled by default
 )
 
+option(SVS_ENABLE_OMP
+    "Support OpenMP threadpool."
+    OFF # disable by default
+)
+
 #####
 ##### Experimental
 #####
@@ -138,6 +143,12 @@ if (SVS_INITIALIZE_LOGGER)
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=1)
 else()
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=0)
+endif()
+
+if (SVS_ENABLE_OMP)
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_OMP=1)
+else()
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_OMP=0)
 endif()
 
 #####

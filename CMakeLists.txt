@@ -77,6 +77,10 @@ include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
+if(SVS_ENABLE_OMP)
+    include("cmake/openmp.cmake")
+endif()
+
 add_library(svs_x86_options_base INTERFACE)
 add_library(svs::x86_options_base ALIAS svs_x86_options_base)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
