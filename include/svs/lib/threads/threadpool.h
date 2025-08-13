@@ -26,6 +26,10 @@
 #include <sstream>
 #include <vector>
 
+#if defined(SVS_ENABLE_OMP)
+#include <omp.h>
+#endif
+
 #include "svs/lib/numa.h"
 #include "svs/lib/threads/thread.h"
 #include "svs/lib/threads/thunks.h"
@@ -282,6 +286,27 @@ class SwitchNativeThreadPool {
   private:
     NativeThreadPool threadpool_;
 };
+
+#if defined(SVS_ENABLE_OMP)
+/////
+///// A thread pool that utilizes OpenMP for multithreading
+/////
+class OMPThreadPool {
+  public:
+    explicit OMPThreadPool(size_t num_threads) { omp_set_num_threads(num_threads); }
+
+    size_t size() const { return omp_get_num_threads(); }
+
+    void parallel_for(std::function<void(size_t)> f, size_t n) {
+#pragma omp parallel for
+        for (size_t i = 0; i < n; ++i) {
+            f(i);
+        }
+    }
+
+    void resize(size_t num_threads) { omp_set_num_threads(num_threads); }
+};
+#endif
 
 /////
 ///// A handy reference wrapper for situations where we only want to share a thread pool
