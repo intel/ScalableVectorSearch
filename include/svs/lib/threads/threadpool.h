@@ -26,7 +26,8 @@
 #include <sstream>
 #include <vector>
 
-#if defined(SVS_ENABLE_OMP)
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_OMP);
+#if SVS_ENABLE_OMP
 #include <omp.h>
 #endif
 
@@ -287,7 +288,8 @@ class SwitchNativeThreadPool {
     NativeThreadPool threadpool_;
 };
 
-#if defined(SVS_ENABLE_OMP)
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_OMP);
+#if SVS_ENABLE_OMP
 /////
 ///// A thread pool that utilizes OpenMP for multithreading
 /////

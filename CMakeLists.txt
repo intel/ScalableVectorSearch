@@ -78,7 +78,7 @@ include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
 if(SVS_ENABLE_OMP)
-  include("cmake/openmp.cmake")
+    include("cmake/openmp.cmake")
 endif()
 
 add_library(svs_x86_options_base INTERFACE)
