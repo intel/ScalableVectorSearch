@@ -4,7 +4,7 @@ usr/
 wheelhouse/
 
 # Bundled test data
-/data/
+/data/temp
 
 # Misc tool related files
 *.swp

@@ -159,7 +159,7 @@ Please also refer to the file .github/CONTRIBUTING.md, which clarifies licensing
 external contributions to this project including patches, pull requests, etc.
 
 --------------------------------------------------------------------------------
-7. MKL (cmake/mkl.cmake, https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html)
+7. Intel(R) MKL (cmake/mkl.cmake, https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html)
 
 Copyright (c) Intel Corporation, All rights reserved.
 
