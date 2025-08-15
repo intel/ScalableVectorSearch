@@ -37,4 +37,3 @@ SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Wer
 
 add_executable(shared shared.cpp)
 target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
-
