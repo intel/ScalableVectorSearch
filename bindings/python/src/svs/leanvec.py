@@ -1,4 +1,4 @@
-# Copyright 2023 Intel Corporation
+# Copyright 2025 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,25 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import svs._svs as _svs
+import numpy as np
+from typing import Tuple
 
-globals().update(
-    {k : v for (k, v) in _svs.__dict__.items() if not k.startswith("__")}
-)
 
-# Misc types and functions
-from .common import \
-    np_to_svs, \
-    read_npy, \
-    read_vecs, \
-    write_vecs, \
-    read_svs, \
-    k_recall_at, \
-    generate_test_dataset
+def compute_leanvec_matrices(X: np.ndarray, Q: np.ndarray, n_components: int,
+        n_max_steps: int = 500, rel_tol:float = 1e-3) -> Tuple[np.ndarray, np.ndarray]:
+    A = np.zeros((Q.shape[1], n_components))
+    B = np.zeros((X.shape[1], n_components))
 
-# LeanVec computation
-from .leanvec import compute_leanvec_matrices
-
-# Make the upgrader available without explicit import.
-from . import upgrader
-
+    return B.astype(np.float32), A.astype(np.float32)
