@@ -297,7 +297,7 @@ class OMPThreadPool {
   public:
     explicit OMPThreadPool(size_t num_threads) { omp_set_num_threads(num_threads); }
 
-    size_t size() const { return omp_get_num_threads(); }
+    size_t size() const { return omp_get_max_threads(); }
 
     void parallel_for(std::function<void(size_t)> f, size_t n) {
 #pragma omp parallel for
