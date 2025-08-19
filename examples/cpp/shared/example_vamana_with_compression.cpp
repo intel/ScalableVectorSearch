@@ -26,7 +26,6 @@
 
 
 int main() {
-
     // STEP 1: Compress Data with LeanVec, reducing dimensionality to leanvec_dim dimensions and using 
     // 4 and 8 bits for primary and secondary levels respectively.
     //! [Compress data]    

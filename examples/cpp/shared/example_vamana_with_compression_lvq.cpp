@@ -26,7 +26,6 @@
 
 
 int main() {
-
     // STEP 1: Compress Data with LVQ
     //! [Compress data]
     size_t padding = 32;
