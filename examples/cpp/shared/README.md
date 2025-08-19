@@ -14,9 +14,12 @@
   ~ limitations under the License.
 -->
 
-A simple example to use SVS shared library.
+These examples utilize LVQ and LeanVec interfaces which are available when linking to a SVS shared/static library, which are published with [releases](https://github.com/intel/ScalableVectorSearch/releases). Note that these examples will _not_ run after building the open source codebase without the shared/static library. These examples include:
+- [example_vamana_with_compression.cpp](./example_vamana_with_compression.cpp): Demonstrates building, searching, saving, and reloading an index with a LeanVec-compressed dataset.
+- [example_vamana_with_compression_lvq.cpp](./example_vamana_with_compression_lvq.cpp): Demonstrates building, searching, saving, and reloading an index with a LVQ-compressed dataset.
+- [shared.cpp](./shared.cpp): A simple example to use SVS shared library, with functionality to build and search an index with LVQ-compressed data.
 
-Follow the commands below to compile and use SVS shared library:
+See [CMakeLists.txt](./CMakeLists.txt) for details on linking to the SVS shared library and follow the commands below to compile and use the SVS shared library to run shared.cpp example:
 
 ```
 mkdir build
