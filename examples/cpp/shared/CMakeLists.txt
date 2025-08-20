@@ -14,10 +14,6 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-project(svs_shared_library_example
-    LANGUAGES CXX
-)
-
 # Other AVX versions can be found at https://github.com/intel/ScalableVectorSearch/releases.
 set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.9/svs-shared-library-0.0.9.tar.gz")
 
