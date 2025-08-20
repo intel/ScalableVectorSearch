@@ -41,7 +41,7 @@ set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data/test_dataset")
 function(create_example_executable exe file)
     add_executable(${exe} ${file})
     target_compile_definitions(${exe} PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
-    target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
+    target_link_libraries(${exe} PUBLIC ${SVS_SHARED} svs::svs)
 endfunction()
 
 create_example_executable(shared shared.cpp)
