@@ -35,10 +35,18 @@ find_library(SVS_SHARED svs_shared_library)
 set(SVS_CXX_STANDARD 20)
 SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Werror -Wall -Wextra -Wpedantic" )
 
-add_executable(shared shared.cpp)
-target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
-add_executable(example_vamana_with_compression example_vamana_with_compression.cpp)
-target_link_libraries(example_vamana_with_compression PUBLIC ${SVS_SHARED} svs::svs)
-add_executable(example_vamana_with_compression_lvq example_vamana_with_compression_lvq.cpp)
-target_link_libraries(example_vamana_with_compression_lvq PUBLIC ${SVS_SHARED} svs::svs)
+SET(SHARED_EXAMPLES
+    shared.cpp
+    example_vamana_with_compression.cpp
+    example_vamana_with_compression_lvq.cpp
+)
 
+add_executable(shared ${SHARED_EXAMPLES})
+
+# Path to the test dataset.
+set(DATA_DIRECTORY "${PROJECT_SOURCE_DIR}/data/test_dataset")
+
+# Communicate to the test application where it can find test data sets.
+target_compile_definitions(shared PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
+
+target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)

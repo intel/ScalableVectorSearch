@@ -33,7 +33,7 @@ int main() {
     size_t padding = 32;
     size_t leanvec_dim = 64;
     auto threadpool = svs::threads::as_threadpool(num_threads);
-    auto loaded = svs::VectorDataLoader<float>("../../../data/test_dataset/data_f32.svs").load();    
+    auto loaded = svs::VectorDataLoader<float>(SVS_DATA_DIR / "data_f32.svs").load();    
     auto data = svs::leanvec::LeanDataset<svs::leanvec::UsingLVQ<4>, svs::leanvec::UsingLVQ<8>, svs::Dynamic, svs::Dynamic>::reduce(
 		     loaded, std::nullopt, threadpool, padding, svs::lib::MaybeStatic<svs::Dynamic>(leanvec_dim)
 		);
@@ -52,12 +52,12 @@ int main() {
     const size_t n_neighbors = 10;
     index.set_search_window_size(search_window_size);
 
-    auto queries = svs::load_data<float>("../../../data/test_dataset/queries_f32.fvecs");
+    auto queries = svs::load_data<float>(SVS_DATA_DIR / "queries_f32.fvecs");
     auto results = index.search(queries, n_neighbors);
     //! [Perform Queries]
 
     //! [Recall]
-    auto groundtruth = svs::load_data<int>("../../../data/test_dataset/groundtruth_euclidean.ivecs");
+    auto groundtruth = svs::load_data<int>(SVS_DATA_DIR / "groundtruth_euclidean.ivecs");
     double recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
 
     fmt::print("Recall@{} = {:.4f}\n", n_neighbors, recall);
