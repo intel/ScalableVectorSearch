@@ -62,6 +62,7 @@ template <typename Idx, typename Meta = void> struct Neighbor : public Meta {
     constexpr float distance() const { return distance_; }
     constexpr void set_distance(float new_distance) { distance_ = new_distance; }
     constexpr Idx id() const { return id_; }
+    constexpr void set_id(Idx new_id) { id_ = new_id; }
 
     // Members
     Idx id_;
@@ -82,7 +83,9 @@ template <typename Idx> struct Neighbor<Idx, void> {
         : Neighbor(lib::narrow<Idx>(other.id()), other.distance()) {}
 
     constexpr float distance() const { return distance_; }
+    constexpr void set_distance(float new_distance) { distance_ = new_distance; }
     constexpr Idx id() const { return id_; }
+    constexpr void set_id(Idx new_id) { id_ = new_id; }
 
     // Members
     Idx id_;
@@ -245,5 +248,25 @@ class ValidVisit {
 
 /// Type alias for skippable neighbor.
 template <typename Idx> using PredicatedSearchNeighbor = Neighbor<Idx, ValidVisit>;
+
+/////
+///// IVF Neighbor
+/////
+
+template <typename Idx> struct LocalId {
+    constexpr LocalId(Idx local_id = 0)
+        : local_id_{local_id} {}
+    constexpr Idx get_local_id() const { return local_id_; }
+    constexpr void set_local_id(Idx local_id) { local_id_ = local_id; }
+    friend constexpr bool operator==(LocalId, LocalId) = default;
+
+    // members
+    Idx local_id_;
+};
+
+///
+/// Type alias for the IVF neighbor
+///
+template <typename Idx> using IVFNeighbor = Neighbor<Idx, LocalId<Idx>>;
 
 } // namespace svs

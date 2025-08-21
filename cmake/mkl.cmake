@@ -45,6 +45,11 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
         NO_DEFAULT_PATH
         REQUIRED
     )
+    if (SVS_EXPERIMENTAL_ENABLE_IVF)
+        set(mkl_functions_file ${CMAKE_CURRENT_LIST_DIR}/mkl_functions_ivf)
+    else()
+        set(mkl_functions_file ${CMAKE_CURRENT_LIST_DIR}/mkl_functions)
+    endif()
 
     # This command creates the custom shared-object that will be linked to.
     add_custom_command(
@@ -56,7 +61,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
             "libintel64"
             "interface=ilp64"
             "threading=sequential"
-            "export=${CMAKE_CURRENT_LIST_DIR}/mkl_functions"
+            "export=${mkl_functions_file}"
             "MKLROOT=${MKL_ROOT}"
             "name=${CMAKE_CURRENT_BINARY_DIR}/${SVS_MKL_CUSTOM_LIBRARY_NAME}"
     )
