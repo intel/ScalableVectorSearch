@@ -340,6 +340,11 @@ size_t find_medioid(
             global_min = neighbor;
         }
     });
+
+    if (global_min.id() >= data.size()) {
+        global_min = Neighbor<size_t>(0, global_min.distance());
+    }
+
     return global_min.id();
 }
 
