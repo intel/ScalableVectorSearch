@@ -35,7 +35,7 @@ find_library(SVS_SHARED svs_shared_library)
 set(SVS_CXX_STANDARD 20)
 SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Werror -Wall -Wextra -Wpedantic" )
 
-# Path to the test dataset.
+# Configure path to the datasets used in these examples
 set(DATA_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../../data/test_dataset")
 
 function(create_example_executable exe file)
