@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Graphs &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -79,26 +77,26 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Core Components</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="data.html">In-Memory Representation of Data</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Graphs</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph10index_typeE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::index_type</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph9referenceE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::reference</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph15const_referenceE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::const_reference</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::SimpleGraph()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph8get_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::get_node()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::has_edge()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::get_node_degree()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::prefetch_node()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph10clear_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::clear_node()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph5resetEv"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::reset()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::replace_node()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::replace_node()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::add_edge()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph10max_degreeEv"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::max_degree()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph7n_nodesEv"><code class="docutils literal notranslate"><span class="pre">SimpleGraph::n_nodes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#_CPPv4I_NSt17unsigned_integralE0EN3svs6graphs11SimpleGraphE"><code class="docutils literal notranslate"><span class="pre">svs::graphs::SimpleGraph</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph10index_typeE"><code class="docutils literal notranslate"><span class="pre">index_type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph9referenceE"><code class="docutils literal notranslate"><span class="pre">reference</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph15const_referenceE"><code class="docutils literal notranslate"><span class="pre">const_reference</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"><code class="docutils literal notranslate"><span class="pre">SimpleGraph()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph8get_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">get_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph8has_edgeE3Idx3Idx"><code class="docutils literal notranslate"><span class="pre">has_edge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph15get_node_degreeE3Idx"><code class="docutils literal notranslate"><span class="pre">get_node_degree()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph13prefetch_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">prefetch_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph10clear_nodeE3Idx"><code class="docutils literal notranslate"><span class="pre">clear_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph5resetEv"><code class="docutils literal notranslate"><span class="pre">reset()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxRKNSt6vectorI3IdxEE"><code class="docutils literal notranslate"><span class="pre">replace_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph12replace_nodeE3IdxNSt4spanIK3IdxEE"><code class="docutils literal notranslate"><span class="pre">replace_node()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs6graphs11SimpleGraph8add_edgeE3Idx3Idx"><code class="docutils literal notranslate"><span class="pre">add_edge()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph10max_degreeEv"><code class="docutils literal notranslate"><span class="pre">max_degree()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4NK3svs6graphs11SimpleGraph7n_nodesEv"><code class="docutils literal notranslate"><span class="pre">n_nodes()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#graph-loading">Graph Loading</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs11GraphLoaderE"><code class="docutils literal notranslate"><span class="pre">GraphLoader</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I0EN3svs11GraphLoaderE"><code class="docutils literal notranslate"><span class="pre">svs::GraphLoader</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -183,7 +181,7 @@ This data structure represents a graph using a single large allocation and a set
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t">
 <span id="_CPPv3N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"></span><span id="_CPPv2N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t"></span><span id="svs::graphs::SimpleGraph::SimpleGraph__s.s"></span><span class="target" id="classsvs_1_1graphs_1_1SimpleGraph_1ad4aa9f43e73701f755c63101e81acdaa"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SimpleGraph</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_nodes</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">max_degree</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs6graphs11SimpleGraph11SimpleGraphE6size_t6size_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Consturct a new empty graph. </p>
+<dd><p>Construct a new empty graph. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

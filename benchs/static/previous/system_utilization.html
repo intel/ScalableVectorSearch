@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>System Utilization &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -152,7 +150,8 @@ beyond 40 threads reaching its maximum value at 80 threads, fully utilizing the 
 <p>Interestingly, for both data types, the performance drops immediately after 40 threads due to hyperthreading.
 The threads sharing a core are slower and cap the overall search performance in batch mode.
 However, increasing the threads further leads to higher throughput outweighing the individual thread latency.</p>
-<a class="reference internal image-reference" href="../../../_images/core_scaling.png"><img alt="deep-96-100M core scaling" class="align-center" src="../../../_images/core_scaling.png" style="width: 49%;" /></a>
+<a class="reference internal image-reference" href="../../../_images/core_scaling.png"><img alt="deep-96-100M core scaling" class="align-center" src="../../../_images/core_scaling.png" style="width: 49%;" />
+</a>
 </section>
 <section id="huge-pages-utilization">
 <span id="huge-pages-usage"></span><h2><a class="toc-backref" href="#id6" role="doc-backlink">Huge Pages Utilization</a><a class="headerlink" href="#huge-pages-utilization" title="Link to this heading"></a></h2>
@@ -160,8 +159,10 @@ However, increasing the threads further leads to higher throughput outweighing t
 performance gains for large datasets, as shown in the figures below for deep-96-100M and deep-96-1B (see <a class="reference internal" href="experimental_method.html#datasets"><span class="std std-ref">Datasets</span></a> for details)
 with the system configuration described in <a class="reference internal" href="large_scale_benchs.html#system-setup-large-scale-benchs"><span class="std std-ref">System Setup and Datasets</span></a>.</p>
 <p>For a search accuracy of 0.9 10 recall at 10, SVS achieves a 20% performance boost in deep-96-100M and 90% in deep-96-1B <a class="reference internal" href="../../../features.html#abht23" id="id3"><span>[ABHT23]</span></a>.</p>
-<a class="reference internal image-reference" href="../../../_images/hugepages_deep-96-100M.png"><img alt="deep-96-100M huge pages utilization" src="../../../_images/hugepages_deep-96-100M.png" style="width: 49%;" /></a>
-<a class="reference internal image-reference" href="../../../_images/hugepages_deep-96-1B.png"><img alt="deep-96-1B huge pages utilization" src="../../../_images/hugepages_deep-96-1B.png" style="width: 48%;" /></a>
+<a class="reference internal image-reference" href="../../../_images/hugepages_deep-96-100M.png"><img alt="deep-96-100M huge pages utilization" src="../../../_images/hugepages_deep-96-100M.png" style="width: 49%;" />
+</a>
+<a class="reference internal image-reference" href="../../../_images/hugepages_deep-96-1B.png"><img alt="deep-96-1B huge pages utilization" src="../../../_images/hugepages_deep-96-1B.png" style="width: 48%;" />
+</a>
 <p class="rubric">Footnotes</p>
 <aside class="footnote-list brackets">
 <aside class="footnote brackets" id="id4" role="doc-footnote">

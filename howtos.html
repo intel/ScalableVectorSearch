@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How-Tos &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="_static/jquery.js?v=5d32c60e"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="_static/doctools.js?v=9a2dae69"></script>
-        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -160,9 +158,9 @@
 This function generates a data file, a query file, and the ground truth. Note that this is randomly generated data,
 with no semantic meaning for the elements within it.</p>
 <p>We first load svs and other modules required for this example.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">svs</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">svs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 </pre></div>
 </div>
 <p>Then proceed to generate the test dataset.</p>
@@ -256,7 +254,7 @@ effectively remove the vectors from the index.</p>
 <span class="c1"># Compare with the groundtruth.</span>
 <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8202</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8202</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -350,7 +348,7 @@ the chosen accuracy level.</p>
 </div>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="c830a4ba-3a78-44d9-96aa-74fd5ed1ec8f" name="c830a4ba-3a78-44d9-96aa-74fd5ed1ec8f" type="checkbox"><label class="sphinx_collapse__label" for="c830a4ba-3a78-44d9-96aa-74fd5ed1ec8f"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="f5785b9a-20d9-41bc-83a1-6ba62cae43f2" name="f5785b9a-20d9-41bc-83a1-6ba62cae43f2" type="checkbox"><label class="sphinx_collapse__label" for="f5785b9a-20d9-41bc-83a1-6ba62cae43f2"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">expected_recall</span><span class="w"> </span><span class="o">=</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="o">&gt;</span><span class="p">({{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5509</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mf">0.7281</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8215</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8788</span><span class="p">}});</span>
 <span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="w"> </span><span class="n">windowsize</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
@@ -390,7 +388,7 @@ the different LVQ settings in standard datasets.</p>
 </section>
 <section id="lvq-implementation-strategy">
 <span id="lvq-strategy"></span><h3>LVQ implementation strategy<a class="headerlink" href="#lvq-implementation-strategy" title="Link to this heading"></a></h3>
-<p>The <code class="docutils literal notranslate"><span class="pre">strategy</span></code> argument in the <a class="reference internal" href="python/loaders.html#svs.LVQLoader" title="svs.LVQLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code></a> is of type <a class="reference internal" href="python/loaders.html#svs.LVQStrategy" title="svs.LVQStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQStrategy</span></code></a>
+<p>The <code class="docutils literal notranslate"><span class="pre">strategy</span></code> argument in the <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code> is of type <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQStrategy</span></code>
 and defines the low level implementation strategy for LVQ, whether it is Turbo or Sequential. Turbo is an
 optimized implementation that brings further performance over the default (Sequential) implementation <a class="reference internal" href="features.html#ahbw24" id="id2"><span>[AHBW24]</span></a>. Turbo can be used
 when using 4 bits for the primary LVQ level and it is enabled by default for that setting.</p>
@@ -430,9 +428,9 @@ image this could be something like the multimodal vision-language model, <a clas
 Transformers library</a>,
 which we import here in order to load the model. We also import PyTorch and some data
 processing tools which will appear in the next step.</p>
-<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">svs</span>
-<span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoProcessor</span><span class="p">,</span> <span class="n">CLIPProcessor</span><span class="p">,</span> <span class="n">CLIPModel</span>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">svs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoProcessor</span><span class="p">,</span> <span class="n">CLIPProcessor</span><span class="p">,</span> <span class="n">CLIPModel</span>
 
 <span class="n">model_str</span> <span class="o">=</span> <span class="s2">&quot;openai/clip-vit-base-patch32&quot;</span>
 <span class="n">model</span> <span class="o">=</span> <span class="n">CLIPModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_str</span><span class="p">)</span>
@@ -448,9 +446,9 @@ extraneous text, etc.</p>
 wish to preprocess the first 24 images. Here we use the HuggingFace
 AutoProcessor to pre-process the dataset to the format required by CLIP.</p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="ef1b2160-4e4f-4d3b-9b6e-8e2a82a2c2d8" name="ef1b2160-4e4f-4d3b-9b6e-8e2a82a2c2d8" type="checkbox"><label class="sphinx_collapse__label" for="ef1b2160-4e4f-4d3b-9b6e-8e2a82a2c2d8"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
-<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">from</span> <span class="nn">PIL</span> <span class="kn">import</span> <span class="n">Image</span>
+<input class="sphinx_collapse__input" id="fdf93ec7-58f0-4a84-86ec-a591e321ff9c" name="fdf93ec7-58f0-4a84-86ec-a591e321ff9c" type="checkbox"><label class="sphinx_collapse__label" for="fdf93ec7-58f0-4a84-86ec-a591e321ff9c"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
 
 <span class="n">processor</span> <span class="o">=</span> <span class="n">AutoProcessor</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_str</span><span class="p">)</span>
 

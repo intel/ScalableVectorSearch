@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Indexes &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -79,6 +77,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#contents">Contents</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html">Vamana Iterator</a></li>
 <li class="toctree-l3"><a class="reference internal" href="flat.html">Flat Orchestrator</a></li>
 </ul>
 </li>
@@ -135,36 +134,42 @@ Provides precise results at the expense of low throughput and high latency for l
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="vamana.html">Vamana Index</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="vamana.html#_CPPv4N3svs6VamanaE"><code class="docutils literal notranslate"><span class="pre">Vamana</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">Vamana::search_parameters_type</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana9get_alphaEv"><code class="docutils literal notranslate"><span class="pre">Vamana::get_alpha()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana18get_max_candidatesEv"><code class="docutils literal notranslate"><span class="pre">Vamana::get_max_candidates()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE"><code class="docutils literal notranslate"><span class="pre">Vamana::save()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana4sizeEv"><code class="docutils literal notranslate"><span class="pre">Vamana::size()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">Vamana::dimensions()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana11query_typesEv"><code class="docutils literal notranslate"><span class="pre">Vamana::query_types()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana18can_change_threadsEv"><code class="docutils literal notranslate"><span class="pre">Vamana::can_change_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">Vamana::get_num_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana15set_num_threadsE6size_t"><code class="docutils literal notranslate"><span class="pre">Vamana::set_num_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana8assembleE6VamanaRKNSt10filesystem4pathERK15GraphLoaderTypeRR10DataLoaderRK8Distance6size_t"><code class="docutils literal notranslate"><span class="pre">Vamana::assemble()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance6size_tRK9Allocator"><code class="docutils literal notranslate"><span class="pre">Vamana::build()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="vamana.html#_CPPv4N3svs6VamanaE"><code class="docutils literal notranslate"><span class="pre">svs::Vamana</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">search_parameters_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana9get_alphaEv"><code class="docutils literal notranslate"><span class="pre">get_alpha()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana20get_graph_max_degreeEv"><code class="docutils literal notranslate"><span class="pre">get_graph_max_degree()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana28get_construction_window_sizeEv"><code class="docutils literal notranslate"><span class="pre">get_construction_window_size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana18get_max_candidatesEv"><code class="docutils literal notranslate"><span class="pre">get_max_candidates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana12get_prune_toEv"><code class="docutils literal notranslate"><span class="pre">get_prune_to()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana23get_full_search_historyEv"><code class="docutils literal notranslate"><span class="pre">get_full_search_history()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana4saveERKNSt10filesystem4pathERKNSt10filesystem4pathERKNSt10filesystem4pathE"><code class="docutils literal notranslate"><span class="pre">save()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I0_6size_tENK3svs6Vamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t"><code class="docutils literal notranslate"><span class="pre">batch_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I0ENK3svs6Vamana12get_distanceEd6size_tRK5Query"><code class="docutils literal notranslate"><span class="pre">get_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana4sizeEv"><code class="docutils literal notranslate"><span class="pre">size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">dimensions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana11query_typesEv"><code class="docutils literal notranslate"><span class="pre">query_types()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4NK3svs6Vamana15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">get_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana14set_threadpoolE4Pool"><code class="docutils literal notranslate"><span class="pre">set_threadpool()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs6Vamana21get_threadpool_handleEv"><code class="docutils literal notranslate"><span class="pre">get_threadpool_handle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE0000EN3svs6Vamana8assembleE6VamanaRKNSt10filesystem4pathERK15GraphLoaderTypeRR10DataLoaderRK8Distance15ThreadPoolProto"><code class="docutils literal notranslate"><span class="pre">assemble()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE0000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance15ThreadPoolProtoRK9Allocator"><code class="docutils literal notranslate"><span class="pre">build()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="vamana.html#helper-classes">Helper Classes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters5alphaE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::alpha</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters16graph_max_degreeE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::graph_max_degree</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters11window_sizeE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::window_size</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23max_candidate_pool_sizeE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::max_candidate_pool_size</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters8prune_toE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::prune_to</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23use_full_search_historyE"><code class="docutils literal notranslate"><span class="pre">VamanaBuildParameters::use_full_search_history</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParametersE"><code class="docutils literal notranslate"><span class="pre">svs::index::vamana::VamanaBuildParameters</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters5alphaE"><code class="docutils literal notranslate"><span class="pre">alpha</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters16graph_max_degreeE"><code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters11window_sizeE"><code class="docutils literal notranslate"><span class="pre">window_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23max_candidate_pool_sizeE"><code class="docutils literal notranslate"><span class="pre">max_candidate_pool_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters8prune_toE"><code class="docutils literal notranslate"><span class="pre">prune_to</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana21VamanaBuildParameters23use_full_search_historyE"><code class="docutils literal notranslate"><span class="pre">use_full_search_history</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14buffer_config_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::buffer_config_</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters26search_buffer_visited_set_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::search_buffer_visited_set_</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters19prefetch_lookahead_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::prefetch_lookahead_</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14prefetch_step_E"><code class="docutils literal notranslate"><span class="pre">VamanaSearchParameters::prefetch_step_</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE"><code class="docutils literal notranslate"><span class="pre">svs::index::vamana::VamanaSearchParameters</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14buffer_config_E"><code class="docutils literal notranslate"><span class="pre">buffer_config_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters26search_buffer_visited_set_E"><code class="docutils literal notranslate"><span class="pre">search_buffer_visited_set_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters19prefetch_lookahead_E"><code class="docutils literal notranslate"><span class="pre">prefetch_lookahead_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParameters14prefetch_step_E"><code class="docutils literal notranslate"><span class="pre">prefetch_step_</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -183,36 +188,94 @@ Provides precise results at the expense of low throughput and high latency for l
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamanaE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::search_parameters_type</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana13DynamicVamanaENSt10unique_ptrIN7manager16ManagerInterfaceI22DynamicVamanaInterfaceEEEE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::DynamicVamana()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22set_search_window_sizeE6size_t"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::set_search_window_size()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana22get_search_window_sizeEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::get_search_window_size()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana6has_idE6size_t"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::has_id()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana7all_idsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::all_ids()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::reconstruct_at()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana4sizeEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::size()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::dimensions()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana11query_typesEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::query_types()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana18can_change_threadsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::can_change_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::get_num_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana15set_num_threadsE6size_t"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::set_num_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana11AssembleTagE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana::AssembleTag</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamanaE"><code class="docutils literal notranslate"><span class="pre">svs::DynamicVamana</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">search_parameters_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana13DynamicVamanaENSt10unique_ptrIN7manager16ManagerInterfaceI22DynamicVamanaInterfaceEEEE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana22set_search_window_sizeE6size_t"><code class="docutils literal notranslate"><span class="pre">set_search_window_size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana22get_search_window_sizeEv"><code class="docutils literal notranslate"><span class="pre">get_search_window_size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana9get_alphaEv"><code class="docutils literal notranslate"><span class="pre">get_alpha()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana20get_graph_max_degreeEv"><code class="docutils literal notranslate"><span class="pre">get_graph_max_degree()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana28get_construction_window_sizeEv"><code class="docutils literal notranslate"><span class="pre">get_construction_window_size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana18get_max_candidatesEv"><code class="docutils literal notranslate"><span class="pre">get_max_candidates()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana12get_prune_toEv"><code class="docutils literal notranslate"><span class="pre">get_prune_to()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana23get_full_search_historyEv"><code class="docutils literal notranslate"><span class="pre">get_full_search_history()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana6has_idE6size_t"><code class="docutils literal notranslate"><span class="pre">has_id()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana7all_idsEv"><code class="docutils literal notranslate"><span class="pre">all_ids()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE"><code class="docutils literal notranslate"><span class="pre">reconstruct_at()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4I0_6size_tENK3svs13DynamicVamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t"><code class="docutils literal notranslate"><span class="pre">batch_iterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4I0ENK3svs13DynamicVamana12get_distanceEd6size_tRK5Query"><code class="docutils literal notranslate"><span class="pre">get_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana4sizeEv"><code class="docutils literal notranslate"><span class="pre">size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">dimensions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana11query_typesEv"><code class="docutils literal notranslate"><span class="pre">query_types()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4NK3svs13DynamicVamana15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">get_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana14set_threadpoolE4Pool"><code class="docutils literal notranslate"><span class="pre">set_threadpool()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana21get_threadpool_handleEv"><code class="docutils literal notranslate"><span class="pre">get_threadpool_handle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html#_CPPv4N3svs13DynamicVamana11AssembleTagE"><code class="docutils literal notranslate"><span class="pre">svs::DynamicVamana::AssembleTag</span></code></a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="vamana_iterator.html">Vamana Iterator</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs14VamanaIteratorE"><code class="docutils literal notranslate"><span class="pre">svs::VamanaIterator</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t"><code class="docutils literal notranslate"><span class="pre">VamanaIterator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator32parameters_for_current_iterationEv"><code class="docutils literal notranslate"><span class="pre">parameters_for_current_iteration()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator10query_typeEv"><code class="docutils literal notranslate"><span class="pre">query_type()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator12batch_numberEv"><code class="docutils literal notranslate"><span class="pre">batch_number()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator4sizeEv"><code class="docutils literal notranslate"><span class="pre">size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator7resultsEv"><code class="docutils literal notranslate"><span class="pre">results()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE"><code class="docutils literal notranslate"><span class="pre">next()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator19restart_next_searchEv"><code class="docutils literal notranslate"><span class="pre">restart_next_search()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs14VamanaIterator4doneEv"><code class="docutils literal notranslate"><span class="pre">done()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4I0EN3svs14VamanaIterator6updateEvNSt4spanIK9QueryTypeEE"><code class="docutils literal notranslate"><span class="pre">update()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vamana_iterator.html#example">Example</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#constructing-an-iterator">Constructing an Iterator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#using-the-iterator">Using the Iterator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#stepping-the-iterator">Stepping the Iterator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#exhausting-the-candidate-pool">Exhausting the Candidate Pool</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vamana_iterator.html#main-batchiterator-class">Main BatchIterator Class</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html#_CPPv4I00EN3svs5index6vamana13BatchIteratorE"><code class="docutils literal notranslate"><span class="pre">svs::index::vamana::BatchIterator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator8iteratorE"><code class="docutils literal notranslate"><span class="pre">iterator</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE"><code class="docutils literal notranslate"><span class="pre">const_iterator</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator13BatchIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t"><code class="docutils literal notranslate"><span class="pre">BatchIterator()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator6updateENSt4spanIK9QueryTypeEE"><code class="docutils literal notranslate"><span class="pre">update()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4I_12NeighborLikeENK3svs5index6vamana13BatchIterator5adaptEN3svs8NeighborI16external_id_typeEE1N"><code class="docutils literal notranslate"><span class="pre">adapt()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator5beginEv"><code class="docutils literal notranslate"><span class="pre">begin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator3endEv"><code class="docutils literal notranslate"><span class="pre">end()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator5beginEv"><code class="docutils literal notranslate"><span class="pre">begin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator3endEv"><code class="docutils literal notranslate"><span class="pre">end()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator6cbeginEv"><code class="docutils literal notranslate"><span class="pre">cbegin()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator4cendEv"><code class="docutils literal notranslate"><span class="pre">cend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator8contentsEv"><code class="docutils literal notranslate"><span class="pre">contents()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator4sizeEv"><code class="docutils literal notranslate"><span class="pre">size()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator12batch_numberEv"><code class="docutils literal notranslate"><span class="pre">batch_number()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator4doneEv"><code class="docutils literal notranslate"><span class="pre">done()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator19restart_next_searchEv"><code class="docutils literal notranslate"><span class="pre">restart_next_search()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4NK3svs5index6vamana13BatchIterator32parameters_for_current_iterationEv"><code class="docutils literal notranslate"><span class="pre">parameters_for_current_iteration()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs5index6vamana13BatchIterator4nextE6size_tRKN3lib16DefaultPredicateE"><code class="docutils literal notranslate"><span class="pre">next()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="vamana_iterator.html#full-example">Full Example</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="flat.html">Flat Orchestrator</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="flat.html#_CPPv4N3svs4FlatE"><code class="docutils literal notranslate"><span class="pre">Flat</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">Flat::search_parameters_type</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat4sizeEv"><code class="docutils literal notranslate"><span class="pre">Flat::size()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">Flat::dimensions()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat11query_typesEv"><code class="docutils literal notranslate"><span class="pre">Flat::query_types()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat18can_change_threadsEv"><code class="docutils literal notranslate"><span class="pre">Flat::can_change_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">Flat::get_num_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat15set_num_threadsE6size_t"><code class="docutils literal notranslate"><span class="pre">Flat::set_num_threads()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t"><code class="docutils literal notranslate"><span class="pre">Flat::assemble()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat11AssembleTagE"><code class="docutils literal notranslate"><span class="pre">Flat::AssembleTag</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="flat.html#_CPPv4N3svs4FlatE"><code class="docutils literal notranslate"><span class="pre">svs::Flat</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat22search_parameters_typeE"><code class="docutils literal notranslate"><span class="pre">search_parameters_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat4saveERKNSt10filesystem4pathE"><code class="docutils literal notranslate"><span class="pre">save()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4I0ENK3svs4Flat12get_distanceEd6size_tRK5Query"><code class="docutils literal notranslate"><span class="pre">get_distance()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat4sizeEv"><code class="docutils literal notranslate"><span class="pre">size()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat10dimensionsEv"><code class="docutils literal notranslate"><span class="pre">dimensions()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat11query_typesEv"><code class="docutils literal notranslate"><span class="pre">query_types()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4NK3svs4Flat15get_num_threadsEv"><code class="docutils literal notranslate"><span class="pre">get_num_threads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat14set_threadpoolE4Pool"><code class="docutils literal notranslate"><span class="pre">set_threadpool()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat21get_threadpool_handleEv"><code class="docutils literal notranslate"><span class="pre">get_threadpool_handle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance15ThreadPoolProto"><code class="docutils literal notranslate"><span class="pre">assemble()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html#_CPPv4N3svs4Flat11AssembleTagE"><code class="docutils literal notranslate"><span class="pre">svs::Flat::AssembleTag</span></code></a></li>
 </ul>
 </li>
 </ul>

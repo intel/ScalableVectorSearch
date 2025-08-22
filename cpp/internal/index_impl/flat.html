@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flat Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -143,7 +141,7 @@ The mid-level implementation for the flat index that uses exhaustive search to f
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>Data</strong> – The full type of the dataset being indexed. </p></li>
 <li><p><strong>Dist</strong> – The distance functor used to compare queries with the elements of the dataset. </p></li>
-<li><p><strong>Ownership</strong> – Implementation detail and may be ommitted for most use cases.</p></li>
+<li><p><strong>Ownership</strong> – Implementation detail and may be omitted for most use cases.</p></li>
 </ul>
 </dd>
 </dl>
@@ -165,18 +163,30 @@ The mid-level implementation for the flat index that uses exhaustive search to f
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto">
-<span id="_CPPv3I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto"></span><span id="_CPPv2I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1abc8caddcfecafbe17ed349f29bd852ca"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">FlatIndex</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto" title="svs::index::flat::FlatIndex::FlatIndex::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">threadpool_proto</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4DistRR15ThreadPoolProto" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index4flat9FlatIndex10get_loggerEv">
+<span id="_CPPv3NK3svs5index4flat9FlatIndex10get_loggerEv"></span><span id="_CPPv2NK3svs5index4flat9FlatIndex10get_loggerEv"></span><span id="svs::index::flat::FlatIndex::get_loggerC"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1adbb842459ac3b7868e881f3d96f842d6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">logging</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/logging.html#_CPPv4N3svs7logging10logger_ptrE" title="svs::logging::logger_ptr"><span class="n"><span class="pre">logger_ptr</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_logger</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index4flat9FlatIndex10get_loggerEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Getter method for logger. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4Dist15ThreadPoolProtoN3svs7logging10logger_ptrE">
+<span id="_CPPv3I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4Dist15ThreadPoolProtoN3svs7logging10logger_ptrE"></span><span id="_CPPv2I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4Dist15ThreadPoolProtoN3svs7logging10logger_ptrE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a79760ed19157a6daf38cd336fbd50a64"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">FlatIndex</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Data"><span class="n"><span class="pre">Data</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <a class="reference internal" href="#_CPPv4I_N4data22ImmutableMemoryDatasetE00EN3svs5index4flat9FlatIndexE" title="svs::index::flat::FlatIndex::Dist"><span class="n"><span class="pre">Dist</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4Dist15ThreadPoolProtoN3svs7logging10logger_ptrE" title="svs::index::flat::FlatIndex::FlatIndex::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span>, <span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">logging</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/logging.html#_CPPv4N3svs7logging10logger_ptrE" title="svs::logging::logger_ptr"><span class="n"><span class="pre">logger_ptr</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">logger</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">logging</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/logging.html#_CPPv4N3svs7logging3getEv" title="svs::logging::get"><span class="n"><span class="pre">get</span></span></a><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs5index4flat9FlatIndex9FlatIndexE4Data4Dist15ThreadPoolProtoN3svs7logging10logger_ptrE" title="Link to this definition"></a><br /></dt>
 <dd><p>Construct a new index from constituent parts. </p>
+<section id="classthreadpool__requirements_1autotoc_md7">
+<h3>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h3>
+<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="#classsvs_1_1index_1_1flat_1_1FlatIndex_1a5e540cc2c450f06c4c60de5f2c61e166"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
+</ul>
+</p>
+</section>
 <dl class="field-list simple">
-<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>ThreadPoolProto</strong> – The type of the threadpool proto type. See notes on the corresponding parameter below.</p>
-</dd>
-<dt class="field-even">Parameters<span class="colon">:</span></dt>
-<dd class="field-even"><ul class="simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p><strong>data</strong> – The data to use for the index. The resulting index will take ownership of the passed argument. </p></li>
 <li><p><strong>distance</strong> – The distance functor to use to compare queries with dataset elements. </p></li>
-<li><p><strong>threadpool_proto</strong> – Something that can be used to build a threadpool using <code class="docutils literal notranslate"><span class="pre">threads::as_threadpool</span></code>. In practice, this means that <code class="docutils literal notranslate"><span class="pre">threapool_proto</span></code> can be either a threadpool directly, or an integer. In the latter case, a new threadpool will be constructed using <code class="docutils literal notranslate"><span class="pre">threadpool_proto</span></code> as the number of threads to create. </p></li>
+<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be an acceptable thread pool instance or an integer specifying the number of threads to use. In the latter case, a new default thread pool will be constructed using <code class="docutils literal notranslate"><span class="pre">threadpool_proto</span></code> as the number of threads to create. </p></li>
+<li><p><strong>logger_</strong> – Spd logger for per-index logging customization.</p></li>
 </ul>
 </dd>
 </dl>
@@ -245,36 +255,40 @@ The mid-level implementation for the flat index that uses exhaustive search to f
 <dd><p>Return the current number of threads used for search. </p>
 <p><div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#classsvs_1_1index_1_1flat_1_1FlatIndex_1a1fca8fc625c0030e83876b2a0b95de6b"><span class="std std-ref">set_num_threads</span></a></p>
+<p>set_num_threads </p>
 </div>
 </p>
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex15set_num_threadsE6size_t">
-<span id="_CPPv3N3svs5index4flat9FlatIndex15set_num_threadsE6size_t"></span><span id="_CPPv2N3svs5index4flat9FlatIndex15set_num_threadsE6size_t"></span><span id="svs::index::flat::FlatIndex::set_num_threads__s"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a1fca8fc625c0030e83876b2a0b95de6b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_num_threads</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex15set_num_threadsE6size_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Set the number of threads used for search. </p>
-<p>
-Implementation note: The number of threads cannot be zero. If zero is passed to this method, it will be silently changed to 1.</p>
-<p><div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#classsvs_1_1index_1_1flat_1_1FlatIndex_1a87a8c0a315bae70bccfbb8d8ba41c9f3"><span class="std std-ref">get_num_threads</span></a></p>
-</div>
+<dt class="sig sig-object cpp" id="_CPPv4I_N7threads10ThreadPoolEEN3svs5index4flat9FlatIndex14set_threadpoolEv4Pool">
+<span id="_CPPv3I_N7threads10ThreadPoolEEN3svs5index4flat9FlatIndex14set_threadpoolE4Pool"></span><span id="_CPPv2I_N7threads10ThreadPoolEEN3svs5index4flat9FlatIndex14set_threadpoolE4Pool"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ThreadPool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Pool</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1a53923274842e3c366e0a673ca28d4fd6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_threadpool</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N7threads10ThreadPoolEEN3svs5index4flat9FlatIndex14set_threadpoolEv4Pool" title="svs::index::flat::FlatIndex::set_threadpool::Pool"><span class="n"><span class="pre">Pool</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_N7threads10ThreadPoolEEN3svs5index4flat9FlatIndex14set_threadpoolEv4Pool" title="Link to this definition"></a><br /></dt>
+<dd><p>Destroy the original thread pool and set to the provided one. </p>
+<section id="classthreadpool__requirements_1autotoc_md7">
+<h3>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h3>
+<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="#classsvs_1_1index_1_1flat_1_1FlatIndex_1a5e540cc2c450f06c4c60de5f2c61e166"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
+</ul>
 </p>
+</section>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>num_threads</strong> – The new number of threads to use.</p>
+<dd class="field-odd"><p><strong>threadpool</strong> – An acceptable thread pool.</p>
 </dd>
 </dl>
 </dd></dl>
 
-</div>
-<div class="breathe-sectiondef docutils container">
-<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex18can_change_threadsEv">
-<span id="_CPPv3N3svs5index4flat9FlatIndex18can_change_threadsEv"></span><span id="_CPPv2N3svs5index4flat9FlatIndex18can_change_threadsEv"></span><span id="svs::index::flat::FlatIndex::can_change_threads"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1ad2c9d745092d4297fe9ae6a98bff6d46"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">can_change_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex18can_change_threadsEv" title="Link to this definition"></a><br /></dt>
-<dd><p>Return whether this implementation can dynamically change the number of threads. </p>
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index4flat9FlatIndex21get_threadpool_handleEv">
+<span id="_CPPv3N3svs5index4flat9FlatIndex21get_threadpool_handleEv"></span><span id="_CPPv2N3svs5index4flat9FlatIndex21get_threadpool_handleEv"></span><span id="svs::index::flat::FlatIndex::get_threadpool_handle"></span><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1afb99ac25302ac1512dba05345d2d9c41"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ThreadPoolHandle</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_threadpool_handle</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index4flat9FlatIndex21get_threadpool_handleEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current thread pool handle. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0ENK3svs5index4flat9FlatIndex12get_distanceEd6size_tRK5Query">
+<span id="_CPPv3I0ENK3svs5index4flat9FlatIndex12get_distanceE6size_tRK5Query"></span><span id="_CPPv2I0ENK3svs5index4flat9FlatIndex12get_distanceE6size_tRK5Query"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Query</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1flat_1_1FlatIndex_1ab84cd773f7862d33c3ce453553a74d00"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_distance</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">id</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0ENK3svs5index4flat9FlatIndex12get_distanceEd6size_tRK5Query" title="svs::index::flat::FlatIndex::get_distance::Query"><span class="n"><span class="pre">Query</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">query</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I0ENK3svs5index4flat9FlatIndex12get_distanceEd6size_tRK5Query" title="Link to this definition"></a><br /></dt>
+<dd><p>Compute the distance between an external vector and a vector in the index. </p>
 </dd></dl>
 
 </div>
@@ -284,17 +298,25 @@ Implementation note: The number of threads cannot be zero. If zero is passed to 
 <section id="flat-entry-point">
 <h2>Flat Entry Point<a class="headerlink" href="#flat-entry-point" title="Link to this heading"></a></h2>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto">
-<span id="_CPPv3I000EN3svs5index4flat13auto_assembleERR9DataProto8Distance15ThreadPoolProto"></span><span id="_CPPv2I000EN3svs5index4flat13auto_assembleERR9DataProto8Distance15ThreadPoolProto"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1index_1_1flat_1a1b05a01ad95c4b98d93086db0a659cc0"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">flat</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">auto_assemble</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="svs::index::flat::auto_assemble::DataProto"><span class="n"><span class="pre">DataProto</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_proto</span></span>, <a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="svs::index::flat::auto_assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="svs::index::flat::auto_assemble::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProto" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE">
+<span id="_CPPv3I000EN3svs5index4flat13auto_assembleERR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE"></span><span id="_CPPv2I000EN3svs5index4flat13auto_assembleERR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataProto</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="flat_8h_1a06e99df6a1d86f4036dc4f598067c93c"></span><span class="kt"><span class="pre">auto</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">flat</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">auto_assemble</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE" title="svs::index::flat::auto_assemble::DataProto"><span class="n"><span class="pre">DataProto</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_proto</span></span>, <a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE" title="svs::index::flat::auto_assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE" title="svs::index::flat::auto_assemble::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span>, <span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">logging</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/logging.html#_CPPv4N3svs7logging10logger_ptrE" title="svs::logging::logger_ptr"><span class="n"><span class="pre">logger_ptr</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">logger</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">logging</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="../../core/logging.html#_CPPv4N3svs7logging3getEv" title="svs::logging::get"><span class="n"><span class="pre">get</span></span></a><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I000EN3svs5index4flat13auto_assembleEDaRR9DataProto8Distance15ThreadPoolProtoN3svs7logging10logger_ptrE" title="Link to this definition"></a><br /></dt>
 <dd><p>Entry point for loading a <a class="reference internal" href="../../index/flat.html#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> index. </p>
 <p>
 This method provides much of the heavy lifting for constructing a <a class="reference internal" href="../../index/flat.html#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> index from a data file on disk or a dataset in memory.</p>
-<section id="classhidden__flat__auto__assemble_1autotoc_md1">
-<h3>data_loader<a class="headerlink" href="#classhidden__flat__auto__assemble_1autotoc_md1" title="Link to this heading"></a></h3>
-<p id="classhidden__flat__auto__assemble_1autotoc_md1">The data loader should be any object loadable via <code class="docutils literal notranslate"><span class="pre">svs::detail::dispatch_load</span></code> returning a <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> compatible dataset. Concrete examples include:</p>
+<section id="classhidden__flat__auto__assemble_1autotoc_md2">
+<h3>data_loader<a class="headerlink" href="#classhidden__flat__auto__assemble_1autotoc_md2" title="Link to this heading"></a></h3>
+<p id="classhidden__flat__auto__assemble_1autotoc_md2">The data loader should be any object loadable via <code class="docutils literal notranslate"><span class="pre">svs::detail::dispatch_load</span></code> returning a <a class="reference internal" href="../../index/vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> compatible dataset. Concrete examples include:</p>
 <p><ul class="simple">
 <li><p>An instance of <code class="docutils literal notranslate"><a class="reference internal" href="../../core/data.html#classsvs_1_1VectorDataLoader"><span class="std std-ref"><span class="pre">VectorDataLoader</span></span></a></code>.</p></li>
-<li><p>An implementation of <code class="docutils literal notranslate"><a class="reference internal" href="../../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code> (passed by value).   </p></li>
+<li><p>An implementation of <code class="docutils literal notranslate"><a class="reference internal" href="../../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code> (passed by value).  </p></li>
+</ul>
+</p>
+</section>
+<section id="classthreadpool__requirements_1autotoc_md7">
+<h3>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h3>
+<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <span class="pre">size()</span></code>. This method should return the number of threads used in the thread pool.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
 </ul>
 </p>
 </section>
@@ -303,7 +325,8 @@ This method provides much of the heavy lifting for constructing a <a class="refe
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>data_proto</strong> – Data prototype. See expanded notes. </p></li>
 <li><p><strong>distance</strong> – The distance <strong>functor</strong> to use to compare queries with elements of the dataset. </p></li>
-<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be a threadpool instance of an integer specifying the number of threads to use.</p></li>
+<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be an acceptable thread pool instance or an integer specifying the number of threads to use. In the latter case, a new default thread pool will be constructed using <code class="docutils literal notranslate"><span class="pre">threadpool_proto</span></code> as the number of threads to create. </p></li>
+<li><p><strong>logger_</strong> – Spd logger for per-index logging customization.</p></li>
 </ul>
 </dd>
 </dl>

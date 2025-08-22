@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Library Features &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="_static/jquery.js?v=5d32c60e"></script>
-        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="_static/doctools.js?v=9a2dae69"></script>
-        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -168,7 +166,7 @@ the ground-truth nearest neighbors for a dataset.</p>
 <p>SVS supports the distance functions listed in <a class="reference internal" href="cpp/core/distance.html#cpp-core-distance"><span class="std std-ref">Built-In Distance Functors</span></a> (see <a class="reference internal" href="python/common.html#svs.DistanceType" title="svs.DistanceType"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.DistanceType</span></code></a> for the corresponding
 Python classes). The distance function is specified when the index is created by the corresponding <a class="reference internal" href="#index-constructors"><span class="std std-ref">index constructors</span></a>. In the
 case of the Vamana index, it must also be specified when the graph is built (see <a class="reference internal" href="python/vamana.html#svs.Vamana.build" title="svs.Vamana.build"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana.build</span></code></a> and
-<a class="reference internal" href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance6size_tRK9Allocator" title="svs::Vamana::build"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::build()</span></code></a> for details).</p>
+<a class="reference internal" href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE0000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance15ThreadPoolProtoRK9Allocator" title="svs::Vamana::build"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::build()</span></code></a> for details).</p>
 </section>
 <section id="data-types">
 <span id="supported-data-types"></span><h2><a class="toc-backref" href="#id9" role="doc-backlink">Data types</a><a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
@@ -183,7 +181,7 @@ the query in float32.</p>
 (<a class="reference internal" href="python/vamana.html#svs.Vamana" title="svs.Vamana"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana</span></code></a>, <a class="reference internal" href="python/flat.html#svs.Flat" title="svs.Flat"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Flat</span></code></a>).</p>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="b5fb75cb-15be-42cd-a749-0dc1d77b928f" name="b5fb75cb-15be-42cd-a749-0dc1d77b928f" type="checkbox"><label class="sphinx_collapse__label" for="b5fb75cb-15be-42cd-a749-0dc1d77b928f"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="4c52e1f2-16f1-40c6-a7ee-6f46afa901b6" name="4c52e1f2-16f1-40c6-a7ee-6f46afa901b6" type="checkbox"><label class="sphinx_collapse__label" for="4c52e1f2-16f1-40c6-a7ee-6f46afa901b6"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <p>The database vectors data type is specified in the template argument of the <a class="reference internal" href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a>.</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;data_f32.svs&quot;</span><span class="p">)</span>
 </pre></div>
@@ -212,11 +210,11 @@ then it must be loaded with <code class="docutils literal notranslate"><span cla
 <p>The memory footprint can be reduced and the search performance improved by combining the graph-search with the
 Locally-adaptive Vector Quantization (LVQ) <a class="reference internal" href="#abht23" id="id5"><span>[ABHT23]</span></a> approach.
 The library has support for <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">performing online vector compression with LVQ</span></a> or
-for <a class="reference internal" href="start.html#loading-compressed-indices"><span class="std std-ref">loading an index with a previously compressed dataset</span></a>.
+for <span class="xref std std-ref">loading an index with a previously compressed dataset</span>.
 See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for more details about LVQ and how to set its parameters.</p>
 <section id="search-with-compressed-vectors">
 <h3>Search with compressed vectors<a class="headerlink" href="#search-with-compressed-vectors" title="Link to this heading"></a></h3>
-<p>See <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">Search using vector compression</span></a> for details on how to use LVQ for search.</p>
+<p>See <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">Searching the index</span></a> for details on how to use LVQ for search.</p>
 </section>
 <section id="graph-building-with-compressed-vectors">
 <span id="building-with-compressed-vectors"></span><h3>Graph building with compressed vectors<a class="headerlink" href="#graph-building-with-compressed-vectors" title="Link to this heading"></a></h3>
@@ -235,7 +233,7 @@ First, define the building parameters,</p>
 </div>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="e1222626-7ccc-4646-847d-2a2ae0faa3db" name="e1222626-7ccc-4646-847d-2a2ae0faa3db" type="checkbox"><label class="sphinx_collapse__label" for="e1222626-7ccc-4646-847d-2a2ae0faa3db"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="32707da3-24f8-4568-adb1-eb2890ac7c39" name="32707da3-24f8-4568-adb1-eb2890ac7c39" type="checkbox"><label class="sphinx_collapse__label" for="32707da3-24f8-4568-adb1-eb2890ac7c39"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
 <span class="w">    </span><span class="mf">1.2</span><span class="p">,</span><span class="w">  </span><span class="c1">// alpha</span>
 <span class="w">    </span><span class="mi">64</span><span class="p">,</span><span class="w">   </span><span class="c1">// graph max degree</span>
@@ -273,21 +271,26 @@ First, define the building parameters,</p>
 </div>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="28f491b6-d603-44a1-8451-7efd84ca38b3" name="28f491b6-d603-44a1-8451-7efd84ca38b3" type="checkbox"><label class="sphinx_collapse__label" for="28f491b6-d603-44a1-8451-7efd84ca38b3"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="f6cd36b3-73b0-4584-93cf-df04a69eb455" name="f6cd36b3-73b0-4584-93cf-df04a69eb455" type="checkbox"><label class="sphinx_collapse__label" for="f6cd36b3-73b0-4584-93cf-df04a69eb455"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Quantization</span>
-<span class="kt">size_t</span><span class="w"> </span><span class="n">padding</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">32</span><span class="p">;</span>
-<span class="k">namespace</span><span class="w"> </span><span class="nn">lvq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">svs</span><span class="o">::</span><span class="nn">quantization</span><span class="o">::</span><span class="nn">lvq</span><span class="p">;</span>
+<span class="k">namespace</span><span class="w"> </span><span class="nn">scalar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">svs</span><span class="o">::</span><span class="nn">quantization</span><span class="o">::</span><span class="nn">scalar</span><span class="p">;</span>
 
 <span class="c1">// Wrap the compressor object in a lazy functor.</span>
-<span class="c1">// This will defer loading and compression of the LVQ dataset until the threadpool</span>
+<span class="c1">// This will defer loading and compression of the SQ dataset until the threadpool</span>
 <span class="c1">// used in the index has been created.</span>
 <span class="k">auto</span><span class="w"> </span><span class="n">compressor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Lazy</span><span class="p">([</span><span class="o">=</span><span class="p">](</span><span class="n">svs</span><span class="o">::</span><span class="n">threads</span><span class="o">::</span><span class="n">ThreadPool</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">threadpool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">).</span><span class="n">load</span><span class="p">();</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">lvq</span><span class="o">::</span><span class="n">LVQDataset</span><span class="o">&lt;</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;::</span><span class="n">compress</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">threadpool</span><span class="p">,</span><span class="w"> </span><span class="n">padding</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">scalar</span><span class="o">::</span><span class="n">SQDataset</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int8_t</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;::</span><span class="n">compress</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">threadpool</span><span class="p">);</span>
 <span class="p">});</span>
 <span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
-<span class="w">    </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">()</span>
+<span class="w">    </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span>
+<span class="w">    </span><span class="n">compressor</span><span class="p">,</span>
+<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceType</span><span class="o">::</span><span class="n">L2</span><span class="p">,</span>
+<span class="w">    </span><span class="mi">4</span>
 <span class="p">);</span>
+<span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed load&quot;</span><span class="p">);</span>
+<span class="n">check</span><span class="p">(</span><span class="mf">0.8190</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
@@ -308,7 +311,7 @@ First, define the building parameters,</p>
 </div>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="f3b1cf65-5e97-47a6-9564-c6c75126ac85" name="f3b1cf65-5e97-47a6-9564-c6c75126ac85" type="checkbox"><label class="sphinx_collapse__label" for="f3b1cf65-5e97-47a6-9564-c6c75126ac85"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="cc5bf38d-56b2-4d9c-b7f5-a1b4666b21bd" name="cc5bf38d-56b2-4d9c-b7f5-a1b4666b21bd" type="checkbox"><label class="sphinx_collapse__label" for="cc5bf38d-56b2-4d9c-b7f5-a1b4666b21bd"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Compressed building</span>
 <span class="n">index</span><span class="w"> </span><span class="o">=</span>
 <span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">build</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">(),</span><span class="w"> </span><span class="n">num_threads</span><span class="p">);</span>

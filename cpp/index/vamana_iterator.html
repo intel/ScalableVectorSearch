@@ -1,0 +1,691 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vamana Iterator &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Flat Orchestrator" href="flat.html" />
+    <link rel="prev" title="Dynamic Vamana Index" href="dynamic_vamana.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../top.html">C++ Library</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Indexes</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#contents">Contents</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Vamana Iterator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs14VamanaIteratorE"><code class="docutils literal notranslate"><span class="pre">svs::VamanaIterator</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example">Example</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#main-batchiterator-class">Main BatchIterator Class</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#full-example">Full Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="flat.html">Flat Orchestrator</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#compatible-loaders">Compatible Loaders</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Indexes</a></li>
+      <li class="breadcrumb-item active">Vamana Iterator</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/cpp/index/vamana_iterator.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="vamana-iterator">
+<span id="cpp-orchestrators-vamana-iterator"></span><h1>Vamana Iterator<a class="headerlink" href="#vamana-iterator" title="Link to this heading"></a></h1>
+<p>The <a class="reference internal" href="#_CPPv4N3svs14VamanaIteratorE" title="svs::VamanaIterator"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VamanaIterator</span></code></a> class is designed to facilitate efficient and restartable searches within a Vamana Index. It dynamically adjusts the batch size during successive calls to <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a>, ensuring that the required number of neighbors is retrieved for each query. To optimize subsequent searches, the iterator leverages an additional search buffer capacity, enabling it to explore nodes beyond the previous batch’s search window while avoiding revisiting already retrieved nodes. This design ensures high performance and scalability for iterative neighbor searches.
+Note that <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> conducts search and prepares the results for the next batch of neigbors. After this, the resulting neighbors can be retrieved by calling <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator7resultsEv" title="svs::VamanaIterator::results"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::results()</span></code></a>. The iterator is designed to be used in a loop, where each iteration retrieves a new batch of neighbors.</p>
+<p>One can directly use <a class="reference internal" href="vamana.html#_CPPv4I0_6size_tENK3svs6Vamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t" title="svs::Vamana::batch_iterator"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::batch_iterator()</span></code></a> or <a class="reference internal" href="dynamic_vamana.html#_CPPv4I0_6size_tENK3svs13DynamicVamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t" title="svs::DynamicVamana::batch_iterator"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::DynamicVamana::batch_iterator()</span></code></a> to create a batch iterator for these indices. This method is a convenience wrapper around the <a class="reference internal" href="#_CPPv4N3svs14VamanaIteratorE" title="svs::VamanaIterator"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VamanaIterator</span></code></a> constructor, which allows for the creation of an iterator for the index.</p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs14VamanaIteratorE">
+<span id="_CPPv3N3svs14VamanaIteratorE"></span><span id="_CPPv2N3svs14VamanaIteratorE"></span><span id="svs::VamanaIterator"></span><span class="target" id="classsvs_1_1VamanaIterator"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VamanaIterator</span></span></span><a class="headerlink" href="#_CPPv4N3svs14VamanaIteratorE" title="Link to this definition"></a><br /></dt>
+<dd><p>Type-erased wrapper for the low-level <a class="reference internal" href="vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> iterator. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t">
+<span id="_CPPv3I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t"></span><span id="_CPPv2I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Index</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryType</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1VamanaIterator_1a2427f95fe46f220c4202460d2a9c9d5f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">VamanaIterator</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t" title="svs::VamanaIterator::VamanaIterator::Index"><span class="n"><span class="pre">Index</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">parent</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t" title="svs::VamanaIterator::VamanaIterator::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">query</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">extra_search_buffer_capacity</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">UNSIGNED_INTEGER_PLACEHOLDER</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I00EN3svs14VamanaIterator14VamanaIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Construct a new batch iterator for the query over the index. </p>
+<p>Argument <code class="docutils literal notranslate"><span class="pre">extra_search_buffer_capacity</span></code> is the extra search buffer capacity to use for the next search. This is used to ensure that we have few extra neighbors in the search buffer to accommodate the next search (when not provided, <code class="docutils literal notranslate"><span class="pre">svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT</span> <span class="pre">=</span> <span class="pre">100</span></code> is used. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator32parameters_for_current_iterationEv">
+<span id="_CPPv3NK3svs14VamanaIterator32parameters_for_current_iterationEv"></span><span id="_CPPv2NK3svs14VamanaIterator32parameters_for_current_iterationEv"></span><span id="svs::VamanaIterator::parameters_for_current_iterationC"></span><span class="target" id="classsvs_1_1VamanaIterator_1a0da50b644cfb8efdceb2c27c7ca0a98a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">vamana</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE" title="svs::index::vamana::VamanaSearchParameters"><span class="n"><span class="pre">VamanaSearchParameters</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">parameters_for_current_iteration</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator32parameters_for_current_iterationEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the search parameters used for the current batch. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator10query_typeEv">
+<span id="_CPPv3NK3svs14VamanaIterator10query_typeEv"></span><span id="_CPPv2NK3svs14VamanaIterator10query_typeEv"></span><span id="svs::VamanaIterator::query_typeC"></span><span class="target" id="classsvs_1_1VamanaIterator_1ad884b2abef98fdee5702531031f034a1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DataType</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">query_type</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator10query_typeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the element type of the captured query. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator12batch_numberEv">
+<span id="_CPPv3NK3svs14VamanaIterator12batch_numberEv"></span><span id="_CPPv2NK3svs14VamanaIterator12batch_numberEv"></span><span id="svs::VamanaIterator::batch_numberC"></span><span class="target" id="classsvs_1_1VamanaIterator_1a388a34d98b0347824cc9e00783fb0ba9"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">batch_number</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator12batch_numberEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current batch number. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator4sizeEv">
+<span id="_CPPv3NK3svs14VamanaIterator4sizeEv"></span><span id="_CPPv2NK3svs14VamanaIterator4sizeEv"></span><span id="svs::VamanaIterator::sizeC"></span><span class="target" id="classsvs_1_1VamanaIterator_1aefdd8037c5597b96b59991a86aa4dff0"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the number of results for the current batch. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator7resultsEv">
+<span id="_CPPv3NK3svs14VamanaIterator7resultsEv"></span><span id="_CPPv2NK3svs14VamanaIterator7resultsEv"></span><span id="svs::VamanaIterator::resultsC"></span><span class="target" id="classsvs_1_1VamanaIterator_1a876a31b6ed5d52f26da171bc79503276"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Neighbor</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">results</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator7resultsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a span of the results for the current batch. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE">
+<span id="_CPPv3N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE"></span><span id="_CPPv2N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE"></span><span id="svs::VamanaIterator::next__s.lib::DefaultPredicateCR"></span><span class="target" id="classsvs_1_1VamanaIterator_1a557baf33e341c5bf7d603d38b77b8d2f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">next</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">batch_size</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DefaultPredicate</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">cancel</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="Link to this definition"></a><br /></dt>
+<dd><p>Prepare a new batch of results. </p>
+<p>After calling this method, previous results will no longer be available. This method invalidates previous values return by <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1VamanaIterator_1a876a31b6ed5d52f26da171bc79503276"><span class="std std-ref"><span class="pre">results()</span></span></a></code>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>batch_size</strong> – The number of results to return in the next batch. In some scenarios (like when all entries are returned or if search is cancelled), results size can be lower than the <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>. </p></li>
+<li><p><strong>cancel</strong> – A predicate called during the search to determine if the search should be cancelled. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator19restart_next_searchEv">
+<span id="_CPPv3NK3svs14VamanaIterator19restart_next_searchEv"></span><span id="_CPPv2NK3svs14VamanaIterator19restart_next_searchEv"></span><span id="svs::VamanaIterator::restart_next_searchC"></span><span class="target" id="classsvs_1_1VamanaIterator_1a7ecd47a8f821f0c5e194cbcfe3e3d666"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">restart_next_search</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator19restart_next_searchEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Signal that the next batch search should begin entirely from scratch. </p>
+<p>The iterator records some internal state to accelerate future calls to <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1VamanaIterator_1a557baf33e341c5bf7d603d38b77b8d2f"><span class="std std-ref"><span class="pre">next()</span></span></a></code>. This caching of results may yield slightly different results than beginning index search completely over from the original entry points.</p>
+<p>Calling this method signals the iterator to abandon its cached state.</p>
+<p>This can be helpful for measuring performance and verifying recall values. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs14VamanaIterator4doneEv">
+<span id="_CPPv3NK3svs14VamanaIterator4doneEv"></span><span id="_CPPv2NK3svs14VamanaIterator4doneEv"></span><span id="svs::VamanaIterator::doneC"></span><span class="target" id="classsvs_1_1VamanaIterator_1ab3f128ebae8464b0ca5659488700218d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">done</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs14VamanaIterator4doneEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns whether iterator can find more neighbors or not for the given query. </p>
+<p>The iterator is considered done when all the available nodes have been yielded or when the search can not find any more neighbors. The transition from not done to done will be triggered by a call to <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1VamanaIterator_1a557baf33e341c5bf7d603d38b77b8d2f"><span class="std std-ref"><span class="pre">next()</span></span></a></code>. The contents of <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1VamanaIterator_1a388a34d98b0347824cc9e00783fb0ba9"><span class="std std-ref"><span class="pre">batch_number()</span></span></a></code> and <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1VamanaIterator_1a0da50b644cfb8efdceb2c27c7ca0a98a"><span class="std std-ref"><span class="pre">parameters_for_current_iteration()</span></span></a></code> will then remain unchanged by subsequent invocations of <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1VamanaIterator_1a557baf33e341c5bf7d603d38b77b8d2f"><span class="std std-ref"><span class="pre">next()</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0EN3svs14VamanaIterator6updateEvNSt4spanIK9QueryTypeEE">
+<span id="_CPPv3I0EN3svs14VamanaIterator6updateENSt4spanIK9QueryTypeEE"></span><span id="_CPPv2I0EN3svs14VamanaIterator6updateENSt4spanIK9QueryTypeEE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryType</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1VamanaIterator_1a8b88fa947afc9cc10c5d0329541a5a7f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">update</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs14VamanaIterator6updateEvNSt4spanIK9QueryTypeEE" title="svs::VamanaIterator::update::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">newquery</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs14VamanaIterator6updateEvNSt4spanIK9QueryTypeEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Update the iterator with a new query. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h2>
+<p>As with the top level index, a brief example showing the usage of the iterator is provided.
+We begin with the usual includes:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// SVS Dependencies</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/orchestrators/vamana.h&quot;</span><span class="c1"> // bulk of the dependencies required.</span>
+
+<span class="c1">// Alternative main definition</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svsmain.h&quot;</span>
+
+<span class="c1">// stl</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string_view&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
+</pre></div>
+</div>
+<p>A helper routine is defined to initialize a tiny index:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="p">[[</span><span class="n">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">make_example_index</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Build the index.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">build_parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
+<span class="w">        </span><span class="mf">1.2</span><span class="p">,</span><span class="w"> </span><span class="c1">// alpha</span>
+<span class="w">        </span><span class="mi">16</span><span class="p">,</span><span class="w">  </span><span class="c1">// graph_max_degree</span>
+<span class="w">        </span><span class="mi">32</span><span class="p">,</span><span class="w">  </span><span class="c1">// window_size</span>
+<span class="w">        </span><span class="mi">16</span><span class="p">,</span><span class="w">  </span><span class="c1">// max_candidate_pool_size</span>
+<span class="w">        </span><span class="mi">16</span><span class="p">,</span><span class="w">  </span><span class="c1">// prune_to</span>
+<span class="w">        </span><span class="nb">true</span><span class="w"> </span><span class="c1">// use_full_search_history</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="c1">// Create a dataset with 7 elements, each with 4 dimensions.</span>
+<span class="w">    </span><span class="c1">// The contents of the dataset are</span>
+<span class="w">    </span><span class="c1">// {0, 0, 0, 0}</span>
+<span class="w">    </span><span class="c1">// {1, 1, 1, 1}</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="c1">// {6, 6, 6, 6}</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">data</span><span class="o">::</span><span class="n">SimpleData</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Fill data `i` with all `i`s.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">fi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">narrow</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+<span class="w">        </span><span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">fi</span><span class="p">,</span><span class="w"> </span><span class="n">fi</span><span class="p">,</span><span class="w"> </span><span class="n">fi</span><span class="p">,</span><span class="w"> </span><span class="n">fi</span><span class="p">};</span>
+<span class="w">        </span><span class="n">data</span><span class="p">.</span><span class="n">set_datum</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">buffer</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Build the index.</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">auto_build</span><span class="p">(</span>
+<span class="w">        </span><span class="n">build_parameters</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">data</span><span class="p">),</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">{},</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This initializes the index into a known state, allowing this example to more clearly reason about the neighbors that should be returned.</p>
+<section id="constructing-an-iterator">
+<h3>Constructing an Iterator<a class="headerlink" href="#constructing-an-iterator" title="Link to this heading"></a></h3>
+<p>A code snippet for constructing a batch iterator is shown below with explanation following.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">make_example_index</span><span class="p">();</span>
+
+<span class="c1">// Each iteration will yield 3 elements that have not been yielded previously.</span>
+<span class="kt">size_t</span><span class="w"> </span><span class="n">batchsize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+
+<span class="c1">// Create a batch iterator over the index for the query.</span>
+<span class="k">auto</span><span class="w"> </span><span class="n">itr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">]()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Construct a query a query in a scoped block to demonstrate that the iterator</span>
+<span class="w">    </span><span class="c1">// maintains an internal copy.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">{</span><span class="mf">3.25</span><span class="p">,</span><span class="w"> </span><span class="mf">3.25</span><span class="p">,</span><span class="w"> </span><span class="mf">3.25</span><span class="p">,</span><span class="w"> </span><span class="mf">3.25</span><span class="p">};</span>
+
+<span class="w">    </span><span class="c1">// Make a batch iterator for the query.</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VamanaIterator</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">as_const_span</span><span class="p">(</span><span class="n">query</span><span class="p">));</span>
+<span class="p">}();</span>
+</pre></div>
+</div>
+<p>Iterator construction requires three items:</p>
+<ul class="simple">
+<li><p>The index (in this case, <a class="reference internal" href="vamana.html#_CPPv4N3svs6VamanaE" title="svs::Vamana"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::Vamana</span></code></a>)</p></li>
+<li><p>A query</p></li>
+<li><p>An optional parameter <code class="docutils literal notranslate"><span class="pre">extra_search_buffer_capacity</span></code></p></li>
+</ul>
+<p>When constructing the iterator, we provide the index with the query and an optional extra search buffer capacity to allow the iterator to search beyond the current batch. On construction, the iterator does not conduct any searches, but rather prepares itself for the first search by setting the search buffer capacity to the provided <code class="docutils literal notranslate"><span class="pre">extra_search_buffer_capacity</span></code> value (if not provided, <code class="docutils literal notranslate"><span class="pre">svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT</span> <span class="pre">=</span> <span class="pre">100</span></code> is used). The iterator will then search for neighbors in the index when the <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> method is called.</p>
+<p>Upon construction, <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> is initialized to 0, and <code class="docutils literal notranslate"><span class="pre">search_buffer_capacity</span></code> is set to <code class="docutils literal notranslate"><span class="pre">extra_search_buffer_capacity</span></code>. With each <code class="docutils literal notranslate"><span class="pre">next(batch_size)</span></code> call, both <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> and <code class="docutils literal notranslate"><span class="pre">search_buffer_capacity</span></code> are incremented by <code class="docutils literal notranslate"><span class="pre">batch_size</span></code> before conducting the search. This ensures that the buffer capacity remains greater than the search window size by <code class="docutils literal notranslate"><span class="pre">extra_search_buffer_capacity</span></code>, facilitating efficient searches for subsequent batches without revisiting nodes that have already been retrieved.</p>
+<p>The query is copied into the iterator and thus the query provided at the callsite need not outlive the iterator.
+This is demonstrated by constructing the query as a temporary variable in the lambda.</p>
+</section>
+<section id="using-the-iterator">
+<h3>Using the Iterator<a class="headerlink" href="#using-the-iterator" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">batch_number</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+
+<span class="c1">// Obtain a view of the current list candidates.</span>
+<span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Neighbor</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">itr</span><span class="p">.</span><span class="n">results</span><span class="p">();</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+
+<span class="c1">// We constructed the dataset in such a way that we know what the results should be.</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 0 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 1 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 2 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="o">!</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Calling to <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> will cause the iterator to search and prepare <code class="docutils literal notranslate"><span class="pre">batchsize</span></code> number of neighbors in the index. These resulting neighbors can be retrieved with a call to <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator7resultsEv" title="svs::VamanaIterator::results"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::results()</span></code></a>.
+This number of neighbors retrieved by the last <code class="docutils literal notranslate"><span class="pre">next()</span></code> call can be seen by calling the <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator4sizeEv" title="svs::VamanaIterator::size"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::size()</span></code></a> method. The <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator12batch_numberEv" title="svs::VamanaIterator::batch_number"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::batch_number()</span></code></a> method returns the number of batches of neighbors retrieved by <code class="docutils literal notranslate"><span class="pre">next</span></code> calls so far.</p>
+<p>The <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator7resultsEv" title="svs::VamanaIterator::results"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::results()</span></code></a> method will provide a view of the current candidates.
+In the example, we purposely constructed the indexed dataset such that we can manually inspect the returned
+results.</p>
+<p>The neighbors returned by the batch iterator will be <strong>weakly monotonic</strong>, in the sense that earlier neighbors on earlier batches should generally be nearer to the query.</p>
+</section>
+<section id="stepping-the-iterator">
+<h3>Stepping the Iterator<a class="headerlink" href="#stepping-the-iterator" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// This will yield the next batch of neighbors.</span>
+<span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+
+<span class="c1">// The contents of the iterator are for batch 2.</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">batch_number</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+
+<span class="c1">// Update and inspect the results.</span>
+<span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">itr</span><span class="p">.</span><span class="n">results</span><span class="p">();</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 3 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 4 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 5 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="o">!</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">5</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">6</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>If more candidates are required, the <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> method can be invoked.
+Each call to <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> will yield a new batch of candidates, up to the provided argument value <code class="docutils literal notranslate"><span class="pre">batchsize</span></code>.
+The iterator uses some cached internal state to make future searches more efficient than starting from scratch.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Calls to <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> renders previous results unavailable and invalidates previous values returned by <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator7resultsEv" title="svs::VamanaIterator::results"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::results()</span></code></a>.</p>
+</div>
+</section>
+<section id="exhausting-the-candidate-pool">
+<h3>Exhausting the Candidate Pool<a class="headerlink" href="#exhausting-the-candidate-pool" title="Link to this heading"></a></h3>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// So far, the iterator has yielded 6 of the 7 vectors in the dataset.</span>
+<span class="c1">// This call to `next()` should only yield a single neighbor - the last on in the index.</span>
+<span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">itr</span><span class="p">.</span><span class="n">results</span><span class="p">();</span>
+<span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 6 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>When the iterator is close to exhausting all elements in the index, it may yield fewer then the configured batch-size, as is shown in the example.
+After this batch completes, there are no more candidates in the index that haven’t been yielded.
+The method <a class="reference internal" href="#_CPPv4NK3svs14VamanaIterator4doneEv" title="svs::VamanaIterator::done"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::done()</span></code></a> will then return true.
+In this state, future calls to <a class="reference internal" href="#_CPPv4N3svs14VamanaIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="svs::VamanaIterator::next"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::VamanaIterator::next()</span></code></a> will simply yield no candidates.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Calling `next()` again should yield no more candidates.</span>
+<span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="#vamana-iterator-full-example"><span class="std std-ref">full xample</span></a> is provided at the bottom of this page.</p>
+</section>
+</section>
+<section id="main-batchiterator-class">
+<h2>Main BatchIterator Class<a class="headerlink" href="#main-batchiterator-class" title="Link to this heading"></a></h2>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4I00EN3svs5index6vamana13BatchIteratorE">
+<span id="_CPPv3I00EN3svs5index6vamana13BatchIteratorE"></span><span id="_CPPv2I00EN3svs5index6vamana13BatchIteratorE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Index</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryType</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">BatchIterator</span></span></span><a class="headerlink" href="#_CPPv4I00EN3svs5index6vamana13BatchIteratorE" title="Link to this definition"></a><br /></dt>
+<dd><p>A batch iterator for retrieving neighbors from the index in batches. </p>
+<p>This iterator abstracts the process of retrieving neighbors in fixed-size batches while maintaining internal state for efficient graph traversal. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator8iteratorE">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator8iteratorE"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator8iteratorE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1ad75172afa245aeb736153ee8fc51547d"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">iterator</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="n"><span class="pre">result_buffer_type</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">iterator</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator8iteratorE" title="Link to this definition"></a><br /></dt>
+<dd><p>Random-access iterator to <code class="docutils literal notranslate"><span class="pre">value_type</span></code> over the current batch of results. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator14const_iteratorE"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator14const_iteratorE"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a01dc73fd014b1d21599e57bc13cf0772"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">const_iterator</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="n"><span class="pre">result_buffer_type</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">const_iterator</span></span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE" title="Link to this definition"></a><br /></dt>
+<dd><p>Random-access iterator to <code class="docutils literal notranslate"><span class="pre">const</span> <span class="pre">value_type</span></code> over the current batch of results. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator13BatchIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator13BatchIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator13BatchIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t"></span><span id="svs::index::vamana::BatchIterator::BatchIterator__IndexCR.std::span:QueryTypeC:.s"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a7d4a88af4b84a14ec0d84bf5b99fd71c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">BatchIterator</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana13BatchIteratorE" title="svs::index::vamana::BatchIterator::Index"><span class="n"><span class="pre">Index</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">parent</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana13BatchIteratorE" title="svs::index::vamana::BatchIterator::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">query</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">extra_search_buffer_capacity</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">UNSIGNED_INTEGER_PLACEHOLDER</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator13BatchIteratorERK5IndexNSt4spanIK9QueryTypeEE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Constructs a batch iterator for the given query over the index. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>parent</strong> – The index to search. </p></li>
+<li><p><strong>query</strong> – The query data. </p></li>
+<li><p><strong>extra_search_buffer_capacity</strong> – Additional buffer capacity for the search. When not provided, <code class="docutils literal notranslate"><span class="pre">svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT</span> <span class="pre">=</span> <span class="pre">100</span></code> is used. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator6updateENSt4spanIK9QueryTypeEE">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator6updateENSt4spanIK9QueryTypeEE"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator6updateENSt4spanIK9QueryTypeEE"></span><span id="svs::index::vamana::BatchIterator::update__std::span:QueryTypeC:"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a8ee8a80c05fe4cb64af8f2b9359442ff"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">update</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I00EN3svs5index6vamana13BatchIteratorE" title="svs::index::vamana::BatchIterator::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">newquery</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator6updateENSt4spanIK9QueryTypeEE" title="Link to this definition"></a><br /></dt>
+<dd><p>Updates the iterator with a new query. Resets the internal state and restarts the search when <code class="docutils literal notranslate"><span class="pre">next(...)</span></code> is called. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I_12NeighborLikeENK3svs5index6vamana13BatchIterator5adaptEN3svs8NeighborI16external_id_typeEE1N">
+<span id="_CPPv3I_12NeighborLikeENK3svs5index6vamana13BatchIterator5adaptE1N"></span><span id="_CPPv2I_12NeighborLikeENK3svs5index6vamana13BatchIterator5adaptE1N"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">NeighborLike</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">N</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1ab31a9cc315c468c7841cd6d3eabdcce6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Neighbor</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">external_id_type</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">adapt</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_12NeighborLikeENK3svs5index6vamana13BatchIterator5adaptEN3svs8NeighborI16external_id_typeEE1N" title="svs::index::vamana::BatchIterator::adapt::N"><span class="n"><span class="pre">N</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">internal</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I_12NeighborLikeENK3svs5index6vamana13BatchIterator5adaptEN3svs8NeighborI16external_id_typeEE1N" title="Link to this definition"></a><br /></dt>
+<dd><p>Adapts an internal neighbor to an external neighbor. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator5beginEv">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator5beginEv"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator5beginEv"></span><span id="svs::index::vamana::BatchIterator::begin"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1ad5994c83fe7916fbec1ed97118e4264f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana13BatchIterator8iteratorE" title="svs::index::vamana::BatchIterator::iterator"><span class="n"><span class="pre">iterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">begin</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator5beginEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns an iterator to the beginning of the results. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator3endEv">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator3endEv"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator3endEv"></span><span id="svs::index::vamana::BatchIterator::end"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a5a18dd0c36139f3292c6ebff0f8ca6e5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana13BatchIterator8iteratorE" title="svs::index::vamana::BatchIterator::iterator"><span class="n"><span class="pre">iterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">end</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator3endEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns an iterator to the end of the results. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator5beginEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator5beginEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator5beginEv"></span><span id="svs::index::vamana::BatchIterator::beginC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1ac2968ee0aeba041cfd0b08de766a4dbb"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE" title="svs::index::vamana::BatchIterator::const_iterator"><span class="n"><span class="pre">const_iterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">begin</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator5beginEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns an iterator to the beginning of the results.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator3endEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator3endEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator3endEv"></span><span id="svs::index::vamana::BatchIterator::endC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1ad3793268cedf39f64410574af5dbda29"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE" title="svs::index::vamana::BatchIterator::const_iterator"><span class="n"><span class="pre">const_iterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">end</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator3endEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns an iterator to the end of the results.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator6cbeginEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator6cbeginEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator6cbeginEv"></span><span id="svs::index::vamana::BatchIterator::cbeginC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a220f0ac3b276522ea6a0c2545c7f374a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE" title="svs::index::vamana::BatchIterator::const_iterator"><span class="n"><span class="pre">const_iterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cbegin</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator6cbeginEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns an iterator to the beginning of the results.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator4cendEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator4cendEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator4cendEv"></span><span id="svs::index::vamana::BatchIterator::cendC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a8956bf190a28b82d825cf22c4da8987a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs5index6vamana13BatchIterator14const_iteratorE" title="svs::index::vamana::BatchIterator::const_iterator"><span class="n"><span class="pre">const_iterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cend</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator4cendEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns an iterator to the beginning of the results.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator8contentsEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator8contentsEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator8contentsEv"></span><span id="svs::index::vamana::BatchIterator::contentsC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1acfe6e5843e281d40da4d95690dcb3467"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">value_type</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">contents</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator8contentsEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns a span over the current batch of neighbors. The span is invalidated by calls to <code class="docutils literal notranslate"><span class="pre">next(...)</span></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator4sizeEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator4sizeEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator4sizeEv"></span><span id="svs::index::vamana::BatchIterator::sizeC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a770502f0addf46c0f653e0db9d410d74"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator4sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the number of buffered results. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator12batch_numberEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator12batch_numberEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator12batch_numberEv"></span><span id="svs::index::vamana::BatchIterator::batch_numberC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a2ff9d000bea480cc493444f62be6c66f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">batch_number</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator12batch_numberEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the batch number corresponding to the current buffer. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator4doneEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator4doneEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator4doneEv"></span><span id="svs::index::vamana::BatchIterator::doneC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a4a8d7ad1301aace39923fe6d56c5a403"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">done</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator4doneEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns whether iterator can find more neighbors or not for the given query. </p>
+<p>The iterator is considered done when all the available nodes have been yielded or when the search can not find any more neighbors. The transition from not done to done will be triggered by a call to <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1BatchIterator_1a205ce702772dd00c09c39298e914defc"><span class="std std-ref"><span class="pre">next()</span></span></a></code>. The contents of <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1BatchIterator_1a2ff9d000bea480cc493444f62be6c66f"><span class="std std-ref"><span class="pre">batch_number()</span></span></a></code> and <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1BatchIterator_1aa8a64eec008bcddfc576786164aeac68"><span class="std std-ref"><span class="pre">parameters_for_current_iteration()</span></span></a></code> will then remain unchanged by subsequent invocations of <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1index_1_1vamana_1_1BatchIterator_1a205ce702772dd00c09c39298e914defc"><span class="std std-ref"><span class="pre">next()</span></span></a></code>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator19restart_next_searchEv">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator19restart_next_searchEv"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator19restart_next_searchEv"></span><span id="svs::index::vamana::BatchIterator::restart_next_search"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1aa6277f59f60168f4286d15948fb0d629"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">restart_next_search</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator19restart_next_searchEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Forces the next iteration to restart the search from scratch. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs5index6vamana13BatchIterator32parameters_for_current_iterationEv">
+<span id="_CPPv3NK3svs5index6vamana13BatchIterator32parameters_for_current_iterationEv"></span><span id="_CPPv2NK3svs5index6vamana13BatchIterator32parameters_for_current_iterationEv"></span><span id="svs::index::vamana::BatchIterator::parameters_for_current_iterationC"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1aa8a64eec008bcddfc576786164aeac68"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">vamana</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="vamana.html#_CPPv4N3svs5index6vamana22VamanaSearchParametersE" title="svs::index::vamana::VamanaSearchParameters"><span class="n"><span class="pre">VamanaSearchParameters</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">parameters_for_current_iteration</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs5index6vamana13BatchIterator32parameters_for_current_iterationEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the search parameters used for the current batch. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs5index6vamana13BatchIterator4nextE6size_tRKN3lib16DefaultPredicateE">
+<span id="_CPPv3N3svs5index6vamana13BatchIterator4nextE6size_tRKN3lib16DefaultPredicateE"></span><span id="_CPPv2N3svs5index6vamana13BatchIterator4nextE6size_tRKN3lib16DefaultPredicateE"></span><span id="svs::index::vamana::BatchIterator::next__s.lib::DefaultPredicateCR"></span><span class="target" id="classsvs_1_1index_1_1vamana_1_1BatchIterator_1a205ce702772dd00c09c39298e914defc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">next</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">batch_size</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">DefaultPredicate</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">cancel</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Returns</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">Const</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">false</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs5index6vamana13BatchIterator4nextE6size_tRKN3lib16DefaultPredicateE" title="Link to this definition"></a><br /></dt>
+<dd><p>Prepares the next batch of neighbors (up to <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>) from the index. Handles exceptions gracefully and ensures iterator state consistency. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="full-example">
+<span id="vamana-iterator-full-example"></span><h2>Full Example<a class="headerlink" href="#full-example" title="Link to this heading"></a></h2>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">//! [Includes]</span>
+<span class="c1">// SVS Dependencies</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svs/orchestrators/vamana.h&quot;</span><span class="c1"> // bulk of the dependencies required.</span>
+
+<span class="c1">// Alternative main definition</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&quot;svsmain.h&quot;</span>
+
+<span class="c1">// stl</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;string_view&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;vector&gt;</span>
+<span class="c1">//! [Includes]</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="kt">bool</span><span class="w"> </span><span class="n">value</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">string_view</span><span class="w"> </span><span class="n">expr</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">detail</span><span class="o">::</span><span class="n">LineInfo</span><span class="w"> </span><span class="n">linfo</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">value</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">throw</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">ANNException</span><span class="p">(</span>
+<span class="w">            </span><span class="s">&quot;expression </span><span class="se">\&quot;</span><span class="s">{}</span><span class="se">\&quot;</span><span class="s"> evaluated to false in {}&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">expr</span><span class="p">,</span><span class="w"> </span><span class="n">linfo</span>
+<span class="w">        </span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="cp">#define CHECK(expr) check(expr, #expr, SVS_LINEINFO);</span>
+
+<span class="c1">//! [Example Index Construction]</span>
+<span class="p">[[</span><span class="n">nodiscard</span><span class="p">]]</span><span class="w"> </span><span class="k">auto</span><span class="w"> </span><span class="n">make_example_index</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Build the index.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">build_parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
+<span class="w">        </span><span class="mf">1.2</span><span class="p">,</span><span class="w"> </span><span class="c1">// alpha</span>
+<span class="w">        </span><span class="mi">16</span><span class="p">,</span><span class="w">  </span><span class="c1">// graph_max_degree</span>
+<span class="w">        </span><span class="mi">32</span><span class="p">,</span><span class="w">  </span><span class="c1">// window_size</span>
+<span class="w">        </span><span class="mi">16</span><span class="p">,</span><span class="w">  </span><span class="c1">// max_candidate_pool_size</span>
+<span class="w">        </span><span class="mi">16</span><span class="p">,</span><span class="w">  </span><span class="c1">// prune_to</span>
+<span class="w">        </span><span class="nb">true</span><span class="w"> </span><span class="c1">// use_full_search_history</span>
+<span class="w">    </span><span class="p">};</span>
+
+<span class="w">    </span><span class="c1">// Create a dataset with 7 elements, each with 4 dimensions.</span>
+<span class="w">    </span><span class="c1">// The contents of the dataset are</span>
+<span class="w">    </span><span class="c1">// {0, 0, 0, 0}</span>
+<span class="w">    </span><span class="c1">// {1, 1, 1, 1}</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="c1">// {6, 6, 6, 6}</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">data</span><span class="o">::</span><span class="n">SimpleData</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Fill data `i` with all `i`s.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">size_t</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">data</span><span class="p">.</span><span class="n">size</span><span class="p">();</span><span class="w"> </span><span class="o">++</span><span class="n">i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">fi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">narrow</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+<span class="w">        </span><span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">fi</span><span class="p">,</span><span class="w"> </span><span class="n">fi</span><span class="p">,</span><span class="w"> </span><span class="n">fi</span><span class="p">,</span><span class="w"> </span><span class="n">fi</span><span class="p">};</span>
+<span class="w">        </span><span class="n">data</span><span class="p">.</span><span class="n">set_datum</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">buffer</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Build the index.</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">auto_build</span><span class="p">(</span>
+<span class="w">        </span><span class="n">build_parameters</span><span class="p">,</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">data</span><span class="p">),</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">{},</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="p">}</span>
+<span class="c1">//! [Example Index Construction]</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="n">demonstrate_iterator</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">//! [Setup]</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">make_example_index</span><span class="p">();</span>
+
+<span class="w">    </span><span class="c1">// Each iteration will yield 3 elements that have not been yielded previously.</span>
+<span class="w">    </span><span class="kt">size_t</span><span class="w"> </span><span class="n">batchsize</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// Create a batch iterator over the index for the query.</span>
+<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">itr</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="o">&amp;</span><span class="p">]()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Construct a query a query in a scoped block to demonstrate that the iterator</span>
+<span class="w">        </span><span class="c1">// maintains an internal copy.</span>
+<span class="w">        </span><span class="k">auto</span><span class="w"> </span><span class="n">query</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">{</span><span class="mf">3.25</span><span class="p">,</span><span class="w"> </span><span class="mf">3.25</span><span class="p">,</span><span class="w"> </span><span class="mf">3.25</span><span class="p">,</span><span class="w"> </span><span class="mf">3.25</span><span class="p">};</span>
+
+<span class="w">        </span><span class="c1">// Make a batch iterator for the query.</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VamanaIterator</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">as_const_span</span><span class="p">(</span><span class="n">query</span><span class="p">));</span>
+<span class="w">    </span><span class="p">}();</span>
+<span class="w">    </span><span class="c1">//! [Setup]</span>
+
+<span class="w">    </span><span class="c1">//! [First Iteration]</span>
+<span class="w">    </span><span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">batch_number</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Obtain a view of the current list candidates.</span>
+<span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">span</span><span class="o">&lt;</span><span class="k">const</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Neighbor</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">itr</span><span class="p">.</span><span class="n">results</span><span class="p">();</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// We constructed the dataset in such a way that we know what the results should be.</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 0 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 1 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 2 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="o">!</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">4</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [First Iteration]</span>
+
+<span class="w">    </span><span class="c1">//! [Next Iteration]</span>
+<span class="w">    </span><span class="c1">// This will yield the next batch of neighbors.</span>
+<span class="w">    </span><span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">3</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// The contents of the iterator are for batch 2.</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">batch_number</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// Update and inspect the results.</span>
+<span class="w">    </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">itr</span><span class="p">.</span><span class="n">results</span><span class="p">();</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 3 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 4 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 5 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="o">!</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">5</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">6</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Next Iteration]</span>
+
+<span class="w">    </span><span class="c1">//! [Final Iteration]</span>
+<span class="w">    </span><span class="c1">// So far, the iterator has yielded 6 of the 7 vectors in the dataset.</span>
+<span class="w">    </span><span class="c1">// This call to `next()` should only yield a single neighbor - the last on in the index.</span>
+<span class="w">    </span><span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="w">    </span><span class="n">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">itr</span><span class="p">.</span><span class="n">results</span><span class="p">();</span>
+<span class="w">    </span><span class="n">fmt</span><span class="o">::</span><span class="n">print</span><span class="p">(</span><span class="s">&quot;Neighbor 6 = {}</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">());</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">id</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="c1">//! [Final Iteration]</span>
+
+<span class="w">    </span><span class="c1">//! [Beyond Final Iteration]</span>
+<span class="w">    </span><span class="c1">// Calling `next()` again should yield no more candidates.</span>
+<span class="w">    </span><span class="n">itr</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="n">batchsize</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">    </span><span class="n">CHECK</span><span class="p">(</span><span class="n">itr</span><span class="p">.</span><span class="n">done</span><span class="p">());</span>
+<span class="w">    </span><span class="c1">//! [Beyond Final Iteration]</span>
+<span class="p">}</span>
+
+<span class="c1">// Alternative main definition</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">svs_main</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">string</span><span class="o">&gt;</span><span class="w"> </span><span class="n">SVS_UNUSED</span><span class="p">(</span><span class="n">args</span><span class="p">))</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">demonstrate_iterator</span><span class="p">();</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">SVS_DEFINE_MAIN</span><span class="p">();</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dynamic_vamana.html" class="btn btn-neutral float-left" title="Dynamic Vamana Index" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="flat.html" class="btn btn-neutral float-right" title="Flat Orchestrator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

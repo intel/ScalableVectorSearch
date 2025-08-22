@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ablation Studies &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -143,9 +141,11 @@ speed-ups achieved by each of the introduced new features for different query ba
 <div class="line"><br /></div>
 </div>
 <p>Results for the <strong>rqa-768-10M-OOD</strong> dataset</p>
-<a class="reference internal image-reference" href="../_images/ablation_SPR_rqa-10M.svg"><img alt="SVS ablation results for the rqa-768-10M-OOD dataset." class="align-center" src="../_images/ablation_SPR_rqa-10M.svg" width="800" /></a>
+<a class="reference internal image-reference" href="../_images/ablation_SPR_rqa-10M.svg"><img alt="SVS ablation results for the rqa-768-10M-OOD dataset." class="align-center" src="../_images/ablation_SPR_rqa-10M.svg" style="width: 800px;" />
+</a>
 <p>Results for the <strong>rqa-768-1M-OOD</strong> dataset</p>
-<a class="reference internal image-reference" href="../_images/ablation_SPR_rqa-1M.svg"><img alt="SVS ablation results for the rqa-768-1M-OOD dataset." class="align-center" src="../_images/ablation_SPR_rqa-1M.svg" width="800" /></a>
+<a class="reference internal image-reference" href="../_images/ablation_SPR_rqa-1M.svg"><img alt="SVS ablation results for the rqa-768-1M-OOD dataset." class="align-center" src="../_images/ablation_SPR_rqa-1M.svg" style="width: 800px;" />
+</a>
 <div class="line-block">
 <div class="line"><br /></div>
 </div>
@@ -205,21 +205,24 @@ and the additional bandwidth reduction from LVQ-4x4 and LVQ-4x8 provides a signi
 <p><strong>Click on the triangles</strong> to see the throughput vs recall curves comparing SVS with several LVQ settings, as well as float32
 and float16 encodings, for each dataset.</p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="5f3c36fb-7e68-4f06-9898-1782938c3dcd" name="5f3c36fb-7e68-4f06-9898-1782938c3dcd" type="checkbox"><label class="sphinx_collapse__label" for="5f3c36fb-7e68-4f06-9898-1782938c3dcd"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="caeecd39-2840-485d-9c16-c9cad08f8fd8" name="caeecd39-2840-485d-9c16-c9cad08f8fd8" type="checkbox"><label class="sphinx_collapse__label" for="caeecd39-2840-485d-9c16-c9cad08f8fd8"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the deep-96-1B dataset</p>
-<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_deep-1B.png"><img alt="deep-96-1B compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_deep-1B.png" style="width: 800px;" /></a>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_deep-1B.png"><img alt="deep-96-1B compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_deep-1B.png" style="width: 800px;" />
+</a>
 </div>
 </div>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="4bffe760-de0b-4e9d-bace-15bba90e0f1c" name="4bffe760-de0b-4e9d-bace-15bba90e0f1c" type="checkbox"><label class="sphinx_collapse__label" for="4bffe760-de0b-4e9d-bace-15bba90e0f1c"><i class="sphinx_collapse__icon"></i>deep-96-100M</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="a5815f38-0d8d-40dd-8d4a-8c3e4badb3c9" name="a5815f38-0d8d-40dd-8d4a-8c3e4badb3c9" type="checkbox"><label class="sphinx_collapse__label" for="a5815f38-0d8d-40dd-8d4a-8c3e4badb3c9"><i class="sphinx_collapse__icon"></i>deep-96-100M</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the deep-96-100M dataset</p>
-<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_deep-100M.png"><img alt="deep-96-100M compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_deep-100M.png" style="width: 800px;" /></a>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_deep-100M.png"><img alt="deep-96-100M compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_deep-100M.png" style="width: 800px;" />
+</a>
 </div>
 </div>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="e27b3188-0ffa-4658-b6bb-d5b17debd795" name="e27b3188-0ffa-4658-b6bb-d5b17debd795" type="checkbox"><label class="sphinx_collapse__label" for="e27b3188-0ffa-4658-b6bb-d5b17debd795"><i class="sphinx_collapse__icon"></i>t2i-200-100M</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="4364b4d8-d0c7-4881-9934-36a3fd0d7039" name="4364b4d8-d0c7-4881-9934-36a3fd0d7039" type="checkbox"><label class="sphinx_collapse__label" for="4364b4d8-d0c7-4881-9934-36a3fd0d7039"><i class="sphinx_collapse__icon"></i>t2i-200-100M</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the t2i-200-100M dataset</p>
-<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_text2image-100M.png"><img alt="t2i-200-100M compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_text2image-100M.png" style="width: 800px;" /></a>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_SVS_ablation_text2image-100M.png"><img alt="t2i-200-100M compression evaluation results" src="../_images/bench_largeScale_SVS_ablation_text2image-100M.png" style="width: 800px;" />
+</a>
 </div>
 </div>
 <div class="line-block">
@@ -232,9 +235,10 @@ and float16 encodings, for each dataset.</p>
 (a Pareto curve built with results from LVQ-8, LVQ-4x4, LVQ4x8 and LVQ8x8), SVS using float32 and float16 encodings,
 as well as other methods for each dataset.</p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="23e8beed-04a5-4504-b510-c2357efe6c5d" name="23e8beed-04a5-4504-b510-c2357efe6c5d" type="checkbox"><label class="sphinx_collapse__label" for="23e8beed-04a5-4504-b510-c2357efe6c5d"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="03ffea25-4c73-458e-8fc2-d3761b959f11" name="03ffea25-4c73-458e-8fc2-d3761b959f11" type="checkbox"><label class="sphinx_collapse__label" for="03ffea25-4c73-458e-8fc2-d3761b959f11"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the deep-96-1B dataset</p>
-<a class="reference internal image-reference" href="../_images/bench_largeScale_ablation_and_other_methods_deep-1B.png"><img alt="deep-96-1B compression evaluation results" src="../_images/bench_largeScale_ablation_and_other_methods_deep-1B.png" style="width: 700px;" /></a>
+<a class="reference internal image-reference" href="../_images/bench_largeScale_ablation_and_other_methods_deep-1B.png"><img alt="deep-96-1B compression evaluation results" src="../_images/bench_largeScale_ablation_and_other_methods_deep-1B.png" style="width: 700px;" />
+</a>
 </div>
 </div>
 <div class="line-block">
@@ -247,7 +251,8 @@ as well as other methods for each dataset.</p>
 <p>Memory footprint reduction is often not relevant for small scale datasets as their overall memory requirements are easily
 satisfied by most low-end servers. However, we show here that for high-dimensional datasets, the performance boost achieved
 by LVQ makes it very relevant even for datasets with a few million points. The system setup is described <a class="reference internal" href="static/previous/small_scale_benchs.html#system-setup-small-scale-benchs"><span class="std std-ref">here</span></a>.</p>
-<a class="reference internal image-reference" href="../_images/bench_smallScale_SVS_ablation_gist-960-euclidean.png"><img alt="gist-960-1M compression ablation results." class="align-center" src="../_images/bench_smallScale_SVS_ablation_gist-960-euclidean.png" style="width: 800px;" /></a>
+<a class="reference internal image-reference" href="../_images/bench_smallScale_SVS_ablation_gist-960-euclidean.png"><img alt="gist-960-1M compression ablation results." class="align-center" src="../_images/bench_smallScale_SVS_ablation_gist-960-euclidean.png" style="width: 800px;" />
+</a>
 <p>The figure compares search performance for different LVQ settings, as well as using float32 and float16 encoded
 vectors, for the 960-dimensional <a class="reference internal" href="static/previous/experimental_method.html#datasets"><span class="std std-ref">gist-960-1M</span></a> dataset (graph built with <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128).
 LVQ-compressed vectors are padded to half cache lines (<code class="docutils literal notranslate"><span class="pre">padding</span></code> = 32).</p>

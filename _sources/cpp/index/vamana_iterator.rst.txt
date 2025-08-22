@@ -1,0 +1,145 @@
+.. Copyright (C) 2024 Intel Corporation
+..
+.. This software and the related documents are Intel copyrighted materials,
+.. and your use of them is governed by the express license under which they
+.. were provided to you ("License"). Unless the License provides otherwise,
+.. you may not use, modify, copy, publish, distribute, disclose or transmit
+.. this software or the related documents without Intel's prior written
+.. permission.
+..
+.. This software and the related documents are provided as is, with no
+.. express or implied warranties, other than those that are expressly stated
+.. in the License.
+
+.. _cpp_orchestrators_vamana_iterator:
+
+Vamana Iterator
+===============
+
+The :cpp:class:`svs::VamanaIterator` class is designed to facilitate efficient and restartable searches within a Vamana Index. It dynamically adjusts the batch size during successive calls to :cpp:func:`svs::VamanaIterator::next()`, ensuring that the required number of neighbors is retrieved for each query. To optimize subsequent searches, the iterator leverages an additional search buffer capacity, enabling it to explore nodes beyond the previous batch's search window while avoiding revisiting already retrieved nodes. This design ensures high performance and scalability for iterative neighbor searches.
+Note that :cpp:func:`svs::VamanaIterator::next()` conducts search and prepares the results for the next batch of neigbors. After this, the resulting neighbors can be retrieved by calling :cpp:func:`svs::VamanaIterator::results()`. The iterator is designed to be used in a loop, where each iteration retrieves a new batch of neighbors.
+
+One can directly use :cpp:func:`svs::Vamana::batch_iterator()` or :cpp:func:`svs::DynamicVamana::batch_iterator()` to create a batch iterator for these indices. This method is a convenience wrapper around the :cpp:class:`svs::VamanaIterator` constructor, which allows for the creation of an iterator for the index.
+
+.. doxygenclass:: svs::VamanaIterator
+   :project: SVS
+   :members:
+
+Example
+-------
+
+As with the top level index, a brief example showing the usage of the iterator is provided.
+We begin with the usual includes:
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Includes]
+   :end-before: [Includes]
+
+A helper routine is defined to initialize a tiny index:
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Example Index Construction]
+   :end-before: [Example Index Construction]
+
+This initializes the index into a known state, allowing this example to more clearly reason about the neighbors that should be returned.
+
+
+Constructing an Iterator
+************************
+
+A code snippet for constructing a batch iterator is shown below with explanation following.
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Setup]
+   :end-before: [Setup]
+   :dedent: 4
+
+Iterator construction requires three items:
+
+* The index (in this case, :cpp:class:`svs::Vamana`)
+* A query
+* An optional parameter ``extra_search_buffer_capacity``
+
+When constructing the iterator, we provide the index with the query and an optional extra search buffer capacity to allow the iterator to search beyond the current batch. On construction, the iterator does not conduct any searches, but rather prepares itself for the first search by setting the search buffer capacity to the provided ``extra_search_buffer_capacity`` value (if not provided, ``svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT = 100`` is used). The iterator will then search for neighbors in the index when the :cpp:func:`svs::VamanaIterator::next()` method is called.
+
+Upon construction, ``search_window_size`` is initialized to 0, and ``search_buffer_capacity`` is set to ``extra_search_buffer_capacity``. With each ``next(batch_size)`` call, both ``search_window_size`` and ``search_buffer_capacity`` are incremented by ``batch_size`` before conducting the search. This ensures that the buffer capacity remains greater than the search window size by ``extra_search_buffer_capacity``, facilitating efficient searches for subsequent batches without revisiting nodes that have already been retrieved.
+
+The query is copied into the iterator and thus the query provided at the callsite need not outlive the iterator.
+This is demonstrated by constructing the query as a temporary variable in the lambda.
+
+Using the Iterator
+******************
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [First Iteration]
+   :end-before: [First Iteration]
+   :dedent: 4
+
+Calling to :cpp:func:`svs::VamanaIterator::next()` will cause the iterator to search and prepare ``batchsize`` number of neighbors in the index. These resulting neighbors can be retrieved with a call to :cpp:func:`svs::VamanaIterator::results()`.
+This number of neighbors retrieved by the last ``next()`` call can be seen by calling the :cpp:func:`svs::VamanaIterator::size()` method. The :cpp:func:`svs::VamanaIterator::batch_number()` method returns the number of batches of neighbors retrieved by ``next`` calls so far.
+
+The :cpp:func:`svs::VamanaIterator::results()` method will provide a view of the current candidates.
+In the example, we purposely constructed the indexed dataset such that we can manually inspect the returned
+results.
+
+The neighbors returned by the batch iterator will be **weakly monotonic**, in the sense that earlier neighbors on earlier batches should generally be nearer to the query.
+
+Stepping the Iterator
+*********************
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Next Iteration]
+   :end-before: [Next Iteration]
+   :dedent: 4
+
+If more candidates are required, the :cpp:func:`svs::VamanaIterator::next()` method can be invoked.
+Each call to :cpp:func:`svs::VamanaIterator::next()` will yield a new batch of candidates, up to the provided argument value ``batchsize``.
+The iterator uses some cached internal state to make future searches more efficient than starting from scratch.
+
+.. NOTE::
+
+   Calls to :cpp:func:`svs::VamanaIterator::next()` renders previous results unavailable and invalidates previous values returned by :cpp:func:`svs::VamanaIterator::results()`.
+
+Exhausting the Candidate Pool
+*****************************
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Final Iteration]
+   :end-before: [Final Iteration]
+   :dedent: 4
+
+When the iterator is close to exhausting all elements in the index, it may yield fewer then the configured batch-size, as is shown in the example.
+After this batch completes, there are no more candidates in the index that haven't been yielded.
+The method :cpp:func:`svs::VamanaIterator::done()` will then return true.
+In this state, future calls to :cpp:func:`svs::VamanaIterator::next()` will simply yield no candidates.
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Beyond Final Iteration]
+   :end-before: [Beyond Final Iteration]
+   :dedent: 4
+
+The :ref:`full xample <vamana_iterator_full_example>` is provided at the bottom of this page.
+
+Main BatchIterator Class
+------------------------
+
+.. doxygenclass:: svs::index::vamana::BatchIterator
+   :project: SVS
+   :members:
+
+.. _vamana_iterator_full_example:
+
+Full Example
+------------
+
+.. literalinclude:: ../../../ScalableVectorSearch/examples/cpp/vamana_iterator.cpp
+   :language: cpp
+   :start-after: [Example All]
+   :end-before: [Example All]

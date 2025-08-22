@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -5,26 +7,22 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flat Orchestrator &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Core Components" href="../core/index.html" />
-    <link rel="prev" title="Dynamic Vamana Index" href="dynamic_vamana.html" /> 
+    <link rel="prev" title="Vamana Iterator" href="vamana_iterator.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -79,8 +77,9 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#contents">Contents</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
 <li class="toctree-l3"><a class="reference internal" href="dynamic_vamana.html">Dynamic Vamana Index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html">Vamana Iterator</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Flat Orchestrator</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4FlatE"><code class="docutils literal notranslate"><span class="pre">Flat</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs4FlatE"><code class="docutils literal notranslate"><span class="pre">svs::Flat</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -143,6 +142,35 @@
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
 <dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs4Flat4saveERKNSt10filesystem4pathE">
+<span id="_CPPv3NK3svs4Flat4saveERKNSt10filesystem4pathE"></span><span id="_CPPv2NK3svs4Flat4saveERKNSt10filesystem4pathE"></span><span id="svs::Flat::save__std::filesystem::pathCRC"></span><span class="target" id="classsvs_1_1Flat_1ac06d52d5522c6846e54526acb29e8454"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">save</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_directory</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4Flat4saveERKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
+<dd><p>Save the <a class="reference internal" href="#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> index to disk. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data_directory</strong> – Directory where the index data will be saved. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0ENK3svs4Flat12get_distanceEd6size_tRK5Query">
+<span id="_CPPv3I0ENK3svs4Flat12get_distanceE6size_tRK5Query"></span><span id="_CPPv2I0ENK3svs4Flat12get_distanceE6size_tRK5Query"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Query</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1Flat_1a28fe8beeab7d402641a84cce31576cd0"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_distance</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">id</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0ENK3svs4Flat12get_distanceEd6size_tRK5Query" title="svs::Flat::get_distance::Query"><span class="n"><span class="pre">Query</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">query</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I0ENK3svs4Flat12get_distanceEd6size_tRK5Query" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the distance between a vector in the index and a query vector. </p>
+<p>Distance </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Query</strong> – The query vector type </p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>id</strong> – The ID of the vector in the index </p></li>
+<li><p><strong>query</strong> – The query vector </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4NK3svs4Flat4sizeEv">
 <span id="_CPPv3NK3svs4Flat4sizeEv"></span><span id="_CPPv2NK3svs4Flat4sizeEv"></span><span id="svs::Flat::sizeC"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a6df1a56c426597fa40041b0b5bae94bb"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4Flat4sizeEv" title="Link to this definition"></a><br /></dt>
 <dd><p>Return the number of elements in the indexed dataset. </p>
@@ -161,43 +189,57 @@
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4NK3svs4Flat18can_change_threadsEv">
-<span id="_CPPv3NK3svs4Flat18can_change_threadsEv"></span><span id="_CPPv2NK3svs4Flat18can_change_threadsEv"></span><span id="svs::Flat::can_change_threadsC"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a2cb75b02ddb51a87f58f62b972db7926"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">can_change_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4Flat18can_change_threadsEv" title="Link to this definition"></a><br /></dt>
-<dd><p>Return whether the back-end implementation can change the number of threads. </p>
-</dd></dl>
-
-<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4NK3svs4Flat15get_num_threadsEv">
 <span id="_CPPv3NK3svs4Flat15get_num_threadsEv"></span><span id="_CPPv2NK3svs4Flat15get_num_threadsEv"></span><span id="svs::Flat::get_num_threadsC"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1af8cc4b7f4ab6e0021a93f277f933d74f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_num_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs4Flat15get_num_threadsEv" title="Link to this definition"></a><br /></dt>
 <dd><p>Return the current number of worker threads used by this index for searches. </p>
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N3svs4Flat15set_num_threadsE6size_t">
-<span id="_CPPv3N3svs4Flat15set_num_threadsE6size_t"></span><span id="_CPPv2N3svs4Flat15set_num_threadsE6size_t"></span><span id="svs::Flat::set_num_threads__s"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a584ad89b638a4277ce1577a201d9878b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_num_threads</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4Flat15set_num_threadsE6size_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Set the number of threads to use for searching. </p>
-<p>
-Only effective if <code class="docutils literal notranslate"><a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a2cb75b02ddb51a87f58f62b972db7926"><span class="std std-ref"><span class="pre">can_change_threads()</span></span></a></code> returns <code class="docutils literal notranslate"><span class="pre">true</span></code>. </p>
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4Flat14set_threadpoolE4Pool">
+<span id="_CPPv3N3svs4Flat14set_threadpoolE4Pool"></span><span id="_CPPv2N3svs4Flat14set_threadpoolE4Pool"></span><span id="svs::Flat::set_threadpool__Pool"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a0d4ee185571d42b2d0f523c178d2b24c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_threadpool</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">Pool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4Flat14set_threadpoolE4Pool" title="Link to this definition"></a><br /></dt>
+<dd><p>Destroy the original thread pool and set to the new one. </p>
+<section id="classthreadpool__requirements_1autotoc_md7">
+<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h2>
+<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a6df1a56c426597fa40041b0b5bae94bb"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
+</ul>
+</p>
+</section>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>num_threads</strong> – The number of threads to use. If set to <code class="docutils literal notranslate"><span class="pre">0</span></code>, will implicitly default to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<dd class="field-odd"><p><strong>threadpool</strong> – An acceptable thread pool.</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs4Flat21get_threadpool_handleEv">
+<span id="_CPPv3N3svs4Flat21get_threadpool_handleEv"></span><span id="_CPPv2N3svs4Flat21get_threadpool_handleEv"></span><span id="svs::Flat::get_threadpool_handle"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1ac8fc122b04796ce9b980bbabb3a6d2fa"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ThreadPoolHandle</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_threadpool_handle</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4Flat21get_threadpool_handleEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current thread pool handle. </p>
 </dd></dl>
 
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-static-functions">Public Static Functions</p>
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t">
-<span id="_CPPv3I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleERR10DataLoader8Distance6size_t"></span><span id="_CPPv2I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleERR10DataLoader8Distance6size_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">manager</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">QueryTypeDefinition</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryTypes</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataLoader</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1Flat_1a826053f436c8fdd0f46a778665cf2406"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4FlatE" title="svs::Flat"><span class="n"><span class="pre">Flat</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">assemble</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t" title="svs::Flat::assemble::DataLoader"><span class="n"><span class="pre">DataLoader</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_loader</span></span>, <a class="reference internal" href="#_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t" title="svs::Flat::assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_N7manager19QueryTypeDefinitionE00EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance6size_t" title="Link to this definition"></a><br /></dt>
+<dt class="sig sig-object cpp" id="_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance15ThreadPoolProto">
+<span id="_CPPv3I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleERR10DataLoader8Distance15ThreadPoolProto"></span><span id="_CPPv2I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleERR10DataLoader8Distance15ThreadPoolProto"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">manager</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">QueryTypeDefinition</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryTypes</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataLoader</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Distance</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ThreadPoolProto</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1Flat_1aec97b1dee950df202560a3e144a8bd1b"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N3svs4FlatE" title="svs::Flat"><span class="n"><span class="pre">Flat</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">assemble</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance15ThreadPoolProto" title="svs::Flat::assemble::DataLoader"><span class="n"><span class="pre">DataLoader</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">data_loader</span></span>, <a class="reference internal" href="#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance15ThreadPoolProto" title="svs::Flat::assemble::Distance"><span class="n"><span class="pre">Distance</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">distance</span></span>, <a class="reference internal" href="#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance15ThreadPoolProto" title="svs::Flat::assemble::ThreadPoolProto"><span class="n"><span class="pre">ThreadPoolProto</span></span></a><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool_proto</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_N7manager19QueryTypeDefinitionE000EN3svs4Flat8assembleE4FlatRR10DataLoader8Distance15ThreadPoolProto" title="Link to this definition"></a><br /></dt>
 <dd><p>Load a <a class="reference internal" href="#classsvs_1_1Flat"><span class="std std-ref">Flat</span></a> Index from an existing dataset. </p>
-<section id="classhidden__flat__auto__assemble_1autotoc_md1">
-<h2>data_loader<a class="headerlink" href="#classhidden__flat__auto__assemble_1autotoc_md1" title="Link to this heading"></a></h2>
-<p id="classhidden__flat__auto__assemble_1autotoc_md1">The data loader should be any object loadable via <code class="docutils literal notranslate"><span class="pre">svs::detail::dispatch_load</span></code> returning a <a class="reference internal" href="vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> compatible dataset. Concrete examples include:</p>
+<section id="classhidden__flat__auto__assemble_1autotoc_md2">
+<h2>data_loader<a class="headerlink" href="#classhidden__flat__auto__assemble_1autotoc_md2" title="Link to this heading"></a></h2>
+<p id="classhidden__flat__auto__assemble_1autotoc_md2">The data loader should be any object loadable via <code class="docutils literal notranslate"><span class="pre">svs::detail::dispatch_load</span></code> returning a <a class="reference internal" href="vamana.html#classsvs_1_1Vamana"><span class="std std-ref">Vamana</span></a> compatible dataset. Concrete examples include:</p>
 <p><ul class="simple">
 <li><p>An instance of <code class="docutils literal notranslate"><a class="reference internal" href="../core/data.html#classsvs_1_1VectorDataLoader"><span class="std std-ref"><span class="pre">VectorDataLoader</span></span></a></code>.</p></li>
-<li><p>An implementation of <code class="docutils literal notranslate"><a class="reference internal" href="../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code> (passed by value).   </p></li>
+<li><p>An implementation of <code class="docutils literal notranslate"><a class="reference internal" href="../concepts/data.html#conceptsvs_1_1data_1_1ImmutableMemoryDataset"><span class="std std-ref"><span class="pre">svs::data::ImmutableMemoryDataset</span></span></a></code> (passed by value).  </p></li>
+</ul>
+</p>
+</section>
+<section id="classthreadpool__requirements_1autotoc_md7">
+<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h2>
+<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a6df1a56c426597fa40041b0b5bae94bb"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
 </ul>
 </p>
 </section>
@@ -209,7 +251,7 @@ Only effective if <code class="docutils literal notranslate"><a class="reference
 <dd class="field-even"><ul class="simple">
 <li><p><strong>data_loader</strong> – A compatible class capable of load data. See expanded notes. </p></li>
 <li><p><strong>distance</strong> – A distance functor to use or a <code class="docutils literal notranslate"><a class="reference internal" href="../core/distance.html#namespacesvs_1a7be31fc4a4ee6a5229d61aef6ac530df"><span class="std std-ref"><span class="pre">svs::DistanceType</span></span></a></code> enum. </p></li>
-<li><p><strong>num_threads</strong> – The number of threads to use for index searches.</p></li>
+<li><p><strong>threadpool_proto</strong> – Precursor for the thread pool to use. Can either be an acceptable thread pool instance or an integer specifying the number of threads to use. In the latter case, a new default thread pool will be constructed using <code class="docutils literal notranslate"><span class="pre">threadpool_proto</span></code> as the number of threads to create.</p></li>
 </ul>
 </dd>
 </dl>
@@ -230,7 +272,7 @@ Only effective if <code class="docutils literal notranslate"><a class="reference
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="dynamic_vamana.html" class="btn btn-neutral float-left" title="Dynamic Vamana Index" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="vamana_iterator.html" class="btn btn-neutral float-left" title="Vamana Iterator" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="../core/index.html" class="btn btn-neutral float-right" title="Core Components" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

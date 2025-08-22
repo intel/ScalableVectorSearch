@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Multi-dimensional Array &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -83,7 +81,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html">Library Components</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="public.html">Public Library Components</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Multi-dimensional Array</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE"><code class="docutils literal notranslate"><span class="pre">DenseArray</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4I000EN3svs10DenseArrayE"><code class="docutils literal notranslate"><span class="pre">svs::DenseArray</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#type-deducing-constructors">Type-deducing constructors</a></li>
 </ul>
 </li>
@@ -296,9 +294,9 @@ The returned span will have the same extent as the last dimension of the array. 
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4I_6size_tEN3svs10DenseArray9getextentE6size_tv">
 <span id="_CPPv3I_6size_tEN3svs10DenseArray9getextentEv"></span><span id="_CPPv2I_6size_tEN3svs10DenseArray9getextentEv"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">i</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DenseArray_1a2272fbdfdfea9b17f6a560c2a109f9e1"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">getextent</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I_6size_tEN3svs10DenseArray9getextentE6size_tv" title="Link to this definition"></a><br /></dt>
-<dd><p>Return the extent (compiletime value) of the <code class="docutils literal notranslate"><span class="pre">i</span></code>th dimension. </p>
+<dd><p>Return the extent (compile time value) of the <code class="docutils literal notranslate"><span class="pre">i</span></code>th dimension. </p>
 <p>
-If the queried dimension is dynamically sized, returns <code class="docutils literal notranslate"><span class="pre">svs::Dyanmic</span></code>. </p>
+If the queried dimension is dynamically sized, returns <code class="docutils literal notranslate"><a class="reference internal" href="public.html#group__lib__public__dimensions_1ga8d78370e6906c6c1159d90a97fd163d6"><span class="std std-ref"><span class="pre">svs::Dynamic</span></span></a></code>. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>i</strong> – The dimensions to query. Must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <a class="reference internal" href="#classsvs_1_1DenseArray_1ae49408c61508507bc81a12f524092cb9"><span class="std std-ref"><span class="pre">ndims()</span></span></a><span class="pre">]</span></code>.</p>

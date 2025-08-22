@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Data Structure Saving and Loading &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
@@ -635,7 +633,7 @@ Note that the returned <code class="docutils literal notranslate"><span class="p
 <p>
 When saving member classes, use <code class="docutils literal notranslate"><a class="reference internal" href="#group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"><span class="std std-ref"><span class="pre">svs::lib::save</span></span></a></code> rather than directly invoking the member <code class="docutils literal notranslate"><span class="pre">save</span></code> method.</p>
 <p>Furthermore, the results should generally not be relied on directly. Rather, they should be forwarded directly as the values of the initialer list when constructing a <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable"><span class="std std-ref"><span class="pre">svs::lib::SaveTable</span></span></a></code> or when using <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable_1a2fd6efb124beeb2dab4b00911cb42459"><span class="std std-ref"><span class="pre">svs::lib::SaveTable::insert()</span></span></a></code>.</p>
-<p>If a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> is needed, use <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a4e54879fad824a13ab7a688333be14e9"><span class="std std-ref"><span class="pre">svs::lib::save_to_table()</span></span></a></code>. </p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> is needed, use <code class="docutils literal notranslate"><span class="pre">svs::lib::save_to_table()</span></code>. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -656,7 +654,7 @@ When saving member classes, use <code class="docutils literal notranslate"><a cl
 <p>
 When saving member classes, use <code class="docutils literal notranslate"><a class="reference internal" href="#group__save__group_1ga86430bcbe31f1ad10b3976bef2db781d"><span class="std std-ref"><span class="pre">svs::lib::save</span></span></a></code> rather than directly invoking the member <code class="docutils literal notranslate"><span class="pre">save</span></code> method.</p>
 <p>Furthermore, the results should generally not be relied on directly. Rather, they should be forwarded directly as the values of the initialer list when constructing a <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable"><span class="std std-ref"><span class="pre">svs::lib::SaveTable</span></span></a></code> or when using <code class="docutils literal notranslate"><a class="reference internal" href="#classsvs_1_1lib_1_1SaveTable_1a2fd6efb124beeb2dab4b00911cb42459"><span class="std std-ref"><span class="pre">svs::lib::SaveTable::insert()</span></span></a></code>.</p>
-<p>If a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> is needed, use <code class="docutils literal notranslate"><a class="reference internal" href="#namespacesvs_1_1lib_1a4e54879fad824a13ab7a688333be14e9"><span class="std std-ref"><span class="pre">svs::lib::save_to_table()</span></span></a></code>. </p>
+<p>If a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code> is needed, use <code class="docutils literal notranslate"><span class="pre">svs::lib::save_to_table()</span></code>. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>x</strong> – The class to save.</p>
@@ -669,10 +667,10 @@ When saving member classes, use <code class="docutils literal notranslate"><a cl
 
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T">
-<span id="_CPPv3I0EN3svs3lib13save_to_tableERK1T"></span><span id="_CPPv2I0EN3svs3lib13save_to_tableERK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a4e54879fad824a13ab7a688333be14e9"></span><span class="n"><span class="pre">toml</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">table</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">save_to_table</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T" title="svs::lib::save_to_table::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T" title="Link to this definition"></a><br /></dt>
+<span id="_CPPv3I0EN3svs3lib13save_to_tableERK1T"></span><span id="_CPPv2I0EN3svs3lib13save_to_tableERK1T"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="save_8h_1a4e54879fad824a13ab7a688333be14e9"></span><span class="n"><span class="pre">toml</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">table</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">save_to_table</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T" title="svs::lib::save_to_table::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib13save_to_tableEN4toml5tableERK1T" title="Link to this definition"></a><br /></dt>
 <dd><p>Save a class to a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>. </p>
 <p>
-Requires the class to implment context-free saving. Ensures that the return type is a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>. </p>
+Requires the class to implement context-free saving. Ensures that the return type is a <code class="docutils literal notranslate"><span class="pre">toml::table</span></code>. </p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>x</strong> – The class to save.</p>
@@ -682,14 +680,14 @@ Requires the class to implment context-free saving. Ensures that the return type
 
 <dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE">
-<span id="_CPPv3I0EN3svs3lib12save_to_diskERK1TRKNSt10filesystem4pathE"></span><span id="_CPPv2I0EN3svs3lib12save_to_diskERK1TRKNSt10filesystem4pathE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacesvs_1_1lib_1a8836275ea8204a3975d1d53c7f5b5b76"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">save_to_disk</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE" title="svs::lib::save_to_disk::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">dir</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
+<span id="_CPPv3I0EN3svs3lib12save_to_diskERK1TRKNSt10filesystem4pathE"></span><span id="_CPPv2I0EN3svs3lib12save_to_diskERK1TRKNSt10filesystem4pathE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">T</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="save_8h_1a8836275ea8204a3975d1d53c7f5b5b76"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">lib</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">save_to_disk</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE" title="svs::lib::save_to_disk::T"><span class="n"><span class="pre">T</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">x</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">filesystem</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">path</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">dir</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0EN3svs3lib12save_to_diskEvRK1TRKNSt10filesystem4pathE" title="Link to this definition"></a><br /></dt>
 <dd><p>Save the object into the given directory. </p>
 <p>
 As part of saving the object, multiple auxiliary files may be created in the directory. It is the caller’s responsibility to ensure that no existing data in the given directory will be destroyed.</p>
 <p>On the other hand, if during the saving of the object, any files are generated <em>outside</em> of this directory, that should be considered a bug. Please report such instances to the project maintainer.</p>
 <p><div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p>svs::lib::save_to_file</p>
+<p>svs::lib::save_to_file </p>
 </div>
 </p>
 <dl class="field-list simple">

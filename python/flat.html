@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Flat Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -69,6 +67,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#svs.Flat"><code class="docutils literal notranslate"><span class="pre">Flat</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Flat.__init__"><code class="docutils literal notranslate"><span class="pre">Flat.__init__()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Flat.dimensions"><code class="docutils literal notranslate"><span class="pre">Flat.dimensions</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Flat.get_distance"><code class="docutils literal notranslate"><span class="pre">Flat.get_distance()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Flat.num_threads"><code class="docutils literal notranslate"><span class="pre">Flat.num_threads</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Flat.query_types"><code class="docutils literal notranslate"><span class="pre">Flat.query_types</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Flat.search"><code class="docutils literal notranslate"><span class="pre">Flat.search()</span></code></a></li>
@@ -127,13 +126,13 @@
 <span id="flat-api"></span><h1>Flat Index<a class="headerlink" href="#flat-index" title="Link to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.Flat">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">Flat</span></span><a class="headerlink" href="#svs.Flat" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">Flat</span></span><a class="headerlink" href="#svs.Flat" title="Link to this definition"></a></dt>
 <dd><dl class="py method">
 <dt class="sig sig-object py" id="svs.Flat.__init__">
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.__init__" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>__init__(self: svs::python.Flat, data_loader: Union[svs::python.VectorDataLoader, svs::python.LVQLoader], distance: svs::python.DistanceType = &lt;DistanceType.L2: 0&gt;, query_type: svs::python.DataType = &lt;DataType.float32: 9&gt;, num_threads: int = 1) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.Flat, data_loader: Union[svs::python.VectorDataLoader], distance: svs::python.DistanceType = &lt;DistanceType.L2: 0&gt;, query_type: svs::python.DataType = &lt;DataType.float32: 9&gt;, num_threads: int = 1) -&gt; None</p></li>
 </ol>
 <p>Load a Flat index from data stored on disk.</p>
 <dl class="field-list simple">
@@ -150,8 +149,11 @@
 be instantiated based on their applicability to the particular problem instance.</p>
 <p>The arguments upon which specialization is conducted are:</p>
 <ul class="simple">
-<li><p><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type,
-quantization type, and number of dimensions.</p></li>
+<li><dl class="simple">
+<dt><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type</dt><dd><p>and number of dimensions.</p>
+</dd>
+</dl>
+</li>
 <li><p><cite>distance</cite>: The distance measure being used.</p></li>
 </ul>
 <p>Specializations compiled into the binary are listed below.</p>
@@ -174,26 +176,6 @@ quantization type, and number of dimensions.</p></li>
 <dt>Method 3:</dt><dd><ul class="simple">
 <li><p>data_loader: VectorDataLoader with element type int8 and any dimension – (union alternative 0)</p></li>
 <li><p>distance: all values</p></li>
-</ul>
-</dd>
-<dt>Method 4:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x4 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 5:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 6:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x4 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 7:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: MIP</p></li>
 </ul>
 </dd>
 </dl>
@@ -261,13 +243,69 @@ changed after the index is constructed.</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Flat.dimensions">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.Flat.dimensions" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.Flat.dimensions" title="Link to this definition"></a></dt>
 <dd><p>Return the logical number of dimensions for each vector in the dataset.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.Flat.get_distance">
+<span class="sig-name descname"><span class="pre">get_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.get_distance" title="Link to this definition"></a></dt>
+<dd><p>Overloaded function.</p>
+<ol class="arabic">
+<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[numpy.float32]) -&gt; float</p>
+<blockquote>
+<div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>external_id: the external ID of the vector in the index
+query_vector: a 1-D contiguous array whose length must match the index dimensionality</p>
+</dd>
+<dt>Returns:</dt><dd><p>float: the computed distance</p>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[float16]) -&gt; float</p>
+<blockquote>
+<div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>external_id: the external ID of the vector in the index
+query_vector: a 1-D contiguous array whose length must match the index dimensionality</p>
+</dd>
+<dt>Returns:</dt><dd><p>float: the computed distance</p>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[numpy.uint8]) -&gt; float</p>
+<blockquote>
+<div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>external_id: the external ID of the vector in the index
+query_vector: a 1-D contiguous array whose length must match the index dimensionality</p>
+</dd>
+<dt>Returns:</dt><dd><p>float: the computed distance</p>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[numpy.int8]) -&gt; float</p>
+<blockquote>
+<div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
+<dl class="simple">
+<dt>Args:</dt><dd><p>external_id: the external ID of the vector in the index
+query_vector: a 1-D contiguous array whose length must match the index dimensionality</p>
+</dd>
+<dt>Returns:</dt><dd><p>float: the computed distance</p>
+</dd>
+</dl>
+</div></blockquote>
+</li>
+</ol>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Flat.num_threads">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.Flat.num_threads" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.Flat.num_threads" title="Link to this definition"></a></dt>
 <dd><p>Get and set the number of threads used to process queries.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -278,7 +316,7 @@ changed after the index is constructed.</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Flat.query_types">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.Flat.query_types" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.Flat.query_types" title="Link to this definition"></a></dt>
 <dd><p>Return the query element types this index is specialized for.</p>
 </dd></dl>
 
@@ -362,7 +400,7 @@ matrix.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Flat.search_parameters">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.Flat.search_parameters" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.Flat.search_parameters" title="Link to this definition"></a></dt>
 <dd><p>Get/set the current search parameters for the
 index. These parameters modify and non-algorthmic properties of search (affecting
 queries-per-second).</p>
@@ -376,7 +414,7 @@ queries-per-second).</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Flat.size">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.Flat.size" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.Flat.size" title="Link to this definition"></a></dt>
 <dd><p>Return the number of elements in the indexed dataset.</p>
 </dd></dl>
 

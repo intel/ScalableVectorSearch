@@ -1,7 +1,20 @@
+.. Copyright (C) 2023 Intel Corporation
+..
+.. This software and the related documents are Intel copyrighted materials,
+.. and your use of them is governed by the express license under which they
+.. were provided to you ("License"). Unless the License provides otherwise,
+.. you may not use, modify, copy, publish, distribute, disclose or transmit
+.. this software or the related documents without Intel's prior written
+.. permission.
+..
+.. This software and the related documents are provided as is, with no
+.. express or implied warranties, other than those that are expressly stated
+.. in the License.
+
 .. _build:
 
-Library Building
-****************
+Building the open-source SVS library
+************************************
 The SVS library comes in three main forms:
 
     * A header only C++ library.
@@ -21,13 +34,27 @@ The minimum tested compilers are
 
 .. _building_python_library:
 
-Building Python Library
-=======================
+Python build
+============
+
+Building with pip
+-----------------
+
+.. code-block:: sh
+
+    # Clone the repository
+    git clone https://github.com/intel/ScalableVectorSearch
+    cd ScalableVectorSearch
+
+    # Install svs using pip
+    pip install bindings/python
+
+If you encounter any issues with the pip install command, please follow the :ref:`advanced installation instructions <building_python_library>`.
 
 .. _build_cibuildwheel:
 
-CIBuildWheel and Microarchitecture Compatibility
-------------------------------------------------
+Building with CIBuildWheel
+--------------------------
 
 We support building SVS as a Python wheel in a Docker container using `cibuildwheel <https://cibuildwheel.pypa.io>`_.
 

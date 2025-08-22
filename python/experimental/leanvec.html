@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Using LeanVec &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -140,8 +138,8 @@ These candidates are then refined using the full-precision secondary dataset.</p
 <h2>Preamble<a class="headerlink" href="#preamble" title="Link to this heading"></a></h2>
 <p>We first need to setup the example environment.
 Following the <a class="reference internal" href="../vamana.html#python-vamana-inline-example"><span class="std std-ref">basic Vamana example</span></a>, we import <code class="docutils literal notranslate"><span class="pre">svs</span></code> and other required modules.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">svs</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">svs</span>
 </pre></div>
 </div>
 <p>Next, we create an example dataset.</p>
@@ -167,7 +165,7 @@ Following the <a class="reference internal" href="../vamana.html#python-vamana-i
 </section>
 <section id="constructing-a-leanvec-loader">
 <h2>Constructing a LeanVec Loader<a class="headerlink" href="#constructing-a-leanvec-loader" title="Link to this heading"></a></h2>
-<p>As with the <a class="reference internal" href="../loaders.html#svs.LVQLoader" title="svs.LVQLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code></a>, the <a class="reference internal" href="../loaders.html#svs.LeanVecLoader" title="svs.LeanVecLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code></a> can perform dynamic compression of uncompressed vectors.
+<p>As with the <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code>, the <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code> can perform dynamic compression of uncompressed vectors.
 An example is shown below.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We are going to construct a LeanVec dataset on-the-fly from uncompressed data.</span>
 <span class="c1"># First, we construct a loader for the uncompressed data.</span>
@@ -189,7 +187,7 @@ An example is shown below.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>In this example, we construct a <a class="reference internal" href="../loaders.html#svs.LeanVecLoader" title="svs.LeanVecLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code></a> with a reduced dimensionality of 128.
+<p>In this example, we construct a <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code> with a reduced dimensionality of 128.
 This means that the bulk of the graph search will be done using a 128-dimensional transformation of the 256 dimensional dataset we just generated.
 Furthermore, we can choose the encodings of the primary and secondary dataset.
 The example demonstrates using LVQ8 for the primary dataset and <code class="docutils literal notranslate"><span class="pre">float16</span></code> for the full-dimensional secondary dataset.</p>
@@ -226,31 +224,45 @@ The example demonstrates using LVQ8 for the primary dataset and <code class="doc
 <span class="c1"># Compare with the groundtruth.</span>
 <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.86</span><span class="p">,</span> <span class="s2">&quot;initial recall&quot;</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.86</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <section id="entire-example">
 <h2>Entire Example<a class="headerlink" href="#entire-example" title="Link to this heading"></a></h2>
 <p>The entire code for this example is shown below.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Import `unittest` to allow for auotmated testing.</span>
-<span class="kn">import</span> <span class="nn">unittest</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (C) 2023 Intel Corporation</span>
+<span class="c1">#</span>
+<span class="c1"># This software and the related documents are Intel copyrighted materials,</span>
+<span class="c1"># and your use of them is governed by the express license under which they</span>
+<span class="c1"># were provided to you (&quot;License&quot;). Unless the License provides otherwise,</span>
+<span class="c1"># you may not use, modify, copy, publish, distribute, disclose or transmit</span>
+<span class="c1"># this software or the related documents without Intel&#39;s prior written</span>
+<span class="c1"># permission.</span>
+<span class="c1">#</span>
+<span class="c1"># This software and the related documents are provided as is, with no</span>
+<span class="c1"># express or implied warranties, other than those that are expressly stated</span>
+<span class="c1"># in the License.</span>
+
+<span class="c1"># Import `unittest` to allow for auotmated testing.</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
 
 <span class="c1"># [imports]</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">svs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">svs</span>
 <span class="c1"># [imports]</span>
 
 <span class="n">DEBUG_MODE</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="k">def</span> <span class="nf">assert_equal</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_equal</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">DEBUG_MODE</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> == </span><span class="si">{</span><span class="n">rhs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span>
+        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">&lt;</span> <span class="n">rhs</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">message</span>
+        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">&gt;</span> <span class="n">rhs</span> <span class="o">-</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">message</span>
 
 <span class="n">test_data_dir</span> <span class="o">=</span> <span class="kc">None</span>
 
-<span class="k">def</span> <span class="nf">run</span><span class="p">():</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">():</span>
     <span class="c1"># [generate-dataset]</span>
     <span class="c1"># Create a test dataset.</span>
     <span class="c1"># This will create a directory &quot;example_data_vamana&quot; and populate it with three</span>
@@ -322,7 +334,7 @@ The example demonstrates using LVQ8 for the primary dataset and <code class="doc
     <span class="c1"># Compare with the groundtruth.</span>
     <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.86</span><span class="p">,</span> <span class="s2">&quot;initial recall&quot;</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.86</span><span class="p">)</span>
     <span class="c1"># [build-and-search-index]</span>
 
 <span class="c1">#####</span>
@@ -336,13 +348,13 @@ The example demonstrates using LVQ8 for the primary dataset and <code class="doc
 <span class="c1">##### As a unit test.</span>
 <span class="c1">#####</span>
 
-<span class="k">class</span> <span class="nc">VamanaExampleTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">VamanaExampleTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">test_data_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing temporary directory </span><span class="si">{</span><span class="n">test_data_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">os</span><span class="o">.</span><span class="n">rmdir</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">test_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>

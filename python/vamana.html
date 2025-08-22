@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vamana Graph Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -74,6 +72,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.experimental_backend_string"><code class="docutils literal notranslate"><span class="pre">Vamana.experimental_backend_string</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.experimental_calibrate"><code class="docutils literal notranslate"><span class="pre">Vamana.experimental_calibrate()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.experimental_reset_performance_parameters"><code class="docutils literal notranslate"><span class="pre">Vamana.experimental_reset_performance_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.get_distance"><code class="docutils literal notranslate"><span class="pre">Vamana.get_distance()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.num_threads"><code class="docutils literal notranslate"><span class="pre">Vamana.num_threads</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.query_types"><code class="docutils literal notranslate"><span class="pre">Vamana.query_types</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.Vamana.reconstruct"><code class="docutils literal notranslate"><span class="pre">Vamana.reconstruct()</span></code></a></li>
@@ -180,11 +179,11 @@
 <p>In this section, we cover the API and usage of the Vamana graph-based index.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.Vamana">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">Vamana</span></span><a class="headerlink" href="#svs.Vamana" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">Vamana</span></span><a class="headerlink" href="#svs.Vamana" title="Link to this definition"></a></dt>
 <dd><p>Top level class for the Vamana graph index.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.Vamana.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">config_path:</span> <span class="pre">str,</span> <span class="pre">graph_loader:</span> <span class="pre">svs::python.GraphLoader,</span> <span class="pre">data_loader:</span> <span class="pre">Union[svs::python.VectorDataLoader,</span> <span class="pre">svs::python.LVQLoader,</span> <span class="pre">svs::python.LeanVecLoader,</span> <span class="pre">svs::python.SerializedObject],</span> <span class="pre">distance:</span> <span class="pre">svs::python.DistanceType</span> <span class="pre">=</span> <span class="pre">&lt;DistanceType.L2:</span> <span class="pre">0&gt;,</span> <span class="pre">query_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">9&gt;,</span> <span class="pre">enforce_dims:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">num_threads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.Vamana.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">config_path:</span> <span class="pre">str,</span> <span class="pre">graph_loader:</span> <span class="pre">svs::python.GraphLoader,</span> <span class="pre">data_loader:</span> <span class="pre">Union[svs::python.VectorDataLoader,</span> <span class="pre">svs::python.SerializedObject],</span> <span class="pre">distance:</span> <span class="pre">svs::python.DistanceType</span> <span class="pre">=</span> <span class="pre">&lt;DistanceType.L2:</span> <span class="pre">0&gt;,</span> <span class="pre">query_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">9&gt;,</span> <span class="pre">enforce_dims:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">num_threads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.Vamana.__init__" title="Link to this definition"></a></dt>
 <dd><p>Load a Vamana style index from disk.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -210,130 +209,30 @@ implementation.</p>
 be instantiated based on their applicability to the particular problem instance.</p>
 <p>The arguments upon which specialization is conducted are:</p>
 <ul class="simple">
-<li><p><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type,
-quantization type, and number of dimensions.</p></li>
+<li><p><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type
+and number of dimensions.</p></li>
 <li><p><cite>distance</cite>: The distance measure being used.</p></li>
 </ul>
 <p>Specializations compiled into the binary are listed below.</p>
 <dl class="simple">
 <dt>Method 0:</dt><dd><ul class="simple">
-<li><p>data_loader: VectorDataLoader with element type float32 and any dimension OR unknown – (union alternatives 0, 3)</p></li>
+<li><p>data_loader: VectorDataLoader with element type float32 and any dimension OR unknown – (union alternatives 0, 1)</p></li>
 <li><p>distance: all values</p></li>
 </ul>
 </dd>
 <dt>Method 1:</dt><dd><ul class="simple">
-<li><p>data_loader: VectorDataLoader with element type float16 and any dimension OR unknown – (union alternatives 0, 3)</p></li>
+<li><p>data_loader: VectorDataLoader with element type float16 and any dimension OR unknown – (union alternatives 0, 1)</p></li>
 <li><p>distance: all values</p></li>
 </ul>
 </dd>
 <dt>Method 2:</dt><dd><ul class="simple">
-<li><p>data_loader: VectorDataLoader with element type uint8 and any dimension OR unknown – (union alternatives 0, 3)</p></li>
+<li><p>data_loader: VectorDataLoader with element type uint8 and any dimension OR unknown – (union alternatives 0, 1)</p></li>
 <li><p>distance: all values</p></li>
 </ul>
 </dd>
 <dt>Method 3:</dt><dd><ul class="simple">
-<li><p>data_loader: VectorDataLoader with element type int8 and any dimension OR unknown – (union alternatives 0, 3)</p></li>
+<li><p>data_loader: VectorDataLoader with element type int8 and any dimension OR unknown – (union alternatives 0, 1)</p></li>
 <li><p>distance: all values</p></li>
-</ul>
-</dd>
-<dt>Method 4:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x0 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 5:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x0 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 6:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 7:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 8:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (turbo&lt;16x8&gt;) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 9:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (turbo&lt;16x8&gt;) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 10:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 11:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 12:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x8 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 13:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x8 (sequential) with any dimensions OR unknown – (union alternatives 1, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 14:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 15:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 16:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 17:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 18:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 19:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 20:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 21:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyx64 OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 22:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 23:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-768x160 OR unknown – (union alternatives 2, 3)</p></li>
-<li><p>distance: MIP</p></li>
 </ul>
 </dd>
 </dl>
@@ -341,7 +240,7 @@ quantization type, and number of dimensions.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.Vamana.build">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Vamana.build" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Vamana.build" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
 <li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: numpy.ndarray[float16], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
@@ -408,7 +307,7 @@ of the dataset. This may change in future releases.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="5">
-<li><p>build(build_parameters: svs::python.VamanaBuildParameters, data_loader: Union[svs::python.VectorDataLoader, svs::python.LVQLoader, svs::python.LeanVecLoader], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
+<li><p>build(build_parameters: svs::python.VamanaBuildParameters, data_loader: Union[svs::python.VectorDataLoader], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
 </ol>
 <p>Construct a Vamana index over the given data file, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -416,9 +315,8 @@ of the dataset. This may change in future releases.</p></li>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>build_parameters</strong> (<a class="reference internal" href="#svs.VamanaBuildParameters" title="svs.VamanaBuildParameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VamanaBuildParameters</span></code></a>) – Hyper-parameters
 controlling index build.</p></li>
-<li><p><strong>data_loader</strong> – The source of the data on-disk. Can either be
-<code class="xref py py-class docutils literal notranslate"><span class="pre">svs.DataFile</span></code> to represent a standard uncompressed dataset, or a
-compressed loader.</p></li>
+<li><p><strong>data_loader</strong> – The source of the data on-disk. Can be
+<code class="xref py py-class docutils literal notranslate"><span class="pre">svs.DataFile</span></code> to represent a standard uncompressed dataset.</p></li>
 <li><p><strong>distance_type</strong> – The similarity-function to use for this index.</p></li>
 <li><p><strong>num_threads</strong> – The number of threads to use for index construction. Default: 1.</p></li>
 </ul>
@@ -428,8 +326,8 @@ compressed loader.</p></li>
 be instantiated based on their applicability to the particular problem instance.</p>
 <p>The arguments upon which specialization is conducted are:</p>
 <ul class="simple">
-<li><p><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type,
-quantization type, and number of dimensions.</p></li>
+<li><p><cite>data_loader</cite>: Both kind (type of loader) and inner aspects of the loader like data type
+and number of dimensions.</p></li>
 <li><p><cite>distance</cite>: The distance measure being used.</p></li>
 </ul>
 <p>Specializations compiled into the binary are listed below.</p>
@@ -454,108 +352,18 @@ quantization type, and number of dimensions.</p></li>
 <li><p>distance: all values</p></li>
 </ul>
 </dd>
-<dt>Method 4:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x0 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 5:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x0 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 6:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 7:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 8:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (turbo&lt;16x8&gt;) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 9:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 4x8 (turbo&lt;16x8&gt;) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 10:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 11:</dt><dd><ul class="simple">
-<li><p>data_loader: LVQLoader 8x0 (sequential) with any dimensions – (union alternative 1)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 12:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 13:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 14:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 15:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 16:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 17:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 18:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 19:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyx64 – (union alternative 2)</p></li>
-<li><p>distance: L2</p></li>
-</ul>
-</dd>
-<dt>Method 20:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-anyxany – (union alternative 2)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
-<dt>Method 21:</dt><dd><ul class="simple">
-<li><p>data_loader: LeanVecLoader dims-768x160 – (union alternative 2)</p></li>
-<li><p>distance: MIP</p></li>
-</ul>
-</dd>
 </dl>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.dimensions">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.Vamana.dimensions" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.Vamana.dimensions" title="Link to this definition"></a></dt>
 <dd><p>Return the logical number of dimensions for each vector in the dataset.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.experimental_backend_string">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">experimental_backend_string</span></span><a class="headerlink" href="#svs.Vamana.experimental_backend_string" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">experimental_backend_string</span></span><a class="headerlink" href="#svs.Vamana.experimental_backend_string" title="Link to this definition"></a></dt>
 <dd><p>Get a string identifying the full-type of the backend implementation.</p>
 <p>This property is experimental and subject to change without a deprecation warning.</p>
 <dl class="field-list simple">
@@ -570,7 +378,7 @@ quantization type, and number of dimensions.</p></li>
 <span class="sig-name descname"><span class="pre">experimental_calibrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Vamana.experimental_calibrate" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>experimental_calibrate(self: svs::python.Vamana, queries: numpy.ndarray[float16], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7efceb2265f0&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
+<li><p>experimental_calibrate(self: svs::python.Vamana, queries: numpy.ndarray[float16], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7f0103a6d270&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
 </ol>
 <p>NOTE: This method is experimental and subject to change or removal without notice.</p>
 <p>Run an experimental calibration routine to select the best search parameters.</p>
@@ -595,7 +403,7 @@ Note that calibration will use the number of threads already assigned to the ind
 therefore be used to tune the algorithm to different threading amounts.</p>
 <p>See also: <cite>svs.VamanaCalibrationParameters</cite></p>
 <ol class="arabic simple" start="2">
-<li><p>experimental_calibrate(self: svs::python.Vamana, queries: numpy.ndarray[numpy.float32], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7efceacaf230&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
+<li><p>experimental_calibrate(self: svs::python.Vamana, queries: numpy.ndarray[numpy.float32], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7f0103a791f0&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
 </ol>
 <p>NOTE: This method is experimental and subject to change or removal without notice.</p>
 <p>Run an experimental calibration routine to select the best search parameters.</p>
@@ -630,9 +438,29 @@ for performance-only parameters (such as prefetchers).</p>
 <p>Calling this method should not affect recall.</p>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.Vamana.get_distance">
+<span class="sig-name descname"><span class="pre">get_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">external_id:</span> <span class="pre">int,</span> <span class="pre">query_vector:</span> <span class="pre">numpy.ndarray[numpy.float32]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#svs.Vamana.get_distance" title="Link to this definition"></a></dt>
+<dd><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>external_id</strong> – the external ID of the vector in the index</p></li>
+<li><p><strong>query_vector</strong> – a 1-D contiguous array whose length must match the index dimensionality</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>the computed distance</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.num_threads">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.Vamana.num_threads" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.Vamana.num_threads" title="Link to this definition"></a></dt>
 <dd><p>Get and set the number of threads used to process queries.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -643,7 +471,7 @@ for performance-only parameters (such as prefetchers).</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.query_types">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.Vamana.query_types" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.Vamana.query_types" title="Link to this definition"></a></dt>
 <dd><p>Return the query element types this index is specialized for.</p>
 </dd></dl>
 
@@ -668,7 +496,7 @@ for performance-only parameters (such as prefetchers).</p>
 <p>Note: All directories should be separate to avoid accidental name collision with any
 auxiliary files that are needed when saving the various components of the index.</p>
 <p>If the directory does not exist, it will be created if its parent exists.</p>
-<p>It is the caller’s responsibilty to ensure that no existing data will be
+<p>It is the caller’s responsibility to ensure that no existing data will be
 overwritten when saving the index to this directory.</p>
 </dd></dl>
 
@@ -776,7 +604,7 @@ matrix.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.search_parameters">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.Vamana.search_parameters" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.Vamana.search_parameters" title="Link to this definition"></a></dt>
 <dd><p>Get/set the current search parameters for the
 index. These parameters modify both the algorithmic properties of search (affecting recall)
 and non-algorthmic properties of search (affecting queries-per-second).</p>
@@ -790,7 +618,7 @@ and non-algorthmic properties of search (affecting queries-per-second).</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.search_window_size">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_window_size</span></span><a class="headerlink" href="#svs.Vamana.search_window_size" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_window_size</span></span><a class="headerlink" href="#svs.Vamana.search_window_size" title="Link to this definition"></a></dt>
 <dd><p>Get/set the size of the internal search buffer.
 A larger value will likely yield more accurate results at the cost of speed.</p>
 <dl class="field-list simple">
@@ -802,13 +630,13 @@ A larger value will likely yield more accurate results at the cost of speed.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.size">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.Vamana.size" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.Vamana.size" title="Link to this definition"></a></dt>
 <dd><p>Return the number of elements in the indexed dataset.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.Vamana.visited_set_enabled">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">visited_set_enabled</span></span><a class="headerlink" href="#svs.Vamana.visited_set_enabled" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">visited_set_enabled</span></span><a class="headerlink" href="#svs.Vamana.visited_set_enabled" title="Link to this definition"></a></dt>
 <dd><p><strong>Deprecated</strong></p>
 <p>Read/Write (bool): Get/set whether the visited set is used.
 Enabling the visited set can be helpful if the distance computations required are
@@ -820,11 +648,11 @@ relatively expensive as it can reduce redundant computations.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.VamanaBuildParameters">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaBuildParameters</span></span><a class="headerlink" href="#svs.VamanaBuildParameters" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaBuildParameters</span></span><a class="headerlink" href="#svs.VamanaBuildParameters" title="Link to this definition"></a></dt>
 <dd><p>Build parameters for Vamana index construction.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.VamanaBuildParameters.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaBuildParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_max_degree:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">64</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_candidate_pool_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">80</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prune_to:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_threads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaBuildParameters.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaBuildParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">3.4028234663852886e+38</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_max_degree:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">64.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_candidate_pool_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prune_to:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_full_search_history:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaBuildParameters.__init__" title="Link to this definition"></a></dt>
 <dd><p>Construct a new instance from keyword arguments.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -832,7 +660,8 @@ relatively expensive as it can reduce redundant computations.</p>
 <li><p><strong>alpha</strong> – Prune threshold degree for graph construction.
 For distance types favoring minimization, set this to a number
 greater than 1.0 (typically, 1.2 is sufficient). For distance types
-preferring maximization, set to a value less than 1.0 (such as 0.95).</p></li>
+preferring maximization, set to a value less than 1.0 (such as 0.95).
+The default value is 1.2 for L2 distance type and 0.95 for MIP/Cosine.</p></li>
 <li><p><strong>graph_max_degree</strong> – The maximum out-degree in the final graph. Graphs with
 a higher degree tend to yield better accuracy and performance at the cost
 of a larger memory footprint.</p></li>
@@ -840,11 +669,16 @@ of a larger memory footprint.</p></li>
 larger window size will yield a higher-quality index at the cost of
 longer construction time. Should be larger than <cite>graph_max_degree</cite>.</p></li>
 <li><p><strong>max_candidate_pool_size</strong> – Limit on the number of candidates to consider
-for neighbor updates. Should be larger than <cite>window_size</cite>.</p></li>
+for neighbor updates. Should be larger than <cite>window_size</cite>.
+The default value is <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> * 2.</p></li>
 <li><p><strong>prune_to</strong> – Amount candidate lists will be pruned to when exceeding the
 target max degree. In general, setting this to slightly less than
-<cite>graph_max_degree</cite> will yield faster index building times. Default:
-<cite>graph_max_degree</cite>.</p></li>
+<code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> will yield faster index building times. Default:
+` <cite>graph_max_degree`</cite> - 4 if
+<code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> is at least 16, otherwise <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code>.</p></li>
+<li><p><strong>use_full_search_history</strong> – When true, uses the full search history during
+graph construction, which can improve graph quality at the expense of
+additional memory and potentially longer build times.</p></li>
 </ul>
 </dd>
 </dl>
@@ -854,7 +688,7 @@ target max degree. In general, setting this to slightly less than
 
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.VamanaSearchParameters">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaSearchParameters</span></span><a class="headerlink" href="#svs.VamanaSearchParameters" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaSearchParameters</span></span><a class="headerlink" href="#svs.VamanaSearchParameters" title="Link to this definition"></a></dt>
 <dd><p>Parameters controlling recall and performance of the VamanaIndex.
 See also: <a class="reference internal" href="#svs.Vamana.search_parameters" title="svs.Vamana.search_parameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">Vamana.search_parameters</span></code></a>.</p>
 <dl class="py attribute">
@@ -910,14 +744,14 @@ is special and has the same effect setting this to <cite>prefetch_lookahead + 1<
 prefetching during search.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.VamanaSearchParameters.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaSearchParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer_config:</span> <span class="pre">svs::python.SearchBufferConfig</span> <span class="pre">=</span> <span class="pre">&lt;svs::python.SearchBufferConfig</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x7efceacc1db0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_buffer_visited_set:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_lookahead:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaSearchParameters.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaSearchParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer_config:</span> <span class="pre">svs::python.SearchBufferConfig</span> <span class="pre">=</span> <span class="pre">&lt;svs::python.SearchBufferConfig</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x7f0103a794b0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_buffer_visited_set:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_lookahead:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaSearchParameters.__init__" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.SearchBufferConfig">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">SearchBufferConfig</span></span><a class="headerlink" href="#svs.SearchBufferConfig" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">SearchBufferConfig</span></span><a class="headerlink" href="#svs.SearchBufferConfig" title="Link to this definition"></a></dt>
 <dd><p>Size configuration for the Vamana index search buffer.`
 See also: <a class="reference internal" href="#svs.VamanaSearchParameters" title="svs.VamanaSearchParameters"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VamanaSearchParameters</span></code></a>,
 <a class="reference internal" href="#svs.Vamana.search_parameters" title="svs.Vamana.search_parameters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">svs.Vamana.search_parameters()</span></code></a>.</p>
@@ -966,7 +800,7 @@ Raises <code class="docutils literal notranslate"><span class="pre">svs.ANNExcep
 
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.VamanaCalibrationParameters">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaCalibrationParameters</span></span><a class="headerlink" href="#svs.VamanaCalibrationParameters" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaCalibrationParameters</span></span><a class="headerlink" href="#svs.VamanaCalibrationParameters" title="Link to this definition"></a></dt>
 <dd><p>Hyper-parameters controlling performance tuning of the Vamana and DynamicVamana indexes.
 See also: <a class="reference internal" href="#svs.Vamana.experimental_calibrate" title="svs.Vamana.experimental_calibrate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Vamana.experimental_calibrate()</span></code></a> and
 <a class="reference internal" href="dynamic.html#svs.DynamicVamana.experimental_calibrate" title="svs.DynamicVamana.experimental_calibrate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">DynamicVamana.experimental_calibrate()</span></code></a>.</p>
@@ -1079,7 +913,7 @@ or should it use defaults instead.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.VamanaSearchBufferOptimization">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaSearchBufferOptimization</span></span><a class="headerlink" href="#svs.VamanaSearchBufferOptimization" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VamanaSearchBufferOptimization</span></span><a class="headerlink" href="#svs.VamanaSearchBufferOptimization" title="Link to this definition"></a></dt>
 <dd><p>How should calibration optimize the search buffer.</p>
 <p>Members:</p>
 <blockquote>
@@ -1090,7 +924,7 @@ or should it use defaults instead.</p>
 </div></blockquote>
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.VamanaSearchBufferOptimization.name">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#svs.VamanaSearchBufferOptimization.name" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#svs.VamanaSearchBufferOptimization.name" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1113,8 +947,8 @@ or should it use defaults instead.</p>
 <h3>Preamble<a class="headerlink" href="#preamble" title="Link to this heading"></a></h3>
 <p>First, it is assumed that <code class="docutils literal notranslate"><span class="pre">svs</span></code> is installed and available to Python.
 We first need to perform a couple of imports.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">svs</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">svs</span>
 </pre></div>
 </div>
 <p>Then, we generate a sample dataset using the <a class="reference internal" href="common.html#svs.generate_test_dataset" title="svs.generate_test_dataset"><code class="xref py py-func docutils literal notranslate"><span class="pre">svs.generate_test_dataset()</span></code></a> generation function.
@@ -1188,7 +1022,8 @@ Note that <code class="docutils literal notranslate"><span class="pre">search_wi
 <span class="c1"># Compare with the groundtruth.</span>
 <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8288</span><span class="p">)</span>
+
 </pre></div>
 </div>
 <p>We use <a class="reference internal" href="#svs.Vamana.search" title="svs.Vamana.search"><code class="xref py py-func docutils literal notranslate"><span class="pre">svs.Vamana.search()</span></code></a> to find the 10 approximate nearest neighbors to each query.
@@ -1201,7 +1036,8 @@ Then, we use <code class="xref py py-func docutils literal notranslate"><span cl
 <span class="c1"># Compare with the groundtruth.</span>
 <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8288</span><span class="p">)</span>
+
 </pre></div>
 </div>
 </section>
@@ -1251,7 +1087,7 @@ This informs the dispatch mechanisms that we’re loading an uncompressed data f
 <span class="c1"># Compare with the groundtruth.</span>
 <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+<span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8288</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>Performing queries is identical to before.</p>
@@ -1277,7 +1113,7 @@ Note that vector compression is usually accompanied by an accuracy loss for the 
     <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed recall: </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8223</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8223</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -1286,22 +1122,36 @@ Note that vector compression is usually accompanied by an accuracy loss for the 
 <p>This ends the example demonstrating the features of the <a class="reference internal" href="#svs.Vamana" title="svs.Vamana"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana</span></code></a> index.
 The entire executable code is shown below.
 Please reach out with any questions.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Import `unittest` to allow for automated testing.</span>
-<span class="kn">import</span> <span class="nn">unittest</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright (C) 2023 Intel Corporation</span>
+<span class="c1">#</span>
+<span class="c1"># This software and the related documents are Intel copyrighted materials,</span>
+<span class="c1"># and your use of them is governed by the express license under which they</span>
+<span class="c1"># were provided to you (&quot;License&quot;). Unless the License provides otherwise,</span>
+<span class="c1"># you may not use, modify, copy, publish, distribute, disclose or transmit</span>
+<span class="c1"># this software or the related documents without Intel&#39;s prior written</span>
+<span class="c1"># permission.</span>
+<span class="c1">#</span>
+<span class="c1"># This software and the related documents are provided as is, with no</span>
+<span class="c1"># express or implied warranties, other than those that are expressly stated</span>
+<span class="c1"># in the License.</span>
+
+<span class="c1"># Import `unittest` to allow for automated testing.</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">unittest</span>
 
 <span class="c1"># [imports]</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">svs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">svs</span>
 <span class="c1"># [imports]</span>
 
 <span class="n">DEBUG_MODE</span> <span class="o">=</span> <span class="kc">False</span>
-<span class="k">def</span> <span class="nf">assert_equal</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">assert_equal</span><span class="p">(</span><span class="n">lhs</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">DEBUG_MODE</span><span class="p">:</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">message</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">lhs</span><span class="si">}</span><span class="s2"> == </span><span class="si">{</span><span class="n">rhs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">==</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">message</span>
+        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">&lt;</span> <span class="n">rhs</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">message</span>
+        <span class="k">assert</span> <span class="n">lhs</span> <span class="o">&gt;</span> <span class="n">rhs</span> <span class="o">-</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">message</span>
 
-<span class="k">def</span> <span class="nf">run_test_float</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_test_float</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
     <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
         <span class="mi">10</span><span class="p">:</span> <span class="mf">0.5664</span><span class="p">,</span>
         <span class="mi">20</span><span class="p">:</span> <span class="mf">0.7397</span><span class="p">,</span>
@@ -1317,7 +1167,7 @@ Please reach out with any questions.</p>
             <span class="n">recall</span><span class="p">,</span> <span class="n">expected</span><span class="p">[</span><span class="n">window_size</span><span class="p">],</span> <span class="sa">f</span><span class="s2">&quot;Standard Search Check (</span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">run_test_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_test_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
     <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
         <span class="mi">10</span><span class="p">:</span> <span class="mf">0.5482</span><span class="p">,</span>
         <span class="mi">20</span><span class="p">:</span> <span class="mf">0.7294</span><span class="p">,</span>
@@ -1333,7 +1183,7 @@ Please reach out with any questions.</p>
             <span class="n">recall</span><span class="p">,</span> <span class="n">expected</span><span class="p">[</span><span class="n">window_size</span><span class="p">],</span> <span class="sa">f</span><span class="s2">&quot;Compressed Search Check (</span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">)&quot;</span>
         <span class="p">)</span>
 
-<span class="k">def</span> <span class="nf">run_test_build_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_test_build_two_level4_8</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">groundtruth</span><span class="p">):</span>
     <span class="n">expected</span> <span class="o">=</span> <span class="p">{</span>
         <span class="mi">10</span><span class="p">:</span> <span class="mf">0.5484</span><span class="p">,</span>
         <span class="mi">20</span><span class="p">:</span> <span class="mf">0.7295</span><span class="p">,</span>
@@ -1352,8 +1202,7 @@ Please reach out with any questions.</p>
 <span class="c1"># Shadow this as a global to make it available to the test-case clean-up.</span>
 <span class="n">test_data_dir</span> <span class="o">=</span> <span class="kc">None</span>
 
-<span class="k">def</span> <span class="nf">run</span><span class="p">():</span>
-
+<span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">():</span>
     <span class="c1"># ###</span>
     <span class="c1"># Generating test data</span>
     <span class="c1"># ###</span>
@@ -1433,7 +1282,8 @@ Please reach out with any questions.</p>
     <span class="c1"># Compare with the groundtruth.</span>
     <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8288</span><span class="p">)</span>
+
     <span class="c1"># [perform-queries]</span>
 
     <span class="c1"># [search-window-size]</span>
@@ -1487,7 +1337,7 @@ Please reach out with any questions.</p>
     <span class="c1"># Compare with the groundtruth.</span>
     <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8288</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8288</span><span class="p">)</span>
     <span class="c1"># [loading]</span>
 
     <span class="c1">##### Begin Test</span>
@@ -1549,7 +1399,7 @@ Please reach out with any questions.</p>
     <span class="n">I</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="n">index</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed recall: </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8223</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8223</span><span class="p">)</span>
     <span class="c1"># [search-compressed]</span>
 
     <span class="c1">##### Begin Test</span>
@@ -1577,7 +1427,7 @@ Please reach out with any questions.</p>
     <span class="c1"># Compare with the groundtruth.</span>
     <span class="n">recall</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">k_recall_at</span><span class="p">(</span><span class="n">groundtruth</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Recall = </span><span class="si">{</span><span class="n">recall</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">assert</span><span class="p">(</span><span class="n">recall</span> <span class="o">==</span> <span class="mf">0.8221</span><span class="p">)</span>
+    <span class="n">assert_equal</span><span class="p">(</span><span class="n">recall</span><span class="p">,</span> <span class="mf">0.8221</span><span class="p">)</span>
     <span class="c1"># [loading]</span>
 
     <span class="c1">##### Begin Test</span>
@@ -1595,13 +1445,13 @@ Please reach out with any questions.</p>
 <span class="c1">##### As a unit test.</span>
 <span class="c1">#####</span>
 
-<span class="k">class</span> <span class="nc">VamanaExampleTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">VamanaExampleTestCase</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tearDown</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">test_data_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Removing temporary directory </span><span class="si">{</span><span class="n">test_data_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">os</span><span class="o">.</span><span class="n">rmdir</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">test_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">test_all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">run</span><span class="p">()</span>
 </pre></div>
 </div>

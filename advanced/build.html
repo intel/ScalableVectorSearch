@@ -1,25 +1,23 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Library Building &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+  <title>Building the open-source SVS library &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -57,9 +55,10 @@
 <li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Advanced Topics</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="lowermem.html">Searching with a small memory footprint</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Library Building</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#building-python-library">Building Python Library</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#cibuildwheel-and-microarchitecture-compatibility">CIBuildWheel and Microarchitecture Compatibility</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Building the open-source SVS library</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#python-build">Python build</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#building-with-pip">Building with pip</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#building-with-cibuildwheel">Building with CIBuildWheel</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#customizing-wheels">Customizing Wheels</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#building-notes">Building Notes</a></li>
 </ul>
@@ -131,7 +130,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Advanced Topics</a></li>
-      <li class="breadcrumb-item active">Library Building</li>
+      <li class="breadcrumb-item active">Building the open-source SVS library</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/advanced/build.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -141,8 +140,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="library-building">
-<span id="build"></span><h1>Library Building<a class="headerlink" href="#library-building" title="Link to this heading"></a></h1>
+  <section id="building-the-open-source-svs-library">
+<span id="build"></span><h1>Building the open-source SVS library<a class="headerlink" href="#building-the-open-source-svs-library" title="Link to this heading"></a></h1>
 <p>The SVS library comes in three main forms:</p>
 <blockquote>
 <div><ul class="simple">
@@ -161,17 +160,29 @@ The minimum tested compilers are</p>
 </div></blockquote>
 <nav class="contents local" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#building-python-library" id="id4">Building Python Library</a></p></li>
-<li><p><a class="reference internal" href="#c-build" id="id5">C++ Build</a></p></li>
-<li><p><a class="reference internal" href="#build-options" id="id6">Build Options</a></p></li>
-<li><p><a class="reference internal" href="#advanced-building-the-documentation" id="id7">(Advanced) Building the Documentation</a></p></li>
-<li><p><a class="reference internal" href="#advanced-intel-r-mkl-as-a-dependency" id="id8">(Advanced) Intel(R) MKL as a Dependency</a></p></li>
+<li><p><a class="reference internal" href="#python-build" id="id3">Python build</a></p></li>
+<li><p><a class="reference internal" href="#c-build" id="id4">C++ Build</a></p></li>
+<li><p><a class="reference internal" href="#build-options" id="id5">Build Options</a></p></li>
+<li><p><a class="reference internal" href="#advanced-building-the-documentation" id="id6">(Advanced) Building the Documentation</a></p></li>
+<li><p><a class="reference internal" href="#advanced-intel-r-mkl-as-a-dependency" id="id7">(Advanced) Intel(R) MKL as a Dependency</a></p></li>
 </ul>
 </nav>
-<section id="building-python-library">
-<span id="id1"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">Building Python Library</a><a class="headerlink" href="#building-python-library" title="Link to this heading"></a></h2>
-<section id="cibuildwheel-and-microarchitecture-compatibility">
-<span id="build-cibuildwheel"></span><h3>CIBuildWheel and Microarchitecture Compatibility<a class="headerlink" href="#cibuildwheel-and-microarchitecture-compatibility" title="Link to this heading"></a></h3>
+<section id="python-build">
+<span id="building-python-library"></span><h2><a class="toc-backref" href="#id3" role="doc-backlink">Python build</a><a class="headerlink" href="#python-build" title="Link to this heading"></a></h2>
+<section id="building-with-pip">
+<h3>Building with pip<a class="headerlink" href="#building-with-pip" title="Link to this heading"></a></h3>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span><span class="c1"># Clone the repository</span>
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/intel/ScalableVectorSearch
+<span class="nb">cd</span><span class="w"> </span>ScalableVectorSearch
+
+<span class="c1"># Install svs using pip</span>
+pip<span class="w"> </span>install<span class="w"> </span>bindings/python
+</pre></div>
+</div>
+<p>If you encounter any issues with the pip install command, please follow the <a class="reference internal" href="#building-python-library"><span class="std std-ref">advanced installation instructions</span></a>.</p>
+</section>
+<section id="building-with-cibuildwheel">
+<span id="build-cibuildwheel"></span><h3>Building with CIBuildWheel<a class="headerlink" href="#building-with-cibuildwheel" title="Link to this heading"></a></h3>
 <p>We support building SVS as a Python wheel in a Docker container using <a class="reference external" href="https://cibuildwheel.pypa.io">cibuildwheel</a>.</p>
 <p>You need to install cibuildwheel and <a class="reference external" href="https://docs.docker.com/engine/install/">docker</a>.
 Once those are installed, navigate to the root directory of the source and run</p>
@@ -228,7 +239,7 @@ If this happens, try removing <code class="docutils literal notranslate"><span c
 </section>
 </section>
 <section id="c-build">
-<h2><a class="toc-backref" href="#id5" role="doc-backlink">C++ Build</a><a class="headerlink" href="#c-build" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">C++ Build</a><a class="headerlink" href="#c-build" title="Link to this heading"></a></h2>
 <section id="cmake-support">
 <span id="cpp-cmake-support"></span><h3>CMake Support<a class="headerlink" href="#cmake-support" title="Link to this heading"></a></h3>
 <p>SVS provides a cmake target to enable source builds against the library:</p>
@@ -279,10 +290,10 @@ cmake<span class="w"> </span>--build<span class="w"> </span>.<span class="w"> </
 </section>
 </section>
 <section id="build-options">
-<h2><a class="toc-backref" href="#id6" role="doc-backlink">Build Options</a><a class="headerlink" href="#build-options" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Build Options</a><a class="headerlink" href="#build-options" title="Link to this heading"></a></h2>
 <p>SVS supports the following build-time options.</p>
-<table class="docutils align-default" id="id2" style="width: 100">
-<caption><span class="caption-text">SVS CMake variables</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
+<table class="docutils align-default" id="id1" style="width: 100">
+<caption><span class="caption-text">SVS CMake variables</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
 <thead>
 <tr class="row-odd"><th class="head"><p>CMake Option</p></th>
 <th class="head"><p>Supported Values
@@ -325,8 +336,8 @@ non-Intel(R) AVX-512 systems.</p>
 </table>
 <p>Occasionally, more control over the compiled binaries and executables is desired (to aid binary size and compilation time).
 These fine-grained variables are defined below.</p>
-<table class="docutils align-default" id="id3" style="width: 100">
-<caption><span class="caption-text">Advanced SVS CMake Variables</span><a class="headerlink" href="#id3" title="Link to this table"></a></caption>
+<table class="docutils align-default" id="id2" style="width: 100">
+<caption><span class="caption-text">Advanced SVS CMake Variables</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
 <thead>
 <tr class="row-odd"><th class="head"><p>CMake Option</p></th>
 <th class="head"><p>Supported Values
@@ -413,7 +424,7 @@ See <a class="reference internal" href="../python/backend.html#python-backend"><
 </section>
 </section>
 <section id="advanced-building-the-documentation">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">(Advanced) Building the Documentation</a><a class="headerlink" href="#advanced-building-the-documentation" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">(Advanced) Building the Documentation</a><a class="headerlink" href="#advanced-building-the-documentation" title="Link to this heading"></a></h2>
 <p>Library documentation is generated using <a class="reference external" href="https://www.doxygen.nl/">doxygen</a> to generate documentation for C++ code and <a class="reference external" href="https://www.sphinx-doc.org/en/master/">sphinx</a> to generate Python documentation and assemble the final website.</p>
 <section id="prerequisites">
 <h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h3>
@@ -445,7 +456,7 @@ make
 </section>
 </section>
 <section id="advanced-intel-r-mkl-as-a-dependency">
-<h2><a class="toc-backref" href="#id8" role="doc-backlink">(Advanced) Intel(R) MKL as a Dependency</a><a class="headerlink" href="#advanced-intel-r-mkl-as-a-dependency" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id7" role="doc-backlink">(Advanced) Intel(R) MKL as a Dependency</a><a class="headerlink" href="#advanced-intel-r-mkl-as-a-dependency" title="Link to this heading"></a></h2>
 <p>Upcoming SVS features need to use functionality provided by Intel(R) MKL.
 SVS can link with Intel(R) MKL in a number of ways.</p>
 <p>First, if Intel(R) MKL is not needed, then compiled SVS artifacts should not try to link with Intel(R) MKL.

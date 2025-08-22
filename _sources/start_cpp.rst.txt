@@ -1,8 +1,27 @@
+.. Copyright (C) 2023 Intel Corporation
+..
+.. This software and the related documents are Intel copyrighted materials,
+.. and your use of them is governed by the express license under which they
+.. were provided to you ("License"). Unless the License provides otherwise,
+.. you may not use, modify, copy, publish, distribute, disclose or transmit
+.. this software or the related documents without Intel's prior written
+.. permission.
+..
+.. This software and the related documents are provided as is, with no
+.. express or implied warranties, other than those that are expressly stated
+.. in the License.
+
 .. _start_cpp:
 
 Getting started with C++
 ########################
-This tutorial will show you how to install SVS and run your first search with it!
+The `open-source SVS library <https://github.com/intel/ScalableVectorSearch>`_ supports all documented features except our proprietary vector 
+compression (`LVQ <https://vldb.org/pvldb/volumes/16/paper/Similarity%20search%20in%20the%20blink%20of%20an%20eye%20with%20compressed%20indices>`_ and 
+`Leanvec <https://openreview.net/pdf?id=wczqrpOrIc>`_), 
+which are exclusive to Intel hardware and available via our `shared library <https://github.com/intel/ScalableVectorSearch/releases>`_ and `PyPI package <https://pypi.org/project/scalable-vs/>`_.
+This tutorial shows how to use the shared library to enable our proprietary vector compression and unlock significant performance and memory gains!
+
+We also provide an :ref:`example <using_open_svs_only_cpp>` using the `open-source SVS library <https://github.com/intel/ScalableVectorSearch>`_  only.
 
 .. contents::
    :local:
@@ -13,129 +32,93 @@ This tutorial will show you how to install SVS and run your first search with it
 Building
 ********
 
-Building SVS should be relatively straight-forward. We test on Ubuntu 22.04 LTS, but any Linux distribution should work.
+Building the SVS example should be relatively straight-forward. We test on Ubuntu 22.04 LTS, but any Linux distribution should work.
 
 Prerequisites
 =============
 
-.. include:: prerequisites.rst
+* A C++20 capable compiler:
+
+  * GCC >= 11.0
+  * Clang >= 18.0 (note that the shared library requires a higher Clang version than the open-source library)
+
 
 CMake build
 ===========
 
-To build SVS and the included examples, use the following:
+To build and run the SVS example using our `shared library <https://github.com/intel/ScalableVectorSearch/releases>`_ run the following commands:
 
 .. code-block:: sh
 
+    git clone https://github.com/intel/ScalableVectorSearch
+    cd ScalableVectorSearch/examples/cpp/shared
     mkdir build && cd build
-    cmake .. -DSVS_BUILD_EXAMPLES=YES
-    cmake --build . -j$(nproc)
+    cmake ..
+    make -j
+    ./example_vamana_with_compression
+    
+See `CMakeLists.txt <../ScalableVectorSearch/examples/cpp/shared/CMakeLists.txt>`_ for details on how the shared library is used and remember to update the link 
+in CMakeLists.txt to **download the latest shared library release**. 
 
-Verifying the build
-====================
+Step by step example using vector compression
+**********************************************
 
-Run the following command to verify that SVS was successfully installed. It should print some types, like ``float32``.
-
-.. code-block:: sh
-
-    examples/cpp/types
-
-
-SVS search example
-******************
-
-In this tutorial we will showcase the most important features of SVS. The
-:ref:`full example <entire_example_cpp>` is available at the end of this
-tutorial. You can run it with the following command:
-
-.. code-block:: sh
-
-   examples/cpp/vamana ../data/test_dataset/data_f32.fvecs ../data/test_dataset/queries_f32.fvecs ../data/test_dataset/groundtruth_euclidean.ivecs
-
-
-Example data
-************
-
+Here is a step by step explanation of the `example <../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp>`_ that showcases the most important features of SVS. 
 We will use the random dataset included in SVS for testing in ``data/test_dataset``.
+
+Compress the data
+==================
+
+To boost performance and reduce memory usage, we first compress the data using our vector compression technique LVQ. See :ref:`compression-setting` for details.
+
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
+   :language: cpp
+   :start-after: [Compress data]
+   :end-before: [Compress data]
+   :dedent: 4
 
 
 Building the index
-******************
+==================
 
-Before searching, we need to construct an index over that data.
-The index is a graph connecting related data vectors in such a way that searching for nearest neighbors yields good results.
-The first step is to define the hyper-parameters of the graph we wish to construct.
-Don't worry too much about selecting the correct values for these hyper-parameters right now.
-This usually involves a bit of experimentation and is dataset dependent. See :ref:`graph-build-param-setting` for details.
+To search effectively, first build a graph-based index linking related data vectors. We'll keep defaults for hyperparameters, 
+exact values can be :ref:`tuned <graph-build-param-setting>` later based on the dataset.
 
-This is done by creating an instance of :cpp:class:`svs::index::vamana::VamanaBuildParameters`.
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Build Parameters]
-   :end-before: [Build Parameters]
-   :dedent: 4
-
-Now that we have established our hyper-parameters, it is time to build the index.
-Passing the ``dims`` is optional, but may :ref:`yield performance benefits if given <static-dim>`.
-
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
    :language: cpp
    :start-after: [Index Build]
    :end-before: [Index Build]
    :dedent: 4
 
-Note the use of :cpp:class:`svs::VectorDataLoader` to indicate both the path to the dataset file ``data_vecs`` and the
-:ref:`data type <supported_data_types>` of the file on disk (see :ref:`io` for supported file formats).
-See :cpp:func:`svs::Vamana::build` for details about the build function.
-
 
 Searching the index
-*******************
+===================
+The graph is built; we can now query it. Load queries from disk and set ``search_window_size`` --larger values boost accuracy but reduce speed (see :ref:`search-window-size-setting`). 
 
-The graph is now built and we can perform queries over the graph.
-First, we load the queries from a file on disk.
-
-After searching, we compare the search results with ground truth results which
-we also load from the SVS test dataset.
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Load Aux]
-   :end-before: [Load Aux]
-   :dedent: 4
-
-Performing queries is easy.
-First establish a base-line search window size. This provides a parameter by which performance and accuracy can be traded.
-The larger ``search_window_size`` is, the higher the accuracy but the lower the performance.
-Note that ``search_window_size`` must be at least as large as the desired number of neighbors.
-See :ref:`search-window-size-setting` for details.
-
-We use the search function to find the 10 approximate nearest neighbors to each query.
-See :cpp:func:`svs::Vamana::search` for details about the search function.
-Then, we compute the 10-recall at 10 of the returned neighbors, checking to confirm
-the accuracy against the ground truth.
-
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
    :language: cpp
    :start-after: [Perform Queries]
    :end-before: [Perform Queries]
    :dedent: 4
 
+After searching, we compare the results with the ground-truth and print the obtained recall.
 
-Saving the index
-****************
-
-If you are satisfied with the performance of the generated index, you can save it to disk to avoid rebuilding it in the future.
-
-See :cpp:func:`svs::Vamana::save` for details about the save function.
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
    :language: cpp
-   :start-after: [Saving]
-   :end-before: [Saving]
+   :start-after: [Recall]
+   :end-before: [Recall]
+   :dedent: 4
+
+
+Saving and loading the index
+=============================
+
+If you are satisfied with the performance of the generated index, you can save it to disk to avoid rebuilding it in the future. 
+
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
+   :language: cpp
+   :start-after: [Saving Loading]
+   :end-before: [Saving Loading]
    :dedent: 4
 
 .. note::
@@ -149,66 +132,58 @@ See :cpp:func:`svs::Vamana::save` for details about the save function.
 
     This is subject to change in the future.
 
-
-Reloading a saved index
-***********************
-
-To reload the index from file, use the corresponding constructor with the three folder names used to save the index.
-Note that the second argument, the one corresponding to the file for the data, requires a :cpp:class:`svs::VectorDataLoader` and
-the corresponding data type.
-
-After reloading, performing queries is identical to before.
-See the :ref:`entire example code <entire_example_cpp>` for details about
-the ``run_recall`` function used to check the search results against ground
-truth.
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Loading]
-   :end-before: [Loading]
-   :dedent: 4
-
-Search using vector compression
-*******************************
-
-.. note::
-   The `open-source <https://github.com/intel/ScalableVectorSearch>`_ SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ [ABHT23]_ and Leanvec [TBAH24]_. These techniques are closed-source and supported exclusively on Intel hardware. We provide `shared library <https://github.com/intel/ScalableVectorSearch/releases>`_ and `PyPI package <https://pypi.org/project/scalable-vs/>`_ to enable these vector compression techniques in C++ and Python, respectively.
-
-:ref:`Vector compression <vector_compression>` can be used to speed up search. It can be done with a :cpp:class:`svs::quantization::lvq::LVQDataset`.
-
-See :ref:`compression-setting` for details on setting the compression parameters.
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Compressed Loader]
-   :end-before: [Compressed Loader]
-   :dedent: 4
-
-.. literalinclude:: ../examples/cpp/vamana.cpp
-   :language: cpp
-   :start-after: [Search Compressed]
-   :end-before: [Search Compressed]
-   :dedent: 4
-
-.. note::
-   Vector compression is usually accompanied by an accuracy loss for the same search window size and may require
-   increasing the window size to compensate.
-
-
-Saving an index with compressed vectors
-=======================================
-
-SVS has support to save and load indices with a previously compressed dataset.
-The saving and loading procedures are the same as with uncompressed vectors.
-
 .. _entire_example_cpp:
 
 Entire example
-**************
+==============
 
-This ends the example demonstrating the features of the Vamana index.
-The entire executable code is shown below.
-Please reach out with any questions.
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
+   :language: cpp
 
-.. literalinclude:: ../examples/cpp/vamana.cpp
+
+.. _using_open_svs_only_cpp:
+
+Using open-source SVS only
+***************************
+
+Building and installing
+=======================
+
+Prerequisites
+
+* A C++20 capable compiler:
+
+  * GCC >= 11.0
+  * Clang >= 13.0
+
+
+To build SVS and the included examples, use the following:
+
+.. code-block:: sh
+   
+    git clone https://github.com/intel/ScalableVectorSearch
+    cd ScalableVectorSearch
+    mkdir build && cd build
+    cmake .. -DSVS_BUILD_EXAMPLES=YES
+    cmake --build . -j$(nproc)
+
+Run this command to confirm SVS is installed correctly, it should print some types, like ``float32``.
+
+.. code-block:: sh
+
+    examples/cpp/types
+
+Run this command to execute the example
+
+.. code-block:: sh
+
+    examples/cpp/vamana ../data/test_dataset/data_f32.fvecs ../data/test_dataset/queries_f32.fvecs ../data/test_dataset/groundtruth_euclidean.ivecs
+
+
+.. _entire_example_open_source_cpp:
+
+Entire example
+==============
+
+.. literalinclude:: ../ScalableVectorSearch/examples/cpp/vamana.cpp
    :language: cpp

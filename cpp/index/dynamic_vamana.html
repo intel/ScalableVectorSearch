@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../../">
 <head>
@@ -5,25 +7,21 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dynamic Vamana Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Flat Orchestrator" href="flat.html" />
+    <link rel="next" title="Vamana Iterator" href="vamana_iterator.html" />
     <link rel="prev" title="Vamana Index" href="vamana.html" /> 
 </head>
 
@@ -79,9 +77,10 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#contents">Contents</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="vamana.html">Vamana Index</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Dynamic Vamana Index</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs13DynamicVamanaE"><code class="docutils literal notranslate"><span class="pre">DynamicVamana</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv4N3svs13DynamicVamanaE"><code class="docutils literal notranslate"><span class="pre">svs::DynamicVamana</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="vamana_iterator.html">Vamana Iterator</a></li>
 <li class="toctree-l3"><a class="reference internal" href="flat.html">Flat Orchestrator</a></li>
 </ul>
 </li>
@@ -171,6 +170,42 @@
 </dd></dl>
 
 <dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana9get_alphaEv">
+<span id="_CPPv3NK3svs13DynamicVamana9get_alphaEv"></span><span id="_CPPv2NK3svs13DynamicVamana9get_alphaEv"></span><span id="svs::DynamicVamana::get_alphaC"></span><span class="target" id="classsvs_1_1DynamicVamana_1a9efe26e18e414a9f0000ff3d891c5d5b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_alpha</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana9get_alphaEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the alpha value used for pruning while mutating the graph.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana20get_graph_max_degreeEv">
+<span id="_CPPv3NK3svs13DynamicVamana20get_graph_max_degreeEv"></span><span id="_CPPv2NK3svs13DynamicVamana20get_graph_max_degreeEv"></span><span id="svs::DynamicVamana::get_graph_max_degreeC"></span><span class="target" id="classsvs_1_1DynamicVamana_1a558148a56523e25c3ac8a8b1b9f66f34"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_graph_max_degree</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana20get_graph_max_degreeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> used while mutating the graph.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana28get_construction_window_sizeEv">
+<span id="_CPPv3NK3svs13DynamicVamana28get_construction_window_sizeEv"></span><span id="_CPPv2NK3svs13DynamicVamana28get_construction_window_sizeEv"></span><span id="svs::DynamicVamana::get_construction_window_sizeC"></span><span class="target" id="classsvs_1_1DynamicVamana_1a559b0fbe4026b507855ea36c6381f55f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_construction_window_size</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana28get_construction_window_sizeEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Set the window size to be used while mutating the graph.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana18get_max_candidatesEv">
+<span id="_CPPv3NK3svs13DynamicVamana18get_max_candidatesEv"></span><span id="_CPPv2NK3svs13DynamicVamana18get_max_candidatesEv"></span><span id="svs::DynamicVamana::get_max_candidatesC"></span><span class="target" id="classsvs_1_1DynamicVamana_1a5d4639ff2778acb95b45bcfa0bd5b9cb"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_max_candidates</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana18get_max_candidatesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the max candidate pool size used while mutating the graph.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana12get_prune_toEv">
+<span id="_CPPv3NK3svs13DynamicVamana12get_prune_toEv"></span><span id="_CPPv2NK3svs13DynamicVamana12get_prune_toEv"></span><span id="svs::DynamicVamana::get_prune_toC"></span><span class="target" id="classsvs_1_1DynamicVamana_1ad00bd01bd6c3e266933048fd44bab74c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_prune_to</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana12get_prune_toEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the prune_to value used while mutating the graph.   </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana23get_full_search_historyEv">
+<span id="_CPPv3NK3svs13DynamicVamana23get_full_search_historyEv"></span><span id="_CPPv2NK3svs13DynamicVamana23get_full_search_historyEv"></span><span id="svs::DynamicVamana::get_full_search_historyC"></span><span class="target" id="classsvs_1_1DynamicVamana_1ad729aa86eefb998773e960bd2acd2667"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_full_search_history</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana23get_full_search_historyEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return whether the full search history is being used while mutating the graph.   </p>
+</dd></dl>
+
+<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana6has_idE6size_t">
 <span id="_CPPv3NK3svs13DynamicVamana6has_idE6size_t"></span><span id="_CPPv2NK3svs13DynamicVamana6has_idE6size_t"></span><span id="svs::DynamicVamana::has_id__sC"></span><span class="target" id="classsvs_1_1DynamicVamana_1adb1765606feb8580ae8cc351cf0c2f78"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">has_id</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">id</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana6has_idE6size_t" title="Link to this definition"></a><br /></dt>
 <dd><p>Return whether <code class="docutils literal notranslate"><span class="pre">id</span></code> is in the index. </p>
@@ -188,6 +223,46 @@
 <dt class="sig sig-object cpp" id="_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE">
 <span id="_CPPv3N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE"></span><span id="_CPPv2N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE"></span><span id="svs::DynamicVamana::reconstruct_at__data::SimpleDataView:float:.std::span:uint64_tC:"></span><span class="target" id="classsvs_1_1DynamicVamana_1adc0095819a91198bea5ee9d90da39241"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">reconstruct_at</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE" title="svs::DynamicVamana::reconstruct_at::data"><span class="n"><span class="pre">data</span></span></a><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">SimpleDataView</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">float</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">data</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">uint64_t</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs13DynamicVamana14reconstruct_atEN4data14SimpleDataViewIfEENSt4spanIK8uint64_tEE" title="Link to this definition"></a><br /></dt>
 <dd><p>Reconstruction. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0_6size_tENK3svs13DynamicVamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t">
+<span id="_CPPv3I0_6size_tENK3svs13DynamicVamana14batch_iteratorENSt4spanIK9QueryType1NEE6size_t"></span><span id="_CPPv2I0_6size_tENK3svs13DynamicVamana14batch_iteratorENSt4spanIK9QueryType1NEE6size_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">QueryType</span></span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">N</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DynamicVamana_1a8d6aadb1503e8d1992e5ebae51cd0508"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="vamana_iterator.html#_CPPv4N3svs14VamanaIteratorE" title="svs::VamanaIterator"><span class="n"><span class="pre">VamanaIterator</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">batch_iterator</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">span</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tENK3svs13DynamicVamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t" title="svs::DynamicVamana::batch_iterator::QueryType"><span class="n"><span class="pre">QueryType</span></span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0_6size_tENK3svs13DynamicVamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t" title="svs::DynamicVamana::batch_iterator::N"><span class="n"><span class="pre">N</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">query</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">extra_search_buffer_capacity</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">svs</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">UNSIGNED_INTEGER_PLACEHOLDER</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I0_6size_tENK3svs13DynamicVamana14batch_iteratorEN3svs14VamanaIteratorENSt4spanIK9QueryType1NEE6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Return a new iterator (an instance of <code class="docutils literal notranslate"><a class="reference internal" href="vamana_iterator.html#classsvs_1_1VamanaIterator"><span class="std std-ref"><span class="pre">svs::VamanaIterator</span></span></a></code>) for the query.   </p>
+<p>
+The returned iterator will maintain an internal copy of the query.   </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>QueryType</strong> – The element type of the query that will be given to the iterator. </p></li>
+<li><p><strong>N</strong> – The dimension of the query.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>query</strong> – The query to use for the iterator. </p></li>
+<li><p><strong>extra_search_buffer_capacity</strong> – An optional extra search buffer capacity to allow the iterator to search beyond the current batch (when not provided, <code class="docutils literal notranslate"><span class="pre">svs::ITERATOR_EXTRA_BUFFER_CAPACITY_DEFAULT</span> <span class="pre">=</span> <span class="pre">100</span></code> is used).</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0ENK3svs13DynamicVamana12get_distanceEd6size_tRK5Query">
+<span id="_CPPv3I0ENK3svs13DynamicVamana12get_distanceE6size_tRK5Query"></span><span id="_CPPv2I0ENK3svs13DynamicVamana12get_distanceE6size_tRK5Query"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">typename</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">Query</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="classsvs_1_1DynamicVamana_1ac05f65bd1ea4052a3e50cd9b43a40bee"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_distance</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">id</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I0ENK3svs13DynamicVamana12get_distanceEd6size_tRK5Query" title="svs::DynamicVamana::get_distance::Query"><span class="n"><span class="pre">Query</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">query</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4I0ENK3svs13DynamicVamana12get_distanceEd6size_tRK5Query" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the distance between a vector in the index and a query vector. </p>
+<p>Distance </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>Query</strong> – The query vector type </p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>id</strong> – The ID of the vector in the index </p></li>
+<li><p><strong>query</strong> – The query vector </p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="cpp function">
@@ -209,28 +284,34 @@
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana18can_change_threadsEv">
-<span id="_CPPv3NK3svs13DynamicVamana18can_change_threadsEv"></span><span id="_CPPv2NK3svs13DynamicVamana18can_change_threadsEv"></span><span id="svs::DynamicVamana::can_change_threadsC"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a2cb75b02ddb51a87f58f62b972db7926"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">can_change_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana18can_change_threadsEv" title="Link to this definition"></a><br /></dt>
-<dd><p>Return whether the back-end implementation can change the number of threads. </p>
-</dd></dl>
-
-<dl class="cpp function">
 <dt class="sig sig-object cpp" id="_CPPv4NK3svs13DynamicVamana15get_num_threadsEv">
 <span id="_CPPv3NK3svs13DynamicVamana15get_num_threadsEv"></span><span id="_CPPv2NK3svs13DynamicVamana15get_num_threadsEv"></span><span id="svs::DynamicVamana::get_num_threadsC"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1af8cc4b7f4ab6e0021a93f277f933d74f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">get_num_threads</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3svs13DynamicVamana15get_num_threadsEv" title="Link to this definition"></a><br /></dt>
 <dd><p>Return the current number of worker threads used by this index for searches. </p>
 </dd></dl>
 
 <dl class="cpp function">
-<dt class="sig sig-object cpp" id="_CPPv4N3svs13DynamicVamana15set_num_threadsE6size_t">
-<span id="_CPPv3N3svs13DynamicVamana15set_num_threadsE6size_t"></span><span id="_CPPv2N3svs13DynamicVamana15set_num_threadsE6size_t"></span><span id="svs::DynamicVamana::set_num_threads__s"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a584ad89b638a4277ce1577a201d9878b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_num_threads</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_threads</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs13DynamicVamana15set_num_threadsE6size_t" title="Link to this definition"></a><br /></dt>
-<dd><p>Set the number of threads to use for searching. </p>
-<p>
-Only effective if <code class="docutils literal notranslate"><a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a2cb75b02ddb51a87f58f62b972db7926"><span class="std std-ref"><span class="pre">can_change_threads()</span></span></a></code> returns <code class="docutils literal notranslate"><span class="pre">true</span></code>. </p>
+<dt class="sig sig-object cpp" id="_CPPv4N3svs13DynamicVamana14set_threadpoolE4Pool">
+<span id="_CPPv3N3svs13DynamicVamana14set_threadpoolE4Pool"></span><span id="_CPPv2N3svs13DynamicVamana14set_threadpoolE4Pool"></span><span id="svs::DynamicVamana::set_threadpool__Pool"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a0d4ee185571d42b2d0f523c178d2b24c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_threadpool</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">Pool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs13DynamicVamana14set_threadpoolE4Pool" title="Link to this definition"></a><br /></dt>
+<dd><p>Destroy the original thread pool and set to the new one. </p>
+<section id="classthreadpool__requirements_1autotoc_md7">
+<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h2>
+<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a6df1a56c426597fa40041b0b5bae94bb"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
+</ul>
+</p>
+</section>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>num_threads</strong> – The number of threads to use. If set to <code class="docutils literal notranslate"><span class="pre">0</span></code>, will implicitly default to <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<dd class="field-odd"><p><strong>threadpool</strong> – An acceptable thread pool.</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3svs13DynamicVamana21get_threadpool_handleEv">
+<span id="_CPPv3N3svs13DynamicVamana21get_threadpool_handleEv"></span><span id="_CPPv2N3svs13DynamicVamana21get_threadpool_handleEv"></span><span id="svs::DynamicVamana::get_threadpool_handle"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1ac8fc122b04796ce9b980bbabb3a6d2fa"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">threads</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ThreadPoolHandle</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="sig-name descname"><span class="n"><span class="pre">get_threadpool_handle</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs13DynamicVamana21get_threadpool_handleEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Return the current thread pool handle. </p>
 </dd></dl>
 
 </div>
@@ -248,7 +329,7 @@ Only effective if <code class="docutils literal notranslate"><a class="reference
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="vamana.html" class="btn btn-neutral float-left" title="Vamana Index" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="flat.html" class="btn btn-neutral float-right" title="Flat Orchestrator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="vamana_iterator.html" class="btn btn-neutral float-right" title="Vamana Iterator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

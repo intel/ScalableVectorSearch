@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="../">
 <head>
@@ -5,21 +7,17 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dynamic Vamana Graph Index &mdash; Scalable Vector Search 0.0.1 documentation</title>
-      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
-      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
       <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
 
   
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-        <script src="../_static/jquery.js?v=5d32c60e"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-        <script src="../_static/documentation_options.js?v=d45e8c67"></script>
-        <script src="../_static/doctools.js?v=9a2dae69"></script>
-        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
@@ -82,6 +80,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.experimental_backend_string"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.experimental_backend_string</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.experimental_calibrate"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.experimental_calibrate()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.experimental_reset_performance_parameters"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.experimental_reset_performance_parameters()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.get_distance"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.get_distance()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.has_id"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.has_id()</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.num_threads"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.num_threads</span></code></a></li>
 <li class="toctree-l3"><a class="reference internal" href="#svs.DynamicVamana.query_types"><code class="docutils literal notranslate"><span class="pre">DynamicVamana.query_types</span></code></a></li>
@@ -144,18 +143,18 @@
 <p>In this section, we cover the API and usage of the DynamicVamana graph-based index.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.DynamicVamana">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">DynamicVamana</span></span><a class="headerlink" href="#svs.DynamicVamana" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">DynamicVamana</span></span><a class="headerlink" href="#svs.DynamicVamana" title="Link to this definition"></a></dt>
 <dd><p>Top level class for the dynamic Vamana graph index.</p>
 <blockquote>
 <div><dl class="py method">
 <dt class="sig sig-object py" id="svs.DynamicVamana.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana,</span> <span class="pre">config_path:</span> <span class="pre">str,</span> <span class="pre">graph_loader:</span> <span class="pre">svs::python.GraphLoader,</span> <span class="pre">data_loader:</span> <span class="pre">Union[svs::python.VectorDataLoader,</span> <span class="pre">svs::python.LVQLoader],</span> <span class="pre">distance:</span> <span class="pre">svs::python.DistanceType</span> <span class="pre">=</span> <span class="pre">&lt;DistanceType.L2:</span> <span class="pre">0&gt;,</span> <span class="pre">query_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">9&gt;,</span> <span class="pre">enforce_dims:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">num_threads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1,</span> <span class="pre">debug_load_from_static:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.DynamicVamana.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana,</span> <span class="pre">config_path:</span> <span class="pre">str,</span> <span class="pre">graph_loader:</span> <span class="pre">svs::python.GraphLoader,</span> <span class="pre">data_loader:</span> <span class="pre">Union[svs::python.VectorDataLoader],</span> <span class="pre">distance:</span> <span class="pre">svs::python.DistanceType</span> <span class="pre">=</span> <span class="pre">&lt;DistanceType.L2:</span> <span class="pre">0&gt;,</span> <span class="pre">query_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">9&gt;,</span> <span class="pre">enforce_dims:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">num_threads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1,</span> <span class="pre">debug_load_from_static:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.DynamicVamana.__init__" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </div></blockquote>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.DynamicVamana.add">
-<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana,</span> <span class="pre">points:</span> <span class="pre">numpy.ndarray[numpy.float32],</span> <span class="pre">ids:</span> <span class="pre">numpy.ndarray[numpy.uint64]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.DynamicVamana.add" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana,</span> <span class="pre">points:</span> <span class="pre">numpy.ndarray[numpy.float32],</span> <span class="pre">ids:</span> <span class="pre">numpy.ndarray[numpy.uint64],</span> <span class="pre">reuse_empty:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.DynamicVamana.add" title="Link to this definition"></a></dt>
 <dd><p>Add every point in <code class="docutils literal notranslate"><span class="pre">points</span></code> to the index, assigning the element-wise corresponding ID to
 each point.</p>
 <dl class="field-list simple">
@@ -165,12 +164,17 @@ each point.</p>
 the index.</p></li>
 <li><p><strong>ids</strong> – Vector of ids to assign to each row in <code class="docutils literal notranslate"><span class="pre">points</span></code>. Must have the same number of
 elements as <code class="docutils literal notranslate"><span class="pre">points</span></code> has rows.</p></li>
+<li><p><strong>reuse_empty</strong> – A flag that determines whether to reuse empty entries that may exist after deletion and consolidation. When enabled,</p></li>
+<li><p><strong>points.</strong> (<em>scan from the beginning to find and fill these empty entries when adding new</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <p>Furthermore, all entries in <code class="docutils literal notranslate"><span class="pre">ids</span></code> must be unique and not already exist in the index.
 If either of these does not hold, an exception will be thrown without mutating the
 underlying index.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">delete_entries</span></code> is called, a soft deletion is performed, marking the entries as <code class="docutils literal notranslate"><span class="pre">deleted</span></code>.
+When <code class="docutils literal notranslate"><span class="pre">consolidate</span></code> is called, the state of these deleted entries becomes <code class="docutils literal notranslate"><span class="pre">empty</span></code>.
+When <code class="docutils literal notranslate"><span class="pre">add_points</span></code> is called with the <code class="docutils literal notranslate"><span class="pre">reuse_empty</span></code> flag enabled, the memory is scanned from the beginning to locate and fill these empty entries with new points.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -181,7 +185,7 @@ underlying index.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.alpha">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">alpha</span></span><a class="headerlink" href="#svs.DynamicVamana.alpha" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">alpha</span></span><a class="headerlink" href="#svs.DynamicVamana.alpha" title="Link to this definition"></a></dt>
 <dd><p>Get/set the alpha value used when adding and deleting points.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -192,7 +196,7 @@ underlying index.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.DynamicVamana.build">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">parameters:</span> <span class="pre">svs::python.VamanaBuildParameters,</span> <span class="pre">data:</span> <span class="pre">numpy.ndarray[numpy.float32],</span> <span class="pre">ids:</span> <span class="pre">numpy.ndarray[numpy.uint64],</span> <span class="pre">distance_type:</span> <span class="pre">svs::python.DistanceType,</span> <span class="pre">num_threads:</span> <span class="pre">int</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#svs.DynamicVamana" title="svs::python.DynamicVamana"><span class="pre">svs::python.DynamicVamana</span></a></span></span><a class="headerlink" href="#svs.DynamicVamana.build" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">parameters:</span> <span class="pre">svs::python.VamanaBuildParameters,</span> <span class="pre">data:</span> <span class="pre">numpy.ndarray[numpy.float32],</span> <span class="pre">ids:</span> <span class="pre">numpy.ndarray[numpy.uint64],</span> <span class="pre">distance_type:</span> <span class="pre">svs::python.DistanceType,</span> <span class="pre">num_threads:</span> <span class="pre">int</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#svs.DynamicVamana" title="svs::python.DynamicVamana"><span class="pre">svs::python.DynamicVamana</span></a></span></span><a class="headerlink" href="#svs.DynamicVamana.build" title="Link to this definition"></a></dt>
 <dd><p>Construct a Vamana index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -212,7 +216,7 @@ See below for the documentation of this class.</p></li>
 <span class="sig-name descname"><span class="pre">compact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arg0:</span> <span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#svs.DynamicVamana" title="svs::python.DynamicVamana"><span class="pre">svs::python.DynamicVamana</span></a></span></span><a class="headerlink" href="#svs.DynamicVamana.compact" title="Link to this definition"></a></dt>
 <dd><p>Remove any holes created in the graph and data by renumbering internal IDs.
 Shrink the underlying data structures.
-Following <code class="docutils literal notranslate"><span class="pre">consolidate</span></code>, this can potentialy reduce the memory footprint of the index
+Following <code class="docutils literal notranslate"><span class="pre">consolidate</span></code>, this can potentially reduce the memory footprint of the index
 if a sufficient number of points were deleted.</p>
 </dd></dl>
 
@@ -226,7 +230,7 @@ the index monotonically increasing.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.construction_window_size">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">construction_window_size</span></span><a class="headerlink" href="#svs.DynamicVamana.construction_window_size" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">construction_window_size</span></span><a class="headerlink" href="#svs.DynamicVamana.construction_window_size" title="Link to this definition"></a></dt>
 <dd><p>Get/set the window size used when adding and deleting points.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -252,13 +256,13 @@ index will be left unchanged from before the function call.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.dimensions">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.DynamicVamana.dimensions" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dimensions</span></span><a class="headerlink" href="#svs.DynamicVamana.dimensions" title="Link to this definition"></a></dt>
 <dd><p>Return the logical number of dimensions for each vector in the dataset.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.experimental_backend_string">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">experimental_backend_string</span></span><a class="headerlink" href="#svs.DynamicVamana.experimental_backend_string" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">experimental_backend_string</span></span><a class="headerlink" href="#svs.DynamicVamana.experimental_backend_string" title="Link to this definition"></a></dt>
 <dd><p>Get a string identifying the full-type of the backend implementation.</p>
 <p>This property is experimental and subject to change without a deprecation warning.</p>
 <dl class="field-list simple">
@@ -273,7 +277,7 @@ index will be left unchanged from before the function call.</p>
 <span class="sig-name descname"><span class="pre">experimental_calibrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.DynamicVamana.experimental_calibrate" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>experimental_calibrate(self: svs::python.DynamicVamana, queries: numpy.ndarray[float16], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7efceacc9270&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
+<li><p>experimental_calibrate(self: svs::python.DynamicVamana, queries: numpy.ndarray[float16], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7f0103a7e970&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
 </ol>
 <p>NOTE: This method is experimental and subject to change or removal without notice.</p>
 <p>Run an experimental calibration routine to select the best search parameters.</p>
@@ -298,7 +302,7 @@ Note that calibration will use the number of threads already assigned to the ind
 therefore be used to tune the algorithm to different threading amounts.</p>
 <p>See also: <cite>svs.VamanaCalibrationParameters</cite></p>
 <ol class="arabic simple" start="2">
-<li><p>experimental_calibrate(self: svs::python.DynamicVamana, queries: numpy.ndarray[numpy.float32], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7efceacc93b0&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
+<li><p>experimental_calibrate(self: svs::python.DynamicVamana, queries: numpy.ndarray[numpy.float32], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7f0103a7eb70&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
 </ol>
 <p>NOTE: This method is experimental and subject to change or removal without notice.</p>
 <p>Run an experimental calibration routine to select the best search parameters.</p>
@@ -334,6 +338,26 @@ for performance-only parameters (such as prefetchers).</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="svs.DynamicVamana.get_distance">
+<span class="sig-name descname"><span class="pre">get_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana,</span> <span class="pre">external_id:</span> <span class="pre">int,</span> <span class="pre">query_vector:</span> <span class="pre">numpy.ndarray[numpy.float32]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#svs.DynamicVamana.get_distance" title="Link to this definition"></a></dt>
+<dd><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>external_id</strong> – the external ID of the vector in the index</p></li>
+<li><p><strong>query_vector</strong> – a 1-D contiguous array whose length must match the index dimensionality</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>the computed distance</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="svs.DynamicVamana.has_id">
 <span class="sig-name descname"><span class="pre">has_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.DynamicVamana</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id:</span> <span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="headerlink" href="#svs.DynamicVamana.has_id" title="Link to this definition"></a></dt>
 <dd><p>Return whether the ID exists in the index.</p>
@@ -341,7 +365,7 @@ for performance-only parameters (such as prefetchers).</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.num_threads">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.DynamicVamana.num_threads" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">num_threads</span></span><a class="headerlink" href="#svs.DynamicVamana.num_threads" title="Link to this definition"></a></dt>
 <dd><p>Get and set the number of threads used to process queries.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -352,7 +376,7 @@ for performance-only parameters (such as prefetchers).</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.query_types">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.DynamicVamana.query_types" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">query_types</span></span><a class="headerlink" href="#svs.DynamicVamana.query_types" title="Link to this definition"></a></dt>
 <dd><p>Return the query element types this index is specialized for.</p>
 </dd></dl>
 
@@ -377,7 +401,7 @@ for performance-only parameters (such as prefetchers).</p>
 <p>Note: All directories should be separate to avoid accidental name collision with any
 auxiliary files that are needed when saving the various components of the index.</p>
 <p>If the directory does not exist, it will be created if its parent exists.</p>
-<p>It is the caller’s responsibilty to ensure that no existing data will be
+<p>It is the caller’s responsibility to ensure that no existing data will be
 overwritten when saving the index to this directory.</p>
 </dd></dl>
 
@@ -409,7 +433,7 @@ matrix.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.search_parameters">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.DynamicVamana.search_parameters" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_parameters</span></span><a class="headerlink" href="#svs.DynamicVamana.search_parameters" title="Link to this definition"></a></dt>
 <dd><p>Get/set the current search parameters for the
 index. These parameters modify both the algorithmic properties of search (affecting recall)
 and non-algorthmic properties of search (affecting queries-per-second).</p>
@@ -423,7 +447,7 @@ and non-algorthmic properties of search (affecting queries-per-second).</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.search_window_size">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_window_size</span></span><a class="headerlink" href="#svs.DynamicVamana.search_window_size" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search_window_size</span></span><a class="headerlink" href="#svs.DynamicVamana.search_window_size" title="Link to this definition"></a></dt>
 <dd><p>Get/set the size of the internal search buffer.
 A larger value will likely yield more accurate results at the cost of speed.</p>
 <dl class="field-list simple">
@@ -435,13 +459,13 @@ A larger value will likely yield more accurate results at the cost of speed.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.size">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.DynamicVamana.size" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#svs.DynamicVamana.size" title="Link to this definition"></a></dt>
 <dd><p>Return the number of elements in the indexed dataset.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.DynamicVamana.visited_set_enabled">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">visited_set_enabled</span></span><a class="headerlink" href="#svs.DynamicVamana.visited_set_enabled" title="Link to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">visited_set_enabled</span></span><a class="headerlink" href="#svs.DynamicVamana.visited_set_enabled" title="Link to this definition"></a></dt>
 <dd><p><strong>Deprecated</strong></p>
 <p>Read/Write (bool): Get/set whether the visited set is used.
 Enabling the visited set can be helpful if the distance computations required are
