@@ -343,11 +343,8 @@ template <typename... Fs> class Lazy : public Fs... {
     using Fs::operator()...;
 };
 
-#ifdef __cpp_capture_star_this
-    #define SVS_LAZY(expr) svs::lib::Lazy([=, this]() { return expr; })
-#else
-    #define SVS_LAZY(expr) svs::lib::Lazy([=]() { return expr; })
-#endif
+#define SVS_LAZY_MEMBER(expr) svs::lib::Lazy([=, this]() { return expr; })
+#define SVS_LAZY(expr) svs::lib::Lazy([=]() { return expr; })
 
 template <typename T> inline constexpr bool is_lazy = false;
 template <typename... Fs> inline constexpr bool is_lazy<Lazy<Fs...>> = true;
