@@ -343,7 +343,7 @@ template <typename... Fs> class Lazy : public Fs... {
     using Fs::operator()...;
 };
 
-#define SVS_LAZY(expr) svs::lib::Lazy([=]() { return expr; })
+#define SVS_LAZY(expr) svs::lib::Lazy([=, this]() { return expr; })
 
 template <typename T> inline constexpr bool is_lazy = false;
 template <typename... Fs> inline constexpr bool is_lazy<Lazy<Fs...>> = true;
