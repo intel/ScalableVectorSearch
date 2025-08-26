@@ -22,6 +22,7 @@
 
 // Include the flat index
 #include "svs/index/flat/flat.h"
+#include "svs/index/flat/inserters.h"
 
 // svs
 #include "svs/concepts/distance.h"
@@ -76,6 +77,8 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     using distance_type = Dist;
     using data_type = Data;
     using search_parameters_type = FlatParameters;
+    using compare = distance::compare_t<Dist>;
+    using sorter_type = BulkInserter<Neighbor<size_t>, compare>;
 
   private:
     data_type data_;
@@ -133,6 +136,24 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         search_parameters_ = params;
     }
 
+    ///// Index translation.
+
+    /// @brief Get the internal ID mapped to be `e`.
+    size_t translate_external_id(size_t e) const { return translator_.get_internal(e); }
+
+    /// @brief Get the external ID mapped to be `i`.
+    size_t translate_internal_id(size_t i) const { return translator_.get_external(i); }
+
+    ///
+    /// @brief Check whether the external ID `e` exists in the index.
+    ///
+    bool has_id(size_t e) const { return translator_.has_external(e); }
+
+    ///
+    /// @brief Get the raw data for external id `e`.
+    ///
+    auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
+
     /// @brief Iterate over all external IDs.
     template <typename F> void on_ids(F&& f) const {
         // Use the translator to iterate over all external IDs
@@ -150,38 +171,6 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         on_ids([&ids](size_t id) { ids.push_back(id); });
         return ids;
     }
-
-    ///// Index translation.
-
-    ///
-    /// @brief Get the internal ID mapped to be `e`.
-    ///
-    /// @param e The external ID to translate to an internal ID.
-    ///
-    /// Requires that mapping for `e` exists. Otherwise, all bets are off.
-    ///
-    /// @see has_id, translate_internal_id
-    ///
-    size_t translate_external_id(size_t e) const { return translator_.get_internal(e); }
-
-    ///
-    /// @brief Check whether the external ID `e` exists in the index.
-    ///
-    bool has_id(size_t e) const { return translator_.has_external(e); }
-
-    ///
-    /// @brief Get the external ID mapped to be `i`.
-    ///
-    /// @param i The internal ID to translate to an external ID.
-    ///
-    /// Requires that mapping for `i` exists. Otherwise, all bets are off.
-    ///
-    size_t translate_internal_id(size_t i) const { return translator_.get_external(i); }
-
-    ///
-    /// @brief Get the raw data for external id `e`.
-    ///
-    auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
 
     /// @brief Add the points with the given external IDs to the dataset.
     ///
@@ -262,6 +251,7 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         return slots;
     }
 
+    /*
     ///
     /// Delete all IDs stored in the random-access container `ids`.
     ///
@@ -367,6 +357,86 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
 
     /// @brief Get a descriptive name for this index type.
     constexpr std::string_view name() const { return "dynamic flat index"; }
+    */
+
+    ///// Search Interface
+
+    static const size_t default_data_batch_size = 100'000;
+
+    size_t compute_data_batch_size(const search_parameters_type& p) const {
+        auto sz = p.data_batch_size_;
+        if (sz == 0) {
+            return default_data_batch_size;
+        }
+        return std::min(sz, data_.size());
+    }
+
+    size_t
+    compute_query_batch_size(const search_parameters_type& p, size_t num_queries) const {
+        auto sz = p.query_batch_size_;
+        if (sz == 0) {
+            return lib::div_round_up(num_queries, threadpool_.size());
+        }
+        return std::min(sz, num_queries);
+    }
+
+    /// @brief Main search method
+    template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
+    void search(
+        QueryResultView<size_t> result,
+        const data::ConstSimpleDataView<QueryType>& queries,
+        const search_parameters_type& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        Pred predicate = lib::Returns(lib::Const<true>())
+    ) {
+        const size_t data_max_size = data_.size();
+
+        // Partition the data into `data_batch_size_` chunks.
+        // This will keep all threads at least working on the same sub-region of the dataset
+        // to provide somewhat better locality.
+        auto data_batch_size = compute_data_batch_size(search_parameters);
+
+        // Allocate query processing space.
+        size_t num_neighbors = result.n_neighbors();
+        sorter_type scratch{queries.size(), num_neighbors, compare()};
+        scratch.prepare();
+
+        size_t start = 0;
+        while (start < data_.size()) {
+            // Check if request to cancel the search
+            if (cancel()) {
+                return;
+            }
+            size_t stop = std::min(data_max_size, start + data_batch_size);
+            auto data_indices = threads::UnitRange<size_t>(start, stop);
+            search_subset(
+                queries, data_indices, scratch, search_parameters, cancel, predicate
+            );
+            start = stop;
+        }
+
+        // By this point, all queries have been compared with all dataset elements.
+        // Perform any necessary post-processing on the sorting network and write back
+        // the results after translating to external IDs.
+        scratch.cleanup();
+        threads::parallel_for(
+            threadpool_,
+            threads::StaticPartition(queries.size()),
+            [&](const auto& query_indices, uint64_t) {
+                for (auto q : query_indices) {
+                    const auto& neighbors = scratch.result(q);
+                    for (size_t j = 0; j < neighbors.size(); ++j) {
+                        // Translate internal ID to external ID before setting result
+                        auto external_neighbor = Neighbor<size_t>(
+                            translate_internal_id(neighbors[j].id()),
+                            neighbors[j].distance()
+                        );
+                        result.set(external_neighbor, q, j);
+                    }
+                }
+            }
+        );
+    }
 
   private:
     /// @brief Copy points from the source dataset into the specified slots.
@@ -379,6 +449,95 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     }
 
   public:
+    /// @brief Search over a subset of the data
+    template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
+    void search_subset(
+        const data::ConstSimpleDataView<QueryType>& queries,
+        const threads::UnitRange<size_t>& data_indices,
+        sorter_type& scratch,
+        const search_parameters_type& search_parameters,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        Pred predicate = lib::Returns(lib::Const<true>())
+    ) {
+        // Process all queries.
+        threads::parallel_for(
+            threadpool_,
+            threads::DynamicPartition{
+                queries.size(), compute_query_batch_size(search_parameters, queries.size())
+            },
+            [&](const auto& query_indices, uint64_t) {
+                // Create distance functions for this batch of queries
+                auto distance_functors = distance::BroadcastDistance<distance_type>(
+                    distance_, query_indices.size()
+                );
+                search_patch(
+                    queries,
+                    data_indices,
+                    query_indices,
+                    scratch,
+                    distance_functors,
+                    cancel,
+                    predicate
+                );
+            }
+        );
+    }
+
+    /// @brief Search patch - bottom level search routine
+    template <
+        typename QueryType,
+        typename DistFull,
+        typename Pred = lib::Returns<lib::Const<true>>>
+    void search_patch(
+        const data::ConstSimpleDataView<QueryType>& queries,
+        const threads::UnitRange<size_t>& data_indices,
+        const threads::UnitRange<size_t>& query_indices,
+        sorter_type& scratch,
+        distance::BroadcastDistance<DistFull>& distance_functors,
+        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>()),
+        Pred predicate = lib::Returns(lib::Const<true>())
+    ) {
+        assert(distance_functors.size() >= query_indices.size());
+        auto accessor = data::GetDatumAccessor{};
+
+        // Fix arguments for distance computation
+        for (size_t i = 0; i < query_indices.size(); ++i) {
+            auto query_index = query_indices[i];
+            auto query = queries.get_datum(query_index);
+            distance::maybe_fix_argument(distance_functors[i], query);
+        }
+
+        // Iterate over data indices
+        for (auto data_index : data_indices) {
+            // Check if request to cancel the search
+            if (cancel()) {
+                return;
+            }
+
+            // Skip deleted entries - this is the main difference from flat index
+            if (status_[data_index] != SlotMetadata::Valid) {
+                continue;
+            }
+
+            // Apply predicate filter
+            if (!predicate(data_index)) {
+                continue;
+            }
+
+            // Get the data vector
+            auto data_vector = accessor(data_, data_index);
+
+            // Compute distances for all queries in this batch
+            for (size_t i = 0; i < query_indices.size(); ++i) {
+                auto query_index = query_indices[i];
+                auto distance_val = distance::compute(
+                    distance_functors[i], queries.get_datum(query_index), data_vector
+                );
+                // Use the correct BulkInserter API
+                scratch.insert(query_index, Neighbor<size_t>(data_index, distance_val));
+            }
+        }
+    }
 };
 
 ///// Deduction Guides.

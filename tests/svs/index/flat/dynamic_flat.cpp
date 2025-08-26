@@ -16,9 +16,14 @@
 
 // svs
 #include "svs/index/flat/dynamic_flat.h"
+#include "svs/core/data.h"
+#include "svs/core/distance.h"
+#include "svs/core/query_result.h"
 #include "svs/core/recall.h"
 #include "svs/index/flat/flat.h"
 #include "svs/lib/float16.h"
+#include "svs/lib/preprocessor.h"
+#include "svs/lib/threads.h"
 #include "svs/lib/timing.h"
 #include "svs/misc/dynamic_helper.h"
 
@@ -32,6 +37,7 @@
 // stl
 #include <algorithm>
 #include <cmath>
+#include <concepts>
 #include <random>
 #include <sstream>
 
@@ -61,10 +67,53 @@ template <typename... Args> std::string stringify(Args&&... args) {
 /// Main Loop.
 ///
 
-template <typename MutableIndex>
+template <typename MutableIndex, typename Queries>
+void do_check(
+    MutableIndex& index,
+    svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>& reference,
+    const Queries& queries,
+    double operation_time,
+    std::string message
+) {
+    // Compute groundtruth
+    auto tic = svs::lib::now();
+    auto gt = reference.groundtruth();
+    CATCH_REQUIRE(gt.n_neighbors() == NUM_NEIGHBORS);
+    CATCH_REQUIRE(gt.n_queries() == queries.size());
+
+    double groundtruth_time = svs::lib::time_difference(tic);
+
+    // Run search
+    tic = svs::lib::now();
+    auto results = svs::QueryResult<size_t>(gt.n_queries(), NUM_NEIGHBORS);
+    auto search_parameters = svs::index::flat::FlatParameters();
+
+    index.search(
+        results.view(),
+        svs::data::ConstSimpleDataView<QueryEltype>{
+            queries.data(), queries.size(), queries.dimensions()
+        },
+        search_parameters
+    );
+    double search_time = svs::lib::time_difference(tic);
+
+    // Extra ID checks
+    reference.check_ids(results);
+    reference.check_equal_ids(index);
+
+    // compute recall
+    double recall = svs::k_recall_at_n(gt, results, NUM_NEIGHBORS, NUM_NEIGHBORS);
+
+    std::cout << "[" << message << "] -- {"
+              << "operation: " << operation_time << ", groundtruth: " << groundtruth_time
+              << ", search: " << search_time << ", recall: " << recall << "}\n";
+}
+
+template <typename MutableIndex, typename Queries>
 void test_loop(
     MutableIndex& index,
     svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>& reference,
+    const Queries& queries,
     size_t num_points,
     size_t iterations
 ) {
@@ -74,14 +123,20 @@ void test_loop(
             auto [points, time] = reference.add_points(index, num_points);
             CATCH_REQUIRE(points <= num_points);
             CATCH_REQUIRE(points > num_points - reference.bucket_size());
+            do_check(index, reference, queries, time, stringify("add ", points, " points"));
         }
 
+        /*
         // Delete Points
         {
             auto [points, time] = reference.delete_points(index, num_points);
             CATCH_REQUIRE(points <= num_points);
             CATCH_REQUIRE(points > num_points - reference.bucket_size());
+            do_check(
+                index, reference, queries, time, stringify("delete ", points, " points")
+            );
         }
+        */
     }
 }
 
@@ -140,5 +195,5 @@ CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
     reference.configure_extra_checks(true);
     CATCH_REQUIRE(reference.extra_checks_enabled());
 
-    test_loop(index, reference, div(reference.size(), modify_fraction), 6);
+    test_loop(index, reference, queries, div(reference.size(), modify_fraction), 6);
 }
