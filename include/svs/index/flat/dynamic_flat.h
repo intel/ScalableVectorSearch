@@ -63,7 +63,7 @@ enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 }
 /// A flat index implementation that supports dynamic insertion and deletion of vectors
 /// while maintaining exhaustive search capabilities.
 ///
-template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatIndex {
+template <typename Data, typename Dist> class DynamicFlatIndex {
   public:
     // Traits
     static constexpr bool supports_insertions = true;
@@ -113,19 +113,13 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         );
     }
 
-    ///// Core interface matching FlatIndex
-
     /// @brief Getter method for logger
     svs::logging::logger_ptr get_logger() const { return logger_; }
 
-    /// @brief Return the number of independent entries in the index.
-    size_t size() const {
-        // NB: Index translation should always be kept in-sync with the number of valid
-        // elements.
-        return translator_.size();
-    }
+    /// Return the number of independent entries in the index.
+    size_t size() const { return data_.size(); }
 
-    /// @brief Return the logical number of dimensions of the indexed vectors.
+    /// Return the logical number of dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
 
     /// @brief Get the current search parameters.
@@ -187,7 +181,7 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     /// exist after deletion and consolidation. When enabled, scan from the beginning to
     /// find and fill these empty entries when adding new points.
     ///
-    template <data::ImmutableMemoryDataset Points, class ExternalIds>
+    template <typename Points, class ExternalIds>
     std::vector<size_t> add_points(
         const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
     ) {
@@ -380,7 +374,53 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         return std::min(sz, num_queries);
     }
 
-    /// @brief Main search method
+    /// @anchor flat_class_search_mutating
+    /// @brief Fill the result with the ``num_neighbors`` nearest neighbors for each query.
+    ///
+    /// @tparam Queries The full type of the queries.
+    /// @tparam Pred The type of the optional predicate.
+    ///
+    /// @param result The result data structure to populate.
+    ///     Row `i` in the result corresponds to the neighbors for the `i`th query.
+    ///     Neighbors within each row are ordered from nearest to furthest.
+    ///     ``num_neighbors`` is computed from the number of columns in ``result``.
+    /// @param queries A dense collection of queries in R^n.
+    /// @param search_parameters search parameters to use for the search.
+    /// @param cancel A predicate called during the search to determine if the search should
+    /// be cancelled.
+    //      Return ``true`` if the search should be cancelled. This functor must implement
+    //      ``bool operator()()``. Note: This predicate should be thread-safe as it can be
+    //      called concurrently by different threads during the search.
+    /// @param predicate A predicate functor that can be used to exclude certain dataset
+    ///     elements from consideration. This functor must implement
+    ///     ``bool operator()(size_t)`` where the ``size_t`` argument is an index in
+    ///     ``[0, data.size())``. If the predicate returns ``true``, that dataset element
+    ///     will be considered.
+    ///
+    /// **Preconditions:**
+    ///
+    /// The following pre-conditions must hold. Otherwise, the behavior is undefined.
+    /// - ``result.n_queries() == queries.size()``
+    /// - ``result.n_neighbors() == num_neighbors``.
+    /// - The value type of ``queries`` is compatible with the value type of the index
+    ///     dataset with respect to the stored distance functor.
+    ///
+    /// **Implementation Details**
+    ///
+    /// The internal call stack looks something like this.
+    ///
+    /// @code{}
+    /// search: Prepare scratch space and perform tiling over the dataset.
+    ///   |
+    ///   +-> search_subset: multi-threaded search of all queries over the current subset
+    ///       of the dataset. Partitions up the queries according to query batch size
+    ///       and dynamically load balances query partition among worker threads.
+    ///         |
+    ///         +-> search_patch: Bottom level routine meant to run on a single thread.
+    ///             Compute the distances between a subset of the queries and a subset
+    ///             of the data and maintines the `num_neighbors` best results seen so far.
+    /// @endcode{}
+    ///
     template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
     void search(
         QueryResultView<size_t> result,
@@ -405,12 +445,17 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         while (start < data_.size()) {
             // Check if request to cancel the search
             if (cancel()) {
+                scratch.cleanup();
                 return;
             }
             size_t stop = std::min(data_max_size, start + data_batch_size);
-            auto data_indices = threads::UnitRange<size_t>(start, stop);
             search_subset(
-                queries, data_indices, scratch, search_parameters, cancel, predicate
+                queries,
+                threads::UnitRange(start, stop),
+                scratch,
+                search_parameters,
+                cancel,
+                predicate
             );
             start = stop;
         }
@@ -422,7 +467,7 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition(queries.size()),
-            [&](const auto& query_indices, uint64_t) {
+            [&](const auto& query_indices, uint64_t /*tid*/) {
                 for (auto q : query_indices) {
                     const auto& neighbors = scratch.result(q);
                     for (size_t j = 0; j < neighbors.size(); ++j) {
@@ -440,7 +485,7 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
 
   private:
     /// @brief Copy points from the source dataset into the specified slots.
-    template <data::ImmutableMemoryDataset Points>
+    template <typename Points>
     void copy_points(const Points& points, const std::vector<size_t>& slots) {
         assert(points.size() == slots.size());
         for (size_t i = 0; i < points.size(); ++i) {
@@ -449,7 +494,6 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
     }
 
   public:
-    /// @brief Search over a subset of the data
     template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
     void search_subset(
         const data::ConstSimpleDataView<QueryType>& queries,
@@ -465,17 +509,19 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
             threads::DynamicPartition{
                 queries.size(), compute_query_batch_size(search_parameters, queries.size())
             },
-            [&](const auto& query_indices, uint64_t) {
-                // Create distance functions for this batch of queries
-                auto distance_functors = distance::BroadcastDistance<distance_type>(
-                    distance_, query_indices.size()
-                );
+            [&](const auto& query_indices, uint64_t /*tid*/) {
+                // Broadcast the distance functor so each thread can process all queries
+                // in its current batch.
+                distance::BroadcastDistance distances{
+                    extensions::distance(data_, distance_), query_indices.size()
+                };
+
                 search_patch(
                     queries,
                     data_indices,
-                    query_indices,
+                    threads::UnitRange(query_indices),
                     scratch,
-                    distance_functors,
+                    distances,
                     cancel,
                     predicate
                 );
@@ -483,7 +529,11 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         );
     }
 
-    /// @brief Search patch - bottom level search routine
+    // Perform all distance computations between the queries and the stored dataset over
+    // the cartesian product of `query_indices` x `data_indices`.
+    //
+    // Insert the computed distance for each query/distance pair into `scratch`, which
+    // will maintain the correct number of nearest neighbors.
     template <
         typename QueryType,
         typename DistFull,
@@ -500,11 +550,11 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
         assert(distance_functors.size() >= query_indices.size());
         auto accessor = data::GetDatumAccessor{};
 
-        // Fix arguments for distance computation
+        // Fix arguments
         for (size_t i = 0; i < query_indices.size(); ++i) {
-            auto query_index = query_indices[i];
-            auto query = queries.get_datum(query_index);
-            distance::maybe_fix_argument(distance_functors[i], query);
+            distance::maybe_fix_argument(
+                distance_functors[i], queries.get_datum(query_indices[i])
+            );
         }
 
         // Iterate over data indices
@@ -514,27 +564,27 @@ template <data::ImmutableMemoryDataset Data, typename Dist> class DynamicFlatInd
                 return;
             }
 
-            // Skip deleted entries - this is the main difference from flat index
+            // Skip deleted entries
             if (status_[data_index] != SlotMetadata::Valid) {
                 continue;
             }
 
-            // Apply predicate filter
+            // Skip this index if it doesn't pass the predicate.
             if (!predicate(data_index)) {
                 continue;
             }
 
-            // Get the data vector
-            auto data_vector = accessor(data_, data_index);
+            auto datum = accessor(data_, data_index);
 
-            // Compute distances for all queries in this batch
+            // Loop over the queries.
+            // Compute the distance between each query and the dataset element and insert
+            // it into the sorting network.
             for (size_t i = 0; i < query_indices.size(); ++i) {
                 auto query_index = query_indices[i];
-                auto distance_val = distance::compute(
-                    distance_functors[i], queries.get_datum(query_index), data_vector
+                auto d = distance::compute(
+                    distance_functors[i], queries.get_datum(query_index), datum
                 );
-                // Use the correct BulkInserter API
-                scratch.insert(query_index, Neighbor<size_t>(data_index, distance_val));
+                scratch.insert(query_index, {data_index, d});
             }
         }
     }
