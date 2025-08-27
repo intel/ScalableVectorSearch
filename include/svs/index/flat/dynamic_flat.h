@@ -505,7 +505,6 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         );
     }
 
-  private:
     /// @brief Copy points from the source dataset into the specified slots.
     template <typename Points>
     void copy_points(const Points& points, const std::vector<size_t>& slots) {
@@ -515,7 +514,6 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         }
     }
 
-  public:
     template <typename QueryType, typename Pred = lib::Returns<lib::Const<true>>>
     void search_subset(
         const data::ConstSimpleDataView<QueryType>& queries,
