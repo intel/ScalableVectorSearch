@@ -64,6 +64,10 @@ enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 }
 /// while maintaining exhaustive search capabilities.
 ///
 template <typename Data, typename Dist> class DynamicFlatIndex {
+    static_assert(
+        data::ImmutableMemoryDataset<Data>, "Data must satisfy ImmutableMemoryDataset"
+    );
+
   public:
     // Traits
     static constexpr bool supports_insertions = true;
@@ -117,7 +121,11 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     svs::logging::logger_ptr get_logger() const { return logger_; }
 
     /// Return the number of independent entries in the index.
-    size_t size() const { return data_.size(); }
+    size_t size() const {
+        // NB: Index translation should always be kept in-sync with the number of valid
+        // elements.
+        return translator_.size();
+    }
 
     /// Return the logical number of dimensions of the indexed vectors.
     size_t dimensions() const { return data_.dimensions(); }
@@ -245,7 +253,6 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         return slots;
     }
 
-    /*
     ///
     /// Delete all IDs stored in the random-access container `ids`.
     ///
@@ -351,7 +358,6 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
 
     /// @brief Get a descriptive name for this index type.
     constexpr std::string_view name() const { return "dynamic flat index"; }
-    */
 
     ///// Search Interface
 

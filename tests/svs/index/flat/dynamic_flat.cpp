@@ -126,7 +126,6 @@ void test_loop(
             do_check(index, reference, queries, time, stringify("add ", points, " points"));
         }
 
-        /*
         // Delete Points
         {
             auto [points, time] = reference.delete_points(index, num_points);
@@ -136,7 +135,6 @@ void test_loop(
                 index, reference, queries, time, stringify("delete ", points, " points")
             );
         }
-        */
     }
 }
 
