@@ -46,6 +46,7 @@ header:
     - '.github/renovate.json'
     - '.github/CODEOWNERS'
     - 'cmake/mkl_functions'
+    - 'cmake/mkl_functions_ivf'
     - 'cmake/patches/tomlplusplus_v330.patch'
     - 'docker/x86_64/manylinux2014/oneAPI.repo'
     - 'docs/cpp/index/loader-compatibility.csv'
