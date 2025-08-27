@@ -115,8 +115,10 @@ void test_loop(
     svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>& reference,
     const Queries& queries,
     size_t num_points,
+    size_t consolidate_every,
     size_t iterations
 ) {
+    size_t consolidate_count = 0;
     for (size_t i = 0; i < iterations; ++i) {
         // Add Points
         {
@@ -134,6 +136,24 @@ void test_loop(
             do_check(
                 index, reference, queries, time, stringify("delete ", points, " points")
             );
+        }
+
+        // Maybe consolidate.
+        ++consolidate_count;
+        if (consolidate_count == consolidate_every) {
+            auto tic = svs::lib::now();
+            index.consolidate();
+            double diff = svs::lib::time_difference(tic);
+            do_check(index, reference, queries, diff, "consolidate");
+            consolidate_count = 0;
+
+            // Compact
+            tic = svs::lib::now();
+            // Use a batchsize smaller than the whole dataset to ensure that the compaction
+            // algorithm correctly handles this case.
+            index.compact(reference.valid() / 10);
+            diff = svs::lib::time_difference(tic);
+            do_check(index, reference, queries, diff, "compact");
         }
     }
 }
@@ -193,5 +213,5 @@ CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
     reference.configure_extra_checks(true);
     CATCH_REQUIRE(reference.extra_checks_enabled());
 
-    test_loop(index, reference, queries, div(reference.size(), modify_fraction), 6);
+    test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
 }

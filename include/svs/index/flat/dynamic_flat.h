@@ -347,6 +347,22 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         status_.resize(max_index);
     }
 
+    ///// Consolidation
+
+    /// @brief Consolidate the data structure by converting deleted entries to empty.
+    ///
+    /// This method performs consolidation by changing all entries marked as "Deleted"
+    /// to "Empty", making them available for reuse during future insertions.
+    /// Unlike compact(), this method does not physically move data.
+    ///
+    void consolidate() {
+        for (auto& meta : status_) {
+            if (meta == SlotMetadata::Deleted) {
+                meta = SlotMetadata::Empty;
+            }
+        }
+    }
+
     ///// Saving
 
     /// @brief Save the index to disk.
