@@ -31,7 +31,8 @@ auto kmeans_clustering_impl(
     Data& data,
     Distance& distance,
     Pool& threadpool,
-    lib::Type<I> SVS_UNUSED(integer_type) = {}
+    lib::Type<I> SVS_UNUSED(integer_type) = {},
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto timer = lib::Timer();
     auto kmeans_timer = timer.push_back("Non-hierarchical kmeans clustering");
@@ -129,8 +130,10 @@ auto kmeans_clustering_impl(
     }
     final_assignments_time.finish();
     kmeans_timer.finish();
-    svs::logging::debug("{}", timer);
-    fmt::print("kmeans clustering time: {}\n", lib::as_seconds(timer.elapsed()));
+    svs::logging::debug(logger, "{}", timer);
+    svs::logging::debug(
+        logger, "kmeans clustering time: {}\n", lib::as_seconds(timer.elapsed())
+    );
     return std::make_tuple(centroids, std::move(clusters));
 }
 
@@ -145,10 +148,11 @@ auto kmeans_clustering(
     Data& data,
     Distance& distance,
     Pool& threadpool,
-    lib::Type<I> integer_type = {}
+    lib::Type<I> integer_type = {},
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     return kmeans_clustering_impl<BuildType>(
-        parameters, data, distance, threadpool, integer_type
+        parameters, data, distance, threadpool, integer_type, std::move(logger)
     );
 }
 } // namespace svs::index::ivf
