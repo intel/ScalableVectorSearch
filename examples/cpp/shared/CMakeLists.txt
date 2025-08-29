@@ -19,7 +19,7 @@ project(svs_shared_library_example
 )
 
 # Other AVX versions can be found at https://github.com/intel/ScalableVectorSearch/releases.
-set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.8-dev/svs-shared-library-0.0.8-NIGHTLY-20250520-256-AVX512.tar.gz")
+set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.9/svs-shared-library-0.0.9.tar.gz")
 
 include(FetchContent)
 FetchContent_Declare(
@@ -35,6 +35,15 @@ find_library(SVS_SHARED svs_shared_library)
 set(SVS_CXX_STANDARD 20)
 SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Werror -Wall -Wextra -Wpedantic" )
 
-add_executable(shared shared.cpp)
-target_link_libraries(shared PUBLIC ${SVS_SHARED} svs::svs)
+# Configure path to the datasets used in these examples
+set(DATA_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../../data/test_dataset")
 
+function(create_example_executable exe file)
+    add_executable(${exe} ${file})
+    target_compile_definitions(${exe} PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
+    target_link_libraries(${exe} PUBLIC ${SVS_SHARED} svs::svs)
+endfunction()
+
+create_example_executable(shared shared.cpp)
+create_example_executable(example_vamana_with_compression_lvq example_vamana_with_compression_lvq.cpp)
+create_example_executable(example_vamana_with_compression example_vamana_with_compression.cpp)

@@ -106,6 +106,16 @@ consteval bool is_one_or_zero(const char* ptr) {
     }
 
 /////
+///// Optional flags
+/////
+#if defined(SVS_ENABLE_OMP)
+#define SVS_OMP 1
+#else
+#define SVS_OMP 0
+#endif
+
+
+/////
 ///// Intel(R) AVX extensions
 /////
 
