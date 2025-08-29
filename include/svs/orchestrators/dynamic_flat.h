@@ -31,6 +31,8 @@ namespace svs {
 ///
 class DynamicFlatInterface : public FlatInterface {
   public:
+    using search_parameters_type = svs::index::flat::FlatParameters;
+
     // TODO: For now - only accept floating point entries.
     virtual void add_points(
         const float* data,
@@ -40,15 +42,20 @@ class DynamicFlatInterface : public FlatInterface {
         bool reuse_empty = false
     ) = 0;
 
+    virtual void delete_points(std::span<const size_t> ids) = 0;
+    virtual void consolidate() = 0;
+    virtual void compact(size_t batchsize = 1'000) = 0;
+
     // ID inspection.
     virtual bool has_id(size_t id) const = 0;
     virtual void all_ids(std::vector<size_t>& ids) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
-class DynamicFlatImpl : public FlatImpl<QueryTypes, Impl, DynamicFlatInterface> {
+class DynamicFlatImpl
+    : public manager::ManagerImpl<QueryTypes, Impl, DynamicFlatInterface> {
   public:
-    using base_type = FlatImpl<QueryTypes, Impl, DynamicFlatInterface>;
+    using base_type = manager::ManagerImpl<QueryTypes, Impl, DynamicFlatInterface>;
     using base_type::impl;
 
     explicit DynamicFlatImpl(Impl impl)
@@ -70,12 +77,31 @@ class DynamicFlatImpl : public FlatImpl<QueryTypes, Impl, DynamicFlatInterface> 
         impl().add_points(points, ids, reuse_empty);
     }
 
+    void delete_points(std::span<const size_t> ids) override { impl().delete_entries(ids); }
+    void consolidate() override { impl().consolidate(); }
+    void compact(size_t batchsize) override { impl().compact(batchsize); }
+
     // ID inspection.
     bool has_id(size_t id) const override { return impl().has_id(id); }
 
     void all_ids(std::vector<size_t>& ids) const override {
         ids.clear();
         impl().on_ids([&ids](size_t id) { ids.push_back(id); });
+    }
+
+    ///// Distance
+    double get_distance(size_t id, const AnonymousArray<1>& query) const override {
+        return svs::lib::match(
+            QueryTypes{}, query.type(), [&]<typename T>(svs::lib::Type<T>) {
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                return impl().get_distance(id, query_span);
+            }
+        );
+    }
+
+    ///// Saving
+    void save(const std::filesystem::path& data_directory) const override {
+        impl().save(data_directory);
     }
 };
 
@@ -124,6 +150,21 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
         return *this;
     }
 
+    DynamicFlat& delete_points(std::span<const size_t> ids) {
+        impl_->delete_points(ids);
+        return *this;
+    }
+
+    DynamicFlat& consolidate() {
+        impl_->consolidate();
+        return *this;
+    }
+
+    DynamicFlat& compact(size_t batchsize = 1'000) {
+        impl_->compact(batchsize);
+        return *this;
+    }
+
     // ID Inspection
 
     ///
@@ -144,6 +185,10 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
         auto v = std::vector<size_t>();
         impl_->all_ids(v);
         return v;
+    }
+
+    void save(const std::filesystem::path& data_directory) const {
+        impl_->save(data_directory);
     }
 
     // Assembly

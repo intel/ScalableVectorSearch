@@ -366,14 +366,30 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     ///// Saving
 
     /// @brief Save the index to disk.
-    void save(const std::filesystem::path& data_directory) {
+    void save(const std::filesystem::path& data_directory) const {
         // Compact before saving to remove deleted entries
-        compact();
+        const_cast<DynamicFlatIndex*>(this)->compact();
         lib::save_to_disk(data_, data_directory);
     }
 
     /// @brief Get a descriptive name for this index type.
     constexpr std::string_view name() const { return "dynamic flat index"; }
+
+    ///// Thread Pool Management
+
+    /// @brief Get the number of threads in the thread pool.
+    size_t get_num_threads() const { return threadpool_.size(); }
+
+    /// @brief Set the thread pool for the index.
+    void set_threadpool(threads::ThreadPoolHandle threadpool) {
+        threadpool_ = std::move(threadpool);
+    }
+
+    /// @brief Get a reference to the thread pool handle.
+    threads::ThreadPoolHandle& get_threadpool_handle() { return threadpool_; }
+
+    /// @brief Get a const reference to the thread pool handle.
+    const threads::ThreadPoolHandle& get_threadpool_handle() const { return threadpool_; }
 
     ///// Search Interface
 
@@ -607,6 +623,37 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
                 scratch.insert(query_index, {data_index, d});
             }
         }
+    }
+
+    ///// Distance
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename ExternalId, typename Query>
+    double get_distance(const ExternalId& external_id, const Query& query) const {
+        // Check if the external ID exists
+        if (!has_id(external_id)) {
+            throw ANNEXCEPTION(
+                "ID {} is out of bounds for index of size {}!", external_id, size()
+            );
+        }
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Translate external ID to internal ID
+        auto internal_id = translate_external_id(external_id);
+
+        // Call extension for distance computation
+        return svs::index::flat::extensions::get_distance_ext(
+            data_, distance_, internal_id, query
+        );
     }
 };
 
