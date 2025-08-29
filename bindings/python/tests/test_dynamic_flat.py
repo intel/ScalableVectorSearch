@@ -1,0 +1,119 @@
+# Copyright 2025 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# unit under test
+import svs
+
+# stdlib
+import unittest
+import os
+from tempfile import TemporaryDirectory
+import numpy as np
+
+# helpers
+from .dynamic import ReferenceDataset
+
+class DynamicFlatTester(unittest.TestCase):
+    """
+    Test building, adding, deleting points from the dynamic flat index.
+    """
+
+    def id_check(self, index, ids):
+        # Check that every id in `ids` is in the index.
+        for this_id in ids:
+            self.assertTrue(index.has_id(this_id))
+
+        # Check that every id in the index is in `ids`
+        all_ids = index.all_ids()
+        for this_id in all_ids:
+            self.assertTrue(this_id in ids)
+
+    def recall_check(
+            self,
+            index: svs.DynamicFlat,
+            reference: ReferenceDataset,
+            num_neighbors: int,
+            expected_recall,
+            recall_delta,
+        ):
+        gt = reference.ground_truth(num_neighbors)
+        I, D = index.search(reference.queries, num_neighbors)
+        recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
+        print("    Recall: ", recall)
+        self.assertTrue(recall < expected_recall + recall_delta)
+        self.assertTrue(recall > expected_recall - recall_delta)
+
+    def test_loop(self):
+        num_threads = 2
+        num_neighbors = 10
+        num_tests = 10
+        consolidate_every = 2
+        delta = 1000
+
+        expected_recall = 0.999
+        expected_recall_delta = 0.01
+
+        reference = ReferenceDataset(num_threads = num_threads)
+        data, ids = reference.new_ids(5000)
+
+        dummy_data = np.zeros((1, 128), dtype=np.float32)  # Single 128D point to start
+        index = svs.DynamicFlat(
+            dummy_data,
+            svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        
+        dummy_ids = index.all_ids()  # Should be [0]
+        index.delete(dummy_ids)
+        index.consolidate()
+        
+        # Now add our real data with the custom IDs
+        index.add(data, ids)
+
+        # Perform an ID check
+        self.id_check(index, reference.ids())
+
+        # Groundtruth Check
+        print("Initial")
+        self.recall_check(
+            index, reference, num_neighbors, expected_recall, expected_recall_delta
+        )
+
+        consolidate_count = 0
+        for i in range(num_tests):
+            (data, ids) = reference.new_ids(delta)
+            index.add(data, ids)
+            print("Add")
+            self.id_check(index, reference.ids())
+            self.recall_check(
+                index, reference, num_neighbors, expected_recall, expected_recall_delta
+            )
+
+            ids = reference.remove_ids(delta)
+            index.delete(ids)
+            print("Delete")
+            self.id_check(index, reference.ids())
+            self.recall_check(
+                index, reference, num_neighbors, expected_recall, expected_recall_delta
+            )
+
+            consolidate_count += 1
+            if consolidate_count == consolidate_every:
+                index.consolidate().compact(1000)
+                self.id_check(index, reference.ids())
+                print("Cleanup")
+                self.recall_check(
+                    index, reference, num_neighbors, expected_recall, expected_recall_delta
+                )
+                consolidate_count = 0
