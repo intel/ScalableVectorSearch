@@ -18,6 +18,7 @@
 #include "svs/python/allocator.h"
 #include "svs/python/common.h"
 #include "svs/python/core.h"
+#include "svs/python/dynamic_flat.h"
 #include "svs/python/dynamic_vamana.h"
 #include "svs/python/flat.h"
 #include "svs/python/svs_mkl.h"
@@ -209,6 +210,7 @@ Args:
     ///// Indexes
     // Flat
     svs::python::flat::wrap(m);
+    svs::python::dynamic_flat::wrap(m);
 
     // Vamana
     svs::python::vamana::wrap(m);
