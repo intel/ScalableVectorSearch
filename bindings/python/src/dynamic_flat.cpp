@@ -56,6 +56,49 @@ template <typename F> void for_standard_specializations(F&& f) {
 }
 
 template <typename ElementType>
+svs::DynamicFlat build_from_array(
+    py_contiguous_array_t<ElementType> py_data,
+    py_contiguous_array_t<size_t> py_ids,
+    svs::DistanceType distance_type,
+    size_t num_threads
+) {
+    auto dispatcher = svs::DistanceDispatcher(distance_type);
+    return dispatcher([&](auto distance) {
+        return svs::DynamicFlat::build<ElementType>(
+            create_blocked_data(py_data),
+            std::span(py_ids.data(), py_ids.size()),
+            distance,
+            num_threads
+        );
+    });
+}
+
+const char* BUILD_FROM_ARRAY_DOC = R"(
+Construct a DynamicFlat index over the given data with custom IDs, returning a searchable index.
+
+Args:
+    data: The dataset to index. **NOTE**: SVS will maintain an internal copy of the
+        dataset. This may change in future releases.
+    ids: Vector of ids to assign to each row in ``data``. Must have the same number of
+        elements as ``data`` has rows.
+    distance_type: The distance type to use for this dataset.
+    num_threads: Number of threads for index construction.
+)";
+
+template <typename ElementType>
+void add_build_specialization(py::class_<svs::DynamicFlat>& index) {
+    index.def_static(
+        "build",
+        &build_from_array<ElementType>,
+        py::arg("data"),
+        py::arg("ids"),
+        py::arg("distance_type"),
+        py::arg("num_threads") = 1,
+        BUILD_FROM_ARRAY_DOC
+    );
+}
+
+template <typename ElementType>
 void add_points(
     svs::DynamicFlat& index,
     const py_contiguous_array_t<ElementType>& py_data,
@@ -74,62 +117,6 @@ void add_points(
         );
     }
     index.add_points(data_view(py_data), std::span(ids.data(), ids.size()), reuse_empty);
-}
-
-/////
-///// Initialize DynamicFlat from Numpy Array
-/////
-template <typename Q, typename T, size_t N>
-svs::DynamicFlat assemble_from_array(
-    svs::data::ConstSimpleDataView<T, N> view,
-    svs::DistanceType distance_type,
-    size_t n_threads
-) {
-    // Create the data storage
-    auto data =
-        svs::data::SimpleData<T, N, RebindAllocator<T>>(view.size(), view.dimensions());
-    svs::data::copy(view, data);
-
-    // Use distance dispatcher to create the index with proper distance type
-    auto dispatcher = svs::DistanceDispatcher(distance_type);
-    return dispatcher([&](auto distance) {
-        return svs::DynamicFlat::assemble<Q>(std::move(data), distance, n_threads);
-    });
-}
-svs::DynamicFlat assemble_from_array(
-    AnonymousVectorData data, svs::DistanceType distance_type, size_t n_threads
-) {
-    auto dispatcher = svs::lib::
-        Dispatcher<svs::DynamicFlat, AnonymousVectorData, svs::DistanceType, size_t>();
-    for_standard_specializations([&dispatcher]<typename Q, typename T, size_t N>() {
-        dispatcher.register_target(assemble_from_array<Q, T, N>);
-    });
-    return dispatcher.invoke(data, distance_type, n_threads);
-}
-
-template <typename QueryType, typename ElementType>
-void add_assemble_specialization(py::class_<svs::DynamicFlat>& flat) {
-    flat.def(
-        py::init([](py_contiguous_array_t<ElementType> py_data,
-                    svs::DistanceType distance_type,
-                    size_t num_threads) {
-            return assemble_from_array(
-                AnonymousVectorData(py_data), distance_type, num_threads
-            );
-        }),
-        py::arg("data"),
-        py::arg("distance"),
-        py::arg("num_threads") = 1,
-        R"(
-Construct a DynamicFlat index over the given data, returning a searchable index.
-
-Args:
-    data: The dataset to index. **NOTE**: SVS will maintain an internal copy of the
-        dataset. This may change in future releases.
-    distance: The distance type to use for this dataset.
-    num_threads: Number of threads for index construction.
-)"
-    );
 }
 
 const char* ADD_POINTS_DOCSTRING = R"(
@@ -266,11 +253,8 @@ void wrap(py::module& m) {
         py::arg("num_threads") = 1
     );
 
-    // Array construction - similar to flat.cpp
-    add_assemble_specialization<float, svs::Float16>(flat);
-    add_assemble_specialization<float, float>(flat);
-    add_assemble_specialization<uint8_t, uint8_t>(flat);
-    add_assemble_specialization<int8_t, int8_t>(flat);
+    // Index building.
+    add_build_specialization<float>(flat);
 
     // Index modification.
     add_points_specialization<float>(flat);

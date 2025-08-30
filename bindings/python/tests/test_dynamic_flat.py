@@ -67,19 +67,13 @@ class DynamicFlatTester(unittest.TestCase):
         reference = ReferenceDataset(num_threads = num_threads)
         data, ids = reference.new_ids(5000)
 
-        dummy_data = np.zeros((1, 128), dtype=np.float32)  # Single 128D point to start
-        index = svs.DynamicFlat(
-            dummy_data,
+        # Use the build method to create the index directly with custom IDs
+        index = svs.DynamicFlat.build(
+            data,
+            ids,
             svs.DistanceType.L2,
-            num_threads = num_threads,
+            num_threads
         )
-        
-        dummy_ids = index.all_ids()  # Should be [0]
-        index.delete(dummy_ids)
-        index.consolidate()
-        
-        # Now add our real data with the custom IDs
-        index.add(data, ids)
 
         # Perform an ID check
         self.id_check(index, reference.ids())
