@@ -191,6 +191,26 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
         impl_->save(data_directory);
     }
 
+    // Building
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicFlat build(
+        Data data,
+        std::span<const size_t> ids,
+        Distance distance,
+        ThreadPoolProto threadpool_proto
+    ) {
+        return make_dynamic_flat<manager::as_typelist<QueryTypes>>(
+            std::move(data),
+            ids,
+            std::move(distance),
+            threads::as_threadpool(std::move(threadpool_proto))
+        );
+    }
+
     // Assembly
     template <
         manager::QueryTypeDefinition QueryTypes,
