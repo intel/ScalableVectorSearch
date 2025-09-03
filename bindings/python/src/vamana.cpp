@@ -454,7 +454,7 @@ void wrap(py::module& m) {
                     longer construction time. Should be larger than `graph_max_degree`.
                 max_candidate_pool_size: Limit on the number of candidates to consider
                     for neighbor updates. Should be larger than `window_size`.
-                    The default value is ``graph_max_degree`` * 2.
+                    The default value is ``window_size`` * 3.
                 prune_to: Amount candidate lists will be pruned to when exceeding the
                     target max degree. In general, setting this to slightly less than
                     ``graph_max_degree`` will yield faster index building times. Default:
