@@ -6,7 +6,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Searching with a small memory footprint &mdash; Scalable Vector Search 0.0.1 documentation</title>
+  <title>ISA Dispatching &mdash; Scalable Vector Search 0.0.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
       <link rel="stylesheet" type="text/css" href="../_static/sphinx_collapse.css?v=226d88b4" />
@@ -21,8 +21,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Building the open-source SVS library" href="build.html" />
-    <link rel="prev" title="Advanced Topics" href="index.html" /> 
+    <link rel="next" title="Benchmarks" href="../benchs/index.html" />
+    <link rel="prev" title="Graph-based similarity search" href="graph_search.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -54,11 +54,16 @@
 <li class="toctree-l1"><a class="reference internal" href="../io.html">I/O and Conversion Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance Tuning</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Advanced Topics</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Searching with a small memory footprint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lowermem.html">Searching with a small memory footprint</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build.html">Building the open-source SVS library</a></li>
 <li class="toctree-l2"><a class="reference internal" href="static_dimensionality.html">Static Dimensionality</a></li>
 <li class="toctree-l2"><a class="reference internal" href="graph_search.html">Graph-based similarity search</a></li>
-<li class="toctree-l2"><a class="reference internal" href="isa_dispatching.html">ISA Dispatching</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ISA Dispatching</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#supported-architectures-and-extensions">Supported Architectures and Extensions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#functionality-coverage">Functionality Coverage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dispatching-limitations">Dispatching Limitations</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../benchs/index.html">Benchmarks</a></li>
@@ -107,9 +112,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Advanced Topics</a></li>
-      <li class="breadcrumb-item active">Searching with a small memory footprint</li>
+      <li class="breadcrumb-item active">ISA Dispatching</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/advanced/lowermem.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/advanced/isa_dispatching.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -117,27 +122,107 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="searching-with-a-small-memory-footprint">
-<span id="lowermem"></span><h1>Searching with a small memory footprint<a class="headerlink" href="#searching-with-a-small-memory-footprint" title="Link to this heading"></a></h1>
-<p>In large-scale scenarios, the memory requirement for graph-based methods grows quickly. To reduce the memory footprint
-we recommend:</p>
-<ol class="arabic simple">
-<li><p>Use <a class="reference internal" href="../start.html#search-with-compression"><span class="std std-ref">vector compression for search</span></a>. The supported vector compression, <a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">LVQ</span></a>, reduces the
-memory footprint and improves performance.</p></li>
-<li><p>Build the graph with a small <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> (e.g., 32). SVS optimizations enable very high search performance even in graphs
-built with small <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> (see <a class="reference internal" href="../benchs/static/previous/large_scale_benchs.html#search-with-reduced-memory-benchs"><span class="std std-ref">Search with Reduced Memory Footprint</span></a>).</p></li>
-<li><p>Use <a class="reference internal" href="../features.html#building-with-compressed-vectors"><span class="std std-ref">vector compression for graph building</span></a>. The supported vector compression,
-<a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">LVQ</span></a>, enables graph building with compressed vectors with almost no degradation in search
-accuracy compared to a graph built with full precision vectors <a class="reference internal" href="../features.html#abht23" id="id1"><span>[ABHT23]</span></a>.</p></li>
-</ol>
+  <section id="isa-dispatching">
+<span id="id1"></span><h1>ISA Dispatching<a class="headerlink" href="#isa-dispatching" title="Link to this heading"></a></h1>
+<p>SVS implements <strong>Instruction Set Architecture (ISA) dispatching</strong> to automatically select optimized code paths at runtime based on the capabilities of the target CPU.
+This mechanism ensures optimal performance by utilizing the most advanced instruction sets available on the hardware while maintaining compatibility with older processors.</p>
+<section id="supported-architectures-and-extensions">
+<h2>Supported Architectures and Extensions<a class="headerlink" href="#supported-architectures-and-extensions" title="Link to this heading"></a></h2>
+<p>ISA dispatching is currently implemented for x86-64 architecture only.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 40.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Extension</p></th>
+<th class="head"><p>Supported Processors</p></th>
+<th class="head"><p>Used Compiler Flags</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SSE2 (baseline)</p></td>
+<td><p>All modern x86-64 CPUs</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-march=x86-64</span> <span class="pre">-mtune=generic</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>AVX2</p></td>
+<td><p>Starting from Intel Haswell CPUs</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-march=haswell</span> <span class="pre">-mtune=haswell</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>AVX-512</p></td>
+<td><p>Starting from Intel Skylake Server CPUs</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-march=cascadelake</span> <span class="pre">-mtune=cascadelake</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>AVX-512 VNNI</p></td>
+<td><p>Starting from Intel Cascade Lake CPUs</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-march=cascadelake</span> <span class="pre">-mtune=cascadelake</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="functionality-coverage">
+<h2>Functionality Coverage<a class="headerlink" href="#functionality-coverage" title="Link to this heading"></a></h2>
+<p>ISA dispatching is implemented for the following performance-critical operations:</p>
+<ul class="simple">
+<li><p><strong>Distance Computations</strong></p>
+<ul>
+<li><p>Euclidean (L2)</p></li>
+<li><p>Inner Product</p></li>
+<li><p>Cosine Similarity</p></li>
+</ul>
+</li>
+<li><p><strong>Quantization Operations</strong></p>
+<ul>
+<li><p>Quantized Distance Computation: Fast distance calculations on quantized vectors</p></li>
+<li><p>Vector Decompression: Efficient decompression of quantized vectors back to full precision</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="dispatching-limitations">
+<h2>Dispatching Limitations<a class="headerlink" href="#dispatching-limitations" title="Link to this heading"></a></h2>
+<p>Optimized ISA-specific code paths are compiled only
+for the data types and dimensions most commonly used in practice.
+If a specific combination of data type and dimension is not supported,
+SVS will use a generic implementation that works on all x86-64 CPUs.</p>
+<p>Currently, the following data types and dimensions are supported:</p>
+<ul class="simple">
+<li><p><strong>Data Types</strong></p>
+<ul>
+<li><p>int8</p></li>
+<li><p>uint8</p></li>
+<li><p>float16</p></li>
+<li><p>float32</p></li>
+</ul>
+</li>
+<li><p><strong>Dimensions</strong></p>
+<ul>
+<li><p>Dynamic dimensionality (any dimension not requested on the compile time)</p></li>
+<li><p>64</p></li>
+<li><p>96</p></li>
+<li><p>100</p></li>
+<li><p>128</p></li>
+<li><p>160</p></li>
+<li><p>200</p></li>
+<li><p>512</p></li>
+<li><p>768</p></li>
+</ul>
+</li>
+</ul>
+<p>For the most relevant list of dispatched data type and dimensions,
+please refer to the source code in <code class="docutils literal notranslate"><span class="pre">include/svs/multi-arch/x86</span></code> directory.</p>
+<p>For the difference between static and dynamic dimensionality,
+please refer to <a class="reference internal" href="static_dimensionality.html#static-dim"><span class="std std-ref">Static Dimensionality</span></a> section.</p>
+</section>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="index.html" class="btn btn-neutral float-left" title="Advanced Topics" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="build.html" class="btn btn-neutral float-right" title="Building the open-source SVS library" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="graph_search.html" class="btn btn-neutral float-left" title="Graph-based similarity search" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../benchs/index.html" class="btn btn-neutral float-right" title="Benchmarks" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

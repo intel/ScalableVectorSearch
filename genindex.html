@@ -120,6 +120,7 @@
  | <a href="#H"><strong>H</strong></a>
  | <a href="#I"><strong>I</strong></a>
  | <a href="#K"><strong>K</strong></a>
+ | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#N"><strong>N</strong></a>
  | <a href="#P"><strong>P</strong></a>
@@ -139,6 +140,10 @@
 
       <ul>
         <li><a href="python/flat.html#svs.Flat.__init__">(svs.Flat method)</a>
+</li>
+        <li><a href="python/loaders.html#svs.LeanVecLoader.__init__">(svs.LeanVecLoader method)</a>
+</li>
+        <li><a href="python/loaders.html#svs.LVQLoader.__init__">(svs.LVQLoader method)</a>
 </li>
         <li><a href="python/vamana.html#svs.SearchBufferConfig.__init__">(svs.SearchBufferConfig method)</a>
 </li>
@@ -160,6 +165,8 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python/dynamic.html#svs.DynamicVamana.add">add() (svs.DynamicVamana method)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.alignment">alignment (svs.LeanVecLoader property)</a>
 </li>
       <li><a href="python/dynamic.html#svs.DynamicVamana.all_ids">all_ids() (svs.DynamicVamana method)</a>
 </li>
@@ -249,10 +256,10 @@
 </li>
       <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType6uint32E">DataType::uint32 (C++ enumerator)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType6uint64E">DataType::uint64 (C++ enumerator)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5uint8E">DataType::uint8 (C++ enumerator)</a>
 </li>
       <li><a href="cpp/internal/lib/public.html#_CPPv4N8DataType5undefE">DataType::undef (C++ enumerator)</a>
@@ -269,8 +276,14 @@
         <li><a href="python/vamana.html#svs.Vamana.dimensions">(svs.Vamana property)</a>
 </li>
       </ul></li>
-      <li><a href="python/loaders.html#svs.VectorDataLoader.dims">dims (svs.VectorDataLoader property)</a>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.dims">dims (svs.LeanVecLoader property)</a>
+
+      <ul>
+        <li><a href="python/loaders.html#svs.LVQLoader.dims">(svs.LVQLoader property)</a>
 </li>
+        <li><a href="python/loaders.html#svs.VectorDataLoader.dims">(svs.VectorDataLoader property)</a>
+</li>
+      </ul></li>
       <li><a href="python/common.html#svs.DistanceType">DistanceType (class in svs)</a>
 </li>
       <li><a href="python/common.html#svs.DRAM">DRAM (class in svs)</a>
@@ -378,15 +391,40 @@
   </ul></td>
 </tr></table>
 
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.leanvec_dims">leanvec_dims (svs.LeanVecLoader property)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecKind">LeanVecKind (class in svs)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="python/loaders.html#svs.LeanVecLoader">LeanVecLoader (class in svs)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LVQLoader">LVQLoader (class in svs)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LVQStrategy">LVQStrategy (class in svs)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/internal/lib/array.html#_CPPv4I00_DpN6detail5IsDimEE16make_dense_arrayDaRK5AllocDp4Dims">make_dense_array (C++ function)</a>, <a href="cpp/internal/lib/array.html#_CPPv4I0_DpN6detail5IsDimEE16make_dense_arrayDaDp4Dims">[1]</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/concepts/distance.html#_CPPv4I00E18maybe_fix_argumentvR1F1A">maybe_fix_argument (C++ function)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    module
+
+      <ul>
+        <li><a href="python/logging.html#module-svs.logging">svs.logging</a>
+</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -417,11 +455,15 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python/vamana.html#svs.VamanaSearchParameters.prefetch_lookahead">prefetch_lookahead (svs.VamanaSearchParameters attribute)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python/vamana.html#svs.VamanaSearchParameters.prefetch_step">prefetch_step (svs.VamanaSearchParameters attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python/vamana.html#svs.VamanaCalibrationParameters.prefetch_steps">prefetch_steps (svs.VamanaCalibrationParameters attribute)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LVQLoader.primary_bits">primary_bits (svs.LVQLoader property)</a>
+</li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.primary_kind">primary_kind (svs.LeanVecLoader property)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -449,16 +491,24 @@
 </li>
       <li><a href="python/common.html#svs.read_vecs">read_vecs() (in module svs)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/core/recall.html#_CPPv4I_N4data22ImmutableMemoryDatasetEE14recall_convertRK4DataRK4Data">recall_convert (C++ function)</a>, <a href="cpp/core/recall.html#_CPPv4I_NSt8integralE00E14recall_convertN4data19ConstSimpleDataViewI1TEERK10DenseArrayI1T4Dims4BaseE">[1]</a>, <a href="cpp/core/recall.html#_CPPv4I_NSt8integralEI0E0E14recall_convertN4data19ConstSimpleDataViewI3IdxEERK15QueryResultImplI3Idx5ArrayE">[2]</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="python/dynamic.html#svs.DynamicVamana.reconstruct">reconstruct() (svs.DynamicVamana method)</a>
 
       <ul>
         <li><a href="python/vamana.html#svs.Vamana.reconstruct">(svs.Vamana method)</a>
 </li>
       </ul></li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.reload_from">reload_from() (svs.LeanVecLoader method)</a>
+
+      <ul>
+        <li><a href="python/loaders.html#svs.LVQLoader.reload_from">(svs.LVQLoader method)</a>
+</li>
+      </ul></li>
+      <li><a href="python/loaders.html#svs.LVQLoader.residual_bits">residual_bits (svs.LVQLoader property)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -511,12 +561,23 @@
 </li>
       <li><a href="python/vamana.html#svs.SearchBufferConfig">SearchBufferConfig (class in svs)</a>
 </li>
+      <li><a href="python/loaders.html#svs.LeanVecLoader.secondary_kind">secondary_kind (svs.LeanVecLoader property)</a>
+</li>
       <li><a href="python/dynamic.html#svs.DynamicVamana.size">size (svs.DynamicVamana property)</a>
 
       <ul>
         <li><a href="python/flat.html#svs.Flat.size">(svs.Flat property)</a>
 </li>
         <li><a href="python/vamana.html#svs.Vamana.size">(svs.Vamana property)</a>
+</li>
+      </ul></li>
+      <li><a href="python/loaders.html#svs.LVQLoader.strategy">strategy (svs.LVQLoader property)</a>
+</li>
+      <li>
+    svs.logging
+
+      <ul>
+        <li><a href="python/logging.html#module-svs.logging">module</a>
 </li>
       </ul></li>
       <li><a href="cpp/core/data.html#_CPPv4I0_6size_tEN3svs4data19ConstSimpleDataViewE">svs::data::ConstSimpleDataView (C++ type)</a>
@@ -895,12 +956,12 @@
 </li>
       <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex28reset_performance_parametersEv">svs::index::vamana::MutableVamanaIndex::reset_performance_parameters (C++ function)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex22search_parameters_typeE">svs::index::vamana::MutableVamanaIndex::search_parameters_type (C++ type)</a>
 </li>
       <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex9set_alphaEf">svs::index::vamana::MutableVamanaIndex::set_alpha (C++ function)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex28set_construction_window_sizeE6size_t">svs::index::vamana::MutableVamanaIndex::set_construction_window_size (C++ function)</a>
 </li>
       <li><a href="cpp/internal/index_impl/dynamic_vamana.html#_CPPv4N3svs5index6vamana18MutableVamanaIndex23set_full_search_historyEb">svs::index::vamana::MutableVamanaIndex::set_full_search_history (C++ function)</a>

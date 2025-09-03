@@ -1,0 +1,97 @@
+.. Copyright (C) 2025 Intel Corporation
+..
+.. This software and the related documents are Intel copyrighted materials,
+.. and your use of them is governed by the express license under which they
+.. were provided to you ("License"). Unless the License provides otherwise,
+.. you may not use, modify, copy, publish, distribute, disclose or transmit
+.. this software or the related documents without Intel's prior written
+.. permission.
+..
+.. This software and the related documents are provided as is, with no
+.. express or implied warranties, other than those that are expressly stated
+.. in the License.
+
+.. _isa_dispatching:
+
+ISA Dispatching
+###############
+
+SVS implements **Instruction Set Architecture (ISA) dispatching** to automatically select optimized code paths at runtime based on the capabilities of the target CPU.
+This mechanism ensures optimal performance by utilizing the most advanced instruction sets available on the hardware while maintaining compatibility with older processors.
+
+Supported Architectures and Extensions
+======================================
+
+ISA dispatching is currently implemented for x86-64 architecture only.
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - Extension
+     - Supported Processors
+     - Used Compiler Flags
+   * - SSE2 (baseline)
+     - All modern x86-64 CPUs
+     - ``-march=x86-64 -mtune=generic``
+   * - AVX2
+     - Starting from Intel Haswell CPUs
+     - ``-march=haswell -mtune=haswell``
+   * - AVX-512
+     - Starting from Intel Skylake Server CPUs
+     - ``-march=cascadelake -mtune=cascadelake``
+   * - AVX-512 VNNI
+     - Starting from Intel Cascade Lake CPUs
+     - ``-march=cascadelake -mtune=cascadelake``
+
+Functionality Coverage
+======================
+
+ISA dispatching is implemented for the following performance-critical operations:
+
+- **Distance Computations**
+
+  - Euclidean (L2)
+  - Inner Product
+  - Cosine Similarity
+
+- **Quantization Operations**
+
+  - Quantized Distance Computation: Fast distance calculations on quantized vectors
+  - Vector Decompression: Efficient decompression of quantized vectors back to full precision
+
+Dispatching Limitations
+=======================
+
+Optimized ISA-specific code paths are compiled only
+for the data types and dimensions most commonly used in practice.
+If a specific combination of data type and dimension is not supported,
+SVS will use a generic implementation that works on all x86-64 CPUs.
+
+Currently, the following data types and dimensions are supported:
+
+- **Data Types**
+
+  - int8
+  - uint8
+  - float16
+  - float32
+
+- **Dimensions**
+
+  - Dynamic dimensionality (any dimension not requested on the compile time)
+  - 64
+  - 96
+  - 100
+  - 128
+  - 160
+  - 200
+  - 512
+  - 768
+
+For the most relevant list of dispatched data type and dimensions,
+please refer to the source code in ``include/svs/multi-arch/x86`` directory.
+
+For the difference between static and dynamic dimensionality,
+please refer to :ref:`static-dim` section.

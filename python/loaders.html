@@ -74,10 +74,35 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#lvq-loader">LVQ Loader</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#strategy-selection">Strategy Selection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.LVQLoader"><code class="docutils literal notranslate"><span class="pre">LVQLoader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQLoader.__init__"><code class="docutils literal notranslate"><span class="pre">LVQLoader.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQLoader.dims"><code class="docutils literal notranslate"><span class="pre">LVQLoader.dims</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQLoader.primary_bits"><code class="docutils literal notranslate"><span class="pre">LVQLoader.primary_bits</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQLoader.reload_from"><code class="docutils literal notranslate"><span class="pre">LVQLoader.reload_from()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQLoader.residual_bits"><code class="docutils literal notranslate"><span class="pre">LVQLoader.residual_bits</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQLoader.strategy"><code class="docutils literal notranslate"><span class="pre">LVQLoader.strategy</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#leanvecloader">LeanVecLoader</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#strategy-selection">Strategy Selection</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LVQStrategy"><code class="docutils literal notranslate"><span class="pre">LVQStrategy</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#leanvecloader">LeanVecLoader</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#svs.LeanVecLoader"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.__init__"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.__init__()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.alignment"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.alignment</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.dims"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.dims</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.leanvec_dims"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.leanvec_dims</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.primary_kind"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.primary_kind</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.reload_from"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.reload_from()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#svs.LeanVecLoader.secondary_kind"><code class="docutils literal notranslate"><span class="pre">LeanVecLoader.secondary_kind</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#svs.LeanVecKind"><code class="docutils literal notranslate"><span class="pre">LeanVecKind</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="flat.html">Flat Index</a></li>
@@ -132,7 +157,7 @@
 <h2>Uncompressed File Loaders<a class="headerlink" href="#uncompressed-file-loaders" title="Link to this heading"></a></h2>
 <dl class="py class">
 <dt class="sig sig-object py" id="svs.VectorDataLoader">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VectorDataLoader</span></span><a class="headerlink" href="#svs.VectorDataLoader" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">VectorDataLoader</span></span><a class="headerlink" href="#svs.VectorDataLoader" title="Link to this definition"></a></dt>
 <dd><p>Handle representing an uncompressed vector data file.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.VectorDataLoader.__init__">
@@ -159,7 +184,7 @@ optional, providing it may yield runtime speedups.</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.VectorDataLoader.data_type">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_type</span></span><a class="headerlink" href="#svs.VectorDataLoader.data_type" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_type</span></span><a class="headerlink" href="#svs.VectorDataLoader.data_type" title="Link to this definition"></a></dt>
 <dd><p>Access the assigned data type.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -170,7 +195,7 @@ optional, providing it may yield runtime speedups.</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.VectorDataLoader.dims">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dims</span></span><a class="headerlink" href="#svs.VectorDataLoader.dims" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dims</span></span><a class="headerlink" href="#svs.VectorDataLoader.dims" title="Link to this definition"></a></dt>
 <dd><p>Access the expected dimensionality.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -181,7 +206,7 @@ optional, providing it may yield runtime speedups.</p></li>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="svs.VectorDataLoader.filepath">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">filepath</span></span><a class="headerlink" href="#svs.VectorDataLoader.filepath" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">filepath</span></span><a class="headerlink" href="#svs.VectorDataLoader.filepath" title="Link to this definition"></a></dt>
 <dd><p>Access the underlying file path.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
@@ -197,12 +222,119 @@ optional, providing it may yield runtime speedups.</p></li>
 <span id="python-api-lvq-loader"></span><h2>LVQ Loader<a class="headerlink" href="#lvq-loader" title="Link to this heading"></a></h2>
 <p>The LVQ loader provides lazy compression of uncompressed data and reloading of previously
 saved LVQ data.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.LVQLoader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">LVQLoader</span></span><a class="headerlink" href="#svs.LVQLoader" title="Link to this definition"></a></dt>
+<dd><p>Generic LVQ Loader</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.LVQLoader.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.LVQLoader.__init__" title="Link to this definition"></a></dt>
+<dd><p>Overloaded function.</p>
+<ol class="arabic simple">
+<li><p>__init__(self: svs::python.LVQLoader, datafile: svs::python.VectorDataLoader, primary: int, residual: int = 0, padding: int = 0, strategy: svs::python.LVQStrategy = &lt;LVQStrategy.Auto: 0&gt;) -&gt; None</p></li>
+</ol>
+<p>Construct a loader that will lazily compress the results of the data loader.
+Requires an appropriate back-end to be compiled for all combinations of primary and residual
+bits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loader</strong> (<a class="reference internal" href="#svs.VectorDataLoader" title="svs.VectorDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code></a>) – The uncompressed dataset to compress
+in-memory.</p></li>
+<li><p><strong>primary</strong> (<em>int</em>) – The number of bits to use for compression in the primary dataset.</p></li>
+<li><p><strong>residual</strong> (<em>int</em>) – The number of bits to use for compression in the residual dataset.
+Default: 0.</p></li>
+<li><p><strong>padding</strong> (<em>int</em>) – The value (in bytes) to align the beginning of each compressed vectors.
+Values of 32 or 64 may offer the best performance at the cost of a lower compression
+ratio. A value of 0 implies no special alignment.</p></li>
+<li><p><strong>strategy</strong> (<a class="reference internal" href="#svs.LVQStrategy" title="svs.LVQStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQStrategy</span></code></a>) – The packing strategy to use for the compressed
+codes. See the associated documenation for that enum.</p></li>
+</ul>
+</dd>
+</dl>
+<ol class="arabic simple" start="2">
+<li><p>__init__(self: svs::python.LVQLoader, directory: str, padding: int = 0, strategy: svs::python.LVQStrategy = &lt;LVQStrategy.Auto: 0&gt;) -&gt; None</p></li>
+</ol>
+<p>Reload a compressed dataset from a previously saved dataset.
+Requires an appropriate back-end to be compiled for all combinations of primary and residual
+bits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>directory</strong> (<em>str</em>) – The directory where the dataset was previously saved.</p></li>
+<li><p><strong>primary</strong> (<em>int</em>) – The number of bits to use for compression in the primary dataset.</p></li>
+<li><p><strong>residual</strong> (<em>int</em>) – The number of bits to use for compression in the residual dataset.
+Default: 0&gt;</p></li>
+<li><p><strong>dims</strong> (<em>int</em>) – The number of dimensions in the dataset. May provide a performance boost
+if given if a specialization has been compiled. Default: Dynamic (any dimension).</p></li>
+<li><p><strong>padding</strong> (<em>int</em>) – The value (in bytes) to align the beginning of each compressed vectors.
+Values of 32 or 64 may offer the best performance at the cost of a lower compression
+ratio. A value of 0 implies no special alignment. Default: 0.</p></li>
+<li><p><strong>strategy</strong> (<a class="reference internal" href="#svs.LVQStrategy" title="svs.LVQStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQStrategy</span></code></a>) – The packing strategy to use for the compressed
+codes. See the associated documenation for that enum.</p></li>
+</ul>
+</dd>
+</dl>
+<ol class="arabic simple" start="3">
+<li><p>__init__(self: svs::python.LVQLoader, legacy: svs::python.LVQ4) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LVQLoader, legacy: svs::python.LVQ8) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LVQLoader, legacy: svs::python.LVQ4x4) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LVQLoader, legacy: svs::python.LVQ4x8) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LVQLoader, legacy: svs::python.LVQ8x8) -&gt; None</p></li>
+</ol>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LVQLoader.dims">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dims</span></span><a class="headerlink" href="#svs.LVQLoader.dims" title="Link to this definition"></a></dt>
+<dd><p>The number of dimensions.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LVQLoader.primary_bits">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">primary_bits</span></span><a class="headerlink" href="#svs.LVQLoader.primary_bits" title="Link to this definition"></a></dt>
+<dd><p>The number of bits used for the primary encoding.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.LVQLoader.reload_from">
+<span class="sig-name descname"><span class="pre">reload_from</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.LVQLoader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory:</span> <span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#svs.LVQLoader" title="svs::python.LVQLoader"><span class="pre">svs::python.LVQLoader</span></a></span></span><a class="headerlink" href="#svs.LVQLoader.reload_from" title="Link to this definition"></a></dt>
+<dd><p>Create a copy of the argument loader configured to reload a previously saved LVQ dataset
+from the given directory.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LVQLoader.residual_bits">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">residual_bits</span></span><a class="headerlink" href="#svs.LVQLoader.residual_bits" title="Link to this definition"></a></dt>
+<dd><p>The number of bits used for the residual encoding.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LVQLoader.strategy">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">strategy</span></span><a class="headerlink" href="#svs.LVQLoader.strategy" title="Link to this definition"></a></dt>
+<dd><p>The packing strategy to use.</p>
+</dd></dl>
+
+</dd></dl>
+
 <section id="strategy-selection">
 <h3>Strategy Selection<a class="headerlink" href="#strategy-selection" title="Link to this heading"></a></h3>
 <p>The strategy argument of the LVQ loader provides a way of overriding the default selection
 of the packing strategy used by a LVQ backend.</p>
 <p>Note that overriding the default strategy requires the corresponding backend to
 be compiled in the <cite>svs</cite> shared library component.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.LVQStrategy">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">LVQStrategy</span></span><a class="headerlink" href="#svs.LVQStrategy" title="Link to this definition"></a></dt>
+<dd><p>Select the packing mode for LVQ</p>
+<p>Members:</p>
+<blockquote>
+<div><p>Auto : Let SVS decide the best strategy.</p>
+<p>Sequential : Use the Sequential packing strategy.</p>
+<p>Turbo : Use the best Turbo packing strategy for this architecture.</p>
+</div></blockquote>
+</dd></dl>
+
 </section>
 </section>
 <section id="leanvecloader">
@@ -212,8 +344,124 @@ performance on high dimensional datasets.</p>
 <p>Internally, a LeanVec dataset consists of the dimensionality reduced primary dataset
 (over which the bulk of the index search is conducted) and a full dimensional secondary
 dataset used to rerank and refine candidates returned from the initial search.</p>
-<p><cite>svs</cite> allows selection of the storage format using the <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecKind</span></code> enum,
+<p><cite>svs</cite> allows selection of the storage format using the <a class="reference internal" href="#svs.LeanVecKind" title="svs.LeanVecKind"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecKind</span></code></a> enum,
 enabling <cite>float16</cite> and <cite>lvq</cite> compression for either of the primary and secondary datasets.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.LeanVecLoader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">LeanVecLoader</span></span><a class="headerlink" href="#svs.LeanVecLoader" title="Link to this definition"></a></dt>
+<dd><p>Generic LeanVec Loader</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.LeanVecLoader.__init__" title="Link to this definition"></a></dt>
+<dd><p>Overloaded function.</p>
+<ol class="arabic simple">
+<li><p>__init__(self: svs::python.LeanVecLoader, datafile: svs::python.VectorDataLoader, leanvec_dims: int, primary_kind: svs::python.LeanVecKind = &lt;LeanVecKind.lvq8: 2&gt;, secondary_kind: svs::python.LeanVecKind = &lt;LeanVecKind.lvq8: 2&gt;, data_matrix: Optional[numpy.ndarray[numpy.float32]] = None, query_matrix: Optional[numpy.ndarray[numpy.float32]] = None, alignment: int = 32) -&gt; None</p></li>
+</ol>
+<p>Construct a loader that will lazily reduce the dimensionality of the data loader.
+Requires an appropriate back-end to be compiled for all combinations of primary and
+secondary types.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>loader</strong> (<a class="reference internal" href="#svs.VectorDataLoader" title="svs.VectorDataLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code></a>) – The uncompressed original dataset.</p></li>
+<li><p><strong>leanvec_dims</strong> (<em>int</em>) – resulting value of reduced dimensionality</p></li>
+<li><p><strong>primary</strong> (<a class="reference internal" href="#svs.LeanVecKind" title="svs.LeanVecKind"><em>LeanVecKind</em></a>) – Type of dataset used for Primary (Default: LVQ8)</p></li>
+<li><p><strong>secondary</strong> (<a class="reference internal" href="#svs.LeanVecKind" title="svs.LeanVecKind"><em>LeanVecKind</em></a>) – Type of dataset used for Secondary (Default: LVQ8)</p></li>
+<li><p><strong>data_matrix</strong> (<em>Optional</em><em>[</em><em>numpy.ndarray</em><em>[</em><em>numpy.float32</em><em>]</em><em>]</em>) – Matrix for data transformation
+[see note 1] (Default: None).</p></li>
+<li><p><strong>query_matrix</strong> (<em>Optional</em><em>[</em><em>numpy.ndarray</em><em>[</em><em>numpy.float32</em><em>]</em><em>]</em>) – Matrix for query transformation
+[see note 1] (Default: None).</p></li>
+<li><p><strong>alignment</strong> (<em>int</em>) – alignement/padding used in LVQ data types (Default: 32)</p></li>
+</ul>
+</dd>
+</dl>
+<p><strong>Note 1</strong>: The arguments <code class="docutils literal notranslate"><span class="pre">data_matrix</span></code> and <code class="docutils literal notranslate"><span class="pre">data_matrix</span></code> are optional and have the
+following requirements for valid combinations:</p>
+<blockquote>
+<div><ol class="loweralpha simple">
+<li><p>Neither matrix provided: Transform dataset and queries using a default PCA-based
+transformation.</p></li>
+<li><p>Only <code class="docutils literal notranslate"><span class="pre">data_matrix</span></code> provided: The provided matrix is used to transform both the
+queries and the original dataset.</p></li>
+<li><p>Both arguments are provided: Use the respective matrices for transformation.</p></li>
+</ol>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><p>__init__(self: svs::python.LeanVecLoader, directory: str, alignment: int = 32) -&gt; None</p></li>
+</ol>
+<p>Reload a LeanVec dataset from a previously saved dataset.
+Requires an appropriate back-end to be compiled for all combinations of primary and
+secondary types.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>directory</strong> (<em>str</em>) – The directory where the dataset was previously saved.</p></li>
+<li><p><strong>leanvec_dims</strong> (<em>int</em>) – resulting value of reduced dimensionality.
+Default: Dynamic (any dimension).</p></li>
+<li><p><strong>dims</strong> (<em>int</em>) – The number of dimensions in the original dataset.
+Default: Dynamic (any dimension).</p></li>
+<li><p><strong>primary</strong> (<a class="reference internal" href="#svs.LeanVecKind" title="svs.LeanVecKind"><em>LeanVecKind</em></a>) – Type of dataset used for Primary
+Default: <code class="docutils literal notranslate"><span class="pre">svs.LeanVecKind.lvq8</span></code>.</p></li>
+<li><p><strong>secondary</strong> (<a class="reference internal" href="#svs.LeanVecKind" title="svs.LeanVecKind"><em>LeanVecKind</em></a>) – Type of dataset used for Secondary
+Default: <code class="docutils literal notranslate"><span class="pre">svs.LeanVecKind.LVQ8</span></code>.</p></li>
+<li><p><strong>alignment</strong> (<em>int</em>) – alignement/padding used in LVQ data types. Default: 32.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.alignment">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">alignment</span></span><a class="headerlink" href="#svs.LeanVecLoader.alignment" title="Link to this definition"></a></dt>
+<dd><p>The alignment to use for LVQ encoded data.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.dims">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">dims</span></span><a class="headerlink" href="#svs.LeanVecLoader.dims" title="Link to this definition"></a></dt>
+<dd><p>The full-dimensionality.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.leanvec_dims">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">leanvec_dims</span></span><a class="headerlink" href="#svs.LeanVecLoader.leanvec_dims" title="Link to this definition"></a></dt>
+<dd><p>The reduced dimensionality.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.primary_kind">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">primary_kind</span></span><a class="headerlink" href="#svs.LeanVecLoader.primary_kind" title="Link to this definition"></a></dt>
+<dd><p>The encoding of the reduced dimensional dataset.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.reload_from">
+<span class="sig-name descname"><span class="pre">reload_from</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.LeanVecLoader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">directory:</span> <span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#svs.LeanVecLoader" title="svs::python.LeanVecLoader"><span class="pre">svs::python.LeanVecLoader</span></a></span></span><a class="headerlink" href="#svs.LeanVecLoader.reload_from" title="Link to this definition"></a></dt>
+<dd><p>Create a copy of the argument loader configured to reload a previously saved LeanVec dataset
+from the given directory.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="svs.LeanVecLoader.secondary_kind">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">secondary_kind</span></span><a class="headerlink" href="#svs.LeanVecLoader.secondary_kind" title="Link to this definition"></a></dt>
+<dd><p>The encoding of the full-dimensional dataset.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="svs.LeanVecKind">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">svs.</span></span><span class="sig-name descname"><span class="pre">LeanVecKind</span></span><a class="headerlink" href="#svs.LeanVecKind" title="Link to this definition"></a></dt>
+<dd><p>LeanVec primary and secondary types</p>
+<p>Members:</p>
+<blockquote>
+<div><p>float32 : Uncompressed float32</p>
+<p>float16 : Uncompressed float16</p>
+<p>lvq8 : Compressed with LVQ 8bits</p>
+<p>lvq4 : Compressed with LVQ 4bits</p>
+</div></blockquote>
+</dd></dl>
+
 </section>
 </section>
 

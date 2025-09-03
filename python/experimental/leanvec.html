@@ -165,7 +165,7 @@ Following the <a class="reference internal" href="../vamana.html#python-vamana-i
 </section>
 <section id="constructing-a-leanvec-loader">
 <h2>Constructing a LeanVec Loader<a class="headerlink" href="#constructing-a-leanvec-loader" title="Link to this heading"></a></h2>
-<p>As with the <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code>, the <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code> can perform dynamic compression of uncompressed vectors.
+<p>As with the <a class="reference internal" href="../loaders.html#svs.LVQLoader" title="svs.LVQLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code></a>, the <a class="reference internal" href="../loaders.html#svs.LeanVecLoader" title="svs.LeanVecLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code></a> can perform dynamic compression of uncompressed vectors.
 An example is shown below.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We are going to construct a LeanVec dataset on-the-fly from uncompressed data.</span>
 <span class="c1"># First, we construct a loader for the uncompressed data.</span>
@@ -187,7 +187,7 @@ An example is shown below.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>In this example, we construct a <code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code> with a reduced dimensionality of 128.
+<p>In this example, we construct a <a class="reference internal" href="../loaders.html#svs.LeanVecLoader" title="svs.LeanVecLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LeanVecLoader</span></code></a> with a reduced dimensionality of 128.
 This means that the bulk of the graph search will be done using a 128-dimensional transformation of the 256 dimensional dataset we just generated.
 Furthermore, we can choose the encodings of the primary and secondary dataset.
 The example demonstrates using LVQ8 for the primary dataset and <code class="docutils literal notranslate"><span class="pre">float16</span></code> for the full-dimensional secondary dataset.</p>
