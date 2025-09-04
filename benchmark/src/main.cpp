@@ -25,6 +25,14 @@
 // inverted
 #include "svs-benchmark/inverted/inverted.h"
 
+// ivf
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
+#if SVS_ENABLE_IVF
+#include "svs-benchmark/ivf/build.h"
+#include "svs-benchmark/ivf/search.h"
+#include "svs-benchmark/ivf/test.h"
+#endif // SVS_ENABLE_IVF
+
 // stl
 #include <memory>
 #include <span>
@@ -43,6 +51,13 @@ svsbenchmark::ExecutableDispatcher build_dispatcher() {
     dispatcher.register_executable(svsbenchmark::vamana::iterator_benchmark());
     // inverted
     svsbenchmark::inverted::register_executables(dispatcher);
+    // ivf
+    SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
+#if SVS_ENABLE_IVF
+    dispatcher.register_executable(svsbenchmark::ivf::search_static_workflow());
+    dispatcher.register_executable(svsbenchmark::ivf::static_workflow());
+    dispatcher.register_executable(svsbenchmark::ivf::test_generator());
+#endif // SVS_ENABLE_IVF
     // documentation
     svsbenchmark::register_dataset_documentation(dispatcher);
     return dispatcher;

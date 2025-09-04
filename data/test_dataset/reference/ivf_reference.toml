@@ -1,0 +1,570 @@
+# Copyright 2025 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+start_time = 2024-09-18T19:44:08
+stop_time = 2024-09-18T19:44:52
+
+[[ivf_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'L2'
+
+    [ivf_test_build.build_parameters]
+    __schema__ = 'ivf_build_parameters'
+    __version__ = 'v0.0.0'
+    hierarchical_level1_clusters = 0
+    is_hierarchical = true
+    minibatch_size = 10000
+    num_centroids = 128
+    num_iterations = 10
+    seed = 12648430
+    training_fraction = 0.10000000149011612
+
+    [ivf_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [ivf_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float32'
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.55700000000000005
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 10
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.98044444444444445
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 50
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.52144444444444449
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 9
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80588888888888888
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 22
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90688888888888886
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 32
+
+[[ivf_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'MIP'
+
+    [ivf_test_build.build_parameters]
+    __schema__ = 'ivf_build_parameters'
+    __version__ = 'v0.0.0'
+    hierarchical_level1_clusters = 0
+    is_hierarchical = true
+    minibatch_size = 10000
+    num_centroids = 128
+    num_iterations = 10
+    seed = 12648430
+    training_fraction = 0.10000000149011612
+
+    [ivf_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [ivf_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.24455555555555555
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 10
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.67688888888888887
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 50
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50755555555555554
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 31
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80544444444444441
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 70
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90300000000000002
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 91
+
+[[ivf_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'L2'
+
+    [ivf_test_build.build_parameters]
+    __schema__ = 'ivf_build_parameters'
+    __version__ = 'v0.0.0'
+    hierarchical_level1_clusters = 0
+    is_hierarchical = true
+    minibatch_size = 10000
+    num_centroids = 128
+    num_iterations = 10
+    seed = 12648430
+    training_fraction = 0.10000000149011612
+
+    [ivf_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [ivf_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'bfloat16'
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.54955555555555557
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 10
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.97633333333333339
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 50
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.51855555555555555
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 9
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.81177777777777782
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 22
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90322222222222226
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 31
+
+[[ivf_test_build]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'MIP'
+
+    [ivf_test_build.build_parameters]
+    __schema__ = 'ivf_build_parameters'
+    __version__ = 'v0.0.0'
+    hierarchical_level1_clusters = 0
+    is_hierarchical = false
+    minibatch_size = 10000
+    num_centroids = 128
+    num_iterations = 10
+    seed = 12648430
+    training_fraction = 0.10000000149011612
+
+    [ivf_test_build.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [ivf_test_build.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'bfloat16'
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.26800000000000002
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 10
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.70766666666666667
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 50
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.504
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 27
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80444444444444441
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 65
+
+    [[ivf_test_build.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90288888888888885
+    recall_k = 10
+
+        [ivf_test_build.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 86
+
+[[ivf_test_search]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'L2'
+
+    [ivf_test_search.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [ivf_test_search.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float32'
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.48399999999999999
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 10
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.95644444444444443
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 50
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.51244444444444448
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 11
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80844444444444441
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 27
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90000000000000002
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 38
+
+[[ivf_test_search]]
+__schema__ = 'benchmark_expected_result'
+__version__ = 'v0.0.0'
+distance = 'MIP'
+
+    [ivf_test_search.dataset]
+    __schema__ = 'benchmark_dataset_abstract'
+    __version__ = 'v0.0.0'
+    kind = 'uncompressed'
+
+        [ivf_test_search.dataset.dataset]
+        __schema__ = 'benchmark_dataset_uncompressed'
+        __version__ = 'v0.0.0'
+        data_type = 'float16'
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.066000000000000003
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 10
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.57833333333333337
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 50
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.50155555555555553
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 44
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.80577777777777781
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 72
+
+    [[ivf_test_search.config_and_recall]]
+    __schema__ = 'benchmark_config_and_result'
+    __version__ = 'v0.0.0'
+    num_neighbors = 10
+    num_queries = 900
+    recall = 0.90044444444444449
+    recall_k = 10
+
+        [ivf_test_search.config_and_recall.search_parameters]
+        __schema__ = 'ivf_search_parameters'
+        __version__ = 'v0.0.0'
+        k_reorder = 1.0
+        n_probes = 85

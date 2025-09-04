@@ -20,6 +20,12 @@
 #include "svs/python/core.h"
 #include "svs/python/dynamic_vamana.h"
 #include "svs/python/flat.h"
+
+SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
+#if SVS_ENABLE_IVF
+#include "svs/python/ivf.h"
+#endif // SVS_ENABLE_IVF
+
 #include "svs/python/svs_mkl.h"
 #include "svs/python/vamana.h"
 
@@ -27,6 +33,7 @@
 #include "svs/core/distance.h"
 #include "svs/core/io.h"
 #include "svs/lib/array.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/float16.h"
 #include "svs/third-party/toml.h"
@@ -54,6 +61,17 @@ void convert_fvecs_to_float16(
 ) {
     auto reader = svs::io::vecs::VecsReader<float>{filename_f32};
     auto writer = svs::io::vecs::VecsWriter<svs::Float16>{filename_f16, reader.ndims()};
+    for (auto i : reader) {
+        writer << i;
+    }
+}
+
+// Convert fvecs to bfloat16
+void convert_fvecs_to_bfloat16(
+    const std::string& filename_f32, const std::string& filename_bf16
+) {
+    auto reader = svs::io::vecs::VecsReader<float>{filename_f32};
+    auto writer = svs::io::vecs::VecsWriter<svs::BFloat16>{filename_bf16, reader.ndims()};
     for (auto i : reader) {
         writer << i;
     }
@@ -91,13 +109,14 @@ void wrap_conversion(py::module& m) {
 Convert the vecs file (containing the specified element types) to the svs native format.
 
 Args:
-    vecs_file: The source [f/h/i/b]vecs file.
+    vecs_file: The source [f/h/bfi/b]vecs file.
     svs_file: The destination native file.
     dtype: The svs.DataType of the vecs file. Supported types: ({}).
 File extension type map:
 
 * fvecs = svs.DataType.float32
 * hvecs = svs.DataType.float16
+* bfvecs = svs.DataType.bfloat16
 * ivecs = svs.DataType.uint32
 * bvecs = svs.DataType.uint8
 )";
@@ -165,6 +184,7 @@ PYBIND11_MODULE(_svs, m) {
         .value("int32", svs::DataType::int32, "32-bit signed integer.")
         .value("int64", svs::DataType::int64, "64-bit signed integer.")
         .value("float16", svs::DataType::float16, "16-bit IEEE floating point.")
+        .value("bfloat16", svs::DataType::bfloat16, "16-bit brain floating point.")
         .value("float32", svs::DataType::float32, "32-bit IEEE floating point.")
         .value("float64", svs::DataType::float64, "64-bit IEEE floating point.")
         .export_values();
@@ -178,6 +198,21 @@ PYBIND11_MODULE(_svs, m) {
         R"(
 Convert the `fvecs` file on disk with 32-bit floating point entries to a `fvecs` file with
 16-bit floating point entries.
+
+Args:
+    source_file: The source file path to convert.
+    destination_file: The destination file to generate.
+        )"
+    );
+
+    m.def(
+        "convert_fvecs_to_bfloat16",
+        &convert_fvecs_to_bfloat16,
+        py::arg("source_file"),
+        py::arg("destination_file"),
+        R"(
+Convert the `fvecs` file on disk with 32-bit floating point entries to a `fvecs` file with
+16-bit brain floating (bfloat16) point entries.
 
 Args:
     source_file: The source file path to convert.
@@ -213,4 +248,10 @@ Args:
     // Vamana
     svs::python::vamana::wrap(m);
     svs::python::dynamic_vamana::wrap(m);
+
+    // IVF
+    SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
+#if SVS_ENABLE_IVF
+    svs::python::ivf::wrap(m);
+#endif // SVS_ENABLE_IVF
 }

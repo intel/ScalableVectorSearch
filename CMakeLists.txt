@@ -77,6 +77,12 @@ include("cmake/fmt.cmake")
 include("cmake/spdlog.cmake")
 include("cmake/toml.cmake")
 
+# IVF requires Intel(R) MKL support
+if(SVS_EXPERIMENTAL_ENABLE_IVF)
+    include("cmake/mkl.cmake")
+    target_compile_options(${SVS_LIB} INTERFACE "-DSVS_HAVE_MKL=1")
+endif()
+
 add_library(svs_x86_options_base INTERFACE)
 add_library(svs::x86_options_base ALIAS svs_x86_options_base)
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
