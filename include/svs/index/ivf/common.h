@@ -621,6 +621,76 @@ void compute_centroid_distances(
     );
 }
 
+/// @brief Generate a random subset of data for training
+template <typename BuildType, typename Data, typename Alloc, threads::ThreadPool Pool>
+data::SimpleData<BuildType, Data::extent, Alloc> make_training_set(
+    const Data& data,
+    std::vector<size_t>& ids,
+    size_t num_training,
+    std::mt19937& rng,
+    Pool& threadpool
+) {
+    data::SimpleData<BuildType, Data::extent, Alloc> trainset(
+        num_training, data.dimensions()
+    );
+    generate_unique_ids(ids, data.size(), rng);
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{num_training},
+        [&](auto indices, auto /*tid*/) {
+            for (auto i : indices)
+                trainset.set_datum(i, data.get_datum(ids[i]));
+        }
+    );
+    return trainset;
+}
+
+/// @brief Initialize centroids randomly from the training set
+template <typename BuildType, typename Data, threads::ThreadPool Pool>
+data::SimpleData<BuildType> init_centroids(
+    const Data& trainset,
+    std::vector<size_t>& ids,
+    size_t num_centroids,
+    std::mt19937& rng,
+    Pool& threadpool
+) {
+    data::SimpleData<BuildType> centroids(num_centroids, trainset.dimensions());
+    generate_unique_ids(ids, trainset.size(), rng);
+    threads::parallel_for(
+        threadpool,
+        threads::StaticPartition{num_centroids},
+        [&](auto indices, auto) {
+            for (auto i : indices)
+                centroids.set_datum(i, trainset.get_datum(ids[i]));
+        }
+    );
+    return centroids;
+}
+
+/// @brief Compute norms for L2 distance if needed
+template <typename Distance, typename Data, threads::ThreadPool Pool>
+std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
+    std::vector<float> norms;
+    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+        generate_norms(data, norms, threadpool);
+    }
+    return norms;
+}
+
+/// @brief Assign all points to clusters according to assignments
+template <std::integral I = uint32_t, typename Data>
+std::vector<std::vector<I>> group_assignments(
+    const std::vector<size_t>& assignments, size_t num_clusters, const Data& data_train
+) {
+    std::vector<std::vector<I>> clusters(num_clusters);
+    for (auto i : data_train.eachindex())
+        clusters[assignments[i]].push_back(i);
+    return clusters;
+}
+
+
+
+
 template <typename Query, typename Dist, typename MatMulResults, typename Buffer>
 void search_centroids(
     const Query& query,

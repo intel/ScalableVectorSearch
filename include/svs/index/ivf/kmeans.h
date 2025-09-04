@@ -42,6 +42,8 @@ auto kmeans_clustering_impl(
     using Alloc = svs::HugepageAllocator<BuildType>;
     size_t ndims = data.dimensions();
     auto num_centroids = parameters.num_centroids_;
+
+    // Step 1: Create training set
     size_t num_training_data =
         lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_));
     if (num_training_data < num_centroids || num_training_data > data.size()) {
@@ -53,39 +55,20 @@ auto kmeans_clustering_impl(
             data.size()
         );
     }
+    auto rng = std::mt19937(parameters.seed_);
+    std::vector<size_t> v(num_training_data);
+    auto data_train =
+        make_training_set<BuildType, Data, Alloc>(data, v, num_training_data, rng, threadpool);
 
-    // The cluster centroids
-    auto centroids = data::SimpleData<BuildType>{num_centroids, ndims};
-    auto data_train = data::SimpleData<BuildType, Dims, Alloc>{num_training_data, ndims};
+    // Step 2: Init centroids by randomly selecting from training set
+    v.resize(num_centroids);
+    auto centroids =
+        init_centroids<BuildType>(data_train, v, num_centroids, rng, threadpool);
     auto matmul_results =
         data::SimpleData<float>{parameters.minibatch_size_, num_centroids};
-    auto rng = std::mt19937(parameters.seed_);
-
-    std::vector<size_t> v(num_training_data);
-    generate_unique_ids(v, data.size(), rng);
-    threads::parallel_for(
-        threadpool,
-        threads::StaticPartition{num_training_data},
-        [&](auto indices, auto /*tid*/) {
-            for (auto i : indices) {
-                data_train.set_datum(i, data.get_datum(v[i]));
-            }
-        }
-    );
-
-    v.resize(num_centroids);
-    generate_unique_ids(v, data_train.size(), rng);
-    threads::parallel_for(
-        threadpool,
-        threads::StaticPartition{num_centroids},
-        [&](auto indices, auto /*tid*/) {
-            for (auto i : indices) {
-                centroids.set_datum(i, data_train.get_datum(v[i]));
-            }
-        }
-    );
     init_timer.finish();
 
+    // Step 3: K-means training
     auto centroids_fp32 = kmeans_training(
         parameters, data_train, distance, centroids, matmul_results, rng, threadpool, timer
     );
@@ -95,15 +78,10 @@ auto kmeans_clustering_impl(
     auto batchsize = parameters.minibatch_size_;
     auto num_batches = lib::div_round_up(data.size(), batchsize);
 
-    std::vector<float> data_norm;
-    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
-        generate_norms(data, data_norm, threadpool);
-    }
-    std::vector<float> centroids_norm;
-    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
-        generate_norms(centroids_fp32, centroids_norm, threadpool);
-    }
+    auto data_norm = maybe_compute_norms<Distance>(data, threadpool);
+    auto centroids_norm = maybe_compute_norms<Distance>(centroids_fp32, threadpool);
 
+    // Step 4: Assign training data to clusters
     auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
     for (size_t batch = 0; batch < num_batches; ++batch) {
         auto this_batch = threads::UnitRange{
@@ -124,10 +102,8 @@ auto kmeans_clustering_impl(
         );
     }
 
-    auto clusters = std::vector<std::vector<I>>(num_centroids);
-    for (auto i : data.eachindex()) {
-        clusters[assignments[i]].push_back(i);
-    }
+    // Step 5: Assign all data to clusters
+    auto clusters = group_assignments(assignments, num_centroids, data);
     final_assignments_time.finish();
     kmeans_timer.finish();
     svs::logging::debug(logger, "{}", timer);
