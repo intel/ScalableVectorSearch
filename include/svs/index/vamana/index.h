@@ -1013,7 +1013,7 @@ void verify_and_set_default_index_parameters(
 ) {
     // Set default values
     if (parameters.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
-        parameters.max_candidate_pool_size = 2 * parameters.graph_max_degree;
+        parameters.max_candidate_pool_size = 3 * parameters.window_size;
     }
 
     if (parameters.prune_to == svs::UNSIGNED_INTEGER_PLACEHOLDER) {
