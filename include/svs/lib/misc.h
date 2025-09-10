@@ -443,4 +443,20 @@ template <std::integral T> constexpr T bitmask(T lo, T hi) {
 
 using DefaultPredicate = std::function<bool()>;
 
+///
+/// Returns true if at least one element of the span is NaN.
+///
+template <typename T, size_t N>
+bool contains_nan(std::span<const T, N> data) {
+    return std::ranges::any_of(data, [](T v) { return std::isnan(v); });
+}
+
+///
+/// Returns true if all elements of the span are NaN.
+///
+template <typename T, size_t N>
+bool all_nan(std::span<const T, N> data) {
+    return std::ranges::all_of(data, [](T v) { return std::isnan(v); });
+}
+
 } // namespace svs::lib
