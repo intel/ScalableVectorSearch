@@ -448,7 +448,7 @@ using DefaultPredicate = std::function<bool()>;
 ///
 template <typename T, size_t N>
 bool contains_nan(std::span<const T, N> data) {
-    return std::ranges::any_of(data, [](T v) { return std::isnan(v); });
+    return std::any_of(data.begin(), data.end(), [](T v) { return std::isnan(v); });
 }
 
 ///
@@ -456,7 +456,7 @@ bool contains_nan(std::span<const T, N> data) {
 ///
 template <typename T, size_t N>
 bool all_nan(std::span<const T, N> data) {
-    return std::ranges::all_of(data, [](T v) { return std::isnan(v); });
+    return std::all_of(data.begin(), data.end(), [](T v) { return std::isnan(v); });
 }
 
 } // namespace svs::lib
