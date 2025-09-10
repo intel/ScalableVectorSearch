@@ -24,6 +24,7 @@
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
 #include "svs/orchestrators/exhaustive.h"
+#include "svs/quantization/lvq/lvq_concept.h"
 
 // stl
 #include <pybind11/numpy.h>
@@ -39,6 +40,7 @@
 /////
 
 namespace py = pybind11;
+namespace lvq = svs::quantization::lvq;
 namespace svs::python::flat {
 
 template <typename F> void for_standard_specializations(F&& f) {
@@ -54,9 +56,22 @@ template <typename F> void for_standard_specializations(F&& f) {
 #undef X
 }
 
+// Compressed search specializations.
+template <typename F> void for_lvq_specializations(F&& f) {
+#define X(Dist, Primary, Residual, N) f.template operator()<Dist, Primary, Residual, N>()
+    // Pattern:
+    // DistanceType, Primary, Residual, Dimensionality
+    X(DistanceL2, 4, 4, Dynamic);
+    X(DistanceL2, 8, 0, Dynamic);
+
+    X(DistanceIP, 4, 4, Dynamic);
+    X(DistanceIP, 8, 0, Dynamic);
+#undef X
+}
+
 namespace detail {
 
-using FlatSourceTypes = std::variant<UnspecializedVectorDataLoader>;
+using FlatSourceTypes = std::variant<UnspecializedVectorDataLoader, LVQ>;
 
 template <typename Q, typename T, size_t N>
 svs::Flat assemble_uncompressed(
@@ -67,6 +82,15 @@ svs::Flat assemble_uncompressed(
     return svs::Flat::assemble<Q>(std::move(datafile), distance_type, num_threads);
 }
 
+template <typename D, size_t Primary, size_t Residual, size_t N>
+svs::Flat assemble_lvq(
+    lvq::LVQLoader<Primary, Residual, N, lvq::Sequential, Allocator> loader,
+    D distance,
+    size_t num_threads
+) {
+    return svs::Flat::assemble<float>(std::move(loader), std::move(distance), num_threads);
+}
+
 using AssemblyDispatcher =
     svs::lib::Dispatcher<svs::Flat, FlatSourceTypes, svs::DistanceType, size_t>;
 
@@ -75,6 +99,12 @@ AssemblyDispatcher assembly_dispatcher() {
     // Uncompressed instantiations.
     for_standard_specializations([&dispatcher]<typename Q, typename T, size_t N>() {
         auto method = &assemble_uncompressed<Q, T, N>;
+        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+    });
+
+    // LVQ instantiations.
+    for_lvq_specializations([&dispatcher]<typename D, size_t P, size_t R, size_t N>() {
+        auto method = &assemble_lvq<D, P, R, N>;
         dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
     });
 
@@ -160,8 +190,8 @@ be instantiated based on their applicability to the particular problem instance.
 
 The arguments upon which specialization is conducted are:
 
-* `data_loader`: Both kind (type of loader) and inner aspects of the loader like data type
-   and number of dimensions.
+* `data_loader`: Both kind (type of loader) and inner aspects of the loader like data type,
+  quantization type, and number of dimensions.
 * `distance`: The distance measure being used.
 
 Specializations compiled into the binary are listed below.
