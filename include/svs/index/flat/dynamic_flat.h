@@ -709,7 +709,7 @@ auto auto_dynamic_assemble(
 
     // Check if there's an ID mapping file to load
     IDTranslator translator;
-    auto data_path = std::get<0>(data_proto).path();
+    auto data_path = data_proto.get_path();
     auto config_path = data_path / "config.toml";
 
     if (std::filesystem::exists(config_path)) {
