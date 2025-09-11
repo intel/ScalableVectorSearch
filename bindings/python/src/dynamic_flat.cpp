@@ -45,7 +45,7 @@ namespace {
 template <typename F> void for_standard_specializations(F&& f) {
 #define X(Q, T, N) f.template operator()<Q, T, N>()
     // Pattern:
-    // QueryType, DataType, Dimensionality, Enable Building
+    // QueryType, DataType, Dimensionality
     // clang-format off
     X(float,   float,        Dynamic);
     X(float,   svs::Float16, Dynamic);
@@ -120,23 +120,22 @@ void add_points(
 }
 
 const char* ADD_POINTS_DOCSTRING = R"(
-Add every point in ``points`` to the index, assigning the element-wise corresponding ID to
+Add every point in ``points`` to the data, assigning the element-wise corresponding ID to
 each point.
 
 Args:
     points: A matrix of data whose rows, corresponding to points in R^n, will be added to
-        the index.
+        the data.
     ids: Vector of ids to assign to each row in ``points``. Must have the same number of
         elements as ``points`` has rows.
-    reuse_empty: A flag that determines whether to reuse empty entries that may exist after deletion and consolidation. When enabled,
+    reuse_empty: A flag that determines whether to reuse empty entries that may exist after deletion. When enabled,
     scan from the beginning to find and fill these empty entries when adding new points.
 
-Furthermore, all entries in ``ids`` must be unique and not already exist in the index.
+Furthermore, all entries in ``ids`` must be unique and not already exist in the data.
 If either of these does not hold, an exception will be thrown without mutating the
-underlying index.
+underlying data.
 
-When ``delete_entries`` is called, a soft deletion is performed, marking the entries as ``deleted``.
-When ``consolidate`` is called, the state of these deleted entries becomes ``empty``.
+When ``delete`` is called, vectors are directly removed and their slots become available for reuse.
 When ``add_points`` is called with the ``reuse_empty`` flag enabled, the memory is scanned from the beginning to locate and fill these empty entries with new points.
 )";
 
@@ -156,32 +155,31 @@ void add_points_specialization(py::class_<svs::DynamicFlat>& index) {
 // Put docstrings here to hopefully make the implementation of `wrap` a bit less
 // cluttered.
 const char* CONSOLIDATE_DOCSTRING = R"(
-Remove and patch around all deleted entries in the data.
-Should be called after a sufficient number of deletions to avoid the memory consumption of
-the index monotonically increasing.
+No-op method for compatibility with dynamic index interface.
+For the flat index, deletion is performed directly, so consolidation is not needed.
 )";
 
 const char* COMPACT_DOCSTRING = R"(
 Remove any holes created in the data by renumbering internal IDs.
 Shrink the underlying data structures.
-Following ``consolidate``, this can potentially reduce the memory footprint of the index
+Following ``consolidate``, this can potentially reduce the memory footprint of the data
 if a sufficient number of points were deleted.
 )";
 
 const char* DELETE_DOCSTRING = R"(
-Soft delete the IDs from the index. Soft deletion does not remove the IDs from the data,
-but prevents them from being returned from future searches.
+Delete the IDs from the data. This removes the specified vectors from the dataset
+so they will not be returned from future searches.
 
 Args:
     ids: The IDs to delete.
 
-Each element in IDs must be unique and must correspond to a valid ID stored in the index.
+Each element in IDs must be unique and must correspond to a valid ID stored in the data.
 Otherwise, an exception will be thrown. If an exception is thrown for this reason, the
-index will be left unchanged from before the function call.
+data will be left unchanged from before the function call.
 )";
 
 const char* ALL_IDS_DOCSTRING = R"(
-Return a Numpy vector of all IDs currently in the index.
+Return a Numpy vector of all IDs currently in the data.
 )";
 
 // Index saving.
@@ -274,7 +272,7 @@ void wrap(py::module& m) {
         "has_id",
         &svs::DynamicFlat::has_id,
         py::arg("id"),
-        "Return whether the ID exists in the index."
+        "Return whether the ID exists in the data."
     );
 
     flat.def(

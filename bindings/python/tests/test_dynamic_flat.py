@@ -54,6 +54,31 @@ class DynamicFlatTester(unittest.TestCase):
         self.assertTrue(recall < expected_recall + recall_delta)
         self.assertTrue(recall > expected_recall - recall_delta)
 
+        # Make sure saving and reloading work.
+        with TemporaryDirectory() as tempdir:
+            datadir = os.path.join(tempdir, "data")
+            index.save(datadir)
+
+            reloaded = svs.DynamicFlat(
+                svs.VectorDataLoader(datadir, svs.DataType.float32),
+                svs.DistanceType.L2,
+                num_threads = 2,
+            )
+
+            ### Get recall with the reloaded index
+            print(f"Original index has {len(index.all_ids())} IDs")
+            print(f"Reloaded index has {len(reloaded.all_ids())} IDs")
+            print(f"Original IDs sample: {sorted(list(index.all_ids()))[:10]}")
+            print(f"Reloaded IDs sample: {sorted(list(reloaded.all_ids()))[:10]}")
+            
+            I, D = reloaded.search(reference.queries, num_neighbors)
+            reloaded_recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
+
+            # Since flat search is deterministic, reloaded recall should be the same
+            print(f"    Reloaded Recall: {reloaded_recall}")
+            self.assertTrue(reloaded_recall < expected_recall + recall_delta)
+            self.assertTrue(reloaded_recall > expected_recall - recall_delta)
+
     def test_loop(self):
         num_threads = 2
         num_neighbors = 10

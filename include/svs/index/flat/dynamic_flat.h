@@ -41,17 +41,15 @@
 namespace svs::index::flat {
 
 ///
-/// Metadata tracking the state of a particular data index.
+/// Metadata tracking the state of a particular data index for DynamicFlatIndex.
 /// The following states have the given meaning for their corresponding slot:
 ///
 /// * Valid: Valid and present in the associated dataset.
-/// * Deleted: Exists in the associated dataset, but should be considered as "deleted"
-/// and not returned from any search algorithms.
-/// * Empty: Non-existent and unreachable from standard entry points.
+/// * Empty: Available slot that can be used for new data.
 ///
-/// Only used for `DynamicFlatIndex`.
+/// For flat indices, deletion directly transitions from Valid to Empty.
 ///
-enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 };
+enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01 };
 
 ///
 /// @brief Dynamic Flat Index with insertion and deletion support
@@ -64,10 +62,6 @@ enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 }
 /// while maintaining exhaustive search capabilities.
 ///
 template <typename Data, typename Dist> class DynamicFlatIndex {
-    static_assert(
-        data::ImmutableMemoryDataset<Data>, "Data must satisfy ImmutableMemoryDataset"
-    );
-
   public:
     // Traits
     static constexpr bool supports_insertions = true;
@@ -117,6 +111,33 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         );
     }
 
+    // Constructor that accepts a pre-existing translator (for loading from saved state)
+    template <typename ThreadPoolProto>
+    DynamicFlatIndex(
+        Data data,
+        IDTranslator translator,
+        Dist distance_function,
+        ThreadPoolProto threadpool_proto,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : data_{std::move(data)}
+        , status_(data_.size(), SlotMetadata::Valid)
+        , first_empty_{data_.size()}
+        , translator_{std::move(translator)}
+        , distance_{std::move(distance_function)}
+        , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
+        , search_parameters_{}
+        , logger_{std::move(logger)} {
+        // Validate that the translator size matches or is smaller than data size
+        if (translator_.size() > data_.size()) {
+            throw ANNEXCEPTION(
+                "Translator size ({}) exceeds data size ({})!",
+                translator_.size(),
+                data_.size()
+            );
+        }
+    }
+
     /// @brief Getter method for logger
     svs::logging::logger_ptr get_logger() const { return logger_; }
 
@@ -160,7 +181,7 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     template <typename F> void on_ids(F&& f) const {
         // Use the translator to iterate over all external IDs
         for (size_t i = 0; i < data_.size(); ++i) {
-            if (status_[i] == SlotMetadata::Valid) {
+            if (is_valid(i)) {
                 f(translator_.get_external(i));
             }
         }
@@ -176,9 +197,9 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
 
     /// @brief Add the points with the given external IDs to the dataset.
     ///
-    /// When `delete_entries` is called, a soft deletion is performed, marking the entries
-    /// as `deleted`. When `consolidate` is called, the state of these deleted entries
-    /// becomes `empty`. When `add_points` is called with the `reuse_empty` flag enabled,
+    /// When `delete_entries` is called, vectors are directly removed and their slots
+    /// are marked as empty, making them immediately available for reuse.
+    /// When `add_points` is called with the `reuse_empty` flag enabled,
     /// the memory is scanned from the beginning to locate and fill these empty entries with
     /// new points.
     ///
@@ -186,7 +207,7 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     /// @param external_ids The external IDs of the corresponding points. Must be a
     ///     container implementing forward iteration.
     /// @param reuse_empty A flag that determines whether to reuse empty entries that may
-    /// exist after deletion and consolidation. When enabled, scan from the beginning to
+    /// exist after deletion. When enabled, scan from the beginning to
     /// find and fill these empty entries when adding new points.
     ///
     template <typename Points, class ExternalIds>
@@ -260,19 +281,12 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     /// * All indices present in `ids` belong to valid slots.
     ///
     /// Post-conditions:
-    /// * Deleted slots will not be returned in future calls `search`.
+    /// * Removed slots will not be returned in future calls `search`.
+    /// * Removed slots are immediately available for reuse in future insertions.
     ///
     /// Implementation Notes:
-    /// * The deletion that happens is a "soft" deletion. This means that the corresponding
-    ///   entries are still present in the dataset, and will be traversed during searches.
-    ///
-    ///   However, entries marked as `deleted` will not be returned from searches.
-    ///
-    /// * Delete consolidation should happen once a large enough percentage of slots have
-    ///   been soft deleted.
-    ///
-    ///   Delete consolidation performs the actual removal of deleted entries from the
-    ///   dataset.
+    /// * The deletion directly removes the vectors from the dataset by marking their
+    ///   slots as empty, making them immediately available for reuse.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
         translator_.check_external_exist(ids.begin(), ids.end());
@@ -286,21 +300,25 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     void delete_entry(size_t i) {
         SlotMetadata& meta = getindex(status_, i);
         assert(meta == SlotMetadata::Valid);
-        meta = SlotMetadata::Deleted;
+        meta = SlotMetadata::Empty;
+        // Update first_empty_ to potentially reuse this slot sooner
+        first_empty_ = std::min(first_empty_, i);
     }
 
-    bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
+    bool is_empty(size_t i) const { return status_[i] != SlotMetadata::Valid; }
+
+    bool is_valid(size_t i) const { return status_[i] == SlotMetadata::Valid; }
 
     ///
-    /// @brief Return all the non-missing internal IDs.
+    /// @brief Return all the valid internal IDs.
     ///
-    /// This includes both valid and soft-deleted entries.
+    /// Returns only entries that are currently valid (not empty).
     ///
     std::vector<size_t> nonmissing_indices() const {
         auto indices = std::vector<size_t>();
         indices.reserve(size());
         for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (!is_deleted(i)) {
+            if (is_valid(i)) {
                 indices.push_back(i);
             }
         }
@@ -349,30 +367,42 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
 
     ///// Consolidation
 
-    /// @brief Consolidate the data structure by converting deleted entries to empty.
+    /// @brief Consolidate the data structure (no-op for flat index with direct deletion).
     ///
-    /// This method performs consolidation by changing all entries marked as "Deleted"
-    /// to "Empty", making them available for reuse during future insertions.
-    /// Unlike compact(), this method does not physically move data.
+    /// In the flat index implementation, deletion is performed directly, so this method
+    /// is a no-op for compatibility with the dynamic index interface.
     ///
     void consolidate() {
-        for (auto& meta : status_) {
-            if (meta == SlotMetadata::Deleted) {
-                meta = SlotMetadata::Empty;
-            }
-        }
+        // No-op: direct deletion means no intermediate states to consolidate
     }
 
     ///// Saving
+    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
-    /// @brief Save the index to disk.
     void save(const std::filesystem::path& data_directory) const {
-        // Compact before saving to remove deleted entries
+        // Compact before saving to remove empty entries
+        // Post-compaction, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
         const_cast<DynamicFlatIndex*>(this)->compact();
+
+        // Save data structures and translation
+        lib::save_to_disk(
+            lib::SaveOverride([&](const lib::SaveContext& ctx) {
+                return lib::SaveTable(
+                    "dynamic_flat_config",
+                    save_version,
+                    {
+                        {"name", lib::save(name())},
+                        {"translation", lib::save(translator_, ctx)},
+                    }
+                );
+            }),
+            data_directory
+        );
+
+        // Save the dataset in the same data directory
         lib::save_to_disk(data_, data_directory);
     }
-
-    /// @brief Get a descriptive name for this index type.
     constexpr std::string_view name() const { return "dynamic flat index"; }
 
     ///// Thread Pool Management
@@ -600,8 +630,8 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
                 return;
             }
 
-            // Skip deleted entries
-            if (status_[data_index] != SlotMetadata::Valid) {
+            // Skip empty entries
+            if (!is_valid(data_index)) {
                 continue;
             }
 
@@ -677,12 +707,32 @@ auto auto_dynamic_assemble(
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     auto data = svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
 
-    // For initial construction, create sequential external IDs
-    auto external_ids = threads::UnitRange<size_t>(0, data.size());
+    // Check if there's an ID mapping file to load
+    IDTranslator translator;
+    auto data_path = std::get<0>(data_proto).path();
+    auto config_path = data_path / "config.toml";
+
+    if (std::filesystem::exists(config_path)) {
+        try {
+            // Load the saved ID mapping
+            auto table = lib::load_from_disk(config_path);
+            auto config_table =
+                lib::load_at<lib::ContextFreeLoadTable>(table, "dynamic_flat_config");
+            translator = svs::lib::load_at<IDTranslator>(config_table, "translation");
+        } catch (...) {
+            // If loading fails, fall back to sequential IDs
+            auto external_ids = threads::UnitRange<size_t>(0, data.size());
+            translator.insert(external_ids, threads::UnitRange<size_t>(0, data.size()));
+        }
+    } else {
+        // No saved ID mapping, use sequential IDs
+        auto external_ids = threads::UnitRange<size_t>(0, data.size());
+        translator.insert(external_ids, threads::UnitRange<size_t>(0, data.size()));
+    }
 
     return DynamicFlatIndex(
         std::move(data),
-        external_ids,
+        std::move(translator),
         std::move(distance),
         std::move(threadpool),
         std::move(logger)
