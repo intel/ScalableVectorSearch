@@ -360,6 +360,31 @@ inline constexpr lib::Version scalar_quantization_save_version = lib::Version(0,
 
 // Scalar Quantization Dataset
 // This class provides a globally quantized (scale & bias) dataset.
+/**
+ * @brief Scalar Quantization (SQ) dataset with a single global linear transform.
+ *
+ * SQ applies a global scale and bias computed from the min/max range of the original
+ * floating point data to map values into a chosen integral element type. Each datum
+ * can be decompressed on-the-fly for distance computations or accessed in compressed
+ * form for faster memory movement.
+ *
+ * Motivation: provides a fallback compression strategy in case LVQ and LeanVec are not
+ * available.
+ *
+ * @tparam T Integral storage element type (e.g. std::int8_t, std::uint8_t).
+ * @tparam Extent Static dimensionality or svs::Dynamic for runtime-sized vectors.
+ * @tparam Alloc Allocator used for underlying storage (may be blocked to enable
+ * resize/compaction).
+ *
+ * Key operations:
+ *  - compress(): build an SQDataset from a floating point dataset (multi-threaded overloads
+ * provided).
+ *  - decompress_datum(): produce a temporary std::vector<float> of one decompressed vector.
+ *  - set_datum(): overwrite and recompress a vector after modification (resizeable
+ * allocators only).
+ *  - compact()/resize(): in-place structural modifications when allocator supports
+ * blocking.
+ */
 template <typename T, size_t Extent = svs::Dynamic, typename Alloc = lib::Allocator<T>>
 class SQDataset {
   public:
@@ -380,6 +405,12 @@ class SQDataset {
   public:
     SQDataset(size_t size, size_t dims)
         : data_{size, dims} {}
+    /**
+     * @brief Construct from already-compressed data and explicit scale/bias.
+     * @param data Compressed dataset buffer.
+     * @param scale Global scaling factor used during compression.
+     * @param bias Global bias term used during compression.
+     */
     SQDataset(data_type data, float scale, float bias)
         : scale_(scale)
         , bias_(bias)
@@ -393,6 +424,7 @@ class SQDataset {
 
     const_value_type get_datum(size_t i) const { return data_.get_datum(i); }
 
+    /** @brief Decompress the i-th vector into a freshly allocated std::vector<float>. */
     std::vector<float> decompress_datum(size_t i) const {
         auto datum = get_datum(i);
         std::vector<float> buffer(datum.size());
@@ -420,11 +452,12 @@ class SQDataset {
     ///// Decompressor
     Decompressor decompressor() const { return Decompressor{scale_, bias_}; }
 
-    template <data::ImmutableMemoryDataset Dataset>
-    static SQDataset compress(const Dataset& data, const allocator_type& allocator = {}) {
-        return compress(data, 1, allocator);
-    }
-
+    /**
+     * @brief Compress a floating point dataset using a thread pool size hint.
+     * @param data Source dataset of floating point values.
+     * @param num_threads Number of worker threads (1 => serial fallback).
+     * @param allocator Allocator instance for underlying storage blocks.
+     */
     template <data::ImmutableMemoryDataset Dataset>
     static SQDataset compress(
         const Dataset& data, size_t num_threads, const allocator_type& allocator = {}
@@ -433,6 +466,13 @@ class SQDataset {
         return compress(data, pool, allocator);
     }
 
+    /**
+     * @brief Compress a floating point dataset using an external thread pool.
+     * @param data Source dataset of floating point values.
+     * @param threadpool Thread pool instance implementing threads::ThreadPool.
+     * @param allocator Allocator for underlying storage.
+     * @throws ANNEXCEPTION if static Extent mismatches the dataset dimensionality.
+     */
     template <data::ImmutableMemoryDataset Dataset, threads::ThreadPool Pool>
     static SQDataset
     compress(const Dataset& data, Pool& threadpool, const allocator_type& allocator = {}) {
