@@ -60,6 +60,8 @@ To build and run the SVS example using our `shared library <https://github.com/i
 See `CMakeLists.txt <https://github.com/intel/ScalableVectorSearch/blob/main/examples/cpp/shared/CMakeLists.txt>`_ for details on how the shared library is used and remember to update the link 
 in CMakeLists.txt to **download the latest shared library release**. 
 
+.. _step-by-step-example-with-compression-cpp:
+
 Step by step example using vector compression
 **********************************************
 
@@ -69,7 +71,8 @@ We will use the random dataset included in SVS for testing in ``data/test_datase
 Compress the data
 ==================
 
-To boost performance and reduce memory usage, we first compress the data using our vector compression technique LVQ. See :ref:`compression-setting` for details.
+To boost performance and reduce memory usage, we first compress the data using our vector compression technique LVQ. 
+See :ref:`vector_compression` and :ref:`compression-setting` for details.
 
 .. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
    :language: cpp

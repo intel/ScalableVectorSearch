@@ -122,13 +122,13 @@
 <p>In large-scale scenarios, the memory requirement for graph-based methods grows quickly. To reduce the memory footprint
 we recommend:</p>
 <ol class="arabic simple">
-<li><p>Use <a class="reference internal" href="../start.html#search-with-compression"><span class="std std-ref">vector compression for search</span></a>. The supported vector compression, <a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">LVQ</span></a>, reduces the
-memory footprint and improves performance.</p></li>
+<li><p>Use <a class="reference internal" href="../start.html#search-with-compression"><span class="std std-ref">vector compression for search</span></a>. The supported <a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">vector compression</span></a> techniques, LVQ and LeanVec, reduce the
+memory footprint and improve performance.</p></li>
 <li><p>Build the graph with a small <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> (e.g., 32). SVS optimizations enable very high search performance even in graphs
 built with small <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> (see <a class="reference internal" href="../benchs/static/previous/large_scale_benchs.html#search-with-reduced-memory-benchs"><span class="std std-ref">Search with Reduced Memory Footprint</span></a>).</p></li>
-<li><p>Use <a class="reference internal" href="../features.html#building-with-compressed-vectors"><span class="std std-ref">vector compression for graph building</span></a>. The supported vector compression,
-<a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">LVQ</span></a>, enables graph building with compressed vectors with almost no degradation in search
-accuracy compared to a graph built with full precision vectors <a class="reference internal" href="../features.html#abht23" id="id1"><span>[ABHT23]</span></a>.</p></li>
+<li><p>Use <span class="xref std std-ref">vector compression for graph building</span>. The supported <a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">vector compression</span></a> techniques,
+enable graph building with compressed vectors with almost no degradation in search
+accuracy compared to a graph built with full precision vectors <a class="reference internal" href="../features.html#abht23" id="id1"><span>[ABHT23]</span></a> <a class="reference internal" href="../features.html#tbah24" id="id2"><span>[TBAH24]</span></a>.</p></li>
 </ol>
 </section>
 

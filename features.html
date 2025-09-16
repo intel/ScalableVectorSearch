@@ -59,8 +59,15 @@
 <li class="toctree-l2"><a class="reference internal" href="#distance-functions">Distance functions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#data-types">Data types</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#vector-compression">Vector compression</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#search-with-compressed-vectors">Search with compressed vectors</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#graph-building-with-compressed-vectors">Graph building with compressed vectors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#leanvec-and-lvq-compression-techniques">LeanVec and LVQ Compression Techniques</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#lvq-locally-adaptive-vector-quantization">LVQ: Locally-Adaptive Vector Quantization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#leanvec-compression">LeanVec Compression</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#two-level-compression">Two-Level Compression</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#naming-convention">Naming Convention</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#training-and-adaptability">Training and Adaptability</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#bit-scalar-quantization">8-bit scalar quantization</a></li>
 </ul>
 </li>
 </ul>
@@ -129,14 +136,14 @@
 <p>Here we present the main library features, including the supported index types, distance functions and data types.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#index-types" id="id7">Index Types</a></p></li>
-<li><p><a class="reference internal" href="#distance-functions" id="id8">Distance functions</a></p></li>
-<li><p><a class="reference internal" href="#data-types" id="id9">Data types</a></p></li>
-<li><p><a class="reference internal" href="#vector-compression" id="id10">Vector compression</a></p></li>
+<li><p><a class="reference internal" href="#index-types" id="id6">Index Types</a></p></li>
+<li><p><a class="reference internal" href="#distance-functions" id="id7">Distance functions</a></p></li>
+<li><p><a class="reference internal" href="#data-types" id="id8">Data types</a></p></li>
+<li><p><a class="reference internal" href="#vector-compression" id="id9">Vector compression</a></p></li>
 </ul>
 </nav>
 <section id="index-types">
-<span id="index-constructors"></span><h2><a class="toc-backref" href="#id7" role="doc-backlink">Index Types</a><a class="headerlink" href="#index-types" title="Link to this heading"></a></h2>
+<span id="index-constructors"></span><h2><a class="toc-backref" href="#id6" role="doc-backlink">Index Types</a><a class="headerlink" href="#index-types" title="Link to this heading"></a></h2>
 <p>SVS supports the following index types:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#static-graph-index"><span class="std std-ref">Graphs for static datasets</span></a></p></li>
@@ -162,14 +169,14 @@ the ground-truth nearest neighbors for a dataset.</p>
 </section>
 </section>
 <section id="distance-functions">
-<span id="supported-distance-functions"></span><h2><a class="toc-backref" href="#id8" role="doc-backlink">Distance functions</a><a class="headerlink" href="#distance-functions" title="Link to this heading"></a></h2>
+<span id="supported-distance-functions"></span><h2><a class="toc-backref" href="#id7" role="doc-backlink">Distance functions</a><a class="headerlink" href="#distance-functions" title="Link to this heading"></a></h2>
 <p>SVS supports the distance functions listed in <a class="reference internal" href="cpp/core/distance.html#cpp-core-distance"><span class="std std-ref">Built-In Distance Functors</span></a> (see <a class="reference internal" href="python/common.html#svs.DistanceType" title="svs.DistanceType"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.DistanceType</span></code></a> for the corresponding
 Python classes). The distance function is specified when the index is created by the corresponding <a class="reference internal" href="#index-constructors"><span class="std std-ref">index constructors</span></a>. In the
 case of the Vamana index, it must also be specified when the graph is built (see <a class="reference internal" href="python/vamana.html#svs.Vamana.build" title="svs.Vamana.build"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana.build</span></code></a> and
 <a class="reference internal" href="cpp/index/vamana.html#_CPPv4I_N7manager19QueryTypeDefinitionE0000EN3svs6Vamana5buildE6VamanaRKN5index6vamana21VamanaBuildParametersERR10DataLoader8Distance15ThreadPoolProtoRK9Allocator" title="svs::Vamana::build"><code class="xref cpp cpp-func docutils literal notranslate"><span class="pre">svs::Vamana::build()</span></code></a> for details).</p>
 </section>
 <section id="data-types">
-<span id="supported-data-types"></span><h2><a class="toc-backref" href="#id9" role="doc-backlink">Data types</a><a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
+<span id="supported-data-types"></span><h2><a class="toc-backref" href="#id8" role="doc-backlink">Data types</a><a class="headerlink" href="#data-types" title="Link to this heading"></a></h2>
 <p>The supported data types are: <em>float32</em>, <em>float16</em>, <em>int8</em> and <em>uint8</em>. Other data types might work but performance has not been tested.</p>
 <p>The data type can be set <strong>independently</strong> for the <strong>database vectors</strong> and the <strong>query vector</strong>. For example, one could compress
 the database vectors to float16, which allows for a 2x storage reduction often with negligible accuracy loss, and keep
@@ -181,7 +188,7 @@ the query in float32.</p>
 (<a class="reference internal" href="python/vamana.html#svs.Vamana" title="svs.Vamana"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Vamana</span></code></a>, <a class="reference internal" href="python/flat.html#svs.Flat" title="svs.Flat"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.Flat</span></code></a>).</p>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="bbd83423-8f9e-4baf-a624-f9c0e14b7b97" name="bbd83423-8f9e-4baf-a624-f9c0e14b7b97" type="checkbox"><label class="sphinx_collapse__label" for="bbd83423-8f9e-4baf-a624-f9c0e14b7b97"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="868f1283-12ac-4186-be69-808c70bd415a" name="868f1283-12ac-4186-be69-808c70bd415a" type="checkbox"><label class="sphinx_collapse__label" for="868f1283-12ac-4186-be69-808c70bd415a"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <p>The database vectors data type is specified in the template argument of the <a class="reference internal" href="cpp/core/data.html#_CPPv4I0_6size_t0EN3svs16VectorDataLoaderE" title="svs::VectorDataLoader"><code class="xref cpp cpp-class docutils literal notranslate"><span class="pre">svs::VectorDataLoader</span></code></a>.</p>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;data_f32.svs&quot;</span><span class="p">)</span>
 </pre></div>
@@ -202,128 +209,80 @@ then it must be loaded with <code class="docutils literal notranslate"><span cla
 (<em>uint8</em>, <em>uint8</em>), (<em>int8</em>, <em>int8</em>), among others.</p>
 </section>
 <section id="vector-compression">
-<span id="id2"></span><h2><a class="toc-backref" href="#id10" role="doc-backlink">Vector compression</a><a class="headerlink" href="#vector-compression" title="Link to this heading"></a></h2>
+<span id="id2"></span><h2><a class="toc-backref" href="#id9" role="doc-backlink">Vector compression</a><a class="headerlink" href="#vector-compression" title="Link to this heading"></a></h2>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source</a> SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ <a class="reference internal" href="#abht23" id="id3"><span>[ABHT23]</span></a> and Leanvec <a class="reference internal" href="#tbah24" id="id4"><span>[TBAH24]</span></a>. These techniques are closed-source and supported exclusively on Intel hardware. We provide <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/releases">shared library</a> and <a class="reference external" href="https://pypi.org/project/scalable-vs/">PyPI package</a> to enable these vector compression techniques in C++ and Python, respectively.</p>
+<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source SVS library</a> supports all documented features except our proprietary vector
+compression methods –LVQ and Leanvec– which are not open-source and run only on Intel CPUs. These are available via a <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/releases">shared library</a>
+(C++) and <a class="reference external" href="https://pypi.org/project/scalable-vs/">PyPI package</a> (Python). See examples for <a class="reference internal" href="start.html#step-by-step-example-with-compression"><span class="std std-ref">Python</span></a>
+and <a class="reference internal" href="start_cpp.html#step-by-step-example-with-compression-cpp"><span class="std std-ref">C++</span></a> usage.</p>
 </div>
-<p>The memory footprint can be reduced and the search performance improved by combining the graph-search with the
-Locally-adaptive Vector Quantization (LVQ) <a class="reference internal" href="#abht23" id="id5"><span>[ABHT23]</span></a> approach.
-The library has support for <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">performing online vector compression with LVQ</span></a> or
-for <span class="xref std std-ref">loading an index with a previously compressed dataset</span>.
-See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for more details about LVQ and how to set its parameters.</p>
-<section id="search-with-compressed-vectors">
-<h3>Search with compressed vectors<a class="headerlink" href="#search-with-compressed-vectors" title="Link to this heading"></a></h3>
-<p>See <a class="reference internal" href="start.html#search-with-compression"><span class="std std-ref">Searching the index</span></a> for details on how to use LVQ for search.</p>
+<section id="leanvec-and-lvq-compression-techniques">
+<h3>LeanVec and LVQ Compression Techniques<a class="headerlink" href="#leanvec-and-lvq-compression-techniques" title="Link to this heading"></a></h3>
+<p>SVS incorporates two novel compression strategies,
+<a class="reference external" href="https://vldb.org/pvldb/volumes/16/paper/Similarity%20search%20in%20the%20blink%20of%20an%20eye%20with%20compressed%20indices">LVQ</a> <a class="reference internal" href="#abht23" id="id3"><span>[ABHT23]</span></a> and
+<a class="reference external" href="https://openreview.net/forum?id=wczqrpOrIc">LeanVec</a> <a class="reference internal" href="#tbah24" id="id4"><span>[TBAH24]</span></a>, to enhance memory
+efficiency and accelerate similarity search operations. These techniques compress high-dimensional vectors while maintaining the spatial
+relationships necessary for accurate retrieval. See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">Choosing the Right Compression</span></a> for details on selecting the best approach for your case.</p>
+<section id="lvq-locally-adaptive-vector-quantization">
+<h4>LVQ: Locally-Adaptive Vector Quantization<a class="headerlink" href="#lvq-locally-adaptive-vector-quantization" title="Link to this heading"></a></h4>
+<p>LVQ employs a combination of per-vector normalization and scalar quantization to reduce memory footprint. It supports rapid distance calculations,
+especially when paired with SIMD-optimized layouts like <a class="reference external" href="https://arxiv.org/abs/2402.02044">Turbo LVQ</a>. The compression parameters are learned
+from the input data, allowing for adaptive and efficient encoding.</p>
+<p>See this <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/blob/main/examples/cpp/shared/example_vamana_with_compression_lvq.cpp">example</a> for details on how
+to use LVQ and the <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">guidelines</span></a> to choose the right compression strategy.</p>
 </section>
-<section id="graph-building-with-compressed-vectors">
-<span id="building-with-compressed-vectors"></span><h3>Graph building with compressed vectors<a class="headerlink" href="#graph-building-with-compressed-vectors" title="Link to this heading"></a></h3>
-<p>LVQ-compressed vectors can be used to build the graph, thus reducing the memory footprint not only for search but also
-for indexing. Depending on the dataset, the search accuracy can be almost unchanged even when the graph is built with
-highly compressed vectors using LVQ-4 or LVQ-8, that is, using only 4 or 8 bits per vector component <a class="reference internal" href="#abht23" id="id6"><span>[ABHT23]</span></a>.</p>
-<p>To build the graph using compressed vectors we just need to follow the same procedure we did for <a class="reference internal" href="start.html#graph-building-code"><span class="std std-ref">graph building</span></a>.
-First, define the building parameters,</p>
-<p><strong>In Python</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Now, we can build a graph index over the data set.</span>
-<span class="n">parameters</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VamanaBuildParameters</span><span class="p">(</span>
-    <span class="n">graph_max_degree</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
-    <span class="n">window_size</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
-<span class="p">)</span>
-</pre></div>
+<section id="leanvec-compression">
+<h4>LeanVec Compression<a class="headerlink" href="#leanvec-compression" title="Link to this heading"></a></h4>
+<p><strong>LeanVec</strong> builds upon LVQ by integrating dimensionality reduction, making it particularly effective for very high-dimensional datasets.
+It delivers significant performance improvements while conserving memory. LeanVec is designed to handle both cases where queries follow the
+same distribution as the base vectors (in-distribution) and cases where they follow a different distribution (out-of-distribution), such as
+in cross-modal search tasks like text-to-image retrieval.</p>
+<p>See these examples in <a class="reference internal" href="start.html#entire-example"><span class="std std-ref">Python</span></a> and <a class="reference internal" href="start_cpp.html#entire-example-cpp"><span class="std std-ref">C++</span></a> for details on how to use LeanVec and the
+<a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">guidelines</span></a> to choose the right compression strategy.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Support for out-of-distribution queries is in experimental mode. You can try it using our Python
+<a class="reference external" href="https://github.com/IntelLabs/ScalableVectorSearchBenchmarking">benchmarking tool</a>.</p>
 </div>
-<p><strong>In C++</strong></p>
-<div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="71abbbd3-8f1f-49e0-b868-c3098ba6e974" name="71abbbd3-8f1f-49e0-b868-c3098ba6e974" type="checkbox"><label class="sphinx_collapse__label" for="71abbbd3-8f1f-49e0-b868-c3098ba6e974"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">parameters</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">index</span><span class="o">::</span><span class="n">vamana</span><span class="o">::</span><span class="n">VamanaBuildParameters</span><span class="p">{</span>
-<span class="w">    </span><span class="mf">1.2</span><span class="p">,</span><span class="w">  </span><span class="c1">// alpha</span>
-<span class="w">    </span><span class="mi">64</span><span class="p">,</span><span class="w">   </span><span class="c1">// graph max degree</span>
-<span class="w">    </span><span class="mi">128</span><span class="p">,</span><span class="w">  </span><span class="c1">// search window size</span>
-<span class="w">    </span><span class="mi">1024</span><span class="p">,</span><span class="w"> </span><span class="c1">// max candidate pool size</span>
-<span class="w">    </span><span class="mi">60</span><span class="p">,</span><span class="w">   </span><span class="c1">// prune to degree</span>
-<span class="w">    </span><span class="nb">true</span><span class="p">,</span><span class="w"> </span><span class="c1">// full search history</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-</div>
-</div>
-<div class="line-block">
-<div class="line"><br /></div>
-</div>
-<p>then load the dataset, using the loader (<a class="reference internal" href="python/loaders.html#python-api-loaders"><span class="std std-ref">details for Python</span></a>,
-<a class="reference internal" href="cpp/quantization/lvq.html#cpp-quantization-lvq"><span class="std std-ref">details for C++</span></a>) corresponding to the chosen compression type,</p>
-<p><strong>In Python</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">data_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>
-    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">test_data_dir</span><span class="p">,</span> <span class="s2">&quot;example_data&quot;</span><span class="p">),</span>  <span class="c1"># Uncompressed data</span>
-    <span class="n">svs</span><span class="o">.</span><span class="n">DataType</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-    <span class="n">dims</span> <span class="o">=</span> <span class="mi">128</span>    <span class="c1"># Passing dimensionality is optional</span>
-<span class="p">)</span>
-<span class="n">B1</span> <span class="o">=</span> <span class="mi">4</span>    <span class="c1"># Number of bits for the first level LVQ quantization</span>
-<span class="n">B2</span> <span class="o">=</span> <span class="mi">8</span>    <span class="c1"># Number of bits for the residuals quantization</span>
-<span class="n">padding</span> <span class="o">=</span> <span class="mi">32</span>
-<span class="n">strategy</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQStrategy</span><span class="o">.</span><span class="n">Turbo</span>
-<span class="n">compressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">LVQLoader</span><span class="p">(</span><span class="n">data_loader</span><span class="p">,</span>
-    <span class="n">primary</span><span class="o">=</span><span class="n">B1</span><span class="p">,</span>
-    <span class="n">residual</span><span class="o">=</span><span class="n">B2</span><span class="p">,</span>
-    <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">,</span> <span class="c1"># Passing the strategy is optional.</span>
-    <span class="n">padding</span><span class="o">=</span><span class="n">padding</span> <span class="c1"># Passing padding is optional.</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>In C++</strong></p>
-<div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="17462590-f9d3-422d-883f-2214d7f2bf65" name="17462590-f9d3-422d-883f-2214d7f2bf65" type="checkbox"><label class="sphinx_collapse__label" for="17462590-f9d3-422d-883f-2214d7f2bf65"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Quantization</span>
-<span class="k">namespace</span><span class="w"> </span><span class="nn">scalar</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nn">svs</span><span class="o">::</span><span class="nn">quantization</span><span class="o">::</span><span class="nn">scalar</span><span class="p">;</span>
-
-<span class="c1">// Wrap the compressor object in a lazy functor.</span>
-<span class="c1">// This will defer loading and compression of the SQ dataset until the threadpool</span>
-<span class="c1">// used in the index has been created.</span>
-<span class="k">auto</span><span class="w"> </span><span class="n">compressor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">lib</span><span class="o">::</span><span class="n">Lazy</span><span class="p">([</span><span class="o">=</span><span class="p">](</span><span class="n">svs</span><span class="o">::</span><span class="n">threads</span><span class="o">::</span><span class="n">ThreadPool</span><span class="w"> </span><span class="k">auto</span><span class="o">&amp;</span><span class="w"> </span><span class="n">threadpool</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="k">auto</span><span class="w"> </span><span class="n">data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">VectorDataLoader</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">(</span><span class="s">&quot;example_data&quot;</span><span class="p">).</span><span class="n">load</span><span class="p">();</span>
-<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">scalar</span><span class="o">::</span><span class="n">SQDataset</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="kt">int8_t</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;::</span><span class="n">compress</span><span class="p">(</span><span class="n">data</span><span class="p">,</span><span class="w"> </span><span class="n">threadpool</span><span class="p">);</span>
-<span class="p">});</span>
-<span class="n">index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">assemble</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span>
-<span class="w">    </span><span class="s">&quot;example_config&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">GraphLoader</span><span class="p">(</span><span class="s">&quot;example_graph&quot;</span><span class="p">),</span>
-<span class="w">    </span><span class="n">compressor</span><span class="p">,</span>
-<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceType</span><span class="o">::</span><span class="n">L2</span><span class="p">,</span>
-<span class="w">    </span><span class="mi">4</span>
-<span class="p">);</span>
-<span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed load&quot;</span><span class="p">);</span>
-<span class="n">check</span><span class="p">(</span><span class="mf">0.8190</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
-</pre></div>
-</div>
-</div>
-</div>
-<div class="line-block">
-<div class="line"><br /></div>
-</div>
-<p>and finally call the build function with the chosen compression loader</p>
-<p><strong>In Python</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build the index.</span>
-<span class="n">index</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">Vamana</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
-    <span class="n">parameters</span><span class="p">,</span>
-    <span class="n">compressed_loader</span><span class="p">,</span>
-    <span class="n">svs</span><span class="o">.</span><span class="n">DistanceType</span><span class="o">.</span><span class="n">L2</span><span class="p">,</span>
-    <span class="n">num_threads</span> <span class="o">=</span> <span class="mi">4</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>In C++</strong></p>
-<div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="91f1729d-0753-468d-a8f7-2f92d10eaf8a" name="91f1729d-0753-468d-a8f7-2f92d10eaf8a" type="checkbox"><label class="sphinx_collapse__label" for="91f1729d-0753-468d-a8f7-2f92d10eaf8a"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
-<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Compressed building</span>
-<span class="n">index</span><span class="w"> </span><span class="o">=</span>
-<span class="w">    </span><span class="n">svs</span><span class="o">::</span><span class="n">Vamana</span><span class="o">::</span><span class="n">build</span><span class="o">&lt;</span><span class="kt">float</span><span class="o">&gt;</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span><span class="w"> </span><span class="n">compressor</span><span class="p">,</span><span class="w"> </span><span class="n">svs</span><span class="o">::</span><span class="n">DistanceL2</span><span class="p">(),</span><span class="w"> </span><span class="n">num_threads</span><span class="p">);</span>
-<span class="n">recall</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_recall</span><span class="p">(</span><span class="n">index</span><span class="p">,</span><span class="w"> </span><span class="n">queries</span><span class="p">,</span><span class="w"> </span><span class="n">groundtruth</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Compressed Build&quot;</span><span class="p">);</span>
-<span class="n">check</span><span class="p">(</span><span class="mf">0.8212</span><span class="p">,</span><span class="w"> </span><span class="n">recall</span><span class="p">);</span>
-</pre></div>
-</div>
-</div>
-</div>
-<div class="line-block">
-<div class="line"><br /></div>
-</div>
+</section>
+<section id="two-level-compression">
+<h4>Two-Level Compression<a class="headerlink" href="#two-level-compression" title="Link to this heading"></a></h4>
+<p>Both LVQ and LeanVec support a dual-stage compression scheme. In LVQ, the first stage quantizes the vector to capture its core structure,
+while the second stage encodes the residual error for improved accuracy. The initial quantization enables fast candidate retrieval with <cite>B₁</cite>
+bits per dimension, and the residuals encoded with <cite>B₂</cite> bits per dimension are used for re-ranking. For example, LVQ4x8 uses 4 bits per dimension
+for fast candidate retrieval and 8 bits per dimension for re-ranking. LVQ can also work on a one level scheme using <cite>B₁</cite> bits per dimension without
+re-ranking (e.g., LVQ8).</p>
+<p>LeanVec follows a similar approach: the first level reduces dimensionality and applies LVQ for fast search, and the second level applies
+LVQ to the original vectors for precise re-ranking. <strong>Importantly, neither method relies on full-precision vectors – everything operates on compressed data.</strong></p>
+</section>
+<section id="naming-convention">
+<h4>Naming Convention<a class="headerlink" href="#naming-convention" title="Link to this heading"></a></h4>
+<p>Compression configurations follow the format: <cite>LVQ&lt;B₁&gt;x&lt;B₂&gt;</cite>, where:</p>
+<ul class="simple">
+<li><p><cite>B₁</cite>: Bits per dimension for the first-level quantization (<code class="docutils literal notranslate"><span class="pre">primary</span></code>).</p></li>
+<li><p><cite>B₂</cite>: Bits per dimension for the second-level residual encoding (<code class="docutils literal notranslate"><span class="pre">residual</span></code>).</p></li>
+</ul>
+<p>Examples:</p>
+<ul class="simple">
+<li><p><strong>LVQ4x8</strong>: 4 bits for initial quantization, 8 bits for residuals (total 12 bits per dimension).</p></li>
+<li><p><strong>LVQ8</strong>: Single-level compression using 8 bits per dimension.</p></li>
+</ul>
+<p>LeanVec uses the same naming scheme. The <code class="docutils literal notranslate"><span class="pre">primary_kind</span></code> and <code class="docutils literal notranslate"><span class="pre">secondary_kind</span></code> arguments set the first and second level number of bits per dimension.</p>
+</section>
+<section id="training-and-adaptability">
+<h4>Training and Adaptability<a class="headerlink" href="#training-and-adaptability" title="Link to this heading"></a></h4>
+<p>The effectiveness of LVQ and LeanVec stems from their ability to learn compression parameters from the data itself.
+This requires a representative sample of vectors during index initialization. If the data distribution shifts significantly over time,
+compression quality may degrade – a common challenge for all data-dependent methods.</p>
+</section>
+</section>
+<section id="bit-scalar-quantization">
+<h3>8-bit scalar quantization<a class="headerlink" href="#bit-scalar-quantization" title="Link to this heading"></a></h3>
+<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source SVS library</a> supports 8-bit scalar quantization. It uses the global minimum and maximum values across all embeddings to scale them, then applies
+uniform quantization per dimension using 8 bits. This functionality is currently available only in the C++ implementation, with support for
+Python bindings coming soon.</p>
+<p>See this <a class="reference internal" href="start_cpp.html#using-open-svs-only-cpp"><span class="std std-ref">example</span></a> for details on how to use the 8-bit scalar quantization.</p>
 <p class="rubric">References</p>
 <div role="list" class="citation-list">
 <div class="citation" id="sdsk19" role="doc-biblioentry">
@@ -331,8 +290,7 @@ First, define the building parameters,</p>
 <p>Subramanya, S.J.; Devvrit, F.; Simhadri, H.V.; Krishnawamy, R.; Kadekodi, R..: Diskann: Fast accurate billion-point nearest neighbor search on a single node. In: Advances in Neural Information Processing Systems 32 (2019).</p>
 </div>
 <div class="citation" id="abht23" role="doc-biblioentry">
-<span class="label"><span class="fn-bracket">[</span>ABHT23<span class="fn-bracket">]</span></span>
-<span class="backrefs">(<a role="doc-backlink" href="#id3">1</a>,<a role="doc-backlink" href="#id5">2</a>,<a role="doc-backlink" href="#id6">3</a>)</span>
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id3">ABHT23</a><span class="fn-bracket">]</span></span>
 <p>Aguerrebere, C.; Bhati I.; Hildebrand M.; Tepper M.; Willke T..: Similarity search in the blink of an eye with compressed indices. In: Proceedings of the VLDB Endowment, 16, 11, 3433 - 3446. (2023)</p>
 </div>
 <div class="citation" id="ahbw24" role="doc-biblioentry">

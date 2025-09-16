@@ -1,0 +1,77 @@
+LeanVec and LVQ Compression Techniques
+--------------------------------------
+
+SVS incorporates two novel compression strategies, 
+`LVQ <https://vldb.org/pvldb/volumes/16/paper/Similarity%20search%20in%20the%20blink%20of%20an%20eye%20with%20compressed%20indices>`_ [ABHT23]_ and 
+`LeanVec <https://openreview.net/forum?id=wczqrpOrIc>`_ [TBAH24]_, to enhance memory 
+efficiency and accelerate similarity search operations. These techniques compress high-dimensional vectors while maintaining the spatial 
+relationships necessary for accurate retrieval. See :ref:`compression-setting` for details on selecting the best approach for your case.
+
+LVQ: Locally-Adaptive Vector Quantization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+LVQ employs a combination of per-vector normalization and scalar quantization to reduce memory footprint. It supports rapid distance calculations, 
+especially when paired with SIMD-optimized layouts like `Turbo LVQ <https://arxiv.org/abs/2402.02044>`_. The compression parameters are learned 
+from the input data, allowing for adaptive and efficient encoding.
+
+See this `example <https://github.com/intel/ScalableVectorSearch/blob/main/examples/cpp/shared/example_vamana_with_compression_lvq.cpp>`_ for details on how 
+to use LVQ and the :ref:`guidelines <compression-setting>` to choose the right compression strategy.
+
+LeanVec Compression
+~~~~~~~~~~~~~~~~~~~~
+
+**LeanVec** builds upon LVQ by integrating dimensionality reduction, making it particularly effective for very high-dimensional datasets. 
+It delivers significant performance improvements while conserving memory. LeanVec is designed to handle both cases where queries follow the 
+same distribution as the base vectors (in-distribution) and cases where they follow a different distribution (out-of-distribution), such as 
+in cross-modal search tasks like text-to-image retrieval.
+
+See these examples in :ref:`Python <entire_example>` and :ref:`C++ <entire_example_cpp>` for details on how to use LeanVec and the 
+:ref:`guidelines <compression-setting>` to choose the right compression strategy.
+
+.. note::
+    Support for out-of-distribution queries is in experimental mode. You can try it using our Python 
+    `benchmarking tool <https://github.com/IntelLabs/ScalableVectorSearchBenchmarking>`_.
+
+Two-Level Compression
+~~~~~~~~~~~~~~~~~~~~~~
+
+Both LVQ and LeanVec support a dual-stage compression scheme. In LVQ, the first stage quantizes the vector to capture its core structure,
+while the second stage encodes the residual error for improved accuracy. The initial quantization enables fast candidate retrieval with `B₁`
+bits per dimension, and the residuals encoded with `B₂` bits per dimension are used for re-ranking. For example, LVQ4x8 uses 4 bits per dimension
+for fast candidate retrieval and 8 bits per dimension for re-ranking. LVQ can also work on a one level scheme using `B₁` bits per dimension without 
+re-ranking (e.g., LVQ8).
+
+LeanVec follows a similar approach: the first level reduces dimensionality and applies LVQ for fast search, and the second level applies 
+LVQ to the original vectors for precise re-ranking. **Importantly, neither method relies on full-precision vectors -- everything operates on compressed data.**
+
+Naming Convention
+~~~~~~~~~~~~~~~~~
+
+Compression configurations follow the format: `LVQ<B₁>x<B₂>`, where:
+
+- `B₁`: Bits per dimension for the first-level quantization (``primary``).
+- `B₂`: Bits per dimension for the second-level residual encoding (``residual``).
+
+Examples:
+
+- **LVQ4x8**: 4 bits for initial quantization, 8 bits for residuals (total 12 bits per dimension).
+- **LVQ8**: Single-level compression using 8 bits per dimension.
+
+LeanVec uses the same naming scheme. The ``primary_kind`` and ``secondary_kind`` arguments set the first and second level number of bits per dimension.
+
+
+Training and Adaptability
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The effectiveness of LVQ and LeanVec stems from their ability to learn compression parameters from the data itself. 
+This requires a representative sample of vectors during index initialization. If the data distribution shifts significantly over time, 
+compression quality may degrade -- a common challenge for all data-dependent methods.
+
+8-bit scalar quantization 
+--------------------------
+
+The `open-source SVS library <https://github.com/intel/ScalableVectorSearch>`_ supports 8-bit scalar quantization. It uses the global minimum and maximum values across all embeddings to scale them, then applies 
+uniform quantization per dimension using 8 bits. This functionality is currently available only in the C++ implementation, with support for 
+Python bindings coming soon.
+
+See this :ref:`example <using_open_svs_only_cpp>` for details on how to use the 8-bit scalar quantization.

@@ -112,93 +112,10 @@ Vector compression
 ==================
 
 .. note::
-   The `open-source <https://github.com/intel/ScalableVectorSearch>`_ SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ [ABHT23]_ and Leanvec [TBAH24]_. These techniques are closed-source and supported exclusively on Intel hardware. We provide `shared library <https://github.com/intel/ScalableVectorSearch/releases>`_ and `PyPI package <https://pypi.org/project/scalable-vs/>`_ to enable these vector compression techniques in C++ and Python, respectively.
+   .. include:: non-open-source-notice.rst
 
-The memory footprint can be reduced and the search performance improved by combining the graph-search with the
-Locally-adaptive Vector Quantization (LVQ) [ABHT23]_ approach.
-The library has support for :ref:`performing online vector compression with LVQ <search_with_compression>` or
-for :ref:`loading an index with a previously compressed dataset <loading_compressed_indices>`.
-See :ref:`compression-setting` for more details about LVQ and how to set its parameters.
-
-Search with compressed vectors
-------------------------------
-See :ref:`search_with_compression` for details on how to use LVQ for search.
-
-.. _building_with_compressed_vectors:
-
-Graph building with compressed vectors
---------------------------------------
-LVQ-compressed vectors can be used to build the graph, thus reducing the memory footprint not only for search but also
-for indexing. Depending on the dataset, the search accuracy can be almost unchanged even when the graph is built with
-highly compressed vectors using LVQ-4 or LVQ-8, that is, using only 4 or 8 bits per vector component [ABHT23]_.
-
-To build the graph using compressed vectors we just need to follow the same procedure we did for :ref:`graph building <graph-building-code>`.
-First, define the building parameters,
-
-**In Python**
-
-.. literalinclude:: ../examples/python/example_vamana.py
-   :language: python
-   :start-after: [build-parameters]
-   :end-before: [build-parameters]
-   :dedent: 4
-
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Build Parameters]
-       :end-before: [Build Parameters]
-       :dedent: 4
-
-|
-
-then load the dataset, using the loader (:ref:`details for Python <python_api_loaders>`,
-:ref:`details for C++ <cpp_quantization_lvq>`) corresponding to the chosen compression type,
-
-**In Python**
-
-.. literalinclude:: ../examples/python/example_vamana.py
-   :language: python
-   :start-after: [search-compressed-loader]
-   :end-before: [search-compressed-loader]
-   :dedent: 4
-
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Compressed Loader]
-       :end-before: [Compressed Loader]
-       :dedent: 4
-
-|
-
-and finally call the build function with the chosen compression loader
-
-**In Python**
-
-.. literalinclude:: ../examples/python/example_vamana.py
-   :language: python
-   :start-after: [build-index-compressed]
-   :end-before: [build-index-compressed]
-   :dedent: 4
-
-**In C++**
-
-.. collapse:: Click to display
-
-    .. literalinclude:: ../examples/cpp/vamana.cpp
-       :language: cpp
-       :start-after: [Build Index Compressed]
-       :end-before: [Build Index Compressed]
-       :dedent: 4
-
-|
+  
+.. include:: vector_compression.rst
 
 .. rubric:: References
 

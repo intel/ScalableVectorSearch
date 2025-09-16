@@ -190,7 +190,7 @@ the Python import name is <code class="docutils literal notranslate"><span class
 </section>
 </section>
 <section id="step-by-step-example-using-vector-compression">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">Step by step example using vector compression</a><a class="headerlink" href="#step-by-step-example-using-vector-compression" title="Link to this heading"></a></h2>
+<span id="step-by-step-example-with-compression"></span><h2><a class="toc-backref" href="#id7" role="doc-backlink">Step by step example using vector compression</a><a class="headerlink" href="#step-by-step-example-using-vector-compression" title="Link to this heading"></a></h2>
 <p>Here is a step by step explanation of the <a class="reference internal" href="#entire-example"><span class="std std-ref">example</span></a> that showcases the most important features of SVS.
 We will use a random dataset generated using <a class="reference internal" href="python/common.html#svs.generate_test_dataset" title="svs.generate_test_dataset"><code class="xref py py-func docutils literal notranslate"><span class="pre">svs.generate_test_dataset()</span></code></a>.</p>
 <p>We first load svs and the os module also required for this example.</p>
@@ -220,7 +220,8 @@ We will use a random dataset generated using <a class="reference internal" href=
 </div>
 <section id="compress-the-data">
 <h3><a class="toc-backref" href="#id8" role="doc-backlink">Compress the data</a><a class="headerlink" href="#compress-the-data" title="Link to this heading"></a></h3>
-<p>To boost performance and reduce memory usage, we first compress the data using our vector compression technique LeanVec. See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for details.</p>
+<p>To boost performance and reduce memory usage, we first compress the data using our vector compression technique LeanVec.
+See <a class="reference internal" href="features.html#vector-compression"><span class="std std-ref">Vector compression</span></a> and <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">Choosing the Right Compression</span></a> for details.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># We are going to construct a LeanVec dataset on-the-fly from uncompressed data.</span>
 <span class="c1"># First, we construct a loader for the uncompressed data.</span>
 <span class="n">uncompressed_loader</span> <span class="o">=</span> <span class="n">svs</span><span class="o">.</span><span class="n">VectorDataLoader</span><span class="p">(</span>

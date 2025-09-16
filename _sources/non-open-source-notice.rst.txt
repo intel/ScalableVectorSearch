@@ -1,0 +1,4 @@
+The `open-source SVS library <https://github.com/intel/ScalableVectorSearch>`_ supports all documented features except our proprietary vector 
+compression methods --LVQ and Leanvec-- which are not open-source and run only on Intel CPUs. These are available via a `shared library <https://github.com/intel/ScalableVectorSearch/releases>`_  
+(C++) and `PyPI package <https://pypi.org/project/scalable-vs/>`_ (Python). See examples for :ref:`Python <step-by-step-example-with-compression>` 
+and :ref:`C++ <step-by-step-example-with-compression-cpp>` usage.

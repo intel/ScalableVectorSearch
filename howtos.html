@@ -62,8 +62,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-choose-graph-building-hyper-parameters">How to Choose Graph Building Hyper-parameters</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-set-the-search-window-size">How to Set the Search Window Size</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#how-to-choose-compression-parameters">How to Choose Compression Parameters</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#number-of-bits-per-level">Number of bits per level</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#choosing-the-right-compression">Choosing the Right Compression</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#lvq-implementation-strategy">LVQ implementation strategy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#padding">Padding</a></li>
 </ul>
@@ -142,15 +141,15 @@
 <span id="howtos"></span><h1>How-Tos<a class="headerlink" href="#how-tos" title="Link to this heading"></a></h1>
 <nav class="contents local" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#how-to-do-dynamic-indexing" id="id3">How to Do Dynamic Indexing</a></p></li>
-<li><p><a class="reference internal" href="#how-to-choose-graph-building-hyper-parameters" id="id4">How to Choose Graph Building Hyper-parameters</a></p></li>
-<li><p><a class="reference internal" href="#how-to-set-the-search-window-size" id="id5">How to Set the Search Window Size</a></p></li>
-<li><p><a class="reference internal" href="#how-to-choose-compression-parameters" id="id6">How to Choose Compression Parameters</a></p></li>
-<li><p><a class="reference internal" href="#how-to-prepare-your-own-vector-dataset" id="id7">How to Prepare Your Own Vector Dataset</a></p></li>
+<li><p><a class="reference internal" href="#how-to-do-dynamic-indexing" id="id2">How to Do Dynamic Indexing</a></p></li>
+<li><p><a class="reference internal" href="#how-to-choose-graph-building-hyper-parameters" id="id3">How to Choose Graph Building Hyper-parameters</a></p></li>
+<li><p><a class="reference internal" href="#how-to-set-the-search-window-size" id="id4">How to Set the Search Window Size</a></p></li>
+<li><p><a class="reference internal" href="#choosing-the-right-compression" id="id5">Choosing the Right Compression</a></p></li>
+<li><p><a class="reference internal" href="#how-to-prepare-your-own-vector-dataset" id="id6">How to Prepare Your Own Vector Dataset</a></p></li>
 </ul>
 </nav>
 <section id="how-to-do-dynamic-indexing">
-<span id="how-to-run-dynamic-indexing"></span><h2><a class="toc-backref" href="#id3" role="doc-backlink">How to Do Dynamic Indexing</a><a class="headerlink" href="#how-to-do-dynamic-indexing" title="Link to this heading"></a></h2>
+<span id="how-to-run-dynamic-indexing"></span><h2><a class="toc-backref" href="#id2" role="doc-backlink">How to Do Dynamic Indexing</a><a class="headerlink" href="#how-to-do-dynamic-indexing" title="Link to this heading"></a></h2>
 <p>This tutorial will show you how to create a dynamic index, add and remove vectors, search the index, save and reload it.</p>
 <section id="generating-test-data">
 <h3>Generating test data<a class="headerlink" href="#generating-test-data" title="Link to this heading"></a></h3>
@@ -307,7 +306,7 @@ the corresponding data type.</p>
 </section>
 </section>
 <section id="how-to-choose-graph-building-hyper-parameters">
-<span id="graph-build-param-setting"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">How to Choose Graph Building Hyper-parameters</a><a class="headerlink" href="#how-to-choose-graph-building-hyper-parameters" title="Link to this heading"></a></h2>
+<span id="graph-build-param-setting"></span><h2><a class="toc-backref" href="#id3" role="doc-backlink">How to Choose Graph Building Hyper-parameters</a><a class="headerlink" href="#how-to-choose-graph-building-hyper-parameters" title="Link to this heading"></a></h2>
 <p>The optimal values for the graph building hyper-parameters depend on the dataset and on the trade-off between performance and
 accuracy that is required. We suggest here commonly used values and provide some guidance on how to adjust them. See
 <a class="reference internal" href="advanced/graph_search.html#graph-building-details"><span class="std std-ref">How does graph building work?</span></a> for more details about graph building.</p>
@@ -331,7 +330,7 @@ using as many <code class="docutils literal notranslate"><span class="pre">num_t
 </ul>
 </section>
 <section id="how-to-set-the-search-window-size">
-<span id="search-window-size-setting"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">How to Set the Search Window Size</a><a class="headerlink" href="#how-to-set-the-search-window-size" title="Link to this heading"></a></h2>
+<span id="search-window-size-setting"></span><h2><a class="toc-backref" href="#id4" role="doc-backlink">How to Set the Search Window Size</a><a class="headerlink" href="#how-to-set-the-search-window-size" title="Link to this heading"></a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> is the knob controlling the trade-off between performance and accuracy for the graph search.
 A larger <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> implies exploring more vectors, improving the accuracy at the cost of a longer search path.
 See <a class="reference internal" href="advanced/graph_search.html#graph-search-details"><span class="std std-ref">How does the graph search work?</span></a> for more details about graph search. One simple way to set the <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code> is to run
@@ -348,7 +347,7 @@ the chosen accuracy level.</p>
 </div>
 <p><strong>In C++</strong></p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="acf85806-514a-44db-b4b1-b3ea7c85503a" name="acf85806-514a-44db-b4b1-b3ea7c85503a" type="checkbox"><label class="sphinx_collapse__label" for="acf85806-514a-44db-b4b1-b3ea7c85503a"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="e00288f7-3f15-4c55-8d88-c29634eea1d9" name="e00288f7-3f15-4c55-8d88-c29634eea1d9" type="checkbox"><label class="sphinx_collapse__label" for="e00288f7-3f15-4c55-8d88-c29634eea1d9"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">auto</span><span class="w"> </span><span class="n">expected_recall</span><span class="w"> </span><span class="o">=</span>
 <span class="w">    </span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">size_t</span><span class="p">,</span><span class="w"> </span><span class="kt">double</span><span class="o">&gt;</span><span class="p">({{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mf">0.5509</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mf">0.7281</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8215</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mf">0.8788</span><span class="p">}});</span>
 <span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="k">auto</span><span class="w"> </span><span class="n">windowsize</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="mi">40</span><span class="p">})</span><span class="w"> </span><span class="p">{</span>
@@ -363,47 +362,30 @@ the chosen accuracy level.</p>
 <div class="line"><br /></div>
 </div>
 </section>
-<section id="how-to-choose-compression-parameters">
-<span id="compression-setting"></span><h2><a class="toc-backref" href="#id6" role="doc-backlink">How to Choose Compression Parameters</a><a class="headerlink" href="#how-to-choose-compression-parameters" title="Link to this heading"></a></h2>
-<section id="number-of-bits-per-level">
-<h3>Number of bits per level<a class="headerlink" href="#number-of-bits-per-level" title="Link to this heading"></a></h3>
-<p>LVQ compression <a class="reference internal" href="features.html#abht23" id="id1"><span>[ABHT23]</span></a> comes in two flavors: one or two levels. One level LVQ, or LVQ-B, uses B bits to encode each vector
-component using a scalar quantization with per-vector scaling factors. Two level LVQ, or LVQ-B1xB2, uses LVQ-B1 to encode
-the vectors and a modification of LVQ to encode the residuals using B2 bits.</p>
-<p>Whether using one or two levels, and the number of bits, depends on the dataset and the trade-off between performance and
-accuracy that needs to be achieved.</p>
-<p>When using <strong>two-level LVQ</strong>, the graph search is conducted using vectors compressed with LVQ-B1 and a final re-ranking
-step is performed using the residuals compressed with B2 bits to improve the search recall.
-This decoupled strategy is particularly beneficial for <strong>high dimensional datasets</strong> (&gt;200 dimensions) as LVQ achieves up to
-~8x bandwidth reduction (B1=4) compared to a float32-valued vector. The number of bits for the residuals (4 or 8) should
-be chosen depending on the desired search accuracy. Suggested configurations for high dimensional vectors are LVQ-4x8 or
-LVQ-4x4 depending on the desired accuracy.</p>
-<p>For <strong>lower dimensional datasets</strong> (&lt;200 dimensions), <strong>one-level</strong> LVQ-8 is often a good choice. If higher recall is required, and a
-slightly larger memory footprint is allowed, then LVQ-8x4 or LVQ-8x8 should be used.</p>
-<p>These are general guidelines, but the best option will depend on the dataset. If willing to optimize the search for a
-particular dataset and use case, we suggest trying different LVQ options. See <a class="reference internal" href="benchs/ablation.html#benchs-compression-evaluation"><span class="std std-ref">SVS + Vector compression (large scale
-datasets)</span></a> and
-<a class="reference internal" href="benchs/ablation.html#benchs-compression-evaluation-small-scale"><span class="std std-ref">SVS + Vector compression (small scale datasets)</span></a> for benchmarking results of
-the different LVQ settings in standard datasets.</p>
-</section>
+<section id="choosing-the-right-compression">
+<span id="compression-setting"></span><h2><a class="toc-backref" href="#id5" role="doc-backlink">Choosing the Right Compression</a><a class="headerlink" href="#choosing-the-right-compression" title="Link to this heading"></a></h2>
+<p>The optimal compression strategy depends on the specific workload, but the following diagram can be used as a general guideline.</p>
+<a class="reference internal image-reference" href="_images/compression_selection_flow.png"><img alt="Compression selection flow diagram." src="_images/compression_selection_flow.png" style="width: 1000px;" />
+</a>
 <section id="lvq-implementation-strategy">
 <span id="lvq-strategy"></span><h3>LVQ implementation strategy<a class="headerlink" href="#lvq-implementation-strategy" title="Link to this heading"></a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">strategy</span></code> argument in the <a class="reference internal" href="python/loaders.html#svs.LVQLoader" title="svs.LVQLoader"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQLoader</span></code></a> is of type <a class="reference internal" href="python/loaders.html#svs.LVQStrategy" title="svs.LVQStrategy"><code class="xref py py-class docutils literal notranslate"><span class="pre">svs.LVQStrategy</span></code></a>
 and defines the low level implementation strategy for LVQ, whether it is Turbo or Sequential. Turbo is an
-optimized implementation that brings further performance over the default (Sequential) implementation <a class="reference internal" href="features.html#ahbw24" id="id2"><span>[AHBW24]</span></a>. Turbo can be used
-when using 4 bits for the primary LVQ level and it is enabled by default for that setting.</p>
+optimized implementation that can bring further performance over the Sequential implementation <a class="reference internal" href="features.html#ahbw24" id="id1"><span>[AHBW24]</span></a>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">strategy</span></code> can be set to <code class="docutils literal notranslate"><span class="pre">Turbo</span></code>, <code class="docutils literal notranslate"><span class="pre">Sequential</span></code> or <code class="docutils literal notranslate"><span class="pre">Auto</span></code> (default). When set to <code class="docutils literal notranslate"><span class="pre">Auto</span></code>, the strategy will be <code class="docutils literal notranslate"><span class="pre">Turbo</span></code>
+if using 4 bits for the primary LVQ level (<code class="docutils literal notranslate"><span class="pre">primary</span></code> = 4) and <code class="docutils literal notranslate"><span class="pre">Sequential</span></code> if using 8 bits (<code class="docutils literal notranslate"><span class="pre">primary</span></code> = 8).</p>
 </section>
 <section id="padding">
 <h3>Padding<a class="headerlink" href="#padding" title="Link to this heading"></a></h3>
-<p>LVQ-compressed vectors can be padded to a multiple of 32 or 64 bytes to be aligned with half or full cache lines.
+<p>LVQ and LeanVec-compressed vectors can be padded to a multiple of 32 or 64 bytes to be aligned with half or full cache lines.
 This improves search performance and has a low impact on the overall memory footprint cost (e.g., 5% and 12% larger
 footprint for <a class="reference external" href="http://sites.skoltech.ru/compvision/noimi/">Deep</a> with <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 128 and 32, respectively).
 A value of 0 (default) implies no special alignment.</p>
-<p>For details on the C++ implementation see <a class="reference internal" href="cpp/quantization/lvq.html#cpp-quantization-lvq"><span class="std std-ref">Locally-Adaptive Vector Quantization</span></a>.</p>
+<p>For details on the LVQ C++ implementation see <a class="reference internal" href="cpp/quantization/lvq.html#cpp-quantization-lvq"><span class="std std-ref">Locally-Adaptive Vector Quantization</span></a>.</p>
 </section>
 </section>
 <section id="how-to-prepare-your-own-vector-dataset">
-<h2><a class="toc-backref" href="#id7" role="doc-backlink">How to Prepare Your Own Vector Dataset</a><a class="headerlink" href="#how-to-prepare-your-own-vector-dataset" title="Link to this heading"></a></h2>
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">How to Prepare Your Own Vector Dataset</a><a class="headerlink" href="#how-to-prepare-your-own-vector-dataset" title="Link to this heading"></a></h2>
 <p>Preparing your own vector dataset is simple with our Python API <code class="docutils literal notranslate"><span class="pre">svs</span></code>, which can
 directly use embeddings encoded as <code class="docutils literal notranslate"><span class="pre">numpy</span></code> arrays.</p>
 <p>There are 3 main steps to preparing your own vector dataset, starting from the original
@@ -446,7 +428,7 @@ extraneous text, etc.</p>
 wish to preprocess the first 24 images. Here we use the HuggingFace
 AutoProcessor to pre-process the dataset to the format required by CLIP.</p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="7f75c259-7f06-43af-b073-aae0ce04e89c" name="7f75c259-7f06-43af-b073-aae0ce04e89c" type="checkbox"><label class="sphinx_collapse__label" for="7f75c259-7f06-43af-b073-aae0ce04e89c"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="d7c92418-2e4f-436b-b7f5-c4082057d4ca" name="d7c92418-2e4f-436b-b7f5-c4082057d4ca" type="checkbox"><label class="sphinx_collapse__label" for="d7c92418-2e4f-436b-b7f5-c4082057d4ca"><i class="sphinx_collapse__icon"></i>Click to display</label><div class="sphinx_collapse__content docutils container">
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
 
