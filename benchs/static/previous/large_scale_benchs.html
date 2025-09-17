@@ -200,7 +200,7 @@ ScaNN <a class="reference external" href="https://github.com/google-research/goo
 and FAISS-IVFPQfs <a class="reference external" href="https://github.com/facebookresearch/faiss/commit/19f7696deedc93615c3ee0ff4de22284b53e0243">commit 19f7696</a>.</p>
 <p>For <strong>SVS</strong> and <strong>Vamana</strong>, we build Vamana graphs with: <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 32, 64, 126 and <code class="docutils literal notranslate"><span class="pre">alpha</span></code> = 1.2. SVS
 is used with LVQ-8 compressed vectors, with vectors padded to half cache lines (<code class="docutils literal notranslate"><span class="pre">padding</span></code> = 32,
-see <a class="reference internal" href="../../../howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for details).
+see <a class="reference internal" href="../../../howtos.html#compression-setting"><span class="std std-ref">Choosing the Right Compression</span></a> for details).
 For <strong>HSNWlib</strong>, we build graphs with a window search size of 200 and <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> = 32, 64, 96 (this corresponds
 to M=16, 32, 48 in HSNW notation). We had to reduce <code class="docutils literal notranslate"><span class="pre">graph_max_degree</span></code> from 128 to 96 to fit the working set size in
 1TB memory.</p>
@@ -237,21 +237,21 @@ for query batch size 128, and up to recall 0.95 for batch size 10k (see results 
 </ul>
 <p><strong>Click on the triangles</strong> to see the throughput vs recall curves for each dataset.</p>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="2a594b54-4a56-4c38-8dc3-9a16c15bb586" name="2a594b54-4a56-4c38-8dc3-9a16c15bb586" type="checkbox"><label class="sphinx_collapse__label" for="2a594b54-4a56-4c38-8dc3-9a16c15bb586"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="d6ab1bc4-5fac-4f57-90cc-e3e142c1876d" name="d6ab1bc4-5fac-4f57-90cc-e3e142c1876d" type="checkbox"><label class="sphinx_collapse__label" for="d6ab1bc4-5fac-4f57-90cc-e3e142c1876d"><i class="sphinx_collapse__icon"></i>deep-96-1B</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the deep-96-1B dataset</p>
 <a class="reference internal image-reference" href="../../../_images/bench_largeScale_bothBatchSz_deep-1B.png"><img alt="deep-96-1B benchmarking results" src="../../../_images/bench_largeScale_bothBatchSz_deep-1B.png" style="width: 800px;" />
 </a>
 </div>
 </div>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="9d249c79-c344-440f-b367-98c35f77d132" name="9d249c79-c344-440f-b367-98c35f77d132" type="checkbox"><label class="sphinx_collapse__label" for="9d249c79-c344-440f-b367-98c35f77d132"><i class="sphinx_collapse__icon"></i>sift-128-1B</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="d2224b84-993d-4471-a1b9-f7d55fac76ec" name="d2224b84-993d-4471-a1b9-f7d55fac76ec" type="checkbox"><label class="sphinx_collapse__label" for="d2224b84-993d-4471-a1b9-f7d55fac76ec"><i class="sphinx_collapse__icon"></i>sift-128-1B</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the sift-128-1B dataset</p>
 <a class="reference internal image-reference" href="../../../_images/bench_largeScale_bothBatchSz_bigann-1B.png"><img alt="sift-128-1B benchmarking results" src="../../../_images/bench_largeScale_bothBatchSz_bigann-1B.png" style="width: 800px;" />
 </a>
 </div>
 </div>
 <div class="sphinx_collapse docutils container">
-<input class="sphinx_collapse__input" id="b3bc598d-d8c0-4ade-bef4-0adb9c32e9f3" name="b3bc598d-d8c0-4ade-bef4-0adb9c32e9f3" type="checkbox"><label class="sphinx_collapse__label" for="b3bc598d-d8c0-4ade-bef4-0adb9c32e9f3"><i class="sphinx_collapse__icon"></i>t2i-200-100M</label><div class="sphinx_collapse__content docutils container">
+<input class="sphinx_collapse__input" id="717bcb90-38a6-408a-ac75-85f54ca597c2" name="717bcb90-38a6-408a-ac75-85f54ca597c2" type="checkbox"><label class="sphinx_collapse__label" for="717bcb90-38a6-408a-ac75-85f54ca597c2"><i class="sphinx_collapse__icon"></i>t2i-200-100M</label><div class="sphinx_collapse__content docutils container">
 <p>Results for the t2i-200-100M dataset</p>
 <a class="reference internal image-reference" href="../../../_images/bench_largeScale_bothBatchSz_text2image-100M.png"><img alt="t2i-200-100M benchmarking results" src="../../../_images/bench_largeScale_bothBatchSz_text2image-100M.png" style="width: 800px;" />
 </a>

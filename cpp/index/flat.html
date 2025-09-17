@@ -198,9 +198,9 @@
 <dt class="sig sig-object cpp" id="_CPPv4N3svs4Flat14set_threadpoolE4Pool">
 <span id="_CPPv3N3svs4Flat14set_threadpoolE4Pool"></span><span id="_CPPv2N3svs4Flat14set_threadpoolE4Pool"></span><span id="svs::Flat::set_threadpool__Pool"></span><span class="target" id="classsvs_1_1manager_1_1IndexManager_1a0d4ee185571d42b2d0f523c178d2b24c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">set_threadpool</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">Pool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">threadpool</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3svs4Flat14set_threadpoolE4Pool" title="Link to this definition"></a><br /></dt>
 <dd><p>Destroy the original thread pool and set to the new one. </p>
-<section id="classthreadpool__requirements_1autotoc_md7">
-<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h2>
-<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<section id="classthreadpool__requirements_1autotoc_md9">
+<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md9" title="Link to this heading"></a></h2>
+<p id="classthreadpool__requirements_1autotoc_md9">An acceptable thread pool should implement two methods:<ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a6df1a56c426597fa40041b0b5bae94bb"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
 </ul>
@@ -235,9 +235,9 @@
 </ul>
 </p>
 </section>
-<section id="classthreadpool__requirements_1autotoc_md7">
-<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md7" title="Link to this heading"></a></h2>
-<p id="classthreadpool__requirements_1autotoc_md7">An acceptable thread pool should implement two methods:<ul class="simple">
+<section id="classthreadpool__requirements_1autotoc_md9">
+<h2>ThreadPool<a class="headerlink" href="#classthreadpool__requirements_1autotoc_md9" title="Link to this heading"></a></h2>
+<p id="classthreadpool__requirements_1autotoc_md9">An acceptable thread pool should implement two methods:<ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">size_t</span> <a class="reference internal" href="vamana.html#classsvs_1_1manager_1_1IndexManager_1a6df1a56c426597fa40041b0b5bae94bb"><span class="std std-ref"><span class="pre">size()</span></span></a></code>. This method should return the number of threads used in the thread pool.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">void</span> <span class="pre">parallel_for(std::function&lt;void(size_t)&gt;</span> <span class="pre">f,</span> <span class="pre">size_t</span> <span class="pre">n)</span></code>. This method should execute <code class="docutils literal notranslate"><span class="pre">f</span></code>. Here, <code class="docutils literal notranslate"><span class="pre">f(i)</span></code> represents a task on the <code class="docutils literal notranslate"><span class="pre">i^th</span></code> partition, and <code class="docutils literal notranslate"><span class="pre">n</span></code> represents the number of partitions that need to be executed.   </p></li>
 </ul>

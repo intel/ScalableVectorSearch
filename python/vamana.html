@@ -183,7 +183,7 @@
 <dd><p>Top level class for the Vamana graph index.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.Vamana.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">config_path:</span> <span class="pre">str,</span> <span class="pre">graph_loader:</span> <span class="pre">svs::python.GraphLoader,</span> <span class="pre">data_loader:</span> <span class="pre">Union[svs::python.VectorDataLoader,</span> <span class="pre">svs::python.LVQLoader,</span> <span class="pre">svs::python.LeanVecLoader,</span> <span class="pre">svs::python.SerializedObject],</span> <span class="pre">distance:</span> <span class="pre">svs::python.DistanceType</span> <span class="pre">=</span> <span class="pre">&lt;DistanceType.L2:</span> <span class="pre">0&gt;,</span> <span class="pre">query_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">9&gt;,</span> <span class="pre">enforce_dims:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False,</span> <span class="pre">num_threads:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.Vamana.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.Vamana</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">config_path:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_loader:</span> <span class="pre">svs::python.GraphLoader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_loader:</span> <span class="pre">svs::python.VectorDataLoader</span> <span class="pre">|</span> <span class="pre">svs::python.LVQLoader</span> <span class="pre">|</span> <span class="pre">svs::python.LeanVecLoader</span> <span class="pre">|</span> <span class="pre">svs::python.SerializedObject</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance:</span> <span class="pre">svs::python.DistanceType</span> <span class="pre">=</span> <span class="pre">&lt;DistanceType.L2:</span> <span class="pre">0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">query_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">=</span> <span class="pre">&lt;DataType.float32:</span> <span class="pre">10&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enforce_dims:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_threads:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.Vamana.__init__" title="Link to this definition"></a></dt>
 <dd><p>Load a Vamana style index from disk.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -468,7 +468,7 @@ quantization type, and number of dimensions.</p></li>
 <em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">build</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Vamana.build" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: numpy.ndarray[float16], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
+<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: typing.Annotated[numpy.typing.ArrayLike, float16], distance_type: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; svs::python.Vamana</p></li>
 </ol>
 <p>Construct a Vamana index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -484,7 +484,7 @@ of the dataset. This may change in future releases.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="2">
-<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: numpy.ndarray[numpy.float32], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
+<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: typing.Annotated[numpy.typing.ArrayLike, numpy.float32], distance_type: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; svs::python.Vamana</p></li>
 </ol>
 <p>Construct a Vamana index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -500,7 +500,7 @@ of the dataset. This may change in future releases.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="3">
-<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: numpy.ndarray[numpy.uint8], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
+<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: typing.Annotated[numpy.typing.ArrayLike, numpy.uint8], distance_type: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; svs::python.Vamana</p></li>
 </ol>
 <p>Construct a Vamana index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -516,7 +516,7 @@ of the dataset. This may change in future releases.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="4">
-<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: numpy.ndarray[numpy.int8], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
+<li><p>build(parameters: svs::python.VamanaBuildParameters, py_data: typing.Annotated[numpy.typing.ArrayLike, numpy.int8], distance_type: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; svs::python.Vamana</p></li>
 </ol>
 <p>Construct a Vamana index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -532,7 +532,7 @@ of the dataset. This may change in future releases.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="5">
-<li><p>build(build_parameters: svs::python.VamanaBuildParameters, data_loader: Union[svs::python.VectorDataLoader, svs::python.LVQLoader, svs::python.LeanVecLoader], distance_type: svs::python.DistanceType, num_threads: int = 1) -&gt; svs::python.Vamana</p></li>
+<li><p>build(build_parameters: svs::python.VamanaBuildParameters, data_loader: svs::python.VectorDataLoader | svs::python.LVQLoader | svs::python.LeanVecLoader, distance_type: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; svs::python.Vamana</p></li>
 </ol>
 <p>Construct a Vamana index over the given data file, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -814,7 +814,7 @@ quantization type, and number of dimensions.</p></li>
 <span class="sig-name descname"><span class="pre">experimental_calibrate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Vamana.experimental_calibrate" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>experimental_calibrate(self: svs::python.Vamana, queries: numpy.ndarray[float16], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7fae36189ab0&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
+<li><p>experimental_calibrate(self: svs::python.Vamana, queries: typing.Annotated[numpy.typing.ArrayLike, float16], groundtruth: typing.Annotated[numpy.typing.ArrayLike, numpy.uint32], num_neighbors: typing.SupportsInt, target_recall: typing.SupportsFloat, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7f31288c2170&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
 </ol>
 <p>NOTE: This method is experimental and subject to change or removal without notice.</p>
 <p>Run an experimental calibration routine to select the best search parameters.</p>
@@ -839,7 +839,7 @@ Note that calibration will use the number of threads already assigned to the ind
 therefore be used to tune the algorithm to different threading amounts.</p>
 <p>See also: <cite>svs.VamanaCalibrationParameters</cite></p>
 <ol class="arabic simple" start="2">
-<li><p>experimental_calibrate(self: svs::python.Vamana, queries: numpy.ndarray[numpy.float32], groundtruth: numpy.ndarray[numpy.uint32], num_neighbors: int, target_recall: float, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7fae36fb4e70&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
+<li><p>experimental_calibrate(self: svs::python.Vamana, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.float32], groundtruth: typing.Annotated[numpy.typing.ArrayLike, numpy.uint32], num_neighbors: typing.SupportsInt, target_recall: typing.SupportsFloat, calibration_parameters: svs::python.VamanaCalibrationParameters = &lt;svs::python.VamanaCalibrationParameters object at 0x7f3128a427f0&gt;) -&gt; svs::python.VamanaSearchParameters</p></li>
 </ol>
 <p>NOTE: This method is experimental and subject to change or removal without notice.</p>
 <p>Run an experimental calibration routine to select the best search parameters.</p>
@@ -876,7 +876,7 @@ for performance-only parameters (such as prefetchers).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.Vamana.get_distance">
-<span class="sig-name descname"><span class="pre">get_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">external_id:</span> <span class="pre">int,</span> <span class="pre">query_vector:</span> <span class="pre">numpy.ndarray[numpy.float32]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#svs.Vamana.get_distance" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">get_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">external_id:</span> <span class="pre">typing.SupportsInt,</span> <span class="pre">query_vector:</span> <span class="pre">typing.Annotated[numpy.typing.ArrayLike,</span> <span class="pre">numpy.float32]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#svs.Vamana.get_distance" title="Link to this definition"></a></dt>
 <dd><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -913,7 +913,7 @@ for performance-only parameters (such as prefetchers).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.Vamana.reconstruct">
-<span class="sig-name descname"><span class="pre">reconstruct</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">ids:</span> <span class="pre">numpy.ndarray[numpy.uint64]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.float32</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#svs.Vamana.reconstruct" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">reconstruct</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">self:</span> <span class="pre">svs::python.Vamana,</span> <span class="pre">ids:</span> <span class="pre">typing.Annotated[numpy.typing.ArrayLike,</span> <span class="pre">numpy.uint64]</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.typing.NDArray</span><span class="p"><span class="pre">[</span></span><span class="pre">numpy.float32</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#svs.Vamana.reconstruct" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -941,7 +941,7 @@ overwritten when saving the index to this directory.</p>
 <span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Vamana.search" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>search(self: svs::python.Vamana, queries: numpy.ndarray[float16], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Vamana, queries: typing.Annotated[numpy.typing.ArrayLike, float16], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">
@@ -965,7 +965,7 @@ matrix.</p>
 </dd>
 </dl>
 <ol class="arabic simple" start="2">
-<li><p>search(self: svs::python.Vamana, queries: numpy.ndarray[numpy.float32], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Vamana, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.float32], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">
@@ -989,7 +989,7 @@ matrix.</p>
 </dd>
 </dl>
 <ol class="arabic simple" start="3">
-<li><p>search(self: svs::python.Vamana, queries: numpy.ndarray[numpy.uint8], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Vamana, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.uint8], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">
@@ -1013,7 +1013,7 @@ matrix.</p>
 </dd>
 </dl>
 <ol class="arabic simple" start="4">
-<li><p>search(self: svs::python.Vamana, queries: numpy.ndarray[numpy.int8], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Vamana, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.int8], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">
@@ -1088,7 +1088,7 @@ relatively expensive as it can reduce redundant computations.</p>
 <dd><p>Build parameters for Vamana index construction.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.VamanaBuildParameters.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaBuildParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">3.4028234663852886e+38</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_max_degree:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">32.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">64.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_candidate_pool_size:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prune_to:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_full_search_history:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaBuildParameters.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaBuildParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha:</span> <span class="pre">typing.SupportsFloat</span> <span class="pre">=</span> <span class="pre">3.4028234663852886e+38</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">graph_max_degree:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">32.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_candidate_pool_size:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prune_to:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">18446744073709551615</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_full_search_history:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaBuildParameters.__init__" title="Link to this definition"></a></dt>
 <dd><p>Construct a new instance from keyword arguments.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1180,7 +1180,7 @@ is special and has the same effect setting this to <cite>prefetch_lookahead + 1<
 prefetching during search.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.VamanaSearchParameters.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaSearchParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer_config:</span> <span class="pre">svs::python.SearchBufferConfig</span> <span class="pre">=</span> <span class="pre">&lt;svs::python.SearchBufferConfig</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x7fae361f74f0&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_buffer_visited_set:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_lookahead:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_step:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaSearchParameters.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VamanaSearchParameters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">buffer_config:</span> <span class="pre">svs::python.SearchBufferConfig</span> <span class="pre">=</span> <span class="pre">&lt;svs::python.SearchBufferConfig</span> <span class="pre">object</span> <span class="pre">at</span> <span class="pre">0x7f3128a7af30&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">search_buffer_visited_set:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_lookahead:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">4</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefetch_step:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">=</span> <span class="pre">1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VamanaSearchParameters.__init__" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1221,12 +1221,12 @@ will be available. Must be at least as large as <cite>search_window_size</cite>.
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
 <li><p>__init__(self: svs::python.SearchBufferConfig) -&gt; None</p></li>
-<li><p>__init__(self: svs::python.SearchBufferConfig, search_window_size: int) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.SearchBufferConfig, search_window_size: typing.SupportsInt) -&gt; None</p></li>
 </ol>
 <p>Configure with a given search window size. This constructor implicitly defaults
 <code class="docutils literal notranslate"><span class="pre">search_buffer_capacity</span></code> to <code class="docutils literal notranslate"><span class="pre">search_window_size</span></code>.</p>
 <ol class="arabic simple" start="3">
-<li><p>__init__(self: svs::python.SearchBufferConfig, search_window_size: int, search_buffer_capacity: int) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.SearchBufferConfig, search_window_size: typing.SupportsInt, search_buffer_capacity: typing.SupportsInt) -&gt; None</p></li>
 </ol>
 <p>Configure with a given search window size and capacity.
 Raises <code class="docutils literal notranslate"><span class="pre">svs.ANNException</span></code> if <code class="docutils literal notranslate"><span class="pre">search_buffer_capacity</span> <span class="pre">&lt;</span> <span class="pre">search_window_size</span></code>.</p>

@@ -17,7 +17,8 @@ Benchmarks
 ##########
 
 .. note::
-   The `open-source <https://github.com/intel/ScalableVectorSearch>`_ SVS library supports all functionalities and features described in this documentation, except for our proprietary vector compression techniques, specifically LVQ [ABHT23]_ and Leanvec [TBAH24]_. These techniques are closed-source and supported exclusively on Intel hardware. We provide `shared library <https://github.com/intel/ScalableVectorSearch/releases>`_ and `PyPI package <https://pypi.org/project/scalable-vs/>`_ to enable these vector compression techniques in C++ and Python, respectively.
+   .. include:: ../non-open-source-notice.rst
+
 
 .. toctree::
    :maxdepth: 1

@@ -161,7 +161,7 @@
 <dd><p>Handle representing an uncompressed vector data file.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="svs.VectorDataLoader.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VectorDataLoader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_type:</span> <span class="pre">Optional[svs::python.DataType]</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims:</span> <span class="pre">Optional[int]</span> <span class="pre">=</span> <span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VectorDataLoader.__init__" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self:</span> <span class="pre">svs::python.VectorDataLoader</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path:</span> <span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_type:</span> <span class="pre">svs::python.DataType</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dims:</span> <span class="pre">typing.SupportsInt</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#svs.VectorDataLoader.__init__" title="Link to this definition"></a></dt>
 <dd><p>Construct a new <code class="docutils literal notranslate"><span class="pre">svs.VectorDataLoader</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -231,7 +231,7 @@ saved LVQ data.</p>
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.LVQLoader.__init__" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>__init__(self: svs::python.LVQLoader, datafile: svs::python.VectorDataLoader, primary: int, residual: int = 0, padding: int = 0, strategy: svs::python.LVQStrategy = &lt;LVQStrategy.Auto: 0&gt;) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LVQLoader, datafile: svs::python.VectorDataLoader, primary: typing.SupportsInt, residual: typing.SupportsInt = 0, padding: typing.SupportsInt = 0, strategy: svs::python.LVQStrategy = &lt;LVQStrategy.Auto: 0&gt;) -&gt; None</p></li>
 </ol>
 <p>Construct a loader that will lazily compress the results of the data loader.
 Requires an appropriate back-end to be compiled for all combinations of primary and residual
@@ -253,7 +253,7 @@ codes. See the associated documenation for that enum.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="2">
-<li><p>__init__(self: svs::python.LVQLoader, directory: str, padding: int = 0, strategy: svs::python.LVQStrategy = &lt;LVQStrategy.Auto: 0&gt;) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LVQLoader, directory: str, padding: typing.SupportsInt = 0, strategy: svs::python.LVQStrategy = &lt;LVQStrategy.Auto: 0&gt;) -&gt; None</p></li>
 </ol>
 <p>Reload a compressed dataset from a previously saved dataset.
 Requires an appropriate back-end to be compiled for all combinations of primary and residual
@@ -355,7 +355,7 @@ enabling <cite>float16</cite> and <cite>lvq</cite> compression for either of the
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.LeanVecLoader.__init__" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>__init__(self: svs::python.LeanVecLoader, datafile: svs::python.VectorDataLoader, leanvec_dims: int, primary_kind: svs::python.LeanVecKind = &lt;LeanVecKind.lvq8: 2&gt;, secondary_kind: svs::python.LeanVecKind = &lt;LeanVecKind.lvq8: 2&gt;, data_matrix: Optional[numpy.ndarray[numpy.float32]] = None, query_matrix: Optional[numpy.ndarray[numpy.float32]] = None, alignment: int = 32) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LeanVecLoader, datafile: svs::python.VectorDataLoader, leanvec_dims: typing.SupportsInt, primary_kind: svs::python.LeanVecKind = &lt;LeanVecKind.lvq8: 2&gt;, secondary_kind: svs::python.LeanVecKind = &lt;LeanVecKind.lvq8: 2&gt;, data_matrix: typing.Annotated[numpy.typing.ArrayLike, numpy.float32] | None = None, query_matrix: typing.Annotated[numpy.typing.ArrayLike, numpy.float32] | None = None, alignment: typing.SupportsInt = 32) -&gt; None</p></li>
 </ol>
 <p>Construct a loader that will lazily reduce the dimensionality of the data loader.
 Requires an appropriate back-end to be compiled for all combinations of primary and
@@ -387,7 +387,7 @@ queries and the original dataset.</p></li>
 </ol>
 </div></blockquote>
 <ol class="arabic simple" start="2">
-<li><p>__init__(self: svs::python.LeanVecLoader, directory: str, alignment: int = 32) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.LeanVecLoader, directory: str, alignment: typing.SupportsInt = 32) -&gt; None</p></li>
 </ol>
 <p>Reload a LeanVec dataset from a previously saved dataset.
 Requires an appropriate back-end to be compiled for all combinations of primary and

@@ -132,7 +132,7 @@
 <span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.__init__" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>__init__(self: svs::python.Flat, data_loader: Union[svs::python.VectorDataLoader, svs::python.LVQLoader], distance: svs::python.DistanceType = &lt;DistanceType.L2: 0&gt;, query_type: svs::python.DataType = &lt;DataType.float32: 9&gt;, num_threads: int = 1) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.Flat, data_loader: svs::python.VectorDataLoader | svs::python.LVQLoader, distance: svs::python.DistanceType = &lt;DistanceType.L2: 0&gt;, query_type: svs::python.DataType = &lt;DataType.float32: 10&gt;, num_threads: typing.SupportsInt = 1) -&gt; None</p></li>
 </ol>
 <p>Load a Flat index from data stored on disk.</p>
 <dl class="field-list simple">
@@ -197,7 +197,7 @@ quantization type, and number of dimensions.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="2">
-<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[float16], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.Flat, data: typing.Annotated[numpy.typing.ArrayLike, float16], distance: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; None</p></li>
 </ol>
 <p>Construct a Flat index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -212,7 +212,7 @@ changed after the index is constructed.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="3">
-<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[numpy.float32], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.Flat, data: typing.Annotated[numpy.typing.ArrayLike, numpy.float32], distance: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; None</p></li>
 </ol>
 <p>Construct a Flat index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -227,7 +227,7 @@ changed after the index is constructed.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="4">
-<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[numpy.uint8], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.Flat, data: typing.Annotated[numpy.typing.ArrayLike, numpy.uint8], distance: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; None</p></li>
 </ol>
 <p>Construct a Flat index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -242,7 +242,7 @@ changed after the index is constructed.</p></li>
 </dd>
 </dl>
 <ol class="arabic simple" start="5">
-<li><p>__init__(self: svs::python.Flat, data: numpy.ndarray[numpy.int8], distance: svs::python.DistanceType, num_threads: int = 1) -&gt; None</p></li>
+<li><p>__init__(self: svs::python.Flat, data: typing.Annotated[numpy.typing.ArrayLike, numpy.int8], distance: svs::python.DistanceType, num_threads: typing.SupportsInt = 1) -&gt; None</p></li>
 </ol>
 <p>Construct a Flat index over the given data, returning a searchable index.</p>
 <dl class="field-list simple">
@@ -269,7 +269,7 @@ changed after the index is constructed.</p></li>
 <span class="sig-name descname"><span class="pre">get_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.get_distance" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic">
-<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[numpy.float32]) -&gt; float</p>
+<li><p>get_distance(self: svs::python.Flat, external_id: typing.SupportsInt, query_vector: typing.Annotated[numpy.typing.ArrayLike, numpy.float32]) -&gt; float</p>
 <blockquote>
 <div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
 <dl class="simple">
@@ -281,7 +281,7 @@ query_vector: a 1-D contiguous array whose length must match the index dimension
 </dl>
 </div></blockquote>
 </li>
-<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[float16]) -&gt; float</p>
+<li><p>get_distance(self: svs::python.Flat, external_id: typing.SupportsInt, query_vector: typing.Annotated[numpy.typing.ArrayLike, float16]) -&gt; float</p>
 <blockquote>
 <div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
 <dl class="simple">
@@ -293,7 +293,7 @@ query_vector: a 1-D contiguous array whose length must match the index dimension
 </dl>
 </div></blockquote>
 </li>
-<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[numpy.uint8]) -&gt; float</p>
+<li><p>get_distance(self: svs::python.Flat, external_id: typing.SupportsInt, query_vector: typing.Annotated[numpy.typing.ArrayLike, numpy.uint8]) -&gt; float</p>
 <blockquote>
 <div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
 <dl class="simple">
@@ -305,7 +305,7 @@ query_vector: a 1-D contiguous array whose length must match the index dimension
 </dl>
 </div></blockquote>
 </li>
-<li><p>get_distance(self: svs::python.Flat, external_id: int, query_vector: numpy.ndarray[numpy.int8]) -&gt; float</p>
+<li><p>get_distance(self: svs::python.Flat, external_id: typing.SupportsInt, query_vector: typing.Annotated[numpy.typing.ArrayLike, numpy.int8]) -&gt; float</p>
 <blockquote>
 <div><p>Compute the distance between the stored vector at <cite>external_id</cite> and the provided <cite>query_vector</cite>.</p>
 <dl class="simple">
@@ -342,7 +342,7 @@ query_vector: a 1-D contiguous array whose length must match the index dimension
 <span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#svs.Flat.search" title="Link to this definition"></a></dt>
 <dd><p>Overloaded function.</p>
 <ol class="arabic simple">
-<li><p>search(self: svs::python.Flat, queries: numpy.ndarray[numpy.float32], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Flat, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.float32], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">
@@ -366,7 +366,7 @@ matrix.</p>
 </dd>
 </dl>
 <ol class="arabic simple" start="2">
-<li><p>search(self: svs::python.Flat, queries: numpy.ndarray[numpy.uint8], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Flat, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.uint8], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">
@@ -390,7 +390,7 @@ matrix.</p>
 </dd>
 </dl>
 <ol class="arabic simple" start="3">
-<li><p>search(self: svs::python.Flat, queries: numpy.ndarray[numpy.int8], n_neighbors: int) -&gt; tuple</p></li>
+<li><p>search(self: svs::python.Flat, queries: typing.Annotated[numpy.typing.ArrayLike, numpy.int8], n_neighbors: typing.SupportsInt) -&gt; tuple</p></li>
 </ol>
 <p>Perform a search to return the <cite>n_neighbors</cite> approximate nearest neighbors to the query.</p>
 <dl class="field-list simple">

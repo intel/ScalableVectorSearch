@@ -66,6 +66,9 @@ Run this command to confirm SVS is installed correctly, it should print the libr
     python3 -c "import svs; print(svs.library_version())"
 
 
+.. _step-by-step-example-with-compression:
+
+
 Step by step example using vector compression
 **********************************************
 
@@ -91,7 +94,8 @@ Then proceed to generate the test dataset.
 Compress the data
 ==================
 
-To boost performance and reduce memory usage, we first compress the data using our vector compression technique LeanVec. See :ref:`compression-setting` for details.
+To boost performance and reduce memory usage, we first compress the data using our vector compression technique LeanVec. 
+See :ref:`vector_compression` and :ref:`compression-setting` for details.
 
 .. literalinclude:: ../examples/python/example_vamana_with_compression.py
    :language: python

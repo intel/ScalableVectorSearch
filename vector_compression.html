@@ -1,0 +1,206 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeanVec and LVQ Compression Techniques &mdash; Scalable Vector Search 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/sphinx_collapse.css?v=226d88b4" />
+      <link rel="stylesheet" type="text/css" href="_static/css/custom.css" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            Scalable Vector Search
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start.html">Getting started with Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="start_cpp.html">Getting started with C++</a></li>
+<li class="toctree-l1"><a class="reference internal" href="features.html">Library Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="howtos.html">How-Tos</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">I/O and Conversion Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance/index.html">Performance Tuning</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced/index.html">Advanced Topics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="benchs/index.html">Benchmarks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="roadmap.html">Roadmap</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+<li class="toctree-l1"><a class="reference internal" href="logging.html">Logging</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Python API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/common.html">Common Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/loaders.html">Loaders</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/flat.html">Flat Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/vamana.html">Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/dynamic.html">Dynamic Vamana Graph Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/backend.html">Backend Selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/upgrader.html">Object Upgrader</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python/logging.html">Python Logging API</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">C++ Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cpp/top.html">C++ Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/index/index.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/core/index.html">Core Components</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/quantization/index.html">Quantization Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/concepts/index.html">Core Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/internal/index.html">Internals</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cpp/testing.html">Testing</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Experimental Python Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="python/experimental/leanvec.html">Using LeanVec</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Scalable Vector Search</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">LeanVec and LVQ Compression Techniques</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/vector_compression.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="leanvec-and-lvq-compression-techniques">
+<h1>LeanVec and LVQ Compression Techniques<a class="headerlink" href="#leanvec-and-lvq-compression-techniques" title="Link to this heading"></a></h1>
+<p>SVS incorporates two novel compression strategies,
+<a class="reference external" href="https://vldb.org/pvldb/volumes/16/paper/Similarity%20search%20in%20the%20blink%20of%20an%20eye%20with%20compressed%20indices">LVQ</a> <a class="reference internal" href="features.html#abht23" id="id1"><span>[ABHT23]</span></a> and
+<a class="reference external" href="https://openreview.net/forum?id=wczqrpOrIc">LeanVec</a> <a class="reference internal" href="features.html#tbah24" id="id2"><span>[TBAH24]</span></a>, to enhance memory
+efficiency and accelerate similarity search operations. These techniques compress high-dimensional vectors while maintaining the spatial
+relationships necessary for accurate retrieval. See <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">Choosing the Right Compression</span></a> for details on selecting the best approach for your case.</p>
+<section id="lvq-locally-adaptive-vector-quantization">
+<h2>LVQ: Locally-Adaptive Vector Quantization<a class="headerlink" href="#lvq-locally-adaptive-vector-quantization" title="Link to this heading"></a></h2>
+<p>LVQ employs a combination of per-vector normalization and scalar quantization to reduce memory footprint. It supports rapid distance calculations,
+especially when paired with SIMD-optimized layouts like <a class="reference external" href="https://arxiv.org/abs/2402.02044">Turbo LVQ</a>. The compression parameters are learned
+from the input data, allowing for adaptive and efficient encoding.</p>
+<p>See this <a class="reference external" href="https://github.com/intel/ScalableVectorSearch/blob/main/examples/cpp/shared/example_vamana_with_compression_lvq.cpp">example</a> for details on how
+to use LVQ and the <a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">guidelines</span></a> to choose the right compression strategy.</p>
+</section>
+<section id="leanvec-compression">
+<h2>LeanVec Compression<a class="headerlink" href="#leanvec-compression" title="Link to this heading"></a></h2>
+<p><strong>LeanVec</strong> builds upon LVQ by integrating dimensionality reduction, making it particularly effective for very high-dimensional datasets.
+It delivers significant performance improvements while conserving memory. LeanVec is designed to handle both cases where queries follow the
+same distribution as the base vectors (in-distribution) and cases where they follow a different distribution (out-of-distribution), such as
+in cross-modal search tasks like text-to-image retrieval.</p>
+<p>See these examples in <a class="reference internal" href="start.html#entire-example"><span class="std std-ref">Python</span></a> and <a class="reference internal" href="start_cpp.html#entire-example-cpp"><span class="std std-ref">C++</span></a> for details on how to use LeanVec and the
+<a class="reference internal" href="howtos.html#compression-setting"><span class="std std-ref">guidelines</span></a> to choose the right compression strategy.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Support for out-of-distribution queries is in experimental mode. You can try it using our Python
+<a class="reference external" href="https://github.com/IntelLabs/ScalableVectorSearchBenchmarking">benchmarking tool</a>.</p>
+</div>
+</section>
+<section id="two-level-compression">
+<h2>Two-Level Compression<a class="headerlink" href="#two-level-compression" title="Link to this heading"></a></h2>
+<p>Both LVQ and LeanVec support a dual-stage compression scheme. In LVQ, the first stage quantizes the vector to capture its core structure,
+while the second stage encodes the residual error for improved accuracy. The initial quantization enables fast candidate retrieval with <cite>B₁</cite>
+bits per dimension, and the residuals encoded with <cite>B₂</cite> bits per dimension are used for re-ranking. For example, LVQ4x8 uses 4 bits per dimension
+for fast candidate retrieval and 8 bits per dimension for re-ranking. LVQ can also work on a one level scheme using <cite>B₁</cite> bits per dimension without
+re-ranking (e.g., LVQ8).</p>
+<p>LeanVec follows a similar approach: the first level reduces dimensionality and applies LVQ for fast search, and the second level applies
+LVQ to the original vectors for precise re-ranking. <strong>Importantly, neither method relies on full-precision vectors – everything operates on compressed data.</strong></p>
+</section>
+<section id="naming-convention">
+<h2>Naming Convention<a class="headerlink" href="#naming-convention" title="Link to this heading"></a></h2>
+<p>Compression configurations follow the format: <cite>LVQ&lt;B₁&gt;x&lt;B₂&gt;</cite>, where:</p>
+<ul class="simple">
+<li><p><cite>B₁</cite>: Bits per dimension for the first-level quantization (<code class="docutils literal notranslate"><span class="pre">primary</span></code>).</p></li>
+<li><p><cite>B₂</cite>: Bits per dimension for the second-level residual encoding (<code class="docutils literal notranslate"><span class="pre">residual</span></code>).</p></li>
+</ul>
+<p>Examples:</p>
+<ul class="simple">
+<li><p><strong>LVQ4x8</strong>: 4 bits for initial quantization, 8 bits for residuals (total 12 bits per dimension).</p></li>
+<li><p><strong>LVQ8</strong>: Single-level compression using 8 bits per dimension.</p></li>
+</ul>
+<p>LeanVec uses the same naming scheme. The <code class="docutils literal notranslate"><span class="pre">primary_kind</span></code> and <code class="docutils literal notranslate"><span class="pre">secondary_kind</span></code> arguments set the first and second level number of bits per dimension.</p>
+</section>
+<section id="training-and-adaptability">
+<h2>Training and Adaptability<a class="headerlink" href="#training-and-adaptability" title="Link to this heading"></a></h2>
+<p>The effectiveness of LVQ and LeanVec stems from their ability to learn compression parameters from the data itself.
+This requires a representative sample of vectors during index initialization. If the data distribution shifts significantly over time,
+compression quality may degrade – a common challenge for all data-dependent methods.</p>
+</section>
+</section>
+<section id="bit-scalar-quantization">
+<h1>8-bit scalar quantization<a class="headerlink" href="#bit-scalar-quantization" title="Link to this heading"></a></h1>
+<p>The <a class="reference external" href="https://github.com/intel/ScalableVectorSearch">open-source SVS library</a> supports 8-bit scalar quantization. It uses the global minimum and maximum values across all embeddings to scale them, then applies
+uniform quantization per dimension using 8 bits. This functionality is currently available only in the C++ implementation, with support for
+Python bindings coming soon.</p>
+<p>See this <a class="reference internal" href="start_cpp.html#using-open-svs-only-cpp"><span class="std std-ref">example</span></a> for details on how to use the 8-bit scalar quantization.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Intel Corporation.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

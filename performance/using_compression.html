@@ -120,15 +120,7 @@
              
   <section id="vector-compression">
 <span id="compression-for-perf"></span><h1>Vector Compression<a class="headerlink" href="#vector-compression" title="Link to this heading"></a></h1>
-<p>Search performance can be improved by using the Locally-adaptive Vector Quantization (LVQ) <a class="reference internal" href="../features.html#abht23" id="id1"><span>[ABHT23]</span></a> approach to
-compress the dataset vectors. See <a class="reference internal" href="../howtos.html#compression-setting"><span class="std std-ref">How to Choose Compression Parameters</span></a> for information on how to set LVQ parameters.</p>
-<p>When the focus is to improve search performance, one should favor the two-level LVQ compression with a small number of bits in the first level
-(typically 4 or 8) and a larger number of bits in the second level (typically 8). The best option, however, will depend on
-the dataset. <strong>High-dimensional</strong> datasets (&gt;200 dimensions) can largely benefit from LVQ-4x8 or LVQ-8x8 for example.
-For <strong>lower dimensional datasets</strong> (&lt;200 dimensions), <strong>one-level</strong> LVQ-8 is often a good choice.
-We suggest reviewing the <a class="reference internal" href="../benchs/ablation.html#benchs-compression-evaluation"><span class="std std-ref">SVS + Vector compression (large scale datasets)</span></a> and
-<a class="reference internal" href="../benchs/ablation.html#benchs-compression-evaluation-small-scale"><span class="std std-ref">SVS + Vector compression (small scale datasets)</span></a> sections for reference results.</p>
-<p>See <a class="reference internal" href="../start.html#search-with-compression"><span class="std std-ref">Searching the index</span></a> for details on how to use LVQ for search.</p>
+<p>Search performance can be improved by using the available <a class="reference internal" href="../features.html#vector-compression"><span class="std std-ref">Vector compression</span></a> approaches. See <a class="reference internal" href="../howtos.html#compression-setting"><span class="std std-ref">Choosing the Right Compression</span></a> for details on selecting the best approach for your case.</p>
 </section>
 
 
