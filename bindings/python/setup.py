@@ -38,7 +38,7 @@ with open(os.path.join(base_dir, "README.md"), "r", encoding="utf8") as f:
 
 setup(
     name="scalable-vs",
-    version="0.0.9",
+    version="0.0.10",
     description="Scalable Vector Search (SVS) is a performance library for vector similarity search.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -51,7 +51,7 @@ setup(
     cmake_install_dir='src/svs',
     cmake_args = cmake_args,
     install_requires = [
-        "numpy>=1.10.0, <2",   # keep in-sync with `pyproject.toml`
+        "numpy>=1.10.0, <3",   # keep in-sync with `pyproject.toml`
         "archspec>=0.2.0", # keep in-sync with `pyproject.toml`
         "toml>=0.10.2",    # keep in-sync with `pyproject.toml` required for the tests
     ],

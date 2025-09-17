@@ -66,6 +66,7 @@ template <typename Data, typename Indices> class DataViewImpl {
     using raw_reference = Data&;
     using raw_const_reference = const Data&;
 
+    using element_type = typename raw_data_type::element_type;
     using value_type = typename raw_data_type::value_type;
     using const_value_type = typename raw_data_type::const_value_type;
 

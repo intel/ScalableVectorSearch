@@ -104,7 +104,7 @@ class UnspecializedGraphLoader {
     const std::filesystem::path& path() const { return path_; }
     const Allocator& allocator() const { return allocator_; }
 
-    svs::graphs::SimpleGraph<uint32_t> load() const {
+    auto load() const {
         using other = std::allocator_traits<Allocator>::rebind_alloc<uint32_t>;
         return svs::graphs::SimpleGraph<uint32_t, other>::load(path_, other(allocator_));
     }

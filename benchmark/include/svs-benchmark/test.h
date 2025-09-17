@@ -247,6 +247,9 @@ inline int8_t convert_to(svs::lib::Type<int8_t>, float x) {
 inline svs::Float16 convert_to(svs::lib::Type<svs::Float16>, float x) {
     return svs::Float16{x};
 }
+inline svs::BFloat16 convert_to(svs::lib::Type<svs::BFloat16>, float x) {
+    return svs::BFloat16{x};
+}
 inline float convert_to(svs::lib::Type<float>, float x) { return x; }
 } // namespace detail
 

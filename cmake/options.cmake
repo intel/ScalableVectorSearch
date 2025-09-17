@@ -92,6 +92,11 @@ option(SVS_EXPERIMENTAL_ENABLE_NUMA
     OFF # disabled by default
 )
 
+option(SVS_EXPERIMENTAL_ENABLE_IVF
+    "Enable IVF implementation. Requires Intel(R) MKL support"
+    OFF # disabled by default
+)
+
 #####
 ##### svsbenchmark
 #####
@@ -140,6 +145,12 @@ else()
     target_compile_options(${SVS_LIB} INTERFACE -DSVS_INITIALIZE_LOGGER=0)
 endif()
 
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_IVF=1)
+else()
+    target_compile_options(${SVS_LIB} INTERFACE -DSVS_ENABLE_IVF=0)
+endif()
+
 #####
 ##### Helper target to apply relevant compiler optimizations.
 #####
@@ -161,6 +172,7 @@ target_compile_options(
         -Wextra
         -Wpedantic
         -Wno-gnu-zero-variadic-macro-arguments
+        -Wno-address-of-packed-member # When calling Intel(R) MKL GEMMs with BFloat16/Float16
         -Wno-parentheses # GCC in CI has issues without it
 )
 

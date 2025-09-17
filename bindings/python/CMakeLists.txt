@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
     pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11
-    GIT_TAG v2.10.1
+    GIT_TAG v3.0.1
 )
 FetchContent_MakeAvailable(pybind11)
 
@@ -39,6 +39,14 @@ set(CPP_FILES
     src/vamana_common.cpp
     src/svs_mkl.cpp
 )
+
+# ivf
+if (SVS_EXPERIMENTAL_ENABLE_IVF)
+    list(APPEND CPP_FILES
+        src/ivf.cpp
+    )
+endif()
+
 
 set(LIB_NAME "_svs")
 pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES})
