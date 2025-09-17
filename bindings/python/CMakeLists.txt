@@ -31,6 +31,7 @@ add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
 set(CPP_FILES
     src/allocator.cpp
     src/dynamic_vamana.cpp
+    src/dynamic_flat.cpp
     src/core.cpp
     src/flat.cpp
     src/python_bindings.cpp
