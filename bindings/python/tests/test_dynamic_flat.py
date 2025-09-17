@@ -56,10 +56,12 @@ class DynamicFlatTester(unittest.TestCase):
 
         # Make sure saving and reloading work.
         with TemporaryDirectory() as tempdir:
+            configdir = os.path.join(tempdir, "config")
             datadir = os.path.join(tempdir, "data")
-            index.save(datadir)
+            index.save(configdir, datadir)
 
             reloaded = svs.DynamicFlat(
+                configdir,
                 svs.VectorDataLoader(datadir, svs.DataType.float32),
                 svs.DistanceType.L2,
                 num_threads = 2,

@@ -377,15 +377,15 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
     }
 
     ///// Saving
+
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& data_directory
+    ) {
+        compact();
 
-    void save(const std::filesystem::path& data_directory) const {
-        // Compact before saving to remove empty entries
-        // Post-compaction, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        const_cast<DynamicFlatIndex*>(this)->compact();
-
-        // Save data structures and translation
+        // Save data structures and translation to config directory
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
                 return lib::SaveTable(
@@ -397,10 +397,10 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
                     }
                 );
             }),
-            data_directory
+            config_directory
         );
 
-        // Save the dataset in the same data directory
+        // Save the dataset in the separate data directory
         lib::save_to_disk(data_, data_directory);
     }
     constexpr std::string_view name() const { return "dynamic flat index"; }
@@ -727,6 +727,7 @@ struct FlatStateLoader {
 ///
 template <typename DataLoader, typename Distance, typename ThreadPoolProto>
 auto auto_dynamic_assemble(
+    const std::filesystem::path& config_path,
     DataLoader&& data_loader,
     Distance distance,
     ThreadPoolProto threadpool_proto,
@@ -743,10 +744,8 @@ auto auto_dynamic_assemble(
     auto data =
         svs::detail::dispatch_load(std::forward<DataLoader>(data_loader), threadpool);
 
-    // Load the ID translator from the config file in the data directory
+    // Load the ID translator from the config directory
     auto datasize = data.size();
-    auto data_path = data_loader.get_path();
-    auto config_path = data_path / "config.toml";
 
     auto [translator] = lib::load_from_disk<detail::FlatStateLoader>(
         config_path, debug_load_from_static, datasize

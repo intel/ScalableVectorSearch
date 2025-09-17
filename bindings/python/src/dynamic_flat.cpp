@@ -183,8 +183,12 @@ Return a Numpy vector of all IDs currently in the data.
 )";
 
 // Index saving.
-void save_index(const svs::DynamicFlat& index, const std::string& data_dir) {
-    index.save(data_dir);
+void save_index(
+    const svs::DynamicFlat& index,
+    const std::string& config_dir,
+    const std::string& data_dir
+) {
+    index.save(config_dir, data_dir);
 }
 
 /////
@@ -193,13 +197,16 @@ void save_index(const svs::DynamicFlat& index, const std::string& data_dir) {
 
 template <typename Q, typename T, size_t N>
 svs::DynamicFlat assemble_uncompressed(
+    const std::filesystem::path& config_directory,
     svs::VectorDataLoader<T, N, RebindAllocator<T>> datafile,
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
     auto dispatcher = svs::DistanceDispatcher(distance_type);
     return dispatcher([&](auto distance) {
-        return svs::DynamicFlat::assemble<Q>(datafile, distance, num_threads);
+        return svs::DynamicFlat::assemble<Q>(
+            config_directory, datafile, distance, num_threads
+        );
     });
 }
 
@@ -212,17 +219,24 @@ template <typename Dispatcher> void register_assembly(Dispatcher& dispatcher) {
 using DynamicFlatAssembleTypes = std::variant<UnspecializedVectorDataLoader>;
 
 svs::DynamicFlat assemble(
+    const std::string& config_directory,
     DynamicFlatAssembleTypes data_loader,
     svs::DistanceType distance_type,
     svs::DataType SVS_UNUSED(query_type),
     bool SVS_UNUSED(enforce_dims),
     size_t num_threads
 ) {
-    auto dispatcher = svs::lib::
-        Dispatcher<svs::DynamicFlat, DynamicFlatAssembleTypes, svs::DistanceType, size_t>();
+    auto dispatcher = svs::lib::Dispatcher<
+        svs::DynamicFlat,
+        const std::filesystem::path&,
+        DynamicFlatAssembleTypes,
+        svs::DistanceType,
+        size_t>();
 
     register_assembly(dispatcher);
-    return dispatcher.invoke(std::move(data_loader), distance_type, num_threads);
+    return dispatcher.invoke(
+        config_directory, std::move(data_loader), distance_type, num_threads
+    );
 }
 
 } // namespace
@@ -244,6 +258,7 @@ void wrap(py::module& m) {
     // Reloading
     flat.def(
         py::init(&assemble),
+        py::arg("config_directory"),
         py::arg("data_loader"),
         py::arg("distance") = svs::L2,
         py::arg("query_type") = svs::DataType::float32,
@@ -291,17 +306,19 @@ void wrap(py::module& m) {
     flat.def(
         "save",
         &save_index,
+        py::arg("config_directory"),
         py::arg("data_directory"),
         R"(
-Save a constructed index to disk (useful following index construction).
+Save a constructed index to disk with separate config and data directories.
 
 Args:
+    config_directory: Directory where the config will be saved.
     data_directory: Directory where the dataset will be saved.
 
-If the directory does not exist, it will be created if its parent exists.
+If the directories do not exist, they will be created if their parents exist.
 
 It is the caller's responsibility to ensure that no existing data will be
-overwritten when saving the index to this directory.
+overwritten when saving the index to these directories.
     )"
     );
 }

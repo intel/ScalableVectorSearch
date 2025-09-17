@@ -29,9 +29,12 @@ namespace svs {
 /// Implementation details: The DynamicFlat implementation implements a superset of the
 /// operations supported by the FlatInterface.
 ///
-class DynamicFlatInterface : public FlatInterface {
+class DynamicFlatInterface {
   public:
     using search_parameters_type = svs::index::flat::FlatParameters;
+
+    // Non-templated virtual method for distance calculation
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 
     // TODO: For now - only accept floating point entries.
     virtual void add_points(
@@ -49,6 +52,12 @@ class DynamicFlatInterface : public FlatInterface {
     // ID inspection.
     virtual bool has_id(size_t id) const = 0;
     virtual void all_ids(std::vector<size_t>& ids) const = 0;
+
+    // Saving - 2 parameter version
+    virtual void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& data_directory
+    ) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -100,8 +109,12 @@ class DynamicFlatImpl
     }
 
     ///// Saving
-    void save(const std::filesystem::path& data_directory) const override {
-        impl().save(data_directory);
+    // 2-parameter save implementation
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& data_directory
+    ) override {
+        impl().save(config_directory, data_directory);
     }
 };
 
@@ -187,8 +200,11 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
         return v;
     }
 
-    void save(const std::filesystem::path& data_directory) const {
-        impl_->save(data_directory);
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& data_directory
+    ) const {
+        impl_->save(config_directory, data_directory);
     }
 
     // Building
@@ -218,12 +234,16 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
         typename Distance,
         typename ThreadPoolProto>
     static DynamicFlat assemble(
-        DataLoader&& data_loader, const Distance& distance, ThreadPoolProto threadpool_proto
+        const std::filesystem::path& config_directory,
+        DataLoader&& data_loader,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto
     ) {
         return DynamicFlat(
             AssembleTag(),
             manager::as_typelist<QueryTypes>(),
             index::flat::auto_dynamic_assemble(
+                config_directory,
                 std::forward<DataLoader>(data_loader),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto))
