@@ -101,7 +101,9 @@ class DynamicFlatImpl
     ///// Distance
     double get_distance(size_t id, const AnonymousArray<1>& query) const override {
         return svs::lib::match(
-            QueryTypes{}, query.type(), [&]<typename T>(svs::lib::Type<T>) {
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T>) {
                 auto query_span = std::span<const T>(get<T>(query), query.size(0));
                 return impl().get_distance(id, query_span);
             }
@@ -271,8 +273,7 @@ template <lib::TypeList QueryTypes, typename... Args>
 DynamicFlat make_dynamic_flat(Args&&... args) {
     using Impl = decltype(index::flat::DynamicFlatIndex{std::forward<Args>(args)...});
     return DynamicFlat{
-        std::make_unique<DynamicFlatImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)
-    };
+        std::make_unique<DynamicFlatImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
 } // namespace svs

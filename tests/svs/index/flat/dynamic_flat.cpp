@@ -91,8 +91,7 @@ void do_check(
     index.search(
         results.view(),
         svs::data::ConstSimpleDataView<QueryEltype>{
-            queries.data(), queries.size(), queries.dimensions()
-        },
+            queries.data(), queries.size(), queries.dimensions()},
         search_parameters
     );
     double search_time = svs::lib::time_difference(tic);

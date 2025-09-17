@@ -70,7 +70,9 @@ class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
     ///// Distance
     double get_distance(size_t id, const AnonymousArray<1>& query) const override {
         return svs::lib::match(
-            QueryTypes{}, query.type(), [&]<typename T>(svs::lib::Type<T>) {
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T>) {
                 auto query_span = std::span<const T>(get<T>(query), query.size(0));
                 return impl().get_distance(id, query_span);
             }

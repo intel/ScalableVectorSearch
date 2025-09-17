@@ -114,7 +114,6 @@ consteval bool is_one_or_zero(const char* ptr) {
 #define SVS_OMP 0
 #endif
 
-
 /////
 ///// Intel(R) AVX extensions
 /////

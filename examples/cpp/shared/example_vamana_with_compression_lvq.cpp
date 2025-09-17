@@ -24,21 +24,25 @@
 #include "svs/orchestrators/exhaustive.h"
 #include "svs/orchestrators/vamana.h"
 
-
 int main() {
     // STEP 1: Compress Data with LVQ
     //! [Compress data]
     size_t padding = 32;
     const size_t num_threads = 4;
     auto threadpool = svs::threads::as_threadpool(num_threads);
-    auto loaded = svs::VectorDataLoader<float>(std::filesystem::path(SVS_DATA_DIR) / "data_f32.svs").load();
-    auto data = svs::quantization::lvq::LVQDataset<4, 8>::compress(loaded, threadpool, padding);
+    auto loaded =
+        svs::VectorDataLoader<float>(std::filesystem::path(SVS_DATA_DIR) / "data_f32.svs")
+            .load();
+    auto data =
+        svs::quantization::lvq::LVQDataset<4, 8>::compress(loaded, threadpool, padding);
     //! [Compress data]
 
-    // STEP 2: Build Vamana Index    
+    // STEP 2: Build Vamana Index
     //! [Index Build]
     auto parameters = svs::index::vamana::VamanaBuildParameters{};
-    svs::Vamana index = svs::Vamana::build<float>(parameters, data, svs::distance::DistanceL2(), num_threads);
+    svs::Vamana index = svs::Vamana::build<float>(
+        parameters, data, svs::distance::DistanceL2(), num_threads
+    );
     //! [Index Build]
 
     // STEP 3: Search the Index
@@ -47,12 +51,15 @@ int main() {
     const size_t n_neighbors = 10;
     index.set_search_window_size(search_window_size);
 
-    auto queries = svs::load_data<float>(std::filesystem::path(SVS_DATA_DIR) / "queries_f32.fvecs");
+    auto queries =
+        svs::load_data<float>(std::filesystem::path(SVS_DATA_DIR) / "queries_f32.fvecs");
     auto results = index.search(queries, n_neighbors);
     //! [Perform Queries]
 
     //! [Recall]
-    auto groundtruth = svs::load_data<int>(std::filesystem::path(SVS_DATA_DIR) / "groundtruth_euclidean.ivecs");
+    auto groundtruth = svs::load_data<int>(
+        std::filesystem::path(SVS_DATA_DIR) / "groundtruth_euclidean.ivecs"
+    );
     double recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
 
     fmt::print("Recall@{} = {:.4f}\n", n_neighbors, recall);
@@ -62,14 +69,17 @@ int main() {
     //! [Saving Loading]
     index.save("config", "graph", "data");
     index = svs::Vamana::assemble<float>(
-        "config", svs::GraphLoader("graph"), svs::lib::load_from_disk<svs::quantization::lvq::LVQDataset<4, 8>>("data", padding), svs::distance::DistanceL2(), num_threads        
+        "config",
+        svs::GraphLoader("graph"),
+        svs::lib::load_from_disk<svs::quantization::lvq::LVQDataset<4, 8>>("data", padding),
+        svs::distance::DistanceL2(),
+        num_threads
     );
     //! [Saving Loading]
     index.set_search_window_size(search_window_size);
     recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
 
     fmt::print("Recall@{} after saving and reloading = {:.4f}\n", n_neighbors, recall);
-
 
     return 0;
 }
