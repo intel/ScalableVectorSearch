@@ -16,8 +16,8 @@
 requires = [
     "setuptools>=42",
     "scikit-build",
-    "cmake>=3.21, <4",      # Keep in-sync with `CMakeLists.txt`
-    "numpy>=1.10.0, <2",    # Keep in-sync with `setup.py`
+    "cmake>=3.21, <5",      # Keep in-sync with `CMakeLists.txt`
+    "numpy>=1.10.0, <3",    # Keep in-sync with `setup.py`
     "archspec>=0.2.0",  # Keep in-sync with `setup.py`
     "toml>=0.10.2",     # Keep in-sync with `setup.py` required for the tests
     #"pybind11",        # Installed in CMakeLists.txt

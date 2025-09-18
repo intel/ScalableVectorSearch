@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
     pybind11
     GIT_REPOSITORY https://github.com/pybind/pybind11
-    GIT_TAG v2.10.1
+    GIT_TAG v3.0.1
 )
 FetchContent_MakeAvailable(pybind11)
 
@@ -31,6 +31,7 @@ add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
 set(CPP_FILES
     src/allocator.cpp
     src/dynamic_vamana.cpp
+    src/dynamic_flat.cpp
     src/core.cpp
     src/flat.cpp
     src/python_bindings.cpp
