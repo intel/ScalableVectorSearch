@@ -30,11 +30,12 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}
+    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}, ivf=${{ matrix.ivf }}
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         build_type: [RelWithDebugInfo]
+        ivf: [OFF, ON]
         cxx: [g++-11, g++-12, clang++-15]
         include:
           - cxx: g++-11
@@ -43,6 +44,9 @@ jobs:
             cc: gcc-12
           - cxx: clang++-15
             cc: clang-15
+        exclude:
+          - cxx: g++-12
+            ivf: ON
 
     steps:
     - uses: actions/checkout@v5
@@ -69,7 +73,8 @@ jobs:
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
               -DSVS_EXPERIMENTAL_LEANVEC=YES \
-              -DSVS_NO_AVX512=NO
+              -DSVS_NO_AVX512=NO \
+              -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }} \
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
