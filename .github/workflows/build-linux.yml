@@ -74,7 +74,7 @@ jobs:
               -DSVS_BUILD_EXAMPLES=YES \
               -DSVS_EXPERIMENTAL_LEANVEC=YES \
               -DSVS_NO_AVX512=NO \
-              -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }} \
+              -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }}
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
