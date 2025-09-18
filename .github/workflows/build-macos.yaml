@@ -72,8 +72,7 @@ jobs:
               -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
               -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=YES \
-              -DSVS_EXPERIMENTAL_ENABLE_IVF=NO
+              -DSVS_EXPERIMENTAL_LEANVEC=YES
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
