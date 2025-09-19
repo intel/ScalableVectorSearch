@@ -372,6 +372,9 @@ class SQDataset {
     using const_value_type = std::span<const element_type, Extent>;
     using value_type = const_value_type;
 
+    // Data wrapped in the library allocator.
+    using lib_alloc_data_type = SQDataset<T, Extent, lib::Allocator<T>>;
+
   private:
     float scale_;
     float bias_;
@@ -401,6 +404,9 @@ class SQDataset {
         });
         return buffer;
     }
+
+    void set_scale(float scale) { scale_ = scale; }
+    void set_bias(float bias) { bias_ = bias; }
 
     template <typename QueryType, size_t N>
     void set_datum(size_t i, std::span<QueryType, N> datum) {

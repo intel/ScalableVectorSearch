@@ -580,7 +580,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     /// If the number of valid candidates is *less* than the target, a negative number
     /// is returned.
     int64_t slack() const {
-        return lib::narrow_cast<int64_t>(valid()) - lib::narrow_cast<int64_t>(target_capacity());
+        return lib::narrow_cast<int64_t>(valid()) -
+               lib::narrow_cast<int64_t>(target_capacity());
     }
 
     /// Return the index of the first preceding valid candidate beginning at the provided

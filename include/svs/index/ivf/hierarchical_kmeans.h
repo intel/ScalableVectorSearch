@@ -21,7 +21,6 @@
 // stdlib
 #include <cmath>
 
-
 namespace svs::index::ivf {
 
 /// @brief Calculate the number of level 2 clusters for each level 1 cluster
@@ -104,8 +103,9 @@ auto hierarchical_kmeans_clustering_impl(
     }
     auto rng = std::mt19937(parameters.seed_);
     std::vector<size_t> v(num_training_data);
-    auto data_train =
-        make_training_set<BuildType, Data, Alloc>(data, v, num_training_data, rng, threadpool);
+    auto data_train = make_training_set<BuildType, Data, Alloc>(
+        data, v, num_training_data, rng, threadpool
+    );
 
     // Step 2: Init centroids for level 1
     v.resize(num_level1_clusters);
@@ -134,7 +134,8 @@ auto hierarchical_kmeans_clustering_impl(
 
     // Step 4: Assign training data to clusters
     auto data_norm = maybe_compute_norms<Distance>(data_train, threadpool);
-    auto centroids_level1_norm = maybe_compute_norms<Distance>(centroids_level1_fp32, threadpool);
+    auto centroids_level1_norm =
+        maybe_compute_norms<Distance>(centroids_level1_fp32, threadpool);
 
     for (size_t batch = 0; batch < num_batches; ++batch) {
         auto this_batch = threads::UnitRange{

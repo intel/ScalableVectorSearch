@@ -254,9 +254,7 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
         CATCH_REQUIRE(
             index.get_construction_window_size() == svs::VAMANA_WINDOW_SIZE_DEFAULT
         );
-        CATCH_REQUIRE(
-            index.get_max_candidates() == 3 * svs::VAMANA_WINDOW_SIZE_DEFAULT
-        );
+        CATCH_REQUIRE(index.get_max_candidates() == 3 * svs::VAMANA_WINDOW_SIZE_DEFAULT);
         CATCH_REQUIRE(
             index.get_full_search_history() == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
         );

@@ -57,8 +57,9 @@ auto kmeans_clustering_impl(
     }
     auto rng = std::mt19937(parameters.seed_);
     std::vector<size_t> v(num_training_data);
-    auto data_train =
-        make_training_set<BuildType, Data, Alloc>(data, v, num_training_data, rng, threadpool);
+    auto data_train = make_training_set<BuildType, Data, Alloc>(
+        data, v, num_training_data, rng, threadpool
+    );
 
     // Step 2: Init centroids by randomly selecting from training set
     v.resize(num_centroids);
