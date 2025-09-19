@@ -51,10 +51,6 @@ template <typename F> void for_standard_specializations(F&& f) {
     // Pattern:
     // QueryType, DataType, Dimensionality, Enable Building
     // clang-format off
-    X(float,  svs::BFloat16,  512, EnableBuild::FromFileAndArray);
-    X(float,  float,          512, EnableBuild::FromFileAndArray);
-    X(float,  svs::Float16,   512, EnableBuild::FromFileAndArray);
-
     X(float,  svs::BFloat16, Dynamic, EnableBuild::FromFileAndArray);
     X(float,  float,         Dynamic, EnableBuild::FromFileAndArray);
     X(float,  svs::Float16,  Dynamic, EnableBuild::FromFileAndArray);
