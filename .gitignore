@@ -11,6 +11,7 @@ wheelhouse/
 tags
 compile_commands.json
 .python-version
+.vscode
 
 # Python related files
 __pycache__/

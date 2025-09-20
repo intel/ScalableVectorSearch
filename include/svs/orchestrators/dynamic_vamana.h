@@ -21,6 +21,9 @@
 #include "svs/orchestrators/manager.h"
 #include "svs/orchestrators/vamana.h"
 
+// stdlib
+#include <type_traits>
+
 namespace svs {
 
 ///
@@ -258,25 +261,55 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     }
 
     // Building
+    ///
+    /// @brief Construct a DynamicVamana index from a data loader or dataset.
+    ///
+    /// @tparam QueryTypes   The set of query element types supported by the resulting index.
+    /// @tparam DataLoader   A data loader or dataset type.
+    /// @tparam Distance     Distance functor or ``svs::DistanceType`` enum.
+    /// @tparam ThreadPoolProto  Thread pool type or size_t).
+    ///
+    /// @param parameters Build parameters controlling graph construction.
+    /// @param data_loader Loader (or dataset) from which to obtain the data.
+    /// @param ids External IDs to assign to each row; must be unique and have length ``data.size()``.
+    /// @param distance Distance functor or enum.
+    /// @param threadpool_proto Thread pool or number of threads to use.
+    ///
     template <
         manager::QueryTypeDefinition QueryTypes,
-        data::ImmutableMemoryDataset Data,
+        typename DataLoader,
         typename Distance,
         typename ThreadPoolProto>
     static DynamicVamana build(
         const index::vamana::VamanaBuildParameters& parameters,
-        Data data,
+        DataLoader&& data_loader,
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto
     ) {
-        return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
-            parameters,
-            std::move(data),
-            ids,
-            std::move(distance),
-            threads::as_threadpool(std::move(threadpool_proto))
-        );
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        auto data = svs::detail::dispatch_load(std::forward<DataLoader>(data_loader), threadpool);
+        // If given a DistanceType enum, dispatch to a concrete distance functor first.
+        if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+            auto dispatcher = DistanceDispatcher(distance);
+            return dispatcher([&](auto distance_function) {
+                return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                    parameters,
+                    std::move(data),
+                    ids,
+                    std::move(distance_function),
+                    std::move(threadpool)
+                );
+            });
+        } else {
+            return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                parameters,
+                std::move(data),
+                ids,
+                std::move(distance),
+                std::move(threadpool)
+            );
+        }
     }
 
     // Assembly

@@ -31,6 +31,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+// fmt
+#include <fmt/format.h>
+
 // stl
 #include <span>
 
@@ -87,6 +90,75 @@ void add_build_specialization(py::class_<svs::DynamicVamana>& index) {
         BUILD_FROM_ARRAY_DOC
     );
 }
+
+/////
+///// Build from file (data loader)
+/////
+
+template <typename Q, typename T, typename Dist, size_t N>
+svs::DynamicVamana dynamic_vamana_build_uncompressed(
+    const svs::index::vamana::VamanaBuildParameters& parameters,
+    svs::VectorDataLoader<T, N, RebindAllocator<T>> data_loader,
+    std::span<const size_t> ids,
+    svs::DistanceType distance_type,
+    size_t num_threads
+) {
+    return svs::DynamicVamana::build<Q>(
+        parameters,
+        std::move(data_loader),
+        ids,
+        distance_type,
+        num_threads
+    );
+}
+
+using DynamicVamanaBuildFromFileDispatcher = svs::lib::Dispatcher<
+    svs::DynamicVamana,
+    const svs::index::vamana::VamanaBuildParameters&,
+    UnspecializedVectorDataLoader,
+    std::span<const size_t>,
+    svs::DistanceType,
+    size_t>;
+
+DynamicVamanaBuildFromFileDispatcher dynamic_vamana_build_from_file_dispatcher() {
+    auto dispatcher = DynamicVamanaBuildFromFileDispatcher{};
+    // Register uncompressed specializations (Dynamic dimensionality only, similar to tests)
+    for_standard_specializations([&]<typename Q, typename T, typename D, size_t N>() {
+        // Only register when N is Dynamic (compile-time tag) - the pattern in static code
+        // registers all; here we directly register.
+        auto method = &dynamic_vamana_build_uncompressed<Q, T, D, N>;
+        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+    });
+    return dispatcher;
+}
+
+svs::DynamicVamana dynamic_vamana_build_from_file(
+    const svs::index::vamana::VamanaBuildParameters& parameters,
+    UnspecializedVectorDataLoader data_loader,
+    const py_contiguous_array_t<size_t>& py_ids,
+    svs::DistanceType distance_type,
+    size_t num_threads
+) {
+    auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
+    return dynamic_vamana_build_from_file_dispatcher().invoke(
+        parameters, std::move(data_loader), ids, distance_type, num_threads
+    );
+}
+
+constexpr std::string_view DYNAMIC_VAMANA_BUILD_FROM_FILE_DOCSTRING_PROTO = R"(
+Construct a DynamicVamana index using a data loader, returning the index.
+
+Args:
+    parameters: Build parameters controlling graph construction.
+    data_loader: Data loader (e.g., an VectorDataLoader instance).
+    ids: Vector of ids to assign to each row in the dataset; must match dataset length and contain unique values.
+    distance_type: The similarity function to use for this index.
+    num_threads: Number of threads to use for index construction. Default: 1.
+
+Specializations compiled into the binary are listed below.
+
+{}  # (Method listing auto-generated)
+)";
 
 template <typename ElementType>
 void add_points(
@@ -300,6 +372,31 @@ void wrap(py::module& m) {
 
     // Index building.
     add_build_specialization<float>(vamana);
+
+    // Build from file / data loader (dynamic docstring)
+    {
+        auto dispatcher = dynamic_vamana_build_from_file_dispatcher();
+        std::string dynamic;
+        for (size_t i = 0; i < dispatcher.size(); ++i) {
+            fmt::format_to(
+                std::back_inserter(dynamic),
+                R"(Method {}:\n    - data_loader: {}\n    - distance: {}\n)",
+                i,
+                dispatcher.description(i, 1),
+                dispatcher.description(i, 3)
+            );
+        }
+        vamana.def_static(
+            "build",
+            &dynamic_vamana_build_from_file,
+            py::arg("parameters"),
+            py::arg("data_loader"),
+            py::arg("ids"),
+            py::arg("distance_type"),
+            py::arg("num_threads") = 1,
+            fmt::format(DYNAMIC_VAMANA_BUILD_FROM_FILE_DOCSTRING_PROTO, dynamic).c_str()
+        );
+    }
 
     // Index modification.
     add_points_specialization<float>(vamana);
