@@ -292,6 +292,9 @@ class SimpleData {
     /// Return the number of dimensions for each entry in the dataset.
     size_t dimensions() const { return getsize<1>(data_); }
 
+    /// Return the size in bytes of one vector: sizeof(element_type) * dimensions()
+    size_t element_size() const { return sizeof(element_type) * dimensions(); }
+
     ///
     /// @brief Return a constant handle to vector stored as position ``i``.
     ///
@@ -719,6 +722,8 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
             return dimensions_;
         }
     }
+
+    size_t element_size() const { return sizeof(element_type) * dimensions(); }
 
     const_value_type get_datum(size_t i) const {
         auto [block_id, data_id] = resolve(i);

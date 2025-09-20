@@ -88,3 +88,57 @@ CATCH_TEST_CASE("Data Loading/Saving", "[core][data]") {
         CATCH_REQUIRE(w == z);
     }
 }
+
+CATCH_TEST_CASE("Element Size", "[core][data]") {
+    CATCH_SECTION("Check element_size()") {
+        // Test with float, dynamic dimensions
+        auto float_data = svs::data::SimpleData<float, svs::Dynamic>(5, 10);
+        CATCH_REQUIRE(float_data.element_size() == sizeof(float) * 10);
+
+        // Test with double, dynamic dimensions
+        auto double_data = svs::data::SimpleData<double, svs::Dynamic>(3, 16);
+        CATCH_REQUIRE(double_data.element_size() == sizeof(double) * 16);
+
+        // Test with int8_t, fixed dimensions
+        auto int8_data = svs::data::SimpleData<int8_t, 32>(10, 32);
+        CATCH_REQUIRE(int8_data.element_size() == sizeof(int8_t) * 32);
+
+        // Test with int16_t, dynamic dimensions
+        auto int16_data = svs::data::SimpleData<int16_t, svs::Dynamic>(8, 64);
+        CATCH_REQUIRE(int16_data.element_size() == sizeof(int16_t) * 64);
+
+        // Test with int32_t, fixed dimensions
+        auto int32_data = svs::data::SimpleData<int32_t, 128>(5, 128);
+        CATCH_REQUIRE(int32_data.element_size() == sizeof(int32_t) * 128);
+
+        // Test with uint8_t, dynamic dimensions
+        auto uint8_data = svs::data::SimpleData<uint8_t, svs::Dynamic>(12, 256);
+        CATCH_REQUIRE(uint8_data.element_size() == sizeof(uint8_t) * 256);
+
+        // Test with uint16_t, fixed dimensions
+        auto uint16_data = svs::data::SimpleData<uint16_t, 48>(7, 48);
+        CATCH_REQUIRE(uint16_data.element_size() == sizeof(uint16_t) * 48);
+
+        // Test with uint32_t, dynamic dimensions
+        auto uint32_data = svs::data::SimpleData<uint32_t, svs::Dynamic>(6, 96);
+        CATCH_REQUIRE(uint32_data.element_size() == sizeof(uint32_t) * 96);
+
+        // Test fixed dimensions with blocked storage
+        auto blocked_fixed = svs::data::BlockedData<int32_t, 64>(25, 64);
+        CATCH_REQUIRE(blocked_fixed.element_size() == sizeof(int32_t) * 64);
+
+        // Test element_size consistency across different instances
+        auto data1 = svs::data::SimpleData<float, svs::Dynamic>(10, 20);
+        // Different size, same dims
+        auto data2 = svs::data::SimpleData<float, svs::Dynamic>(50, 20);
+        CATCH_REQUIRE(data1.element_size() == data2.element_size());
+
+        // Test consistency across different data types with same dimensions
+        auto float_128 = svs::data::SimpleData<float, svs::Dynamic>(5, 128);
+        auto double_128 = svs::data::SimpleData<double, svs::Dynamic>(5, 128);
+        CATCH_REQUIRE(float_128.element_size() == sizeof(float) * 128);
+        CATCH_REQUIRE(double_128.element_size() == sizeof(double) * 128);
+        // double is 2x float
+        CATCH_REQUIRE(double_128.element_size() == 2 * float_128.element_size());
+    }
+}

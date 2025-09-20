@@ -390,6 +390,7 @@ class SQDataset {
 
     size_t size() const { return data_.size(); }
     size_t dimensions() const { return data_.dimensions(); }
+    size_t element_size() const { return sizeof(element_type) * dimensions(); }
 
     float get_scale() const { return scale_; }
     float get_bias() const { return bias_; }
