@@ -29,6 +29,7 @@
 
 // stl
 #include <optional>
+#include <set>
 #include <string_view>
 #include <vector>
 
@@ -68,6 +69,13 @@ expected_build_results(svs::DistanceType distance, const T& dataset) {
         throw ANNEXCEPTION("Expected build result does not have build parameters!");
     }
     return result;
+}
+
+template <typename DistanceFunctor, svsbenchmark::ValidDatasetSource T>
+svsbenchmark::vamana::ExpectedResult
+expected_build_results(DistanceFunctor, const T& dataset) {
+    // Delegate to the DistanceType overload using the deduced distance type
+    return expected_build_results(svs::distance_type_v<DistanceFunctor>, dataset);
 }
 
 /// Return the only reference search for the requested parameters.
@@ -124,6 +132,26 @@ load_dynamic_test_index(const Distance& distance) {
         1,
         true // debug_load_from_static
     );
+}
+
+// Return the set of distances that have reference build expectations for the
+// uncompressed float32 dataset. Cached after first computation.
+inline const std::set<svs::DistanceType>& available_build_distances() {
+    static const std::set<svs::DistanceType> distances = []() {
+        std::set<svs::DistanceType> ds;
+        const auto dataset = svsbenchmark::Uncompressed(svs::DataType::float32);
+        const auto& table = parse_expected();
+        auto all_results = svs::lib::load<std::vector<svsbenchmark::vamana::ExpectedResult>>(
+            svs::lib::node_view_at(table, "vamana_test_build"), std::nullopt
+        );
+        for (const auto& r : all_results) {
+            if (r.dataset_.match(dataset)) {
+                ds.insert(r.distance_);
+            }
+        }
+        return ds;
+    }();
+    return distances;
 }
 
 } // namespace test_dataset::vamana

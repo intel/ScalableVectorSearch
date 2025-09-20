@@ -159,6 +159,7 @@ SET(INTEGRATION_TESTS
     ${TEST_DIR}/svs/index/vamana/dynamic_index_2.cpp
     # Higher level constructs
     ${TEST_DIR}/svs/orchestrators/vamana.cpp
+    ${TEST_DIR}/svs/orchestrators/dynamic_vamana.cpp
     # Integration Tests
     ${TEST_DIR}/integration/exhaustive.cpp
     ${TEST_DIR}/integration/vamana/index_search.cpp
