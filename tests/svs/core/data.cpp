@@ -88,3 +88,21 @@ CATCH_TEST_CASE("Data Loading/Saving", "[core][data]") {
         CATCH_REQUIRE(w == z);
     }
 }
+
+CATCH_TEST_CASE("Element Size", "[core][data]") {
+    CATCH_SECTION("Check element_size()") {
+        // Test with float, dynamic dimensions
+        auto float_data = svs::data::SimpleData<float, svs::Dynamic>(5, 10);
+        CATCH_REQUIRE(float_data.element_size() == sizeof(float) * 10);
+
+        // Test fixed dimensions with blocked storage
+        auto blocked_fixed = svs::data::BlockedData<int32_t, 64>(25, 64);
+        CATCH_REQUIRE(blocked_fixed.element_size() == sizeof(int32_t) * 64);
+
+        // Test element_size consistency across different instances
+        auto data1 = svs::data::SimpleData<float, svs::Dynamic>(10, 20);
+        auto data2 =
+            svs::data::SimpleData<float, svs::Dynamic>(50, 20); // Different size, same dims
+        CATCH_REQUIRE(data1.element_size() == data2.element_size());
+    }
+}
