@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format
+        language: python
+        entry: tools/clang-format.sh
+        args: [clang-format]
+        additional_dependencies: ["clang-format>=15,<16"]

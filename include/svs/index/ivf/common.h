@@ -688,9 +688,6 @@ std::vector<std::vector<I>> group_assignments(
     return clusters;
 }
 
-
-
-
 template <typename Query, typename Dist, typename MatMulResults, typename Buffer>
 void search_centroids(
     const Query& query,

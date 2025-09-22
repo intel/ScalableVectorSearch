@@ -104,11 +104,7 @@ svs::DynamicVamana dynamic_vamana_build_uncompressed(
     size_t num_threads
 ) {
     return svs::DynamicVamana::build<Q>(
-        parameters,
-        std::move(data_loader),
-        ids,
-        distance_type,
-        num_threads
+        parameters, std::move(data_loader), ids, distance_type, num_threads
     );
 }
 
