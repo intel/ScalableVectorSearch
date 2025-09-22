@@ -14,6 +14,7 @@
 
 # unit under test
 import svs
+import numpy as np
 
 # stdlib
 import unittest
@@ -21,6 +22,7 @@ import os
 from tempfile import TemporaryDirectory
 
 # helpers
+from .common import test_data_svs, test_data_dims, test_number_of_vectors, test_queries, test_groundtruth_l2
 from .dynamic import ReferenceDataset
 
 class DynamicVamanaTester(unittest.TestCase):
@@ -161,4 +163,42 @@ class DynamicVamanaTester(unittest.TestCase):
                     index, reference, num_neighbors, expected_recall, expected_recall_delta
                 )
                 consolidate_count = 0
+
+    def test_build_from_loader(self):
+        """Test building DynamicVamana using a VectorDataLoader and explicit IDs."""
+
+        loader = svs.VectorDataLoader(test_data_svs, svs.DataType.float32, dims = test_data_dims)
+
+        # Sequential IDs
+        ids = np.arange(test_number_of_vectors, dtype = np.uint64)
+
+        params = svs.VamanaBuildParameters(
+            graph_max_degree = 64,
+            window_size = 128,
+            alpha = 1.2,
+        )
+
+        index = svs.DynamicVamana.build(
+            params,
+            loader,
+            ids,
+            svs.DistanceType.L2,
+            num_threads = 2,
+        )
+
+        # Basic invariants
+        self.assertEqual(index.size, test_number_of_vectors)
+        self.assertEqual(index.dimensions, test_data_dims)
+        self.assertTrue(index.has_id(0))
+        self.assertTrue(index.has_id(test_number_of_vectors - 1))
+
+        queries = svs.read_vecs(test_queries)
+        groundtruth = svs.read_vecs(test_groundtruth_l2)
+        k = 10
+        index.search_window_size = 20
+        I, D = index.search(queries, k)
+        self.assertEqual(I.shape[1], k)
+        recall = svs.k_recall_at(groundtruth, I, k, k)
+        # Recall in plausible range
+        self.assertTrue(0.5 < recall <= 1.0)
 
