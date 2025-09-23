@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-# Copyright 2023 Intel Corporation
+# Copyright 2024 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+name: pre-commit
 
-# Allow users to supply a custom path to `clang-format`
-CLANGFORMAT="${1:-clang-format}"
-DIRECTORIES=( "bindings/python/src" "bindings/python/include" "include" "benchmark" "tests" "utils" "examples/cpp" )
+on:
+  pull_request:
 
-for i in "${DIRECTORIES[@]}"
-do
-    find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
-done
-
+jobs:
+  pre-commit:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+    - uses: pre-commit/action@v3.0.1

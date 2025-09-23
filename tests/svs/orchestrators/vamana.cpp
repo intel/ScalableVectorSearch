@@ -18,32 +18,29 @@
 #include "svs/orchestrators/vamana.h"
 
 // Core helpers
-#include "svs/core/recall.h"
 #include "svs/core/data/simple.h"
+#include "svs/core/recall.h"
 
 // Distance dispatcher
 #include "svs/core/distance.h"
 
 // Test dataset utilities
 #include "tests/utils/test_dataset.h"
-#include "tests/utils/vamana_reference.h"
 #include "tests/utils/utils.h"
+#include "tests/utils/vamana_reference.h"
 
 // Catch2
-#include "catch2/catch_test_macros.hpp"
 #include "catch2/catch_approx.hpp"
+#include "catch2/catch_test_macros.hpp"
 
 // STL
-#include <vector>
 #include <numeric>
+#include <vector>
 
 namespace {
 
 template <typename DataLoaderT, typename DistanceT>
-void test_build(
-    DataLoaderT&& data_loader,
-    DistanceT distance = DistanceT()
-) {
+void test_build(DataLoaderT&& data_loader, DistanceT distance = DistanceT()) {
     auto expected_result = test_dataset::vamana::expected_build_results(
         distance, svsbenchmark::Uncompressed(svs::DataType::float32)
     );
@@ -53,10 +50,7 @@ void test_build(
 
     size_t num_threads = 2;
     svs::Vamana index = svs::Vamana::build<float>(
-        build_params,
-        std::forward<DataLoaderT>(data_loader),
-        distance,
-        num_threads
+        build_params, std::forward<DataLoaderT>(data_loader), distance, num_threads
     );
 
     // Basic invariants
@@ -87,7 +81,8 @@ CATCH_TEST_CASE("Vamana Build", "[managers][vamana][build]") {
     for (auto distance_enum : test_dataset::vamana::available_build_distances()) {
         // SimpleData and distance functor.
         {
-            std::string section_name = std::string("SimpleData ") + std::string(svs::name(distance_enum));
+            std::string section_name =
+                std::string("SimpleData ") + std::string(svs::name(distance_enum));
             CATCH_SECTION(section_name) {
                 svs::DistanceDispatcher dispatcher(distance_enum);
                 dispatcher([&](auto distance_functor) {
@@ -101,7 +96,8 @@ CATCH_TEST_CASE("Vamana Build", "[managers][vamana][build]") {
 
         // VectorDataLoader and distance enum.
         {
-            std::string section_name = std::string("VectorDataLoader ") + std::string(svs::name(distance_enum));
+            std::string section_name =
+                std::string("VectorDataLoader ") + std::string(svs::name(distance_enum));
             CATCH_SECTION(section_name) {
                 test_build(
                     svs::VectorDataLoader<float>(test_dataset::data_svs_file()),

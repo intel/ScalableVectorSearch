@@ -141,9 +141,10 @@ inline const std::set<svs::DistanceType>& available_build_distances() {
         std::set<svs::DistanceType> ds;
         const auto dataset = svsbenchmark::Uncompressed(svs::DataType::float32);
         const auto& table = parse_expected();
-        auto all_results = svs::lib::load<std::vector<svsbenchmark::vamana::ExpectedResult>>(
-            svs::lib::node_view_at(table, "vamana_test_build"), std::nullopt
-        );
+        auto all_results =
+            svs::lib::load<std::vector<svsbenchmark::vamana::ExpectedResult>>(
+                svs::lib::node_view_at(table, "vamana_test_build"), std::nullopt
+            );
         for (const auto& r : all_results) {
             if (r.dataset_.match(dataset)) {
                 ds.insert(r.distance_);
