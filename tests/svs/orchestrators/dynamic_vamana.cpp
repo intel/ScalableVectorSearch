@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2025 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 // Orchestrator under test
-#include "svs/orchestrators/vamana.h"
+#include "svs/orchestrators/dynamic_vamana.h"
 
 // Core helpers
 #include "svs/core/data/simple.h"
@@ -48,9 +48,15 @@ void test_build(DataLoaderT&& data_loader, DistanceT distance = DistanceT()) {
     auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
     auto groundtruth = test_dataset::load_groundtruth(distance);
 
+    // Prepare IDs (0 .. N-1)
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    const size_t n = data.size();
+    std::vector<size_t> ids(n);
+    std::iota(ids.begin(), ids.end(), 0);
+
     size_t num_threads = 2;
-    svs::Vamana index = svs::Vamana::build<float>(
-        build_params, std::forward<DataLoaderT>(data_loader), distance, num_threads
+    svs::DynamicVamana index = svs::DynamicVamana::build<float>(
+        build_params, std::forward<DataLoaderT>(data_loader), ids, distance, num_threads
     );
 
     // Basic invariants
@@ -59,6 +65,11 @@ void test_build(DataLoaderT&& data_loader, DistanceT distance = DistanceT()) {
     CATCH_REQUIRE(index.get_prune_to() == build_params.prune_to);
     CATCH_REQUIRE(index.get_graph_max_degree() == build_params.graph_max_degree);
     CATCH_REQUIRE(index.get_num_threads() == num_threads);
+
+    // ID checks (spot sample)
+    CATCH_REQUIRE(index.has_id(0));
+    CATCH_REQUIRE(index.has_id(n / 2));
+    CATCH_REQUIRE(index.has_id(n - 1));
 
     const double epsilon = 0.01; // allow small deviation
     for (const auto& expected : expected_result.config_and_recall_) {
@@ -77,7 +88,7 @@ void test_build(DataLoaderT&& data_loader, DistanceT distance = DistanceT()) {
 
 } // namespace
 
-CATCH_TEST_CASE("Vamana Build", "[managers][vamana][build]") {
+CATCH_TEST_CASE("DynamicVamana Build", "[managers][dynamic_vamana][build]") {
     for (auto distance_enum : test_dataset::vamana::available_build_distances()) {
         // SimpleData and distance functor.
         {

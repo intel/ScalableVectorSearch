@@ -76,6 +76,14 @@ svs::graphs::SimpleBlockedGraph<uint32_t> graph_blocked();
 /// Helper to load the ground-truth for a given file.
 svs::data::SimpleData<uint32_t> load_groundtruth(svs::DistanceType distance);
 
+// Overload for distance functor types (DistanceL2, DistanceIP, DistanceCosineSimilarity,
+// etc.). This enables test code that passes a concrete functor instance instead of the
+// enum.
+template <typename DistanceFunctor>
+inline svs::data::SimpleData<uint32_t> load_groundtruth(DistanceFunctor /*distance*/) {
+    return load_groundtruth(svs::distance_type_v<DistanceFunctor>);
+}
+
 ///
 /// @brief Return a reference to the last `queries_in_test_set` entries in `queries`.
 ///
