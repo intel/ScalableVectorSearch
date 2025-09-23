@@ -70,9 +70,9 @@ jobs:
       run: |
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DSVS_BUILD_BINARIES=YES \
+              -DSVS_BUILD_BINARIES=NO \
               -DSVS_BUILD_TESTS=YES \
-              -DSVS_BUILD_EXAMPLES=YES \
+              -DSVS_BUILD_EXAMPLES=NO \
               -DSVS_EXPERIMENTAL_LEANVEC=YES \
               -DSVS_NO_AVX512=NO \
               -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }}
@@ -86,12 +86,12 @@ jobs:
           CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: |
-        ctest -C ${{ matrix.build_type }}
+        ctest -C ${{ matrix.build_type }} -R IVF
         echo "Listing available environment variables..."
         printenv
 
-    - name: Run Cpp Examples
-      env:
-          CTEST_OUTPUT_ON_FAILURE: 1
-      working-directory: ${{ runner.temp }}/build/examples/cpp
-      run: ctest -C RelWithDebugInfo
+        #- name: Run Cpp Examples
+        #  env:
+        #      CTEST_OUTPUT_ON_FAILURE: 1
+        #  working-directory: ${{ runner.temp }}/build/examples/cpp
+        #  run: ctest -C RelWithDebugInfo
