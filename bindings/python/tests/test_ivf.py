@@ -43,7 +43,7 @@ from .common import \
 
 from .dataset import UncompressedMatcher
 
-DEBUG = False;
+DEBUG = False
 
 class IVFTester(unittest.TestCase):
     """
@@ -84,7 +84,7 @@ class IVFTester(unittest.TestCase):
         n_probes = params['n_probes']
         k_reorder = params['k_reorder']
         k = results['num_neighbors']
-        nq  = results['num_queries']
+        nq = results['num_queries']
         recall = results['recall']
         return n_probes, k_reorder, k, nq, recall
 
@@ -113,7 +113,7 @@ class IVFTester(unittest.TestCase):
             queries
         ):
 
-        I_full, D_full = ivf.search(queries, 10);
+        I_full, D_full = ivf.search(queries, 10)
 
         I_single = []
         D_single = []
@@ -248,7 +248,7 @@ class IVFTester(unittest.TestCase):
 
         params = self._get_build_parameters(
             'ivf_test_build', distance_map[distance], matcher
-        );
+        )
 
         clustering = svs.Clustering.build(
                 build_parameters = params,
