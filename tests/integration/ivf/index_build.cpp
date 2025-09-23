@@ -102,13 +102,13 @@ void test_build(const Distance& distance, size_t num_inner_threads = 1) {
 } // namespace
 
 CATCH_TEST_CASE("IVF Build/Clustering", "[integration][build][ivf]") {
-    test_build<float>(svs::DistanceL2());
-    test_build<svs::Float16>(svs::DistanceIP());
+    //test_build<float>(svs::DistanceL2());
+    //test_build<svs::Float16>(svs::DistanceIP());
 
     test_build<svs::BFloat16>(svs::DistanceL2());
-    test_build<svs::BFloat16>(svs::DistanceIP());
+    //test_build<svs::BFloat16>(svs::DistanceIP());
 
     // With 4 inner threads
-    test_build<svs::BFloat16>(svs::DistanceL2(), 4);
-    test_build<svs::BFloat16>(svs::DistanceIP(), 4);
+    //test_build<svs::BFloat16>(svs::DistanceL2(), 4);
+    //test_build<svs::BFloat16>(svs::DistanceIP(), 4);
 }

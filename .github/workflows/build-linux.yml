@@ -58,6 +58,7 @@ jobs:
        # Setup environment variables for building against MKL.
        # Persist the environment variables for use across multiple subsequent actions.
        source /opt/intel/oneapi/setvars.sh
+       lscpu
        printenv >> $GITHUB_ENV
 
     - name: Configure build
@@ -84,7 +85,10 @@ jobs:
       env:
           CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
-      run: ctest -C ${{ matrix.build_type }}
+      run: |
+        ctest -C ${{ matrix.build_type }}
+        echo "Listing available environment variables..."
+        printenv
 
     - name: Run Cpp Examples
       env:
