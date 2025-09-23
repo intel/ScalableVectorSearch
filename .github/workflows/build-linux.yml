@@ -35,7 +35,7 @@ jobs:
     strategy:
       matrix:
         build_type: [RelWithDebugInfo]
-        ivf: [OFF, ON]
+        ivf: [ON]
         cxx: [g++-11, g++-12, clang++-15]
         include:
           - cxx: g++-11
