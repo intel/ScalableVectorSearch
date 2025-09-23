@@ -1,0 +1,68 @@
+# Copyright 2023 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: CIBuildWheel
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  python-build:
+    name: Build Wheel
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Build Container
+      run: |
+        cd ${GITHUB_WORKSPACE}/docker/x86_64/manylinux2014
+        ./build.sh
+
+    - name: Install cibuildwheel
+      run: python -m pip install cibuildwheel
+
+    # Install inside the temporary working directory.
+    - name: Build Wheel
+      env:
+        TEMP_WORKSPACE: ${{ runner.temp }}/usr
+      run: |
+        cd ${GITHUB_WORKSPACE}
+        cibuildwheel --only $(python tools/pybuild.py) bindings/python
+        pip install ./wheelhouse/scalable_vs*.whl --target=${TEMP_WORKSPACE}
+
+    # Make sure to add the location of the generated wheel to the python path.
+    - name: Run Default Tests
+      env:
+          PYTHONPATH: ${{ runner.temp }}/usr
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}
+      run: python -m unittest discover -s ${GITHUB_WORKSPACE}/bindings/python
+
+    - name: Run examples
+      env:
+          PYTHONPATH: ${{ runner.temp }}/usr
+          CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}
+      run: python -m unittest discover -p "example*.py" -s ${GITHUB_WORKSPACE}/examples/python
