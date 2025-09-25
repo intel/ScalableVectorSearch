@@ -48,9 +48,6 @@ struct IVFTest {
     std::filesystem::path graph_;
     std::filesystem::path queries_f32_;
     size_t queries_in_training_set_;
-    // Backend-specific members
-    std::filesystem::path leanvec_data_matrix_;
-    std::filesystem::path leanvec_query_matrix_;
     // Runtime values
     size_t num_threads_;
 
@@ -62,9 +59,6 @@ struct IVFTest {
         std::filesystem::path graph,
         std::filesystem::path queries_f32,
         size_t queries_in_training_set,
-        // backend-specific members
-        std::filesystem::path leanvec_data_matrix,
-        std::filesystem::path leanvec_query_matrix,
         // Runtime values
         size_t num_threads
     )
@@ -74,8 +68,6 @@ struct IVFTest {
         , graph_{std::move(graph)}
         , queries_f32_{std::move(queries_f32)}
         , queries_in_training_set_{queries_in_training_set}
-        , leanvec_data_matrix_{std::move(leanvec_data_matrix)}
-        , leanvec_query_matrix_{std::move(leanvec_query_matrix)}
         , num_threads_{num_threads} {}
 
     static IVFTest example() {
@@ -86,8 +78,6 @@ struct IVFTest {
             "path/to/graph",                     // graph
             "path/to/queries_f32",               // queries_f32
             10000,                               // queries_in_training_set
-            "path/to/leanvec_data_matrix",       // LeanVec data matrix
-            "path/to/leanvec_query_matrix",      // LeanVec query matrix
             0,                                   // Num Threads (not-saved)
         };
     }
@@ -113,9 +103,7 @@ struct IVFTest {
              SVS_LIST_SAVE_(index_config),
              SVS_LIST_SAVE_(graph),
              SVS_LIST_SAVE_(queries_f32),
-             SVS_LIST_SAVE_(queries_in_training_set),
-             SVS_LIST_SAVE_(leanvec_data_matrix),
-             SVS_LIST_SAVE_(leanvec_query_matrix)}
+             SVS_LIST_SAVE_(queries_in_training_set)}
         );
     }
 
@@ -131,8 +119,6 @@ struct IVFTest {
             svsbenchmark::extract_filename(table, "graph", root),
             svsbenchmark::extract_filename(table, "queries_f32", root),
             SVS_LOAD_MEMBER_AT_(table, queries_in_training_set),
-            svsbenchmark::extract_filename(table, "leanvec_data_matrix", root),
-            svsbenchmark::extract_filename(table, "leanvec_query_matrix", root),
             num_threads};
     }
 };

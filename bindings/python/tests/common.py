@@ -40,8 +40,12 @@ test_groundtruth_mip = str(TEST_DATASET_DIR.joinpath("groundtruth_mip.ivecs"))
 test_groundtruth_cosine = str(TEST_DATASET_DIR.joinpath("groundtruth_cosine.ivecs"))
 test_vamana_reference = str(TEST_DATASET_DIR.joinpath("reference/vamana_reference.toml"))
 
+test_ivf_clustering = str(TEST_DATASET_DIR.joinpath("ivf_clustering"))
+test_ivf_reference = str(TEST_DATASET_DIR.joinpath("reference/ivf_reference.toml"))
+
 test_number_of_vectors = 10000
 test_dimensions = 128
+test_number_of_clusters = 128
 
 #####
 ##### Helper Functions
