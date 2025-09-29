@@ -159,6 +159,7 @@ SET(INTEGRATION_TESTS
     ${TEST_DIR}/svs/index/vamana/dynamic_index_2.cpp
     # Higher level constructs
     ${TEST_DIR}/svs/orchestrators/vamana.cpp
+    ${TEST_DIR}/svs/orchestrators/dynamic_vamana.cpp
     # Integration Tests
     ${TEST_DIR}/integration/exhaustive.cpp
     ${TEST_DIR}/integration/vamana/index_search.cpp
@@ -176,6 +177,7 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
     list(APPEND INTEGRATION_TESTS
         ${TEST_DIR}/integration/ivf/index_build.cpp
         ${TEST_DIR}/integration/ivf/index_search.cpp
+        ${TEST_DIR}/integration/ivf/scalar_search.cpp
     )
 endif()
 

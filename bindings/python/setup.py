@@ -22,6 +22,8 @@ import os
 cmake_args = [
     # Export compile commands to allow us to explore compiler flags as needed.
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=YES",
+    "-DSVS_EXPERIMENTAL_ENABLE_IVF=YES ",
+    "-DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=YES ",
 ]
 
 # Determine the root of the repository

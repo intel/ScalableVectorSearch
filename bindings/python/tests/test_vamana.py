@@ -44,7 +44,7 @@ from .common import \
 
 from .dataset import UncompressedMatcher
 
-DEBUG = False;
+DEBUG = False
 
 class VamanaTester(unittest.TestCase):
     """
@@ -85,7 +85,7 @@ class VamanaTester(unittest.TestCase):
         size = params['search_window_size']
         capacity = params['search_buffer_capacity']
         k = results['num_neighbors']
-        nq  = results['num_queries']
+        nq = results['num_queries']
         recall = results['recall']
         return size, capacity, k, nq, recall
 
@@ -114,7 +114,7 @@ class VamanaTester(unittest.TestCase):
             queries
         ):
 
-        I_full, D_full = vamana.search(queries, 10);
+        I_full, D_full = vamana.search(queries, 10)
 
         I_single = []
         D_single = []
@@ -301,7 +301,7 @@ class VamanaTester(unittest.TestCase):
 
         params = self._get_build_parameters(
             'vamana_test_build', distance_map[distance], matcher
-        );
+        )
 
         vamana = svs.Vamana.build(params, loader, distance, num_threads = num_threads)
         print(f"Building: {vamana.experimental_backend_string}")

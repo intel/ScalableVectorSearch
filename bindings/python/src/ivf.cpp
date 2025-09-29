@@ -521,7 +521,7 @@ void wrap(py::module& m) {
             py::arg("num_centroids") = 1000,
             py::arg("minibatch_size") = 10'000,
             py::arg("num_iterations") = 10,
-            py::arg("is_hierarchical") = false,
+            py::arg("is_hierarchical") = true,
             py::arg("training_fraction") = 0.1,
             py::arg("hierarchical_level1_clusters") = 0,
             py::arg("seed") = 0xc0ffee,

@@ -47,7 +47,6 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
     )
 endif()
 
-
 set(LIB_NAME "_svs")
 pybind11_add_module(${LIB_NAME} MODULE ${CPP_FILES})
 target_link_libraries(${LIB_NAME} PRIVATE pybind11::module)
