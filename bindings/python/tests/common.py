@@ -24,7 +24,6 @@ import svs.common
 # directory of the SVS project.
 _current_file = Path(__file__).parent.resolve() #<prefix>/svs/bindings/python/tests
 ROOT_DIR = _current_file.parents[2]
-print("Root:", ROOT_DIR)
 TEST_DATASET_DIR = ROOT_DIR.joinpath("data", "test_dataset")
 
 # Main exports
@@ -39,6 +38,8 @@ test_groundtruth_l2 = str(TEST_DATASET_DIR.joinpath("groundtruth_euclidean.ivecs
 test_groundtruth_mip = str(TEST_DATASET_DIR.joinpath("groundtruth_mip.ivecs"))
 test_groundtruth_cosine = str(TEST_DATASET_DIR.joinpath("groundtruth_cosine.ivecs"))
 test_vamana_reference = str(TEST_DATASET_DIR.joinpath("reference/vamana_reference.toml"))
+test_leanvec_data_matrix = str(TEST_DATASET_DIR.joinpath("leanvec_data_matrix.fvecs"))
+test_leanvec_query_matrix = str(TEST_DATASET_DIR.joinpath("leanvec_query_matrix.fvecs"))
 
 test_ivf_clustering = str(TEST_DATASET_DIR.joinpath("ivf_clustering"))
 test_ivf_reference = str(TEST_DATASET_DIR.joinpath("reference/ivf_reference.toml"))
@@ -81,7 +82,7 @@ def get_test_set(A, num_entries: int):
     """
     assert(A.ndim == 2)
     assert(A.shape[0] >= num_entries)
-    return A[-num_entries:];
+    return A[-num_entries:]
 
 def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     """
@@ -127,6 +128,40 @@ def test_threading(f, *args, validate = None, iters = 4, print_times = False):
     # For short lived processes, we generally see closer to a 3x speedup than a 4x
     # speedup when using 4 threads.
     testcase.assertTrue(1.3 * new_time < base_time)
+
+def test_close_lvq(original, reconstructed, primary_bits: int, residual_bits: int = 0):
+    """
+    Test that the reconstructed values are within the expected tolerance for LVQ compressed
+    data.
+
+    Arguments:
+        - original: The original, uncompressed data.
+        - reconstucted: The reconstructed data.
+
+    Keyword Arguments:
+        - primary_bits: The number of bits in the primary encoding.
+        - residual_bits: The number of bits in the residual encoding.
+    """
+
+    # Obtain the difference between the maximum and minimum values in the pre-processed
+    # dataset.
+    spans = svs.common.get_lvq_range(original)
+
+    # Compute the max delta for each component of the dataset.
+    # NOTE: We *should* divide by another factor of two here, but there are some values in
+    # the LVQ quantization space that will exceed this threshold due to compression
+    # limitations.
+    #
+    # See the C++ tests for LVQ reconstruction for a more complete explanation.
+    deltas = spans / (((2 ** primary_bits) - 1) * 2)
+    if residual_bits != 0:
+        deltas = deltas / ((2 ** residual_bits) - 1)
+
+    # Ensure that each reconstructed value is within the target threshold (plus a tiny
+    # fudge factor to help offset rounding imprecision.
+    upper_bound = np.expand_dims(deltas, axis = 1)
+    upper_bound = upper_bound + 0.0125 * upper_bound
+    return np.all(np.abs(original - reconstructed) <= upper_bound)
 
 def test_get_distance(index, distance, data = svs.read_vecs(test_data_vecs), test_distance = True):
     """
