@@ -24,7 +24,8 @@ How-Tos
 
 How to Do Dynamic Indexing
 ===========================
-This tutorial will show you how to create a dynamic index, add and remove vectors, search the index, save and reload it.
+This tutorial will show you how to create a dynamic index, add and remove vectors, search the index, save and reload it from Python.
+For C++, see this `example <https://github.com/intel/ScalableVectorSearch/blob/main/examples/cpp/shared/example_vamana_with_compression_dynamic.cpp>`_.
 
 Generating test data
 ********************

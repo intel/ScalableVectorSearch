@@ -275,8 +275,8 @@ Please avoid using them.
 |                                 |                    | Requires ``SVS_BUILD_BINARIES=ON`` to be            |
 |                                 |                    | effective.                                          |
 +---------------------------------+--------------------+-----------------------------------------------------+
-| SVS_EXPERIMENTAL_LEANVEC        | ON, **OFF**        | Enable LeanVec for vector dimension reduction       |
-|                                 |                    | Requires Intel(R) MKL library to implement SVD/GEMM |
+| SVS_EXPERIMENTAL_ENABLE_IVF     | ON, **OFF**        | Enable IVF index                                    |
+|                                 |                    | Requires Intel(R) MKL library                       |
 +---------------------------------+--------------------+-----------------------------------------------------+
 
 
@@ -338,7 +338,7 @@ Second, a system Intel(R) MKL can be used with the combination:
 
 .. code-block:: sh
 
-    -DSVS_EXPERIMENTAL_LEANVEC=YES
+    -DSVS_EXPERIMENTAL_ENABLE_IVF=YES
     -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=NO
 
 Note that if this option is used, you *may* need to include appropriate environment variable
@@ -350,6 +350,6 @@ To use this feature, provide the following variables to Cmake at configuration t
 
 .. code-block:: sh
 
-    -DSVS_EXPERIMENTAL_LEANVEC=YES
+    -DSVS_EXPERIMENTAL_ENABLE_IVF=YES
     -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL=YES
 

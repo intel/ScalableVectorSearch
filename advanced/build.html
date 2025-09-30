@@ -408,10 +408,10 @@ utility binaries.</p>
 effective.</p>
 </td>
 </tr>
-<tr class="row-odd"><td><p>SVS_EXPERIMENTAL_LEANVEC</p></td>
+<tr class="row-odd"><td><p>SVS_EXPERIMENTAL_ENABLE_IVF</p></td>
 <td><p>ON, <strong>OFF</strong></p></td>
-<td><p>Enable LeanVec for vector dimension reduction
-Requires Intel(R) MKL library to implement SVD/GEMM</p></td>
+<td><p>Enable IVF index
+Requires Intel(R) MKL library</p></td>
 </tr>
 </tbody>
 </table>
@@ -462,7 +462,7 @@ make
 SVS can link with Intel(R) MKL in a number of ways.</p>
 <p>First, if Intel(R) MKL is not needed, then compiled SVS artifacts should not try to link with Intel(R) MKL.
 Second, a system Intel(R) MKL can be used with the combination:</p>
-<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>-DSVS_EXPERIMENTAL_LEANVEC<span class="o">=</span>YES
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>-DSVS_EXPERIMENTAL_ENABLE_IVF<span class="o">=</span>YES
 -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL<span class="o">=</span>NO
 </pre></div>
 </div>
@@ -471,7 +471,7 @@ for SVS to find Intel(R) MKL at run time.</p>
 <p>Finally, SVS can also build and link with a custom Intel(R) MKL shared library using the
 <a class="reference external" href="https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2024-0/using-the-custom-shared-object-builder.html">custom shared object builder</a> .
 To use this feature, provide the following variables to Cmake at configuration time:</p>
-<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>-DSVS_EXPERIMENTAL_LEANVEC<span class="o">=</span>YES
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>-DSVS_EXPERIMENTAL_ENABLE_IVF<span class="o">=</span>YES
 -DSVS_EXPERIMENTAL_BUILD_CUSTOM_MKL<span class="o">=</span>YES
 </pre></div>
 </div>

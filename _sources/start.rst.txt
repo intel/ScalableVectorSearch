@@ -95,7 +95,7 @@ Compress the data
 ==================
 
 To boost performance and reduce memory usage, we first compress the data using our vector compression technique LeanVec. 
-See :ref:`vector_compression` and :ref:`compression-setting` for details.
+See :ref:`vector_compression` and :ref:`compression-setting` for details. For LVQ usage, see this `example <https://github.com/intel/ScalableVectorSearch/blob/main/examples/python/vamana_with_compression_lvq.py>`_.
 
 .. literalinclude:: ../examples/python/example_vamana_with_compression.py
    :language: python

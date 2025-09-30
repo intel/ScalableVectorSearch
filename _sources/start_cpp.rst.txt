@@ -85,7 +85,7 @@ Building the index
 ==================
 
 To search effectively, first build a graph-based index linking related data vectors. We'll keep defaults for hyperparameters, 
-exact values can be :ref:`tuned <graph-build-param-setting>` later based on the dataset.
+exact values can be :ref:`tuned <graph-build-param-setting>` later based on the dataset. For dynamic indexing (adding and removing points over time), see this `example <https://github.com/intel/ScalableVectorSearch/blob/main/examples/cpp/shared/example_vamana_with_compression_dynamic.cpp>`_.
 
 .. literalinclude:: ../ScalableVectorSearch/examples/cpp/shared/example_vamana_with_compression.cpp
    :language: cpp
