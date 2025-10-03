@@ -255,6 +255,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         impl_->save(config_dir, graph_dir, data_dir);
     }
 
+    void save(std::ostream& stream) { impl_->save(stream); }
+
     /// Reconstruction
     void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids) {
         impl_->reconstruct_at(data, ids);
@@ -337,6 +339,47 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
                 threads::as_threadpool(std::move(threadpool_proto)),
                 debug_load_from_static
             )
+        );
+    }
+
+    // Assembly from stream
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicVamana assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        bool debug_load_from_static = false
+    ) {
+        namespace fs = std::filesystem;
+        lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
+        lib::DirectoryArchiver::unpack(stream, tempdir);
+
+        const auto config_path = tempdir.get() / "config";
+        if (!fs::is_directory(config_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing config directory!");
+        }
+
+        const auto graph_path = tempdir.get() / "graph";
+        if (!fs::is_directory(graph_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing graph directory!");
+        }
+
+        const auto data_path = tempdir.get() / "data";
+        if (!fs::is_directory(data_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
+        }
+
+        return assemble<QueryTypes>(
+            config_path,
+            svs::GraphLoader{graph_path},
+            lib::load_from_disk<Data>(data_path),
+            distance,
+            threads::as_threadpool(std::move(threadpool_proto)),
+            debug_load_from_static
         );
     }
 
