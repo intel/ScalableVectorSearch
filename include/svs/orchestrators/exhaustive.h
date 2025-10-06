@@ -45,6 +45,7 @@ class FlatInterface {
     // Non-templated virtual method for distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
     virtual void save(const std::filesystem::path& data_directory) const = 0;
+    virtual void save(std::ostream& stream) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = FlatInterface>
@@ -83,6 +84,16 @@ class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
     void save(const std::filesystem::path& data_directory) const override {
         this->impl().save(data_directory);
     }
+
+    void save(std::ostream& stream) const override {
+        if constexpr (Impl::supports_saving) {
+            lib::UniqueTempDirectory tempdir{"svs_flat_save"};
+            save(tempdir);
+            lib::DirectoryArchiver::pack(tempdir, stream);
+        } else {
+            throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
+        }
+    }
 };
 
 // Forward Declarations
@@ -106,6 +117,8 @@ class Flat : public manager::IndexManager<FlatInterface> {
     void save(const std::filesystem::path& data_directory) const {
         impl_->save(data_directory);
     }
+
+    void save(std::ostream& stream) const { impl_->save(stream); }
 
     ///// Loading
 
@@ -152,6 +165,51 @@ class Flat : public manager::IndexManager<FlatInterface> {
                 threads::as_threadpool(std::move(threadpool_proto))
             );
         }
+    }
+
+    ///
+    /// @brief Load a Flat Index from a stream.
+    ///
+    /// @tparam QueryType The element type of the vectors that will be used for querying.
+    ///
+    /// @param distance A distance functor to use or a ``svs::DistanceType`` enum.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    /// acceptable thread pool
+    ///     instance or an integer specifying the number of threads to use. In the latter
+    ///     case, a new default thread pool will be constructed using ``threadpool_proto``
+    ///     as the number of threads to create.
+    /// @param data_args Arguments to be passed to data loader.
+    ///
+    /// @copydoc hidden_flat_auto_assemble
+    ///
+    /// @copydoc threadpool_requirements
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename... DataLoaderArgs>
+    static Flat assemble(
+        std::istream& stream,
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        DataLoaderArgs&&... data_args
+    ) {
+        namespace fs = std::filesystem;
+        lib::UniqueTempDirectory tempdir{"svs_flat_load"};
+        lib::DirectoryArchiver::unpack(stream, tempdir);
+
+        const auto data_path = tempdir.get() / "data";
+        if (!fs::is_directory(data_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
+        }
+
+        return assemble<QueryTypes>(
+            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
+            distance,
+            threads::as_threadpool(std::move(threadpool_proto))
+        );
     }
 
     ///// Distance

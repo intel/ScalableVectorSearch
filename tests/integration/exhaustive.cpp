@@ -144,6 +144,25 @@ void test_flat(
         );
         batch_size_search_test(index);
     }
+
+    // Test save and load to a stream
+    if constexpr (std::is_same_v<std::decay_t<Index>, svs::Flat>) {
+        svs_test::prepare_temp_directory();
+        auto temp_dir = svs_test::temp_directory();
+        auto file = temp_dir / "flat_index.bin";
+        std::ofstream file_ostream(file, std::ios::binary);
+        CATCH_REQUIRE(file_ostream.good());
+        index.save(file_ostream);
+        file_ostream.close();
+        std::ifstream file_istream(file, std::ios::binary);
+        CATCH_REQUIRE(file_istream.good());
+        index = svs::Flat::
+            assemble<svs::lib::Types<float, svs::Float16>, svs::data::SimpleData<float>>(
+                file_istream, distance_type, index.get_num_threads()
+            );
+        CATCH_REQUIRE(index.get_num_threads() == 2);
+        batch_size_search_test(index);
+    }
 }
 } // namespace
 

@@ -347,12 +347,13 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         manager::QueryTypeDefinition QueryTypes,
         typename Data,
         typename Distance,
-        typename ThreadPoolProto>
+        typename ThreadPoolProto,
+        typename... DataLoaderArgs>
     static DynamicVamana assemble(
         std::istream& stream,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
-        bool debug_load_from_static = false
+        DataLoaderArgs&&... data_args
     ) {
         namespace fs = std::filesystem;
         lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
@@ -376,10 +377,10 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         return assemble<QueryTypes>(
             config_path,
             svs::GraphLoader{graph_path},
-            lib::load_from_disk<Data>(data_path),
+            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
             distance,
             threads::as_threadpool(std::move(threadpool_proto)),
-            debug_load_from_static
+            false
         );
     }
 

@@ -58,6 +58,7 @@ class DynamicFlatInterface {
         const std::filesystem::path& config_directory,
         const std::filesystem::path& data_directory
     ) = 0;
+    virtual void save(std::ostream& stream) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -117,6 +118,21 @@ class DynamicFlatImpl
         const std::filesystem::path& data_directory
     ) override {
         impl().save(config_directory, data_directory);
+    }
+
+    // Stream-based save implementation
+    void save(std::ostream& stream) override {
+        if constexpr (Impl::supports_saving) {
+            lib::UniqueTempDirectory tempdir{"svs_dynflat_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(data_dir);
+            save(config_dir, data_dir);
+            lib::DirectoryArchiver::pack(tempdir, stream);
+        } else {
+            throw ANNEXCEPTION("The current DynamicFlat backend doesn't support saving!");
+        }
     }
 };
 
@@ -250,6 +266,45 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto))
             )
+        );
+    }
+
+    // Assembly from stream
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename... DataLoaderArgs>
+    static DynamicFlat assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        DataLoaderArgs&&... data_args
+    ) {
+        namespace fs = std::filesystem;
+        lib::UniqueTempDirectory tempdir{"svs_dynflat_load"};
+        lib::DirectoryArchiver::unpack(stream, tempdir);
+
+        const auto config_path = tempdir.get() / "config";
+        if (!fs::is_directory(config_path)) {
+            throw ANNEXCEPTION(
+                "Invalid Dynamic Flat index archive: missing config directory!"
+            );
+        }
+
+        const auto data_path = tempdir.get() / "data";
+        if (!fs::is_directory(data_path)) {
+            throw ANNEXCEPTION(
+                "Invalid Dynamic Flat index archive: missing data directory!"
+            );
+        }
+
+        return assemble<QueryTypes>(
+            config_path,
+            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
+            distance,
+            threads::as_threadpool(std::move(threadpool_proto))
         );
     }
 
