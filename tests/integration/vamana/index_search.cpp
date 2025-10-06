@@ -366,9 +366,9 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
 
         std::ifstream file_istream(file, std::ios::binary);
         CATCH_REQUIRE(file_istream.good());
-        index = svs::Vamana::assemble<svs::lib::Types<float, svs::Float16>, svs::data::SimpleData<float>>(
-            file_istream, distance_type, 2
-        );
+        index = svs::Vamana::assemble<
+            svs::lib::Types<float, svs::Float16>,
+            svs::data::SimpleData<float>>(file_istream, distance_type, 2);
 
         // Data Properties
         CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
@@ -382,6 +382,5 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         CATCH_REQUIRE(index.get_prune_to() == max_degree - 2);
         CATCH_REQUIRE(index.get_full_search_history() == false);
         run_tests(index, queries, groundtruth, expected_results.config_and_recall_);
-
     }
 }

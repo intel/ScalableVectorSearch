@@ -295,8 +295,7 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
 
         const auto data_path = tempdir.get() / "data";
         if (!fs::is_directory(data_path)) {
-            throw ANNEXCEPTION(
-                "Invalid Dynamic Flat index archive: missing data directory!"
+            throw ANNEXCEPTION("Invalid Dynamic Flat index archive: missing data directory!"
             );
         }
 
