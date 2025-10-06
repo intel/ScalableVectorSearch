@@ -199,14 +199,8 @@ class Flat : public manager::IndexManager<FlatInterface> {
         namespace fs = std::filesystem;
         lib::UniqueTempDirectory tempdir{"svs_flat_load"};
         lib::DirectoryArchiver::unpack(stream, tempdir);
-
-        const auto data_path = tempdir.get() / "data";
-        if (!fs::is_directory(data_path)) {
-            throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
-        }
-
         return assemble<QueryTypes>(
-            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
+            lib::load_from_disk<Data>(tempdir, SVS_FWD(data_args)...),
             distance,
             threads::as_threadpool(std::move(threadpool_proto))
         );
