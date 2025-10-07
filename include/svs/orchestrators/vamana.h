@@ -35,6 +35,7 @@
 
 // stdlib
 #include <filesystem>
+#include <iostream>
 #include <string>
 #include <string_view>
 
@@ -70,6 +71,8 @@ class VamanaInterface {
         const std::filesystem::path& graph_dir,
         const std::filesystem::path& data_dir
     ) = 0;
+
+    virtual void save(std::ostream& stream) = 0;
 
     ///// Reconstruction
     // TODO: Allow threadpools to be const-invocable.
@@ -167,6 +170,22 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
         // catch any weird corner cases.
         if constexpr (Impl::supports_saving) {
             impl().save(config_dir, graph_dir, data_dir);
+        } else {
+            throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
+        }
+    }
+
+    void save(std::ostream& stream) override {
+        if constexpr (Impl::supports_saving) {
+            lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto graph_dir = tempdir.get() / "graph";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(graph_dir);
+            std::filesystem::create_directories(data_dir);
+            save(config_dir, graph_dir, data_dir);
+            lib::DirectoryArchiver::pack(tempdir, stream);
         } else {
             throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
         }
@@ -363,6 +382,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         impl_->save(config_directory, graph_directory, data_directory);
     }
 
+    void save(std::ostream& stream) const { impl_->save(stream); }
+
     void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids) {
         impl_->reconstruct_at(data, ids);
     }
@@ -438,6 +459,47 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
                 std::move(threadpool)
             );
         }
+    }
+
+    // Assembly from stream
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename... DataLoaderArgs>
+    static Vamana assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadPoolProto threadpool_proto,
+        DataLoaderArgs&&... data_args
+    ) {
+        namespace fs = std::filesystem;
+        lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
+        lib::DirectoryArchiver::unpack(stream, tempdir);
+
+        const auto config_path = tempdir.get() / "config";
+        if (!fs::is_directory(config_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing config directory!");
+        }
+
+        const auto graph_path = tempdir.get() / "graph";
+        if (!fs::is_directory(graph_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing graph directory!");
+        }
+
+        const auto data_path = tempdir.get() / "data";
+        if (!fs::is_directory(data_path)) {
+            throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
+        }
+
+        return assemble<QueryTypes>(
+            config_path,
+            svs::GraphLoader{graph_path},
+            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
+            distance,
+            threads::as_threadpool(std::move(threadpool_proto))
+        );
     }
 
     ///

@@ -158,6 +158,11 @@ template <
     typename Ownership = OwnsMembers>
 class FlatIndex {
   public:
+    static constexpr bool supports_insertions = false;
+    static constexpr bool supports_deletions = false;
+    static constexpr bool supports_saving = true;
+    static constexpr bool needs_id_translation = false;
+
     using const_value_type = data::const_value_type_t<Data>;
 
     /// The type of the distance functor.

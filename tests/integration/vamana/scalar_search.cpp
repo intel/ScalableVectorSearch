@@ -120,6 +120,25 @@ void test_search(
         CATCH_REQUIRE(reloaded.dimensions() == test_dataset::NUM_DIMENSIONS);
         run_search(index, queries, groundtruth, expected_results.config_and_recall_);
     }
+
+    // Reload via single file
+    {
+        svs_test::prepare_temp_directory();
+        auto file = svs_test::temp_directory() / "vamana_index.bin";
+        std::ofstream file_ostream(file, std::ios::binary);
+        CATCH_REQUIRE(file_ostream.good());
+        index.save(file_ostream);
+        file_ostream.close();
+
+        std::ifstream file_istream(file, std::ios::binary);
+        CATCH_REQUIRE(file_istream.good());
+        auto reloaded = svs::Vamana::assemble<T, Data>(file_istream, distance, num_threads);
+
+        CATCH_REQUIRE(reloaded.get_num_threads() == num_threads);
+        CATCH_REQUIRE(reloaded.size() == test_dataset::VECTORS_IN_DATA_SET);
+        CATCH_REQUIRE(reloaded.dimensions() == test_dataset::NUM_DIMENSIONS);
+        run_search(reloaded, queries, groundtruth, expected_results.config_and_recall_);
+    }
 }
 } // namespace
 

@@ -54,3 +54,45 @@ CATCH_TEST_CASE("Filesystem Handling", "[lib][files]") {
         );
     }
 }
+
+CATCH_TEST_CASE("DirectoryArchiver", "[lib][files]") {
+    namespace fs = std::filesystem;
+    using namespace svs::lib;
+
+    auto tempdir = svs_test::prepare_temp_directory_v2();
+    auto srcdir = tempdir / "src";
+    auto dstdir = tempdir / "dst";
+
+    // Create a source directory with some files in it.
+    fs::create_directories(srcdir);
+    std::ofstream(srcdir / "file1.txt") << "Hello, World!" << std::endl;
+    fs::create_directories(srcdir / "subdir");
+    std::ofstream(srcdir / "subdir/file2.txt") << "This is a test." << std::endl;
+
+    CATCH_SECTION("Pack and Unpack") {
+        // Pack the directory.
+        std::stringstream ss;
+        auto bytes_written = DirectoryArchiver::pack(srcdir, ss);
+        CATCH_REQUIRE(bytes_written > 0);
+
+        // Unpack the directory.
+        fs::create_directories(dstdir);
+        auto bytes_read = DirectoryArchiver::unpack(ss, dstdir);
+        CATCH_REQUIRE(bytes_read == bytes_written);
+
+        // Check that the files exist in the destination directory.
+        CATCH_REQUIRE(fs::exists(dstdir / "file1.txt"));
+        CATCH_REQUIRE(fs::exists(dstdir / "subdir/file2.txt"));
+
+        // Check that the contents are correct.
+        std::ifstream in1(dstdir / "file1.txt");
+        std::string line1;
+        std::getline(in1, line1);
+        CATCH_REQUIRE(line1 == "Hello, World!");
+
+        std::ifstream in2(dstdir / "subdir/file2.txt");
+        std::string line2;
+        std::getline(in2, line2);
+        CATCH_REQUIRE(line2 == "This is a test.");
+    }
+}

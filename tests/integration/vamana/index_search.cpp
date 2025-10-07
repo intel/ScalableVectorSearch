@@ -344,5 +344,43 @@ CATCH_TEST_CASE("Uncompressed Vamana Search", "[integration][search][vamana]") {
         run_tests<svs::threads::SwitchNativeThreadPool>(
             index, queries, groundtruth, expected_results.config_and_recall_
         );
+
+        // Save/load to/from a single file.
+        svs_test::prepare_temp_directory();
+
+        // Set variables to ensure they are saved and reloaded properly.
+        index.set_search_window_size(123);
+        index.set_alpha(1.2);
+        index.set_construction_window_size(456);
+        index.set_max_candidates(1001);
+
+        max_degree = index.get_graph_max_degree();
+        index.set_prune_to(max_degree - 2);
+        index.set_full_search_history(false);
+
+        auto file = temp_dir / "vamana_index.bin";
+        std::ofstream file_ostream(file, std::ios::binary);
+        CATCH_REQUIRE(file_ostream.good());
+        index.save(file_ostream);
+        file_ostream.close();
+
+        std::ifstream file_istream(file, std::ios::binary);
+        CATCH_REQUIRE(file_istream.good());
+        index = svs::Vamana::assemble<
+            svs::lib::Types<float, svs::Float16>,
+            svs::data::SimpleData<float>>(file_istream, distance_type, 2);
+
+        // Data Properties
+        CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
+        CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
+        // Index Properties
+        CATCH_REQUIRE(index.get_search_window_size() == 123);
+        CATCH_REQUIRE(index.get_alpha() == 1.2f);
+        CATCH_REQUIRE(index.get_construction_window_size() == 456);
+        CATCH_REQUIRE(index.get_max_candidates() == 1001);
+        CATCH_REQUIRE(index.get_graph_max_degree() == max_degree);
+        CATCH_REQUIRE(index.get_prune_to() == max_degree - 2);
+        CATCH_REQUIRE(index.get_full_search_history() == false);
+        run_tests(index, queries, groundtruth, expected_results.config_and_recall_);
     }
 }
