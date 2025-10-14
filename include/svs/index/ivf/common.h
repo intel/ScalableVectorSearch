@@ -45,7 +45,7 @@ namespace svs::index::ivf {
 // Small epsilon value used for floating-point comparisons to avoid precision
 // issues.  The value 1/1024 (approximately 0.0009765625) is chosen as a reasonable
 // threshold for numerical stability in algorithms such as k-means clustering, where exact
-constexpr double EPSILON = 1.0 / 1024.0;
+constexpr double SVS_IVF_EPSILON = 1.0 / 1024.0;
 
 /// @brief Parameters controlling the IVF build/k-means algortihm.
 struct IVFBuildParameters {
@@ -465,11 +465,11 @@ void centroid_split(
             centroids.set_datum(i, centroids.get_datum(j));
             for (size_t k = 0; k < dims; k++) {
                 if (k % 2 == 0) {
-                    centroids.get_datum(i)[k] *= 1 + EPSILON;
-                    centroids.get_datum(j)[k] *= 1 - EPSILON;
+                    centroids.get_datum(i)[k] *= 1 + SVS_IVF_EPSILON;
+                    centroids.get_datum(j)[k] *= 1 - SVS_IVF_EPSILON;
                 } else {
-                    centroids.get_datum(i)[k] *= 1 - EPSILON;
-                    centroids.get_datum(j)[k] *= 1 + EPSILON;
+                    centroids.get_datum(i)[k] *= 1 - SVS_IVF_EPSILON;
+                    centroids.get_datum(j)[k] *= 1 + SVS_IVF_EPSILON;
                 }
             }
             counts.at(i) = counts.at(j) / 2;
