@@ -323,6 +323,7 @@ SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 template <> struct IPFloatOp<8> : public svs::simd::ConvertToFloat<8> {
     using parent = svs::simd::ConvertToFloat<8>;
     using mask_t = typename parent::mask_t;
+    static constexpr size_t simd_width = 8;
 
     // Here, we can fill-in the shared init, accumulate, combine, and reduce methods.
     static __m256 init() { return _mm256_setzero_ps(); }
