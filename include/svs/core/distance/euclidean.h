@@ -366,144 +366,69 @@ template <size_t N> struct L2Impl<N, Float16, Float16, AVX_AVAILABILITY::AVX512>
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
+
+template <> struct L2FloatOp<8> : public svs::simd::ConvertToFloat<8> {
+    using parent = svs::simd::ConvertToFloat<8>;
+    using mask_t = typename parent::mask_t;
+
+    // Here, we can fill-in the shared init, accumulate, combine, and reduce methods.
+    static __m256 init() { return _mm256_setzero_ps(); }
+
+    static __m256 accumulate(__m256 accumulator, __m256 a, __m256 b) {
+        auto c = _mm256_sub_ps(a, b);
+        return _mm256_fmadd_ps(c, c, accumulator);
+    }
+
+    static __m256 accumulate(mask_t m, __m256 accumulator, __m256 a, __m256 b) {
+        // For AVX2, we need to handle masking manually
+        auto c = _mm256_sub_ps(a, b);
+        return _mm256_fmadd_ps(c, c, accumulator);
+    }
+
+    static __m256 combine(__m256 x, __m256 y) { return _mm256_add_ps(x, y); }
+    static float reduce(__m256 x) { return simd::_mm256_reduce_add_ps(x); }
+};
+
+
 template <size_t N> struct L2Impl<N, float, float, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
-        constexpr size_t vector_size = 8;
-
-        // Peel off the last iterations if the SIMD vector width does not evenly the total
-        // vector width.
-        size_t upper = lib::upper<vector_size>(length);
-        auto rest = lib::rest<vector_size>(length);
-        auto sum = _mm256_setzero_ps();
-        for (size_t j = 0; j < upper; j += vector_size) {
-            auto va = _mm256_loadu_ps(a + j);
-            auto vb = _mm256_loadu_ps(b + j);
-            auto tmp = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(tmp, tmp, sum);
-        }
-        return simd::_mm256_reduce_add_ps(sum) + generic_l2(a + upper, b + upper, rest);
+        return simd::generic_simd_op(L2FloatOp<8>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, Float16, Float16, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
-        constexpr size_t vector_size = 8;
-
-        // Peel off the last iterations if the SIMD vector width does not evenly the total
-        // vector width.
-        size_t upper = lib::upper<vector_size>(length);
-        auto rest = lib::rest<vector_size>(length);
-        auto sum = _mm256_setzero_ps();
-        for (size_t j = 0; j < upper; j += vector_size) {
-            auto va =
-                _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(a + j)));
-            auto vb =
-                _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(b + j)));
-            auto tmp = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(tmp, tmp, sum);
-        }
-        return simd::_mm256_reduce_add_ps(sum) + generic_l2(a + upper, b + upper, rest);
+        return simd::generic_simd_op(L2FloatOp<8>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, float, Float16, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
-        constexpr size_t vector_size = 8;
-
-        // Peel off the last iterations if the SIMD vector width does not evenly the total
-        // vector width.
-        size_t upper = lib::upper<vector_size>(length);
-        auto rest = lib::rest<vector_size>(length);
-        auto sum = _mm256_setzero_ps();
-        for (size_t j = 0; j < upper; j += vector_size) {
-            auto va = _mm256_loadu_ps(a + j);
-            auto vb =
-                _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(b + j)));
-            auto tmp = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(tmp, tmp, sum);
-        }
-        return simd::_mm256_reduce_add_ps(sum) + generic_l2(a + upper, b + upper, rest);
+        return simd::generic_simd_op(L2FloatOp<8>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, float, int8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        constexpr size_t vector_size = 8;
-
-        // Peel off the last iterations if the SIMD vector width does not evenly the total
-        // vector width.
-        size_t upper = lib::upper<vector_size>(length);
-        auto rest = lib::rest<vector_size>(length);
-        auto sum = _mm256_setzero_ps();
-        for (size_t j = 0; j < upper; j += vector_size) {
-            auto va = _mm256_castsi256_ps(
-                _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(a + j))
-            );
-            auto vb = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
-                _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(b + j)))
-            ));
-            auto tmp = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(tmp, tmp, sum);
-        }
-        return simd::_mm256_reduce_add_ps(sum) + generic_l2(a + upper, b + upper, rest);
+        return simd::generic_simd_op(L2FloatOp<8>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        constexpr size_t vector_size = 8;
-
-        size_t upper = lib::upper<vector_size>(length);
-        auto rest = lib::rest<vector_size>(length);
-        auto sum = _mm256_setzero_ps();
-        for (size_t j = 0; j < upper; j += vector_size) {
-            // * Strategy: Load 8 bytes as a 64-bit int.
-            // * Use `_mm_cvtsi64_si128` to convert to a 128-bit vector.
-            // * Use `mm256_evtepi8_epi32` to convert the 8-bytes to
-            // 8 32-bit integers.
-            // * Finally, convert to single precision floating point.
-            auto va = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
-                _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(a + j)))
-            ));
-            auto vb = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
-                _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(b + j)))
-            ));
-            auto diff = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(diff, diff, sum);
-        }
-        return simd::_mm256_reduce_add_ps(sum) + generic_l2(a + upper, b + upper, rest);
+        return simd::generic_simd_op(L2FloatOp<8>{}, a, b, length);
     }
 };
 
 template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        constexpr size_t vector_size = 8;
-
-        size_t upper = lib::upper<vector_size>(length);
-        auto rest = lib::rest<vector_size>(length);
-        auto sum = _mm256_setzero_ps();
-        for (size_t j = 0; j < upper; j += vector_size) {
-            // * Strategy: Load 8 bytes as a 64-bit int.
-            // * Use `_mm_cvtsi64_si128` to convert to a 128-bit vector.
-            // * Use `mm256_evtepi8_epi32` to convert the 8-bytes to
-            // 8 32-bit integers.
-            // * Finally, convert to single precision floating point.
-            auto va = _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(
-                _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(a + j)))
-            ));
-            auto vb = _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(
-                _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(b + j)))
-            ));
-            auto diff = _mm256_sub_ps(va, vb);
-            sum = _mm256_fmadd_ps(diff, diff, sum);
-        }
-        return simd::_mm256_reduce_add_ps(sum) + generic_l2(a + upper, b + upper, rest);
+        return simd::generic_simd_op(L2FloatOp<8>{}, a, b, length);
     }
 };
 

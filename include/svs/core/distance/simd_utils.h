@@ -301,6 +301,100 @@ template <> struct ConvertToFloat<16> {
 
 #endif
 
+SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
+#if SVS_AVX2
+
+// Common implementations for converting arguments to floats.
+// Partially satisfies the requirements for a `generic_simd_op` operation.
+template <> struct ConvertToFloat<8> {
+    static constexpr size_t simd_width = 8;
+    using mask_t = svs::mask_repr_t<simd_width>;
+
+    // from float
+    static __m256 load(const float* ptr) { return _mm256_loadu_ps(ptr); }
+    static __m256 load(mask_t m, const float* ptr) {
+        // AVX2 doesn't have native masked load, so we load and then blend
+        auto data = _mm256_loadu_ps(ptr);
+        auto zero = _mm256_setzero_ps();
+        // Create a mask for blending (set bits for each element)
+        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
+        for (size_t i = 0; i < 8; ++i) {
+            if (m & (1 << i)) {
+                reinterpret_cast<int*>(&mask_vec)[i] = -1;
+            }
+        }
+        return _mm256_blendv_ps(zero, data, mask_vec);
+    }
+
+    // from float16
+    static __m256 load(const Float16* ptr) {
+        return _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr)));
+    }
+
+    static __m256 load(mask_t m, const Float16* ptr) {
+        auto data = _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr)));
+        auto zero = _mm256_setzero_ps();
+        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
+        for (size_t i = 0; i < 8; ++i) {
+            if (m & (1 << i)) {
+                reinterpret_cast<int*>(&mask_vec)[i] = -1;
+            }
+        }
+        return _mm256_blendv_ps(zero, data, mask_vec);
+    }
+
+    // from uint8
+    static __m256 load(const uint8_t* ptr) {
+        return _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(
+            _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
+        ));
+    }
+
+    static __m256 load(mask_t m, const uint8_t* ptr) {
+        auto data = _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(
+            _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
+        ));
+        auto zero = _mm256_setzero_ps();
+        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
+        for (size_t i = 0; i < 8; ++i) {
+            if (m & (1 << i)) {
+                reinterpret_cast<int*>(&mask_vec)[i] = -1;
+            }
+        }
+        return _mm256_blendv_ps(zero, data, mask_vec);
+    }
+
+    // from int8
+    static __m256 load(const int8_t* ptr) {
+        return _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
+            _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
+        ));
+    }
+
+    static __m256 load(mask_t m, const int8_t* ptr) {
+        auto data = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
+            _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
+        ));
+        auto zero = _mm256_setzero_ps();
+        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
+        for (size_t i = 0; i < 8; ++i) {
+            if (m & (1 << i)) {
+                reinterpret_cast<int*>(&mask_vec)[i] = -1;
+            }
+        }
+        return _mm256_blendv_ps(zero, data, mask_vec);
+    }
+
+    // We do not need to treat the left or right-hand differently.
+    // Simple call the overloaded `load` methods.
+    template <typename A> static __m256 load_a(const A* a) { return load(a); }
+    template <typename A> static __m256 load_a(mask_t m, const A* a) { return load(m, a); }
+    template <typename B> static __m256 load_b(const B* b) { return load(b); }
+    template <typename B> static __m256 load_b(mask_t m, const B* b) { return load(m, b); }
+};
+
+#endif
+
 // A base class used for customizing generic SIMD operations using VNNI instructions.
 //
 // Converts intermediate data into ``SINDWidth`` wide SIMD registers containing values of
