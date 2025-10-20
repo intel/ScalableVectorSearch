@@ -304,6 +304,16 @@ template <> struct ConvertToFloat<16> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if SVS_AVX2
 
+// Helper function to create a blend mask for AVX2
+inline __m256 create_blend_mask_avx2(uint8_t m) {
+    // Create a mask where each bit in m controls whether to load a corresponding float
+    alignas(32) int mask_array[8];
+    for (size_t i = 0; i < 8; ++i) {
+        mask_array[i] = (m & (1 << i)) ? -1 : 0;
+    }
+    return _mm256_castsi256_ps(_mm256_load_si256(reinterpret_cast<const __m256i*>(mask_array)));
+}
+
 // Common implementations for converting arguments to floats.
 // Partially satisfies the requirements for a `generic_simd_op` operation.
 template <> struct ConvertToFloat<8> {
@@ -316,13 +326,7 @@ template <> struct ConvertToFloat<8> {
         // AVX2 doesn't have native masked load, so we load and then blend
         auto data = _mm256_loadu_ps(ptr);
         auto zero = _mm256_setzero_ps();
-        // Create a mask for blending (set bits for each element)
-        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
-        for (size_t i = 0; i < 8; ++i) {
-            if (m & (1 << i)) {
-                reinterpret_cast<int*>(&mask_vec)[i] = -1;
-            }
-        }
+        auto mask_vec = create_blend_mask_avx2(m);
         return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
@@ -334,12 +338,7 @@ template <> struct ConvertToFloat<8> {
     static __m256 load(mask_t m, const Float16* ptr) {
         auto data = _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr)));
         auto zero = _mm256_setzero_ps();
-        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
-        for (size_t i = 0; i < 8; ++i) {
-            if (m & (1 << i)) {
-                reinterpret_cast<int*>(&mask_vec)[i] = -1;
-            }
-        }
+        auto mask_vec = create_blend_mask_avx2(m);
         return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
@@ -355,12 +354,7 @@ template <> struct ConvertToFloat<8> {
             _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
         ));
         auto zero = _mm256_setzero_ps();
-        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
-        for (size_t i = 0; i < 8; ++i) {
-            if (m & (1 << i)) {
-                reinterpret_cast<int*>(&mask_vec)[i] = -1;
-            }
-        }
+        auto mask_vec = create_blend_mask_avx2(m);
         return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
@@ -376,12 +370,7 @@ template <> struct ConvertToFloat<8> {
             _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
         ));
         auto zero = _mm256_setzero_ps();
-        __m256 mask_vec = _mm256_castsi256_ps(_mm256_set1_epi32(0));
-        for (size_t i = 0; i < 8; ++i) {
-            if (m & (1 << i)) {
-                reinterpret_cast<int*>(&mask_vec)[i] = -1;
-            }
-        }
+        auto mask_vec = create_blend_mask_avx2(m);
         return _mm256_blendv_ps(zero, data, mask_vec);
     }
 

@@ -331,7 +331,7 @@ template <> struct IPFloatOp<8> : public svs::simd::ConvertToFloat<8> {
         return _mm256_fmadd_ps(a, b, accumulator);
     }
 
-    static __m256 accumulate(mask_t m, __m256 accumulator, __m256 a, __m256 b) {
+    static __m256 accumulate(mask_t /*m*/, __m256 accumulator, __m256 a, __m256 b) {
         // For AVX2, masking is handled in the load operations
         return _mm256_fmadd_ps(a, b, accumulator);
     }

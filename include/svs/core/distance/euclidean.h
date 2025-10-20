@@ -379,8 +379,8 @@ template <> struct L2FloatOp<8> : public svs::simd::ConvertToFloat<8> {
         return _mm256_fmadd_ps(c, c, accumulator);
     }
 
-    static __m256 accumulate(mask_t m, __m256 accumulator, __m256 a, __m256 b) {
-        // For AVX2, we need to handle masking manually
+    static __m256 accumulate(mask_t /*m*/, __m256 accumulator, __m256 a, __m256 b) {
+        // For AVX2, masking is handled in the load operations
         auto c = _mm256_sub_ps(a, b);
         return _mm256_fmadd_ps(c, c, accumulator);
     }
