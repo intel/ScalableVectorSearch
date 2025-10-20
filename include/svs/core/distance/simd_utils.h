@@ -307,11 +307,18 @@ SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 // Helper function to create a blend mask for AVX2
 inline __m256 create_blend_mask_avx2(uint8_t m) {
     // Create a mask where each bit in m controls whether to load a corresponding float
-    alignas(32) int mask_array[8];
-    for (size_t i = 0; i < 8; ++i) {
-        mask_array[i] = (m & (1 << i)) ? -1 : 0;
-    }
-    return _mm256_castsi256_ps(_mm256_load_si256(reinterpret_cast<const __m256i*>(mask_array)));
+    // Use intrinsics to avoid stack allocation
+    __m256i mask_vec = _mm256_set_epi32(
+        (m & 0x80) ? -1 : 0,
+        (m & 0x40) ? -1 : 0,
+        (m & 0x20) ? -1 : 0,
+        (m & 0x10) ? -1 : 0,
+        (m & 0x08) ? -1 : 0,
+        (m & 0x04) ? -1 : 0,
+        (m & 0x02) ? -1 : 0,
+        (m & 0x01) ? -1 : 0
+    );
+    return _mm256_castsi256_ps(mask_vec);
 }
 
 // Common implementations for converting arguments to floats.
