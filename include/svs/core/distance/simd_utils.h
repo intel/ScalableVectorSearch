@@ -304,6 +304,25 @@ template <> struct ConvertToFloat<16> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if SVS_AVX2
 
+// Helper function to create a blend mask for AVX2
+inline __m256 create_blend_mask_avx2(uint8_t m) {
+    // Create a mask where each bit in m controls whether to load a corresponding float
+    // Use intrinsics to avoid stack allocation
+    // _mm256_set_epi32 takes arguments in order: lane7, lane6, lane5, lane4, lane3, lane2, lane1, lane0
+    // But we want bit i of m to control lane i, so:
+    __m256i mask_vec = _mm256_set_epi32(
+        (m & 0x80) ? -1 : 0,  // lane 7
+        (m & 0x40) ? -1 : 0,  // lane 6
+        (m & 0x20) ? -1 : 0,  // lane 5
+        (m & 0x10) ? -1 : 0,  // lane 4
+        (m & 0x08) ? -1 : 0,  // lane 3
+        (m & 0x04) ? -1 : 0,  // lane 2
+        (m & 0x02) ? -1 : 0,  // lane 1
+        (m & 0x01) ? -1 : 0   // lane 0
+    );
+    return _mm256_castsi256_ps(mask_vec);
+}
+
 // Common implementations for converting arguments to floats.
 // Partially satisfies the requirements for a `generic_simd_op` operation.
 template <> struct ConvertToFloat<8> {
@@ -313,22 +332,11 @@ template <> struct ConvertToFloat<8> {
     // from float
     static __m256 load(const float* ptr) { return _mm256_loadu_ps(ptr); }
     static __m256 load(mask_t m, const float* ptr) {
-#if defined(__AVX512VL__)
-        // Use AVX512VL masked load when available
-        return _mm256_maskz_loadu_ps(m, ptr);
-#else
-        // AVX2 fallback: load and then blend with zero
+        // AVX2 doesn't have native masked load, so we load and then blend
         auto data = _mm256_loadu_ps(ptr);
         auto zero = _mm256_setzero_ps();
-        // Create mask vector where each bit in m controls a lane
-        __m256i mask_vec = _mm256_set_epi32(
-            (m & 0x80) ? -1 : 0, (m & 0x40) ? -1 : 0,
-            (m & 0x20) ? -1 : 0, (m & 0x10) ? -1 : 0,
-            (m & 0x08) ? -1 : 0, (m & 0x04) ? -1 : 0,
-            (m & 0x02) ? -1 : 0, (m & 0x01) ? -1 : 0
-        );
-        return _mm256_blendv_ps(zero, data, _mm256_castsi256_ps(mask_vec));
-#endif
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // from float16
@@ -337,21 +345,10 @@ template <> struct ConvertToFloat<8> {
     }
 
     static __m256 load(mask_t m, const Float16* ptr) {
-#if defined(__AVX512VL__)
-        // Use AVX512VL masked load when available
-        return _mm256_cvtph_ps(_mm_maskz_loadu_epi16(m, ptr));
-#else
-        // AVX2 fallback: load, convert, then blend with zero
         auto data = _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr)));
         auto zero = _mm256_setzero_ps();
-        __m256i mask_vec = _mm256_set_epi32(
-            (m & 0x80) ? -1 : 0, (m & 0x40) ? -1 : 0,
-            (m & 0x20) ? -1 : 0, (m & 0x10) ? -1 : 0,
-            (m & 0x08) ? -1 : 0, (m & 0x04) ? -1 : 0,
-            (m & 0x02) ? -1 : 0, (m & 0x01) ? -1 : 0
-        );
-        return _mm256_blendv_ps(zero, data, _mm256_castsi256_ps(mask_vec));
-#endif
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // from uint8
@@ -362,23 +359,12 @@ template <> struct ConvertToFloat<8> {
     }
 
     static __m256 load(mask_t m, const uint8_t* ptr) {
-#if defined(__AVX512VL__)
-        // Use AVX512VL masked load when available
-        return _mm256_cvtepi32_ps(_mm256_maskz_cvtepu8_epi32(m, _mm_maskz_loadu_epi8(m, ptr)));
-#else
-        // AVX2 fallback
         auto data = _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(
             _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
         ));
         auto zero = _mm256_setzero_ps();
-        __m256i mask_vec = _mm256_set_epi32(
-            (m & 0x80) ? -1 : 0, (m & 0x40) ? -1 : 0,
-            (m & 0x20) ? -1 : 0, (m & 0x10) ? -1 : 0,
-            (m & 0x08) ? -1 : 0, (m & 0x04) ? -1 : 0,
-            (m & 0x02) ? -1 : 0, (m & 0x01) ? -1 : 0
-        );
-        return _mm256_blendv_ps(zero, data, _mm256_castsi256_ps(mask_vec));
-#endif
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // from int8
@@ -389,23 +375,12 @@ template <> struct ConvertToFloat<8> {
     }
 
     static __m256 load(mask_t m, const int8_t* ptr) {
-#if defined(__AVX512VL__)
-        // Use AVX512VL masked load when available
-        return _mm256_cvtepi32_ps(_mm256_maskz_cvtepi8_epi32(m, _mm_maskz_loadu_epi8(m, ptr)));
-#else
-        // AVX2 fallback
         auto data = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
             _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
         ));
         auto zero = _mm256_setzero_ps();
-        __m256i mask_vec = _mm256_set_epi32(
-            (m & 0x80) ? -1 : 0, (m & 0x40) ? -1 : 0,
-            (m & 0x20) ? -1 : 0, (m & 0x10) ? -1 : 0,
-            (m & 0x08) ? -1 : 0, (m & 0x04) ? -1 : 0,
-            (m & 0x02) ? -1 : 0, (m & 0x01) ? -1 : 0
-        );
-        return _mm256_blendv_ps(zero, data, _mm256_castsi256_ps(mask_vec));
-#endif
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // We do not need to treat the left or right-hand differently.

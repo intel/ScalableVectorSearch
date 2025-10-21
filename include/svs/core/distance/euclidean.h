@@ -380,16 +380,10 @@ template <> struct L2FloatOp<8> : public svs::simd::ConvertToFloat<8> {
         return _mm256_fmadd_ps(c, c, accumulator);
     }
 
-    static __m256 accumulate(mask_t m, __m256 accumulator, __m256 a, __m256 b) {
-#if defined(__AVX512VL__)
-        // Use AVX512VL masked operations when available
-        auto c = _mm256_maskz_sub_ps(m, a, b);
-        return _mm256_mask3_fmadd_ps(c, c, accumulator, m);
-#else
+    static __m256 accumulate(mask_t /*m*/, __m256 accumulator, __m256 a, __m256 b) {
         // For AVX2, masking is handled in the load operations
         auto c = _mm256_sub_ps(a, b);
         return _mm256_fmadd_ps(c, c, accumulator);
-#endif
     }
 
     static __m256 combine(__m256 x, __m256 y) { return _mm256_add_ps(x, y); }
