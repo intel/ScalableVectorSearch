@@ -422,7 +422,9 @@ template <> struct CosineFloatOp<8> : public svs::simd::ConvertToFloat<8> {
     }
 
     static std::pair<float, float> reduce(Pair x) {
-        return std::make_pair(simd::_mm256_reduce_add_ps(x.op), simd::_mm256_reduce_add_ps(x.norm));
+        return std::make_pair(
+            simd::_mm256_reduce_add_ps(x.op), simd::_mm256_reduce_add_ps(x.norm)
+        );
     }
 };
 
@@ -435,8 +437,7 @@ template <size_t N> struct CosineSimilarityImpl<N, float, float, AVX_AVAILABILIT
     }
 };
 
-template <size_t N>
-struct CosineSimilarityImpl<N, float, uint8_t, AVX_AVAILABILITY::AVX2> {
+template <size_t N> struct CosineSimilarityImpl<N, float, uint8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<8>(), a, b, length);
@@ -444,8 +445,7 @@ struct CosineSimilarityImpl<N, float, uint8_t, AVX_AVAILABILITY::AVX2> {
     };
 };
 
-template <size_t N>
-struct CosineSimilarityImpl<N, float, int8_t, AVX_AVAILABILITY::AVX2> {
+template <size_t N> struct CosineSimilarityImpl<N, float, int8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<8>(), a, b, length);
@@ -453,8 +453,7 @@ struct CosineSimilarityImpl<N, float, int8_t, AVX_AVAILABILITY::AVX2> {
     };
 };
 
-template <size_t N>
-struct CosineSimilarityImpl<N, float, Float16, AVX_AVAILABILITY::AVX2> {
+template <size_t N> struct CosineSimilarityImpl<N, float, Float16, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<8>{}, a, b, length);
@@ -462,8 +461,7 @@ struct CosineSimilarityImpl<N, float, Float16, AVX_AVAILABILITY::AVX2> {
     }
 };
 
-template <size_t N>
-struct CosineSimilarityImpl<N, Float16, float, AVX_AVAILABILITY::AVX2> {
+template <size_t N> struct CosineSimilarityImpl<N, Float16, float, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<8>{}, a, b, length);
@@ -480,8 +478,7 @@ struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX2> {
     }
 };
 
-template <size_t N>
-struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2> {
+template <size_t N> struct CosineSimilarityImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, float a_norm, lib::MaybeStatic<N> length) {
         auto [sum, norm] = simd::generic_simd_op(CosineFloatOp<8>{}, a, b, length);

@@ -308,17 +308,17 @@ SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 inline __m256 create_blend_mask_avx2(uint8_t m) {
     // Create a mask where each bit in m controls whether to load a corresponding float
     // Use intrinsics to avoid stack allocation
-    // _mm256_set_epi32 takes arguments in order: lane7, lane6, lane5, lane4, lane3, lane2, lane1, lane0
-    // But we want bit i of m to control lane i, so:
+    // _mm256_set_epi32 takes arguments in order: lane7, lane6, lane5, lane4, lane3, lane2,
+    // lane1, lane0 But we want bit i of m to control lane i, so:
     __m256i mask_vec = _mm256_set_epi32(
-        (m & 0x80) ? -1 : 0,  // lane 7
-        (m & 0x40) ? -1 : 0,  // lane 6
-        (m & 0x20) ? -1 : 0,  // lane 5
-        (m & 0x10) ? -1 : 0,  // lane 4
-        (m & 0x08) ? -1 : 0,  // lane 3
-        (m & 0x04) ? -1 : 0,  // lane 2
-        (m & 0x02) ? -1 : 0,  // lane 1
-        (m & 0x01) ? -1 : 0   // lane 0
+        (m & 0x80) ? -1 : 0, // lane 7
+        (m & 0x40) ? -1 : 0, // lane 6
+        (m & 0x20) ? -1 : 0, // lane 5
+        (m & 0x10) ? -1 : 0, // lane 4
+        (m & 0x08) ? -1 : 0, // lane 3
+        (m & 0x04) ? -1 : 0, // lane 2
+        (m & 0x02) ? -1 : 0, // lane 1
+        (m & 0x01) ? -1 : 0  // lane 0
     );
     return _mm256_castsi256_ps(mask_vec);
 }

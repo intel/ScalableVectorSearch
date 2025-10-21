@@ -341,7 +341,6 @@ template <> struct IPFloatOp<8> : public svs::simd::ConvertToFloat<8> {
     static float reduce(__m256 x) { return simd::_mm256_reduce_add_ps(x); }
 };
 
-
 template <size_t N> struct IPImpl<N, float, float, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
