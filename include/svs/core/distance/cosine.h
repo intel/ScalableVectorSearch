@@ -411,10 +411,17 @@ template <> struct CosineFloatOp<8> : public svs::simd::ConvertToFloat<8> {
             _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
     }
 
-    static Pair accumulate(mask_t /*m*/, Pair accumulator, __m256 a, __m256 b) {
+    static Pair accumulate(mask_t m, Pair accumulator, __m256 a, __m256 b) {
+#if defined(__AVX512VL__)
+        // Use AVX512VL masked FMA when available
+        return {
+            _mm256_mask3_fmadd_ps(a, b, accumulator.op, m),
+            _mm256_mask3_fmadd_ps(b, b, accumulator.norm, m)};
+#else
         // For AVX2, masking is handled in the load operations
         return {
             _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
+#endif
     }
 
     static Pair combine(Pair x, Pair y) {
