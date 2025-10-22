@@ -37,47 +37,31 @@
 namespace svs::distance {
 
 /////
-///// Inner Product Runtime Dispatch Wrappers
+///// Inner Product SIMD Ops
 /////
 
-template<typename Ea, typename Eb, size_t N>
-float ip_float_avx512(const Ea* a, const Eb* b, lib::MaybeStatic<N> length) {
-    return simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
-}
+// Instantiate the primary floating-point SIMD op for AVX-512
+template struct IPFloatOp<16, AVX_AVAILABILITY::AVX512>;
 
-// Explicit instantiations for common type combinations
-template float ip_float_avx512<float, float, Dynamic>(const float*, const float*, lib::MaybeStatic<Dynamic>);
-template float ip_float_avx512<float, uint8_t, Dynamic>(const float*, const uint8_t*, lib::MaybeStatic<Dynamic>);
-template float ip_float_avx512<float, int8_t, Dynamic>(const float*, const int8_t*, lib::MaybeStatic<Dynamic>);
-template float ip_float_avx512<Float16, Float16, Dynamic>(const Float16*, const Float16*, lib::MaybeStatic<Dynamic>);
+// Instantiate VNNI integer operation for AVX-512
+template struct IPVNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>;
 
 /////
-///// L2 (Euclidean) Runtime Dispatch Wrappers
+///// L2 (Euclidean) SIMD Ops
 /////
 
-template<typename Ea, typename Eb, size_t N>
-float l2_float_avx512(const Ea* a, const Eb* b, lib::MaybeStatic<N> length) {
-    return simd::generic_simd_op(L2FloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
-}
+// Instantiate the primary floating-point SIMD op for AVX-512
+template struct L2FloatOp<16, AVX_AVAILABILITY::AVX512>;
 
-// Explicit instantiations for common type combinations
-template float l2_float_avx512<float, float, Dynamic>(const float*, const float*, lib::MaybeStatic<Dynamic>);
-template float l2_float_avx512<float, uint8_t, Dynamic>(const float*, const uint8_t*, lib::MaybeStatic<Dynamic>);
-template float l2_float_avx512<float, int8_t, Dynamic>(const float*, const int8_t*, lib::MaybeStatic<Dynamic>);
-template float l2_float_avx512<Float16, Float16, Dynamic>(const Float16*, const Float16*, lib::MaybeStatic<Dynamic>);
+// Instantiate VNNI integer operation for AVX-512
+template struct L2VNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>;
 
 /////
-///// Cosine Similarity Runtime Dispatch Wrappers
+///// Cosine Similarity SIMD Ops
 /////
 
-template<typename Ea, typename Eb, size_t N>
-std::pair<float, float> cosine_float_avx512(const Ea* a, const Eb* b, lib::MaybeStatic<N> length) {
-    return simd::generic_simd_op(CosineFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
-}
-
-// Explicit instantiations for common type combinations
-template std::pair<float, float> cosine_float_avx512<float, float, Dynamic>(const float*, const float*, lib::MaybeStatic<Dynamic>);
-template std::pair<float, float> cosine_float_avx512<Float16, Float16, Dynamic>(const Float16*, const Float16*, lib::MaybeStatic<Dynamic>);
+// Instantiate the floating-point SIMD op for AVX-512
+template struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512>;
 
 } // namespace svs::distance
 
