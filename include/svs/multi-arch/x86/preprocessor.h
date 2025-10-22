@@ -16,74 +16,40 @@
 
 #pragma once
 
-#define DISTANCE_L2_TEMPLATE_HELPER(SPEC, N, AVX)               \
-    SPEC struct L2Impl<N, float, float, AVX>;                   \
-    SPEC struct L2Impl<N, float, int8_t, AVX>;                  \
-    SPEC struct L2Impl<N, float, uint8_t, AVX>;                 \
-    SPEC struct L2Impl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct L2Impl<N, int8_t, float, AVX>;                  \
-    SPEC struct L2Impl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct L2Impl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct L2Impl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct L2Impl<N, uint8_t, float, AVX>;                 \
-    SPEC struct L2Impl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct L2Impl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct L2Impl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct L2Impl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct L2Impl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct L2Impl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct L2Impl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+// New approach: Instantiate SIMD Ops instead of distance implementations
+// This eliminates the N parameter from instantiations since SIMD ops work with fixed widths
 
-#define DISTANCE_L2_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_L2_TEMPLATE_HELPER(template, N, AVX);
+// Helper to get SIMD width from AVX availability
+// AVX512 uses width 16, AVX2 uses width 8
+#define SIMD_WIDTH_FOR_AVX512 16
+#define SIMD_WIDTH_FOR_AVX2 8
 
-#define DISTANCE_L2_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_L2_TEMPLATE_HELPER(extern template, N, AVX);
+// Macros for L2 SIMD ops
+#define SIMD_L2_OPS_HELPER(SPEC, WIDTH, AVX) \
+    SPEC struct L2FloatOp<WIDTH, AVX>;
 
-#define DISTANCE_IP_TEMPLATE_HELPER(SPEC, N, AVX)               \
-    SPEC struct IPImpl<N, float, float, AVX>;                   \
-    SPEC struct IPImpl<N, float, int8_t, AVX>;                  \
-    SPEC struct IPImpl<N, float, uint8_t, AVX>;                 \
-    SPEC struct IPImpl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct IPImpl<N, int8_t, float, AVX>;                  \
-    SPEC struct IPImpl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct IPImpl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct IPImpl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct IPImpl<N, uint8_t, float, AVX>;                 \
-    SPEC struct IPImpl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct IPImpl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct IPImpl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct IPImpl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct IPImpl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct IPImpl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct IPImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+#define SIMD_L2_OPS_INSTANTIATE_AVX512(SPEC) \
+    SIMD_L2_OPS_HELPER(SPEC, SIMD_WIDTH_FOR_AVX512, AVX_AVAILABILITY::AVX512)
 
-#define DISTANCE_IP_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_IP_TEMPLATE_HELPER(template, N, AVX);
+#define SIMD_L2_OPS_INSTANTIATE_AVX2(SPEC) \
+    SIMD_L2_OPS_HELPER(SPEC, SIMD_WIDTH_FOR_AVX2, AVX_AVAILABILITY::AVX2)
 
-#define DISTANCE_IP_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_IP_TEMPLATE_HELPER(extern template, N, AVX);
+// Macros for Inner Product SIMD ops
+#define SIMD_IP_OPS_HELPER(SPEC, WIDTH, AVX) \
+    SPEC struct IPFloatOp<WIDTH, AVX>;
 
-#define DISTANCE_CS_TEMPLATE_HELPER(SPEC, N, AVX)                             \
-    SPEC struct CosineSimilarityImpl<N, float, float, AVX>;                   \
-    SPEC struct CosineSimilarityImpl<N, float, int8_t, AVX>;                  \
-    SPEC struct CosineSimilarityImpl<N, float, uint8_t, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, float, svs::float16::Float16, AVX>;   \
-    SPEC struct CosineSimilarityImpl<N, int8_t, float, AVX>;                  \
-    SPEC struct CosineSimilarityImpl<N, int8_t, int8_t, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, int8_t, uint8_t, AVX>;                \
-    SPEC struct CosineSimilarityImpl<N, int8_t, svs::float16::Float16, AVX>;  \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, float, AVX>;                 \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, int8_t, AVX>;                \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX>;               \
-    SPEC struct CosineSimilarityImpl<N, uint8_t, svs::float16::Float16, AVX>; \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, float, AVX>;   \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, int8_t, AVX>;  \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, uint8_t, AVX>; \
-    SPEC struct CosineSimilarityImpl<N, svs::float16::Float16, svs::float16::Float16, AVX>;
+#define SIMD_IP_OPS_INSTANTIATE_AVX512(SPEC) \
+    SIMD_IP_OPS_HELPER(SPEC, SIMD_WIDTH_FOR_AVX512, AVX_AVAILABILITY::AVX512)
 
-#define DISTANCE_CS_INSTANTIATE_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(template, N, AVX);
+#define SIMD_IP_OPS_INSTANTIATE_AVX2(SPEC) \
+    SIMD_IP_OPS_HELPER(SPEC, SIMD_WIDTH_FOR_AVX2, AVX_AVAILABILITY::AVX2)
 
-#define DISTANCE_CS_EXTERN_TEMPLATE(N, AVX) \
-    DISTANCE_CS_TEMPLATE_HELPER(extern template, N, AVX);
+// Macros for Cosine Similarity SIMD ops
+#define SIMD_COSINE_OPS_HELPER(SPEC, WIDTH, AVX) \
+    SPEC struct CosineFloatOp<WIDTH, AVX>;
+
+#define SIMD_COSINE_OPS_INSTANTIATE_AVX512(SPEC) \
+    SIMD_COSINE_OPS_HELPER(SPEC, SIMD_WIDTH_FOR_AVX512, AVX_AVAILABILITY::AVX512)
+
+#define SIMD_COSINE_OPS_INSTANTIATE_AVX2(SPEC) \
+    SIMD_COSINE_OPS_HELPER(SPEC, SIMD_WIDTH_FOR_AVX2, AVX_AVAILABILITY::AVX2)
