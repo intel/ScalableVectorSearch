@@ -1,0 +1,2 @@
+/usr/bin/ar qc libsvs_x86_objects.a "CMakeFiles/haswell_obj.dir/include/svs/multi-arch/x86/avx2.cpp.o" "CMakeFiles/cascadelake_obj.dir/include/svs/multi-arch/x86/avx512.cpp.o"
+/usr/bin/ranlib libsvs_x86_objects.a
