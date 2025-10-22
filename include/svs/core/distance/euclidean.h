@@ -234,7 +234,7 @@ template <size_t SIMDWidth, AVX_AVAILABILITY Avx> struct L2FloatOp;
 // ``To`` and perform arithmetic on those integer operands.
 template <std::integral To, size_t SIMDWidth, AVX_AVAILABILITY Avx> struct L2VNNIOp;
 
-// Extern template declarations - definitions in avx512.cpp and avx2.cpp
+// Extern template declarations - SIMD ops defined in avx512.cpp and avx2.cpp
 extern template struct L2FloatOp<16, AVX_AVAILABILITY::AVX512>;
 extern template struct L2VNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>;
 extern template struct L2FloatOp<8, AVX_AVAILABILITY::AVX2>;
@@ -242,6 +242,15 @@ extern template struct L2FloatOp<8, AVX_AVAILABILITY::AVX2>;
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
 
+// L2FloatOp<16, AVX512> defined in avx512.cpp
+
+// Small Integers
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
+#if SVS_AVX512_VNNI
+
+// L2VNNIOp<int16_t, 32, AVX512> defined in avx512.cpp
+
+// VNNI Dispatching
 template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
@@ -315,7 +324,12 @@ template <size_t N> struct L2Impl<N, Float16, Float16, AVX_AVAILABILITY::AVX512>
 ///// Intel(R) AVX2 Implementations
 /////
 
-// AVX2 implementations - always compiled, reference extern SIMD ops defined in avx2.cpp
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
+#if !SVS_AVX512_F && SVS_AVX2
+
+// L2FloatOp<8, AVX2> defined in avx2.cpp
+
 template <size_t N> struct L2Impl<N, float, float, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
@@ -357,5 +371,13 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
         return simd::generic_simd_op(L2FloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
+
+#endif
+
+#if defined(__x86_64__)
+
+
+
+#endif
 
 } // namespace svs::distance

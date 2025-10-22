@@ -15,12 +15,6 @@
  */
 
 #if defined(__x86_64__)
-#include "svs/core/distance/cosine.h"
-#include "svs/core/distance/euclidean.h"
-#include "svs/core/distance/inner_product.h"
-
-// Define SIMD ops here with AVX512 optimizations
-// Compiled with -march=cascadelake to generate optimized AVX512 instructions
 namespace svs::distance {
 
 ///// Inner Product SIMD Ops /////
@@ -154,4 +148,9 @@ template <> struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::sim
 
 } // namespace svs::distance
 
-#endif
+#include "svs/core/distance/cosine.h"
+#include "svs/core/distance/euclidean.h"
+#include "svs/core/distance/inner_product.h"
+
+
+

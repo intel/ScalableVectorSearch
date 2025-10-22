@@ -218,13 +218,16 @@ struct CosineSimilarityImpl {
 // Shared implementation among those that use floating-point arithmetic.
 template <size_t SIMDWidth, AVX_AVAILABILITY Avx> struct CosineFloatOp;
 
-// Extern template declarations - definitions in avx512.cpp and avx2.cpp
+// Extern template declarations - SIMD ops defined in avx512.cpp and avx2.cpp
 extern template struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512>;
 extern template struct CosineFloatOp<8, AVX_AVAILABILITY::AVX2>;
 
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
 
+// CosineFloatOp<16, AVX512> defined in avx512.cpp
+
+// Small Integers
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
 template <size_t N>
@@ -356,7 +359,11 @@ struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
 ///// Intel(R) AVX2 Implementations
 /////
 
-// AVX2 implementations - always compiled, reference extern SIMD ops defined in avx2.cpp
+SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
+SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
+#if !SVS_AVX512_F && SVS_AVX2
+
+// CosineFloatOp<8, AVX2> defined in avx2.cpp
 
 // Floating and Mixed Types
 template <size_t N> struct CosineSimilarityImpl<N, float, float, AVX_AVAILABILITY::AVX2> {
@@ -425,4 +432,11 @@ struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
     }
 };
 
+#endif
+
+#if defined(__x86_64__)
+
+
+
+#endif
 } // namespace svs::distance
