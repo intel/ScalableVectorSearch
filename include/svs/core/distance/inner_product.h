@@ -64,26 +64,14 @@ class IP {
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
-            if constexpr (is_dim_supported<N>()) {
-                return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
-                    a, b, lib::MaybeStatic<N>()
-                );
-            } else {
-                return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
-                    a, b, lib::MaybeStatic(N)
-                );
-            }
+            return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                a, b, lib::MaybeStatic(N)
+            );
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
-            if constexpr (is_dim_supported<N>()) {
-                return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
-                    a, b, lib::MaybeStatic<N>()
-                );
-            } else {
-                return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
-                    a, b, lib::MaybeStatic(N)
-                );
-            }
+            return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                a, b, lib::MaybeStatic(N)
+            );
         }
         return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::NONE>::compute(
             a, b, lib::MaybeStatic<N>()
@@ -388,25 +376,9 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 #if defined(__x86_64__)
 
 #include "svs/multi-arch/x86/preprocessor.h"
-// TODO: connect with dim_supported_list
-DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
-DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
+// Only instantiate for Dynamic dimension - dimension-specific optimizations
+// are handled through MaybeStatic<N> which encodes the compile-time constant
 DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
-
-DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
-DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
 DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
 #endif
 
