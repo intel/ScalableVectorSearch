@@ -234,62 +234,14 @@ template <size_t SIMDWidth, AVX_AVAILABILITY Avx> struct L2FloatOp;
 // ``To`` and perform arithmetic on those integer operands.
 template <std::integral To, size_t SIMDWidth, AVX_AVAILABILITY Avx> struct L2VNNIOp;
 
+// Extern template declarations - definitions in avx512.cpp and avx2.cpp
+extern template struct L2FloatOp<16, AVX_AVAILABILITY::AVX512>;
+extern template struct L2VNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>;
+extern template struct L2FloatOp<8, AVX_AVAILABILITY::AVX2>;
+
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
 
-template <> struct L2FloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertToFloat<16> {
-    using parent = svs::simd::ConvertToFloat<16>;
-    using mask_t = typename parent::mask_t;
-
-    // Here, we can fill-in the shared init, accumulate, combine, and reduce methods.
-    static __m512 init() { return _mm512_setzero_ps(); }
-
-    static __m512 accumulate(__m512 accumulator, __m512 a, __m512 b) {
-        auto c = _mm512_sub_ps(a, b);
-        return _mm512_fmadd_ps(c, c, accumulator);
-    }
-
-    static __m512 accumulate(mask_t m, __m512 accumulator, __m512 a, __m512 b) {
-        auto c = _mm512_maskz_sub_ps(m, a, b);
-        return _mm512_mask3_fmadd_ps(c, c, accumulator, m);
-    }
-
-    static __m512 combine(__m512 x, __m512 y) { return _mm512_add_ps(x, y); }
-    static float reduce(__m512 x) { return _mm512_reduce_add_ps(x); }
-};
-
-// Small Integers
-SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
-#if SVS_AVX512_VNNI
-
-template <> struct L2VNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertForVNNI<int16_t, 32> {
-    using parent = svs::simd::ConvertForVNNI<int16_t, 32>;
-    using reg_t = typename parent::reg_t;
-    using mask_t = typename parent::mask_t;
-
-    SVS_FORCE_INLINE static reg_t init() { return _mm512_setzero_si512(); }
-    SVS_FORCE_INLINE static reg_t accumulate(reg_t accumulator, reg_t a, reg_t b) {
-        auto c = _mm512_sub_epi16(a, b);
-        return _mm512_dpwssd_epi32(accumulator, c, c);
-    }
-
-    SVS_FORCE_INLINE static reg_t
-    accumulate(mask_t m, reg_t accumulator, reg_t a, reg_t b) {
-        auto c = _mm512_maskz_sub_epi16(m, a, b);
-        // `c` already contains zeros, so no need to mask the accumulation operation.
-        return _mm512_mask_dpwssd_epi32(accumulator, m, c, c);
-    }
-
-    SVS_FORCE_INLINE static reg_t combine(reg_t x, reg_t y) {
-        return _mm512_add_epi32(x, y);
-    }
-
-    SVS_FORCE_INLINE static float reduce(reg_t x) {
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(x));
-    }
-};
-
-// VNNI Dispatching
 template <size_t N> struct L2Impl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
@@ -363,33 +315,7 @@ template <size_t N> struct L2Impl<N, Float16, Float16, AVX_AVAILABILITY::AVX512>
 ///// Intel(R) AVX2 Implementations
 /////
 
-SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
-SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
-#if !SVS_AVX512_F && SVS_AVX2
-
-template <> struct L2FloatOp<8, AVX_AVAILABILITY::AVX2> : public svs::simd::ConvertToFloat<8> {
-    using parent = svs::simd::ConvertToFloat<8>;
-    using mask_t = typename parent::mask_t;
-    static constexpr size_t simd_width = 8;
-
-    // Here, we can fill-in the shared init, accumulate, combine, and reduce methods.
-    static __m256 init() { return _mm256_setzero_ps(); }
-
-    static __m256 accumulate(__m256 accumulator, __m256 a, __m256 b) {
-        auto c = _mm256_sub_ps(a, b);
-        return _mm256_fmadd_ps(c, c, accumulator);
-    }
-
-    static __m256 accumulate(mask_t /*m*/, __m256 accumulator, __m256 a, __m256 b) {
-        // For AVX2, masking is handled in the load operations
-        auto c = _mm256_sub_ps(a, b);
-        return _mm256_fmadd_ps(c, c, accumulator);
-    }
-
-    static __m256 combine(__m256 x, __m256 y) { return _mm256_add_ps(x, y); }
-    static float reduce(__m256 x) { return simd::_mm256_reduce_add_ps(x); }
-};
-
+// AVX2 implementations - always compiled, reference extern SIMD ops defined in avx2.cpp
 template <size_t N> struct L2Impl<N, float, float, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
@@ -431,7 +357,5 @@ template <size_t N> struct L2Impl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
         return simd::generic_simd_op(L2FloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
-
-#endif
 
 } // namespace svs::distance
