@@ -19,7 +19,25 @@
 #include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/inner_product.h"
 
-// No explicit instantiations needed - SIMD ops are fully defined in headers
-// Distance implementations are implicitly instantiated as needed
+// Force compilation of SIMD ops by explicitly instantiating distance implementations
+// These are compiled with -march=haswell, generating optimized AVX2 code
+namespace svs::distance {
+
+// Explicitly instantiate for a representative set of type combinations
+// This ensures the AVX2 SIMD ops are actually compiled into the library
+template struct IPImpl<64, float, float, AVX_AVAILABILITY::AVX2>;
+template struct IPImpl<128, float, float, AVX_AVAILABILITY::AVX2>;
+template struct IPImpl<64, int8_t, int8_t, AVX_AVAILABILITY::AVX2>;
+template struct IPImpl<128, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>;
+
+template struct L2Impl<64, float, float, AVX_AVAILABILITY::AVX2>;
+template struct L2Impl<128, float, float, AVX_AVAILABILITY::AVX2>;
+template struct L2Impl<64, int8_t, int8_t, AVX_AVAILABILITY::AVX2>;
+template struct L2Impl<128, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2>;
+
+template struct CosineSimilarityImpl<64, float, float, AVX_AVAILABILITY::AVX2>;
+template struct CosineSimilarityImpl<128, float, float, AVX_AVAILABILITY::AVX2>;
+
+} // namespace svs::distance
 
 #endif
