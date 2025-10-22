@@ -64,14 +64,26 @@ class IP {
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
-            return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
-                a, b, lib::MaybeStatic(N)
-            );
+            if constexpr (is_dim_supported<N>()) {
+                return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                    a, b, lib::MaybeStatic<N>()
+                );
+            } else {
+                return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
         }
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx2_supported(), 1)) {
-            return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
-                a, b, lib::MaybeStatic(N)
-            );
+            if constexpr (is_dim_supported<N>()) {
+                return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, lib::MaybeStatic<N>()
+                );
+            } else {
+                return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX2>::compute(
+                    a, b, lib::MaybeStatic(N)
+                );
+            }
         }
         return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::NONE>::compute(
             a, b, lib::MaybeStatic<N>()
@@ -175,16 +187,17 @@ template <size_t N, typename Ea, typename Eb, AVX_AVAILABILITY Avx> struct IPImp
 /////
 
 // Shared implementation among those that use floating-point arithmetic.
-template <size_t SIMDWidth> struct IPFloatOp;
+// Now parameterized by AVX_AVAILABILITY to enable explicit instantiation at SIMD op level
+template <size_t SIMDWidth, AVX_AVAILABILITY Avx> struct IPFloatOp;
 
 // SIMD accelerated operations that convert both left and right hand arguments to
 // ``To`` and perform arithmetic on those integer operands.
-template <std::integral To, size_t SIMDWidth> struct IPVNNIOp;
+template <std::integral To, size_t SIMDWidth, AVX_AVAILABILITY Avx> struct IPVNNIOp;
 
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
 
-template <> struct IPFloatOp<16> : public svs::simd::ConvertToFloat<16> {
+template <> struct IPFloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertToFloat<16> {
     using parent = svs::simd::ConvertToFloat<16>;
     using mask_t = typename parent::mask_t;
 
@@ -207,7 +220,7 @@ template <> struct IPFloatOp<16> : public svs::simd::ConvertToFloat<16> {
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
 #if SVS_AVX512_VNNI
 
-template <> struct IPVNNIOp<int16_t, 32> : public svs::simd::ConvertForVNNI<int16_t, 32> {
+template <> struct IPVNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertForVNNI<int16_t, 32> {
     using parent = svs::simd::ConvertForVNNI<int16_t, 32>;
     using reg_t = typename parent::reg_t;
     using mask_t = typename parent::mask_t;
@@ -236,10 +249,10 @@ template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
-            return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
+            return simd::generic_simd_op(IPVNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>(), a, b, length);
         }
         // fallback to AVX512
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     }
 };
 
@@ -247,10 +260,10 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512>
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
         if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512vnni_supported(), 1)) {
-            return simd::generic_simd_op(IPVNNIOp<int16_t, 32>(), a, b, length);
+            return simd::generic_simd_op(IPVNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>(), a, b, length);
         }
         // fallback to AVX512
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     }
 };
 
@@ -260,42 +273,42 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX512>
 template <size_t N> struct IPImpl<N, float, float, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, float, uint8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     };
 };
 
 template <size_t N> struct IPImpl<N, float, int8_t, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     };
 };
 
 template <size_t N> struct IPImpl<N, float, Float16, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, Float16, float, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const Float16* a, const float* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<16>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<16, AVX_AVAILABILITY::AVX512>{}, a, b, length);
     }
 };
 #endif
@@ -308,7 +321,7 @@ SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
 
-template <> struct IPFloatOp<8> : public svs::simd::ConvertToFloat<8> {
+template <> struct IPFloatOp<8, AVX_AVAILABILITY::AVX2> : public svs::simd::ConvertToFloat<8> {
     using parent = svs::simd::ConvertToFloat<8>;
     using mask_t = typename parent::mask_t;
     static constexpr size_t simd_width = 8;
@@ -332,42 +345,42 @@ template <> struct IPFloatOp<8> : public svs::simd::ConvertToFloat<8> {
 template <size_t N> struct IPImpl<N, float, float, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const float* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const Float16* a, const Float16* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, float, Float16, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const Float16* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, float, int8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const float* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, int8_t, int8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const int8_t* a, const int8_t* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
 
 template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
     SVS_NOINLINE static float
     compute(const uint8_t* a, const uint8_t* b, lib::MaybeStatic<N> length) {
-        return svs::simd::generic_simd_op(IPFloatOp<8>{}, a, b, length);
+        return svs::simd::generic_simd_op(IPFloatOp<8, AVX_AVAILABILITY::AVX2>{}, a, b, length);
     }
 };
 
@@ -376,9 +389,25 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 #if defined(__x86_64__)
 
 #include "svs/multi-arch/x86/preprocessor.h"
-// Only instantiate for Dynamic dimension - dimension-specific optimizations
-// are handled through MaybeStatic<N> which encodes the compile-time constant
+// TODO: connect with dim_supported_list
+DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX512);
+DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX512);
 DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX512);
+
+DISTANCE_IP_EXTERN_TEMPLATE(64, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(96, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(100, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(128, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(160, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(200, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(512, AVX_AVAILABILITY::AVX2);
+DISTANCE_IP_EXTERN_TEMPLATE(768, AVX_AVAILABILITY::AVX2);
 DISTANCE_IP_EXTERN_TEMPLATE(Dynamic, AVX_AVAILABILITY::AVX2);
 #endif
 
