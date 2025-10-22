@@ -14,143 +14,59 @@
  * limitations under the License.
  */
 
+/**
+ * @file avx512.cpp
+ * @brief AVX-512 specific SIMD operation instantiations
+ *
+ * This compilation unit is built with `-march=cascadelake` compiler flags to enable
+ * AVX-512 instruction generation. It contains explicit instantiations of SIMD operation
+ * structs to force the compiler to generate optimized code using AVX-512 intrinsics.
+ *
+ * IMPORTANT: We instantiate SIMD ops (IPFloatOp, L2FloatOp, CosineFloatOp, etc.), NOT
+ * distance implementations (*Impl). This eliminates the need to instantiate for all
+ * combinations of dimensionality N, which would create 9× more instantiations.
+ *
+ * The SIMD ops contain all AVX-specific code and are defined in the distance headers
+ * within #if SVS_AVX512_F guards. By instantiating them here with proper compiler flags,
+ * we ensure optimized machine code is generated and linked into the library.
+ */
+
 #if defined(__x86_64__)
+
+// Include distance headers to get SIMD op definitions
+#include "svs/core/distance/inner_product.h"
+#include "svs/core/distance/euclidean.h"
+#include "svs/core/distance/cosine.h"
+
 namespace svs::distance {
 
-///// Inner Product SIMD Ops /////
+/////
+///// Inner Product SIMD Ops
+/////
 
-template <> struct IPFloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertToFloat<16> {
-    using parent = svs::simd::ConvertToFloat<16>;
-    using mask_t = typename parent::mask_t;
+// Instantiate the primary floating-point SIMD op for AVX-512
+template struct IPFloatOp<16, AVX_AVAILABILITY::AVX512>;
 
-    static __m512 init() { return _mm512_setzero_ps(); }
+// Instantiate VNNI integer operation for AVX-512
+template struct IPVNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>;
 
-    static __m512 accumulate(__m512 accumulator, __m512 a, __m512 b) {
-        return _mm512_fmadd_ps(a, b, accumulator);
-    }
+/////
+///// L2 (Euclidean) SIMD Ops
+/////
 
-    static __m512 accumulate(mask_t m, __m512 accumulator, __m512 a, __m512 b) {
-        return _mm512_mask3_fmadd_ps(a, b, accumulator, m);
-    }
+// Instantiate the primary floating-point SIMD op for AVX-512
+template struct L2FloatOp<16, AVX_AVAILABILITY::AVX512>;
 
-    static __m512 combine(__m512 x, __m512 y) { return _mm512_add_ps(x, y); }
-    static float reduce(__m512 x) { return _mm512_reduce_add_ps(x); }
-};
+// Instantiate VNNI integer operation for AVX-512
+template struct L2VNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512>;
 
-template <> struct IPVNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertForVNNI<int16_t, 32> {
-    using parent = svs::simd::ConvertForVNNI<int16_t, 32>;
-    using reg_t = typename parent::reg_t;
-    using mask_t = typename parent::mask_t;
+/////
+///// Cosine Similarity SIMD Ops
+/////
 
-    SVS_FORCE_INLINE static reg_t init() { return _mm512_setzero_si512(); }
-    SVS_FORCE_INLINE static reg_t accumulate(__m512i accumulator, __m512i a, __m512i b) {
-        return _mm512_dpwssd_epi32(accumulator, a, b);
-    }
-
-    SVS_FORCE_INLINE static reg_t
-    accumulate(mask_t m, reg_t accumulator, reg_t a, reg_t b) {
-        return _mm512_mask_dpwssd_epi32(accumulator, m, a, b);
-    }
-
-    SVS_FORCE_INLINE static reg_t combine(reg_t x, reg_t y) {
-        return _mm512_add_epi32(x, y);
-    }
-
-    SVS_FORCE_INLINE static float reduce(reg_t x) {
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(x));
-    }
-};
-
-///// L2 SIMD Ops /////
-
-template <> struct L2FloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertToFloat<16> {
-    using parent = svs::simd::ConvertToFloat<16>;
-    using mask_t = typename parent::mask_t;
-
-    static __m512 init() { return _mm512_setzero_ps(); }
-
-    static __m512 accumulate(__m512 accumulator, __m512 a, __m512 b) {
-        auto c = _mm512_sub_ps(a, b);
-        return _mm512_fmadd_ps(c, c, accumulator);
-    }
-
-    static __m512 accumulate(mask_t m, __m512 accumulator, __m512 a, __m512 b) {
-        auto c = _mm512_maskz_sub_ps(m, a, b);
-        return _mm512_mask3_fmadd_ps(c, c, accumulator, m);
-    }
-
-    static __m512 combine(__m512 x, __m512 y) { return _mm512_add_ps(x, y); }
-    static float reduce(__m512 x) { return _mm512_reduce_add_ps(x); }
-};
-
-template <> struct L2VNNIOp<int16_t, 32, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertForVNNI<int16_t, 32> {
-    using parent = svs::simd::ConvertForVNNI<int16_t, 32>;
-    using reg_t = typename parent::reg_t;
-    using mask_t = typename parent::mask_t;
-
-    SVS_FORCE_INLINE static reg_t init() { return _mm512_setzero_si512(); }
-    SVS_FORCE_INLINE static reg_t accumulate(reg_t accumulator, reg_t a, reg_t b) {
-        auto c = _mm512_sub_epi16(a, b);
-        return _mm512_dpwssd_epi32(accumulator, c, c);
-    }
-
-    SVS_FORCE_INLINE static reg_t
-    accumulate(mask_t m, reg_t accumulator, reg_t a, reg_t b) {
-        auto c = _mm512_maskz_sub_epi16(m, a, b);
-        // `c` already contains zeros, so no need to mask the accumulation operation.
-        return _mm512_mask_dpwssd_epi32(accumulator, m, c, c);
-    }
-
-    SVS_FORCE_INLINE static reg_t combine(reg_t x, reg_t y) {
-        return _mm512_add_epi32(x, y);
-    }
-
-    SVS_FORCE_INLINE static float reduce(reg_t x) {
-        return lib::narrow_cast<float>(_mm512_reduce_add_epi32(x));
-    }
-};
-
-///// Cosine Similarity SIMD Ops /////
-
-template <> struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertToFloat<16> {
-    using parent = svs::simd::ConvertToFloat<16>;
-    using mask_t = typename parent::mask_t;
-
-    // A lightweight struct to contain both the partial results for the inner product
-    // of the left-hand and right-hand as well as partial results for computing the norm
-    // of the right-hand.
-    struct Pair {
-        __m512 op;
-        __m512 norm;
-    };
-
-    static Pair init() { return {_mm512_setzero_ps(), _mm512_setzero_ps()}; };
-
-    static Pair accumulate(Pair accumulator, __m512 a, __m512 b) {
-        return {
-            _mm512_fmadd_ps(a, b, accumulator.op), _mm512_fmadd_ps(b, b, accumulator.norm)};
-    }
-
-    static Pair accumulate(mask_t m, Pair accumulator, __m512 a, __m512 b) {
-        return {
-            _mm512_mask3_fmadd_ps(a, b, accumulator.op, m),
-            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)};
-    }
-
-    static Pair combine(Pair x, Pair y) {
-        return {_mm512_add_ps(x.op, y.op), _mm512_add_ps(x.norm, y.norm)};
-    }
-
-    static std::pair<float, float> reduce(Pair x) {
-        return std::make_pair(_mm512_reduce_add_ps(x.op), _mm512_reduce_add_ps(x.norm));
-    }
-};
+// Instantiate the floating-point SIMD op for AVX-512
+template struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512>;
 
 } // namespace svs::distance
 
-#include "svs/core/distance/cosine.h"
-#include "svs/core/distance/euclidean.h"
-#include "svs/core/distance/inner_product.h"
-
-
-
+#endif // defined(__x86_64__)

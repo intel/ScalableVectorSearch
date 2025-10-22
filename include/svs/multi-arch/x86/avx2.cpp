@@ -14,100 +14,53 @@
  * limitations under the License.
  */
 
-#if defined(__x86_64__)
-#include "svs/core/distance/cosine.h"
-#include "svs/core/distance/euclidean.h"
-#include "svs/core/distance/inner_product.h"
+/**
+ * @file avx2.cpp
+ * @brief AVX2 specific SIMD operation instantiations
+ *
+ * This compilation unit is built with `-march=haswell` compiler flags to enable
+ * AVX2 instruction generation. It contains explicit instantiations of SIMD operation
+ * structs to force the compiler to generate optimized code using AVX2 intrinsics.
+ *
+ * IMPORTANT: We instantiate SIMD ops (IPFloatOp, L2FloatOp, CosineFloatOp), NOT
+ * distance implementations (*Impl). This eliminates the need to instantiate for all
+ * combinations of dimensionality N, which would create 9× more instantiations.
+ *
+ * The SIMD ops contain all AVX-specific code and are defined in the distance headers
+ * within #if !SVS_AVX512_F && SVS_AVX2 guards. By instantiating them here with proper
+ * compiler flags, we ensure optimized machine code is generated and linked into the library.
+ */
 
-// Define SIMD ops here with AVX2 optimizations
-// Compiled with -march=haswell to generate optimized AVX2 instructions
+#if defined(__x86_64__)
+
+// Include distance headers to get SIMD op definitions
+#include "svs/core/distance/inner_product.h"
+#include "svs/core/distance/euclidean.h"
+#include "svs/core/distance/cosine.h"
+
 namespace svs::distance {
 
-///// Inner Product SIMD Ops /////
+/////
+///// Inner Product SIMD Ops
+/////
 
-template <> struct IPFloatOp<8, AVX_AVAILABILITY::AVX2> : public svs::simd::ConvertToFloat<8> {
-    using parent = svs::simd::ConvertToFloat<8>;
-    using mask_t = typename parent::mask_t;
-    static constexpr size_t simd_width = 8;
+// Instantiate the primary floating-point SIMD op for AVX2
+template struct IPFloatOp<8, AVX_AVAILABILITY::AVX2>;
 
-    static __m256 init() { return _mm256_setzero_ps(); }
+/////
+///// L2 (Euclidean) SIMD Ops
+/////
 
-    static __m256 accumulate(__m256 accumulator, __m256 a, __m256 b) {
-        return _mm256_fmadd_ps(a, b, accumulator);
-    }
+// Instantiate the primary floating-point SIMD op for AVX2
+template struct L2FloatOp<8, AVX_AVAILABILITY::AVX2>;
 
-    static __m256 accumulate(mask_t /*m*/, __m256 accumulator, __m256 a, __m256 b) {
-        // For AVX2, masking is handled in the load operations
-        return _mm256_fmadd_ps(a, b, accumulator);
-    }
+/////
+///// Cosine Similarity SIMD Ops
+/////
 
-    static __m256 combine(__m256 x, __m256 y) { return _mm256_add_ps(x, y); }
-    static float reduce(__m256 x) { return simd::_mm256_reduce_add_ps(x); }
-};
-
-///// L2 SIMD Ops /////
-
-template <> struct L2FloatOp<8, AVX_AVAILABILITY::AVX2> : public svs::simd::ConvertToFloat<8> {
-    using parent = svs::simd::ConvertToFloat<8>;
-    using mask_t = typename parent::mask_t;
-    static constexpr size_t simd_width = 8;
-
-    static __m256 init() { return _mm256_setzero_ps(); }
-
-    static __m256 accumulate(__m256 accumulator, __m256 a, __m256 b) {
-        auto c = _mm256_sub_ps(a, b);
-        return _mm256_fmadd_ps(c, c, accumulator);
-    }
-
-    static __m256 accumulate(mask_t /*m*/, __m256 accumulator, __m256 a, __m256 b) {
-        // For AVX2, masking is handled in the load operations
-        auto c = _mm256_sub_ps(a, b);
-        return _mm256_fmadd_ps(c, c, accumulator);
-    }
-
-    static __m256 combine(__m256 x, __m256 y) { return _mm256_add_ps(x, y); }
-    static float reduce(__m256 x) { return simd::_mm256_reduce_add_ps(x); }
-};
-
-///// Cosine Similarity SIMD Ops /////
-
-template <> struct CosineFloatOp<8, AVX_AVAILABILITY::AVX2> : public svs::simd::ConvertToFloat<8> {
-    using parent = svs::simd::ConvertToFloat<8>;
-    using mask_t = typename parent::mask_t;
-    static constexpr size_t simd_width = 8;
-
-    // A lightweight struct to contain both the partial results for the inner product
-    // of the left-hand and right-hand as well as partial results for computing the norm
-    // of the right-hand.
-    struct Pair {
-        __m256 op;
-        __m256 norm;
-    };
-
-    static Pair init() { return {_mm256_setzero_ps(), _mm256_setzero_ps()}; };
-
-    static Pair accumulate(Pair accumulator, __m256 a, __m256 b) {
-        return {
-            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
-    }
-
-    static Pair accumulate(mask_t /*m*/, Pair accumulator, __m256 a, __m256 b) {
-        // For AVX2, masking is handled in the load operations
-        return {
-            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
-    }
-
-    static Pair combine(Pair x, Pair y) {
-        return {_mm256_add_ps(x.op, y.op), _mm256_add_ps(x.norm, y.norm)};
-    }
-
-    static std::pair<float, float> reduce(Pair x) {
-        return std::make_pair(
-            simd::_mm256_reduce_add_ps(x.op), simd::_mm256_reduce_add_ps(x.norm)
-        );
-    }
-};
+// Instantiate the floating-point SIMD op for AVX2
+template struct CosineFloatOp<8, AVX_AVAILABILITY::AVX2>;
 
 } // namespace svs::distance
 
-#endif
+#endif // defined(__x86_64__)

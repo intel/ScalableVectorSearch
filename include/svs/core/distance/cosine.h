@@ -218,14 +218,42 @@ struct CosineSimilarityImpl {
 // Shared implementation among those that use floating-point arithmetic.
 template <size_t SIMDWidth, AVX_AVAILABILITY Avx> struct CosineFloatOp;
 
-// Extern template declarations - SIMD ops defined in avx512.cpp and avx2.cpp
-extern template struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512>;
-extern template struct CosineFloatOp<8, AVX_AVAILABILITY::AVX2>;
-
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 #if SVS_AVX512_F
 
-// CosineFloatOp<16, AVX512> defined in avx512.cpp
+template <> struct CosineFloatOp<16, AVX_AVAILABILITY::AVX512> : public svs::simd::ConvertToFloat<16> {
+    using parent = svs::simd::ConvertToFloat<16>;
+    using mask_t = typename parent::mask_t;
+
+    // A lightweight struct to contain both the partial results for the inner product
+    // of the left-hand and right-hand as well as partial results for computing the norm
+    // of the right-hand.
+    struct Pair {
+        __m512 op;
+        __m512 norm;
+    };
+
+    static Pair init() { return {_mm512_setzero_ps(), _mm512_setzero_ps()}; };
+
+    static Pair accumulate(Pair accumulator, __m512 a, __m512 b) {
+        return {
+            _mm512_fmadd_ps(a, b, accumulator.op), _mm512_fmadd_ps(b, b, accumulator.norm)};
+    }
+
+    static Pair accumulate(mask_t m, Pair accumulator, __m512 a, __m512 b) {
+        return {
+            _mm512_mask3_fmadd_ps(a, b, accumulator.op, m),
+            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)};
+    }
+
+    static Pair combine(Pair x, Pair y) {
+        return {_mm512_add_ps(x.op, y.op), _mm512_add_ps(x.norm, y.norm)};
+    }
+
+    static std::pair<float, float> reduce(Pair x) {
+        return std::make_pair(_mm512_reduce_add_ps(x.op), _mm512_reduce_add_ps(x.norm));
+    }
+};
 
 // Small Integers
 SVS_VALIDATE_BOOL_ENV(SVS_AVX512_VNNI)
@@ -363,7 +391,42 @@ SVS_VALIDATE_BOOL_ENV(SVS_AVX512_F)
 SVS_VALIDATE_BOOL_ENV(SVS_AVX2)
 #if !SVS_AVX512_F && SVS_AVX2
 
-// CosineFloatOp<8, AVX2> defined in avx2.cpp
+template <> struct CosineFloatOp<8, AVX_AVAILABILITY::AVX2> : public svs::simd::ConvertToFloat<8> {
+    using parent = svs::simd::ConvertToFloat<8>;
+    using mask_t = typename parent::mask_t;
+    static constexpr size_t simd_width = 8;
+
+    // A lightweight struct to contain both the partial results for the inner product
+    // of the left-hand and right-hand as well as partial results for computing the norm
+    // of the right-hand.
+    struct Pair {
+        __m256 op;
+        __m256 norm;
+    };
+
+    static Pair init() { return {_mm256_setzero_ps(), _mm256_setzero_ps()}; };
+
+    static Pair accumulate(Pair accumulator, __m256 a, __m256 b) {
+        return {
+            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
+    }
+
+    static Pair accumulate(mask_t /*m*/, Pair accumulator, __m256 a, __m256 b) {
+        // For AVX2, masking is handled in the load operations
+        return {
+            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
+    }
+
+    static Pair combine(Pair x, Pair y) {
+        return {_mm256_add_ps(x.op, y.op), _mm256_add_ps(x.norm, y.norm)};
+    }
+
+    static std::pair<float, float> reduce(Pair x) {
+        return std::make_pair(
+            simd::_mm256_reduce_add_ps(x.op), simd::_mm256_reduce_add_ps(x.norm)
+        );
+    }
+};
 
 // Floating and Mixed Types
 template <size_t N> struct CosineSimilarityImpl<N, float, float, AVX_AVAILABILITY::AVX2> {
@@ -436,6 +499,8 @@ struct CosineSimilarityImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 
 #if defined(__x86_64__)
 
+#include "svs/multi-arch/x86/preprocessor.h"
+// TODO: connect with dim_supported_list
 
 
 #endif
