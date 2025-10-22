@@ -386,11 +386,4 @@ template <size_t N> struct IPImpl<N, uint8_t, uint8_t, AVX_AVAILABILITY::AVX2> {
 
 #endif
 
-#if defined(__x86_64__)
-
-#include "svs/multi-arch/x86/preprocessor.h"
-// TODO: connect with dim_supported_list
-
-#endif
-
 } // namespace svs::distance
