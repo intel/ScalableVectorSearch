@@ -170,6 +170,64 @@ template <typename T, typename Distance> void test_distance() {
     test_distance_single<std::int8_t, Distance, N>(-10, 1);
 }
 
+CATCH_TEST_CASE("SQDataset Element Size", "[quantization][scalar]") {
+    CATCH_SECTION("Check element_size()") {
+        // Test with int8_t, dynamic dimensions
+        auto sq_int8_dynamic = scalar::SQDataset<std::int8_t>(10, 128);
+        CATCH_REQUIRE(sq_int8_dynamic.element_size() == sizeof(std::int8_t) * 128);
+
+        // Test with int8_t, fixed dimensions
+        constexpr size_t dims_64 = 64;
+        auto sq_int8_fixed = scalar::SQDataset<std::int8_t, dims_64>({}, 1.0F, 0.0F);
+        CATCH_REQUIRE(sq_int8_fixed.element_size() == sizeof(std::int8_t) * dims_64);
+
+        // Test with int16_t, dynamic dimensions
+        auto sq_int16_dynamic = scalar::SQDataset<std::int16_t>(5, 256);
+        CATCH_REQUIRE(sq_int16_dynamic.element_size() == sizeof(std::int16_t) * 256);
+
+        // Test with int16_t, fixed dimensions
+        constexpr size_t dims_32 = 32;
+        auto sq_int16_fixed = scalar::SQDataset<std::int16_t, dims_32>({}, 2.0F, 1.0F);
+        CATCH_REQUIRE(sq_int16_fixed.element_size() == sizeof(std::int16_t) * dims_32);
+
+        // Test with uint8_t, dynamic dimensions
+        auto sq_uint8_dynamic = scalar::SQDataset<std::uint8_t>(8, 96);
+        CATCH_REQUIRE(sq_uint8_dynamic.element_size() == sizeof(std::uint8_t) * 96);
+
+        // Test with uint8_t, fixed dimensions
+        constexpr size_t dims_48 = 48;
+        auto sq_uint8_fixed = scalar::SQDataset<std::uint8_t, dims_48>({}, 1.5F, 0.5F);
+        CATCH_REQUIRE(sq_uint8_fixed.element_size() == sizeof(std::uint8_t) * dims_48);
+
+        // Test with uint16_t, dynamic dimensions
+        auto sq_uint16_dynamic = scalar::SQDataset<std::uint16_t>(12, 200);
+        CATCH_REQUIRE(sq_uint16_dynamic.element_size() == sizeof(std::uint16_t) * 200);
+
+        // Test element_size consistency across different instances with same type/dims
+        auto sq1 = scalar::SQDataset<std::int8_t>(10, 100);
+        // Different size, same dims
+        auto sq2 = scalar::SQDataset<std::int8_t>(50, 100);
+        CATCH_REQUIRE(sq1.element_size() == sq2.element_size());
+
+        // Test different quantized types with same dimensions
+        auto sq_int8_128 = scalar::SQDataset<std::int8_t>(5, 128);
+        auto sq_int16_128 = scalar::SQDataset<std::int16_t>(5, 128);
+        CATCH_REQUIRE(sq_int8_128.element_size() == sizeof(std::int8_t) * 128);
+        CATCH_REQUIRE(sq_int16_128.element_size() == sizeof(std::int16_t) * 128);
+        // int16 is 2x int8
+        CATCH_REQUIRE(sq_int16_128.element_size() == 2 * sq_int8_128.element_size());
+
+        // Test that element_size reflects the quantized type, not original float
+        auto original = svs::data::SimpleData<float>(5, 128);
+        auto compressed = scalar::SQDataset<std::int8_t>::compress(original);
+        CATCH_REQUIRE(compressed.element_size() == sizeof(std::int8_t) * 128);
+        // Should be smaller
+        CATCH_REQUIRE(compressed.element_size() != sizeof(float) * 128);
+        // int8 vs float
+        CATCH_REQUIRE(compressed.element_size() == original.element_size() / 4);
+    }
+}
+
 CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
     CATCH_SECTION("Default SQDataset") {}
 
