@@ -18,25 +18,22 @@
  * @file avx2.cpp
  * @brief AVX2 specific SIMD operation instantiations
  *
- * This compilation unit is built with `-march=haswell` compiler flags to enable
+ * This compilation unit is built with corresponding compiler flags that enable
  * AVX2 instruction generation. It contains explicit instantiations of SIMD operation
  * structs to force the compiler to generate optimized code using AVX2 intrinsics.
  *
- * IMPORTANT: We instantiate SIMD ops (IPFloatOp, L2FloatOp, CosineFloatOp), NOT
- * distance implementations (*Impl). This eliminates the need to instantiate for all
- * combinations of dimensionality N, which would create 9× more instantiations.
- *
  * The SIMD ops contain all AVX-specific code and are defined in the distance headers
  * within #if !SVS_AVX512_F && SVS_AVX2 guards. By instantiating them here with proper
- * compiler flags, we ensure optimized machine code is generated and linked into the library.
+ * compiler flags, we ensure optimized machine code is generated and linked into the
+ * library.
  */
 
 #if defined(__x86_64__)
 
 // Include distance headers to get SIMD op definitions
-#include "svs/core/distance/inner_product.h"
-#include "svs/core/distance/euclidean.h"
 #include "svs/core/distance/cosine.h"
+#include "svs/core/distance/euclidean.h"
+#include "svs/core/distance/inner_product.h"
 
 namespace svs::distance {
 
