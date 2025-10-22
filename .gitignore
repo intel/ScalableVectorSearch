@@ -21,3 +21,5 @@ __pycache__/
 
 # Example generated files.
 example_data_*/
+_codeql_build_dir/
+_codeql_detected_source_root
