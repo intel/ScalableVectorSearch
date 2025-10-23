@@ -36,7 +36,6 @@ cmake -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
       -DSVS_BUILD_BINARIES=YES \
       -DSVS_BUILD_TESTS=YES \
       -DSVS_BUILD_EXAMPLES=YES \
-      -DSVS_EXPERIMENTAL_LEANVEC=YES \
       -DSVS_NO_AVX512=NO \
       -DSVS_EXPERIMENTAL_ENABLE_IVF=OFF \
       ..
@@ -75,8 +74,6 @@ source /opt/intel/oneapi/setvars.sh
 | `SVS_NO_AVX512` | OFF | Disable Intel AVX-512 intrinsics |
 | `SVS_EXPERIMENTAL_ENABLE_IVF` | OFF | Enable IVF (requires MKL) |
 | `CMAKE_BUILD_TYPE` | Release | Use `RelWithDebugInfo` for testing |
-
-**Note**: The option `SVS_EXPERIMENTAL_LEANVEC` is recognized but not used internally (safe to set).
 
 ## Code Formatting and Linting
 
@@ -204,9 +201,9 @@ ScalableVectorSearch/
 │   │   ├── vamana/          # Vamana graph index
 │   │   ├── flat/            # Flat (brute-force) index
 │   │   └── inverted/        # Inverted index (IVF)
-│   ├── orchestrators/       # High-level APIs
+│   ├── orchestrators/       # High-level APIs with type-erasure for simple interfaces
 │   ├── quantization/        # Vector quantization
-│   └── extensions/          # ISA-specific optimizations
+│   └── extensions/          # svs_invoke overloads to hook into core SVS routines
 ├── tests/                   # ** C++ TEST SUITE **
 │   ├── svs/                 # Unit tests (mirrors include/svs/)
 │   ├── integration/         # Integration tests
@@ -244,22 +241,19 @@ Main checks that run on every PR:
 2. **pre-commit.yml**: Verifies code formatting with clang-format 15
 3. **cibuildwheel.yml**: Builds Python wheels (uses custom manylinux2014 container)
 
-**To replicate CI locally**: Use the exact cmake command from `build-linux.yml` (lines 70-77).
+**To replicate CI locally**: Use the exact cmake command from `build-linux.yml` configuration step.
 
 ## Common Issues and Workarounds
 
 ### Build Issues
 
-1. **Problem**: CMake configuration warns about unused `SVS_EXPERIMENTAL_LEANVEC` variable
-   - **Solution**: This is expected and harmless - the variable is accepted but not used
+1. **Problem**: Build fails with uninitialized variable warnings on GCC 12+
+   - **Solution**: Already handled - GCC 12+ adds `-Wno-uninitialized` automatically in cmake/options.cmake
 
-2. **Problem**: Build fails with uninitialized variable warnings on GCC 12+
-   - **Solution**: Already handled - GCC 12+ adds `-Wno-uninitialized` automatically (cmake/options.cmake:208)
-
-3. **Problem**: IVF tests fail or IVF won't build
+2. **Problem**: IVF tests fail or IVF won't build
    - **Solution**: IVF requires Intel MKL - either install MKL or use `-DSVS_EXPERIMENTAL_ENABLE_IVF=OFF`
 
-4. **Problem**: Tests timeout or take very long
+3. **Problem**: Tests timeout or take very long
    - **Solution**: Integration tests can take 1-2 minutes; use specific test filters for faster iteration
 
 ### Formatting Issues
@@ -289,7 +283,15 @@ cd build/tests && ./tests "[integration]"
 cd build/tests && ./tests --list-tags
 
 # Clean and rebuild
-rm -rf build && mkdir build && cd build && cmake .. && make -j$(nproc)
+rm -rf build && mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+      -DSVS_BUILD_BINARIES=YES \
+      -DSVS_BUILD_TESTS=YES \
+      -DSVS_BUILD_EXAMPLES=YES \
+      -DSVS_NO_AVX512=NO \
+      -DSVS_EXPERIMENTAL_ENABLE_IVF=OFF \
+      ..
+make -j$(nproc)
 ```
 
 ## Important Notes for Coding Agents
@@ -297,13 +299,16 @@ rm -rf build && mkdir build && cd build && cmake .. && make -j$(nproc)
 1. **Trust these instructions first** - Only search the repository if information here is incomplete or incorrect
 2. **Always build out-of-source** - Use a `build/` directory, never configure CMake in the repository root
 3. **Follow the CI configuration** - Use the same cmake flags as `.github/workflows/build-linux.yml` for consistency
-4. **Format before committing** - Run `./tools/clang-format.sh clang-format` to avoid CI failures
+4. **Format before committing** - Run `./tools/clang-format.sh clang-format` to avoid CI failures. **IMPORTANT**: Only format files you modify; do not include formatting changes from other files in your PR
 5. **Test early and often** - Build times are reasonable (~5-10 min), so test incrementally
-6. **Header-only library** - Most code is in `include/svs/`, changes don't require recompiling everything
-7. **ISA dispatching** - Runtime dispatch means the same binary runs on different CPU architectures
-8. **Test filters are your friend** - Use Catch2 tags to run subsets of tests during development
-9. **Python bindings are specialized** - Changes to template parameters may require Python binding updates
-10. **Version is synchronized** - Keep version in sync across `CMakeLists.txt` (line 26), `setup.py` (line 43), and test files
+6. **Tests are required** - New features and bugfixes must be accompanied by tests. For bugs, first reproduce the issue in a unit test, then fix it in the code
+7. **Header-only library** - Most code is in `include/svs/`, changes don't require recompiling everything
+8. **ISA dispatching** - Runtime dispatch means the same binary runs on different CPU architectures
+9. **Type erasure** - Orchestrators use type-erasure to provide simple and consistent interfaces across different implementations
+10. **Extensions system** - The `extensions/` directory provides `svs_invoke` overloads/specializations to hook into core SVS routines (similar to `std::invoke`)
+11. **Test filters are your friend** - Use Catch2 tags to run subsets of tests during development
+12. **Python bindings are specialized** - Changes to template parameters may require Python binding updates
+13. **Version is synchronized** - Keep version in sync across `CMakeLists.txt`, `setup.py`, and test files
 
 ## Additional Resources
 
