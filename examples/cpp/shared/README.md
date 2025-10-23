@@ -55,7 +55,7 @@ make -j
 ./example_vamana_with_compression_dynamic
 ```
 
-### Option 2: Using shared library tarball
+### Option 3: Using shared library tarball
 
 If `libsvs` is not installed, CMake will download the tarball (see [CMakeLists.txt](./CMakeLists.txt) for the necessary steps here):
 ```bash
