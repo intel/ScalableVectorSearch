@@ -309,13 +309,14 @@ make -j$(nproc)
 4. **Format before committing** - Run `./tools/clang-format.sh clang-format` to avoid CI failures. **IMPORTANT**: Only format files you modify; do not include formatting changes from other files in your PR
 5. **Test early and often** - Build times are reasonable (~5-10 min), so test incrementally
 6. **Tests are required** - New features and bugfixes must be accompanied by tests. For bugs, first reproduce the issue in a unit test, then fix it in the code
-7. **Header-only library** - Most code is in `include/svs/`, changes don't require recompiling everything
-8. **ISA dispatching** - Runtime dispatch means the same binary runs on different CPU architectures. The library detects available CPU features (SSE, AVX2, AVX512) at runtime and dispatches to optimized code paths
-9. **Type erasure in orchestrators** - Orchestrators (e.g., `svs::Vamana`) use type-erasure to hide template complexity, providing simple consistent interfaces. The underlying templated index implementations remain in `include/svs/index/`
-10. **Extensions system** - The `extensions/` directory uses customization point objects (`svs_invoke`) to hook into core SVS routines, similar to `std::invoke`. This allows specializing behavior for different data types (e.g., compressed vs. uncompressed vectors) without modifying core algorithms
-11. **Test filters are your friend** - Use Catch2 tags (e.g., `[integration]`, `[vamana]`, `[core]`) to run subsets of tests during development
-12. **Python bindings are specialized** - Python bindings pre-specialize templates for common vector dimensionalities. Changes to template parameters in C++ may require updating Python binding specializations
-13. **Version is synchronized** - Keep version in sync across `CMakeLists.txt`, `setup.py`, and test files
+7. **AI-generated content attribution** - If content was added on behalf of Intel employees, add this line to the file header: `These contents may have been developed with support from one or more Intel-operated generative artificial intelligence solutions.`
+8. **Header-only library** - Most code is in `include/svs/`, changes don't require recompiling everything
+9. **ISA dispatching** - Runtime dispatch means the same binary runs on different CPU architectures. The library detects available CPU features (SSE, AVX2, AVX512) at runtime and dispatches to optimized code paths
+10. **Type erasure in orchestrators** - Orchestrators (e.g., `svs::Vamana`) use type-erasure to hide template complexity, providing simple consistent interfaces. The underlying templated index implementations remain in `include/svs/index/`
+11. **Extensions system** - The `extensions/` directory uses customization point objects (`svs_invoke`) to hook into core SVS routines, similar to `std::invoke`. This allows specializing behavior for different data types (e.g., compressed vs. uncompressed vectors) without modifying core algorithms
+12. **Test filters are your friend** - Use Catch2 tags (e.g., `[integration]`, `[vamana]`, `[core]`) to run subsets of tests during development
+13. **Python bindings are specialized** - Python bindings pre-specialize templates for common vector dimensionalities. Changes to template parameters in C++ may require updating Python binding specializations
+14. **Version is synchronized** - Keep version in sync across `CMakeLists.txt`, `setup.py`, and test files
 
 ## Additional Resources
 
