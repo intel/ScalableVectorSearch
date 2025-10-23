@@ -60,7 +60,7 @@ class DynamicVamanaTester(unittest.TestCase):
             configdir = os.path.join(tempdir, "config")
             graphdir = os.path.join(tempdir, "graph")
             datadir = os.path.join(tempdir, "data")
-            index.save(configdir, graphdir, datadir);
+            index.save(configdir, graphdir, datadir)
 
             reloaded = svs.DynamicVamana(
                 configdir,

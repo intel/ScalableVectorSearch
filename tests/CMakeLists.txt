@@ -144,6 +144,8 @@ set(TEST_SOURCES
     # Inverted
     ${TEST_DIR}/svs/index/inverted/clustering.cpp
     ${TEST_DIR}/svs/index/inverted/memory_based.cpp
+    # Fallback
+    ${TEST_DIR}/svs/fallback/fallback.cpp
 
     # Global scalar quantization
     ${TEST_DIR}/svs/quantization/scalar/scalar.cpp

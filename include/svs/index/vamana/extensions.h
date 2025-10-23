@@ -619,6 +619,8 @@ struct Reconstruct {
 // Customization point for reconstructing vectors.
 inline constexpr Reconstruct reconstruct_accessor{};
 
+#ifdef USE_PROPRIETARY
+
 template <typename T, size_t Extent, typename Alloc>
 SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
     svs::tag_t<reconstruct_accessor> SVS_UNUSED(cpo),
@@ -626,6 +628,17 @@ SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
 ) {
     return data::GetDatumAccessor();
 }
+
+#else // USE_PROPRIETARY
+
+template <data::ImmutableMemoryDataset Data>
+SVS_FORCE_INLINE data::GetDatumAccessor svs_invoke(
+    svs::tag_t<reconstruct_accessor> SVS_UNUSED(cpo), const Data& SVS_UNUSED(dataset)
+) {
+    return data::GetDatumAccessor();
+}
+
+#endif // USE_PROPRIETARY
 
 /////
 ///// Distance

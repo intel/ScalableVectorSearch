@@ -17,6 +17,7 @@
 // Dependencies within the python SVS bindings directory.
 #include "svs/python/allocator.h"
 #include "svs/python/common.h"
+#include "svs/python/conversion.h"
 #include "svs/python/core.h"
 #include "svs/python/dynamic_flat.h"
 #include "svs/python/dynamic_vamana.h"
@@ -228,6 +229,11 @@ Args:
 
     // Core data types
     svs::python::core::wrap(m);
+
+#ifdef USE_PROPRIETARY
+    // Dataset conversion.
+    svs::python::conversion::wrap(m);
+#endif
 
     // Intel(R) MKL
     m.def(
