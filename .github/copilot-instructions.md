@@ -2,17 +2,24 @@
 
 ## Repository Overview
 
-**Scalable Vector Search (SVS)** is a high-performance C++20 library for vector similarity search, optimized for Intel x86 architectures but portable to other platforms. The library implements state-of-the-art Vamana graph-based approximate nearest neighbor (ANN) search and supports billions of high-dimensional vectors with high accuracy and speed. SVS features:
+**Scalable Vector Search (SVS)** is a high-performance C++20 library for vector similarity search, optimized for Intel x86 architectures but portable to other platforms. The library implements state-of-the-art Vamana graph-based approximate nearest neighbor (ANN) search and supports billions of high-dimensional vectors with high accuracy and speed.
 
-- **Core language**: C++20 with modern concepts for optimal compiler optimizations
-- **Can be used as**: Header-only library or with Python bindings
-- **Runtime ISA dispatching**: Automatically uses best available instruction set (SSE, AVX2, AVX512)
-- **Python bindings**: Require shape-specialized templates for different data dimensionalities
-- **Key algorithms**: Vamana graph-based search, LVQ/LeanVec compression (proprietary, available via shared libraries)
+**Architecture**: The library uses a layered design:
+- **Low-level index implementations** (`include/svs/index/`) provide templated, performance-critical algorithms (Vamana, Flat, IVF)
+- **Orchestrators** (`include/svs/orchestrators/`) wrap indices with type-erased interfaces, hiding template complexity for simpler APIs
+- **Extensions** (`include/svs/extensions/`) use customization point objects (`svs_invoke`) to specialize behavior for different data types
+
+**Key features**:
+- **Core language**: C++20 with modern concepts enabling compile-time optimizations and type safety
+- **Deployment options**: Header-only library for integration, or pre-built Python bindings via PyPI
+- **Multi-architecture support**: Runtime ISA dispatching selects optimal SIMD instructions (SSE, AVX2, AVX512) at load time
+- **Compression**: LVQ/LeanVec proprietary compression (closed-source, available via shared libraries reduces memory footprint
+- **Python bindings**: Template specialization for common dimensionalities enables efficient Python API without sacrificing performance
 
 **Repository size**: Medium (~10k LOC core library, extensive tests and examples)
 **Build system**: CMake 3.21+ with C++20 compiler (GCC 11+, Clang 15+)
-**Test framework**: Catch2 v3.4.0 (unit tests), ctest (integration tests)
+**Test framework**: Catch2 v3.4.0 (unit tests with `CATCH_` prefixed macros), ctest (integration tests)
+**Performance focus**: The library uses extensive compile-time dispatch and template metaprogramming to generate optimized code paths for different data types and CPU architectures, enabling near-optimal performance without runtime overhead
 
 ## Critical Build Instructions
 
@@ -180,7 +187,7 @@ ScalableVectorSearch/
 │   └── pyproject.toml       # Build configuration
 ├── cmake/                   # CMake modules
 │   ├── options.cmake        # ** BUILD OPTIONS (IMPORTANT) **
-│   ├── multi-arch.cmake     # Multi-architecture support
+│   ├── multi-arch.cmake     # Multi-architecture support (SSE, AVX2, AVX512)
 │   └── *.cmake              # Dependency configs (eve, fmt, spdlog, etc.)
 ├── data/                    # Test data and schemas
 │   ├── test_dataset/        # Small test datasets
@@ -188,27 +195,27 @@ ScalableVectorSearch/
 ├── docker/                  # Docker build environments
 ├── examples/
 │   ├── cpp/                 # C++ usage examples
-│   │   ├── vamana.cpp       # Main search example
-│   │   ├── types.cpp        # Supported types
-│   │   ├── saveload.cpp     # Save/load patterns
-│   │   ├── dispatcher.cpp   # Compile-time dispatch
-│   │   └── shared/          # LVQ/LeanVec via shared library
+│   │   ├── vamana.cpp       # Basic search workflow (build, search, recall)
+│   │   ├── types.cpp        # Supported data types demonstration
+│   │   ├── saveload.cpp     # Index serialization/deserialization
+│   │   ├── dispatcher.cpp   # Compile-time type dispatch patterns
+│   │   └── shared/          # Using LVQ/LeanVec via shared library
 │   └── python/              # Python examples
 ├── include/svs/             # ** CORE LIBRARY HEADERS **
 │   ├── lib/                 # Foundation: arrays, threads, I/O, SIMD
 │   ├── core/                # Core: distance, data structures, allocators
 │   ├── index/               # Index implementations
-│   │   ├── vamana/          # Vamana graph index
+│   │   ├── vamana/          # Vamana graph index (templated implementation)
 │   │   ├── flat/            # Flat (brute-force) index
 │   │   └── inverted/        # Inverted index (IVF)
-│   ├── orchestrators/       # High-level APIs with type-erasure for simple interfaces
-│   ├── quantization/        # Vector quantization
-│   └── extensions/          # svs_invoke overloads to hook into core SVS routines
+│   ├── orchestrators/       # High-level type-erased APIs wrapping indices for simpler use
+│   ├── quantization/        # Vector quantization (scalar quantization implementations)
+│   └── extensions/          # Customization points via svs_invoke for type-specific behavior
 ├── tests/                   # ** C++ TEST SUITE **
-│   ├── svs/                 # Unit tests (mirrors include/svs/)
-│   ├── integration/         # Integration tests
-│   ├── benchmark/           # Benchmark tests
-│   └── utils/               # Test utilities
+│   ├── svs/                 # Unit tests (mirrors include/svs/ structure)
+│   ├── integration/         # End-to-end integration tests
+│   ├── benchmark/           # Benchmark framework tests
+│   └── utils/               # Test utilities and reference implementations
 ├── tools/
 │   ├── clang-format.sh      # ** FORMATTING SCRIPT (USE THIS) **
 │   └── benchmark_inputs/    # Benchmark configurations
@@ -237,9 +244,9 @@ ScalableVectorSearch/
 
 Main checks that run on every PR:
 
-1. **build-linux.yml**: Builds with multiple compilers (g++-11, g++-12, clang++-15) in `RelWithDebugInfo` mode, runs all C++ tests and examples
-2. **pre-commit.yml**: Verifies code formatting with clang-format 15
-3. **cibuildwheel.yml**: Builds Python wheels (uses custom manylinux2014 container)
+1. **build-linux.yml**: Matrix build with multiple compilers (g++-11, g++-12, clang++-15) in `RelWithDebugInfo` mode. Tests both with and without IVF (Intel MKL). Runs full test suite and C++ examples (~5-10 min per configuration)
+2. **pre-commit.yml**: Verifies code formatting with clang-format 15. Fails if any file doesn't match formatting standards
+3. **cibuildwheel.yml**: Builds manylinux2014 Python wheels for multiple Python versions (3.9-3.12) using custom container with GCC devtoolset-11
 
 **To replicate CI locally**: Use the exact cmake command from `build-linux.yml` configuration step.
 
@@ -303,11 +310,11 @@ make -j$(nproc)
 5. **Test early and often** - Build times are reasonable (~5-10 min), so test incrementally
 6. **Tests are required** - New features and bugfixes must be accompanied by tests. For bugs, first reproduce the issue in a unit test, then fix it in the code
 7. **Header-only library** - Most code is in `include/svs/`, changes don't require recompiling everything
-8. **ISA dispatching** - Runtime dispatch means the same binary runs on different CPU architectures
-9. **Type erasure** - Orchestrators use type-erasure to provide simple and consistent interfaces across different implementations
-10. **Extensions system** - The `extensions/` directory provides `svs_invoke` overloads/specializations to hook into core SVS routines (similar to `std::invoke`)
-11. **Test filters are your friend** - Use Catch2 tags to run subsets of tests during development
-12. **Python bindings are specialized** - Changes to template parameters may require Python binding updates
+8. **ISA dispatching** - Runtime dispatch means the same binary runs on different CPU architectures. The library detects available CPU features (SSE, AVX2, AVX512) at runtime and dispatches to optimized code paths
+9. **Type erasure in orchestrators** - Orchestrators (e.g., `svs::Vamana`) use type-erasure to hide template complexity, providing simple consistent interfaces. The underlying templated index implementations remain in `include/svs/index/`
+10. **Extensions system** - The `extensions/` directory uses customization point objects (`svs_invoke`) to hook into core SVS routines, similar to `std::invoke`. This allows specializing behavior for different data types (e.g., compressed vs. uncompressed vectors) without modifying core algorithms
+11. **Test filters are your friend** - Use Catch2 tags (e.g., `[integration]`, `[vamana]`, `[core]`) to run subsets of tests during development
+12. **Python bindings are specialized** - Python bindings pre-specialize templates for common vector dimensionalities. Changes to template parameters in C++ may require updating Python binding specializations
 13. **Version is synchronized** - Keep version in sync across `CMakeLists.txt`, `setup.py`, and test files
 
 ## Additional Resources
