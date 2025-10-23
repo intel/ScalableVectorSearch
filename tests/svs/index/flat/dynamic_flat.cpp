@@ -91,7 +91,8 @@ void do_check(
     index.search(
         results.view(),
         svs::data::ConstSimpleDataView<QueryEltype>{
-            queries.data(), queries.size(), queries.dimensions()},
+            queries.data(), queries.size(), queries.dimensions()
+        },
         search_parameters
     );
     double search_time = svs::lib::time_difference(tic);
@@ -103,9 +104,9 @@ void do_check(
     // compute recall
     double recall = svs::k_recall_at_n(gt, results, NUM_NEIGHBORS, NUM_NEIGHBORS);
 
-    std::cout << "[" << message << "] -- {"
-              << "operation: " << operation_time << ", groundtruth: " << groundtruth_time
-              << ", search: " << search_time << ", recall: " << recall << "}\n";
+    std::cout << "[" << message << "] -- {" << "operation: " << operation_time
+              << ", groundtruth: " << groundtruth_time << ", search: " << search_time
+              << ", recall: " << recall << "}\n";
 }
 
 template <typename MutableIndex, typename Queries>

@@ -244,7 +244,8 @@ svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job) {
         Extent(svs::Dynamic),
         job.num_threads_,
         test_search_parameters(),
-        test_search_configs()};
+        test_search_configs()
+    };
 
     // Load the components for the test.
     auto tic = svs::lib::now();
@@ -268,7 +269,8 @@ svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job) {
         index,
         search_job,
         svsbenchmark::search::QuerySet{
-            std::move(queries), std::move(groundtruth), job.queries_in_training_set_},
+            std::move(queries), std::move(groundtruth), job.queries_in_training_set_
+        },
         svsbenchmark::LoadTime{load_time},
         IndexTraits<svs::Vamana>::test_generation_optimization()
     );
@@ -276,7 +278,8 @@ svsbenchmark::TestFunctionReturn test_search(const VamanaTest& job) {
     return TestFunctionReturn{
         .key_ = "vamana_test_search",
         .results_ =
-            svs::lib::save_to_table(vamana::ExpectedResult(std::move(kind), results))};
+            svs::lib::save_to_table(vamana::ExpectedResult(std::move(kind), results))
+    };
 }
 
 template <typename Eltype, typename Distance>
@@ -286,7 +289,8 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
     const auto& groundtruth_path = job.groundtruth_for(distance);
 
     auto build_parameters = svs::index::vamana::VamanaBuildParameters{
-        pick_alpha(distance), 32, 100, 250, 28, true};
+        pick_alpha(distance), 32, 100, 250, 28, true
+    };
 
     auto kind = svsbenchmark::Uncompressed(svs::datatype_v<Eltype>);
 
@@ -306,7 +310,8 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
         svs::distance_type_v<Distance>,
         Extent(svs::Dynamic),
         build_parameters,
-        job.num_threads_};
+        job.num_threads_
+    };
 
     // Load the components for the test.
     auto tic = svs::lib::now();
@@ -326,7 +331,8 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
         index,
         build_job,
         svsbenchmark::search::QuerySet{
-            std::move(queries), std::move(groundtruth), job.queries_in_training_set_},
+            std::move(queries), std::move(groundtruth), job.queries_in_training_set_
+        },
         svsbenchmark::BuildTime{build_time},
         IndexTraits<svs::Vamana>::test_generation_optimization()
     );
@@ -334,7 +340,8 @@ svsbenchmark::TestFunctionReturn test_build(const VamanaTest& job) {
     return TestFunctionReturn{
         .key_ = "vamana_test_build",
         .results_ =
-            svs::lib::save_to_table(vamana::ExpectedResult(std::move(kind), results))};
+            svs::lib::save_to_table(vamana::ExpectedResult(std::move(kind), results))
+    };
 }
 
 } // namespace

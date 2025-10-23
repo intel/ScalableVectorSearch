@@ -177,7 +177,8 @@ template <typename Op, typename Pred>
 Prefetcher<std::remove_cvref_t<Op>, std::remove_cvref_t<Pred>>
 make_prefetcher(PrefetchParameters parameters, size_t imax, Op&& op, Pred&& pred) {
     return Prefetcher<std::remove_cvref_t<Op>, std::remove_cvref_t<Pred>>{
-        parameters, imax, SVS_FWD(op), SVS_FWD(pred)};
+        parameters, imax, SVS_FWD(op), SVS_FWD(pred)
+    };
 }
 
 } // namespace svs::lib

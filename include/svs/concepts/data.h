@@ -186,8 +186,8 @@ void copy(const Input& input, Output& output) {
 
 struct GetDatumAccessor {
     template <ImmutableMemoryDataset Data, std::integral I>
-    SVS_FORCE_INLINE auto operator()(const Data& data, I i) const
-        -> decltype(data.get_datum(i)) {
+    SVS_FORCE_INLINE auto
+    operator()(const Data& data, I i) const -> decltype(data.get_datum(i)) {
         return data.get_datum(i);
     }
 
@@ -199,9 +199,9 @@ struct GetDatumAccessor {
 
 template <typename Accessor, typename Data>
 concept AccessorFor = requires(Accessor& accessor, const Data& data, size_t i) {
-                          accessor(data, i);
-                          accessor.prefetch(data, i);
-                      };
+    accessor(data, i);
+    accessor.prefetch(data, i);
+};
 
 } // namespace data
 } // namespace svs

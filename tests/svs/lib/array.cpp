@@ -385,7 +385,8 @@ make_source_array(const Dims& dims, size_t n_elements, size_t id, Bools<C, M, S>
     check_equal(
         alloc,
         std::array<size_t, 14>{
-            id, 1, sizeof(T) * n_elements, 0, 0, n_elements, 0, 0, 0, 1, 0, 0, 0, 0}
+            id, 1, sizeof(T) * n_elements, 0, 0, n_elements, 0, 0, 0, 1, 0, 0, 0, 0
+        }
     );
 
     // Assign the contents based on whether the id is A or B.

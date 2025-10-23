@@ -609,7 +609,8 @@ class MultiMutableVamanaIndex {
                      get_max_candidates(),
                      get_prune_to(),
                      get_full_search_history()},
-                    get_search_parameters()};
+                    get_search_parameters()
+                };
 
                 return lib::SaveTable(
                     "multi_vamana_dynamic_auxiliary_parameters",
@@ -683,18 +684,21 @@ struct MultiVamanaStateLoader {
                 return MultiVamanaStateLoader{
                     SVS_LOAD_MEMBER_AT_(table, parameters),
                     IDTranslator{},
-                    std::move(labels)};
+                    std::move(labels)
+                };
             }
             case MultiMutableVamanaLoad::FROM_DYNAMIC:
                 return MultiVamanaStateLoader{
                     SVS_LOAD_MEMBER_AT_(table, parameters),
                     svs::lib::load_at<IDTranslator>(table, "translation"),
-                    std::vector<label_type>{}};
+                    std::vector<label_type>{}
+                };
             case MultiMutableVamanaLoad::FROM_STATIC:
                 return MultiVamanaStateLoader{
                     lib::load<VamanaIndexParameters>(table),
                     IDTranslator::Identity(assume_datasize),
-                    std::vector<label_type>{}};
+                    std::vector<label_type>{}
+                };
             default:
                 throw ANNEXCEPTION("Invalid multi vamana load type");
         }
@@ -757,7 +761,8 @@ auto auto_multi_dynamic_assemble(
                 std::move(distance),
                 labels,
                 std::move(threadpool),
-                std::move(logger)};
+                std::move(logger)
+            };
         }
         case MultiMutableVamanaLoad::FROM_DYNAMIC:
         case MultiMutableVamanaLoad::FROM_STATIC: {
@@ -782,7 +787,8 @@ auto auto_multi_dynamic_assemble(
                 std::move(distance),
                 std::move(translator),
                 std::move(threadpool),
-                std::move(logger)};
+                std::move(logger)
+            };
         }
         default:
             throw ANNEXCEPTION("Invalid multi vamana load type");

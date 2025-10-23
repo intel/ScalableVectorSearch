@@ -239,7 +239,8 @@ template <data::ImmutableMemoryDataset Data, std::integral I> class Clustering {
         if (saved_data_type != datatype_v<T>) {
             auto centroids_orig =
                 lib::load_at<data::SimpleData<float, Data::extent>>(table, "centroids");
-            if constexpr (std::is_same_v<T, svs::Float16> || std::is_same_v<T, svs::BFloat16>) {
+            if constexpr (std::is_same_v<T, svs::Float16> ||
+                          std::is_same_v<T, svs::BFloat16>) {
                 auto centroids = convert_data<T>(centroids_orig, threadpool);
                 return Clustering<Data, I>{centroids, deserialize_clusters(io)};
             } else {
@@ -248,7 +249,8 @@ template <data::ImmutableMemoryDataset Data, std::integral I> class Clustering {
         }
 
         return Clustering<Data, I>{
-            SVS_LOAD_MEMBER_AT_(table, centroids), deserialize_clusters(io)};
+            SVS_LOAD_MEMBER_AT_(table, centroids), deserialize_clusters(io)
+        };
     }
 };
 

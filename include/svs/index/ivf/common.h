@@ -160,7 +160,8 @@ struct IVFSearchParameters {
 
     static IVFSearchParameters load(const lib::ContextFreeLoadTable& table) {
         return IVFSearchParameters{
-            SVS_LOAD_MEMBER_AT_(table, n_probes), SVS_LOAD_MEMBER_AT_(table, k_reorder)};
+            SVS_LOAD_MEMBER_AT_(table, n_probes), SVS_LOAD_MEMBER_AT_(table, k_reorder)
+        };
     }
 
     constexpr friend bool
@@ -535,7 +536,8 @@ auto kmeans_training(
 
         for (size_t batch = 0; batch < num_batches; ++batch) {
             auto this_batch = threads::UnitRange{
-                batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+                batch * batchsize, std::min((batch + 1) * batchsize, data.size())
+            };
             auto data_batch = data::make_view(data, this_batch);
             centroid_assignment(
                 data_batch,

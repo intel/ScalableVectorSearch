@@ -47,7 +47,8 @@ void check(
 
     CATCH_REQUIRE(index.size() > num_neighbors);
     auto p = svs::index::vamana::VamanaSearchParameters{
-        {num_neighbors, num_neighbors}, false, 0, 0};
+        {num_neighbors, num_neighbors}, false, 0, 0
+    };
 
     auto scratch = index.scratchspace(p);
 

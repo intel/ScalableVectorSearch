@@ -573,13 +573,14 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
         threads::parallel_for(
             threadpool_,
             threads::DynamicPartition{
-                queries.size(),
-                compute_query_batch_size(search_parameters, queries.size())},
+                queries.size(), compute_query_batch_size(search_parameters, queries.size())
+            },
             [&](const auto& query_indices, uint64_t /*tid*/) {
                 // Broadcast the distance functor so each thread can process all queries
                 // in its current batch.
                 distance::BroadcastDistance distances{
-                    extensions::distance(data_, distance_), query_indices.size()};
+                    extensions::distance(data_, distance_), query_indices.size()
+                };
 
                 search_patch(
                     queries,

@@ -105,7 +105,8 @@ struct VamanaSearchParameters {
             ),
             SVS_LOAD_MEMBER_AT_(table, search_buffer_visited_set),
             4,
-            1};
+            1
+        };
     }
 
     static VamanaSearchParameters load(const lib::ContextFreeLoadTable& table) {

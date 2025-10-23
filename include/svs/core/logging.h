@@ -60,7 +60,8 @@ inline constexpr std::array<Level, 7> all_levels = {
     Level::Warn,
     Level::Error,
     Level::Critical,
-    Level::Off};
+    Level::Off
+};
 
 /// @brief The type of the global logger.
 using logger_ptr = std::shared_ptr<::spdlog::logger>;

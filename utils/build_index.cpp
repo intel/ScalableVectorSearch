@@ -59,7 +59,8 @@ void build_index(
         build_search_window_size,
         max_candidate_pool_size,
         max_degree,
-        true};
+        true
+    };
 
     auto index = svs::Vamana::build<E>(
         parameters, svs::VectorDataLoader<E, D>(vecs_filename), dist_type, n_threads
@@ -142,7 +143,8 @@ int svs_main(std::vector<std::string> args) {
         {"int8", build_index<int8_t>},
         {"uint8", build_index<uint8_t>},
         {"float", build_index<float>},
-        {"float16", build_index<svs::Float16>}};
+        {"float16", build_index<svs::Float16>}
+    };
 
     auto it = dispatcher.find(data_type);
     if (it == dispatcher.end()) {

@@ -120,7 +120,8 @@ CATCH_TEST_CASE("Vamana Index Parameters", "[index][vamana]") {
 
     CATCH_SECTION("Current version") {
         auto p = VamanaIndexParameters{
-            128, {12.4f, 478, 13, 4, 10, false}, {{10, 20}, true, 1, 1}};
+            128, {12.4f, 478, 13, 4, 10, false}, {{10, 20}, true, 1, 1}
+        };
         CATCH_REQUIRE(svs::lib::test_self_save_load_context_free(p));
     }
 }

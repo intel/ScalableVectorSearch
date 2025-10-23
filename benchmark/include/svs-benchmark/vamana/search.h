@@ -210,7 +210,8 @@ struct SearchJob {
             SVS_LOAD_MEMBER_AT_(table, ndims),
             SVS_LOAD_MEMBER_AT_(table, num_threads),
             SVS_LOAD_MEMBER_AT_(table, search_parameters),
-            SVS_LOAD_MEMBER_AT_(table, preset_parameters)};
+            SVS_LOAD_MEMBER_AT_(table, preset_parameters)
+        };
     }
 };
 

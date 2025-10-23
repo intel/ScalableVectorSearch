@@ -179,9 +179,9 @@ class SaveTable {
 namespace detail {
 template <typename T, typename To>
 concept HasZeroArgSaveTo = requires(const T& x) {
-                               { x.save() } -> std::same_as<To>;
-                           };
-}
+    { x.save() } -> std::same_as<To>;
+};
+} // namespace detail
 
 ///
 /// @brief Proxy object for an object ``x`` of type ``T``.

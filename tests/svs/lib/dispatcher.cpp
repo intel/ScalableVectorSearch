@@ -290,7 +290,8 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
 
                     // Passed by mutable reference - ensure we can mutate our argument
                     // and have this mutation be visible to the caller.
-                    if constexpr (is_mutable_reference_v<From> && is_mutable_reference_v<To>) {
+                    if constexpr (is_mutable_reference_v<From> &&
+                                  is_mutable_reference_v<To>) {
                         arg.push_back(4);
                     }
                 };
@@ -340,7 +341,8 @@ CATCH_TEST_CASE("Dispatcher2", "[lib][dispatcher2]") {
 
                     // Passed by mutable reference - ensure we can mutate our argument
                     // and have this mutation be visible to the caller.
-                    if constexpr (is_mutable_reference_v<From> && is_mutable_reference_v<To>) {
+                    if constexpr (is_mutable_reference_v<From> &&
+                                  is_mutable_reference_v<To>) {
                         arg.value_ = 5;
                     }
                 };

@@ -596,7 +596,8 @@ CATCH_TEST_CASE("Fuzzing", "[core][search_buffer]") {
     auto run_test = [&]<typename Cmp>(Cmp SVS_UNUSED(cmp)) {
         auto setup = FuzzSetup{num_trials, dataset_size, 32, 32, seed, allow_invalid};
         auto buffer = svs::index::vamana::SearchBuffer<uint32_t, Cmp>{
-            svs::index::vamana::SearchBufferConfig{32, 32}};
+            svs::index::vamana::SearchBufferConfig{32, 32}
+        };
         fuzz_test(buffer, setup);
 
         // Change size;
@@ -917,7 +918,8 @@ CATCH_TEST_CASE("Fuzzing Mutable", "[core][search_buffer]") {
     auto run_test = [&]<typename Cmp>(Cmp SVS_UNUSED(cmp)) {
         auto setup = FuzzSetup{num_trials, dataset_size, 32, 32, seed, allow_invalid};
         auto buffer = svs::index::vamana::MutableBuffer<uint32_t, Cmp>{
-            svs::index::vamana::SearchBufferConfig{32, 32}};
+            svs::index::vamana::SearchBufferConfig{32, 32}
+        };
         fuzz_test(buffer, setup);
 
         // Change size;

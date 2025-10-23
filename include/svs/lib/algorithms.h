@@ -42,7 +42,8 @@ template <typename T> struct MinMax {
     /// A static initializer to keep this class a simple aggregate.
     static MinMax init() {
         return MinMax{
-            .min = std::numeric_limits<T>::max(), .max = std::numeric_limits<T>::lowest()};
+            .min = std::numeric_limits<T>::max(), .max = std::numeric_limits<T>::lowest()
+        };
     }
 
     void update(T x) {

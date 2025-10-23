@@ -67,7 +67,8 @@ CATCH_TEMPLATE_TEST_CASE(
     const auto groundtruth = test_dataset::load_groundtruth(svs::distance_type_v<Distance>);
 
     const svs::index::vamana::VamanaBuildParameters build_parameters{
-        alpha, max_degree, 2 * max_degree, 1000, max_degree - 4, true};
+        alpha, max_degree, 2 * max_degree, 1000, max_degree - 4, true
+    };
 
     const auto search_parameters = svs::index::vamana::VamanaSearchParameters();
 

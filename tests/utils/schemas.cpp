@@ -48,12 +48,14 @@ std::filesystem::path test_vtest_file() {
 // Expected contents for vtest
 std::vector<std::vector<float>> vtest_contents() {
     return std::vector<std::vector<float>>{
-        {1.0, 2.0, 3.0, 4.0, 5.0}, {6.0, 7.0, 8.0, 9.0, 10.0}};
+        {1.0, 2.0, 3.0, 4.0, 5.0}, {6.0, 7.0, 8.0, 9.0, 10.0}
+    };
 }
 
 // Expected contents for v1
 std::vector<std::vector<float>> v1_contents() {
     return std::vector<std::vector<float>>{
-        {101.0, 102.0, 103.0, 104.0, 105.0}, {106.0, 107.0, 108.0, 109.0, 110.0}};
+        {101.0, 102.0, 103.0, 104.0, 105.0}, {106.0, 107.0, 108.0, 109.0, 110.0}
+    };
 }
 } // namespace test_schemas

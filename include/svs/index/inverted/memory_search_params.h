@@ -54,7 +54,8 @@ struct InvertedSearchParameters {
     static InvertedSearchParameters load(const lib::ContextFreeLoadTable& table) {
         return InvertedSearchParameters{
             SVS_LOAD_MEMBER_AT_(table, primary_parameters),
-            SVS_LOAD_MEMBER_AT_(table, refinement_epsilon)};
+            SVS_LOAD_MEMBER_AT_(table, refinement_epsilon)
+        };
     }
 
     constexpr friend bool

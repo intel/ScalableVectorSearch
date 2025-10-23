@@ -54,7 +54,8 @@ int svs_main(std::vector<std::string> args) {
         std::cout << "Converting Bin data!" << std::endl;
         auto reader = svs::io::binary::BinaryReader<float>{filename_f32};
         auto writer = svs::io::binary::BinaryWriter<svs::Float16>{
-            filename_f16, reader.nvectors(), reader.ndims()};
+            filename_f16, reader.nvectors(), reader.ndims()
+        };
         for (auto i : reader) {
             writer << i;
         }

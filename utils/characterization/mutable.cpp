@@ -122,8 +122,7 @@ struct Report {
 };
 
 std::ostream& operator<<(std::ostream& stream, const Report& report) {
-    stream << "[" << report.message_ << "] -- {"
-           << "operation: " << report.operation_time_
+    stream << "[" << report.message_ << "] -- {" << "operation: " << report.operation_time_
            << ", groundtruth: " << report.groundtruth_time_
            << ", search: " << report.search_time_ << ", recall: " << report.recall_ << "}";
     return stream;
@@ -279,7 +278,8 @@ int svs_main(std::vector<std::string> args) {
     }
 
     svs::index::vamana::VamanaBuildParameters parameters{
-        ALPHA, max_degree, 2 * max_degree, 1000, max_degree, true};
+        ALPHA, max_degree, 2 * max_degree, 1000, max_degree, true
+    };
 
     auto tic = svs::lib::now();
     auto index = svs::index::vamana::MutableVamanaIndex(

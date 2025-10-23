@@ -167,7 +167,8 @@ struct Matcher {
     ) {
         auto matcher = Matcher{
             .eltype = SVS_LOAD_MEMBER_AT(table, eltype),
-            .dims = SVS_LOAD_MEMBER_AT(table, dims)};
+            .dims = SVS_LOAD_MEMBER_AT(table, dims)
+        };
 
         // Perform a sanity check on the arguments.
         if (type_hint != DataType::undef && type_hint != matcher.eltype) {
@@ -481,9 +482,8 @@ class SimpleData {
 
     template <std::integral I, threads::ThreadPool Pool>
         requires(!is_const)
-    void compact(
-        std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000
-    ) {
+    void
+    compact(std::span<const I> new_to_old, Pool& threadpool, size_t batchsize = 1'000'000) {
         // Allocate scratch space.
         batchsize = std::min(batchsize, size());
         auto buffer = data::SimpleData<T, Extent>(batchsize, dimensions());
@@ -503,7 +503,8 @@ class SimpleData {
         if (forced || new_size > capacity()) {
             auto new_data = array_type{
                 svs::make_dims(new_size, lib::forward_extent<Extent>(dimensions())),
-                get_allocator()};
+                get_allocator()
+            };
 
             // Copy our contents into the new array.
             // Since the backing array is dense, we can use `memcpy`.

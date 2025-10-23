@@ -86,7 +86,8 @@ auto kmeans_clustering_impl(
     auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
     for (size_t batch = 0; batch < num_batches; ++batch) {
         auto this_batch = threads::UnitRange{
-            batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+            batch * batchsize, std::min((batch + 1) * batchsize, data.size())
+        };
         auto data_batch_view = data::make_view(data, this_batch);
         convert_data(data_batch_view, data_batch, threadpool);
         centroid_assignment(

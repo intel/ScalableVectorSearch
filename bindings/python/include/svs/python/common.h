@@ -186,7 +186,8 @@ matrix_view(pybind11::array_t<Eltype, pybind11::array::c_style>& data) {
 template <typename T>
 pybind11::array_t<T, pybind11::array::c_style> numpy_vector(size_t s) {
     return pybind11::array_t<T, pybind11::array::c_style>{
-        {svs::lib::narrow<pybind11::ssize_t>(s)}};
+        {svs::lib::narrow<pybind11::ssize_t>(s)}
+    };
 }
 
 ///

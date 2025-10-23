@@ -117,8 +117,9 @@ CATCH_TEST_CASE("Thread Pool", "[core][threads][threadpool]") {
                 [&](const auto& range, uint64_t tid) {
                     std::lock_guard lock{mutex};
                     seen_threads.push_back(tid);
-                    ranges.push_back(threads::UnitRange<uint64_t>{
-                        *(range.begin()), *(range.end())});
+                    ranges.push_back(
+                        threads::UnitRange<uint64_t>{*(range.begin()), *(range.end())}
+                    );
                 }
             );
         }

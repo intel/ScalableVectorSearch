@@ -455,7 +455,8 @@ CATCH_TEST_CASE("Control Block", "[core][threads][thread_control_block]") {
 
         CATCH_SECTION("Shutdown or Exception") {
             auto graceful_states = std::vector<svs::threads::ThreadState>{
-                svs::threads::ThreadState::Shutdown, svs::threads::ThreadState::Exception};
+                svs::threads::ThreadState::Shutdown, svs::threads::ThreadState::Exception
+            };
 
             for (auto state : graceful_states) {
                 block.set_state(state);

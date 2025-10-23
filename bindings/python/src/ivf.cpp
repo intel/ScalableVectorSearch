@@ -516,7 +516,8 @@ void wrap(py::module& m) {
                     is_hierarchical,
                     training_fraction,
                     hierarchical_level1_clusters,
-                    seed};
+                    seed
+                };
             }),
             py::arg("num_centroids") = 1000,
             py::arg("minibatch_size") = 10'000,
@@ -559,7 +560,8 @@ void wrap(py::module& m) {
             Args:
                 n_probes: The number of nearest clusters to be explored
                 k_reorder: Level of reordering or reranking done when using compressed datasets
-        )"};
+        )"
+    };
 
     params
         .def(py::init<size_t, float>(), py::arg("n_probes") = 1, py::arg("k_reorder") = 1.0)

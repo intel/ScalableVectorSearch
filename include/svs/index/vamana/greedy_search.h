@@ -166,7 +166,8 @@ void greedy_search(
 
         auto prefetcher = lib::make_prefetcher(
             lib::PrefetchParameters{
-                prefetch_parameters.lookahead, prefetch_parameters.step},
+                prefetch_parameters.lookahead, prefetch_parameters.step
+            },
             num_neighbors,
             [&](size_t i) { accessor.prefetch(dataset, neighbors[i]); },
             [&](size_t i) {

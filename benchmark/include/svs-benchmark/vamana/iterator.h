@@ -63,7 +63,8 @@ struct IteratorSearchParameters {
             {SVS_LIST_SAVE_(batch_sizes),
              SVS_LIST_SAVE_(target_recalls),
              SVS_LIST_SAVE_(num_batches),
-             SVS_LIST_SAVE_(query_subsample)}};
+             SVS_LIST_SAVE_(query_subsample)}
+        };
     }
 
     static IteratorSearchParameters load(const svs::lib::ContextFreeLoadTable& table) {
@@ -71,7 +72,8 @@ struct IteratorSearchParameters {
             SVS_LOAD_MEMBER_AT_(table, batch_sizes),
             SVS_LOAD_MEMBER_AT_(table, target_recalls),
             SVS_LOAD_MEMBER_AT_(table, num_batches),
-            SVS_LOAD_MEMBER_AT_(table, query_subsample)};
+            SVS_LOAD_MEMBER_AT_(table, query_subsample)
+        };
     }
 };
 
@@ -101,8 +103,10 @@ svsbenchmark::search::QuerySet<Q, I> subsample(
     return svsbenchmark::search::QuerySet<Q, I>{
         svs::data::ConstSimpleDataView<Q>{queries.data(), 2 * count, queries.dimensions()},
         svs::data::ConstSimpleDataView<I>{
-            groundtruth.data(), 2 * count, groundtruth.dimensions()},
-        count};
+            groundtruth.data(), 2 * count, groundtruth.dimensions()
+        },
+        count
+    };
 }
 
 struct IteratorSearch {
@@ -131,7 +135,8 @@ struct IteratorSearch {
             .distance_ = svs::DistanceType::L2,
             .parameters_ = IteratorSearchParameters::example(),
             .query_type_ = svs::DataType::float32,
-            .ndims_ = Extent{svs::Dynamic}};
+            .ndims_ = Extent{svs::Dynamic}
+        };
     }
 
     // Dispatch invocation.
@@ -173,7 +178,8 @@ struct IteratorSearch {
             .distance_ = SVS_LOAD_MEMBER_AT_(table, distance),
             .parameters_ = SVS_LOAD_MEMBER_AT_(table, parameters),
             .query_type_ = SVS_LOAD_MEMBER_AT_(table, query_type),
-            .ndims_ = SVS_LOAD_MEMBER_AT_(table, ndims)};
+            .ndims_ = SVS_LOAD_MEMBER_AT_(table, ndims)
+        };
     }
 };
 
@@ -214,7 +220,8 @@ struct YieldedResult {
              SVS_LIST_SAVE_(yielded),
              SVS_LIST_SAVE_(total_yielded),
              SVS_LIST_SAVE_(total_recall),
-             SVS_LIST_SAVE_(execution_time)}};
+             SVS_LIST_SAVE_(execution_time)}
+        };
     }
 };
 
@@ -266,7 +273,8 @@ template <typename Index> struct QueryIteratorResult {
              SVS_LIST_SAVE_(num_batches),
              SVS_LIST_SAVE_(target_recall),
              SVS_LIST_SAVE_(report),
-             SVS_LIST_SAVE_(results)}};
+             SVS_LIST_SAVE_(results)}
+        };
     }
 };
 
@@ -372,7 +380,8 @@ std::vector<QueryIteratorResult<Index>> tune_and_search_iterator(
                     .yielded_ = iterator.size(),
                     .total_yielded_ = total_yielded,
                     .total_recall_ = recall,
-                    .execution_time_ = execution_time};
+                    .execution_time_ = execution_time
+                };
             };
 
             // Now that we have the baseline, obtain iterator based results.
@@ -435,10 +444,12 @@ toml::table tune_and_search_iterator(
     // Use a helper lambda to save the results.
     // This lambda can be reused when generating the final ``toml::table`` to ensure the
     // layout is the same.
-    auto serialize_results = [&](const std::vector<QueryIteratorResult<Index>>&
-                                     results_so_far) {
-        return toml::table{{"job", toml_base}, {"results", svs::lib::save(results_so_far)}};
-    };
+    auto serialize_results =
+        [&](const std::vector<QueryIteratorResult<Index>>& results_so_far) {
+            return toml::table{
+                {"job", toml_base}, {"results", svs::lib::save(results_so_far)}
+            };
+        };
 
     auto do_checkpoint = [&](const std::vector<QueryIteratorResult<Index>>& results_so_far
                          ) {

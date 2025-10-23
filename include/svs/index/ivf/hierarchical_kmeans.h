@@ -139,7 +139,8 @@ auto hierarchical_kmeans_clustering_impl(
 
     for (size_t batch = 0; batch < num_batches; ++batch) {
         auto this_batch = threads::UnitRange{
-            batch * batchsize, std::min((batch + 1) * batchsize, data_train.size())};
+            batch * batchsize, std::min((batch + 1) * batchsize, data_train.size())
+        };
         auto data_batch = data::make_view(data_train, this_batch);
         centroid_assignment(
             data_batch,
@@ -170,7 +171,8 @@ auto hierarchical_kmeans_clustering_impl(
     auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
     for (size_t batch = 0; batch < num_batches; ++batch) {
         auto this_batch = threads::UnitRange{
-            batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+            batch * batchsize, std::min((batch + 1) * batchsize, data.size())
+        };
         auto data_batch_view = data::make_view(data, this_batch);
         auto all_assignments_convert = timer.push_back("level1 all assignments convert");
         convert_data(data_batch_view, data_batch, threadpool);
@@ -275,8 +277,8 @@ auto hierarchical_kmeans_clustering_impl(
             maybe_compute_norms<Distance>(centroids_level2_fp32, threadpool);
         for (size_t batch = 0; batch < num_batches; ++batch) {
             auto this_batch = threads::UnitRange{
-                batch * batchsize,
-                std::min((batch + 1) * batchsize, num_assignments_l2_all)};
+                batch * batchsize, std::min((batch + 1) * batchsize, num_assignments_l2_all)
+            };
             auto data_batch = data::make_view(data_level2, this_batch);
             centroid_assignment(
                 data_batch,

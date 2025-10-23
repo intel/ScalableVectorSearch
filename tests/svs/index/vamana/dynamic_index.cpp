@@ -40,7 +40,8 @@
 namespace {
 template <typename T> auto copy_dataset(const T& data) {
     auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
-        data.size(), data.dimensions()};
+        data.size(), data.dimensions()
+    };
     for (size_t i = 0; i < data.size(); ++i) {
         copy.set_datum(i, data.get_datum(i));
     }
@@ -116,7 +117,8 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
             entry_point,
             svs::distance::DistanceL2(),
             svs::threads::UnitRange<size_t>(0, base_data.size()),
-            num_threads};
+            num_threads
+        };
 
         check_equal(base_data, index);
         index.debug_check_graph_consistency(false);

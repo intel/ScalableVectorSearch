@@ -347,8 +347,8 @@ template <typename T, typename Dims, typename Alloc = lib::Allocator<T>> class D
     DenseArray(const DenseArray& other)
         : pointer_{nullptr}
         , dims_{other.dims_}
-        , allocator_{
-              atraits::select_on_container_copy_construction(other.get_allocator())} {
+        , allocator_{atraits::select_on_container_copy_construction(other.get_allocator())
+          } {
         size_t sz = other.size();
         pointer_ = atraits::allocate(allocator_, sz);
         assign(other.begin(), other.end());

@@ -237,13 +237,15 @@ template <> struct CosineFloatOp<16> : public svs::simd::ConvertToFloat<16> {
 
     static Pair accumulate(Pair accumulator, __m512 a, __m512 b) {
         return {
-            _mm512_fmadd_ps(a, b, accumulator.op), _mm512_fmadd_ps(b, b, accumulator.norm)};
+            _mm512_fmadd_ps(a, b, accumulator.op), _mm512_fmadd_ps(b, b, accumulator.norm)
+        };
     }
 
     static Pair accumulate(mask_t m, Pair accumulator, __m512 a, __m512 b) {
         return {
             _mm512_mask3_fmadd_ps(a, b, accumulator.op, m),
-            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)};
+            _mm512_mask3_fmadd_ps(b, b, accumulator.norm, m)
+        };
     }
 
     static Pair combine(Pair x, Pair y) {
@@ -408,13 +410,15 @@ template <> struct CosineFloatOp<8> : public svs::simd::ConvertToFloat<8> {
 
     static Pair accumulate(Pair accumulator, __m256 a, __m256 b) {
         return {
-            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
+            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)
+        };
     }
 
     static Pair accumulate(mask_t /*m*/, Pair accumulator, __m256 a, __m256 b) {
         // For AVX2, masking is handled in the load operations
         return {
-            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)};
+            _mm256_fmadd_ps(a, b, accumulator.op), _mm256_fmadd_ps(b, b, accumulator.norm)
+        };
     }
 
     static Pair combine(Pair x, Pair y) {

@@ -462,7 +462,8 @@ class SQDataset {
         auto compressed = compressor(data, threadpool, allocator);
 
         return SQDataset<element_type, extent, allocator_type>{
-            std::move(compressed), scale, bias};
+            std::move(compressed), scale, bias
+        };
     }
 
     /// @brief Compact the dataset
@@ -500,7 +501,8 @@ class SQDataset {
         return SQDataset<element_type, extent, allocator_type>{
             SVS_LOAD_MEMBER_AT_(table, data, allocator),
             lib::load_at<float>(table, "scale"),
-            lib::load_at<float>(table, "bias")};
+            lib::load_at<float>(table, "bias")
+        };
     }
 
     /// @brief Prefetch data in the dataset.

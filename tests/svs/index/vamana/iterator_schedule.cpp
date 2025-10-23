@@ -189,7 +189,8 @@ CATCH_TEST_CASE("Iterator Schedules", "[vamana][index][iterator][iterator_schedu
         // Construct using `std::in_place_type`.
         // Also test the move-assignment operator while we're at it.
         abstract = svs::index::vamana::AbstractIteratorSchedule{
-            std::in_place_type<svs::index::vamana::DefaultSchedule>, base, size_t{10}};
+            std::in_place_type<svs::index::vamana::DefaultSchedule>, base, size_t{10}
+        };
 
         test_default(abstract, 10);
 
