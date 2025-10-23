@@ -86,8 +86,7 @@ Attributes:
         that will be used to determine stopping conditions for graph search.
     search_buffer_capacity (int, read-only): The (expected) number of valid entries that
         will be available. Must be at least as large as `search_window_size`.
-)"
-    };
+)"};
 
     config.def(py::init<>())
         .def(
@@ -139,8 +138,7 @@ Attributes:
 
 Setting either ``prefetch_lookahead``  or ``prefetch_step`` to zero disables candidate
 prefetching during search.
-    )"
-    };
+    )"};
 
     // N.B.: Keep defaults the same as the C++ class
     params
@@ -222,8 +220,7 @@ Attributes:
     train_prefetchers (bool): Flag to train prefetch parameters.
     use_existing_parameter_values (bool): Should optimization use existing search parameters
         or should it use defaults instead.
-)"
-    };
+)"};
 
     // N.B.: Keep defaults the same as the C++ class
     params.def(py::init<>(), "Instantiate with default parameters.")

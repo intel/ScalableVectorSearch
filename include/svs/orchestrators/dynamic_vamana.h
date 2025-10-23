@@ -136,8 +136,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     explicit DynamicVamana(
         AssembleTag SVS_UNUSED(tag), QueryTypes SVS_UNUSED(type), Impl impl
     )
-        : base_type{std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::move(impl))
-          } {}
+        : base_type{
+              std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::move(impl))} {}
 
     ///// Vamana Interface
     void experimental_reset_performance_parameters() {
@@ -456,8 +456,7 @@ template <lib::TypeList QueryTypes, typename... Args>
 DynamicVamana make_dynamic_vamana(Args&&... args) {
     using Impl = decltype(index::vamana::MutableVamanaIndex{std::forward<Args>(args)...});
     return DynamicVamana{
-        std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)
-    };
+        std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
 } // namespace svs

@@ -125,8 +125,7 @@ template <typename Idx> class BackedgeBuffer {
 
     BackedgeBuffer(size_t num_elements, size_t bucket_size)
         : BackedgeBuffer(BackedgeBufferParameters{
-              bucket_size, lib::div_round_up(num_elements, bucket_size)
-          }) {}
+              bucket_size, lib::div_round_up(num_elements, bucket_size)}) {}
 
     // Add a point.
     void add_edge(Idx src, Idx dst) {
@@ -541,8 +540,7 @@ class VamanaBuilder {
                                 i,
                                 distance::compute(
                                     general_distance, src_data, general_accessor(data_, i)
-                                )
-                            };
+                                )};
                         };
 
                         candidates.clear();

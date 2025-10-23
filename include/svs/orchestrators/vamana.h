@@ -210,8 +210,7 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
                 return VamanaIterator{
                     impl(),
                     std::span<const T>(svs::get<T>(query), query.size(0)),
-                    extra_search_buffer_capacity
-                };
+                    extra_search_buffer_capacity};
             }
         );
     }
@@ -661,8 +660,8 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 ///
 template <lib::TypeList QueryTypes, typename... Args> Vamana make_vamana(Args&&... args) {
     using Impl = decltype(index::vamana::VamanaIndex{std::forward<Args>(args)...});
-    return Vamana{std::make_unique<VamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...
-    )};
+    return Vamana{
+        std::make_unique<VamanaImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
 ///

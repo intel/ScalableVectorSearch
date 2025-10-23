@@ -52,8 +52,7 @@ CATCH_TEST_CASE("Meta", "[lib][meta]") {
         CATCH_STATIC_REQUIRE(
             values ==
             std::array<svs::DataType, 3>{
-                svs::DataType::float32, svs::DataType::uint8, svs::DataType::int64
-            }
+                svs::DataType::float32, svs::DataType::uint8, svs::DataType::int64}
         );
     }
 

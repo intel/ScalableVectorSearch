@@ -325,8 +325,7 @@ Bundle<detail::deduce_index_type<Init, T>, T, Q, Distance> initialize_dynamic(
         .index = init(vectors, indices),
         .reference = std::move(reference),
         .queries = std::move(queries),
-        .build_time = 0
-    };
+        .build_time = 0};
     bundle.build_time = svs::lib::time_difference(tic);
     return bundle;
 }

@@ -57,8 +57,7 @@ struct AnonymousVectorData {
         : array_{
               array.template unchecked<2>().data(0, 0),
               svs::lib::narrow<size_t>(array.shape(0)),
-              svs::lib::narrow<size_t>(array.shape(1))
-          } {}
+              svs::lib::narrow<size_t>(array.shape(1))} {}
 
     // Interface.
     svs::DataType type() const { return array_.type(); }

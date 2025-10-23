@@ -73,8 +73,7 @@ template <size_t Extent = svs::Dynamic> void test_blocked() {
     size_t expected_blocksize = 128;
 
     auto parameters = svs::data::BlockingParameters{
-        .blocksize_bytes = svs::lib::prevpow2(blocksize_bytes)
-    };
+        .blocksize_bytes = svs::lib::prevpow2(blocksize_bytes)};
     auto allocator = svs::data::Blocked<svs::lib::Allocator<float>>(parameters);
     auto data = svs::data::BlockedData<float, Extent>(num_elements, dimensions, allocator);
     CATCH_REQUIRE(is_blocked(data));

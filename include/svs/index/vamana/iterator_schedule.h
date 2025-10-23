@@ -179,8 +179,7 @@ class LinearSchedule {
               lib::narrow_cast<uint16_t>(batchsize),
               enable_filter_after,
               lib::narrow_cast<uint16_t>(batchsize),
-              uint16_t{0}
-          } {}
+              uint16_t{0}} {}
 
     /// @brief Update the search buffer scaling parameters.
     ///
@@ -359,8 +358,9 @@ class AbstractIteratorSchedule {
     /// arguments to the class's constructor.
     template <IteratorSchedule Schedule, typename... Args>
     AbstractIteratorSchedule(std::in_place_type_t<Schedule> SVS_UNUSED(tag), Args&&... args)
-        : iface_{std::make_unique<Implementation<Schedule>>(std::in_place, SVS_FWD(args)...)
-          } {}
+        : iface_{std::make_unique<Implementation<Schedule>>(
+              std::in_place, SVS_FWD(args)...
+          )} {}
 
     /// @brief Replace the wrapped schedule with a new schedule.
     template <IteratorSchedule Schedule> void reset(Schedule schedule) {

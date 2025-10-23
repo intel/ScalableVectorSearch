@@ -64,8 +64,7 @@ auto batch_queries(
     std::vector<svs::data::SimpleData<T>> query_batch;
     for (size_t batch = 0; batch < num_batches; ++batch) {
         auto this_batch = svs::threads::UnitRange{
-            batch * batchsize, std::min((batch + 1) * batchsize, query_data.size())
-        };
+            batch * batchsize, std::min((batch + 1) * batchsize, query_data.size())};
         query_batch.push_back(
             svs::data::SimpleData<T>(this_batch.size(), query_data.dimensions())
         );
@@ -195,8 +194,7 @@ int svs_main(std::vector<std::string>&& args) {
         const auto dispatcher = std::map<KeyType, ValueType>{
             {{"float", "float16"}, search_index<float, svs::Float16, dist_type>},
             {{"float", "bfloat16"}, search_index<float, svs::BFloat16, dist_type>},
-            {{"float", "float"}, search_index<float, float, dist_type>}
-        };
+            {{"float", "float"}, search_index<float, float, dist_type>}};
 
         auto it = dispatcher.find({query_data_type, db_data_type});
         if (it == dispatcher.end()) {

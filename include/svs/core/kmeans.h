@@ -191,8 +191,7 @@ data::SimpleData<float> train_impl(
         for (size_t batch = 0; batch < num_batches; ++batch) {
             auto batch_timer = timer.push_back("mini batch");
             auto this_batch = threads::UnitRange{
-                batch * batchsize, std::min((batch + 1) * batchsize, data.size())
-            };
+                batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
             process_batch(
                 data::make_const_view(data, this_batch),
                 centroids,

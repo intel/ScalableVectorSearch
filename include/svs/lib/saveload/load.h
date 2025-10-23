@@ -656,8 +656,8 @@ template <typename T> struct Loader {
     /// Only applicable if such a static member is defined with results convertible to
     /// ``bool``.
     template <typename... Args>
-        requires detail::HasStaticDirectLoad<T, Args...>
-    bool can_load_direct(const std::filesystem::path& path, const Args&... args) const {
+        requires detail::HasStaticDirectLoad<T, Args...> bool
+    can_load_direct(const std::filesystem::path& path, const Args&... args) const {
         return T::can_load_direct(path, args...);
     }
 
@@ -825,8 +825,7 @@ inline SerializedObject begin_deserialization(const std::filesystem::path& fullp
     auto version = get_version(table, config_version_key);
     svs::lib::detail::check_global_version(version, fullpath);
     return SerializedObject{
-        std::move(table), lib::LoadContext{fullpath.parent_path(), version}
-    };
+        std::move(table), lib::LoadContext{fullpath.parent_path(), version}};
 }
 
 } // namespace detail

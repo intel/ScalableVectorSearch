@@ -118,8 +118,7 @@ struct PiecewiseAssembly {
             SVS_LOAD_MEMBER_AT_(table, strategy),
             extract_filename(table, "clustering", root),
             extract_filename(table, "primary_index_config", root),
-            extract_filename(table, "primary_index_graph", root)
-        };
+            extract_filename(table, "primary_index_graph", root)};
     }
 };
 
@@ -215,8 +214,7 @@ struct MemorySearchJob {
             SVS_LOAD_MEMBER_AT_(table, search_targets),
             extract_filename(table, "original_data", data_root),
             extract_filename(table, "queries", data_root),
-            extract_filename(table, "groundtruth", data_root)
-        };
+            extract_filename(table, "groundtruth", data_root)};
     }
 };
 

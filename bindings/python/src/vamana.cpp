@@ -428,8 +428,7 @@ void wrap(py::module& m) {
                     window_size,
                     max_candidate_pool_size,
                     prune_to,
-                    use_full_search_history
-                };
+                    use_full_search_history};
             }),
             py::arg("alpha") = svs::FLOAT_PLACEHOLDER,
             py::arg("graph_max_degree") = svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT,

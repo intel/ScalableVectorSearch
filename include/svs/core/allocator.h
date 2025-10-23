@@ -98,8 +98,7 @@ static constexpr std::array<HugepageX86Parameters, 3> hugepage_x86_options{
 };
 #else
 static constexpr std::array<HugepageX86Parameters, 1> hugepage_x86_options{
-    HugepageX86Parameters{1 << 12, 0}
-};
+    HugepageX86Parameters{1 << 12, 0}};
 #endif // __linux__
 
 namespace detail {

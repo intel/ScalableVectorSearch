@@ -43,8 +43,7 @@ CATCH_TEST_CASE("Logging", "[core][logging]") {
         CATCH_STATIC_REQUIRE(
             svs::logging::all_levels ==
             std::array<svs::logging::Level, 7>{
-                Trace, Debug, Info, Warn, Error, Critical, Off
-            }
+                Trace, Debug, Info, Warn, Error, Critical, Off}
         );
 
         // SVS to spdlog

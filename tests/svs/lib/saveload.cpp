@@ -376,8 +376,7 @@ struct BuiltIn {
             SVS_LOAD_MEMBER_AT_(table, bool),
             SVS_LOAD_MEMBER_AT_(table, str),
             SVS_LOAD_MEMBER_AT_(table, path),
-            SVS_LOAD_MEMBER_AT_(table, v)
-        };
+            SVS_LOAD_MEMBER_AT_(table, v)};
     }
 
     static svs::lib::TryLoadResult<BuiltIn>

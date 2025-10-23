@@ -159,8 +159,7 @@ int svs_main(std::vector<std::string>&& args) {
         {{"float", "int8"}, search_index<float, int8_t>},
         {{"float", "uint8"}, search_index<float, uint8_t>},
         {{"float", "float"}, search_index<float, float>},
-        {{"float", "float16"}, search_index<float, svs::Float16>}
-    };
+        {{"float", "float16"}, search_index<float, svs::Float16>}};
 
     auto it = dispatcher.find({query_data_type, db_data_type});
     if (it == dispatcher.end()) {

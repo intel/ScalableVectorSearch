@@ -380,8 +380,7 @@ struct BuildJob : public BuildJobBase {
             load_preset(),
             SVS_LOAD_MEMBER_AT_(table, search_parameters),
             load_save_directory(),
-            BuildJobBase::from_toml(table, root)
-        };
+            BuildJobBase::from_toml(table, root)};
     }
 };
 

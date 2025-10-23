@@ -220,8 +220,7 @@ svsbenchmark::TestFunctionReturn test_build(const InvertedTest& job) {
         index,
         build_job,
         search::QuerySet{
-            std::move(queries), std::move(groundtruth), job.queries_in_training_set_
-        },
+            std::move(queries), std::move(groundtruth), job.queries_in_training_set_},
         svsbenchmark::BuildTime{build_time},
         svsbenchmark::Placeholder{}
     );
@@ -229,8 +228,7 @@ svsbenchmark::TestFunctionReturn test_build(const InvertedTest& job) {
     return svsbenchmark::TestFunctionReturn{
         .key_ = "inverted_test_build",
         .results_ =
-            svs::lib::save_to_table(memory::ExpectedResult(std::move(kind), results))
-    };
+            svs::lib::save_to_table(memory::ExpectedResult(std::move(kind), results))};
 }
 
 } // namespace

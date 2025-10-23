@@ -180,8 +180,7 @@ struct MemoryBuildJob {
     svs::DistanceType get_distance() const { return distance_; }
     svs::index::inverted::InvertedBuildParameters get_build_parameters() const {
         return svs::index::inverted::InvertedBuildParameters{
-            clustering_parameters_, primary_build_parameters_
-        };
+            clustering_parameters_, primary_build_parameters_};
     }
 
     std::vector<svs::index::inverted::InvertedSearchParameters> get_search_configs() const {

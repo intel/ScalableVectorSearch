@@ -45,8 +45,10 @@ template <typename T> bool test_self_save_load_context_free(const T& x) {
 
 // Expected Transformation:
 // SVS_LIST_SAVE_(x, args...) -> {"x", svs::lib::save(x_, args...)}
-#define SVS_LIST_SAVE_(name, ...) \
-    { #name, svs::lib::save(name##_, ##__VA_ARGS__) }
+#define SVS_LIST_SAVE_(name, ...)                     \
+    {                                                 \
+#name, svs::lib::save(name##_, ##__VA_ARGS__) \
+    }
 
 // Expected Transformation:
 // SVS_INSERT_SAVE_(table, x, args...)
@@ -64,8 +66,10 @@ template <typename T> bool test_self_save_load_context_free(const T& x) {
 
 // Expected Transformation:
 // SVS_LIST_SAVE_(x, args...) -> {"x", svs::lib::save(x, args...)}
-#define SVS_LIST_SAVE(name, ...) \
-    { #name, svs::lib::save(name, ##__VA_ARGS__) }
+#define SVS_LIST_SAVE(name, ...)                   \
+    {                                              \
+#name, svs::lib::save(name, ##__VA_ARGS__) \
+    }
 
 // Expected Transformation:
 // SVS_INSERT_SAVE_(table, x, args...)

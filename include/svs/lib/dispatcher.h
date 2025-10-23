@@ -449,8 +449,7 @@ auto make_matcher(
     // Stateless lambda -> function pointer using unary "+".
     return +[](const std::remove_cvref_t<DispatchArgs>&... args) -> return_type {
         return std::array<int64_t, sizeof...(DispatchArgs)>{
-            dispatch_match<DispatchArgs, TargetArgs>(args)...
-        };
+            dispatch_match<DispatchArgs, TargetArgs>(args)...};
     };
 }
 

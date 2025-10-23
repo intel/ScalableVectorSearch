@@ -327,8 +327,7 @@ template <lib::TypeList QueryTypes, typename... Args>
 DynamicFlat make_dynamic_flat(Args&&... args) {
     using Impl = decltype(index::flat::DynamicFlatIndex{std::forward<Args>(args)...});
     return DynamicFlat{
-        std::make_unique<DynamicFlatImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)
-    };
+        std::make_unique<DynamicFlatImpl<QueryTypes, Impl>>(std::forward<Args>(args)...)};
 }
 
 } // namespace svs

@@ -69,8 +69,7 @@ struct DistanceAndGroundtruth {
     ) {
         return DistanceAndGroundtruth{
             SVS_LOAD_MEMBER_AT_(table, distance),
-            svsbenchmark::extract_filename(table, "path", root)
-        };
+            svsbenchmark::extract_filename(table, "path", root)};
     }
 };
 
@@ -134,8 +133,7 @@ template <typename SearchParameters> struct ConfigAndResultPrototype {
             SVS_LOAD_MEMBER_AT_(table, num_neighbors),
             SVS_LOAD_MEMBER_AT_(table, recall_k),
             SVS_LOAD_MEMBER_AT_(table, num_queries),
-            SVS_LOAD_MEMBER_AT_(table, recall)
-        };
+            SVS_LOAD_MEMBER_AT_(table, recall)};
     }
 };
 
@@ -216,8 +214,7 @@ struct ExpectedResultPrototype {
             SVS_LOAD_MEMBER_AT_(table, dataset, root),
             SVS_LOAD_MEMBER_AT_(table, distance),
             std::move(build_parameters),
-            SVS_LOAD_MEMBER_AT_(table, config_and_recall)
-        };
+            SVS_LOAD_MEMBER_AT_(table, config_and_recall)};
     }
 };
 

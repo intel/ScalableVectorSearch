@@ -108,8 +108,7 @@ struct InvertedTest {
             svsbenchmark::extract_filename(table, "data_f32", root),
             svsbenchmark::extract_filename(table, "queries_f32", root),
             SVS_LOAD_MEMBER_AT_(table, queries_in_training_set),
-            num_threads
-        };
+            num_threads};
     }
 };
 

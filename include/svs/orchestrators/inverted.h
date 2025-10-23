@@ -136,8 +136,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
                 std::move(strategy),
                 std::move(centroid_picker),
                 std::move(clustering_post_op)
-            )
-        };
+            )};
     }
 
     ///// Assembling
@@ -167,8 +166,7 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
                 index_config,
                 graph,
                 std::move(threadpool_proto)
-            )
-        };
+            )};
     }
 };
 

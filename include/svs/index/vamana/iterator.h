@@ -48,8 +48,8 @@ template <std::integral I> struct RestartInitializer {
     ) const {
         // Restart the search from scratch if requested.
         if (hard_restart_) {
-            vamana::EntryPointInitializer<I>{entry_points_
-            }(buffer, computer, graph, builder, tracker);
+            vamana::EntryPointInitializer<I>{
+                entry_points_}(buffer, computer, graph, builder, tracker);
             return;
         }
 
@@ -190,8 +190,7 @@ template <typename Index, typename QueryType> class BatchIterator {
     template <NeighborLike N> svs::Neighbor<external_id_type> adapt(N internal) const {
         if constexpr (Index::needs_id_translation) {
             return Neighbor<external_id_type>{
-                parent_->translate_internal_id(internal.id()), internal.distance()
-            };
+                parent_->translate_internal_id(internal.id()), internal.distance()};
         } else {
             return internal;
         }
@@ -237,8 +236,10 @@ template <typename Index, typename QueryType> class BatchIterator {
         auto& buffer = scratchspace_.buffer;
         auto& prefetch = scratchspace_.prefetch_parameters;
         return VamanaSearchParameters{
-            buffer.config(), buffer.visited_set_enabled(), prefetch.lookahead, prefetch.step
-        };
+            buffer.config(),
+            buffer.visited_set_enabled(),
+            prefetch.lookahead,
+            prefetch.step};
     }
 
     /// @brief Prepares the next batch of neighbors (up to ``batch_size``) from the index.

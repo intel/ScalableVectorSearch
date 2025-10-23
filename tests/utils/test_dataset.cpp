@@ -109,8 +109,7 @@ svs::graphs::SimpleBlockedGraph<uint32_t> graph_blocked() {
 
 std::vector<uint32_t> expected_out_neighbors() {
     return std::vector<uint32_t>{
-        64, 103, 118, 45, 34, 31, 64, 121, 128, 128, 128, 128, 46, 71, 115, 112
-    };
+        64, 103, 118, 45, 34, 31, 64, 121, 128, 128, 128, 128, 46, 71, 115, 112};
 }
 
 // Helper to load the ground-truth for a given file.
