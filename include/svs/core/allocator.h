@@ -20,6 +20,11 @@
 /// @file
 /// @brief Implements common large-scale allocators used by the many data structures.
 ///
+/// Memory Population Control:
+/// Setting environment variable `SVS_ENABLE_MAP_POPULATE` enables MAP_POPULATE for
+/// hugepage and file-backed mappings (Linux only). By default population is disabled
+/// to avoid transient RSS spikes during large index loads. Use the variable for
+/// benchmarking scenarios where early page faulting is desired.
 
 ///
 /// @ingroup core
@@ -112,6 +117,13 @@ struct HugepageAllocation {
     assert(bytes != 0);
     void* ptr = MAP_FAILED;
     size_t sz = 0;
+    // Allow disabling page population via environment variable to mitigate peak RSS.
+    // If SVS_DISABLE_MAP_POPULATE is set to a non-empty value, MAP_POPULATE will not be
+    // used. Population now disabled by default; opt-in via SVS_ENABLE_MAP_POPULATE.
+    const bool enable_populate = (std::getenv("SVS_ENABLE_MAP_POPULATE") != nullptr);
+    // Heuristic: Skip attempting huge pages whose rounded allocation would exceed 2x
+    // requested. This avoids over-large temporary mappings when the user dataset is
+    // smaller.
     for (auto params : hugepage_x86_options) {
         // Don't fallback to huge pages if `force == true`.
         if (force && params == hugepage_x86_options.back()) {
@@ -121,6 +133,11 @@ struct HugepageAllocation {
         auto pagesize = params.pagesize;
         auto flags = params.mmap_flags;
         sz = lib::round_up_to_multiple_of(bytes, pagesize);
+
+        if (sz > 2 * bytes) {
+            // Skip this page size; too much waste for transient attempt.
+            continue;
+        }
 
         int mmap_flags = MAP_PRIVATE;
 #if defined(MAP_ANONYMOUS)
@@ -132,7 +149,9 @@ struct HugepageAllocation {
 #endif
 // Add Linux-specific flags
 #ifdef __linux__
-        mmap_flags |= MAP_POPULATE;
+        if (enable_populate) {
+            mmap_flags |= MAP_POPULATE;
+        }
 #endif // __linux__
 
         ptr = mmap(nullptr, sz, PROT_READ | PROT_WRITE, mmap_flags | flags, -1, 0);
@@ -362,8 +381,9 @@ template <typename T> class MMapPtr {
     // Make the conversion from "void" to non-void "explicit" to avoid nasty unexpected
     // implicit conversions.
     template <typename OtherT>
-        requires(std::is_same_v<OtherT, T> || std::is_same_v<OtherT, void>)
-    MMapPtr(MMapPtr<OtherT>&& other) noexcept
+    requires(std::is_same_v<OtherT, T> || std::is_same_v<OtherT, void>)
+        MMapPtr(MMapPtr<OtherT>&& other)
+    noexcept
         : ptr_{reinterpret_cast<T*>(other.ptr_)}
         , base_{other.base_}
         , size_{other.size_} {
@@ -517,9 +537,13 @@ class MemoryMapper {
         int mmap_flags = MAP_SHARED; // Accessible from all processes
 // Add Linux-specific flags
 #ifdef __linux__
+        // Respect environment variable disabling population.
+        const bool enable_populate = (std::getenv("SVS_ENABLE_MAP_POPULATE") != nullptr);
         mmap_flags |= MAP_NORESERVE; // Don't reserve space in DRAM for this until used
-        mmap_flags |= MAP_POPULATE;  // Populate page table entries in the DRAM
-#endif                               // __linux__
+        if (enable_populate) {
+            mmap_flags |= MAP_POPULATE; // Populate page table entries in the DRAM
+        }
+#endif // __linux__
 
         void* base = ::mmap(
             nullptr, bytes.value(), mmap_permissions(permission_), mmap_flags, fd, 0
@@ -536,7 +560,9 @@ class MemoryMapper {
 namespace detail {
 
 template <typename Alloc>
-concept HasValueType = requires { typename Alloc::value_type; };
+concept HasValueType = requires {
+    typename Alloc::value_type;
+};
 
 // clang-format off
 template <typename Alloc>
@@ -601,10 +627,9 @@ template <typename T> class AllocatorHandle {
     using value_type = T;
 
     template <detail::Allocator Impl>
-    explicit AllocatorHandle(Impl&& impl)
-        requires(!std::is_same_v<Impl, AllocatorHandle>) &&
-                std::is_rvalue_reference_v<Impl&&> &&
-                std::is_same_v<typename Impl::value_type, T>
+        explicit AllocatorHandle(Impl&& impl
+        ) requires(!std::is_same_v<Impl, AllocatorHandle>) &&
+        std::is_rvalue_reference_v<Impl&&>&& std::is_same_v<typename Impl::value_type, T>
         : impl_{new AllocatorImpl(std::move(impl))} {}
 
     AllocatorHandle() {}
@@ -622,25 +647,23 @@ template <typename T> class AllocatorHandle {
     template <typename U> friend class AllocatorHandle;
 
     template <typename U>
-    AllocatorHandle(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
+    AllocatorHandle(const AllocatorHandle<U>& other) requires std::is_same_v<T, float> &&
+        (!std::is_same_v<U, T>)
         : impl_{other.impl_->rebind_float()} {}
     template <typename U>
-    AllocatorHandle(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
+    AllocatorHandle(const AllocatorHandle<U>& other) requires std::is_same_v<T, Float16> &&
+        (!std::is_same_v<U, T>)
         : impl_{other.impl_->rebind_float16()} {}
 
     template <typename U>
-    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, float> && (!std::is_same_v<U, T>)
-    {
+    AllocatorHandle& operator=(const AllocatorHandle<U>& other
+    ) requires std::is_same_v<T, float> &&(!std::is_same_v<U, T>) {
         impl_.reset(other.impl_->rebind_float());
         return *this;
     }
     template <typename U>
-    AllocatorHandle& operator=(const AllocatorHandle<U>& other)
-        requires std::is_same_v<T, Float16> && (!std::is_same_v<U, T>)
-    {
+    AllocatorHandle& operator=(const AllocatorHandle<U>& other
+    ) requires std::is_same_v<T, Float16> &&(!std::is_same_v<U, T>) {
         impl_.reset(other.impl_->rebind_float16());
         return *this;
     }
