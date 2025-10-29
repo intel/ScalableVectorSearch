@@ -30,9 +30,9 @@ The CMakeLists.txt is set up to detail usage of all options (tarball, pip, conda
 
 ### Option 1: Using libsvs in a conda environment
 
-Install the `libsvs` package (currently only available from GitHub releases):
+Install the `libsvs` package:
 ```bash
-conda install https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/libsvs-0.0.10-gc4e106f_0.conda
+conda install -c https://software.repos.intel.com/python/conda libsvs
 
 mkdir build
 cd build
