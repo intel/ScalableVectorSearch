@@ -113,6 +113,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/distances/distance_euclidean.cpp
     ${TEST_DIR}/svs/core/distances/inner_product.cpp
     ${TEST_DIR}/svs/core/distances/cosine.cpp
+    ${TEST_DIR}/svs/core/distances/compute_ops_verification.cpp
     ${TEST_DIR}/svs/core/graph.cpp
     ${TEST_DIR}/svs/core/io/vecs.cpp
     ${TEST_DIR}/svs/core/io/binary.cpp
