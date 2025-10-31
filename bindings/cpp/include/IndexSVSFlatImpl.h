@@ -31,9 +31,8 @@ class SVS_RUNTIME_API IndexSVSFlatImpl {
     Status add(size_t n, const float* x) noexcept;
     void reset() noexcept;
 
-    Status search(
-        size_t n, const float* x, size_t k, float* distances, size_t* labels
-    ) const noexcept;
+    Status search(size_t n, const float* x, size_t k, float* distances, size_t* labels)
+        const noexcept;
 
     Status serialize(std::ostream& out) const noexcept;
 
