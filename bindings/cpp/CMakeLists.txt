@@ -95,7 +95,8 @@ if ((SVS_RUNTIME_ENABLE_LVQ OR SVS_RUNTIME_ENABLE_LEANVEC))
             svs_x86_options_base
         )
     else()
-        set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251017-faiss.tar.gz"
+        # Links to LTO-enabled static library, requires GCC/G++ 11.2
+        set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251030-737-bindings.tar.gz"
             CACHE STRING "URL to download SVS shared library")
         include(FetchContent)
         FetchContent_Declare(
