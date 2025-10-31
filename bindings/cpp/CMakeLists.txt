@@ -82,11 +82,11 @@ else()
 endif()
 
 if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
-    if(TARGET svs::svs_static_library)
+    if(TARGET svs_static_library)
         # Links to SVS static library built as part of the main SVS build
         target_link_libraries(${TARGET_NAME} PRIVATE
-            svs::svs
-            svs::svs_static_library
+            svs_devel
+            svs_static_library
             svs_compile_options
             svs_x86_options_base
         )
