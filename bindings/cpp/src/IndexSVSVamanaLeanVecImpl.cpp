@@ -21,14 +21,11 @@
 
 #include <svs/core/medioid.h>
 #include <svs/cpuid.h>
-#include <svs/extensions/vamana/leanvec.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
-#ifdef SVS_BUILD_RUNTIME_BINDINGS
-#include <svs/leanvec/impl/leanvec_impl.h>
-#endif
+#include SVS_LEANVEC_HEADER
 
 namespace svs::runtime {
 
