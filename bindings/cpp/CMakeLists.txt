@@ -82,7 +82,12 @@ else()
 endif()
 
 if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
-    if(TARGET svs_static_library)
+    if(RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
+        message(STATUS "Building directly from private sources")
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            svs::svs
+        )
+    elseif(TARGET svs_static_library)
         # Links to SVS static library built as part of the main SVS build
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs_devel
