@@ -77,7 +77,7 @@ struct SVS_RUNTIME_API IndexSVSVamanaImpl {
     virtual void reset() noexcept;
 
     /* Serialization and deserialization helpers */
-    Status serialize_impl(std::ostream& out) const noexcept;
+    virtual Status serialize_impl(std::ostream& out) const noexcept;
     virtual Status deserialize_impl(std::istream& in) noexcept;
 
     MetricType metric_type_;

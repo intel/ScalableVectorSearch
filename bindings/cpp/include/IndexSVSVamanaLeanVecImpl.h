@@ -43,6 +43,8 @@ struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
 
     Status train(size_t n, const float* x) noexcept;
 
+    Status serialize_impl(std::ostream& out) const noexcept override;
+
     Status deserialize_impl(std::istream& in) noexcept override;
 
     bool is_trained() const noexcept { return trained; }
@@ -64,8 +66,8 @@ struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
 
     size_t leanvec_d;
     LeanVecLevel leanvec_level;
-    std::unique_ptr<svs::leanvec::LeanVecMatrices<std::dynamic_extent>> leanvec_matrix;
     bool trained = false;
+    std::unique_ptr<svs::leanvec::LeanVecMatrices<std::dynamic_extent>> leanvec_matrix;
 };
 
 } // namespace runtime

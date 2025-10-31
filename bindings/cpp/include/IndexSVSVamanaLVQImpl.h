@@ -24,6 +24,7 @@ struct SVS_RUNTIME_API IndexSVSVamanaLVQImpl : IndexSVSVamanaImpl {
     static IndexSVSVamanaLVQImpl*
     build(size_t dim, MetricType metric, const BuildParams& params, LVQLevel lvq) noexcept;
 
+    Status serialize_impl(std::ostream& out) const noexcept override;
     Status deserialize_impl(std::istream& in) noexcept override;
 
   protected:

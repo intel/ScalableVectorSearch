@@ -32,11 +32,12 @@ namespace runtime {
 enum class MetricType { L2, INNER_PRODUCT };
 
 enum class ErrorCode {
-    SUCCESS = 0,
-    UNKNOWN_ERROR = 1,
-    INVALID_ARGUMENT = 2,
-    NOT_IMPLEMENTED = 3,
-    NOT_INITIALIZED = 4
+    SUCCESS,
+    UNKNOWN_ERROR,
+    INVALID_ARGUMENT,
+    NOT_IMPLEMENTED,
+    NOT_INITIALIZED,
+    IO_ERROR
 };
 
 struct Status {

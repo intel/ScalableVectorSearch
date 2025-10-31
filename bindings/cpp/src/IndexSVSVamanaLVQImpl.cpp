@@ -171,11 +171,29 @@ Status IndexSVSVamanaLVQImpl::init_impl(size_t n, const float* x) noexcept {
     );
 }
 
+Status IndexSVSVamanaLVQImpl::serialize_impl(std::ostream& out) const noexcept {
+    // Also store LVQ specific members
+    out.write(reinterpret_cast<const char*>(&lvq_level), sizeof(LVQLevel));
+
+    // This will also write whether or not we're initialized
+    return IndexSVSVamanaImpl::serialize_impl(out);
+
+    return Status_Ok;
+}
+
 Status IndexSVSVamanaLVQImpl::deserialize_impl(std::istream& in) noexcept {
     if (impl) {
         return Status{
             ErrorCode::INVALID_ARGUMENT,
             "Cannot deserialize: SVS index already initialized."};
+    }
+
+    in.read(reinterpret_cast<char*>(&lvq_level), sizeof(LVQLevel));
+
+    bool initialized = false;
+    in.read(reinterpret_cast<char*>(&initialized), sizeof(bool));
+    if (!initialized) {
+        return Status_Ok;
     }
 
     if (svs::detail::intel_enabled()) {

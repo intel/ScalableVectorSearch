@@ -466,12 +466,12 @@ Status IndexSVSVamanaImpl::init_impl(size_t n, const float* x) noexcept {
 }
 
 Status IndexSVSVamanaImpl::serialize_impl(std::ostream& out) const noexcept {
-    if (!impl) {
-        return Status{
-            ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."};
-    }
+    bool initialized = impl != nullptr;
+    out.write(reinterpret_cast<const char*>(&initialized), sizeof(bool));
 
-    impl->save(out);
+    if (initialized) {
+        impl->save(out);
+    }
     return Status_Ok;
 }
 
@@ -480,6 +480,12 @@ Status IndexSVSVamanaImpl::deserialize_impl(std::istream& in) noexcept {
         return Status{
             ErrorCode::INVALID_ARGUMENT,
             "Cannot deserialize: SVS index already initialized."};
+    }
+
+    bool initialized = false;
+    in.read(reinterpret_cast<char*>(&initialized), sizeof(bool));
+    if (!initialized) {
+        return Status_Ok;
     }
 
     impl.reset(std::visit(
