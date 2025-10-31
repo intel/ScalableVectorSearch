@@ -23,8 +23,11 @@
 #include <svs/extensions/vamana/lvq.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/orchestrators/dynamic_vamana.h>
-//#include <svs/quantization/lvq/impl/lvq_impl.h>
 #include <svs/quantization/scalar/scalar.h>
+
+#ifdef SVS_BUILD_RUNTIME_BINDINGS
+#include <svs/quantization/lvq/impl/lvq_impl.h>
+#endif
 
 namespace svs::runtime {
 

@@ -81,7 +81,13 @@ set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
 
 if ((SVS_RUNTIME_ENABLE_LVQ OR SVS_RUNTIME_ENABLE_LEANVEC))
-    if(TARGET svs::svs_static_library)
+    if(SVS_BUILD_RUNTIME_BINDINGS)
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            svs::svs
+        )
+        # Using this to decide whether to include lvq_impl.h but can transition to SVS_LVQ_HEADER eventually
+        target_compile_definitions(${TARGET_NAME} PUBLIC SVS_BUILD_RUNTIME_BINDINGS)
+    elseif(TARGET svs::svs_static_library)
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
             svs::svs_static_library
