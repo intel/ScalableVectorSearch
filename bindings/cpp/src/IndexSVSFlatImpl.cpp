@@ -39,7 +39,9 @@ Status IndexSVSFlatImpl::init_impl(size_t n, const float* x) noexcept {
         svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
 
     svs::threads::parallel_for(
-        threadpool, svs::threads::StaticPartition(n), [&](auto is, auto SVS_UNUSED(tid)) {
+        threadpool,
+        svs::threads::StaticPartition(n),
+        [&](auto is, auto SVS_UNUSED(tid)) {
             for (auto i : is) {
                 data.set_datum(i, std::span<const float>(x + i * dim_, dim_));
             }
@@ -48,18 +50,14 @@ Status IndexSVSFlatImpl::init_impl(size_t n, const float* x) noexcept {
 
     switch (metric_type_) {
         case MetricType::INNER_PRODUCT:
-            impl.reset(new svs::Flat(
-                svs::Flat::assemble<float>(
-                    std::move(data), svs::DistanceIP(), std::move(threadpool)
-                )
-            ));
+            impl.reset(new svs::Flat(svs::Flat::assemble<float>(
+                std::move(data), svs::DistanceIP(), std::move(threadpool)
+            )));
             break;
         case MetricType::L2:
-            impl.reset(new svs::Flat(
-                svs::Flat::assemble<float>(
-                    std::move(data), svs::DistanceL2(), std::move(threadpool)
-                )
-            ));
+            impl.reset(new svs::Flat(svs::Flat::assemble<float>(
+                std::move(data), svs::DistanceL2(), std::move(threadpool)
+            )));
             break;
         default:
             impl = nullptr;
@@ -75,8 +73,7 @@ Status IndexSVSFlatImpl::add(size_t n, const float* x) noexcept {
 
     return {
         ErrorCode::NOT_IMPLEMENTED,
-        "IndexSVSFlat does not support adding points after initialization"
-    };
+        "IndexSVSFlat does not support adding points after initialization"};
 }
 
 void IndexSVSFlatImpl::reset() noexcept { impl.reset(); }
@@ -123,8 +120,7 @@ Status IndexSVSFlatImpl::serialize(std::ostream& out) const noexcept {
 Status IndexSVSFlatImpl::deserialize(std::istream& in) noexcept {
     if (impl) {
         return {
-            ErrorCode::UNKNOWN_ERROR, "Cannot deserialize: SVS index already initialized."
-        };
+            ErrorCode::UNKNOWN_ERROR, "Cannot deserialize: SVS index already initialized."};
     }
 
     auto threadpool =
@@ -133,11 +129,9 @@ Status IndexSVSFlatImpl::deserialize(std::istream& in) noexcept {
 
     svs::DistanceDispatcher dispatcher(to_svs_distance(metric_type_));
     dispatcher([&](auto&& distance) {
-        impl.reset(new svs::Flat(
-            svs::Flat::assemble<float, storage_type>(
-                in, std::move(distance), std::move(threadpool)
-            )
-        ));
+        impl.reset(new svs::Flat(svs::Flat::assemble<float, storage_type>(
+            in, std::move(distance), std::move(threadpool)
+        )));
     });
 
     return Status_Ok;

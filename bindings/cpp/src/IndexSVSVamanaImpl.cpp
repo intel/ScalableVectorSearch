@@ -52,8 +52,7 @@ get_build_parameters(const IndexSVSVamanaImpl::BuildParams& params) {
         params.construction_window_size,
         params.max_candidate_pool_size,
         params.prune_to,
-        params.use_full_search_history
-    };
+        params.use_full_search_history};
 }
 
 template <
@@ -107,15 +106,13 @@ init_impl_t(IndexSVSVamanaImpl* index, MetricType metric, size_t n, const float*
 
     svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
     return distance_dispatcher([&](auto&& distance) {
-        return new svs::DynamicVamana(
-            svs::DynamicVamana::build<float>(
-                get_build_parameters(index->build_params),
-                std::move(data),
-                std::move(labels),
-                std::forward<decltype(distance)>(distance),
-                std::move(threadpool)
-            )
-        );
+        return new svs::DynamicVamana(svs::DynamicVamana::build<float>(
+            get_build_parameters(index->build_params),
+            std::move(data),
+            std::move(labels),
+            std::forward<decltype(distance)>(distance),
+            std::move(threadpool)
+        ));
     });
 }
 
@@ -209,8 +206,7 @@ IndexSVSVamanaImpl::IndexSVSVamanaImpl(
           metric == MetricType::L2 ? 1.2f : 0.95f,
           40,
           200,
-          true
-      } {}
+          true} {}
 
 IndexSVSVamanaImpl::~IndexSVSVamanaImpl() = default;
 
@@ -266,10 +262,8 @@ Status IndexSVSVamanaImpl::search(
         // TODO: faiss use int64_t as label whereas SVS uses size_t?
         auto results = svs::QueryResultView<size_t>{
             svs::MatrixView<size_t>{
-                svs::make_dims(n, k), static_cast<size_t*>(static_cast<void*>(labels))
-            },
-            svs::MatrixView<float>{svs::make_dims(n, k), distances}
-        };
+                svs::make_dims(n, k), static_cast<size_t*>(static_cast<void*>(labels))},
+            svs::MatrixView<float>{svs::make_dims(n, k), distances}};
         impl->search(results, queries, sp);
         return Status_Ok;
     }
@@ -406,9 +400,10 @@ Status IndexSVSVamanaImpl::range_search(
     // Allocate output
     std::vector<size_t> result_counts(n);
     std::transform(
-        all_results.begin(), all_results.end(), result_counts.begin(), [](const auto& res) {
-            return res.size();
-        }
+        all_results.begin(),
+        all_results.end(),
+        result_counts.begin(),
+        [](const auto& res) { return res.size(); }
     );
     auto results_storage = results(result_counts);
 
@@ -460,23 +455,20 @@ Status IndexSVSVamanaImpl::init_impl(size_t n, const float* x) noexcept {
         return Status{ErrorCode::UNKNOWN_ERROR, "Index already initialized"};
     }
 
-    impl.reset(
-        std::visit(
-            [&](auto element) {
-                using ElementType = std::decay_t<decltype(element)>;
-                return init_impl_t<ElementType>(this, metric_type_, n, x);
-            },
-            get_storage_variant(storage_kind)
-        )
-    );
+    impl.reset(std::visit(
+        [&](auto element) {
+            using ElementType = std::decay_t<decltype(element)>;
+            return init_impl_t<ElementType>(this, metric_type_, n, x);
+        },
+        get_storage_variant(storage_kind)
+    ));
     return Status_Ok;
 }
 
 Status IndexSVSVamanaImpl::serialize_impl(std::ostream& out) const noexcept {
     if (!impl) {
         return Status{
-            ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."
-        };
+            ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."};
     }
 
     impl->save(out);
@@ -487,19 +479,16 @@ Status IndexSVSVamanaImpl::deserialize_impl(std::istream& in) noexcept {
     if (impl) {
         return Status{
             ErrorCode::INVALID_ARGUMENT,
-            "Cannot deserialize: SVS index already initialized."
-        };
+            "Cannot deserialize: SVS index already initialized."};
     }
 
-    impl.reset(
-        std::visit(
-            [&](auto element) {
-                using ElementType = std::decay_t<decltype(element)>;
-                return deserialize_impl_t<ElementType>(in, metric_type_);
-            },
-            get_storage_variant(storage_kind)
-        )
-    );
+    impl.reset(std::visit(
+        [&](auto element) {
+            using ElementType = std::decay_t<decltype(element)>;
+            return deserialize_impl_t<ElementType>(in, metric_type_);
+        },
+        get_storage_variant(storage_kind)
+    ));
     return Status_Ok;
 }
 
