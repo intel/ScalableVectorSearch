@@ -51,8 +51,7 @@ get_build_parameters(const IndexSVSVamanaImpl::BuildParams& params) {
         params.construction_window_size,
         params.max_candidate_pool_size,
         params.prune_to,
-        params.use_full_search_history
-    };
+        params.use_full_search_history};
 }
 
 template <typename StorageType, typename ThreadPoolProto>
@@ -67,15 +66,13 @@ svs::DynamicVamana* init_impl_t(
 
     svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
     return distance_dispatcher([&](auto&& distance) {
-        return new svs::DynamicVamana(
-            svs::DynamicVamana::build<float>(
-                get_build_parameters(index->build_params),
-                std::forward<StorageType>(storage),
-                std::move(labels),
-                std::forward<decltype(distance)>(distance),
-                std::forward<ThreadPoolProto>(threadpool)
-            )
-        );
+        return new svs::DynamicVamana(svs::DynamicVamana::build<float>(
+            get_build_parameters(index->build_params),
+            std::forward<StorageType>(storage),
+            std::move(labels),
+            std::forward<decltype(distance)>(distance),
+            std::forward<ThreadPoolProto>(threadpool)
+        ));
     });
 }
 
@@ -86,11 +83,9 @@ svs::DynamicVamana* deserialize_impl_t(std::istream& stream, MetricType metric) 
 
     svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
     return distance_dispatcher([&](auto&& distance) {
-        return new svs::DynamicVamana(
-            svs::DynamicVamana::assemble<float, StorageType>(
-                stream, std::forward<decltype(distance)>(distance), std::move(threadpool)
-            )
-        );
+        return new svs::DynamicVamana(svs::DynamicVamana::assemble<float, StorageType>(
+            stream, std::forward<decltype(distance)>(distance), std::move(threadpool)
+        ));
     });
 }
 
@@ -161,8 +156,7 @@ Status IndexSVSVamanaLVQImpl::init_impl(size_t n, const float* x) noexcept {
         [&](auto&& storage) {
             if constexpr (std::is_same_v<std::decay_t<decltype(storage)>, std::monostate>) {
                 return Status{
-                    ErrorCode::NOT_INITIALIZED, "SVS LVQ data is not initialized."
-                };
+                    ErrorCode::NOT_INITIALIZED, "SVS LVQ data is not initialized."};
             } else {
                 impl.reset(init_impl_t(
                     this,
@@ -181,8 +175,7 @@ Status IndexSVSVamanaLVQImpl::deserialize_impl(std::istream& in) noexcept {
     if (impl) {
         return Status{
             ErrorCode::INVALID_ARGUMENT,
-            "Cannot deserialize: SVS index already initialized."
-        };
+            "Cannot deserialize: SVS index already initialized."};
     }
 
     if (svs::detail::intel_enabled()) {
