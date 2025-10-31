@@ -1,15 +1,16 @@
-# Copyright (C) 2023 Intel Corporation
+# Copyright 2025 Intel Corporation
 #
-# This software and the related documents are Intel copyrighted materials,
-# and your use of them is governed by the express license under which they
-# were provided to you ("License"). Unless the License provides otherwise,
-# you may not use, modify, copy, publish, distribute, disclose or transmit
-# this software or the related documents without Intel's prior written
-# permission.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This software and the related documents are provided as is, with no
-# express or implied warranties, other than those that are expressly stated
-# in the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
 project(svs_runtime VERSION 0.0.10 LANGUAGES CXX)
@@ -27,51 +28,42 @@ set(SVS_RUNTIME_SOURCES
     src/IndexSVSVamanaImpl.cpp
 )
 
-option(SVS_RUNTIME_ENABLE_LVQ "Enable compilation of SVS runtime with LVQ support" ON)
-if (SVS_RUNTIME_ENABLE_LVQ)
+option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
+if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     message(STATUS "SVS runtime will be built with LVQ support")
     list(APPEND SVS_RUNTIME_HEADERS
         include/IndexSVSVamanaLVQImpl.h
-    )
-    list(APPEND SVS_RUNTIME_SOURCES
-        src/IndexSVSVamanaLVQImpl.cpp
-    )
-else()
-    message(STATUS "SVS runtime will be built without LVQ support")
-endif()
-
-option(SVS_RUNTIME_ENABLE_LEANVEC "Enable compilation of SVS runtime with LeanVec support" ON)
-if (SVS_RUNTIME_ENABLE_LEANVEC)
-    message(STATUS "SVS runtime will be built with LeanVec support")
-    list(APPEND SVS_RUNTIME_HEADERS
         include/IndexSVSVamanaLeanVecImpl.h
     )
     list(APPEND SVS_RUNTIME_SOURCES
+        src/IndexSVSVamanaLVQImpl.cpp
         src/IndexSVSVamanaLeanVecImpl.cpp
     )
 else()
-    message(STATUS "SVS runtime will be built without LeanVec support")
+    message(STATUS "SVS runtime will be built without LVQ or LeanVec support")
 endif()
-
-find_package(OpenMP REQUIRED)
 
 add_library(${TARGET_NAME} SHARED
     ${SVS_RUNTIME_HEADERS}
     ${SVS_RUNTIME_SOURCES}
 )
 
-target_link_libraries(${TARGET_NAME} PUBLIC
-    OpenMP::OpenMP_CXX
-)
-
 target_include_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+find_package(OpenMP REQUIRED)
+target_link_libraries(${TARGET_NAME} PUBLIC OpenMP::OpenMP_CXX)
 
 target_compile_options(${TARGET_NAME} PRIVATE
     -DSVS_ENABLE_OMP=1
     -fvisibility=hidden
 )
+
+if(UNIX AND NOT APPLE)
+    # Don't export 3rd-party symbols from the lib
+    target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
+endif()
 
 target_compile_features(${TARGET_NAME} INTERFACE cxx_std_20)
 set_target_properties(${TARGET_NAME} PROPERTIES PUBLIC_HEADER "${SVS_RUNTIME_HEADERS}")
@@ -80,24 +72,41 @@ set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
 
-if ((SVS_RUNTIME_ENABLE_LVQ OR SVS_RUNTIME_ENABLE_LEANVEC))
-    if(SVS_BUILD_RUNTIME_BINDINGS)
-        target_link_libraries(${TARGET_NAME} PRIVATE
-            svs::svs
-        )
-        # Using this to decide whether to include lvq_impl.h but can transition to SVS_LVQ_HEADER eventually
-        target_compile_definitions(${TARGET_NAME} PUBLIC SVS_BUILD_RUNTIME_BINDINGS)
-    elseif(TARGET svs::svs_static_library)
+if(DEFINED SVS_LVQ_HEADER AND DEFINED SVS_LEANVEC_HEADER)
+    # expected that pre-defined headers are implementation headers
+    message(STATUS "Using pre-defined LVQ header: ${SVS_LVQ_HEADER}")
+    message(STATUS "Using pre-defined LeanVec header: ${SVS_LEANVEC_HEADER}")
+else()
+    set(SVS_LVQ_HEADER "svs/extensions/vamana/lvq.h")
+    set(SVS_LEANVEC_HEADER "svs/extensions/vamana/leanvec.h")
+endif()
+
+if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
+    if(TARGET svs::svs_static_library)
+        # Links to SVS static library built as part of the main SVS build
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
             svs::svs_static_library
             svs_compile_options
             svs_x86_options_base
         )
+    elseif(TARGET svs::svs)
+        message(FATAL_ERROR
+            "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
+            "Please build SVS Runtime using bindins/cpp directory as CMake source root."
+        )
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
-        set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251030-737-bindings.tar.gz"
-            CACHE STRING "URL to download SVS shared library")
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "11.2")
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251030-737-bindings.tar.gz"
+                CACHE STRING "URL to download SVS shared library")
+        else()
+            message(WARNING
+                "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
+                "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
+            )
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251017-faiss.tar.gz")
+        endif()
         include(FetchContent)
         FetchContent_Declare(
             svs
@@ -112,6 +121,10 @@ if ((SVS_RUNTIME_ENABLE_LVQ OR SVS_RUNTIME_ENABLE_LEANVEC))
             svs::svs_static_library
         )
     endif()
+    target_compile_definitions(${TARGET_NAME} PRIVATE
+        PUBLIC "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
+        PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
+    )
 else()
     # Include the SVS library directly if needed.
     if (NOT TARGET svs::svs)
