@@ -36,7 +36,7 @@ concurrency:
 
 jobs:
   build-cpp-runtime-bindings:
-    runs-on: [self-hosted, Linux, ubuntu-22.04]
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         platform:
