@@ -466,6 +466,15 @@ Status IndexSVSVamanaImpl::init_impl(size_t n, const float* x) noexcept {
 }
 
 Status IndexSVSVamanaImpl::serialize_impl(std::ostream& out) const noexcept {
+    // store own members
+    out.write(reinterpret_cast<const char*>(&metric_type_), sizeof(metric_type_));
+    out.write(reinterpret_cast<const char*>(&dim_), sizeof(dim_));
+    out.write(
+        reinterpret_cast<const char*>(&default_search_params), sizeof(default_search_params)
+    );
+    out.write(reinterpret_cast<const char*>(&build_params), sizeof(build_params));
+    // no need to store ntotal_soft_deleted, index is always compacted on saving
+
     bool initialized = impl != nullptr;
     out.write(reinterpret_cast<const char*>(&initialized), sizeof(bool));
 
@@ -481,6 +490,13 @@ Status IndexSVSVamanaImpl::deserialize_impl(std::istream& in) noexcept {
             ErrorCode::INVALID_ARGUMENT,
             "Cannot deserialize: SVS index already initialized."};
     }
+
+    // load own members
+    in.read(reinterpret_cast<char*>(&metric_type_), sizeof(metric_type_));
+    in.read(reinterpret_cast<char*>(&dim_), sizeof(dim_));
+    in.read(reinterpret_cast<char*>(&default_search_params), sizeof(default_search_params));
+    in.read(reinterpret_cast<char*>(&build_params), sizeof(build_params));
+    ntotal_soft_deleted = 0; // index is always compacted on saving
 
     bool initialized = false;
     in.read(reinterpret_cast<char*>(&initialized), sizeof(bool));
