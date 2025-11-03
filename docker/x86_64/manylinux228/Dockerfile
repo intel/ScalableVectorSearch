@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Use --build-arg REGISTRY="quay.io/" to revert to default
-ARG REGISTRY=cache-registry.caas.intel.com/cache-quay/
-FROM ${REGISTRY}pypa/manylinux_2_28_x86_64
-
-ENV http_proxy=http://proxy-dmz.intel.com:911
-ENV https_proxy=http://proxy-dmz.intel.com:912
-ENV no_proxy=localhost,127.0.0.1
+FROM quay.io/pypa/manylinux_2_28_x86_64:latest
 
 # Install CMake3
 RUN yum install -y cmake3 \
@@ -26,18 +20,9 @@ RUN yum install -y cmake3 \
     && ln -sf /usr/bin/cmake3 /usr/local/bin/cmake
 
 # Install gcc-11
-RUN yum install -y gcc-toolset-11 valgrind wget
-
-# Install Intel(R) MKL
-COPY ./ScalableVectorSearch/docker/x86_64/manylinux2014/oneAPI.repo /etc/yum.repos.d/oneAPI.repo
-RUN yum install -y intel-oneapi-mkl-core-devel-2024.1
+RUN yum install -y gcc-toolset-11 wget
 
 # Configure environment setup properly without recursion
 RUN echo '# Configure gcc-11' > /etc/profile.d/01-gcc.sh && \
     echo 'source scl_source enable gcc-toolset-11' >> /etc/profile.d/01-gcc.sh && \
     chmod +x /etc/profile.d/01-gcc.sh
-
-# Copy sde script to run in test script later
-# Need the 32-bit compatibility libraries to make sde work
-RUN yum install -y glibc.i686
-COPY ./.github/scripts/run_sde.sh /tmp/run_sde.sh
