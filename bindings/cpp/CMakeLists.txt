@@ -97,12 +97,12 @@ if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
         )
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "11.2")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251030-737-bindings.tar.gz"
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
+            set(SVS_URL "file:///svs/docker-share/svs-shared-library-DEV.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             message(WARNING
-                "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
+                "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
             set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251017-faiss.tar.gz")
