@@ -43,6 +43,8 @@ jobs:
           - {name: 'manylinux228', dockerfile: 'docker/x86_64/manylinux228/Dockerfile', cc: 'gcc', cxx: 'g++', suffix: ''}
 
     steps:
+      - uses: actions/checkout@v5
+
       - name: Build Docker image
         run: |
           docker build -t svs-${{ matrix.platform.name }}:latest -f ${{ matrix.platform.dockerfile }} .
