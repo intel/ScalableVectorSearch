@@ -87,6 +87,7 @@ if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
         )
+        link_mkl_static(${TARGET_NAME})
     elseif(TARGET svs_static_library)
         # Links to SVS static library built as part of the main SVS build
         target_link_libraries(${TARGET_NAME} PRIVATE
