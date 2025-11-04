@@ -35,6 +35,11 @@ struct SVS_RUNTIME_API VamanaIndex {
         LeanVec4x4, LeanVec4x8, LeanVec8x8,
     };
 
+    // TODO:
+    // 1. Should StorageKind, metric, be a part of BuildParams?
+    // 2. Does it make sense to have "Common" BuildParams{dim, metric} struct for other index algos (Flat, IVF)?
+    //    Or dim, metric, storage kind should be passed separately to the build() method?
+    //    What about storage kind in Flat, IVF?
     struct BuildParams {
         size_t dim;
         size_t graph_max_degree;
@@ -50,15 +55,16 @@ struct SVS_RUNTIME_API VamanaIndex {
         size_t search_buffer_capacity = 0;
     };
 
-    virtual ~VamanaIndex() = default;
-
+    // Unused for now:
     virtual size_t size() const noexcept = 0;
     virtual size_t dimensions() const noexcept = 0;
     virtual MetricType metric_type() const noexcept = 0;
     virtual StorageKind get_storage_kind() const noexcept = 0;
 
     virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
-    virtual size_t remove_selected(const IDFilter& selector) noexcept = 0;
+    virtual Status remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
+    // Further method for deletion can be added later:
+    // virtual Status remove(size_t n, const size_t* labels) noexcept = 0;
 
     virtual Status search(
         size_t n,
@@ -79,37 +85,41 @@ struct SVS_RUNTIME_API VamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept = 0;
 
-    virtual void reset() noexcept = 0;
+    virtual Status reset() noexcept = 0;
+    // TODO: Does it make sense to rename it to "save()"?
     virtual Status serialize(std::ostream& out) const noexcept = 0;
 
     // Static constructors and destructors
-    static VamanaIndex* build(
+    static Status build(
+        VamanaIndex** index,
         MetricType metric,
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params = {10,10}
     ) noexcept;
 
-    static void destroy(VamanaIndex* impl) noexcept;
-    static VamanaIndex* deserialize(std::istream& in, MetricType metric, VamanaIndex::StorageKind storage_kind) noexcept;
+    static Status destroy(VamanaIndex* index) noexcept;
+    // TODO: Does it make sense to rename it to "load()"?
+    // TODO: is it possible to get metric and storage kind from the stream instead of passing them explicitly?
+    static Status deserialize(VamanaIndex** index, std::istream& in, MetricType metric, VamanaIndex::StorageKind storage_kind) noexcept;
 };
 
 struct SVS_RUNTIME_API VamanaIndexLeanVecFactory {
-    virtual ~VamanaIndexLeanVecFactory() = default;
-
-    static VamanaIndexLeanVecFactory* train(
+    static Status train(
+        VamanaIndexLeanVecFactory** factory,
         size_t d,
         size_t n,
         const float* x,
         size_t leanvec_dims
     ) noexcept;
 
-    static void destroy(VamanaIndexLeanVecFactory* info) noexcept;
+    static Status destroy(VamanaIndexLeanVecFactory* factory) noexcept;
 
     virtual Status serialize(std::ostream& out) const noexcept;
-    static VamanaIndexLeanVecFactory* deserialize(std::istream& in) noexcept;
+    static Status deserialize(VamanaIndexLeanVecFactory** factory, std::istream& in) noexcept;
 
-    virtual VamanaIndex* buildIndex(
+    virtual Status buildIndex(
+        VamanaIndex** index,
         size_t dim,
         MetricType metric,
         const VamanaIndex::BuildParams& params,
