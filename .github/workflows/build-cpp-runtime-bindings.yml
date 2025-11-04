@@ -66,3 +66,40 @@ jobs:
           name: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
+
+  test:
+    needs: build-cpp-runtime-bindings
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        platform:
+          - {name: 'manylinux228', dockerfile: 'docker/x86_64/manylinux228/Dockerfile', cc: 'gcc', cxx: 'g++', suffix: ''}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build Docker image
+        run: |
+          docker build -t svs-${{ matrix.platform.name }}:latest -f ${{ matrix.platform.dockerfile }} .
+
+      # Need to download for a new job
+      - name: Download shared libraries
+        uses: actions/download-artifact@v4
+        with:
+          name: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}.tar.gz
+          path: runtime_lib
+
+      - name: List available artifacts
+        run: |
+          ls -la runtime_lib/
+
+      - name: Test in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/runtime_lib:/runtime_lib \
+            -w /workspace \
+            -e CC=${{ matrix.platform.cc }} \
+            -e CXX=${{ matrix.platform.cxx }} \
+            svs-${{ matrix.platform.name }}:latest \
+            /bin/bash -c "chmod +x docker/x86_64/test-cpp-runtime-bindings.sh && ./docker/x86_64/test-cpp-runtime-bindings.sh"
