@@ -22,6 +22,15 @@ source /etc/bashrc || true
 # ./docker/x86_64/list-dependencies.sh
 
 # FAISS validation scope for now
+# Create conda env matching https://github.com/facebookresearch/faiss/blob/main/.github/actions/build_cmake/action.yml
+conda create -y -n svsenv python=3.11
+source /opt/conda/etc/profile.d/conda.sh
+conda activate svsenv
+conda config --set solver libmamba
+conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0" scipy=1.16 pytest=7.4 gflags=2.2
+conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
+conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
+
 # TODO: point to root repo eventually 
 git clone -b rfsaliev/svs-faiss-bindings https://github.com/ahuber21/faiss.git
 cd faiss
