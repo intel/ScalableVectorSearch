@@ -86,7 +86,7 @@ jobs:
       - name: Download shared libraries
         uses: actions/download-artifact@v4
         with:
-          name: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}.tar.gz
+          name: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}
           path: runtime_lib
 
       - name: List available artifacts
