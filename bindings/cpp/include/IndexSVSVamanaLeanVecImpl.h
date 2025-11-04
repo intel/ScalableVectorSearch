@@ -33,12 +33,15 @@ struct IndexSVSTrainingInfo;
 struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
     enum LeanVecLevel { LeanVec4x4, LeanVec4x8, LeanVec8x8 };
 
-    static IndexSVSVamanaLeanVecImpl* build(
+    static IndexSVSVamanaLeanVecImpl* build_leanvec(
         size_t dim,
         MetricType metric,
         const BuildParams& params,
         size_t leanvec_dims,
-        LeanVecLevel leanvec_level
+        LeanVecLevel leanvec_level,
+        size_t n,
+        const float* x,
+        const IndexSVSTrainingInfo* info
     ) noexcept;
 
     static IndexSVSTrainingInfo* build_leanvec_training(

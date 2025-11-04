@@ -104,22 +104,6 @@ svs::DynamicVamana* deserialize_impl_t(std::istream& stream, MetricType metric) 
 
 } // namespace
 
-IndexSVSVamanaLeanVecImpl* IndexSVSVamanaLeanVecImpl::build(
-    size_t dim,
-    MetricType metric,
-    const BuildParams& params,
-    size_t leanvec_dims,
-    LeanVecLevel leanvec_level
-) noexcept {
-    try {
-        auto index = new IndexSVSVamanaLeanVecImpl(
-            dim, params.graph_max_degree, metric, leanvec_dims, leanvec_level
-        );
-        index->build_params = params;
-        return index;
-    } catch (...) { return nullptr; }
-}
-
 IndexSVSVamanaLeanVecImpl::IndexSVSVamanaLeanVecImpl() = default;
 
 IndexSVSVamanaLeanVecImpl::IndexSVSVamanaLeanVecImpl(
@@ -152,101 +136,119 @@ IndexSVSTrainingInfo* IndexSVSVamanaLeanVecImpl::build_leanvec_training(
     return new IndexSVSTrainingInfo{std::move(ptr)};
 }
 
-Status IndexSVSVamanaLeanVecImpl::init_impl(size_t n, const float* x) noexcept {
-    return Status { ErrorCode::NOT_IMPLEMENTED, "LeanVec uses build_leanvec." }
+Status IndexSVSVamanaLeanVecImpl::init_impl(size_t /*n*/, const float* /*x*/) noexcept {
+    return Status{
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVec requires build_leanvec() with training info instead of init_impl()"};
 }
 
-Status IndexSVSVamanaLeanVecImpl::build_leanvec(
-    size_t n, const float* x, const IndexSVSTrainingInfo* info
+IndexSVSVamanaLeanVecImpl* IndexSVSVamanaLeanVecImpl::build_leanvec(
+    size_t dim,
+    MetricType metric,
+    const BuildParams& params,
+    size_t leanvec_dims,
+    LeanVecLevel leanvec_level,
+    size_t n,
+    const float* x,
+    const IndexSVSTrainingInfo* info
 ) noexcept {
-    if (impl) {
-        return Status{ErrorCode::UNKNOWN_ERROR, "Index already initialized"};
-    }
-    if (!info) {
-        return Status{
-            ErrorCode::INVALID_ARGUMENT,
-            "IndexSVSTrainingInfo must be provided when initializing LeanVec index."};
-    }
     const auto* lv_info =
         dynamic_cast<const runtime::detail::LeanVecTrainingInfoImpl*>(info);
     if (!lv_info) {
-        return {
-            ErrorCode::INVALID_ARGUMENT,
-            "Provided IndexSVSTrainingInfo is not compatible with LeanVec training."};
+        return nullptr;
     }
 
-    // TODO: support ConstSimpleDataView in SVS shared/static lib
-    const auto data = svs::data::SimpleDataView<float>(const_cast<float*>(x), n, dim_);
-    std::vector<size_t> labels(n);
-    auto threadpool =
-        svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
+    try {
+        auto index = new IndexSVSVamanaLeanVecImpl(
+            dim, params.graph_max_degree, metric, leanvec_dims, leanvec_level
+        );
+        index->build_params = params;
 
-    std::variant<
-        std::monostate,
-        storage_type_4x4,
-        storage_type_4x8,
-        storage_type_8x8,
-        storage_type_sq>
-        compressed_data;
-
-    if (svs::detail::intel_enabled()) {
-        switch (leanvec_level) {
-            case LeanVecLevel::LeanVec4x4:
-                compressed_data = storage_type_4x4::reduce(
-                    data,
-                    lv_info->leanvec_matrix,
-                    threadpool,
-                    0,
-                    svs::lib::MaybeStatic<svs::Dynamic>(leanvec_d),
-                    blocked_alloc_type{}
-                );
-                break;
-            case LeanVecLevel::LeanVec4x8:
-                compressed_data = storage_type_4x8::reduce(
-                    data,
-                    lv_info->leanvec_matrix,
-                    threadpool,
-                    0,
-                    svs::lib::MaybeStatic<svs::Dynamic>(leanvec_d),
-                    blocked_alloc_type{}
-                );
-                break;
-            case LeanVecLevel::LeanVec8x8:
-                compressed_data = storage_type_8x8::reduce(
-                    data,
-                    lv_info->leanvec_matrix,
-                    threadpool,
-                    0,
-                    svs::lib::MaybeStatic<svs::Dynamic>(leanvec_d),
-                    blocked_alloc_type{}
-                );
-                break;
-            default:
-                return Status{
-                    ErrorCode::NOT_IMPLEMENTED, "not supported SVS LeanVec level"};
+        if (index->impl) {
+            delete index;
+            return nullptr;
         }
-    } else {
-        compressed_data =
-            storage_type_sq::compress(data, threadpool, blocked_alloc_type_sq{});
-    }
 
-    return std::visit(
-        [&](auto&& storage) {
-            if constexpr (std::is_same_v<std::decay_t<decltype(storage)>, std::monostate>) {
-                return Status{
-                    ErrorCode::NOT_INITIALIZED, "SVS LeanVec data is not initialized."};
-            } else {
-                impl.reset(init_impl_t(
-                    this,
-                    std::forward<decltype(storage)>(storage),
-                    metric_type_,
-                    std::move(threadpool)
-                ));
-                return Status_Ok;
+        const auto data = svs::data::SimpleDataView<float>(const_cast<float*>(x), n, dim);
+        auto threadpool =
+            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
+            ));
+
+        std::variant<
+            std::monostate,
+            storage_type_4x4,
+            storage_type_4x8,
+            storage_type_8x8,
+            storage_type_sq>
+            compressed_data;
+
+        if (svs::detail::intel_enabled()) {
+            switch (leanvec_level) {
+                case LeanVecLevel::LeanVec4x4:
+                    compressed_data = storage_type_4x4::reduce(
+                        data,
+                        lv_info->leanvec_matrix,
+                        threadpool,
+                        0,
+                        svs::lib::MaybeStatic<svs::Dynamic>(index->leanvec_d),
+                        blocked_alloc_type{}
+                    );
+                    break;
+                case LeanVecLevel::LeanVec4x8:
+                    compressed_data = storage_type_4x8::reduce(
+                        data,
+                        lv_info->leanvec_matrix,
+                        threadpool,
+                        0,
+                        svs::lib::MaybeStatic<svs::Dynamic>(index->leanvec_d),
+                        blocked_alloc_type{}
+                    );
+                    break;
+                case LeanVecLevel::LeanVec8x8:
+                    compressed_data = storage_type_8x8::reduce(
+                        data,
+                        lv_info->leanvec_matrix,
+                        threadpool,
+                        0,
+                        svs::lib::MaybeStatic<svs::Dynamic>(index->leanvec_d),
+                        blocked_alloc_type{}
+                    );
+                    break;
+                default:
+                    delete index;
+                    return nullptr;
             }
-        },
-        compressed_data
-    );
+        } else {
+            compressed_data =
+                storage_type_sq::compress(data, threadpool, blocked_alloc_type_sq{});
+        }
+
+        bool success = std::visit(
+            [&](auto&& storage) {
+                if constexpr (std::is_same_v<
+                                  std::decay_t<decltype(storage)>,
+                                  std::monostate>) {
+                    return false;
+                } else {
+                    index->impl.reset(init_impl_t(
+                        index,
+                        std::forward<decltype(storage)>(storage),
+                        metric,
+                        std::move(threadpool)
+                    ));
+                    return true;
+                }
+            },
+            compressed_data
+        );
+
+        if (!success) {
+            delete index;
+            return nullptr;
+        }
+
+        return index;
+    } catch (...) { return nullptr; }
 }
 
 Status IndexSVSVamanaLeanVecImpl::serialize_impl(std::ostream& out) const noexcept {
