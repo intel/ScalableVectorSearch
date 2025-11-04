@@ -16,6 +16,8 @@
 
 #include "IndexSVSVamanaLeanVecImpl.h"
 #include "IndexSVSImplUtils.h"
+#include "IndexSVSTrainingInfo.h"
+#include "detail/TrainingInfoImpl.h"
 
 #include <variant>
 
@@ -133,34 +135,44 @@ IndexSVSVamanaLeanVecImpl::IndexSVSVamanaLeanVecImpl(
 
 IndexSVSVamanaLeanVecImpl::~IndexSVSVamanaLeanVecImpl() = default;
 
-void IndexSVSVamanaLeanVecImpl::reset() noexcept {
-    IndexSVSVamanaImpl::reset();
-    // leanvec_matrix.reset();
-}
+void IndexSVSVamanaLeanVecImpl::reset() noexcept { IndexSVSVamanaImpl::reset(); }
 
-Status IndexSVSVamanaLeanVecImpl::train(size_t n, const float* x) noexcept {
-    const auto data = svs::data::SimpleDataView<float>(const_cast<float*>(x), n, dim_);
+IndexSVSTrainingInfo* IndexSVSVamanaLeanVecImpl::build_leanvec_training(
+    size_t n, const float* x, size_t dim, size_t leanvec_dims
+) noexcept {
+    const auto data = svs::data::SimpleDataView<float>(const_cast<float*>(x), n, dim);
     auto threadpool =
         svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
     auto means = svs::utils::compute_medioid(data, threadpool);
     auto matrix = svs::leanvec::compute_leanvec_matrix<svs::Dynamic, svs::Dynamic>(
-        data, means, threadpool, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_d}
+        data, means, threadpool, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_dims}
     );
-    leanvec_matrix =
-        std::make_unique<svs::leanvec::LeanVecMatrices<svs::Dynamic>>(matrix, matrix);
-    trained = true;
-    return Status_Ok;
+    auto leanvec_matrix = svs::leanvec::LeanVecMatrices<svs::Dynamic>(matrix, matrix);
+    auto ptr = std::make_unique<runtime::detail::LeanVecTrainingInfoImpl>(leanvec_matrix);
+    return new IndexSVSTrainingInfo{std::move(ptr)};
 }
 
 Status IndexSVSVamanaLeanVecImpl::init_impl(size_t n, const float* x) noexcept {
+    return Status { ErrorCode::NOT_IMPLEMENTED, "LeanVec uses build_leanvec." }
+}
+
+Status IndexSVSVamanaLeanVecImpl::build_leanvec(
+    size_t n, const float* x, const IndexSVSTrainingInfo* info
+) noexcept {
     if (impl) {
         return Status{ErrorCode::UNKNOWN_ERROR, "Index already initialized"};
     }
-
-    if (!trained) {
+    if (!info) {
+        return Status{
+            ErrorCode::INVALID_ARGUMENT,
+            "IndexSVSTrainingInfo must be provided when initializing LeanVec index."};
+    }
+    const auto* lv_info =
+        dynamic_cast<const runtime::detail::LeanVecTrainingInfoImpl*>(info);
+    if (!lv_info) {
         return {
-            ErrorCode::NOT_INITIALIZED,
-            "Cannot initialize SVS LeanVec index without training first."};
+            ErrorCode::INVALID_ARGUMENT,
+            "Provided IndexSVSTrainingInfo is not compatible with LeanVec training."};
     }
 
     // TODO: support ConstSimpleDataView in SVS shared/static lib
@@ -182,7 +194,7 @@ Status IndexSVSVamanaLeanVecImpl::init_impl(size_t n, const float* x) noexcept {
             case LeanVecLevel::LeanVec4x4:
                 compressed_data = storage_type_4x4::reduce(
                     data,
-                    *leanvec_matrix,
+                    lv_info->leanvec_matrix,
                     threadpool,
                     0,
                     svs::lib::MaybeStatic<svs::Dynamic>(leanvec_d),
@@ -192,7 +204,7 @@ Status IndexSVSVamanaLeanVecImpl::init_impl(size_t n, const float* x) noexcept {
             case LeanVecLevel::LeanVec4x8:
                 compressed_data = storage_type_4x8::reduce(
                     data,
-                    *leanvec_matrix,
+                    lv_info->leanvec_matrix,
                     threadpool,
                     0,
                     svs::lib::MaybeStatic<svs::Dynamic>(leanvec_d),
@@ -202,7 +214,7 @@ Status IndexSVSVamanaLeanVecImpl::init_impl(size_t n, const float* x) noexcept {
             case LeanVecLevel::LeanVec8x8:
                 compressed_data = storage_type_8x8::reduce(
                     data,
-                    *leanvec_matrix,
+                    lv_info->leanvec_matrix,
                     threadpool,
                     0,
                     svs::lib::MaybeStatic<svs::Dynamic>(leanvec_d),
@@ -243,30 +255,6 @@ Status IndexSVSVamanaLeanVecImpl::serialize_impl(std::ostream& out) const noexce
     // Store LeanVec specific members
     out.write(reinterpret_cast<const char*>(&leanvec_d), sizeof(size_t));
     out.write(reinterpret_cast<const char*>(&leanvec_level), sizeof(LeanVecLevel));
-    out.write(reinterpret_cast<const char*>(&trained), sizeof(bool));
-
-    bool has_matrix = (leanvec_matrix != nullptr);
-    out.write(reinterpret_cast<const char*>(&has_matrix), sizeof(bool));
-
-    if (has_matrix) {
-        // To avoid another temp file, stream the data directly
-        size_t num_rows = leanvec_matrix->num_rows();
-        size_t num_cols = leanvec_matrix->num_cols();
-        // check for overflow (guard against division by zero when num_cols == 0)
-        if (num_cols != 0 && num_rows > std::numeric_limits<size_t>::max() / num_cols) {
-            return Status{
-                ErrorCode::IO_ERROR, "Failed to serialize leanvec matrix: size overflow"};
-        }
-
-        // data and query matrices are the same, can use either
-        auto matrix = leanvec_matrix->view_data_matrix();
-
-        size_t elements = num_rows * num_cols;
-
-        out.write(reinterpret_cast<const char*>(&num_rows), sizeof(size_t));
-        out.write(reinterpret_cast<const char*>(&num_cols), sizeof(size_t));
-        out.write(reinterpret_cast<const char*>(matrix.data()), elements * sizeof(float));
-    }
 
     // This will also write whether or not we're initialized
     return IndexSVSVamanaImpl::serialize_impl(out);
@@ -277,37 +265,6 @@ Status IndexSVSVamanaLeanVecImpl::deserialize_impl(std::istream& in) noexcept {
         return Status{
             ErrorCode::INVALID_ARGUMENT,
             "Cannot deserialize: SVS index already initialized."};
-    }
-
-    in.read(reinterpret_cast<char*>(&leanvec_d), sizeof(size_t));
-    in.read(reinterpret_cast<char*>(&leanvec_level), sizeof(LeanVecLevel));
-    in.read(reinterpret_cast<char*>(&trained), sizeof(bool));
-
-    bool has_matrix = false;
-    in.read(reinterpret_cast<char*>(&has_matrix), sizeof(bool));
-
-    if (has_matrix) {
-        size_t num_rows = 0;
-        size_t num_cols = 0;
-
-        // TODO: read macro for error handling
-        in.read(reinterpret_cast<char*>(&num_rows), sizeof(size_t));
-        in.read(reinterpret_cast<char*>(&num_cols), sizeof(size_t));
-
-        std::vector<float> matrix_data(num_rows * num_cols);
-        in.read(
-            reinterpret_cast<char*>(matrix_data.data()), num_rows * num_cols * sizeof(float)
-        );
-
-        auto matrix = svs::data::SimpleData<float, svs::Dynamic>(num_rows, num_cols);
-        for (size_t i = 0; i < num_rows; ++i) {
-            const auto datum =
-                std::span<const float>(matrix_data.data() + i * num_cols, num_cols);
-            matrix.set_datum(i, datum);
-        }
-
-        leanvec_matrix =
-            std::make_unique<svs::leanvec::LeanVecMatrices<svs::Dynamic>>(matrix, matrix);
     }
 
     bool initialized = false;

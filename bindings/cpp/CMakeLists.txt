@@ -20,12 +20,16 @@ set(SVS_RUNTIME_HEADERS
     include/IndexSVSImplDefs.h
     include/IndexSVSFlatImpl.h
     include/IndexSVSVamanaImpl.h
+    include/IndexSVSTrainingInfo.h
+    include/detail/TrainingInfoImpl.h
 )
 
 set(SVS_RUNTIME_SOURCES
     src/IndexSVSImplUtils.h
     src/IndexSVSFlatImpl.cpp
     src/IndexSVSVamanaImpl.cpp
+    src/IndexSVSTrainingInfo.cpp
+    src/detail/TrainingInfoImpl.cpp
 )
 
 option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
@@ -105,7 +109,7 @@ if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251017-faiss.tar.gz")
+            set(SVS_URL "file:///svs/docker-share/svs-shared-library-DEV.tar.gz")
         endif()
         include(FetchContent)
         FetchContent_Declare(

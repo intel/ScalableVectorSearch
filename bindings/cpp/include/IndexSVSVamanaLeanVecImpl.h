@@ -28,6 +28,8 @@ template <size_t Extent> struct LeanVecMatrices;
 
 namespace runtime {
 
+struct IndexSVSTrainingInfo;
+
 struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
     enum LeanVecLevel { LeanVec4x4, LeanVec4x8, LeanVec8x8 };
 
@@ -39,15 +41,15 @@ struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
         LeanVecLevel leanvec_level
     ) noexcept;
 
-    void reset() noexcept override;
+    static IndexSVSTrainingInfo* build_leanvec_training(
+        size_t n, const float* x, size_t dim, size_t leanvec_dims
+    ) noexcept;
 
-    Status train(size_t n, const float* x) noexcept;
+    void reset() noexcept override;
 
     Status serialize_impl(std::ostream& out) const noexcept override;
 
     Status deserialize_impl(std::istream& in) noexcept override;
-
-    bool is_trained() const noexcept { return trained; }
 
   protected:
     IndexSVSVamanaLeanVecImpl();
@@ -66,8 +68,6 @@ struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
 
     size_t leanvec_d;
     LeanVecLevel leanvec_level;
-    bool trained = false;
-    std::unique_ptr<svs::leanvec::LeanVecMatrices<std::dynamic_extent>> leanvec_matrix;
 };
 
 } // namespace runtime
