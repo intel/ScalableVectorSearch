@@ -43,7 +43,10 @@ echo " FAISS Build: "
 mkdir build && cd build
 # TODO: create conda env
 cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF ..
-make -j swigfaiss
+make -j swigfaiss faiss_test
+echo "------------------------------------------------"
+echo " FAISS C++ tests: "
+./tests/faiss_test --gtest_filter=SVS.*
 echo "------------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
