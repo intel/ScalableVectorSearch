@@ -19,6 +19,9 @@
 // stdlib
 #include <memory>
 
+// svs
+#include "svs/version.hpp"
+
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
 
@@ -43,6 +46,8 @@
 #include "svs/lib/threads.h"
 
 namespace svs::index::vamana {
+
+SVS_VERSIONED_NAMESPACE_BEGIN
 
 // Forward declaration
 template <typename Index, typename QueryType> class BatchIterator;
@@ -1428,5 +1433,7 @@ auto auto_dynamic_assemble(
         std::move(threadpool),
         std::move(logger)};
 }
+
+SVS_VERSIONED_NAMESPACE_END
 
 } // namespace svs::index::vamana

@@ -17,6 +17,7 @@
 #pragma once
 
 // svs
+#include "svs/version.hpp"
 #include "svs/core/data.h"
 #include "svs/core/graph.h"
 #include "svs/core/loading.h"
@@ -47,6 +48,8 @@
 #include <vector>
 
 namespace svs::index::vamana {
+
+SVS_VERSIONED_NAMESPACE_BEGIN
 
 template <typename Index, typename QueryType> class BatchIterator;
 
@@ -1058,4 +1061,7 @@ void verify_and_set_default_index_parameters(
         throw std::invalid_argument("prune_to must be <= graph_max_degree");
     }
 }
+
+SVS_VERSIONED_NAMESPACE_END
+
 } // namespace svs::index::vamana

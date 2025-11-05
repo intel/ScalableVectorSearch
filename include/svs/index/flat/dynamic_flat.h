@@ -20,6 +20,9 @@
 #include <filesystem>
 #include <memory>
 
+// svs
+#include "svs/version.hpp"
+
 // Include the flat index
 #include "svs/index/flat/flat.h"
 #include "svs/index/flat/inserters.h"
