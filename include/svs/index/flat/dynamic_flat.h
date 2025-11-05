@@ -43,6 +43,8 @@
 
 namespace svs::index::flat {
 
+SVS_VERSIONED_NAMESPACE_BEGIN
+
 ///
 /// Metadata tracking the state of a particular data index for DynamicFlatIndex.
 /// The following states have the given meaning for their corresponding slot:
