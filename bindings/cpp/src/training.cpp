@@ -28,27 +28,22 @@ Status LeanVecTrainingData::build(
     const float* x,
     size_t leanvec_dims
 ) noexcept {
-    SVS_RUNTIME_TRY_BEGIN
-    const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
-    *training_data =
-        new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
-    return Status_Ok;
-    SVS_RUNTIME_TRY_END
+    return safe_runtime_call([&] {
+        const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
+        *training_data =
+            new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
+    });
 }
 
 Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept {
-    SVS_RUNTIME_TRY_BEGIN
-    delete training_data;
-    return Status_Ok;
-    SVS_RUNTIME_TRY_END
+    return safe_runtime_call([&] { delete training_data; });
 }
 
 Status
 LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in) noexcept {
-    SVS_RUNTIME_TRY_BEGIN
-    *training_data = new LeanVecTrainingDataManager{LeanVecTrainingDataImpl::load(in)};
-    return Status_Ok;
-    SVS_RUNTIME_TRY_END
+    return safe_runtime_call([&] {
+        *training_data = new LeanVecTrainingDataManager{LeanVecTrainingDataImpl::load(in)};
+    });
 }
 } // namespace runtime
 } // namespace svs
