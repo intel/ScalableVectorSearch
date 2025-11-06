@@ -31,10 +31,16 @@ namespace svs {
 namespace runtime {
 enum class MetricType { L2, INNER_PRODUCT };
 
-enum class StorageKind { 
-    FP32, FP16, SQI8,
-    LVQ4x0, LVQ4x4, LVQ4x8,
-    LeanVec4x4, LeanVec4x8, LeanVec8x8,
+enum class StorageKind {
+    FP32,
+    FP16,
+    SQI8,
+    LVQ4x0,
+    LVQ4x4,
+    LVQ4x8,
+    LeanVec4x4,
+    LeanVec4x8,
+    LeanVec8x8,
 };
 
 enum class ErrorCode {

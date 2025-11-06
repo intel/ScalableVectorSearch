@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "dynamic_vamana_index.h"
 #include "svs_runtime_utils.h"
 #include "training_impl.h"
-#include "dynamic_vamana_index.h"
 
 #include <algorithm>
 #include <memory>
@@ -28,10 +28,10 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/lib/float16.h>
-#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
+#include <svs/lib/float16.h>
+#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
 #include SVS_LVQ_HEADER
@@ -49,15 +49,16 @@ class DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params
-    ) : dim_{dim},
-        metric_type_{metric},
-        storage_kind_{storage_kind},
-        build_params_{params},
-        default_search_params_{default_search_params} {
+    )
+        : dim_{dim}
+        , metric_type_{metric}
+        , storage_kind_{storage_kind}
+        , build_params_{params}
+        , default_search_params_{default_search_params} {
         if (build_params_.prune_to == 0) {
-            build_params_.prune_to = 
-            build_params_.graph_max_degree < 4 ? build_params_.graph_max_degree
-                                        : build_params_.graph_max_degree - 4;
+            build_params_.prune_to = build_params_.graph_max_degree < 4
+                                         ? build_params_.graph_max_degree
+                                         : build_params_.graph_max_degree - 4;
         }
         if (build_params_.alpha == 0) {
             build_params_.alpha = metric == MetricType::L2 ? 1.2f : 0.95f;
@@ -71,7 +72,6 @@ class DynamicVamanaIndexImpl {
     MetricType metric_type() const { return metric_type_; }
 
     StorageKind get_storage_kind() const { return storage_kind_; }
-
 
     void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
         if (!impl_) {
@@ -172,7 +172,8 @@ class DynamicVamanaIndexImpl {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
         if (radius <= 0) {
-            throw StatusException{ErrorCode::INVALID_ARGUMENT, "radius must be greater than 0"};
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "radius must be greater than 0"};
         }
 
         auto sp = make_search_parameters(params);
@@ -295,9 +296,12 @@ class DynamicVamanaIndexImpl {
 
         auto ids = impl_->all_ids();
         std::vector<size_t> ids_to_delete;
-        std::copy_if(ids.begin(), ids.end(), std::back_inserter(ids_to_delete), [&](size_t id) {
-            return selector(id);
-        });
+        std::copy_if(
+            ids.begin(),
+            ids.end(),
+            std::back_inserter(ids_to_delete),
+            [&](size_t id) { return selector(id); }
+        );
 
         return remove(ids_to_delete);
     }
@@ -316,7 +320,7 @@ class DynamicVamanaIndexImpl {
         impl_->save(out);
     }
 
-protected:
+  protected:
     // Utility functions
     svs::index::vamana::VamanaBuildParameters vamana_build_parameters() const {
         return svs::index::vamana::VamanaBuildParameters{
@@ -328,9 +332,8 @@ protected:
             build_params_.use_full_search_history};
     }
 
-    svs::index::vamana::VamanaSearchParameters make_search_parameters(
-        const VamanaIndex::SearchParams* params
-    ) const {
+    svs::index::vamana::VamanaSearchParameters
+    make_search_parameters(const VamanaIndex::SearchParams* params) const {
         if (!impl_) {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
@@ -365,9 +368,15 @@ protected:
     }
 
     template <typename Tag>
-    svs::DynamicVamana* init_impl_t(Tag&& tag, MetricType metric, const svs::data::ConstSimpleDataView<float>& data, std::span<const size_t> labels) {
+    svs::DynamicVamana* init_impl_t(
+        Tag&& tag,
+        MetricType metric,
+        const svs::data::ConstSimpleDataView<float>& data,
+        std::span<const size_t> labels
+    ) {
         auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
+            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
+            ));
 
         auto storage = make_storage(std::forward<Tag>(tag), data, threadpool);
 
@@ -383,10 +392,16 @@ protected:
         });
     }
 
-    virtual void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+    virtual void
+    init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
         impl_.reset(storage::dispatch_storage_kind(
             get_storage_kind(),
-            [this](auto&& tag, MetricType metric, data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+            [this](
+                auto&& tag,
+                MetricType metric,
+                data::ConstSimpleDataView<float> data,
+                std::span<const size_t> labels
+            ) {
                 using Tag = std::decay_t<decltype(tag)>;
                 return init_impl_t(std::forward<Tag>(tag), metric, data, labels);
             },
@@ -396,13 +411,16 @@ protected:
         ));
     }
 
-    DynamicVamanaIndexImpl(std::unique_ptr<svs::DynamicVamana>&& impl,
+    DynamicVamanaIndexImpl(
+        std::unique_ptr<svs::DynamicVamana>&& impl,
         MetricType metric,
-        StorageKind storage_kind)
-         : impl_{std::move(impl)} {
+        StorageKind storage_kind
+    )
+        : impl_{std::move(impl)} {
         dim_ = impl_->dimensions();
         const auto& buffer_config = impl_->get_search_parameters().buffer_config_;
-        default_search_params_ = {buffer_config.get_search_window_size(), buffer_config.get_total_capacity()};
+        default_search_params_ = {
+            buffer_config.get_search_window_size(), buffer_config.get_total_capacity()};
         metric_type_ = metric;
         storage_kind_ = storage_kind;
         build_params_ = {
@@ -411,38 +429,38 @@ protected:
             impl_->get_alpha(),
             impl_->get_construction_window_size(),
             impl_->get_max_candidates(),
-            impl_->get_full_search_history()
-        };
+            impl_->get_full_search_history()};
     }
 
     template <typename StorageTag>
-    static svs::DynamicVamana* deserialize_impl_t(StorageTag&& SVS_UNUSED(tag), std::istream& stream, MetricType metric) {
+    static svs::DynamicVamana* deserialize_impl_t(
+        StorageTag&& SVS_UNUSED(tag), std::istream& stream, MetricType metric
+    ) {
         auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
+            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
+            ));
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(
-                svs::DynamicVamana::assemble<float, storage::StorageType_t<StorageTag::value>>(
-                    stream, std::forward<decltype(distance)>(distance), std::move(threadpool)
-                )
-            );
+            return new svs::DynamicVamana(svs::DynamicVamana::assemble<
+                                          float,
+                                          storage::StorageType_t<StorageTag::value>>(
+                stream, std::forward<decltype(distance)>(distance), std::move(threadpool)
+            ));
         });
     }
 
-public:
-    static DynamicVamanaIndexImpl* load(std::istream& stream, MetricType metric, StorageKind storage_kind) {
+  public:
+    static DynamicVamanaIndexImpl*
+    load(std::istream& stream, MetricType metric, StorageKind storage_kind) {
         return storage::dispatch_storage_kind(
             storage_kind,
             [&](auto&& tag, std::istream& stream, MetricType metric) {
                 using Tag = std::decay_t<decltype(tag)>;
-                std::unique_ptr<svs::DynamicVamana> impl{deserialize_impl_t(std::forward<Tag>(tag), stream, metric)};
+                std::unique_ptr<svs::DynamicVamana> impl{
+                    deserialize_impl_t(std::forward<Tag>(tag), stream, metric)};
 
-                return new DynamicVamanaIndexImpl(
-                    std::move(impl),
-                    metric,
-                    storage_kind
-                );
+                return new DynamicVamanaIndexImpl(std::move(impl), metric, storage_kind);
             },
             stream,
             metric
@@ -450,7 +468,7 @@ public:
     }
 
     // Data members
-protected:
+  protected:
     size_t dim_;
     MetricType metric_type_;
     StorageKind storage_kind_;
@@ -468,16 +486,25 @@ struct DynamicVamanaIndexLeanVecImplTrained : public DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10,10}
-    ) : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params},
-        training_data_{training_data} {}
+        const VamanaIndex::SearchParams& default_search_params = {10, 10}
+    )
+        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+        , training_data_{training_data} {}
 
     template <typename Tag>
-    svs::DynamicVamana* init_impl_t(Tag&& tag, MetricType metric, const svs::data::ConstSimpleDataView<float>& data, std::span<const size_t> labels, std::optional<LeanVecMatricesType> matrices) {
+    svs::DynamicVamana* init_impl_t(
+        Tag&& tag,
+        MetricType metric,
+        const svs::data::ConstSimpleDataView<float>& data,
+        std::span<const size_t> labels,
+        std::optional<LeanVecMatricesType> matrices
+    ) {
         auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
+            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
+            ));
 
-        auto storage = make_storage(std::forward<Tag>(tag), data, threadpool, 0, std::move(matrices));
+        auto storage =
+            make_storage(std::forward<Tag>(tag), data, threadpool, 0, std::move(matrices));
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
@@ -507,12 +534,24 @@ struct DynamicVamanaIndexLeanVecImplTrained : public DynamicVamanaIndexImpl {
         }
     }
 
-    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) override {
+    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
+        override {
         impl_.reset(DynamicVamanaIndexLeanVecImplTrained::dispatch_storage_kind(
             this->storage_kind_,
-            [this](auto&& tag, MetricType metric, data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+            [this](
+                auto&& tag,
+                MetricType metric,
+                data::ConstSimpleDataView<float> data,
+                std::span<const size_t> labels
+            ) {
                 using Tag = std::decay_t<decltype(tag)>;
-                return DynamicVamanaIndexLeanVecImplTrained::init_impl_t(std::forward<Tag>(tag), metric, data, labels, training_data_.get_leanvec_matrices());
+                return DynamicVamanaIndexLeanVecImplTrained::init_impl_t(
+                    std::forward<Tag>(tag),
+                    metric,
+                    data,
+                    labels,
+                    training_data_.get_leanvec_matrices()
+                );
             },
             metric_type_,
             data,
@@ -531,14 +570,22 @@ struct DynamicVamanaIndexLeanVecImplDims : public DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10,10}
-    ) : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params},
-        leanvec_dims_{leanvec_dims} {}
+        const VamanaIndex::SearchParams& default_search_params = {10, 10}
+    )
+        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+        , leanvec_dims_{leanvec_dims} {}
 
     template <typename Tag>
-    svs::DynamicVamana* init_impl_t(Tag&& tag, MetricType metric, const svs::data::ConstSimpleDataView<float>& data, std::span<const size_t> labels, size_t leanvec_dims) {
+    svs::DynamicVamana* init_impl_t(
+        Tag&& tag,
+        MetricType metric,
+        const svs::data::ConstSimpleDataView<float>& data,
+        std::span<const size_t> labels,
+        size_t leanvec_dims
+    ) {
         auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
+            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
+            ));
 
         auto storage = make_storage(std::forward<Tag>(tag), data, threadpool, leanvec_dims);
 
@@ -570,12 +617,20 @@ struct DynamicVamanaIndexLeanVecImplDims : public DynamicVamanaIndexImpl {
         }
     }
 
-    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) override {
+    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
+        override {
         impl_.reset(DynamicVamanaIndexLeanVecImplDims::dispatch_storage_kind(
             this->storage_kind_,
-            [this](auto&& tag, MetricType metric, data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+            [this](
+                auto&& tag,
+                MetricType metric,
+                data::ConstSimpleDataView<float> data,
+                std::span<const size_t> labels
+            ) {
                 using Tag = std::decay_t<decltype(tag)>;
-                return DynamicVamanaIndexLeanVecImplDims::init_impl_t(std::forward<Tag>(tag), metric, data, labels, leanvec_dims_);
+                return DynamicVamanaIndexLeanVecImplDims::init_impl_t(
+                    std::forward<Tag>(tag), metric, data, labels, leanvec_dims_
+                );
             },
             metric_type_,
             data,

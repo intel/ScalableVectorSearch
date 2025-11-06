@@ -28,11 +28,11 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
+#include <svs/cpuid.h>
+#include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/exception.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
-#include <svs/cpuid.h>
-#include <svs/extensions/vamana/scalar.h>
 #include <svs/quantization/scalar/scalar.h>
 
 #ifndef SVS_LVQ_HEADER
@@ -51,7 +51,8 @@ namespace svs::runtime {
 class StatusException : public svs::lib::ANNException {
   public:
     StatusException(const svs::runtime::ErrorCode& code, const std::string& message)
-        : svs::lib::ANNException(message), errcode_{code} {}
+        : svs::lib::ANNException(message)
+        , errcode_{code} {}
 
     svs::runtime::ErrorCode code() const { return errcode_; }
 
@@ -60,10 +61,9 @@ class StatusException : public svs::lib::ANNException {
 };
 
 #define SVS_RUNTIME_TRY_BEGIN try {
-
 #define SVS_RUNTIME_TRY_END                                                                \
     }                                                                                      \
-    catch (const svs::runtime::StatusException& ex) {                                       \
+    catch (const svs::runtime::StatusException& ex) {                                      \
         return svs::runtime::Status(ex.code(), ex.what());                                 \
     }                                                                                      \
     catch (const std::invalid_argument& ex) {                                              \
@@ -86,19 +86,15 @@ using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
 namespace storage {
 
 template <typename T> inline constexpr bool is_simple_dataset = false;
-template <
-    typename Elem,
-    size_t Extent, 
-    typename Allocator>
-inline constexpr bool
-is_simple_dataset<svs::data::SimpleData<Elem, Extent, Allocator>> = true;
+template <typename Elem, size_t Extent, typename Allocator>
+inline constexpr bool is_simple_dataset<svs::data::SimpleData<Elem, Extent, Allocator>> =
+    true;
 
 template <typename T>
 concept IsSimpleDataset = is_simple_dataset<T>;
 
 inline constexpr bool is_lvq_storage(StorageKind kind) {
-    return kind == StorageKind::LVQ4x0 ||
-           kind == StorageKind::LVQ4x4 ||
+    return kind == StorageKind::LVQ4x0 || kind == StorageKind::LVQ4x4 ||
            kind == StorageKind::LVQ4x8;
 }
 
@@ -106,14 +102,12 @@ template <StorageKind K>
 concept IsLVQStorageKind = is_lvq_storage(K);
 
 inline constexpr bool is_leanvec_storage(StorageKind kind) {
-    return kind == StorageKind::LeanVec4x4 ||
-           kind == StorageKind::LeanVec4x8 ||
+    return kind == StorageKind::LeanVec4x4 || kind == StorageKind::LeanVec4x8 ||
            kind == StorageKind::LeanVec8x8;
 }
 
 template <StorageKind K>
 concept IsLeanVecStorageKind = is_leanvec_storage(K);
-
 
 // Storage kind processing
 // Most kinds map to std::byte storage, but some have specific element types.
@@ -134,16 +128,12 @@ using LeanVec8x8Tag = StorageKindTag<StorageKind::LeanVec8x8>;
 
 // Storage types
 template <typename T>
-using SimpleDatasetType = svs::data::SimpleData<
-    T,
-    svs::Dynamic,
-    svs::data::Blocked<svs::lib::Allocator<T>>>;
+using SimpleDatasetType =
+    svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
 template <typename T>
-using SQDatasetType = svs::quantization::scalar::SQDataset<
-    T,
-    svs::Dynamic,
-    svs::data::Blocked<svs::lib::Allocator<T>>>;
+using SQDatasetType = svs::quantization::scalar::
+    SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
 template <size_t Primary, size_t Residual>
 using LVQDatasetType = svs::quantization::lvq::LVQDataset<
@@ -164,53 +154,43 @@ using LeanDatasetType = svs::leanvec::LeanDataset<
 template <StorageKind K> struct StorageType;
 template <StorageKind K> using StorageType_t = typename StorageType<K>::type;
 
-template <>
-struct StorageType<StorageKind::FP32> {
+template <> struct StorageType<StorageKind::FP32> {
     using type = SimpleDatasetType<float>;
 };
 
-template <>
-struct StorageType<StorageKind::FP16> {
+template <> struct StorageType<StorageKind::FP16> {
     using type = SimpleDatasetType<svs::Float16>;
 };
 
-template <>
-struct StorageType<StorageKind::SQI8> {
+template <> struct StorageType<StorageKind::SQI8> {
     using type = SQDatasetType<std::int8_t>;
 };
 
-
-template <>
-struct StorageType <StorageKind::LVQ4x0> {
-    using type = LVQDatasetType<4,0>;
+template <> struct StorageType<StorageKind::LVQ4x0> {
+    using type = LVQDatasetType<4, 0>;
 };
 
-template <>
-struct StorageType <StorageKind::LVQ4x4> {
-    using type = LVQDatasetType<4,4>;
+template <> struct StorageType<StorageKind::LVQ4x4> {
+    using type = LVQDatasetType<4, 4>;
 };
 
-template <>
-struct StorageType <StorageKind::LVQ4x8> {
-    using type = LVQDatasetType<4,8>;
+template <> struct StorageType<StorageKind::LVQ4x8> {
+    using type = LVQDatasetType<4, 8>;
 };
 
-template <>
-struct StorageType<StorageKind::LeanVec4x4> {
-    using type = LeanDatasetType<4,4>;
+template <> struct StorageType<StorageKind::LeanVec4x4> {
+    using type = LeanDatasetType<4, 4>;
 };
 
-template <>
-struct StorageType<StorageKind::LeanVec4x8> {
-    using type = LeanDatasetType<4,8>;
+template <> struct StorageType<StorageKind::LeanVec4x8> {
+    using type = LeanDatasetType<4, 8>;
 };
 
-template <>
-struct StorageType<StorageKind::LeanVec8x8> {
-    using type = LeanDatasetType<8,8>;
+template <> struct StorageType<StorageKind::LeanVec8x8> {
+    using type = LeanDatasetType<8, 8>;
 };
 
-template<IsSimpleDataset StorageType, svs::threads::ThreadPool Pool>
+template <IsSimpleDataset StorageType, svs::threads::ThreadPool Pool>
 StorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
     StorageType result(data.size(), data.dimensions());
     svs::threads::parallel_for(
@@ -225,23 +205,31 @@ StorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool
     return result;
 }
 
-template<svs::quantization::scalar::IsSQData SQStorageType, svs::threads::ThreadPool Pool>
-SQStorageType
-make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
+template <svs::quantization::scalar::IsSQData SQStorageType, svs::threads::ThreadPool Pool>
+SQStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
     return SQStorageType::compress(data, pool);
 }
 
-template<svs::quantization::lvq::IsLVQDataset LVQStorageType, svs::threads::ThreadPool Pool>
+template <
+    svs::quantization::lvq::IsLVQDataset LVQStorageType,
+    svs::threads::ThreadPool Pool>
 LVQStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
     return LVQStorageType::compress(data, pool, 0);
 }
 
-template<svs::leanvec::IsLeanDataset LeanVecStorageType, svs::threads::ThreadPool Pool>
-LeanVecStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool, size_t leanvec_d = 0, std::optional<LeanVecMatricesType> matrices = std::nullopt) {
+template <svs::leanvec::IsLeanDataset LeanVecStorageType, svs::threads::ThreadPool Pool>
+LeanVecStorageType make_storage(
+    const svs::data::ConstSimpleDataView<float>& data,
+    Pool& pool,
+    size_t leanvec_d = 0,
+    std::optional<LeanVecMatricesType> matrices = std::nullopt
+) {
     if (leanvec_d == 0) {
         leanvec_d = (data.dimensions() + 1) / 2;
     }
-    return LeanVecStorageType::reduce(data, std::move(matrices), pool, 0, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_d});
+    return LeanVecStorageType::reduce(
+        data, std::move(matrices), pool, 0, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_d}
+    );
 }
 
 template <typename StorageTag, typename... Args>

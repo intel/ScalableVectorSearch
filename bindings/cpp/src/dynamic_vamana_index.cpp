@@ -15,8 +15,8 @@
  */
 
 #include "dynamic_vamana_index.h"
-#include "svs_runtime_utils.h"
 #include "dynamic_vamana_index_impl.h"
+#include "svs_runtime_utils.h"
 
 #include <algorithm>
 #include <memory>
@@ -26,10 +26,10 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/lib/float16.h>
-#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
+#include <svs/lib/float16.h>
+#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
 #include SVS_LVQ_HEADER
@@ -45,8 +45,8 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 
     DynamicVamanaIndexManagerBase(std::unique_ptr<Impl> impl)
         : impl_{std::move(impl)} {
-            assert(impl_ != nullptr);
-        }
+        assert(impl_ != nullptr);
+    }
 
     DynamicVamanaIndexManagerBase(const DynamicVamanaIndexManagerBase&) = delete;
     DynamicVamanaIndexManagerBase& operator=(const DynamicVamanaIndexManagerBase&) = delete;
@@ -56,25 +56,26 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 
     Status add(size_t n, const size_t* labels, const float* x) noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
-            std::span<const size_t> lbls(labels, n);
-            impl_->add(data, lbls);
-            return Status_Ok;
+        svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
+        std::span<const size_t> lbls(labels, n);
+        impl_->add(data, lbls);
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 
-    Status remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
+    Status
+    remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            *num_removed = impl_->remove_selected(selector);
-            return Status_Ok;
+        *num_removed = impl_->remove_selected(selector);
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 
     Status remove(size_t n, const size_t* labels) noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            std::span<const size_t> lbls(labels, n);
-            impl_->remove(lbls);
-            return Status_Ok;
+        std::span<const size_t> lbls(labels, n);
+        impl_->remove(lbls);
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 
@@ -88,9 +89,10 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            // TODO wrap arguments into proper data structures in DynamicVamanaIndexImpl and here
-            impl_->search(n, x, k, distances, labels, params, filter);
-            return Status_Ok;
+        // TODO wrap arguments into proper data structures in DynamicVamanaIndexImpl and
+        // here
+        impl_->search(n, x, k, distances, labels, params, filter);
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 
@@ -103,30 +105,33 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            // TODO wrap arguments into proper data structures in DynamicVamanaIndexImpl and here
-            impl_->range_search(n, x, radius, results, params, filter);
-            return Status_Ok;
+        // TODO wrap arguments into proper data structures in DynamicVamanaIndexImpl and
+        // here
+        impl_->range_search(n, x, radius, results, params, filter);
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 
     Status reset() noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            impl_->reset();
-            return Status_Ok;
+        impl_->reset();
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 
     Status save(std::ostream& out) const noexcept override {
         SVS_RUNTIME_TRY_BEGIN
-            impl_->save(out);
-            return Status_Ok;
+        impl_->save(out);
+        return Status_Ok;
         SVS_RUNTIME_TRY_END
     }
 };
 
 using DynamicVamanaIndexManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexImpl>;
-using DynamicVamanaIndexLeanVecImplTrainedManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImplTrained>;
-using DynamicVamanaIndexLeanVecImplDimsManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImplDims>;
+using DynamicVamanaIndexLeanVecImplTrainedManager =
+    DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImplTrained>;
+using DynamicVamanaIndexLeanVecImplDimsManager =
+    DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImplDims>;
 
 } // namespace
 
@@ -140,25 +145,33 @@ Status DynamicVamanaIndex::build(
 ) noexcept {
     *index = nullptr;
     SVS_RUNTIME_TRY_BEGIN
-        auto impl = std::make_unique<DynamicVamanaIndexImpl>(dim, metric, storage_kind, params, default_search_params);
-        *index = new DynamicVamanaIndexManager{std::move(impl)};
-        return Status_Ok;
+    auto impl = std::make_unique<DynamicVamanaIndexImpl>(
+        dim, metric, storage_kind, params, default_search_params
+    );
+    *index = new DynamicVamanaIndexManager{std::move(impl)};
+    return Status_Ok;
     SVS_RUNTIME_TRY_END
 }
 
 Status DynamicVamanaIndex::destroy(DynamicVamanaIndex* index) noexcept {
     SVS_RUNTIME_TRY_BEGIN
-        delete index;
-        return Status_Ok;
+    delete index;
+    return Status_Ok;
     SVS_RUNTIME_TRY_END
 }
 
-Status DynamicVamanaIndex::load(DynamicVamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind) noexcept {
+Status DynamicVamanaIndex::load(
+    DynamicVamanaIndex** index,
+    std::istream& in,
+    MetricType metric,
+    StorageKind storage_kind
+) noexcept {
     *index = nullptr;
     SVS_RUNTIME_TRY_BEGIN
-        std::unique_ptr<DynamicVamanaIndexImpl> impl{DynamicVamanaIndexImpl::load(in, metric, storage_kind)};
-        *index = new DynamicVamanaIndexManager{std::move(impl)};
-        return Status_Ok;
+    std::unique_ptr<DynamicVamanaIndexImpl> impl{
+        DynamicVamanaIndexImpl::load(in, metric, storage_kind)};
+    *index = new DynamicVamanaIndexManager{std::move(impl)};
+    return Status_Ok;
     SVS_RUNTIME_TRY_END
 }
 
@@ -174,9 +187,11 @@ Status DynamicVamanaIndexLeanVec::build(
 ) noexcept {
     *index = nullptr;
     SVS_RUNTIME_TRY_BEGIN
-        auto impl = std::make_unique<DynamicVamanaIndexLeanVecImplDims>(dim, metric, storage_kind, leanvec_dims, params, default_search_params);
-        *index = new DynamicVamanaIndexLeanVecImplDimsManager{std::move(impl)};
-        return Status_Ok;
+    auto impl = std::make_unique<DynamicVamanaIndexLeanVecImplDims>(
+        dim, metric, storage_kind, leanvec_dims, params, default_search_params
+    );
+    *index = new DynamicVamanaIndexLeanVecImplDimsManager{std::move(impl)};
+    return Status_Ok;
     SVS_RUNTIME_TRY_END
 }
 
@@ -192,10 +207,13 @@ Status DynamicVamanaIndexLeanVec::build(
 ) noexcept {
     *index = nullptr;
     SVS_RUNTIME_TRY_BEGIN
-        auto training_data_impl = static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
-        auto impl = std::make_unique<DynamicVamanaIndexLeanVecImplTrained>(dim, metric, storage_kind, training_data_impl, params, default_search_params);
-        *index = new DynamicVamanaIndexLeanVecImplTrainedManager{std::move(impl)};
-        return Status_Ok;
+    auto training_data_impl =
+        static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
+    auto impl = std::make_unique<DynamicVamanaIndexLeanVecImplTrained>(
+        dim, metric, storage_kind, training_data_impl, params, default_search_params
+    );
+    *index = new DynamicVamanaIndexLeanVecImplTrainedManager{std::move(impl)};
+    return Status_Ok;
     SVS_RUNTIME_TRY_END
 }
 

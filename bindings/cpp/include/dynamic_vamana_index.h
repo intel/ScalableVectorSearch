@@ -16,8 +16,8 @@
 
 #pragma once
 #include "IndexSVSImplDefs.h"
-#include "vamana_index.h"
 #include "training.h"
+#include "vamana_index.h"
 
 #include <cstddef>
 #include <istream>
@@ -28,9 +28,9 @@ namespace runtime {
 
 // Abstract interface for Dynamic Vamana-based indexes.
 struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
-
     virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
-    virtual Status remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
+    virtual Status
+    remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
     virtual Status remove(size_t n, const size_t* labels) noexcept = 0;
 
     virtual Status reset() noexcept = 0;
@@ -48,7 +48,12 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     static Status destroy(DynamicVamanaIndex* index) noexcept;
 
     virtual Status save(std::ostream& out) const noexcept = 0;
-    static Status load(DynamicVamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind) noexcept;
+    static Status load(
+        DynamicVamanaIndex** index,
+        std::istream& in,
+        MetricType metric,
+        StorageKind storage_kind
+    ) noexcept;
 };
 
 struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {

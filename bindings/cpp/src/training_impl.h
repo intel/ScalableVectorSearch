@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
- #pragma once
+#pragma once
 
 #include "svs_runtime_utils.h"
 
@@ -26,10 +26,10 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/lib/float16.h>
-#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
+#include <svs/lib/float16.h>
+#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
 #include SVS_LVQ_HEADER
@@ -40,16 +40,14 @@ namespace runtime {
 
 struct LeanVecTrainingDataImpl {
     LeanVecTrainingDataImpl(LeanVecMatricesType&& matrices)
-        : leanvec_matrices{std::move(matrices)}
-        {}
+        : leanvec_matrices{std::move(matrices)} {}
 
-    LeanVecTrainingDataImpl(const svs::data::ConstSimpleDataView<float>& data, size_t leanvec_dims)
-        : LeanVecTrainingDataImpl{compute_leanvec_matrices(data, leanvec_dims)}
-        {}
+    LeanVecTrainingDataImpl(
+        const svs::data::ConstSimpleDataView<float>& data, size_t leanvec_dims
+    )
+        : LeanVecTrainingDataImpl{compute_leanvec_matrices(data, leanvec_dims)} {}
 
-    const LeanVecMatricesType& get_leanvec_matrices() const {
-        return leanvec_matrices;
-    }
+    const LeanVecMatricesType& get_leanvec_matrices() const { return leanvec_matrices; }
 
     void save(std::ostream& out) const {
         lib::UniqueTempDirectory tempdir{"svs_leanvec_matrix_save"};
@@ -58,20 +56,21 @@ struct LeanVecTrainingDataImpl {
     }
 
     static LeanVecTrainingDataImpl load(std::istream& in) {
-        lib::UniqueTempDirectory tempdir{"svs_leanvec_matrix_load"};\
+        lib::UniqueTempDirectory tempdir{"svs_leanvec_matrix_load"};
         lib::DirectoryArchiver::unpack(in, tempdir);
-        return LeanVecTrainingDataImpl{svs::lib::load_from_disk<LeanVecMatricesType>(tempdir)};
+        return LeanVecTrainingDataImpl{
+            svs::lib::load_from_disk<LeanVecMatricesType>(tempdir)};
     }
 
-private:
+  private:
     LeanVecMatricesType leanvec_matrices;
 
     static LeanVecMatricesType compute_leanvec_matrices(
-        const svs::data::ConstSimpleDataView<float>& data,
-        size_t leanvec_dims
+        const svs::data::ConstSimpleDataView<float>& data, size_t leanvec_dims
     ) {
         auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()));
+            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
+            ));
 
         auto means = svs::utils::compute_medioid(data, threadpool);
         auto matrix = svs::leanvec::compute_leanvec_matrix<svs::Dynamic, svs::Dynamic>(
@@ -85,8 +84,7 @@ struct LeanVecTrainingDataManager : public svs::runtime::LeanVecTrainingData {
     LeanVecTrainingDataImpl impl_;
 
     LeanVecTrainingDataManager(LeanVecTrainingDataImpl impl)
-        : impl_{std::move(impl)}
-        {}
+        : impl_{std::move(impl)} {}
 
     Status save(std::ostream& out) const noexcept override {
         SVS_RUNTIME_TRY_BEGIN
