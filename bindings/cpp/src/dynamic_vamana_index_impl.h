@@ -150,8 +150,7 @@ class DynamicVamanaIndexImpl {
             }
         };
 
-        auto threadpool =
-            svs::threads::OMPThreadPool(std::min(n, size_t(omp_get_max_threads())));
+        auto threadpool = default_threadpool();
 
         svs::threads::parallel_for(
             threadpool, svs::threads::StaticPartition{n}, search_closure
@@ -237,8 +236,7 @@ class DynamicVamanaIndexImpl {
             }
         };
 
-        auto threadpool =
-            svs::threads::OMPThreadPool(std::min(n, size_t(omp_get_max_threads())));
+        auto threadpool = default_threadpool();
 
         svs::threads::parallel_for(
             threadpool, svs::threads::StaticPartition{n}, range_search_closure
@@ -367,23 +365,28 @@ class DynamicVamanaIndexImpl {
         );
     }
 
-    template <typename Tag>
-    svs::DynamicVamana* init_impl_t(
+    template <typename Tag, typename... StorageArgs>
+    static svs::DynamicVamana* build_impl(
         Tag&& tag,
         MetricType metric,
+        const index::vamana::VamanaBuildParameters& parameters,
         const svs::data::ConstSimpleDataView<float>& data,
-        std::span<const size_t> labels
+        std::span<const size_t> labels,
+        StorageArgs&&... storage_args
     ) {
-        auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
-            ));
+        auto threadpool = default_threadpool();
 
-        auto storage = make_storage(std::forward<Tag>(tag), data, threadpool);
+        auto storage = make_storage(
+            std::forward<Tag>(tag),
+            data,
+            threadpool,
+            std::forward<StorageArgs>(storage_args)...
+        );
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
             return new svs::DynamicVamana(svs::DynamicVamana::build<float>(
-                this->vamana_build_parameters(),
+                parameters,
                 std::move(storage),
                 std::move(labels),
                 std::forward<decltype(distance)>(distance),
@@ -398,19 +401,24 @@ class DynamicVamanaIndexImpl {
             get_storage_kind(),
             [this](
                 auto&& tag,
-                MetricType metric,
                 data::ConstSimpleDataView<float> data,
                 std::span<const size_t> labels
             ) {
                 using Tag = std::decay_t<decltype(tag)>;
-                return init_impl_t(std::forward<Tag>(tag), metric, data, labels);
+                return build_impl(
+                    std::forward<Tag>(tag),
+                    this->metric_type_,
+                    this->vamana_build_parameters(),
+                    data,
+                    labels
+                );
             },
-            metric_type_,
             data,
             labels
         ));
     }
 
+    // Constructor used during loading
     DynamicVamanaIndexImpl(
         std::unique_ptr<svs::DynamicVamana>&& impl,
         MetricType metric,
@@ -432,21 +440,20 @@ class DynamicVamanaIndexImpl {
             impl_->get_full_search_history()};
     }
 
-    template <typename StorageTag>
-    static svs::DynamicVamana* deserialize_impl_t(
-        StorageTag&& SVS_UNUSED(tag), std::istream& stream, MetricType metric
-    ) {
-        auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
-            ));
+    template <storage::StorageTag Tag>
+    static svs::DynamicVamana*
+    load_impl_t(Tag&& SVS_UNUSED(tag), std::istream& stream, MetricType metric) {
+        auto threadpool = default_threadpool();
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(svs::DynamicVamana::assemble<
-                                          float,
-                                          storage::StorageType_t<StorageTag::value>>(
-                stream, std::forward<decltype(distance)>(distance), std::move(threadpool)
-            ));
+            return new svs::DynamicVamana(
+                svs::DynamicVamana::assemble<float, storage::StorageType_t<Tag>>(
+                    stream,
+                    std::forward<decltype(distance)>(distance),
+                    std::move(threadpool)
+                )
+            );
         });
     }
 
@@ -458,7 +465,7 @@ class DynamicVamanaIndexImpl {
             [&](auto&& tag, std::istream& stream, MetricType metric) {
                 using Tag = std::decay_t<decltype(tag)>;
                 std::unique_ptr<svs::DynamicVamana> impl{
-                    deserialize_impl_t(std::forward<Tag>(tag), stream, metric)};
+                    load_impl_t(std::forward<Tag>(tag), stream, metric)};
 
                 return new DynamicVamanaIndexImpl(std::move(impl), metric, storage_kind);
             },
@@ -478,9 +485,19 @@ class DynamicVamanaIndexImpl {
     size_t ntotal_soft_deleted{0};
 };
 
-struct DynamicVamanaIndexLeanVecImplTrained : public DynamicVamanaIndexImpl {
-    using DynamicVamanaIndexImpl::DynamicVamanaIndexImpl;
-    DynamicVamanaIndexLeanVecImplTrained(
+struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
+    DynamicVamanaIndexLeanVecImpl(
+        std::unique_ptr<svs::DynamicVamana>&& impl,
+        MetricType metric,
+        StorageKind storage_kind
+    )
+        : DynamicVamanaIndexImpl{std::move(impl), metric, storage_kind}
+        , leanvec_dims_{0}
+        , leanvec_matrices_{std::nullopt} {
+        check_storage_kind(storage_kind);
+    }
+
+    DynamicVamanaIndexLeanVecImpl(
         size_t dim,
         MetricType metric,
         StorageKind storage_kind,
@@ -489,82 +506,12 @@ struct DynamicVamanaIndexLeanVecImplTrained : public DynamicVamanaIndexImpl {
         const VamanaIndex::SearchParams& default_search_params = {10, 10}
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
-        , training_data_{training_data} {}
-
-    template <typename Tag>
-    svs::DynamicVamana* init_impl_t(
-        Tag&& tag,
-        MetricType metric,
-        const svs::data::ConstSimpleDataView<float>& data,
-        std::span<const size_t> labels,
-        std::optional<LeanVecMatricesType> matrices
-    ) {
-        auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
-            ));
-
-        auto storage =
-            make_storage(std::forward<Tag>(tag), data, threadpool, 0, std::move(matrices));
-
-        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-        return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(svs::DynamicVamana::build<float>(
-                this->vamana_build_parameters(),
-                std::move(storage),
-                std::move(labels),
-                std::forward<decltype(distance)>(distance),
-                std::move(threadpool)
-            ));
-        });
+        , leanvec_dims_{training_data.get_leanvec_dims()}
+        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
+        check_storage_kind(storage_kind);
     }
 
-    template <typename F, typename... Args>
-    static auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
-        using SK = StorageKind;
-        using namespace svs::runtime::storage;
-        switch (kind) {
-            case SK::LeanVec4x4:
-                return f(LeanVec4x4Tag{}, std::forward<Args>(args)...);
-            case SK::LeanVec4x8:
-                return f(LeanVec4x8Tag{}, std::forward<Args>(args)...);
-            case SK::LeanVec8x8:
-                return f(LeanVec8x8Tag{}, std::forward<Args>(args)...);
-            default:
-                throw ANNEXCEPTION("not supported SVS leanvec storage kind");
-        }
-    }
-
-    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
-        override {
-        impl_.reset(DynamicVamanaIndexLeanVecImplTrained::dispatch_storage_kind(
-            this->storage_kind_,
-            [this](
-                auto&& tag,
-                MetricType metric,
-                data::ConstSimpleDataView<float> data,
-                std::span<const size_t> labels
-            ) {
-                using Tag = std::decay_t<decltype(tag)>;
-                return DynamicVamanaIndexLeanVecImplTrained::init_impl_t(
-                    std::forward<Tag>(tag),
-                    metric,
-                    data,
-                    labels,
-                    training_data_.get_leanvec_matrices()
-                );
-            },
-            metric_type_,
-            data,
-            labels
-        ));
-    }
-
-    LeanVecTrainingDataImpl training_data_;
-};
-
-struct DynamicVamanaIndexLeanVecImplDims : public DynamicVamanaIndexImpl {
-    using DynamicVamanaIndexImpl::DynamicVamanaIndexImpl;
-    DynamicVamanaIndexLeanVecImplDims(
+    DynamicVamanaIndexLeanVecImpl(
         size_t dim,
         MetricType metric,
         StorageKind storage_kind,
@@ -573,72 +520,70 @@ struct DynamicVamanaIndexLeanVecImplDims : public DynamicVamanaIndexImpl {
         const VamanaIndex::SearchParams& default_search_params = {10, 10}
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
-        , leanvec_dims_{leanvec_dims} {}
-
-    template <typename Tag>
-    svs::DynamicVamana* init_impl_t(
-        Tag&& tag,
-        MetricType metric,
-        const svs::data::ConstSimpleDataView<float>& data,
-        std::span<const size_t> labels,
-        size_t leanvec_dims
-    ) {
-        auto threadpool =
-            svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads()
-            ));
-
-        auto storage = make_storage(std::forward<Tag>(tag), data, threadpool, leanvec_dims);
-
-        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-        return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(svs::DynamicVamana::build<float>(
-                this->vamana_build_parameters(),
-                std::move(storage),
-                std::move(labels),
-                std::forward<decltype(distance)>(distance),
-                std::move(threadpool)
-            ));
-        });
+        , leanvec_dims_{leanvec_dims}
+        , leanvec_matrices_{std::nullopt} {
+        check_storage_kind(storage_kind);
     }
 
     template <typename F, typename... Args>
-    static auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
-        using SK = StorageKind;
-        using namespace svs::runtime::storage;
+    static auto dispatch_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) {
         switch (kind) {
-            case SK::LeanVec4x4:
-                return f(LeanVec4x4Tag{}, std::forward<Args>(args)...);
-            case SK::LeanVec4x8:
-                return f(LeanVec4x8Tag{}, std::forward<Args>(args)...);
-            case SK::LeanVec8x8:
-                return f(LeanVec8x8Tag{}, std::forward<Args>(args)...);
+            case StorageKind::LeanVec4x4:
+                return f(storage::LeanVec4x4Tag{}, std::forward<Args>(args)...);
+            case StorageKind::LeanVec4x8:
+                return f(storage::LeanVec4x8Tag{}, std::forward<Args>(args)...);
+            case StorageKind::LeanVec8x8:
+                return f(storage::LeanVec8x8Tag{}, std::forward<Args>(args)...);
             default:
-                throw ANNEXCEPTION("not supported SVS leanvec storage kind");
+                throw StatusException{
+                    ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"};
         }
     }
 
     void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
         override {
-        impl_.reset(DynamicVamanaIndexLeanVecImplDims::dispatch_storage_kind(
+        assert(storage::is_leanvec_storage(this->storage_kind_));
+        impl_.reset(dispatch_leanvec_storage_kind(
             this->storage_kind_,
             [this](
                 auto&& tag,
-                MetricType metric,
                 data::ConstSimpleDataView<float> data,
                 std::span<const size_t> labels
             ) {
                 using Tag = std::decay_t<decltype(tag)>;
-                return DynamicVamanaIndexLeanVecImplDims::init_impl_t(
-                    std::forward<Tag>(tag), metric, data, labels, leanvec_dims_
+                return DynamicVamanaIndexImpl::build_impl(
+                    std::forward<Tag>(tag),
+                    this->metric_type_,
+                    this->vamana_build_parameters(),
+                    data,
+                    labels,
+                    this->leanvec_dims_,
+                    this->leanvec_matrices_
                 );
             },
-            metric_type_,
             data,
             labels
         ));
     }
 
+  protected:
     size_t leanvec_dims_;
+    std::optional<LeanVecMatricesType> leanvec_matrices_;
+
+    StorageKind check_storage_kind(StorageKind kind) {
+        if (!storage::is_leanvec_storage(kind)) {
+            throw StatusException(
+                ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"
+            );
+        }
+        if (!svs::detail::lvq_leanvec_enabled()) {
+            throw StatusException(
+                ErrorCode::NOT_IMPLEMENTED,
+                "LeanVec storage kind requested but not supported by CPU"
+            );
+        }
+        return kind;
+    }
 };
 
 } // namespace runtime

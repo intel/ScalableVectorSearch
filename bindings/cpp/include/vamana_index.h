@@ -22,7 +22,7 @@
 namespace svs {
 namespace runtime {
 
-// Abstract interface for Vamana-based indexes.
+// Abstract interface for Vamana-based indices.
 // NOTE VamanaIndex is not implemented directly, only DynamicVamanaIndex is implemented.
 struct SVS_RUNTIME_API VamanaIndex {
     virtual ~VamanaIndex() = 0;
