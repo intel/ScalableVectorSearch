@@ -25,7 +25,7 @@ namespace svs {
 namespace runtime {
 struct SVS_RUNTIME_API LeanVecTrainingData {
     virtual ~LeanVecTrainingData() = 0;
-    Status build(
+    static Status build(
         LeanVecTrainingData** training_data,
         size_t dim,
         size_t n,
