@@ -25,7 +25,7 @@ namespace runtime {
 // Abstract interface for Vamana-based indices.
 // NOTE VamanaIndex is not implemented directly, only DynamicVamanaIndex is implemented.
 struct SVS_RUNTIME_API VamanaIndex {
-    virtual ~VamanaIndex() = 0;
+    virtual ~VamanaIndex();
 
     struct BuildParams {
         size_t graph_max_degree;
