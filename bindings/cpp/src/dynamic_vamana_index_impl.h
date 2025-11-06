@@ -114,6 +114,7 @@ class DynamicVamanaIndexImpl {
                     svs::make_dims(n, k), static_cast<size_t*>(static_cast<void*>(labels))},
                 svs::MatrixView<float>{svs::make_dims(n, k), distances}};
             impl_->search(results, queries, sp);
+            return;
         }
 
         // Selective search with IDSelector
