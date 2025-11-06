@@ -21,6 +21,8 @@
 namespace svs {
 namespace runtime {
 
+LeanVecTrainingData::~LeanVecTrainingData() = default;
+
 Status LeanVecTrainingData::build(
     LeanVecTrainingData** training_data,
     size_t dim,
@@ -41,6 +43,11 @@ Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept
     delete training_data;
     return Status_Ok;
     SVS_RUNTIME_TRY_END
+}
+
+Status LeanVecTrainingData::save(std::ostream& /*out*/) const noexcept {
+    // providing an implementation of a virtual function to anchor vtable
+    return {ErrorCode::NOT_IMPLEMENTED, "Not implemented"};
 }
 
 Status
