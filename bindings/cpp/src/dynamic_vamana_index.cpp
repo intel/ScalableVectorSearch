@@ -128,10 +128,8 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 };
 
 using DynamicVamanaIndexManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexImpl>;
-using DynamicVamanaIndexLeanVecImplTrainedManager =
-    DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImplTrained>;
-using DynamicVamanaIndexLeanVecImplDimsManager =
-    DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImplDims>;
+using DynamicVamanaIndexLeanVecImplManager =
+    DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImpl>;
 
 } // namespace
 
@@ -187,10 +185,10 @@ Status DynamicVamanaIndexLeanVec::build(
 ) noexcept {
     *index = nullptr;
     SVS_RUNTIME_TRY_BEGIN
-    auto impl = std::make_unique<DynamicVamanaIndexLeanVecImplDims>(
+    auto impl = std::make_unique<DynamicVamanaIndexLeanVecImpl>(
         dim, metric, storage_kind, leanvec_dims, params, default_search_params
     );
-    *index = new DynamicVamanaIndexLeanVecImplDimsManager{std::move(impl)};
+    *index = new DynamicVamanaIndexLeanVecImplManager{std::move(impl)};
     return Status_Ok;
     SVS_RUNTIME_TRY_END
 }
@@ -209,10 +207,10 @@ Status DynamicVamanaIndexLeanVec::build(
     SVS_RUNTIME_TRY_BEGIN
     auto training_data_impl =
         static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
-    auto impl = std::make_unique<DynamicVamanaIndexLeanVecImplTrained>(
+    auto impl = std::make_unique<DynamicVamanaIndexLeanVecImpl>(
         dim, metric, storage_kind, training_data_impl, params, default_search_params
     );
-    *index = new DynamicVamanaIndexLeanVecImplTrainedManager{std::move(impl)};
+    *index = new DynamicVamanaIndexLeanVecImplManager{std::move(impl)};
     return Status_Ok;
     SVS_RUNTIME_TRY_END
 }

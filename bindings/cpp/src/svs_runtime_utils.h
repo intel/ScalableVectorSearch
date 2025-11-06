@@ -25,6 +25,8 @@
 #include <variant>
 #include <vector>
 
+#include <omp.h>
+
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
@@ -85,6 +87,7 @@ using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
 
 namespace storage {
 
+// Simplified trait checking
 template <typename T> inline constexpr bool is_simple_dataset = false;
 template <typename Elem, size_t Extent, typename Allocator>
 inline constexpr bool is_simple_dataset<svs::data::SimpleData<Elem, Extent, Allocator>> =
@@ -93,21 +96,16 @@ inline constexpr bool is_simple_dataset<svs::data::SimpleData<Elem, Extent, Allo
 template <typename T>
 concept IsSimpleDataset = is_simple_dataset<T>;
 
+// Consolidated storage kind checks using constexpr functions
 inline constexpr bool is_lvq_storage(StorageKind kind) {
     return kind == StorageKind::LVQ4x0 || kind == StorageKind::LVQ4x4 ||
            kind == StorageKind::LVQ4x8;
 }
 
-template <StorageKind K>
-concept IsLVQStorageKind = is_lvq_storage(K);
-
 inline constexpr bool is_leanvec_storage(StorageKind kind) {
     return kind == StorageKind::LeanVec4x4 || kind == StorageKind::LeanVec4x8 ||
            kind == StorageKind::LeanVec8x8;
 }
-
-template <StorageKind K>
-concept IsLeanVecStorageKind = is_leanvec_storage(K);
 
 // Storage kind processing
 // Most kinds map to std::byte storage, but some have specific element types.
@@ -116,15 +114,26 @@ template <StorageKind K> struct StorageKindTag {
     static constexpr StorageKind value = K;
 };
 
-using FP32Tag = StorageKindTag<StorageKind::FP32>;
-using FP16Tag = StorageKindTag<StorageKind::FP16>;
-using SQI8Tag = StorageKindTag<StorageKind::SQI8>;
-using LVQ4x0Tag = StorageKindTag<StorageKind::LVQ4x0>;
-using LVQ4x4Tag = StorageKindTag<StorageKind::LVQ4x4>;
-using LVQ4x8Tag = StorageKindTag<StorageKind::LVQ4x8>;
-using LeanVec4x4Tag = StorageKindTag<StorageKind::LeanVec4x4>;
-using LeanVec4x8Tag = StorageKindTag<StorageKind::LeanVec4x8>;
-using LeanVec8x8Tag = StorageKindTag<StorageKind::LeanVec8x8>;
+#define SVS_DEFINE_STORAGE_KIND_TAG(Kind) \
+    using Kind##Tag = StorageKindTag<StorageKind::Kind>
+
+SVS_DEFINE_STORAGE_KIND_TAG(FP32);
+SVS_DEFINE_STORAGE_KIND_TAG(FP16);
+SVS_DEFINE_STORAGE_KIND_TAG(SQI8);
+SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x0);
+SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x4);
+SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x8);
+SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x4);
+SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x8);
+SVS_DEFINE_STORAGE_KIND_TAG(LeanVec8x8);
+
+#undef SVS_DEFINE_STORAGE_KIND_TAG
+
+template <typename T> inline constexpr bool is_storage_tag = false;
+template <StorageKind K> inline constexpr bool is_storage_tag<StorageKindTag<K>> = true;
+
+template <typename T>
+concept StorageTag = is_storage_tag<T>;
 
 // Storage types
 template <typename T>
@@ -151,45 +160,28 @@ using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::Dynamic,
     svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
 
-template <StorageKind K> struct StorageType;
-template <StorageKind K> using StorageType_t = typename StorageType<K>::type;
+// Storage type mapping - use macro to reduce repetition
+template <StorageTag Tag> struct StorageType;
+template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
 
-template <> struct StorageType<StorageKind::FP32> {
-    using type = SimpleDatasetType<float>;
-};
+#define DEFINE_STORAGE_TYPE(Kind, ...)          \
+    template <> struct StorageType<Kind##Tag> { \
+        using type = __VA_ARGS__;               \
+    }
 
-template <> struct StorageType<StorageKind::FP16> {
-    using type = SimpleDatasetType<svs::Float16>;
-};
+DEFINE_STORAGE_TYPE(FP32, SimpleDatasetType<float>);
+DEFINE_STORAGE_TYPE(FP16, SimpleDatasetType<svs::Float16>);
+DEFINE_STORAGE_TYPE(SQI8, SQDatasetType<std::int8_t>);
+DEFINE_STORAGE_TYPE(LVQ4x0, LVQDatasetType<4, 0>);
+DEFINE_STORAGE_TYPE(LVQ4x4, LVQDatasetType<4, 4>);
+DEFINE_STORAGE_TYPE(LVQ4x8, LVQDatasetType<4, 8>);
+DEFINE_STORAGE_TYPE(LeanVec4x4, LeanDatasetType<4, 4>);
+DEFINE_STORAGE_TYPE(LeanVec4x8, LeanDatasetType<4, 8>);
+DEFINE_STORAGE_TYPE(LeanVec8x8, LeanDatasetType<8, 8>);
 
-template <> struct StorageType<StorageKind::SQI8> {
-    using type = SQDatasetType<std::int8_t>;
-};
+#undef DEFINE_STORAGE_TYPE
 
-template <> struct StorageType<StorageKind::LVQ4x0> {
-    using type = LVQDatasetType<4, 0>;
-};
-
-template <> struct StorageType<StorageKind::LVQ4x4> {
-    using type = LVQDatasetType<4, 4>;
-};
-
-template <> struct StorageType<StorageKind::LVQ4x8> {
-    using type = LVQDatasetType<4, 8>;
-};
-
-template <> struct StorageType<StorageKind::LeanVec4x4> {
-    using type = LeanDatasetType<4, 4>;
-};
-
-template <> struct StorageType<StorageKind::LeanVec4x8> {
-    using type = LeanDatasetType<4, 8>;
-};
-
-template <> struct StorageType<StorageKind::LeanVec8x8> {
-    using type = LeanDatasetType<8, 8>;
-};
-
+// Storage factory functions
 template <IsSimpleDataset StorageType, svs::threads::ThreadPool Pool>
 StorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
     StorageType result(data.size(), data.dimensions());
@@ -232,37 +224,52 @@ LeanVecStorageType make_storage(
     );
 }
 
-template <typename StorageTag, typename... Args>
-auto make_storage(StorageTag&& SVS_UNUSED(tag), Args&&... args) {
-    return make_storage<StorageType_t<StorageTag::value>>(std::forward<Args>(args)...);
+template <StorageTag Tag, typename... Args>
+auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
+    return make_storage<StorageType_t<Tag>>(std::forward<Args>(args)...);
+}
+
+inline StorageKind to_supported_storage_kind(StorageKind kind) {
+    if (svs::detail::lvq_leanvec_enabled()) {
+        return kind;
+    } else if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
+        return StorageKind::SQI8;
+    }
+    throw StatusException(
+        svs::runtime::ErrorCode::NOT_IMPLEMENTED,
+        "SVS runtime does not support the requested storage kind."
+    );
 }
 
 template <typename F, typename... Args>
-static auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
-    using SK = StorageKind;
-    switch (kind) {
-        case SK::FP32:
+auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
+    switch (to_supported_storage_kind(kind)) {
+        case StorageKind::FP32:
             return f(FP32Tag{}, std::forward<Args>(args)...);
-        case SK::FP16:
+        case StorageKind::FP16:
             return f(FP16Tag{}, std::forward<Args>(args)...);
-        case SK::SQI8:
+        case StorageKind::SQI8:
             return f(SQI8Tag{}, std::forward<Args>(args)...);
-        case SK::LVQ4x0:
+        case StorageKind::LVQ4x0:
             return f(LVQ4x0Tag{}, std::forward<Args>(args)...);
-        case SK::LVQ4x4:
+        case StorageKind::LVQ4x4:
             return f(LVQ4x4Tag{}, std::forward<Args>(args)...);
-        case SK::LVQ4x8:
+        case StorageKind::LVQ4x8:
             return f(LVQ4x8Tag{}, std::forward<Args>(args)...);
-        case SK::LeanVec4x4:
+        case StorageKind::LeanVec4x4:
             return f(LeanVec4x4Tag{}, std::forward<Args>(args)...);
-        case SK::LeanVec4x8:
+        case StorageKind::LeanVec4x8:
             return f(LeanVec4x8Tag{}, std::forward<Args>(args)...);
-        case SK::LeanVec8x8:
+        case StorageKind::LeanVec8x8:
             return f(LeanVec8x8Tag{}, std::forward<Args>(args)...);
         default:
             throw ANNEXCEPTION("not supported SVS storage kind");
     }
 }
-
 } // namespace storage
+
+inline svs::threads::ThreadPoolHandle default_threadpool() {
+    return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())
+    );
+}
 } // namespace svs::runtime
