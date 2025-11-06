@@ -224,56 +224,88 @@ template <typename T>
 void compute_matmul(
     const T* data, const T* centroids, float* results, size_t m, size_t n, size_t k
 ) {
+    // Validate parameters to avoid Intel MKL errors
+    if (m == 0 || n == 0 || k == 0) {
+        return; // Nothing to compute
+    }
+
+    // Check for integer overflow when casting to int (MKL requirement)
+    constexpr size_t max_int = static_cast<size_t>(std::numeric_limits<int>::max());
+    if (m > max_int || n > max_int || k > max_int) {
+        throw ANNEXCEPTION(
+            "Matrix dimensions too large for Intel MKL GEMM: m={}, n={}, k={}", m, n, k
+        );
+    }
+
     if constexpr (std::is_same_v<T, float>) {
+        // Cast size_t parameters to int for MKL GEMM functions
+        int m_int = static_cast<int>(m);
+        int n_int = static_cast<int>(n);
+        int k_int = static_cast<int>(k);
+
         cblas_sgemm(
             CblasRowMajor, // CBLAS_LAYOUT layout
             CblasNoTrans,  // CBLAS_TRANSPOSE TransA
             CblasTrans,    // CBLAS_TRANSPOSE TransB
-            m,             // const int M
-            n,             // const int N
-            k,             // const int K
-            1.0,           // float alpha
+            m_int,         // const int M
+            n_int,         // const int N
+            k_int,         // const int K
+            1.0f,          // float alpha (explicitly float)
             data,          // const float* A
-            k,             // const int lda
+            k_int,         // const int lda
             centroids,     // const float* B
-            k,             // const int ldb
-            0.0,           // const float beta
+            k_int,         // const int ldb
+            0.0f,          // const float beta (explicitly float)
             results,       // float* c
-            n              // const int ldc
+            n_int          // const int ldc
         );
     } else if constexpr (std::is_same_v<T, BFloat16>) {
+        // Intel MKL BFloat16 GEMM requires careful parameter casting to avoid parameter
+        // errors Ensure all integer parameters are properly cast to int (MKL expects int,
+        // not size_t)
+        int m_int = static_cast<int>(m);
+        int n_int = static_cast<int>(n);
+        int k_int = static_cast<int>(k);
+
         cblas_gemm_bf16bf16f32(
             CblasRowMajor,              // CBLAS_LAYOUT layout
             CblasNoTrans,               // CBLAS_TRANSPOSE TransA
             CblasTrans,                 // CBLAS_TRANSPOSE TransB
-            m,                          // const int M
-            n,                          // const int N
-            k,                          // const int K
-            1.0,                        // float alpha
+            m_int,                      // const int M
+            n_int,                      // const int N
+            k_int,                      // const int K
+            1.0f,                       // float alpha (explicitly float)
             (const uint16_t*)data,      // const *uint16_t A
-            k,                          // const int lda
+            k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
-            k,                          // const int ldb
-            0.0,                        // const float beta
+            k_int,                      // const int ldb
+            0.0f,                       // const float beta (explicitly float)
             results,                    // float* c
-            n                           // const int ldc
+            n_int                       // const int ldc
         );
     } else if constexpr (std::is_same_v<T, Float16>) {
+        // Intel MKL Float16 GEMM requires careful parameter casting to avoid parameter
+        // errors Ensure all integer parameters are properly cast to int (MKL expects int,
+        // not size_t)
+        int m_int = static_cast<int>(m);
+        int n_int = static_cast<int>(n);
+        int k_int = static_cast<int>(k);
+
         cblas_gemm_f16f16f32(
             CblasRowMajor,              // CBLAS_LAYOUT layout
             CblasNoTrans,               // CBLAS_TRANSPOSE TransA
             CblasTrans,                 // CBLAS_TRANSPOSE TransB
-            m,                          // const int M
-            n,                          // const int N
-            k,                          // const int K
-            1.0,                        // float alpha
+            m_int,                      // const int M
+            n_int,                      // const int N
+            k_int,                      // const int K
+            1.0f,                       // float alpha (explicitly float)
             (const uint16_t*)data,      // const *uint16_t A
-            k,                          // const int lda
+            k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
-            k,                          // const int ldb
-            0.0,                        // const float beta
+            k_int,                      // const int ldb
+            0.0f,                       // const float beta (explicitly float)
             results,                    // float* c
-            n                           // const int ldc
+            n_int                       // const int ldc
         );
     } else {
         throw ANNEXCEPTION("GEMM type not supported!");
@@ -338,20 +370,40 @@ void centroid_assignment(
     Pool& threadpool,
     lib::Timer& timer
 ) {
+    using DataType = typename Data::element_type;
+    using CentroidType = T;
+
+    // Convert data to match centroid type if necessary
+    data::SimpleData<CentroidType> data_conv;
+    if constexpr (!std::is_same_v<CentroidType, DataType>) {
+        data_conv = convert_data<CentroidType>(data, threadpool);
+    }
+
     auto generate_assignments = timer.push_back("generate assignments");
     threads::parallel_for(
         threadpool,
         threads::StaticPartition{batch_range.size()},
         [&](auto indices, auto /*tid*/) {
             auto range = threads::UnitRange(indices);
-            compute_matmul(
-                data.get_datum(range.start()).data(),
-                centroids.data(),
-                matmul_results.get_datum(range.start()).data(),
-                range.size(),
-                centroids.size(),
-                data.dimensions()
-            );
+            if constexpr (!std::is_same_v<CentroidType, DataType>) {
+                compute_matmul(
+                    data_conv.get_datum(range.start()).data(),
+                    centroids.data(),
+                    matmul_results.get_datum(range.start()).data(),
+                    range.size(),
+                    centroids.size(),
+                    data.dimensions()
+                );
+            } else {
+                compute_matmul(
+                    data.get_datum(range.start()).data(),
+                    centroids.data(),
+                    matmul_results.get_datum(range.start()).data(),
+                    range.size(),
+                    centroids.size(),
+                    data.dimensions()
+                );
+            }
             if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
                 for (auto i : indices) {
                     auto nearest =
@@ -680,10 +732,10 @@ std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
 /// @brief Assign all points to clusters according to assignments
 template <std::integral I = uint32_t, typename Data>
 std::vector<std::vector<I>> group_assignments(
-    const std::vector<size_t>& assignments, size_t num_clusters, const Data& data_train
+    const std::vector<size_t>& assignments, size_t num_clusters, const Data& data
 ) {
     std::vector<std::vector<I>> clusters(num_clusters);
-    for (auto i : data_train.eachindex())
+    for (auto i : data.eachindex())
         clusters[assignments[i]].push_back(i);
     return clusters;
 }
