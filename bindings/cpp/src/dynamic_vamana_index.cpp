@@ -133,9 +133,6 @@ using DynamicVamanaIndexLeanVecImplManager =
 
 } // namespace
 
-// VamanaIndex interface implementation
-VamanaIndex::~VamanaIndex() = default;
-
 // DynamicVamanaIndex interface implementation
 Status DynamicVamanaIndex::build(
     DynamicVamanaIndex** index,
