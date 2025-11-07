@@ -19,8 +19,6 @@ set(TARGET_NAME svs_runtime)
 set(SVS_RUNTIME_HEADERS
     include/version.h
     include/IndexSVSImplDefs.h
-    include/IndexSVSFlatImpl.h
-    include/IndexSVSVamanaImpl.h
     include/training.h
     include/vamana_index.h
     include/dynamic_vamana_index.h
@@ -28,12 +26,9 @@ set(SVS_RUNTIME_HEADERS
 )
 
 set(SVS_RUNTIME_SOURCES
-    src/IndexSVSImplUtils.h
     src/svs_runtime_utils.h
     src/dynamic_vamana_index_impl.h
     src/flat_index_impl.h
-    src/IndexSVSFlatImpl.cpp
-    src/IndexSVSVamanaImpl.cpp
     src/training.cpp
     src/vamana_index.cpp
     src/dynamic_vamana_index.cpp
@@ -43,14 +38,6 @@ set(SVS_RUNTIME_SOURCES
 option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     message(STATUS "SVS runtime will be built with LVQ support")
-    list(APPEND SVS_RUNTIME_HEADERS
-        include/IndexSVSVamanaLVQImpl.h
-        include/IndexSVSVamanaLeanVecImpl.h
-    )
-    list(APPEND SVS_RUNTIME_SOURCES
-        src/IndexSVSVamanaLVQImpl.cpp
-        src/IndexSVSVamanaLeanVecImpl.cpp
-    )
 else()
     message(STATUS "SVS runtime will be built without LVQ or LeanVec support")
 endif()
