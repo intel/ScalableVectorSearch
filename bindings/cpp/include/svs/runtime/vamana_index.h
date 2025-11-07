@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "IndexSVSImplDefs.h"
+#include <svs/runtime/api_defs.h>
 
 #include <cstddef>
 

@@ -17,19 +17,19 @@ project(svs_runtime VERSION 0.0.10 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
 
 set(SVS_RUNTIME_HEADERS
-    include/version.h
-    include/IndexSVSImplDefs.h
-    include/training.h
-    include/vamana_index.h
-    include/dynamic_vamana_index.h
-    include/flat_index.h
+    include/svs/runtime/version.h
+    include/svs/runtime/api_defs.h
+    include/svs/runtime/training.h
+    include/svs/runtime/vamana_index.h
+    include/svs/runtime/dynamic_vamana_index.h
+    include/svs/runtime/flat_index.h
 )
 
 set(SVS_RUNTIME_SOURCES
     src/svs_runtime_utils.h
     src/dynamic_vamana_index_impl.h
     src/flat_index_impl.h
-    src/IndexSVSImplDefs.cpp
+    src/api_defs.cpp
     src/training.cpp
     src/vamana_index.cpp
     src/dynamic_vamana_index.cpp

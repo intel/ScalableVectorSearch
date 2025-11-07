@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "IndexSVSImplDefs.h"
+#include <svs/runtime/api_defs.h>
+
 #include <cassert>
 #include <cstring>
 

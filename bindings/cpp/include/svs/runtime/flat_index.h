@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "IndexSVSImplDefs.h"
+#include <svs/runtime/api_defs.h>
 
 #include <cstddef>
 #include <istream>
@@ -25,20 +25,22 @@ namespace svs {
 namespace runtime {
 namespace v0 {
 
-struct SVS_RUNTIME_API LeanVecTrainingData {
-    virtual ~LeanVecTrainingData();
-    static Status build(
-        LeanVecTrainingData** training_data,
-        size_t dim,
-        size_t n,
-        const float* x,
-        size_t leanvec_dims
-    ) noexcept;
+// Abstract interface for Flat indices.
+struct SVS_RUNTIME_API FlatIndex {
+    // Static constructors and destructors
+    static Status build(FlatIndex** index, size_t dim, MetricType metric) noexcept;
+    static Status destroy(FlatIndex* index) noexcept;
+    virtual ~FlatIndex();
 
-    static Status destroy(LeanVecTrainingData* training_data) noexcept;
+    virtual Status search(
+        size_t n, const float* x, size_t k, float* distances, size_t* labels
+    ) const noexcept = 0;
+
+    virtual Status add(size_t n, const float* x) noexcept = 0;
+    virtual Status reset() noexcept = 0;
 
     virtual Status save(std::ostream& out) const noexcept = 0;
-    static Status load(LeanVecTrainingData** training_data, std::istream& in) noexcept;
+    static Status load(FlatIndex** index, std::istream& in, MetricType metric) noexcept;
 };
 
 } // namespace v0

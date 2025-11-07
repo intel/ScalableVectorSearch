@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "dynamic_vamana_index.h"
+#include <svs/runtime/dynamic_vamana_index.h>
+
 #include "dynamic_vamana_index_impl.h"
 #include "svs_runtime_utils.h"
 
