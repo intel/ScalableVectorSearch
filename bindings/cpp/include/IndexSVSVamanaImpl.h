@@ -16,6 +16,7 @@
 
 #pragma once
 #include "IndexSVSImplDefs.h"
+#include "version.h"
 
 #include <cstddef>
 #include <istream>
@@ -28,6 +29,7 @@ namespace svs {
 class DynamicVamana;
 
 namespace runtime {
+namespace v0 {
 
 struct SVS_RUNTIME_API IndexSVSVamanaImpl {
     struct SearchParams {
@@ -104,6 +106,11 @@ struct SVS_RUNTIME_API IndexSVSVamanaImpl {
     std::unique_ptr<svs::DynamicVamana> impl{nullptr};
     size_t ntotal_soft_deleted{0};
 };
+
+} // namespace v0
+
+// Bring current version APIs to parent namespace
+using v0::IndexSVSVamanaImpl;
 
 } // namespace runtime
 } // namespace svs
