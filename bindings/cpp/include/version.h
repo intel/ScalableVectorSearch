@@ -54,22 +54,29 @@
 #define SVS_RUNTIME_VERSION_STRING "0.1.0"
 #endif
 
-///// API Version Namespace Declaration
+#ifndef SVS_RUNTIME_API_VERSION
+/// Default to current major version if not specified by client
+#define SVS_RUNTIME_API_VERSION SVS_RUNTIME_VERSION_MAJOR
+#endif
 
+#if (SVS_RUNTIME_API_VERSION == 0)
+/// Use v0 API
+/// Current API version namespace
+#define SVS_RUNTIME_CURRENT_API_NAMESPACE v0
 namespace svs {
 namespace runtime {
 /// Current API version namespace (v0)
 /// All public runtime APIs live here and are accessible as svs::runtime::FunctionName
-/// via using declarations
-namespace v0 {
+/// due to inline namespace
+inline namespace v0 {
 // Public runtime APIs will be defined in their respective headers
-// and brought up via using declarations
+// IMPORTANT: include this header before other runtime headers to ensure proper versioning
 }
-
-// Using declarations to bring current version APIs to parent namespace
-// These will be added as we define versioned APIs in their respective headers
 } // namespace runtime
 } // namespace svs
+#else
+#error "Unsupported SVS Runtime major version"
+#endif
 
 ///// Integration Support
 
@@ -104,8 +111,3 @@ struct VersionInfo {
 };
 
 } // namespace svs::runtime::v0
-
-// Bring current version APIs to parent namespace
-namespace svs::runtime {
-using v0::VersionInfo;
-} // namespace svs::runtime

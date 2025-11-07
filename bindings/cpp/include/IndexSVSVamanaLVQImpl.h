@@ -16,7 +16,6 @@
 
 #pragma once
 #include "IndexSVSVamanaImpl.h"
-#include "version.h"
 
 namespace svs::runtime::v0 {
 
@@ -39,8 +38,3 @@ struct SVS_RUNTIME_API IndexSVSVamanaLVQImpl : IndexSVSVamanaImpl {
 };
 
 } // namespace svs::runtime::v0
-
-// Bring current version APIs to parent namespace
-namespace svs::runtime {
-using v0::IndexSVSVamanaLVQImpl;
-}
