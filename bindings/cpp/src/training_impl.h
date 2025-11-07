@@ -18,6 +18,8 @@
 
 #include "svs_runtime_utils.h"
 
+#include <svs/runtime/training.h>
+
 #include <cstddef>
 #include <memory>
 

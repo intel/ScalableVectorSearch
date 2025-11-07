@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "version.h"
+#include <svs/runtime/version.h>
 
 #include <cstdint>
 #include <span>

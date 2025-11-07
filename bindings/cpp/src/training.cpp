@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include "training.h"
+#include <svs/runtime/training.h>
+
 #include "svs_runtime_utils.h"
 #include "training_impl.h"
 
