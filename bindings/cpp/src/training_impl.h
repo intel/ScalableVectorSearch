@@ -74,10 +74,10 @@ struct LeanVecTrainingDataImpl {
         auto matrix = svs::leanvec::compute_leanvec_matrix<svs::Dynamic, svs::Dynamic>(
             data, means, threadpool, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_dims}
         );
-        // Intentionally using the same matrix for both elements of LeanVecMatricesType.
-        // This may be required by downstream code expecting two matrices, even if they are
-        // identical.
-        return LeanVecMatricesType{matrix, matrix};
+        // Create a copy of the matrix for the query matrix to avoid double free.
+        // LeanVecMatrices expects two separate matrix objects.
+        auto matrix_copy = matrix;
+        return LeanVecMatricesType{std::move(matrix), std::move(matrix_copy)};
     }
 };
 
