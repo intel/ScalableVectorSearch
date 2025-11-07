@@ -26,7 +26,8 @@
 ///
 /// Usage:
 /// - Users can access APIs via svs::runtime::FlatIndex (maps to current version)
-/// - External integrators can use namespace aliases (e.g., namespace svs_api = svs::runtime::v0)
+/// - External integrators can use namespace aliases (e.g., namespace svs_api =
+/// svs::runtime::v0)
 /// - Specific versions can be accessed via svs::runtime::v0::FlatIndex
 ///
 
@@ -57,16 +58,16 @@
 
 namespace svs {
 namespace runtime {
-    /// Current API version namespace (v0)
-    /// All public runtime APIs live here and are accessible as svs::runtime::FunctionName
-    /// via using declarations
-    namespace v0 {
-        // Public runtime APIs will be defined in their respective headers
-        // and brought up via using declarations
-    }
-    
-    // Using declarations to bring current version APIs to parent namespace
-    // These will be added as we define versioned APIs in their respective headers
+/// Current API version namespace (v0)
+/// All public runtime APIs live here and are accessible as svs::runtime::FunctionName
+/// via using declarations
+namespace v0 {
+// Public runtime APIs will be defined in their respective headers
+// and brought up via using declarations
+}
+
+// Using declarations to bring current version APIs to parent namespace
+// These will be added as we define versioned APIs in their respective headers
 } // namespace runtime
 } // namespace svs
 
@@ -85,17 +86,17 @@ namespace svs::runtime::v0 {
 
 struct VersionInfo {
     static constexpr int major = SVS_RUNTIME_VERSION_MAJOR;
-    static constexpr int minor = SVS_RUNTIME_VERSION_MINOR; 
+    static constexpr int minor = SVS_RUNTIME_VERSION_MINOR;
     static constexpr int patch = SVS_RUNTIME_VERSION_PATCH;
     static constexpr const char* version_string = SVS_RUNTIME_VERSION_STRING;
     static constexpr const char* api_namespace = "v0";
-    
+
     /// Get the complete version as a string
     static const char* get_version() { return version_string; }
-    
+
     /// Get the API namespace identifier
     static const char* get_api_namespace() { return api_namespace; }
-    
+
     /// Check if this version is compatible with a requested major version
     static bool is_compatible_with_major(int requested_major) {
         return major == requested_major;
@@ -106,5 +107,5 @@ struct VersionInfo {
 
 // Bring current version APIs to parent namespace
 namespace svs::runtime {
-    using v0::VersionInfo;
+using v0::VersionInfo;
 } // namespace svs::runtime

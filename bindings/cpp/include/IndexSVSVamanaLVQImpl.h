@@ -42,5 +42,5 @@ struct SVS_RUNTIME_API IndexSVSVamanaLVQImpl : IndexSVSVamanaImpl {
 
 // Bring current version APIs to parent namespace
 namespace svs::runtime {
-    using v0::IndexSVSVamanaLVQImpl;
+using v0::IndexSVSVamanaLVQImpl;
 }
