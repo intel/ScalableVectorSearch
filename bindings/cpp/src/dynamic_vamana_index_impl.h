@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include "dynamic_vamana_index.h"
 #include "svs_runtime_utils.h"
 #include "training_impl.h"
+
+#include <svs/runtime/dynamic_vamana_index.h>
 
 #include <algorithm>
 #include <memory>

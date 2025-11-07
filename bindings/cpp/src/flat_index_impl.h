@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "flat_index.h"
 #include "svs_runtime_utils.h"
+
+#include <svs/runtime/flat_index.h>
 
 #include <algorithm>
 #include <memory>

@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include "IndexSVSImplDefs.h"
-#include "training.h"
-#include "vamana_index.h"
+#include <svs/runtime/api_defs.h>
+#include <svs/runtime/training.h>
+#include <svs/runtime/vamana_index.h>
 
 #include <cstddef>
 #include <istream>

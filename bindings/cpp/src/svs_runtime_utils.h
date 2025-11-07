@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "IndexSVSImplDefs.h"
+#include <svs/runtime/api_defs.h>
 
 // TODO remove unused includes
 #include <algorithm>
