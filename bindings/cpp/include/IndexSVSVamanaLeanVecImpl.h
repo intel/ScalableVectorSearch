@@ -17,7 +17,6 @@
 #pragma once
 #include "IndexSVSImplDefs.h"
 #include "IndexSVSVamanaImpl.h"
-#include "version.h"
 
 #include <memory>
 #include <span>
@@ -71,9 +70,5 @@ struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
 };
 
 } // namespace v0
-
-// Bring current version APIs to parent namespace
-using v0::IndexSVSVamanaLeanVecImpl;
-
 } // namespace runtime
 } // namespace svs

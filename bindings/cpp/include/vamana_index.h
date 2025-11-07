@@ -16,7 +16,6 @@
 
 #pragma once
 #include "IndexSVSImplDefs.h"
-#include "version.h"
 
 #include <cstddef>
 
@@ -66,9 +65,5 @@ struct SVS_RUNTIME_API VamanaIndex {
 };
 
 } // namespace v0
-
-// Bring current version APIs to parent namespace
-using v0::VamanaIndex;
-
 } // namespace runtime
 } // namespace svs
