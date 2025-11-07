@@ -27,7 +27,7 @@ namespace runtime {
 namespace v0 {
 
 struct SVS_RUNTIME_API LeanVecTrainingData {
-    virtual ~LeanVecTrainingData() = 0;
+    virtual ~LeanVecTrainingData();
     static Status build(
         LeanVecTrainingData** training_data,
         size_t dim,
@@ -38,7 +38,7 @@ struct SVS_RUNTIME_API LeanVecTrainingData {
 
     static Status destroy(LeanVecTrainingData* training_data) noexcept;
 
-    virtual Status save(std::ostream& out) const noexcept;
+    virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(LeanVecTrainingData** training_data, std::istream& in) noexcept;
 };
 

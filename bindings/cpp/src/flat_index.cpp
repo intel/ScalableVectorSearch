@@ -44,35 +44,35 @@ struct FlatIndexManager : public FlatIndex {
     ~FlatIndexManager() override = default;
 
     Status add(size_t n, const float* x) noexcept override {
-        SVS_RUNTIME_TRY_BEGIN
-        svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
-        impl_->add(data);
-        return Status_Ok;
-        SVS_RUNTIME_TRY_END
+        return runtime_error_wrapper([&] {
+            svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
+            impl_->add(data);
+            return Status_Ok;
+        });
     }
 
     Status search(size_t n, const float* x, size_t k, float* distances, size_t* labels)
         const noexcept override {
-        SVS_RUNTIME_TRY_BEGIN
-        // TODO wrap arguments into proper data structures in FlatIndexImpl and
-        // here
-        impl_->search(n, x, k, distances, labels);
-        return Status_Ok;
-        SVS_RUNTIME_TRY_END
+        return runtime_error_wrapper([&] {
+            // TODO wrap arguments into proper data structures in FlatIndexImpl and
+            // here
+            impl_->search(n, x, k, distances, labels);
+            return Status_Ok;
+        });
     }
 
     Status reset() noexcept override {
-        SVS_RUNTIME_TRY_BEGIN
-        impl_->reset();
-        return Status_Ok;
-        SVS_RUNTIME_TRY_END
+        return runtime_error_wrapper([&] {
+            impl_->reset();
+            return Status_Ok;
+        });
     }
 
     Status save(std::ostream& out) const noexcept override {
-        SVS_RUNTIME_TRY_BEGIN
-        impl_->save(out);
-        return Status_Ok;
-        SVS_RUNTIME_TRY_END
+        return runtime_error_wrapper([&] {
+            impl_->save(out);
+            return Status_Ok;
+        });
     }
 };
 } // namespace
@@ -82,27 +82,27 @@ FlatIndex::~FlatIndex() = default;
 
 Status FlatIndex::build(FlatIndex** index, size_t dim, MetricType metric) noexcept {
     *index = nullptr;
-    SVS_RUNTIME_TRY_BEGIN
-    auto impl = std::make_unique<FlatIndexImpl>(dim, metric);
-    *index = new FlatIndexManager{std::move(impl)};
-    return Status_Ok;
-    SVS_RUNTIME_TRY_END
+    return runtime_error_wrapper([&] {
+        auto impl = std::make_unique<FlatIndexImpl>(dim, metric);
+        *index = new FlatIndexManager{std::move(impl)};
+        return Status_Ok;
+    });
 }
 
 Status FlatIndex::destroy(FlatIndex* index) noexcept {
-    SVS_RUNTIME_TRY_BEGIN
-    delete index;
-    return Status_Ok;
-    SVS_RUNTIME_TRY_END
+    return runtime_error_wrapper([&] {
+        delete index;
+        return Status_Ok;
+    });
 }
 
 Status FlatIndex::load(FlatIndex** index, std::istream& in, MetricType metric) noexcept {
     *index = nullptr;
-    SVS_RUNTIME_TRY_BEGIN
-    std::unique_ptr<FlatIndexImpl> impl{FlatIndexImpl::load(in, metric)};
-    *index = new FlatIndexManager{std::move(impl)};
-    return Status_Ok;
-    SVS_RUNTIME_TRY_END
+    return runtime_error_wrapper([&] {
+        std::unique_ptr<FlatIndexImpl> impl{FlatIndexImpl::load(in, metric)};
+        *index = new FlatIndexManager{std::move(impl)};
+        return Status_Ok;
+    });
 }
 } // namespace runtime
 } // namespace svs
