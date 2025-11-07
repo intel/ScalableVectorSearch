@@ -56,7 +56,7 @@ enum class ErrorCode {
     RUNTIME_ERROR = 5
 };
 
-struct Status {
+struct SVS_RUNTIME_API Status {
     constexpr Status(ErrorCode c = ErrorCode::SUCCESS, const char* msg = nullptr)
         : code(c)
         , message_storage_(nullptr) {
