@@ -15,6 +15,7 @@
  */
 
 #include "IndexSVSImplDefs.h"
+#include "version.h"
 #include <istream>
 #include <memory>
 #include <ostream>
@@ -23,6 +24,8 @@ namespace svs {
 class Flat;
 
 namespace runtime {
+namespace v0 {
+
 class SVS_RUNTIME_API IndexSVSFlatImpl {
   public:
     static IndexSVSFlatImpl* build(size_t dim, MetricType metric) noexcept;
@@ -47,5 +50,11 @@ class SVS_RUNTIME_API IndexSVSFlatImpl {
     size_t dim_;
     std::unique_ptr<svs::Flat> impl{nullptr};
 };
+
+} // namespace v0
+
+// Bring current version APIs to parent namespace
+using v0::IndexSVSFlatImpl;
+
 } // namespace runtime
 } // namespace svs
