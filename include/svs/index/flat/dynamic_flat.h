@@ -21,8 +21,6 @@
 #include <memory>
 
 // svs
-#include "svs/version.hpp"
-
 // Include the flat index
 #include "svs/index/flat/flat.h"
 #include "svs/index/flat/inserters.h"
@@ -42,8 +40,6 @@
 #include "svs/lib/threads.h"
 
 namespace svs::index::flat {
-
-SVS_VERSIONED_NAMESPACE_BEGIN
 
 ///
 /// Metadata tracking the state of a particular data index for DynamicFlatIndex.

@@ -17,7 +17,6 @@
 #pragma once
 
 // Flat index utilities
-#include "svs/version.hpp"
 #include "svs/core/logging.h"
 #include "svs/index/flat/inserters.h"
 #include "svs/index/index.h"
@@ -36,8 +35,6 @@
 #include <tuple>
 
 namespace svs::index::flat {
-
-SVS_VERSIONED_NAMESPACE_BEGIN
 
 namespace extensions {
 
@@ -584,7 +581,5 @@ temporary_flat_index(Data& data, Dist distance, ThreadPoolProto threadpool_proto
     return TemporaryFlatIndex<Data, Dist>{
         data, distance, threads::as_threadpool(std::move(threadpool_proto))};
 }
-
-SVS_VERSIONED_NAMESPACE_END
 
 } // namespace svs::index::flat

@@ -21,6 +21,7 @@
 /// @brief Main API for the Vamana type-erased orchestrator.
 ///
 
+#include "svs/version.hpp"
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"

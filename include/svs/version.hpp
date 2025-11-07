@@ -17,84 +17,55 @@
 #pragma once
 
 ///
-/// @file version.hpp
-/// @brief SVS API versioning support for integration with external libraries like Faiss
+/// @brief Version information and API versioning for SVS
 ///
-/// This header defines the SVS API versioning scheme that allows:
-/// 1. Stable API versions (e.g., v0, v1) with inline namespace support
-/// 2. Clean integration points for external libraries
-/// 3. Gradual migration between API versions
+/// This header defines the SVS API versioning scheme similar to oneDAL:
+/// 1. Versioned namespaces (e.g., v0, v1) for API stability
+/// 2. Using declarations to bring current version to parent namespace
+/// 3. Clean integration points for external libraries
 ///
 /// Usage:
-/// - Public APIs are wrapped in SVS_VERSIONED_NAMESPACE_BEGIN/END
-/// - Users can access APIs via svs::ClassName (maps to current version)
+/// - Users can access APIs via svs::function_name (maps to current version)
 /// - External integrators can use namespace aliases (e.g., namespace svs_api = svs::v0)
+/// - Specific versions can be accessed via svs::v0::function_name
 ///
 
 ///// Version Numbers
 
+#ifndef SVS_VERSION_MAJOR
 /// Major version number - incremented for breaking API changes
 /// When this changes, a new version namespace (e.g., v0 -> v1) is created
 #define SVS_VERSION_MAJOR 0
+#endif
 
+#ifndef SVS_VERSION_MINOR
 /// Minor version number - incremented for backward-compatible feature additions
 #define SVS_VERSION_MINOR 1
+#endif
 
+#ifndef SVS_VERSION_PATCH
 /// Patch version number - incremented for backward-compatible bug fixes
 #define SVS_VERSION_PATCH 0
+#endif
 
+#ifndef SVS_VERSION_STRING
 /// Complete version string
 #define SVS_VERSION_STRING "0.1.0"
+#endif
 
-///// API Version Namespace
+///// API Version Namespace Declaration
 
-/// The current API version namespace identifier
-/// This defines which API generation is currently active
-/// Example: v0 for the first stable API, v1 for the next major version, etc.
-#define SVS_VERSION_NAMESPACE v0
-
-///// Namespace Macros
-
-/// Begin a versioned namespace block for public APIs
-/// Use this to wrap public classes, functions, and types that should be
-/// stable across minor/patch releases within the same major version
-#define SVS_VERSIONED_NAMESPACE_BEGIN \
-    namespace svs { \
-    inline namespace SVS_VERSION_NAMESPACE {
-
-/// End a versioned namespace block
-#define SVS_VERSIONED_NAMESPACE_END \
-    } /* end inline namespace SVS_VERSION_NAMESPACE */ \
-    } /* end namespace svs */
-
-///// Internal Namespace
-
-/// Internal namespace for implementation details that are not part of the stable API
-/// Items in this namespace can change freely without version bumps
-#define SVS_INTERNAL_NAMESPACE_BEGIN \
-    namespace svs { \
-    namespace internal {
-
-#define SVS_INTERNAL_NAMESPACE_END \
-    } /* end namespace internal */ \
-    } /* end namespace svs */
-
-///// Version Namespace Declaration
-
-/// Declare the main SVS namespace with inline version namespace
-/// This makes svs::Foo automatically resolve to svs::v0::Foo (or current version)
+/// Declare the main SVS namespace with versioned APIs
+/// This makes svs::function_name automatically resolve to svs::v0::function_name (current version)
 namespace svs {
-    /// Current API version namespace
-    /// All public APIs live here and are accessible as svs::ClassName
-    inline namespace SVS_VERSION_NAMESPACE {
-        // Public APIs will be defined here via SVS_VERSIONED_NAMESPACE_BEGIN/END
+    /// Current API version namespace (v0)
+    /// All public APIs live here and are accessible as svs::function_name via using declarations
+    namespace v0 {
+        // Public APIs will be defined in their respective headers and brought up via using declarations
     }
     
-    /// Internal implementation details
-    /// Not part of the stable API - can change freely
-    namespace internal {
-        // Internal helpers and implementation details
-    }
+    // Using declarations to bring current version APIs to parent namespace
+    // These will be added as we define versioned APIs in their respective headers
 }
 
 ///// Integration Support
@@ -107,14 +78,14 @@ namespace svs {
 ///
 /// @brief Version information structure for runtime queries
 ///
-SVS_VERSIONED_NAMESPACE_BEGIN
+namespace svs::v0 {
 
 struct VersionInfo {
     static constexpr int major = SVS_VERSION_MAJOR;
     static constexpr int minor = SVS_VERSION_MINOR; 
     static constexpr int patch = SVS_VERSION_PATCH;
     static constexpr const char* version_string = SVS_VERSION_STRING;
-    static constexpr const char* api_namespace = "v0"; // Should match SVS_VERSION_NAMESPACE
+    static constexpr const char* api_namespace = "v0";
     
     /// Get the complete version as a string
     static const char* get_version() { return version_string; }
@@ -128,4 +99,9 @@ struct VersionInfo {
     }
 };
 
-SVS_VERSIONED_NAMESPACE_END
+} // namespace svs::v0
+
+// Bring current version APIs to parent namespace
+namespace svs {
+    using v0::VersionInfo;
+} // namespace svs
