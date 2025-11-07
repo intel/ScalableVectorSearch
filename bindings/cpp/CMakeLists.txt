@@ -17,6 +17,7 @@ project(svs_runtime VERSION 0.0.10 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
 
 set(SVS_RUNTIME_HEADERS
+    include/version.h
     include/IndexSVSImplDefs.h
     include/IndexSVSFlatImpl.h
     include/IndexSVSVamanaImpl.h
