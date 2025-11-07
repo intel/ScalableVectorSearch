@@ -29,6 +29,7 @@ set(SVS_RUNTIME_SOURCES
     src/svs_runtime_utils.h
     src/dynamic_vamana_index_impl.h
     src/flat_index_impl.h
+    src/IndexSVSImplDefs.cpp
     src/training.cpp
     src/vamana_index.cpp
     src/dynamic_vamana_index.cpp

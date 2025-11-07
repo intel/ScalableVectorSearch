@@ -57,12 +57,31 @@ enum class ErrorCode {
 };
 
 struct Status {
+    constexpr Status(ErrorCode c = ErrorCode::SUCCESS, const char* msg = nullptr)
+        : code(c)
+        , message_storage_(nullptr) {
+        if (msg != nullptr) {
+            store_message(msg);
+        }
+    }
+
+    constexpr ~Status() noexcept {
+        if (message_storage_ != nullptr) {
+            destroy_message();
+        }
+    }
+
     ErrorCode code = ErrorCode::SUCCESS;
-    const char* message = nullptr;
+    const char* message() const { return message_storage_ ? message_storage_ : ""; };
     constexpr bool ok() const { return code == ErrorCode::SUCCESS; }
+
+  private:
+    void store_message(const char* msg) noexcept;
+    void destroy_message() noexcept;
+    char* message_storage_ = nullptr;
 };
 
-constexpr Status Status_Ok{ErrorCode::SUCCESS, nullptr};
+constexpr Status Status_Ok{};
 
 struct SVS_RUNTIME_API_INTERFACE IDFilter {
     virtual bool is_member(size_t id) const = 0;
