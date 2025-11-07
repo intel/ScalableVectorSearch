@@ -28,7 +28,7 @@ Status LeanVecTrainingData::build(
     const float* x,
     size_t leanvec_dims
 ) noexcept {
-    return safe_runtime_call([&] {
+    return runtime_error_wrapper([&] {
         const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
         *training_data =
             new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
@@ -36,12 +36,12 @@ Status LeanVecTrainingData::build(
 }
 
 Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept {
-    return safe_runtime_call([&] { delete training_data; });
+    return runtime_error_wrapper([&] { delete training_data; });
 }
 
 Status
 LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in) noexcept {
-    return safe_runtime_call([&] {
+    return runtime_error_wrapper([&] {
         *training_data = new LeanVecTrainingDataManager{LeanVecTrainingDataImpl::load(in)};
     });
 }

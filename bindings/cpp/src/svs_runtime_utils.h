@@ -65,29 +65,8 @@ class StatusException : public svs::lib::ANNException {
     svs::runtime::ErrorCode errcode_;
 };
 
-#define SVS_RUNTIME_TRY_BEGIN try {
-#define SVS_RUNTIME_TRY_END                                                                \
-    }                                                                                      \
-    catch (const svs::runtime::StatusException& ex) {                                      \
-        return svs::runtime::Status(ex.code(), ex.what());                                 \
-    }                                                                                      \
-    catch (const std::invalid_argument& ex) {                                              \
-        return svs::runtime::Status(svs::runtime::ErrorCode::INVALID_ARGUMENT, ex.what()); \
-    }                                                                                      \
-    catch (const std::runtime_error& ex) {                                                 \
-        return svs::runtime::Status(svs::runtime::ErrorCode::RUNTIME_ERROR, ex.what());    \
-    }                                                                                      \
-    catch (const std::exception& ex) {                                                     \
-        return svs::runtime::Status(svs::runtime::ErrorCode::UNKNOWN_ERROR, ex.what());    \
-    }                                                                                      \
-    catch (...) {                                                                          \
-        return svs::runtime::Status(                                                       \
-            svs::runtime::ErrorCode::UNKNOWN_ERROR, "An unknown error has occurred."       \
-        );                                                                                 \
-    }
-
 template <typename Callable>
-inline auto safe_runtime_call(Callable&& func) noexcept -> Status {
+inline auto runtime_error_wrapper(Callable&& func) noexcept -> Status {
     try {
         func();
         return Status_Ok;
