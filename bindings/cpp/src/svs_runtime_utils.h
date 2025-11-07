@@ -244,10 +244,7 @@ inline StorageKind to_supported_storage_kind(StorageKind kind) {
     } else if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
         return StorageKind::SQI8;
     }
-    throw StatusException(
-        svs::runtime::ErrorCode::NOT_IMPLEMENTED,
-        "SVS runtime does not support the requested storage kind."
-    );
+    return kind;
 }
 
 template <typename F, typename... Args>
