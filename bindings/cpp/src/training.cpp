@@ -21,6 +21,8 @@
 namespace svs {
 namespace runtime {
 
+LeanVecTrainingData::~LeanVecTrainingData() = default;
+
 Status LeanVecTrainingData::build(
     LeanVecTrainingData** training_data,
     size_t dim,

@@ -35,6 +35,7 @@ set(SVS_RUNTIME_SOURCES
     src/IndexSVSFlatImpl.cpp
     src/IndexSVSVamanaImpl.cpp
     src/training.cpp
+    src/vamana_index.cpp
     src/dynamic_vamana_index.cpp
     src/flat_index.cpp
 )
