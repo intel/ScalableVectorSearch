@@ -17,6 +17,7 @@
 #pragma once
 #include "IndexSVSImplDefs.h"
 #include "IndexSVSVamanaImpl.h"
+#include "version.h"
 
 #include <memory>
 #include <span>
@@ -27,6 +28,7 @@ template <size_t Extent> struct LeanVecMatrices;
 } // namespace leanvec
 
 namespace runtime {
+namespace v0 {
 
 struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
     enum LeanVecLevel { LeanVec4x4, LeanVec4x8, LeanVec8x8 };
@@ -67,6 +69,11 @@ struct SVS_RUNTIME_API IndexSVSVamanaLeanVecImpl : IndexSVSVamanaImpl {
     std::unique_ptr<svs::leanvec::LeanVecMatrices<std::dynamic_extent>> leanvec_matrix;
     bool trained = false;
 };
+
+} // namespace v0
+
+// Bring current version APIs to parent namespace
+using v0::IndexSVSVamanaLeanVecImpl;
 
 } // namespace runtime
 } // namespace svs

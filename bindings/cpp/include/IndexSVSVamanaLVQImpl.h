@@ -16,8 +16,9 @@
 
 #pragma once
 #include "IndexSVSVamanaImpl.h"
+#include "version.h"
 
-namespace svs::runtime {
+namespace svs::runtime::v0 {
 
 struct SVS_RUNTIME_API IndexSVSVamanaLVQImpl : IndexSVSVamanaImpl {
     enum LVQLevel { LVQ4x0, LVQ4x4, LVQ4x8 };
@@ -37,4 +38,9 @@ struct SVS_RUNTIME_API IndexSVSVamanaLVQImpl : IndexSVSVamanaImpl {
     LVQLevel lvq_level;
 };
 
-} // namespace svs::runtime
+} // namespace svs::runtime::v0
+
+// Bring current version APIs to parent namespace
+namespace svs::runtime {
+    using v0::IndexSVSVamanaLVQImpl;
+}

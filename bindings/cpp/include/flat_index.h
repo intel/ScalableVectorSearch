@@ -16,6 +16,7 @@
 
 #pragma once
 #include "IndexSVSImplDefs.h"
+#include "version.h"
 
 #include <cstddef>
 #include <istream>
@@ -23,6 +24,7 @@
 
 namespace svs {
 namespace runtime {
+namespace v0 {
 
 // Abstract interface for Flat indices.
 struct SVS_RUNTIME_API FlatIndex {
@@ -41,5 +43,11 @@ struct SVS_RUNTIME_API FlatIndex {
     virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(FlatIndex** index, std::istream& in, MetricType metric) noexcept;
 };
+
+} // namespace v0
+
+// Bring current version APIs to parent namespace
+using v0::FlatIndex;
+
 } // namespace runtime
 } // namespace svs

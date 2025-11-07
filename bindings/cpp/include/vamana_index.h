@@ -16,11 +16,13 @@
 
 #pragma once
 #include "IndexSVSImplDefs.h"
+#include "version.h"
 
 #include <cstddef>
 
 namespace svs {
 namespace runtime {
+namespace v0 {
 
 // Abstract interface for Vamana-based indices.
 // NOTE VamanaIndex is not implemented directly, only DynamicVamanaIndex is implemented.
@@ -62,5 +64,11 @@ struct SVS_RUNTIME_API VamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept = 0;
 };
+
+} // namespace v0
+
+// Bring current version APIs to parent namespace
+using v0::VamanaIndex;
+
 } // namespace runtime
 } // namespace svs
