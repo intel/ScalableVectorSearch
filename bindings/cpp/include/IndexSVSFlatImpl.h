@@ -15,7 +15,6 @@
  */
 
 #include "IndexSVSImplDefs.h"
-#include "version.h"
 #include <istream>
 #include <memory>
 #include <ostream>
@@ -52,9 +51,5 @@ class SVS_RUNTIME_API IndexSVSFlatImpl {
 };
 
 } // namespace v0
-
-// Bring current version APIs to parent namespace
-using v0::IndexSVSFlatImpl;
-
 } // namespace runtime
 } // namespace svs

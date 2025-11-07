@@ -18,7 +18,6 @@
 #include "IndexSVSImplDefs.h"
 #include "training.h"
 #include "vamana_index.h"
-#include "version.h"
 
 #include <cstddef>
 #include <istream>
@@ -83,10 +82,5 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
 };
 
 } // namespace v0
-
-// Bring current version APIs to parent namespace
-using v0::DynamicVamanaIndex;
-using v0::DynamicVamanaIndexLeanVec;
-
 } // namespace runtime
 } // namespace svs

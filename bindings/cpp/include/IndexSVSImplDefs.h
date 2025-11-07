@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "version.h"
+
 #include <cstdint>
 #include <span>
 
@@ -86,16 +88,5 @@ struct SVS_RUNTIME_API_INTERFACE ResultsAllocator {
 };
 
 } // namespace v0
-
-// Bring current version APIs to parent namespace
-using v0::ErrorCode;
-using v0::IDFilter;
-using v0::MetricType;
-using v0::ResultsAllocator;
-using v0::SearchResultsStorage;
-using v0::Status;
-using v0::Status_Ok;
-using v0::StorageKind;
-
 } // namespace runtime
 } // namespace svs

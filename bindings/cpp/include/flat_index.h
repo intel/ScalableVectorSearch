@@ -16,7 +16,6 @@
 
 #pragma once
 #include "IndexSVSImplDefs.h"
-#include "version.h"
 
 #include <cstddef>
 #include <istream>
@@ -45,9 +44,5 @@ struct SVS_RUNTIME_API FlatIndex {
 };
 
 } // namespace v0
-
-// Bring current version APIs to parent namespace
-using v0::FlatIndex;
-
 } // namespace runtime
 } // namespace svs
