@@ -16,8 +16,7 @@
 
 #pragma once
 
-// TODO emplace content of IndexSVSImplUtils.h here
-#include "IndexSVSImplUtils.h"
+#include "IndexSVSImplDefs.h"
 
 // TODO remove unused includes
 #include <algorithm>
@@ -52,6 +51,16 @@
 #include SVS_LEANVEC_HEADER
 
 namespace svs::runtime {
+
+inline svs::DistanceType to_svs_distance(MetricType metric) {
+    switch (metric) {
+        case MetricType::L2:
+            return svs::DistanceType::L2;
+        case MetricType::INNER_PRODUCT:
+            return svs::DistanceType::MIP;
+    }
+    throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
+}
 
 class StatusException : public svs::lib::ANNException {
   public:
