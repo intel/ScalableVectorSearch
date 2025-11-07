@@ -84,10 +84,7 @@ struct LeanVecTrainingDataManager : public svs::runtime::LeanVecTrainingData {
         : impl_{std::move(impl)} {}
 
     Status save(std::ostream& out) const noexcept override {
-        SVS_RUNTIME_TRY_BEGIN
-        impl_.save(out);
-        return Status_Ok;
-        SVS_RUNTIME_TRY_END
+        return runtime_error_wrapper([&] { impl_.save(out); });
     }
 
     LeanVecTrainingDataImpl impl_;
