@@ -21,7 +21,10 @@
 
 // TODO remove unused includes
 #include <algorithm>
+#include <concepts>
+#include <functional>
 #include <memory>
+#include <type_traits>
 #include <variant>
 #include <vector>
 
@@ -62,26 +65,23 @@ class StatusException : public svs::lib::ANNException {
     svs::runtime::ErrorCode errcode_;
 };
 
-#define SVS_RUNTIME_TRY_BEGIN try {
-#define SVS_RUNTIME_TRY_END                                                                \
-    }                                                                                      \
-    catch (const svs::runtime::StatusException& ex) {                                      \
-        return svs::runtime::Status(ex.code(), ex.what());                                 \
-    }                                                                                      \
-    catch (const std::invalid_argument& ex) {                                              \
-        return svs::runtime::Status(svs::runtime::ErrorCode::INVALID_ARGUMENT, ex.what()); \
-    }                                                                                      \
-    catch (const std::runtime_error& ex) {                                                 \
-        return svs::runtime::Status(svs::runtime::ErrorCode::RUNTIME_ERROR, ex.what());    \
-    }                                                                                      \
-    catch (const std::exception& ex) {                                                     \
-        return svs::runtime::Status(svs::runtime::ErrorCode::UNKNOWN_ERROR, ex.what());    \
-    }                                                                                      \
-    catch (...) {                                                                          \
-        return svs::runtime::Status(                                                       \
-            svs::runtime::ErrorCode::UNKNOWN_ERROR, "An unknown error has occurred."       \
-        );                                                                                 \
+template <typename Callable>
+inline auto runtime_error_wrapper(Callable&& func) noexcept -> Status {
+    try {
+        func();
+        return Status_Ok;
+    } catch (const svs::runtime::StatusException& ex) {
+        return Status(ex.code(), ex.what());
+    } catch (const std::invalid_argument& ex) {
+        return Status(ErrorCode::INVALID_ARGUMENT, ex.what());
+    } catch (const std::runtime_error& ex) {
+        return Status(ErrorCode::RUNTIME_ERROR, ex.what());
+    } catch (const std::exception& ex) {
+        return Status(ErrorCode::UNKNOWN_ERROR, ex.what());
+    } catch (...) {
+        return Status(ErrorCode::UNKNOWN_ERROR, "An unknown error has occurred.");
     }
+}
 
 using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
 
