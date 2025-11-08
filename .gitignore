@@ -19,5 +19,8 @@ __pycache__/
 /bindings/python/_skbuild/
 /bindings/python/dist/
 
+# CPP bindings build files
+/bindings/cpp/build/
+
 # Example generated files.
 example_data_*/

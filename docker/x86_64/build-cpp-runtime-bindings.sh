@@ -18,8 +18,6 @@ set -e  # Exit on error
 # Source environment setup (for compiler and MKL)
 source /etc/bashrc || true
 
-# Set CMake arguments based on environment variables
-
 # Create build+install directories for cpp runtime bindings
 rm -rf /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindings
 mkdir -p /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindings
@@ -33,4 +31,4 @@ cmake --install .
 # Create tarball with symlink for compatibility
 cd /workspace/install_cpp_bindings && \
 ln -s lib lib64 && \
-tar -czvf /workspace/svs-cpp-runtime-bindings${PLATFORM_NAME}.tar.gz .
+tar -czvf /workspace/svs-cpp-runtime-bindings.tar.gz .
