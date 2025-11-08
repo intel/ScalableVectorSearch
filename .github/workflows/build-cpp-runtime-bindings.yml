@@ -37,56 +37,45 @@ concurrency:
 jobs:
   build-cpp-runtime-bindings:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        platform:
-          - {name: 'manylinux228', dockerfile: 'docker/x86_64/manylinux228/Dockerfile', cc: 'gcc', cxx: 'g++', suffix: ''}
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Build Docker image
         run: |
-          docker build -t svs-${{ matrix.platform.name }}:latest -f ${{ matrix.platform.dockerfile }} .
+          docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
           
       - name: Build libraries in Docker container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
-            -e PLATFORM_NAME=${{ matrix.platform.suffix }} \
-            -e CC=${{ matrix.platform.cc }} \
-            -e CXX=${{ matrix.platform.cxx }} \
-            svs-${{ matrix.platform.name }}:latest \
+            svs-manylinux228:latest \
             /bin/bash -c "chmod +x docker/x86_64/build-cpp-runtime-bindings.sh && ./docker/x86_64/build-cpp-runtime-bindings.sh"
 
       - name: Upload cpp runtime bindings artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}
-          path: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}.tar.gz
+          name: svs-cpp-runtime-bindings
+          path: svs-cpp-runtime-bindings.tar.gz
           retention-days: 7  # Reduce retention due to size
 
   test:
     needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        platform:
-          - {name: 'manylinux228', dockerfile: 'docker/x86_64/manylinux228/Dockerfile', cc: 'gcc', cxx: 'g++', suffix: ''}
 
     steps:
       - uses: actions/checkout@v5
 
       - name: Build Docker image
         run: |
-          docker build -t svs-${{ matrix.platform.name }}:latest -f ${{ matrix.platform.dockerfile }} .
+          docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
 
       # Need to download for a new job
       - name: Download shared libraries
         uses: actions/download-artifact@v4
         with:
-          name: svs-cpp-runtime-bindings${{ matrix.platform.suffix }}
+          name: svs-cpp-runtime-bindings
           path: runtime_lib
 
       - name: List available artifacts
@@ -99,7 +88,5 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/runtime_lib:/runtime_lib \
             -w /workspace \
-            -e CC=${{ matrix.platform.cc }} \
-            -e CXX=${{ matrix.platform.cxx }} \
-            svs-${{ matrix.platform.name }}:latest \
+            svs-manylinux228:latest \
             /bin/bash -c "chmod +x docker/x86_64/test-cpp-runtime-bindings.sh && ./docker/x86_64/test-cpp-runtime-bindings.sh"
