@@ -56,4 +56,8 @@ echo " FAISS python tests: "
 cd ../../../tests/
 PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs.py
 
-# TODO: C++ tests
+echo "================================================"
+echo " Running SVS Runtime Binding Tests"
+echo "------------------------------------------------"
+cd /workspace/bindings/cpp/build_cpp_bindings
+./tests/svs_runtime_tests
