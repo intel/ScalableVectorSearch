@@ -32,7 +32,7 @@ conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
 conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 
 # TODO: point to root repo eventually 
-git clone -b rfsaliev/svs-faiss-bindings https://github.com/ahuber21/faiss.git
+git clone -b svs-io https://github.com/ahuber21/faiss.git
 cd faiss
 sed -i "s|set(SVS_URL .*|set(SVS_URL \"file:///runtime_lib/svs-cpp-runtime-bindings${PLATFORM_NAME}.tar.gz\" CACHE STRING \"SVS URL\")|" faiss/CMakeLists.txt
 
