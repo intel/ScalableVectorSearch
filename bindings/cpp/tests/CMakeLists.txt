@@ -31,6 +31,10 @@ add_executable(svs_runtime_tests
     test_version_namespace.cpp
 )
 
+target_include_directories(svs_runtime_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
 target_link_libraries(svs_runtime_tests PRIVATE
     svs_runtime
     Catch2::Catch2WithMain
