@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <svs/runtime/version.h>
 #include "catch2/catch_test_macros.hpp"
+#include <svs/runtime/version.h>
 
 // Validate macro is defined (like FAISS does)
 #ifndef FAISS_SVS_RUNTIME_VERSION
@@ -28,19 +28,25 @@ SVS_RUNTIME_CREATE_API_ALIAS(svs_runtime, FAISS_SVS_RUNTIME_VERSION);
 CATCH_TEST_CASE("Version Namespace Compatibility", "[runtime][version]") {
     CATCH_SECTION("Namespace alias resolves to v0") {
         // Both access methods should give same values
-        CATCH_REQUIRE(svs_runtime::VersionInfo::major == svs::runtime::v0::VersionInfo::major);
-        CATCH_REQUIRE(svs_runtime::VersionInfo::minor == svs::runtime::v0::VersionInfo::minor);
-        CATCH_REQUIRE(svs_runtime::VersionInfo::patch == svs::runtime::v0::VersionInfo::patch);
+        CATCH_REQUIRE(
+            svs_runtime::VersionInfo::major == svs::runtime::v0::VersionInfo::major
+        );
+        CATCH_REQUIRE(
+            svs_runtime::VersionInfo::minor == svs::runtime::v0::VersionInfo::minor
+        );
+        CATCH_REQUIRE(
+            svs_runtime::VersionInfo::patch == svs::runtime::v0::VersionInfo::patch
+        );
     }
-    
+
     CATCH_SECTION("Version compatibility check") {
         // Should be compatible with v0
         CATCH_REQUIRE(svs_runtime::VersionInfo::is_compatible_with_major(0));
-        
+
         // Should not be compatible with v1
         CATCH_REQUIRE_FALSE(svs_runtime::VersionInfo::is_compatible_with_major(1));
     }
-    
+
     CATCH_SECTION("Version string") {
         // Verify version string is accessible
         CATCH_REQUIRE(svs_runtime::VersionInfo::get_version() != nullptr);

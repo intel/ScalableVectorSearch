@@ -37,6 +37,12 @@ cd faiss
 sed -i "s|set(SVS_URL .*|set(SVS_URL \"file:///runtime_lib/svs-cpp-runtime-bindings${PLATFORM_NAME}.tar.gz\" CACHE STRING \"SVS URL\")|" faiss/CMakeLists.txt
 
 echo "================================================"
+echo " Running SVS Runtime Binding Tests"
+echo "------------------------------------------------"
+cd /workspace/bindings/cpp/build_cpp_bindings
+./tests/svs_runtime_tests
+
+echo "================================================"
 echo " Runnning validation of library against FAISS CI"
 echo "------------------------------------------------"
 echo " FAISS Build: "
@@ -55,9 +61,3 @@ echo "------------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
 PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs.py
-
-echo "================================================"
-echo " Running SVS Runtime Binding Tests"
-echo "------------------------------------------------"
-cd /workspace/bindings/cpp/build_cpp_bindings
-./tests/svs_runtime_tests
