@@ -29,6 +29,11 @@ CC=gcc CXX=g++ cmake .. \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DBUILD_TESTING=ON
 cmake --build . -j
+
+# Run binding tests
+echo "Running SVS Runtime Binding Tests..."
+CTEST_OUTPUT_ON_FAILURE=1 ctest
+
 cmake --install .
 
 # Create tarball with symlink for compatibility
