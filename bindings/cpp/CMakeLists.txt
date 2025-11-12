@@ -81,7 +81,7 @@ else()
     set(SVS_LEANVEC_HEADER "svs/extensions/vamana/leanvec.h")
 endif()
 
-if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
+if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     if(RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
         message(STATUS "Building directly from private sources")
         target_link_libraries(${TARGET_NAME} PRIVATE
@@ -117,6 +117,7 @@ if ((SVS_RUNTIME_ENABLE_LVQ_LEANVEC))
         FetchContent_Declare(
             svs
             URL ${SVS_URL}
+DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
         FetchContent_MakeAvailable(svs)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
@@ -192,3 +193,7 @@ install(FILES
     DESTINATION "${SVS_RUNTIME_CONFIG_INSTALL_DIR}"
 )
 
+# Build tests if requested
+if(SVS_BUILD_RUNTIME_TESTS)
+    add_subdirectory(tests)
+endif()
