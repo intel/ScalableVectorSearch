@@ -92,7 +92,7 @@ struct SVS_RUNTIME_API_INTERFACE IDFilter {
 };
 
 struct SearchResultsStorage {
-    std::span<int64_t> labels; // faiss::idx_t is int64_t
+    std::span<size_t> labels;
     std::span<float> distances;
 };
 

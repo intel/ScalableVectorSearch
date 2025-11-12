@@ -83,22 +83,24 @@ class DynamicVamanaIndexImpl {
     }
 
     void search(
-        size_t n,
-        const float* x,
-        size_t k,
-        float* distances,
-        size_t* labels,
+        svs::QueryResultView<size_t> result,
+        svs::data::ConstSimpleDataView<float> queries,
         const VamanaIndex::SearchParams* params = nullptr,
         IDFilter* filter = nullptr
     ) const {
         if (!impl_) {
-            for (size_t i = 0; i < n; ++i) {
-                distances[i] = std::numeric_limits<float>::infinity();
-                labels[i] = -1;
-            }
+            auto& dists = result.distances();
+            std::fill(dists.begin(), dists.end(), std::numeric_limits<float>::infinity());
+            auto& inds = result.indices();
+            std::fill(inds.begin(), inds.end(), static_cast<size_t>(-1));
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
 
+        if (queries.size() == 0) {
+            return;
+        }
+
+        const size_t k = result.n_neighbors();
         if (k == 0) {
             throw StatusException{ErrorCode::INVALID_ARGUMENT, "k must be greater than 0"};
         }
@@ -107,14 +109,7 @@ class DynamicVamanaIndexImpl {
 
         // Simple search
         if (filter == nullptr) {
-            auto queries = svs::data::ConstSimpleDataView<float>(x, n, dim_);
-
-            // TODO: faiss use int64_t as label whereas SVS uses size_t?
-            auto results = svs::QueryResultView<size_t>{
-                svs::MatrixView<size_t>{
-                    svs::make_dims(n, k), static_cast<size_t*>(static_cast<void*>(labels))},
-                svs::MatrixView<float>{svs::make_dims(n, k), distances}};
-            impl_->search(results, queries, sp);
+            impl_->search(result, queries, sp);
             return;
         }
 
@@ -125,18 +120,14 @@ class DynamicVamanaIndexImpl {
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
                 // For every query
-                auto query = std::span(x + i * dim_, dim_);
-                auto curr_distances = std::span(distances + i * k, k);
-                auto curr_labels = std::span(labels + i * k, k);
-
+                auto query = queries.get_datum(i);
                 auto iterator = impl_->batch_iterator(query);
                 size_t found = 0;
                 do {
                     iterator.next(k);
                     for (auto& neighbor : iterator.results()) {
                         if (filter->is_member(neighbor.id())) {
-                            curr_distances[found] = neighbor.distance();
-                            curr_labels[found] = neighbor.id();
+                            result.set(neighbor, i, found);
                             found++;
                             if (found == k) {
                                 break;
@@ -144,10 +135,17 @@ class DynamicVamanaIndexImpl {
                         }
                     }
                 } while (found < k && !iterator.done());
-                // Pad with -1s
-                for (; found < k; ++found) {
-                    curr_distances[found] = -1;
-                    curr_labels[found] = -1;
+
+                // Pad results if not enough neighbors found
+                if (found < k) {
+                    auto& dists = result.distances();
+                    std::fill(
+                        dists.begin() + found,
+                        dists.end(),
+                        std::numeric_limits<float>::infinity()
+                    );
+                    auto& inds = result.indices();
+                    std::fill(inds.begin() + found, inds.end(), static_cast<size_t>(-1));
                 }
             }
         };
@@ -155,15 +153,14 @@ class DynamicVamanaIndexImpl {
         auto threadpool = default_threadpool();
 
         svs::threads::parallel_for(
-            threadpool, svs::threads::StaticPartition{n}, search_closure
+            threadpool, svs::threads::StaticPartition{queries.size()}, search_closure
         );
 
         impl_->set_search_parameters(old_sp);
     }
 
     void range_search(
-        size_t n,
-        const float* x,
+        svs::data::ConstSimpleDataView<float> queries,
         float radius,
         const ResultsAllocator& results,
         const VamanaIndex::SearchParams* params = nullptr,
@@ -175,6 +172,11 @@ class DynamicVamanaIndexImpl {
         if (radius <= 0) {
             throw StatusException{
                 ErrorCode::INVALID_ARGUMENT, "radius must be greater than 0"};
+        }
+
+        const size_t n = queries.size();
+        if (n == 0) {
+            return;
         }
 
         auto sp = make_search_parameters(params);
@@ -212,7 +214,7 @@ class DynamicVamanaIndexImpl {
         auto range_search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
                 // For every query
-                auto query = std::span(x + i * dim_, dim_);
+                auto query = queries.get_datum(i);
 
                 auto iterator = impl_->batch_iterator(query);
                 bool in_range = true;
