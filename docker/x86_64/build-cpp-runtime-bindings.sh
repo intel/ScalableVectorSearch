@@ -24,8 +24,16 @@ mkdir -p /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindi
 
 # Build and install runtime bindings library
 cd /workspace/bindings/cpp/build_cpp_bindings
-CC=gcc CXX=g++ cmake .. -DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings -DCMAKE_INSTALL_LIBDIR=lib
+CC=gcc CXX=g++ cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DBUILD_TESTING=ON
 cmake --build . -j
+
+# Run binding tests
+echo "Running SVS Runtime Binding Tests..."
+CTEST_OUTPUT_ON_FAILURE=1 ctest
+
 cmake --install .
 
 # Create tarball with symlink for compatibility
