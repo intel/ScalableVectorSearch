@@ -55,9 +55,11 @@ struct FlatIndexManager : public FlatIndex {
     Status search(size_t n, const float* x, size_t k, float* distances, size_t* labels)
         const noexcept override {
         return runtime_error_wrapper([&] {
-            // TODO wrap arguments into proper data structures in FlatIndexImpl and
-            // here
-            impl_->search(n, x, k, distances, labels);
+            auto result = svs::QueryResultView<size_t>{
+                svs::MatrixView<size_t>{svs::make_dims(n, k), labels},
+                svs::MatrixView<float>{svs::make_dims(n, k), distances}};
+            auto queries = svs::data::ConstSimpleDataView<float>(x, n, impl_->dimensions());
+            impl_->search(result, queries, nullptr);
             return Status_Ok;
         });
     }

@@ -57,35 +57,26 @@ class FlatIndexImpl {
     }
 
     void search(
-        size_t n,
-        const float* x,
-        size_t k,
-        float* distances,
-        size_t* labels,
+        svs::QueryResultView<size_t> result,
+        svs::data::ConstSimpleDataView<float> queries,
         IDFilter* filter = nullptr
     ) const {
         if (!impl_) {
-            for (size_t i = 0; i < n; ++i) {
-                distances[i] = std::numeric_limits<float>::infinity();
-                labels[i] = -1;
-            }
+            auto& dists = result.distances();
+            std::fill(dists.begin(), dists.end(), std::numeric_limits<float>::infinity());
+            auto& inds = result.indices();
+            std::fill(inds.begin(), inds.end(), static_cast<size_t>(-1));
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
 
+        const size_t k = result.n_neighbors();
         if (k == 0) {
             throw StatusException{ErrorCode::INVALID_ARGUMENT, "k must be greater than 0"};
         }
 
         // Simple search
         if (filter == nullptr) {
-            auto queries = svs::data::ConstSimpleDataView<float>(x, n, dim_);
-
-            // TODO: faiss use int64_t as label whereas SVS uses size_t?
-            auto results = svs::QueryResultView<size_t>{
-                svs::MatrixView<size_t>{
-                    svs::make_dims(n, k), static_cast<size_t*>(static_cast<void*>(labels))},
-                svs::MatrixView<float>{svs::make_dims(n, k), distances}};
-            impl_->search(results, queries, {});
+            impl_->search(result, queries, {});
         } else {
             throw StatusException{
                 ErrorCode::NOT_IMPLEMENTED, "Filtered search not implemented yet"};

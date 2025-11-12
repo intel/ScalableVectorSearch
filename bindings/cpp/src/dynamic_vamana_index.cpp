@@ -87,9 +87,11 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept override {
         return runtime_error_wrapper([&] {
-            // TODO wrap arguments into proper data structures in DynamicVamanaIndexImpl and
-            // here
-            impl_->search(n, x, k, distances, labels, params, filter);
+            auto result = svs::QueryResultView<size_t>{
+                svs::MatrixView<size_t>{svs::make_dims(n, k), labels},
+                svs::MatrixView<float>{svs::make_dims(n, k), distances}};
+            auto queries = svs::data::ConstSimpleDataView<float>(x, n, impl_->dimensions());
+            impl_->search(result, queries, params, filter);
         });
     }
 
@@ -102,9 +104,8 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept override {
         return runtime_error_wrapper([&] {
-            // TODO wrap arguments into proper data structures in DynamicVamanaIndexImpl and
-            // here
-            impl_->range_search(n, x, radius, results, params, filter);
+            auto queries = svs::data::ConstSimpleDataView<float>(x, n, impl_->dimensions());
+            impl_->range_search(queries, radius, results, params, filter);
         });
     }
 
