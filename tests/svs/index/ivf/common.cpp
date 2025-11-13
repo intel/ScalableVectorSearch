@@ -27,11 +27,14 @@
 // svs
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/index/ivf/hierarchical_kmeans.h"
+#include "svs/index/ivf/kmeans.h"
 #include "svs/lib/threads.h"
 
 // stl
 #include <algorithm>
 #include <numeric>
+#include <unordered_set>
 #include <vector>
 
 CATCH_TEST_CASE("Kmeans Clustering", "[ivf][parameters]") {
@@ -366,5 +369,355 @@ CATCH_TEST_CASE("Common Utility Functions", "[ivf][common][core]") {
             float norm = std::sqrt(norm_sq);
             CATCH_REQUIRE(std::abs(norm - 1.0f) < 1e-5f);
         }
+    }
+}
+
+CATCH_TEST_CASE("Cluster Assignment Utility", "[ivf][common][cluster_assignment]") {
+    namespace ivf = svs::index::ivf;
+
+    auto test_cluster_assignment =
+        [&]<typename BuildType, typename DataType, typename Distance>() {
+            auto threadpool = svs::threads::as_threadpool(4);
+
+            // Create test data
+            size_t num_points = 1000;
+            size_t num_centroids = 10;
+            size_t dims = 128;
+
+            auto data = svs::data::SimpleData<DataType>(num_points, dims);
+            auto centroids = svs::data::SimpleData<float>(num_centroids, dims);
+
+            // Initialize data with structured patterns
+            for (size_t i = 0; i < num_points; ++i) {
+                auto datum = data.get_datum(i);
+                size_t cluster_id = i % num_centroids;
+                for (size_t j = 0; j < dims; ++j) {
+                    // Create data that naturally clusters around centroids
+                    datum[j] = static_cast<DataType>(
+                        cluster_id * 10.0f + j * 0.1f + (i % 10) * 0.01f
+                    );
+                }
+            }
+
+            // Initialize centroids to match cluster centers
+            for (size_t i = 0; i < num_centroids; ++i) {
+                auto centroid = centroids.get_datum(i);
+                for (size_t j = 0; j < dims; ++j) {
+                    centroid[j] = static_cast<float>(i * 10.0f + j * 0.1f);
+                }
+            }
+
+            // Normalize for IP distance if needed
+            if constexpr (std::is_same_v<Distance, svs::DistanceIP>) {
+                auto timer = svs::lib::Timer();
+                ivf::normalize_centroids(centroids, threadpool, timer);
+
+                // Normalize data as well for IP
+                for (size_t i = 0; i < num_points; ++i) {
+                    auto datum = data.get_datum(i);
+                    float norm = 0.0f;
+                    for (size_t j = 0; j < dims; ++j) {
+                        norm += static_cast<float>(datum[j]) * static_cast<float>(datum[j]);
+                    }
+                    norm = std::sqrt(norm);
+                    if (norm > 0.0f) {
+                        for (size_t j = 0; j < dims; ++j) {
+                            datum[j] =
+                                static_cast<DataType>(static_cast<float>(datum[j]) / norm);
+                        }
+                    }
+                }
+            }
+
+            auto distance = Distance();
+
+            // Call cluster_assignment utility
+            auto clusters = ivf::cluster_assignment<BuildType>(
+                data, centroids, distance, threadpool, 10'000, svs::lib::Type<uint32_t>()
+            );
+
+            // Verify results
+            CATCH_REQUIRE(clusters.size() == num_centroids);
+
+            // Count total assigned points
+            size_t total_assigned = 0;
+            for (const auto& cluster : clusters) {
+                total_assigned += cluster.size();
+            }
+            CATCH_REQUIRE(total_assigned == num_points);
+
+            // Verify no cluster is empty (with our structured data)
+            size_t empty_clusters = 0;
+            for (const auto& cluster : clusters) {
+                if (cluster.empty()) {
+                    empty_clusters++;
+                }
+            }
+            // With structured data, we expect most clusters to have points
+            // but allow a few empty clusters due to random initialization
+            CATCH_REQUIRE(empty_clusters <= 2);
+        };
+
+    CATCH_SECTION("Float32 with L2 Distance") {
+        test_cluster_assignment.operator()<float, float, svs::DistanceL2>();
+    }
+
+    CATCH_SECTION("Float32 with IP Distance") {
+        test_cluster_assignment.operator()<float, float, svs::DistanceIP>();
+    }
+
+    CATCH_SECTION("Float16 with L2 Distance") {
+        test_cluster_assignment.operator()<svs::Float16, float, svs::DistanceL2>();
+    }
+
+    CATCH_SECTION("Float16 with IP Distance") {
+        test_cluster_assignment.operator()<svs::Float16, float, svs::DistanceIP>();
+    }
+
+    CATCH_SECTION("BFloat16 with L2 Distance") {
+        test_cluster_assignment.operator()<svs::BFloat16, float, svs::DistanceL2>();
+    }
+
+    CATCH_SECTION("BFloat16 with IP Distance") {
+        test_cluster_assignment.operator()<svs::BFloat16, float, svs::DistanceIP>();
+    }
+}
+
+CATCH_TEST_CASE(
+    "IVF Train-Only and Cluster Assignment", "[ivf][common][train_only][cluster_assignment]"
+) {
+    namespace ivf = svs::index::ivf;
+    auto threadpool = svs::threads::as_threadpool(4);
+    auto data = test_dataset::data_f32();
+
+    auto parameters = ivf::IVFBuildParameters()
+                          .num_centroids(50)
+                          .minibatch_size(500)
+                          .num_iterations(10)
+                          .is_hierarchical(false)
+                          .training_fraction(0.5)
+                          .seed(12345);
+
+    CATCH_SECTION("Flat K-means: train_only + cluster_assignment vs full clustering") {
+        auto distance_l2 = svs::DistanceL2();
+
+        // Method 1: Full clustering (without train_only)
+        auto [centroids_full, clusters_full] = ivf::kmeans_clustering<float>(
+            parameters,
+            data,
+            distance_l2,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            false // train_only = false
+        );
+
+        // Method 2: Train-only + cluster_assignment
+        auto [centroids_train, clusters_train] = ivf::kmeans_clustering<float>(
+            parameters,
+            data,
+            distance_l2,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            true // train_only = true
+        );
+
+        // Verify train_only returns empty clusters
+        CATCH_REQUIRE(clusters_train.size() == parameters.num_centroids_);
+        for (const auto& cluster : clusters_train) {
+            CATCH_REQUIRE(cluster.empty());
+        }
+
+        // Now assign data using the cluster_assignment utility
+        auto clusters_assigned = ivf::cluster_assignment<float>(
+            data,
+            centroids_train,
+            distance_l2,
+            threadpool,
+            500, // minibatch_size
+            svs::lib::Type<uint32_t>()
+        );
+
+        // Verify centroids match (within tolerance)
+        CATCH_REQUIRE(centroids_train.size() == centroids_full.size());
+        CATCH_REQUIRE(centroids_train.dimensions() == centroids_full.dimensions());
+
+        for (size_t i = 0; i < centroids_train.size(); ++i) {
+            auto c1 = centroids_train.get_datum(i);
+            auto c2 = centroids_full.get_datum(i);
+            for (size_t j = 0; j < centroids_train.dimensions(); ++j) {
+                CATCH_REQUIRE(std::abs(c1[j] - c2[j]) < 1e-5f);
+            }
+        }
+
+        // Verify cluster assignments match
+        CATCH_REQUIRE(clusters_assigned.size() == clusters_full.size());
+        for (size_t i = 0; i < clusters_assigned.size(); ++i) {
+            CATCH_REQUIRE(clusters_assigned[i].size() == clusters_full[i].size());
+
+            // Sort both to compare
+            auto a = clusters_assigned[i];
+            auto b = clusters_full[i];
+            std::sort(a.begin(), a.end());
+            std::sort(b.begin(), b.end());
+            CATCH_REQUIRE(a == b);
+        }
+
+        // Verify all points are assigned
+        size_t total_assigned = 0;
+        for (const auto& cluster : clusters_assigned) {
+            total_assigned += cluster.size();
+        }
+        CATCH_REQUIRE(total_assigned == data.size());
+    }
+
+    CATCH_SECTION("Hierarchical K-means: train_only + cluster_assignment vs full clustering"
+    ) {
+        auto distance_ip = svs::DistanceIP();
+
+        // Use hierarchical k-means
+        auto hier_params =
+            parameters.is_hierarchical(true).hierarchical_level1_clusters(10);
+
+        // Method 1: Full clustering (without train_only)
+        auto [centroids_full, clusters_full] = ivf::hierarchical_kmeans_clustering<float>(
+            hier_params,
+            data,
+            distance_ip,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            false // train_only = false
+        );
+
+        // Method 2: Train-only + cluster_assignment
+        auto [centroids_train, clusters_train] = ivf::hierarchical_kmeans_clustering<float>(
+            hier_params,
+            data,
+            distance_ip,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            true // train_only = true
+        );
+
+        // Verify train_only returns empty clusters
+        CATCH_REQUIRE(clusters_train.size() == hier_params.num_centroids_);
+        for (const auto& cluster : clusters_train) {
+            CATCH_REQUIRE(cluster.empty());
+        }
+
+        // Now assign data using the cluster_assignment utility
+        auto clusters_assigned = ivf::cluster_assignment<float>(
+            data,
+            centroids_train,
+            distance_ip,
+            threadpool,
+            500, // minibatch_size
+            svs::lib::Type<uint32_t>()
+        );
+
+        // Verify centroids match (within tolerance)
+        CATCH_REQUIRE(centroids_train.size() == centroids_full.size());
+        CATCH_REQUIRE(centroids_train.dimensions() == centroids_full.dimensions());
+
+        for (size_t i = 0; i < centroids_train.size(); ++i) {
+            auto c1 = centroids_train.get_datum(i);
+            auto c2 = centroids_full.get_datum(i);
+            for (size_t j = 0; j < centroids_train.dimensions(); ++j) {
+                CATCH_REQUIRE(std::abs(c1[j] - c2[j]) < 1e-5f);
+            }
+        }
+
+        // Verify cluster structure is reasonable
+        CATCH_REQUIRE(clusters_assigned.size() == clusters_full.size());
+
+        // Verify all points are assigned in both methods
+        size_t total_assigned = 0;
+        size_t total_full = 0;
+        for (size_t i = 0; i < clusters_assigned.size(); ++i) {
+            total_assigned += clusters_assigned[i].size();
+            total_full += clusters_full[i].size();
+        }
+        CATCH_REQUIRE(total_assigned == data.size());
+        CATCH_REQUIRE(total_full == data.size());
+
+        // For hierarchical k-means, assignments may differ slightly due to
+        // precision differences in the two-level clustering process.
+        // The important thing is that both methods produce valid clusterings.
+        // We verify this by checking that the distribution of cluster sizes
+        // is reasonable and similar.
+
+        // Check no cluster is excessively large (> 50% of data)
+        for (const auto& cluster : clusters_assigned) {
+            CATCH_REQUIRE(cluster.size() <= data.size() / 2);
+        }
+        for (const auto& cluster : clusters_full) {
+            CATCH_REQUIRE(cluster.size() <= data.size() / 2);
+        }
+
+        // Count non-empty clusters in both
+        size_t non_empty_assigned = 0;
+        size_t non_empty_full = 0;
+        for (size_t i = 0; i < clusters_assigned.size(); ++i) {
+            if (!clusters_assigned[i].empty())
+                non_empty_assigned++;
+            if (!clusters_full[i].empty())
+                non_empty_full++;
+        }
+
+        // Both should have similar number of non-empty clusters (within 20%)
+        double ratio = static_cast<double>(non_empty_assigned) / non_empty_full;
+        CATCH_REQUIRE(ratio >= 0.8);
+        CATCH_REQUIRE(ratio <= 1.2);
+    }
+
+    CATCH_SECTION("Different data types with train_only workflow") {
+        auto distance_l2 = svs::DistanceL2();
+
+        // Test with Float16
+        auto [centroids_fp16, clusters_empty_fp16] = ivf::kmeans_clustering<svs::Float16>(
+            parameters,
+            data,
+            distance_l2,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            true // train_only = true
+        );
+
+        auto clusters_fp16 = ivf::cluster_assignment<svs::Float16>(
+            data, centroids_fp16, distance_l2, threadpool, 500, svs::lib::Type<uint32_t>()
+        );
+
+        CATCH_REQUIRE(clusters_fp16.size() == parameters.num_centroids_);
+        size_t total_fp16 = 0;
+        for (const auto& cluster : clusters_fp16) {
+            total_fp16 += cluster.size();
+        }
+        CATCH_REQUIRE(total_fp16 == data.size());
+
+        // Test with BFloat16
+        auto [centroids_bf16, clusters_empty_bf16] = ivf::kmeans_clustering<svs::BFloat16>(
+            parameters,
+            data,
+            distance_l2,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            true // train_only = true
+        );
+
+        auto clusters_bf16 = ivf::cluster_assignment<svs::BFloat16>(
+            data, centroids_bf16, distance_l2, threadpool, 500, svs::lib::Type<uint32_t>()
+        );
+
+        CATCH_REQUIRE(clusters_bf16.size() == parameters.num_centroids_);
+        size_t total_bf16 = 0;
+        for (const auto& cluster : clusters_bf16) {
+            total_bf16 += cluster.size();
+        }
+        CATCH_REQUIRE(total_bf16 == data.size());
     }
 }

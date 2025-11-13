@@ -740,6 +740,103 @@ std::vector<std::vector<I>> group_assignments(
     return clusters;
 }
 
+/// @brief Perform cluster assignment for data given pre-trained centroids
+///
+/// @tparam BuildType The numeric type used for matrix operations (float, Float16, BFloat16)
+/// @tparam Data The dataset type
+/// @tparam Centroids The centroids dataset type
+/// @tparam Distance The distance metric type (DistanceIP or DistanceL2)
+/// @tparam Pool The thread pool type
+/// @tparam I The integer type for cluster indices
+///
+/// @param data The dataset to assign to clusters
+/// @param centroids The pre-trained centroids
+/// @param distance The distance metric
+/// @param threadpool The thread pool for parallel execution
+/// @param minibatch_size Size of each processing batch (default: 10000)
+/// @param integer_type Type tag for cluster indices (default: uint32_t)
+///
+/// @return A vector of vectors where each inner vector contains the indices of data
+///         points assigned to that cluster
+template <
+    typename BuildType,
+    data::ImmutableMemoryDataset Data,
+    data::ImmutableMemoryDataset Centroids,
+    typename Distance,
+    threads::ThreadPool Pool,
+    std::integral I = uint32_t>
+auto cluster_assignment(
+    Data& data,
+    Centroids& centroids,
+    Distance& distance,
+    Pool& threadpool,
+    size_t minibatch_size = 10'000,
+    lib::Type<I> SVS_UNUSED(integer_type) = {}
+) {
+    size_t ndims = data.dimensions();
+    size_t num_centroids = centroids.size();
+
+    if (data.dimensions() != centroids.dimensions()) {
+        throw ANNEXCEPTION(
+            "Data and centroids must have the same dimensions! Data dims: {}, Centroids "
+            "dims: {}",
+            data.dimensions(),
+            centroids.dimensions()
+        );
+    }
+
+    // Allocate memory for assignments and matmul results
+    auto assignments = std::vector<size_t>(data.size());
+    auto matmul_results = data::SimpleData<float>{minibatch_size, num_centroids};
+
+    // Convert centroids to BuildType if necessary
+    using CentroidType = typename Centroids::element_type;
+    data::SimpleData<BuildType> centroids_build;
+    if constexpr (!std::is_same_v<BuildType, CentroidType>) {
+        centroids_build = convert_data<BuildType>(centroids, threadpool);
+    } else {
+        centroids_build =
+            data::SimpleData<BuildType>{centroids.size(), centroids.dimensions()};
+        convert_data(centroids, centroids_build, threadpool);
+    }
+
+    // Compute norms if using L2 distance
+    auto data_norm = maybe_compute_norms<Distance>(data, threadpool);
+    auto centroids_norm = maybe_compute_norms<Distance>(centroids_build, threadpool);
+
+    // Process data in batches
+    size_t batchsize = minibatch_size;
+    size_t num_batches = lib::div_round_up(data.size(), batchsize);
+
+    using Alloc = svs::HugepageAllocator<BuildType>;
+    auto data_batch = data::SimpleData<BuildType, Data::extent, Alloc>{batchsize, ndims};
+
+    for (size_t batch = 0; batch < num_batches; ++batch) {
+        auto this_batch = threads::UnitRange{
+            batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+        auto data_batch_view = data::make_view(data, this_batch);
+        convert_data(data_batch_view, data_batch, threadpool);
+
+        // Use the existing centroid_assignment function to compute assignments
+        auto timer = lib::Timer();
+        centroid_assignment(
+            data_batch,
+            data_norm,
+            this_batch,
+            distance,
+            centroids_build,
+            centroids_norm,
+            assignments,
+            matmul_results,
+            threadpool,
+            timer
+        );
+    }
+
+    // Group assignments into clusters
+    return group_assignments<I>(assignments, num_centroids, data);
+}
+
 template <typename Query, typename Dist, typename MatMulResults, typename Buffer>
 void search_centroids(
     const Query& query,
