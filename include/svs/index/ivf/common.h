@@ -404,7 +404,9 @@ void centroid_assignment(
                     data.dimensions()
                 );
             }
-            if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
+            if constexpr (std::is_same_v<
+                              std::remove_cvref_t<Distance>,
+                              distance::DistanceIP>) {
                 for (auto i : indices) {
                     auto nearest =
                         type_traits::sentinel_v<Neighbor<size_t>, std::greater<>>;
@@ -414,7 +416,9 @@ void centroid_assignment(
                     }
                     assignments[batch_range.start() + i] = nearest.id();
                 }
-            } else if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+            } else if constexpr (std::is_same_v<
+                                     std::remove_cvref_t<Distance>,
+                                     distance::DistanceL2>) {
                 for (auto i : indices) {
                     auto nearest = type_traits::sentinel_v<Neighbor<size_t>, std::less<>>;
                     auto dists = matmul_results.get_datum(i);
@@ -563,13 +567,13 @@ auto kmeans_training(
     auto training_timer = timer.push_back("Kmeans training");
     data::SimpleData<float> centroids_fp32 = convert_data<float>(centroids, threadpool);
 
-    if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP>) {
         normalize_centroids(centroids_fp32, threadpool, timer);
     }
 
     auto assignments = std::vector<size_t>(data.size());
     std::vector<float> data_norm;
-    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
         generate_norms(data, data_norm, threadpool);
     }
     std::vector<float> centroids_norm;
@@ -578,7 +582,7 @@ auto kmeans_training(
         auto iter_timer = timer.push_back("iteration");
         auto batchsize = parameters.minibatch_size_;
         auto num_batches = lib::div_round_up(data.size(), batchsize);
-        if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+        if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
             generate_norms(centroids_fp32, centroids_norm, threadpool);
         }
 
@@ -611,7 +615,7 @@ auto kmeans_training(
 
         centroid_split(data, centroids_fp32, counts, rng, threadpool, timer);
 
-        if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
+        if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP>) {
             normalize_centroids(centroids_fp32, threadpool, timer);
         }
     }
@@ -723,7 +727,7 @@ data::SimpleData<BuildType> init_centroids(
 template <typename Distance, typename Data, threads::ThreadPool Pool>
 std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
     std::vector<float> norms;
-    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
         generate_norms(data, norms, threadpool);
     }
     return norms;
@@ -849,7 +853,7 @@ void search_centroids(
 ) {
     unsigned int count = 0;
     buffer.clear();
-    if constexpr (std::is_same_v<Dist, distance::DistanceIP>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceIP>) {
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
             for (size_t k = 0; k < distance.size(); k++) {
@@ -857,7 +861,7 @@ void search_centroids(
                 count++;
             }
         }
-    } else if constexpr (std::is_same_v<Dist, distance::DistanceL2>) {
+    } else if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
         float query_norm = distance::norm_square(query);
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
