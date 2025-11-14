@@ -62,7 +62,13 @@ jobs:
 
   test:
     needs: build-cpp-runtime-bindings
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        runner:
+          - ubuntu-22.04      # Intel hardware (self-hosted)
+          - ubuntu-latest     # AMD hardware (GitHub-hosted)
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v5
