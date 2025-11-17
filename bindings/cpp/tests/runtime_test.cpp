@@ -454,21 +454,27 @@ CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
 }
 
 CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
+    auto threshold = [](size_t size_on_disk) {
+        // On load, the allocator allocates blocks of 64 MB
+        constexpr std::uint64_t ALIGN = 64ull * 1024 * 1024; // 64 MB
+        return size_t((size_on_disk + ALIGN - 1) / ALIGN * ALIGN);
+    };
+
     CATCH_SECTION("SmallIndex") {
         auto stats = run_save_and_load_test(10);
         CATCH_REQUIRE(stats.file_size < 20 * 1024 * 1024);
-        CATCH_REQUIRE(stats.rss_increase < 1.2 * stats.file_size);
+        CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
 
     CATCH_SECTION("MediumIndex") {
         auto stats = run_save_and_load_test(50);
         CATCH_REQUIRE(stats.file_size < 100 * 1024 * 1024);
-        CATCH_REQUIRE(stats.rss_increase < 1.2 * stats.file_size);
+        CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
 
     CATCH_SECTION("LargeIndex") {
         auto stats = run_save_and_load_test(200);
         CATCH_REQUIRE(stats.file_size < 400 * 1024 * 1024);
-        CATCH_REQUIRE(stats.rss_increase < 1.2 * stats.file_size);
+        CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
 }
