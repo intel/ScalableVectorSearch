@@ -28,6 +28,8 @@ namespace v0 {
 // Abstract interface for Flat indices.
 struct SVS_RUNTIME_API FlatIndex {
     // Static constructors and destructors
+    static Status check_storage_kind(StorageKind storage_kind) noexcept;
+
     static Status build(FlatIndex** index, size_t dim, MetricType metric) noexcept;
     static Status destroy(FlatIndex* index) noexcept;
     virtual ~FlatIndex();
