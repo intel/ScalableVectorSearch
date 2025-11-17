@@ -229,7 +229,7 @@ LeanVecStorageType make_storage(
         leanvec_d = (data.dimensions() + 1) / 2;
     }
     return LeanVecStorageType::reduce(
-        data, std::move(matrices), pool, 0, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_d}
+        data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}
     );
 }
 

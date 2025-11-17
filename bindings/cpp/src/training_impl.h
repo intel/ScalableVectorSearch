@@ -72,12 +72,16 @@ struct LeanVecTrainingDataImpl {
 
         auto means = svs::utils::compute_medioid(data, threadpool);
         auto matrix = svs::leanvec::compute_leanvec_matrix<svs::Dynamic, svs::Dynamic>(
-            data, means, threadpool, svs::lib::MaybeStatic<svs::Dynamic>{leanvec_dims}
+            data, means, threadpool, svs::lib::MaybeStatic{leanvec_dims}
         );
-        // Create a copy of the matrix for the query matrix to avoid double free.
-        // LeanVecMatrices expects two separate matrix objects.
-        auto matrix_copy = matrix;
-        return LeanVecMatricesType{std::move(matrix), std::move(matrix_copy)};
+        // Even if C++ standard guarantee evaluation order for brace-enclosed initializer
+        // list, and LeanVecMatricesType{matrix, std::move(matrix)} should be safe, some
+        // compilers may still issue warnings about using 'matrix' after it has been moved
+        // from. To avoid such warnings, we explicitly create 'query_matrix' copy here.
+        auto query_matrix = matrix;
+        // TODO fix LeanVecMatrices/SimpleData/DenseArray .ctors/.dctors issues
+        // leading explicit creation of a copy of the matrix "to avoid double free".
+        return LeanVecMatricesType{std::move(matrix), std::move(query_matrix)};
     }
 };
 
