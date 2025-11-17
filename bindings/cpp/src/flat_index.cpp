@@ -83,6 +83,16 @@ struct FlatIndexManager : public FlatIndex {
 // FlatIndex interface implementation
 FlatIndex::~FlatIndex() = default;
 
+Status FlatIndex::check_storage_kind(StorageKind storage_kind) noexcept {
+    // For FlatIndex, only FP32 storage kind is supported
+    if (storage_kind == StorageKind::FP32) {
+        return Status_Ok;
+    } else {
+        return Status{
+            ErrorCode::INVALID_ARGUMENT, "FlatIndex only supports FP32 storage kind"};
+    }
+}
+
 Status FlatIndex::build(FlatIndex** index, size_t dim, MetricType metric) noexcept {
     *index = nullptr;
     return runtime_error_wrapper([&] {
