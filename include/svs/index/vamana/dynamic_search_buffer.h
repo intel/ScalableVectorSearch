@@ -498,6 +498,16 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             }
         }
 
+        // TODO: Switch over to using iterators for the return values to avoid this.
+        // Maintain best_unvisited_ invariant
+        // cleanup() and std::sort() may invalidate best_unvisited_.
+        // so, have to lookup the next unvisited from scratch.
+        for (best_unvisited_ = 0; best_unvisited_ < roi_end_; ++best_unvisited_) {
+            if (!candidates_[best_unvisited_].visited()) {
+                break;
+            }
+        }
+
         // Check if invariant 6 is active.
         // If so, drop invalid elements off the end until a valid element is found.
         if (slack() == 0) {
