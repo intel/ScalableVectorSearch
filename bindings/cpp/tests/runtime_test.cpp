@@ -57,7 +57,6 @@ inline const std::vector<float>& get_test_data() {
     return test_data;
 }
 
-// Get current RSS (Resident Set Size) memory usage in bytes
 size_t get_current_rss() {
     std::ifstream statm("/proc/self/statm");
     if (!statm.is_open()) {
@@ -65,8 +64,14 @@ size_t get_current_rss() {
     }
     size_t vsize, rss;
     statm >> vsize >> rss;
-    return rss * sysconf(_SC_PAGESIZE);
+    size_t page_size = sysconf(_SC_PAGESIZE);
+    return rss * page_size;
 }
+
+struct UsageInfo {
+    size_t file_size;
+    size_t rss_increase;
+};
 
 } // namespace
 
@@ -128,6 +133,78 @@ void write_and_read_index(
     // Clean up
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
     svs::runtime::v0::DynamicVamanaIndex::destroy(loaded);
+}
+
+// Helper that writes and reads and index of requested size
+// Reports memory usage
+UsageInfo run_save_and_load_test(const size_t target_mibytes) {
+    // Generate requested MiB of test data
+    constexpr size_t mem_test_d = 128;
+    const size_t target_bytes = target_mibytes * 1024 * 1024;
+    const size_t mem_test_n = target_bytes / (mem_test_d * sizeof(float));
+
+    svs_test::prepare_temp_directory();
+    auto temp_dir = svs_test::temp_directory();
+    auto filename = temp_dir / "memory_test_index.bin";
+
+    {
+        // Build Vamana FP32 index, scoped for memory cleanup
+        auto large_test_data = create_test_data(mem_test_n, mem_test_d, 456);
+
+        // Add data to index
+        std::vector<size_t> labels(mem_test_n);
+        std::iota(labels.begin(), labels.end(), 0);
+
+        size_t mem_before = get_current_rss();
+        svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+            &index,
+            mem_test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::FP32,
+            build_params
+        );
+        CATCH_REQUIRE(status.ok());
+        CATCH_REQUIRE(index != nullptr);
+        status = index->add(mem_test_n, labels.data(), large_test_data.data());
+        CATCH_REQUIRE(status.ok());
+
+        std::ofstream out(filename, std::ios::binary);
+        CATCH_REQUIRE(out.is_open());
+        status = index->save(out);
+        CATCH_REQUIRE(status.ok());
+        out.close();
+
+        svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+        index = nullptr;
+    }
+
+    // Investigate the file size on disk
+    size_t file_size = std::filesystem::file_size(filename);
+
+    // Load the index from disk
+    std::ifstream in(filename, std::ios::binary);
+    CATCH_REQUIRE(in.is_open());
+
+    // Monitor RSS increase
+    size_t rss_before = get_current_rss();
+
+    svs::runtime::v0::DynamicVamanaIndex* loaded = nullptr;
+    auto status = svs::runtime::v0::DynamicVamanaIndex::load(
+        &loaded, in, svs::runtime::v0::MetricType::L2, svs::runtime::v0::StorageKind::FP32
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+    in.close();
+
+    size_t rss_delta = get_current_rss() - rss_before;
+
+    // Clean up
+    svs::runtime::v0::DynamicVamanaIndex::destroy(loaded);
+    loaded = nullptr;
+
+    return {file_size, rss_delta};
 }
 
 CATCH_TEST_CASE("WriteAndReadIndexSVS", "[runtime]") {
@@ -377,94 +454,21 @@ CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
 }
 
 CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
-    // Generate some MiB of test data
-    constexpr size_t mem_test_d = 128;
-    constexpr size_t target_mibytes = 2;
-    constexpr size_t target_bytes = target_mibytes * 1024 * 1024;
-    constexpr size_t mem_test_n = target_bytes / (mem_test_d * sizeof(float));
-
-    std::cout << "Generating " << mem_test_n << " vectors of dimension " << mem_test_d
-              << " (approx " << (mem_test_n * mem_test_d * sizeof(float)) / (1024 * 1024)
-              << " MiB)" << std::endl;
-
-    // Save the index to a file
-    svs_test::prepare_temp_directory();
-    auto temp_dir = svs_test::temp_directory();
-    auto filename = temp_dir / "memory_test_index.bin";
-
-    {
-        // Build Vamana FP32 index, scoped for memory cleanup
-        auto large_test_data = create_test_data(mem_test_n, mem_test_d, 456);
-
-        svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
-        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
-        svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
-            &index,
-            mem_test_d,
-            svs::runtime::v0::MetricType::L2,
-            svs::runtime::v0::StorageKind::FP32,
-            build_params
-        );
-        CATCH_REQUIRE(status.ok());
-        CATCH_REQUIRE(index != nullptr);
-
-        // Add data to index
-        std::vector<size_t> labels(mem_test_n);
-        std::iota(labels.begin(), labels.end(), 0);
-        status = index->add(mem_test_n, labels.data(), large_test_data.data());
-        CATCH_REQUIRE(status.ok());
-
-        std::ofstream out(filename, std::ios::binary);
-        CATCH_REQUIRE(out.is_open());
-        status = index->save(out);
-        CATCH_REQUIRE(status.ok());
-        out.close();
-
-        // Clean up the first index
-        svs::runtime::v0::DynamicVamanaIndex::destroy(index);
-        index = nullptr;
+    CATCH_SECTION("SmallIndex") {
+        auto stats = run_save_and_load_test(10);
+        CATCH_REQUIRE(stats.file_size < 20 * 1024 * 1024);
+        CATCH_REQUIRE(stats.rss_increase < 1.2 * stats.file_size);
     }
 
-    // Investigate the file size on disk
-    size_t file_size = std::filesystem::file_size(filename);
-    std::cout << "Index file size on disk: " << file_size / (1024 * 1024) << " MiB ("
-              << file_size << " bytes)" << std::endl;
+    CATCH_SECTION("MediumIndex") {
+        auto stats = run_save_and_load_test(50);
+        CATCH_REQUIRE(stats.file_size < 100 * 1024 * 1024);
+        CATCH_REQUIRE(stats.rss_increase < 1.2 * stats.file_size);
+    }
 
-    // Load the index from disk
-    std::ifstream in(filename, std::ios::binary);
-    CATCH_REQUIRE(in.is_open());
-
-    // Snapshot current memory usage before loading
-    size_t memory_before = get_current_rss();
-    std::cout << "Memory before load: " << memory_before / (1024 * 1024) << " MiB"
-              << std::endl;
-
-    svs::runtime::v0::DynamicVamanaIndex* loaded = nullptr;
-    auto status = svs::runtime::v0::DynamicVamanaIndex::load(
-        &loaded, in, svs::runtime::v0::MetricType::L2, svs::runtime::v0::StorageKind::FP32
-    );
-    CATCH_REQUIRE(status.ok());
-    CATCH_REQUIRE(loaded != nullptr);
-    in.close();
-
-    // Snapshot memory usage after loading
-    size_t memory_after = get_current_rss();
-    std::cout << "Memory after load: " << memory_after / (1024 * 1024) << " MiB"
-              << std::endl;
-
-    // Calculate memory increase
-    size_t memory_increase = memory_after - memory_before;
-    std::cout << "Memory increase: " << memory_increase / (1024 * 1024) << " MiB ("
-              << memory_increase << " bytes)" << std::endl;
-
-    // Assert that no more than 140% of file size on disk were allocated
-    size_t max_allowed_memory = static_cast<size_t>(file_size * 1.4);
-    std::cout << "Max allowed memory (140% of file size): "
-              << max_allowed_memory / (1024 * 1024) << " MiB (" << max_allowed_memory
-              << " bytes)" << std::endl;
-
-    CATCH_REQUIRE(memory_increase <= max_allowed_memory);
-
-    // Clean up
-    svs::runtime::v0::DynamicVamanaIndex::destroy(loaded);
+    CATCH_SECTION("LargeIndex") {
+        auto stats = run_save_and_load_test(200);
+        CATCH_REQUIRE(stats.file_size < 400 * 1024 * 1024);
+        CATCH_REQUIRE(stats.rss_increase < 1.2 * stats.file_size);
+    }
 }
