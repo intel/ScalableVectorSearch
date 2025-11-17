@@ -125,6 +125,18 @@ using DynamicVamanaIndexLeanVecImplManager =
 } // namespace
 
 // DynamicVamanaIndex interface implementation
+Status DynamicVamanaIndex::check_storage_kind(StorageKind storage_kind) noexcept {
+    return runtime_error_wrapper([&] {
+        return storage::is_supported_storage_kind(storage_kind)
+                   ? Status_Ok
+                   : Status(
+                         ErrorCode::INVALID_ARGUMENT,
+                         "The specified storage kind is not compatible with the "
+                         "DynamicVamanaIndex"
+                     );
+    });
+}
+
 Status DynamicVamanaIndex::build(
     DynamicVamanaIndex** index,
     size_t dim,
