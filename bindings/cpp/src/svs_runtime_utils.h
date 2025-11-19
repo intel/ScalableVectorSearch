@@ -252,22 +252,22 @@ auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
     return make_storage<StorageType_t<Tag>>(std::forward<Args>(args)...);
 }
 
-inline bool is_supported_storage_kind(StorageKind kind) {
+inline bool is_supported_storage_kind([[maybe_unused]] StorageKind kind) {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
         return svs::detail::lvq_leanvec_enabled();
     }
+#endif
     return true;
 }
 
 template <typename F, typename... Args>
 auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     if (!is_supported_storage_kind(kind)) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported by CPU"
         );
     }
-#endif
     switch (kind) {
         case StorageKind::FP32:
             return f(FP32Tag{}, std::forward<Args>(args)...);
