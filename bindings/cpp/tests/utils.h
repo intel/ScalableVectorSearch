@@ -76,7 +76,7 @@ class IDFilterRange : public svs::runtime::v0::IDFilter {
 // Custom results allocator for testing
 class TestResultsAllocator : public svs::runtime::v0::ResultsAllocator {
   private:
-    mutable std::vector<int64_t> labels_;
+    mutable std::vector<size_t> labels_;
     mutable std::vector<float> distances_;
 
   public:
@@ -92,11 +92,11 @@ class TestResultsAllocator : public svs::runtime::v0::ResultsAllocator {
         distances_.resize(total_results);
 
         return {
-            std::span<int64_t>(labels_.data(), total_results),
+            std::span<size_t>(labels_.data(), total_results),
             std::span<float>(distances_.data(), total_results)};
     }
 
-    const std::vector<int64_t>& labels() const { return labels_; }
+    const std::vector<size_t>& labels() const { return labels_; }
     const std::vector<float>& distances() const { return distances_; }
 };
 
