@@ -19,7 +19,7 @@
 ///
 /// @brief Version information and API versioning for SVS Runtime
 ///
-/// This header defines the SVS Runtime API versioning scheme similar to oneDAL:
+/// This header defines the SVS Runtime API versioning scheme:
 /// 1. Versioned namespaces (e.g., v0, v1) for API stability
 /// 2. Using declarations to bring current version to parent namespace
 /// 3. Clean integration points for external libraries

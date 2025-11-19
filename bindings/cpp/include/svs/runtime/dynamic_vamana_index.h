@@ -36,9 +36,10 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
 
     virtual Status reset() noexcept = 0;
 
-    // Static constructors and destructors
+    // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
+    // Static constructors and destructors
     static Status build(
         DynamicVamanaIndex** index,
         size_t dim,
