@@ -27,14 +27,10 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
-
-#include SVS_LVQ_HEADER
-#include SVS_LEANVEC_HEADER
 
 namespace svs {
 namespace runtime {
@@ -119,8 +115,10 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 };
 
 using DynamicVamanaIndexManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexImpl>;
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 using DynamicVamanaIndexLeanVecImplManager =
     DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImpl>;
+#endif
 
 } // namespace
 
@@ -172,6 +170,7 @@ Status DynamicVamanaIndex::load(
     });
 }
 
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 // Specialization to build LeanVec-based Vamana index with specified leanvec dims
 Status DynamicVamanaIndexLeanVec::build(
     DynamicVamanaIndex** index,
@@ -211,6 +210,7 @@ Status DynamicVamanaIndexLeanVec::build(
         *index = new DynamicVamanaIndexLeanVecImplManager{std::move(impl)};
     });
 }
+#endif
 
 } // namespace runtime
 } // namespace svs
