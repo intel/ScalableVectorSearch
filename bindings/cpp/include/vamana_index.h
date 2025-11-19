@@ -18,30 +18,16 @@
 #include "IndexSVSImplDefs.h"
 
 #include <cstddef>
-#include <istream>
-#include <memory>
-#include <numeric>
-#include <ostream>
-#include <vector>
 
 namespace svs {
 namespace runtime {
 
 // Abstract interface for Vamana-based indexes.
+// NOTE VamanaIndex is not implemented directly, only DynamicVamanaIndex is implemented.
 struct SVS_RUNTIME_API VamanaIndex {
-    enum StorageKind { 
-        FP32, FP16, SQI8,
-        LVQ4x0, LVQ4x4, LVQ4x8,
-        LeanVec4x4, LeanVec4x8, LeanVec8x8,
-    };
+    virtual ~VamanaIndex() = 0;
 
-    // TODO:
-    // 1. Should StorageKind, metric, be a part of BuildParams?
-    // 2. Does it make sense to have "Common" BuildParams{dim, metric} struct for other index algos (Flat, IVF)?
-    //    Or dim, metric, storage kind should be passed separately to the build() method?
-    //    What about storage kind in Flat, IVF?
     struct BuildParams {
-        size_t dim;
         size_t graph_max_degree;
         size_t prune_to = 0;
         float alpha = 0;
@@ -51,20 +37,11 @@ struct SVS_RUNTIME_API VamanaIndex {
     };
 
     struct SearchParams {
-        size_t search_window_size = 0;
-        size_t search_buffer_capacity = 0;
+        size_t search_window_size = 10;
+        size_t search_buffer_capacity = 10;
+        size_t prefetch_lookahead = 0;
+        size_t prefetch_step = 0;
     };
-
-    // Unused for now:
-    virtual size_t size() const noexcept = 0;
-    virtual size_t dimensions() const noexcept = 0;
-    virtual MetricType metric_type() const noexcept = 0;
-    virtual StorageKind get_storage_kind() const noexcept = 0;
-
-    virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
-    virtual Status remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
-    // Further method for deletion can be added later:
-    // virtual Status remove(size_t n, const size_t* labels) noexcept = 0;
 
     virtual Status search(
         size_t n,
@@ -84,48 +61,6 @@ struct SVS_RUNTIME_API VamanaIndex {
         const SearchParams* params = nullptr,
         IDFilter* filter = nullptr
     ) const noexcept = 0;
-
-    virtual Status reset() noexcept = 0;
-    // TODO: Does it make sense to rename it to "save()"?
-    virtual Status serialize(std::ostream& out) const noexcept = 0;
-
-    // Static constructors and destructors
-    static Status build(
-        VamanaIndex** index,
-        MetricType metric,
-        StorageKind storage_kind,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10,10}
-    ) noexcept;
-
-    static Status destroy(VamanaIndex* index) noexcept;
-    // TODO: Does it make sense to rename it to "load()"?
-    // TODO: is it possible to get metric and storage kind from the stream instead of passing them explicitly?
-    static Status deserialize(VamanaIndex** index, std::istream& in, MetricType metric, VamanaIndex::StorageKind storage_kind) noexcept;
 };
-
-struct SVS_RUNTIME_API VamanaIndexLeanVecFactory {
-    static Status train(
-        VamanaIndexLeanVecFactory** factory,
-        size_t d,
-        size_t n,
-        const float* x,
-        size_t leanvec_dims
-    ) noexcept;
-
-    static Status destroy(VamanaIndexLeanVecFactory* factory) noexcept;
-
-    virtual Status serialize(std::ostream& out) const noexcept;
-    static Status deserialize(VamanaIndexLeanVecFactory** factory, std::istream& in) noexcept;
-
-    virtual Status buildIndex(
-        VamanaIndex** index,
-        size_t dim,
-        MetricType metric,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {}
-    ) noexcept;
-};
-
 } // namespace runtime
 } // namespace svs
