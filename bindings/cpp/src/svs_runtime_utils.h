@@ -239,7 +239,10 @@ auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
 }
 
 inline bool is_supported_storage_kind(StorageKind kind) {
-    return svs::detail::lvq_leanvec_enabled();
+    if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
+        return svs::detail::lvq_leanvec_enabled();
+    }
+    return true;
 }
 
 template <typename F, typename... Args>
