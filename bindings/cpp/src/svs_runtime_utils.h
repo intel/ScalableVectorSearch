@@ -32,13 +32,13 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/exception.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 #ifndef SVS_LVQ_HEADER
 #define SVS_LVQ_HEADER "svs/quantization/lvq/lvq.h"
 #endif
@@ -49,6 +49,8 @@
 
 #include SVS_LVQ_HEADER
 #include SVS_LEANVEC_HEADER
+#include <svs/cpuid.h>
+#endif
 
 namespace svs::runtime {
 
@@ -92,7 +94,9 @@ inline auto runtime_error_wrapper(Callable&& func) noexcept -> Status {
     }
 }
 
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
+#endif
 
 namespace storage {
 
@@ -129,12 +133,14 @@ template <StorageKind K> struct StorageKindTag {
 SVS_DEFINE_STORAGE_KIND_TAG(FP32);
 SVS_DEFINE_STORAGE_KIND_TAG(FP16);
 SVS_DEFINE_STORAGE_KIND_TAG(SQI8);
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x0);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x4);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x8);
 SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x4);
 SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x8);
 SVS_DEFINE_STORAGE_KIND_TAG(LeanVec8x8);
+#endif
 
 #undef SVS_DEFINE_STORAGE_KIND_TAG
 
@@ -153,6 +159,7 @@ template <typename T>
 using SQDatasetType = svs::quantization::scalar::
     SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 template <size_t Primary, size_t Residual>
 using LVQDatasetType = svs::quantization::lvq::LVQDataset<
     Primary,
@@ -168,6 +175,7 @@ using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::Dynamic,
     svs::Dynamic,
     svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
+#endif
 
 // Storage type mapping - use macro to reduce repetition
 template <StorageTag Tag> struct StorageType;
@@ -181,12 +189,14 @@ template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
 DEFINE_STORAGE_TYPE(FP32, SimpleDatasetType<float>);
 DEFINE_STORAGE_TYPE(FP16, SimpleDatasetType<svs::Float16>);
 DEFINE_STORAGE_TYPE(SQI8, SQDatasetType<std::int8_t>);
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 DEFINE_STORAGE_TYPE(LVQ4x0, LVQDatasetType<4, 0>);
 DEFINE_STORAGE_TYPE(LVQ4x4, LVQDatasetType<4, 4>);
 DEFINE_STORAGE_TYPE(LVQ4x8, LVQDatasetType<4, 8>);
 DEFINE_STORAGE_TYPE(LeanVec4x4, LeanDatasetType<4, 4>);
 DEFINE_STORAGE_TYPE(LeanVec4x8, LeanDatasetType<4, 8>);
 DEFINE_STORAGE_TYPE(LeanVec8x8, LeanDatasetType<8, 8>);
+#endif
 
 #undef DEFINE_STORAGE_TYPE
 
@@ -211,6 +221,7 @@ SQStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Po
     return SQStorageType::compress(data, pool);
 }
 
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 template <
     svs::quantization::lvq::IsLVQDataset LVQStorageType,
     svs::threads::ThreadPool Pool>
@@ -232,6 +243,7 @@ LeanVecStorageType make_storage(
         data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}
     );
 }
+#endif
 
 template <StorageTag Tag, typename... Args>
 auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
@@ -239,11 +251,13 @@ auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
 }
 
 inline StorageKind to_supported_storage_kind(StorageKind kind) {
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     if (svs::detail::lvq_leanvec_enabled()) {
         return kind;
     } else if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
         return StorageKind::SQI8;
     }
+#endif
     return kind;
 }
 
@@ -256,6 +270,7 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
             return f(FP16Tag{}, std::forward<Args>(args)...);
         case StorageKind::SQI8:
             return f(SQI8Tag{}, std::forward<Args>(args)...);
+#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         case StorageKind::LVQ4x0:
             return f(LVQ4x0Tag{}, std::forward<Args>(args)...);
         case StorageKind::LVQ4x4:
@@ -268,6 +283,7 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
             return f(LeanVec4x8Tag{}, std::forward<Args>(args)...);
         case StorageKind::LeanVec8x8:
             return f(LeanVec8x8Tag{}, std::forward<Args>(args)...);
+#endif
         default:
             throw ANNEXCEPTION("not supported SVS storage kind");
     }
