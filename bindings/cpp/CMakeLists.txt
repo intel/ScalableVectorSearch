@@ -129,6 +129,7 @@ DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
     endif()
     target_compile_definitions(${TARGET_NAME} PRIVATE
+        SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         PUBLIC "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
         PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
     )

@@ -115,7 +115,7 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 };
 
 using DynamicVamanaIndexManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexImpl>;
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 using DynamicVamanaIndexLeanVecImplManager =
     DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImpl>;
 #endif
@@ -170,7 +170,7 @@ Status DynamicVamanaIndex::load(
     });
 }
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 // Specialization to build LeanVec-based Vamana index with specified leanvec dims
 Status DynamicVamanaIndexLeanVec::build(
     DynamicVamanaIndex** index,

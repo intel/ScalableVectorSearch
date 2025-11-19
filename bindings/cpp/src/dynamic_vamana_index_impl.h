@@ -17,6 +17,9 @@
 #pragma once
 
 #include "svs_runtime_utils.h"
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#include "training_impl.h"
+#endif
 
 #include <svs/runtime/dynamic_vamana_index.h>
 
@@ -491,7 +494,7 @@ class DynamicVamanaIndexImpl {
     size_t ntotal_soft_deleted{0};
 };
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     DynamicVamanaIndexLeanVecImpl(
         std::unique_ptr<svs::DynamicVamana>&& impl,

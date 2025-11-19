@@ -38,7 +38,7 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 #ifndef SVS_LVQ_HEADER
 #define SVS_LVQ_HEADER "svs/quantization/lvq/lvq.h"
 #endif
@@ -94,7 +94,7 @@ inline auto runtime_error_wrapper(Callable&& func) noexcept -> Status {
     }
 }
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
 #endif
 
@@ -109,7 +109,7 @@ inline constexpr bool is_simple_dataset<svs::data::SimpleData<Elem, Extent, Allo
 template <typename T>
 concept IsSimpleDataset = is_simple_dataset<T>;
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 // Consolidated storage kind checks using constexpr functions
 inline constexpr bool is_lvq_storage(StorageKind kind) {
     return kind == StorageKind::LVQ4x0 || kind == StorageKind::LVQ4x4 ||
@@ -135,7 +135,7 @@ template <StorageKind K> struct StorageKindTag {
 SVS_DEFINE_STORAGE_KIND_TAG(FP32);
 SVS_DEFINE_STORAGE_KIND_TAG(FP16);
 SVS_DEFINE_STORAGE_KIND_TAG(SQI8);
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x0);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x4);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x8);
@@ -161,7 +161,7 @@ template <typename T>
 using SQDatasetType = svs::quantization::scalar::
     SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 template <size_t Primary, size_t Residual>
 using LVQDatasetType = svs::quantization::lvq::LVQDataset<
     Primary,
@@ -191,7 +191,7 @@ template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
 DEFINE_STORAGE_TYPE(FP32, SimpleDatasetType<float>);
 DEFINE_STORAGE_TYPE(FP16, SimpleDatasetType<svs::Float16>);
 DEFINE_STORAGE_TYPE(SQI8, SQDatasetType<std::int8_t>);
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 DEFINE_STORAGE_TYPE(LVQ4x0, LVQDatasetType<4, 0>);
 DEFINE_STORAGE_TYPE(LVQ4x4, LVQDatasetType<4, 4>);
 DEFINE_STORAGE_TYPE(LVQ4x8, LVQDatasetType<4, 8>);
@@ -223,7 +223,7 @@ SQStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Po
     return SQStorageType::compress(data, pool);
 }
 
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 template <
     svs::quantization::lvq::IsLVQDataset LVQStorageType,
     svs::threads::ThreadPool Pool>
@@ -252,22 +252,22 @@ auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
     return make_storage<StorageType_t<Tag>>(std::forward<Args>(args)...);
 }
 
-inline bool is_supported_storage_kind(StorageKind SVS_UNUSED(kind)) {
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+inline bool is_supported_storage_kind(StorageKind kind) {
     if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
         return svs::detail::lvq_leanvec_enabled();
     }
-#endif
     return true;
 }
 
 template <typename F, typename... Args>
 auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     if (!is_supported_storage_kind(kind)) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported by CPU"
         );
     }
+#endif
     switch (kind) {
         case StorageKind::FP32:
             return f(FP32Tag{}, std::forward<Args>(args)...);
@@ -275,7 +275,7 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
             return f(FP16Tag{}, std::forward<Args>(args)...);
         case StorageKind::SQI8:
             return f(SQI8Tag{}, std::forward<Args>(args)...);
-#if SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         case StorageKind::LVQ4x0:
             return f(LVQ4x0Tag{}, std::forward<Args>(args)...);
         case StorageKind::LVQ4x4:
