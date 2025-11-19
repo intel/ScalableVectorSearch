@@ -1,5 +1,7 @@
 # Build directories
-/build*/
+build/
+build-*/
+build_*/
 usr/
 wheelhouse/
 
@@ -18,9 +20,6 @@ __pycache__/
 /bindings/python/build/
 /bindings/python/_skbuild/
 /bindings/python/dist/
-
-# CPP bindings build files
-/bindings/cpp/build/
 
 # Example generated files.
 example_data_*/
