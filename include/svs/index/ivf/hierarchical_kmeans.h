@@ -160,14 +160,12 @@ auto hierarchical_kmeans_clustering_impl(
 
     std::vector<std::vector<I>> clusters_level1_all;
 
-    // Declare timer outside if block to avoid scope issues
+    // Declare timer outside of block to avoid scope issues
     auto all_assignments_time = timer.push_back("level1 all assignments");
 
     if (!train_only) {
         // Step 5: Assign all data to clusters
-        auto all_assignments_alloc = timer.push_back("level1 all assignments alloc");
         auto assignments_level1_all = std::vector<size_t>(data.size());
-        all_assignments_alloc.finish();
 
         batchsize = parameters.minibatch_size_;
         num_batches = lib::div_round_up(data.size(), batchsize);
@@ -178,10 +176,7 @@ auto hierarchical_kmeans_clustering_impl(
             auto this_batch = threads::UnitRange{
                 batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
             auto data_batch_view = data::make_view(data, this_batch);
-            auto all_assignments_convert =
-                timer.push_back("level1 all assignments convert");
             convert_data(data_batch_view, data_batch, threadpool);
-            all_assignments_convert.finish();
             centroid_assignment(
                 data_batch,
                 data_norm,
@@ -199,7 +194,6 @@ auto hierarchical_kmeans_clustering_impl(
         clusters_level1_all =
             group_assignments(assignments_level1_all, num_level1_clusters, data);
         all_assignments_cluster.finish();
-        all_assignments_time.finish();
     } else {
         // For train_only, create empty clusters
         clusters_level1_all.resize(num_level1_clusters);

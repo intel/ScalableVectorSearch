@@ -250,19 +250,16 @@ void compute_matmul(
             m_int,         // const int M
             n_int,         // const int N
             k_int,         // const int K
-            1.0f,          // float alpha (explicitly float)
+            1.0f,          // float alpha
             data,          // const float* A
             k_int,         // const int lda
             centroids,     // const float* B
             k_int,         // const int ldb
-            0.0f,          // const float beta (explicitly float)
+            0.0f,          // const float beta
             results,       // float* c
             n_int          // const int ldc
         );
     } else if constexpr (std::is_same_v<T, BFloat16>) {
-        // Intel MKL BFloat16 GEMM requires careful parameter casting to avoid parameter
-        // errors Ensure all integer parameters are properly cast to int (MKL expects int,
-        // not size_t)
         int m_int = static_cast<int>(m);
         int n_int = static_cast<int>(n);
         int k_int = static_cast<int>(k);
@@ -274,19 +271,16 @@ void compute_matmul(
             m_int,                      // const int M
             n_int,                      // const int N
             k_int,                      // const int K
-            1.0f,                       // float alpha (explicitly float)
+            1.0f,                       // float alpha
             (const uint16_t*)data,      // const *uint16_t A
             k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
             k_int,                      // const int ldb
-            0.0f,                       // const float beta (explicitly float)
+            0.0f,                       // const float beta
             results,                    // float* c
             n_int                       // const int ldc
         );
     } else if constexpr (std::is_same_v<T, Float16>) {
-        // Intel MKL Float16 GEMM requires careful parameter casting to avoid parameter
-        // errors Ensure all integer parameters are properly cast to int (MKL expects int,
-        // not size_t)
         int m_int = static_cast<int>(m);
         int n_int = static_cast<int>(n);
         int k_int = static_cast<int>(k);
@@ -298,12 +292,12 @@ void compute_matmul(
             m_int,                      // const int M
             n_int,                      // const int N
             k_int,                      // const int K
-            1.0f,                       // float alpha (explicitly float)
+            1.0f,                       // float alpha
             (const uint16_t*)data,      // const *uint16_t A
             k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
             k_int,                      // const int ldb
-            0.0f,                       // const float beta (explicitly float)
+            0.0f,                       // const float beta
             results,                    // float* c
             n_int                       // const int ldc
         );
