@@ -18,19 +18,28 @@ project(svs_shared_library_example
     LANGUAGES CXX
 )
 
-# Other AVX versions can be found at https://github.com/intel/ScalableVectorSearch/releases.
-set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.9/svs-shared-library-0.0.9.tar.gz")
+# Try to find SVS from system/conda/pip installation first
+find_package(svs QUIET)
 
-include(FetchContent)
-FetchContent_Declare(
-  svs
-  URL "${SVS_URL}"
-)
-FetchContent_MakeAvailable(svs)
-
-list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
-find_package(svs REQUIRED)
-find_library(SVS_SHARED svs_shared_library)
+if(NOT svs_FOUND)
+    # If sourcing from pip/conda, the following steps are not necessary, simplifying workflow
+    # If not found, download tarball from GitHub release and follow steps to fetch and find
+    set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.9/svs-shared-library-0.0.9.tar.gz")
+    
+    message(STATUS "SVS not found in system, downloading from: ${SVS_URL}")
+    
+    include(FetchContent)
+    FetchContent_Declare(
+        svs
+        URL "${SVS_URL}"
+    )
+    FetchContent_MakeAvailable(svs)
+    
+    list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
+    find_package(svs REQUIRED)
+else()
+    message(STATUS "Found SVS: ${svs_DIR}")
+endif()
 
 set(SVS_CXX_STANDARD 20)
 SET(CMAKE_CXX_FLAGS  "-O3 -DNDEBUG -std=gnu++20 -march=native -mtune=native -Werror -Wall -Wextra -Wpedantic" )
@@ -41,7 +50,10 @@ set(DATA_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../../data/test_dataset")
 function(create_example_executable exe file)
     add_executable(${exe} ${file})
     target_compile_definitions(${exe} PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
-    target_link_libraries(${exe} PUBLIC ${SVS_SHARED} svs::svs)
+    target_link_libraries(${exe} PUBLIC 
+        svs::svs_shared_library
+        svs::svs
+    )
 endfunction()
 
 create_example_executable(shared shared.cpp)
