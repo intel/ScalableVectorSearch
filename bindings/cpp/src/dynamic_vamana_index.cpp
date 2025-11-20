@@ -135,8 +135,9 @@ Status DynamicVamanaIndex::check_storage_kind(StorageKind storage_kind) noexcept
     }
     return supported ? Status_Ok
                      : Status(
-                           ErrorCode::NOT_IMPLEMENTED,
-                           "Requested storage kind is not supported by CPU"
+                           ErrorCode::INVALID_ARGUMENT,
+                           "The specified storage kind is not compatible with the "
+                           "DynamicVamanaIndex"
                        );
 }
 
