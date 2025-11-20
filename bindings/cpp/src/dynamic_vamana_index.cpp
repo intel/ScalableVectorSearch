@@ -130,7 +130,7 @@ Status DynamicVamanaIndex::check_storage_kind(StorageKind storage_kind) noexcept
     auto status = runtime_error_wrapper([&] {
         supported = storage::is_supported_storage_kind(storage_kind);
     });
-    if (status != Status_Ok) {
+    if (!status.ok()) {
         return status;
     }
     return supported ? Status_Ok
