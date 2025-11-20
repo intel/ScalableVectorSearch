@@ -126,15 +126,19 @@ using DynamicVamanaIndexLeanVecImplManager =
 
 // DynamicVamanaIndex interface implementation
 Status DynamicVamanaIndex::check_storage_kind(StorageKind storage_kind) noexcept {
-    return runtime_error_wrapper([&] {
-        return storage::is_supported_storage_kind(storage_kind)
-                   ? Status_Ok
-                   : Status(
-                         ErrorCode::INVALID_ARGUMENT,
-                         "The specified storage kind is not compatible with the "
-                         "DynamicVamanaIndex"
-                     );
+    bool supported = false;
+    auto status = runtime_error_wrapper([&] {
+        supported = storage::is_supported_storage_kind(storage_kind);
     });
+    if (!status.ok()) {
+        return status;
+    }
+    return supported ? Status_Ok
+                     : Status(
+                           ErrorCode::INVALID_ARGUMENT,
+                           "The specified storage kind is not compatible with the "
+                           "DynamicVamanaIndex"
+                       );
 }
 
 Status DynamicVamanaIndex::build(

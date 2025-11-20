@@ -31,7 +31,7 @@ conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0"
 conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
 conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 
-# TODO: point to root repo eventually 
+# TODO: point to root repo eventually
 git clone -b svs-io https://github.com/ahuber21/faiss.git
 cd faiss
 sed -i "s|set(SVS_URL .*|set(SVS_URL \"file:///runtime_lib/svs-cpp-runtime-bindings${PLATFORM_NAME}.tar.gz\" CACHE STRING \"SVS URL\")|" faiss/CMakeLists.txt
@@ -46,7 +46,7 @@ cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF ..
 make -j swigfaiss faiss_test
 echo "------------------------------------------------"
 echo " FAISS C++ tests: "
-./tests/faiss_test --gtest_filter=SVS.*
+./tests/faiss_test --gtest_filter="SVS.*:SVS_LL.*:SVS_NoLL.*"
 echo "------------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
