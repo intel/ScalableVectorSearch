@@ -17,7 +17,9 @@
 #pragma once
 
 #include "svs_runtime_utils.h"
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 #include "training_impl.h"
+#endif
 
 #include <svs/runtime/dynamic_vamana_index.h>
 
@@ -29,14 +31,10 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
-
-#include SVS_LVQ_HEADER
-#include SVS_LEANVEC_HEADER
 
 namespace svs {
 namespace runtime {
@@ -496,6 +494,7 @@ class DynamicVamanaIndexImpl {
     size_t ntotal_soft_deleted{0};
 };
 
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     DynamicVamanaIndexLeanVecImpl(
         std::unique_ptr<svs::DynamicVamana>&& impl,
@@ -596,6 +595,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         return kind;
     }
 };
+#endif
 
 } // namespace runtime
 } // namespace svs

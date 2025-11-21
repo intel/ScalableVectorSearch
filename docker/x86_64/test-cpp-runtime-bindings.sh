@@ -34,7 +34,7 @@ conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 # TODO: point to root repo eventually
 git clone -b svs-io https://github.com/ahuber21/faiss.git
 cd faiss
-sed -i "s|set(SVS_URL .*|set(SVS_URL \"file:///runtime_lib/svs-cpp-runtime-bindings${PLATFORM_NAME}.tar.gz\" CACHE STRING \"SVS URL\")|" faiss/CMakeLists.txt
+sed -i "s|set(SVS_URL .*|set(SVS_URL \"file:///runtime_lib/svs-cpp-runtime-bindings${SUFFIX}.tar.gz\" CACHE STRING \"SVS URL\")|" faiss/CMakeLists.txt
 
 echo "================================================"
 echo " Runnning validation of library against FAISS CI"
