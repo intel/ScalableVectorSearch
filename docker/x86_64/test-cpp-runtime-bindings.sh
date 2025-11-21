@@ -21,6 +21,9 @@ source /etc/bashrc || true
 # chmod +x docker/x86_64/list-dependencies.sh
 # ./docker/x86_64/list-dependencies.sh
 
+# temp: add lscpu to see if indeed intel and AMD
+lscpu
+
 # FAISS validation scope for now
 # Create conda env matching https://github.com/facebookresearch/faiss/blob/main/.github/actions/build_cmake/action.yml
 conda create -y -n svsenv python=3.11
