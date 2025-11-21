@@ -320,7 +320,7 @@ class IVFIndex {
 
     void initialize_distance_metadata() {
         // Precalculate centroid norms for L2 distance
-        if constexpr (std::is_same_v<Dist, distance::DistanceL2>) {
+        if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
             centroids_norm_.reserve(centroids_.size());
             for (size_t i = 0; i < centroids_.size(); i++) {
                 centroids_norm_.push_back(distance::norm_square(centroids_.get_datum(i)));
@@ -388,6 +388,7 @@ auto build_clustering(
     const DataProto& data_proto,
     Distance distance,
     ThreadpoolProto threadpool_proto,
+    bool train_only = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
@@ -402,11 +403,11 @@ auto build_clustering(
     // Choose clustering method based on parameters
     if (parameters.is_hierarchical_) {
         std::tie(centroids, clusters) = hierarchical_kmeans_clustering<BuildType>(
-            parameters, data, distance, threadpool, Idx{}, logger
+            parameters, data, distance, threadpool, Idx{}, logger, train_only
         );
     } else {
         std::tie(centroids, clusters) = kmeans_clustering<BuildType>(
-            parameters, data, distance, threadpool, Idx{}, logger
+            parameters, data, distance, threadpool, Idx{}, logger, train_only
         );
     }
 

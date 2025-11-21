@@ -224,56 +224,82 @@ template <typename T>
 void compute_matmul(
     const T* data, const T* centroids, float* results, size_t m, size_t n, size_t k
 ) {
+    // Validate parameters to avoid Intel MKL errors
+    if (m == 0 || n == 0 || k == 0) {
+        return; // Nothing to compute
+    }
+
+    // Check for integer overflow when casting to int (MKL requirement)
+    constexpr size_t max_int = static_cast<size_t>(std::numeric_limits<int>::max());
+    if (m > max_int || n > max_int || k > max_int) {
+        throw ANNEXCEPTION(
+            "Matrix dimensions too large for Intel MKL GEMM: m={}, n={}, k={}", m, n, k
+        );
+    }
+
     if constexpr (std::is_same_v<T, float>) {
+        // Cast size_t parameters to int for MKL GEMM functions
+        int m_int = static_cast<int>(m);
+        int n_int = static_cast<int>(n);
+        int k_int = static_cast<int>(k);
+
         cblas_sgemm(
             CblasRowMajor, // CBLAS_LAYOUT layout
             CblasNoTrans,  // CBLAS_TRANSPOSE TransA
             CblasTrans,    // CBLAS_TRANSPOSE TransB
-            m,             // const int M
-            n,             // const int N
-            k,             // const int K
-            1.0,           // float alpha
+            m_int,         // const int M
+            n_int,         // const int N
+            k_int,         // const int K
+            1.0f,          // float alpha
             data,          // const float* A
-            k,             // const int lda
+            k_int,         // const int lda
             centroids,     // const float* B
-            k,             // const int ldb
-            0.0,           // const float beta
+            k_int,         // const int ldb
+            0.0f,          // const float beta
             results,       // float* c
-            n              // const int ldc
+            n_int          // const int ldc
         );
     } else if constexpr (std::is_same_v<T, BFloat16>) {
+        int m_int = static_cast<int>(m);
+        int n_int = static_cast<int>(n);
+        int k_int = static_cast<int>(k);
+
         cblas_gemm_bf16bf16f32(
             CblasRowMajor,              // CBLAS_LAYOUT layout
             CblasNoTrans,               // CBLAS_TRANSPOSE TransA
             CblasTrans,                 // CBLAS_TRANSPOSE TransB
-            m,                          // const int M
-            n,                          // const int N
-            k,                          // const int K
-            1.0,                        // float alpha
+            m_int,                      // const int M
+            n_int,                      // const int N
+            k_int,                      // const int K
+            1.0f,                       // float alpha
             (const uint16_t*)data,      // const *uint16_t A
-            k,                          // const int lda
+            k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
-            k,                          // const int ldb
-            0.0,                        // const float beta
+            k_int,                      // const int ldb
+            0.0f,                       // const float beta
             results,                    // float* c
-            n                           // const int ldc
+            n_int                       // const int ldc
         );
     } else if constexpr (std::is_same_v<T, Float16>) {
+        int m_int = static_cast<int>(m);
+        int n_int = static_cast<int>(n);
+        int k_int = static_cast<int>(k);
+
         cblas_gemm_f16f16f32(
             CblasRowMajor,              // CBLAS_LAYOUT layout
             CblasNoTrans,               // CBLAS_TRANSPOSE TransA
             CblasTrans,                 // CBLAS_TRANSPOSE TransB
-            m,                          // const int M
-            n,                          // const int N
-            k,                          // const int K
-            1.0,                        // float alpha
+            m_int,                      // const int M
+            n_int,                      // const int N
+            k_int,                      // const int K
+            1.0f,                       // float alpha
             (const uint16_t*)data,      // const *uint16_t A
-            k,                          // const int lda
+            k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
-            k,                          // const int ldb
-            0.0,                        // const float beta
+            k_int,                      // const int ldb
+            0.0f,                       // const float beta
             results,                    // float* c
-            n                           // const int ldc
+            n_int                       // const int ldc
         );
     } else {
         throw ANNEXCEPTION("GEMM type not supported!");
@@ -338,21 +364,43 @@ void centroid_assignment(
     Pool& threadpool,
     lib::Timer& timer
 ) {
+    using DataType = typename Data::element_type;
+    using CentroidType = T;
+
+    // Convert data to match centroid type if necessary
+    data::SimpleData<CentroidType> data_conv;
+    if constexpr (!std::is_same_v<CentroidType, DataType>) {
+        data_conv = convert_data<CentroidType>(data, threadpool);
+    }
+
     auto generate_assignments = timer.push_back("generate assignments");
     threads::parallel_for(
         threadpool,
         threads::StaticPartition{batch_range.size()},
         [&](auto indices, auto /*tid*/) {
             auto range = threads::UnitRange(indices);
-            compute_matmul(
-                data.get_datum(range.start()).data(),
-                centroids.data(),
-                matmul_results.get_datum(range.start()).data(),
-                range.size(),
-                centroids.size(),
-                data.dimensions()
-            );
-            if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
+            if constexpr (!std::is_same_v<CentroidType, DataType>) {
+                compute_matmul(
+                    data_conv.get_datum(range.start()).data(),
+                    centroids.data(),
+                    matmul_results.get_datum(range.start()).data(),
+                    range.size(),
+                    centroids.size(),
+                    data.dimensions()
+                );
+            } else {
+                compute_matmul(
+                    data.get_datum(range.start()).data(),
+                    centroids.data(),
+                    matmul_results.get_datum(range.start()).data(),
+                    range.size(),
+                    centroids.size(),
+                    data.dimensions()
+                );
+            }
+            if constexpr (std::is_same_v<
+                              std::remove_cvref_t<Distance>,
+                              distance::DistanceIP>) {
                 for (auto i : indices) {
                     auto nearest =
                         type_traits::sentinel_v<Neighbor<size_t>, std::greater<>>;
@@ -362,7 +410,9 @@ void centroid_assignment(
                     }
                     assignments[batch_range.start() + i] = nearest.id();
                 }
-            } else if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+            } else if constexpr (std::is_same_v<
+                                     std::remove_cvref_t<Distance>,
+                                     distance::DistanceL2>) {
                 for (auto i : indices) {
                     auto nearest = type_traits::sentinel_v<Neighbor<size_t>, std::less<>>;
                     auto dists = matmul_results.get_datum(i);
@@ -511,13 +561,13 @@ auto kmeans_training(
     auto training_timer = timer.push_back("Kmeans training");
     data::SimpleData<float> centroids_fp32 = convert_data<float>(centroids, threadpool);
 
-    if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP>) {
         normalize_centroids(centroids_fp32, threadpool, timer);
     }
 
     auto assignments = std::vector<size_t>(data.size());
     std::vector<float> data_norm;
-    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
         generate_norms(data, data_norm, threadpool);
     }
     std::vector<float> centroids_norm;
@@ -526,7 +576,7 @@ auto kmeans_training(
         auto iter_timer = timer.push_back("iteration");
         auto batchsize = parameters.minibatch_size_;
         auto num_batches = lib::div_round_up(data.size(), batchsize);
-        if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+        if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
             generate_norms(centroids_fp32, centroids_norm, threadpool);
         }
 
@@ -559,7 +609,7 @@ auto kmeans_training(
 
         centroid_split(data, centroids_fp32, counts, rng, threadpool, timer);
 
-        if constexpr (std::is_same_v<Distance, distance::DistanceIP>) {
+        if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP>) {
             normalize_centroids(centroids_fp32, threadpool, timer);
         }
     }
@@ -671,7 +721,7 @@ data::SimpleData<BuildType> init_centroids(
 template <typename Distance, typename Data, threads::ThreadPool Pool>
 std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
     std::vector<float> norms;
-    if constexpr (std::is_same_v<Distance, distance::DistanceL2>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
         generate_norms(data, norms, threadpool);
     }
     return norms;
@@ -680,12 +730,109 @@ std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
 /// @brief Assign all points to clusters according to assignments
 template <std::integral I = uint32_t, typename Data>
 std::vector<std::vector<I>> group_assignments(
-    const std::vector<size_t>& assignments, size_t num_clusters, const Data& data_train
+    const std::vector<size_t>& assignments, size_t num_clusters, const Data& data
 ) {
     std::vector<std::vector<I>> clusters(num_clusters);
-    for (auto i : data_train.eachindex())
+    for (auto i : data.eachindex())
         clusters[assignments[i]].push_back(i);
     return clusters;
+}
+
+/// @brief Perform cluster assignment for data given pre-trained centroids
+///
+/// @tparam BuildType The numeric type used for matrix operations (float, Float16, BFloat16)
+/// @tparam Data The dataset type
+/// @tparam Centroids The centroids dataset type
+/// @tparam Distance The distance metric type (DistanceIP or DistanceL2)
+/// @tparam Pool The thread pool type
+/// @tparam I The integer type for cluster indices
+///
+/// @param data The dataset to assign to clusters
+/// @param centroids The pre-trained centroids
+/// @param distance The distance metric
+/// @param threadpool The thread pool for parallel execution
+/// @param minibatch_size Size of each processing batch (default: 10000)
+/// @param integer_type Type tag for cluster indices (default: uint32_t)
+///
+/// @return A vector of vectors where each inner vector contains the indices of data
+///         points assigned to that cluster
+template <
+    typename BuildType,
+    data::ImmutableMemoryDataset Data,
+    data::ImmutableMemoryDataset Centroids,
+    typename Distance,
+    threads::ThreadPool Pool,
+    std::integral I = uint32_t>
+auto cluster_assignment(
+    Data& data,
+    Centroids& centroids,
+    Distance& distance,
+    Pool& threadpool,
+    size_t minibatch_size = 10'000,
+    lib::Type<I> SVS_UNUSED(integer_type) = {}
+) {
+    size_t ndims = data.dimensions();
+    size_t num_centroids = centroids.size();
+
+    if (data.dimensions() != centroids.dimensions()) {
+        throw ANNEXCEPTION(
+            "Data and centroids must have the same dimensions! Data dims: {}, Centroids "
+            "dims: {}",
+            data.dimensions(),
+            centroids.dimensions()
+        );
+    }
+
+    // Allocate memory for assignments and matmul results
+    auto assignments = std::vector<size_t>(data.size());
+    auto matmul_results = data::SimpleData<float>{minibatch_size, num_centroids};
+
+    // Convert centroids to BuildType if necessary
+    using CentroidType = typename Centroids::element_type;
+    data::SimpleData<BuildType> centroids_build;
+    if constexpr (!std::is_same_v<BuildType, CentroidType>) {
+        centroids_build = convert_data<BuildType>(centroids, threadpool);
+    } else {
+        centroids_build =
+            data::SimpleData<BuildType>{centroids.size(), centroids.dimensions()};
+        convert_data(centroids, centroids_build, threadpool);
+    }
+
+    // Compute norms if using L2 distance
+    auto data_norm = maybe_compute_norms<Distance>(data, threadpool);
+    auto centroids_norm = maybe_compute_norms<Distance>(centroids_build, threadpool);
+
+    // Process data in batches
+    size_t batchsize = minibatch_size;
+    size_t num_batches = lib::div_round_up(data.size(), batchsize);
+
+    using Alloc = svs::HugepageAllocator<BuildType>;
+    auto data_batch = data::SimpleData<BuildType, Data::extent, Alloc>{batchsize, ndims};
+
+    for (size_t batch = 0; batch < num_batches; ++batch) {
+        auto this_batch = threads::UnitRange{
+            batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+        auto data_batch_view = data::make_view(data, this_batch);
+        convert_data(data_batch_view, data_batch, threadpool);
+
+        // Use the existing centroid_assignment function to compute assignments
+        auto timer = lib::Timer();
+        centroid_assignment(
+            data_batch,
+            data_norm,
+            this_batch,
+            distance,
+            centroids_build,
+            centroids_norm,
+            assignments,
+            matmul_results,
+            threadpool,
+            timer
+        );
+    }
+
+    // Group assignments into clusters
+    return group_assignments<I>(assignments, num_centroids, data);
 }
 
 template <typename Query, typename Dist, typename MatMulResults, typename Buffer>
@@ -700,7 +847,7 @@ void search_centroids(
 ) {
     unsigned int count = 0;
     buffer.clear();
-    if constexpr (std::is_same_v<Dist, distance::DistanceIP>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceIP>) {
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
             for (size_t k = 0; k < distance.size(); k++) {
@@ -708,7 +855,7 @@ void search_centroids(
                 count++;
             }
         }
-    } else if constexpr (std::is_same_v<Dist, distance::DistanceL2>) {
+    } else if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
         float query_norm = distance::norm_square(query);
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
