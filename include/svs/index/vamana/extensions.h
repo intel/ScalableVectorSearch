@@ -436,6 +436,7 @@ void check_and_supplement_search_buffer(
 ) {
     if (search_buffer.valid() < search_buffer.target_window() &&
         search_buffer.valid() < index.size()) {
+        search_buffer.sort();
         for (auto external_id : index.external_ids()) {
             auto internal_id = index.translate_external_id(external_id);
             auto dist = index.get_distance(external_id, query);
