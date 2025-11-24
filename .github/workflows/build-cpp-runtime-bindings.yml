@@ -71,6 +71,15 @@ jobs:
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
 
+      - name: Run unit tests in Docker container
+        continue-on-error: true  # Don't fail the job if tests fail
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            svs-manylinux228:latest \
+            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --verbose"
+
   test:
     needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
