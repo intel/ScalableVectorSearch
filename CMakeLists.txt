@@ -106,6 +106,10 @@ if(SVS_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
+if(SVS_BUILD_CPP_RUNTIME_BINDINGS)
+    add_subdirectory(bindings/cpp)
+endif()
+
 # The benchmark directory contains a sub-component that is used by both the benchmarking
 # framework and the unit-tests.
 #

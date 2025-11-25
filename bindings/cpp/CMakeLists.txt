@@ -96,11 +96,6 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs_compile_options
             svs_x86_options_base
         )
-    elseif(TARGET svs::svs)
-        message(FATAL_ERROR
-            "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
-            "Please build SVS Runtime using bindins/cpp directory as CMake source root."
-        )
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
@@ -111,17 +106,47 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-dev-NIGHTLY-20251119.tar.gz")
+            set(SVS_URL "file:///home/eglaser/rafik_split/rafik_submodule/shared_only/shared.tar.gz")
         endif()
         include(FetchContent)
         FetchContent_Declare(
-            svs
+            svs_tarball
             URL ${SVS_URL}
-DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
-        FetchContent_MakeAvailable(svs)
-        list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
-        find_package(svs REQUIRED)
+        FetchContent_MakeAvailable(svs_tarball)
+        
+        if(TARGET svs::svs)
+            # Building from public root while fetching tarball leads to multiple svs::svs targets
+            # Requires manual import of the static library
+            message(STATUS "Root build detected: Manually importing static library from prebuilt package.")
+            
+            find_library(SVS_STATIC_LIB_PATH
+                NAMES svs_static_library
+                PATHS "${svs_tarball_SOURCE_DIR}/lib" "${svs_tarball_SOURCE_DIR}/lib64"
+                NO_DEFAULT_PATH
+            )
+            
+            if(NOT SVS_STATIC_LIB_PATH)
+                message(FATAL_ERROR "Could not find svs_static_library in ${svs_tarball_SOURCE_DIR}")
+            endif()
+
+            add_library(svs::svs_static_library STATIC IMPORTED)
+            set_target_properties(svs::svs_static_library PROPERTIES
+                IMPORTED_LOCATION "${SVS_STATIC_LIB_PATH}"
+                INTERFACE_INCLUDE_DIRECTORIES "${svs_tarball_SOURCE_DIR}/include"
+            )
+            
+            # Alias local compile options if available
+            if(TARGET svs_compile_options AND NOT TARGET svs::svs_compile_options)
+                add_library(svs::svs_compile_options ALIAS svs_compile_options)
+            endif()
+        else()
+            # Prepend to CMAKE_PREFIX_PATH to ensure we find the downloaded package
+            # instead of a system/conda installed one, which might lack the static library.
+            list(INSERT CMAKE_PREFIX_PATH 0 "${svs_tarball_SOURCE_DIR}")
+            find_package(svs REQUIRED)
+        endif()
+
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
             svs::svs_compile_options
@@ -194,6 +219,6 @@ install(FILES
 )
 
 # Build tests if requested
-if(SVS_BUILD_RUNTIME_TESTS)
+if(SVS_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
