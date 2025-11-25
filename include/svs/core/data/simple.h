@@ -33,6 +33,7 @@
 
 // stdlib
 #include <span>
+#include <memory>
 #include <type_traits>
 
 namespace svs {
@@ -673,8 +674,9 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     ///
     void add_block() {
         blocks_.emplace_back(
-            make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
-            allocator_.get_allocator()
+            std::make_unique<array_type>(
+                make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
+                allocator_.get_allocator())
         );
     }
 
@@ -727,12 +729,12 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
     const_value_type get_datum(size_t i) const {
         auto [block_id, data_id] = resolve(i);
-        return getindex(blocks_, block_id).slice(data_id);
+        return getindex(blocks_, block_id)->slice(data_id);
     }
 
     value_type get_datum(size_t i) {
         auto [block_id, data_id] = resolve(i);
-        return getindex(blocks_, block_id).slice(data_id);
+        return getindex(blocks_, block_id)->slice(data_id);
     }
 
     void prefetch(size_t i) const { lib::prefetch(get_datum(i)); }
@@ -827,7 +829,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
   private:
     // The blocksize in terms of number of vectors.
     lib::PowerOfTwo blocksize_;
-    std::vector<array_type> blocks_;
+    std::vector<std::unique_ptr<array_type>> blocks_;
     size_t dimensions_;
     size_t size_;
     Blocked<Alloc> allocator_;
