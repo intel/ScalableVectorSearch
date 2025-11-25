@@ -32,8 +32,8 @@
 #include "svs/lib/uuid.h"
 
 // stdlib
-#include <span>
 #include <memory>
+#include <span>
 #include <type_traits>
 
 namespace svs {
@@ -673,11 +673,10 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     /// Add a new data block to the end of the current collection of blocks.
     ///
     void add_block() {
-        blocks_.emplace_back(
-            std::make_unique<array_type>(
-                make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
-                allocator_.get_allocator())
-        );
+        blocks_.emplace_back(std::make_unique<array_type>(
+            make_dims(blocksize().value(), lib::forward_extent<Extent>(dimensions())),
+            allocator_.get_allocator()
+        ));
     }
 
     ///
