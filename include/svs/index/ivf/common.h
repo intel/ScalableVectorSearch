@@ -242,39 +242,39 @@ void compute_matmul(
             n              // const int ldc
         );
     } else if constexpr (std::is_same_v<T, BFloat16>) {
-        cblas_gemm_bf16bf16f32(
-            CblasRowMajor,              // CBLAS_LAYOUT layout
-            CblasNoTrans,               // CBLAS_TRANSPOSE TransA
-            CblasTrans,                 // CBLAS_TRANSPOSE TransB
-            m,                          // const int M
-            n,                          // const int N
-            k,                          // const int K
-            1.0,                        // float alpha
-            (const uint16_t*)data,      // const *uint16_t A
-            k,                          // const int lda
-            (const uint16_t*)centroids, // const uint16_t* B
-            k,                          // const int ldb
-            0.0,                        // const float beta
-            results,                    // float* c
-            n                           // const int ldc
-        );
+        //cblas_gemm_bf16bf16f32(
+            //CblasRowMajor,              // CBLAS_LAYOUT layout
+            //CblasNoTrans,               // CBLAS_TRANSPOSE TransA
+            //CblasTrans,                 // CBLAS_TRANSPOSE TransB
+            //m,                          // const int M
+            //n,                          // const int N
+            //k,                          // const int K
+            //1.0,                        // float alpha
+            //(const uint16_t*)data,      // const *uint16_t A
+            //k,                          // const int lda
+            //(const uint16_t*)centroids, // const uint16_t* B
+            //k,                          // const int ldb
+            //0.0,                        // const float beta
+            //results,                    // float* c
+            //n                           // const int ldc
+        //);
     } else if constexpr (std::is_same_v<T, Float16>) {
-        cblas_gemm_f16f16f32(
-            CblasRowMajor,              // CBLAS_LAYOUT layout
-            CblasNoTrans,               // CBLAS_TRANSPOSE TransA
-            CblasTrans,                 // CBLAS_TRANSPOSE TransB
-            m,                          // const int M
-            n,                          // const int N
-            k,                          // const int K
-            1.0,                        // float alpha
-            (const uint16_t*)data,      // const *uint16_t A
-            k,                          // const int lda
-            (const uint16_t*)centroids, // const uint16_t* B
-            k,                          // const int ldb
-            0.0,                        // const float beta
-            results,                    // float* c
-            n                           // const int ldc
-        );
+        //cblas_gemm_f16f16f32(
+            //CblasRowMajor,              // CBLAS_LAYOUT layout
+            //CblasNoTrans,               // CBLAS_TRANSPOSE TransA
+            //CblasTrans,                 // CBLAS_TRANSPOSE TransB
+            //m,                          // const int M
+            //n,                          // const int N
+            //k,                          // const int K
+            //1.0,                        // float alpha
+            //(const uint16_t*)data,      // const *uint16_t A
+            //k,                          // const int lda
+            //(const uint16_t*)centroids, // const uint16_t* B
+            //k,                          // const int ldb
+            //0.0,                        // const float beta
+            //results,                    // float* c
+            //n                           // const int ldc
+        //);
     } else {
         throw ANNEXCEPTION("GEMM type not supported!");
     }

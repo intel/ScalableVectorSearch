@@ -19,7 +19,7 @@ project(svs_shared_library_example
 )
 
 # Other AVX versions can be found at https://github.com/intel/ScalableVectorSearch/releases.
-set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.9/svs-shared-library-0.0.9.tar.gz")
+set(SVS_URL "file:///raid0/dlin/my_work/private/libraries.ai.vector-search.svs-cpp-ood/lib.zip")
 
 include(FetchContent)
 FetchContent_Declare(

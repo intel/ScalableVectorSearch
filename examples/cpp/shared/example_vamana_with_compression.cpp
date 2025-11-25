@@ -28,13 +28,40 @@ int main() {
     // STEP 1: Compress Data with LeanVec, reducing dimensionality to leanvec_dim dimensions
     // and using 4 and 8 bits for primary and secondary levels respectively.
     //! [Compress data]
-    const size_t num_threads = 4;
+    const size_t num_threads = 64;
     size_t padding = 32;
-    size_t leanvec_dim = 64;
+    size_t leanvec_dim = 160;
     auto threadpool = svs::threads::as_threadpool(num_threads);
     auto loaded =
-        svs::VectorDataLoader<float>(std::filesystem::path(SVS_DATA_DIR) / "data_f32.svs")
+        //svs::VectorDataLoader<float, svs::Dynamic, svs::lib::Allocator<float>>("/export/data/ishwarsi/laion/laion_base_1M.fvecs")
+        //svs::VectorDataLoader<float, svs::Dynamic, svs::lib::Allocator<float>>("/raid0/ishwarsi/datasets/open-images/oi_base_1M.fvecs")
+        svs::VectorDataLoader<float, svs::Dynamic, svs::lib::Allocator<float>>("/raid0/ishwarsi/datasets/rqa/rqa_base_1M.fvecs")
             .load();
+    auto learn_queries =
+        svs::load_data<float, svs::Dynamic>("/raid0/ishwarsi/datasets/rqa/rqa_learn_query_10k_ood.fvecs");
+    auto leanvec_matrix = svs::leanvec::compute_leanvec_matrices_ood<svs::Dynamic, svs::Dynamic>(loaded, learn_queries, svs::lib::MaybeStatic<svs::Dynamic>(leanvec_dim));
+    //std::cerr << "data matrix: \n";
+    //for(size_t i = 0; i < 100; ++i) {
+        //for(size_t j = 0; j < leanvec_dim; ++j) {
+            //std::cerr << *(leanvec_matrix.data_matrix_.data() + i * leanvec_dim + j) << "\n";
+        //}
+    //}
+    //std::cerr << "query matrix: \n";
+    //for(size_t i = 0; i < 100; ++i) {
+        //for(size_t j = 0; j < leanvec_dim; ++j) {
+            //std::cerr << *(leanvec_matrix.query_matrix_.data() + i * leanvec_dim + j) << "\n";
+        //}
+    //}
+    //std::cerr << "data ood transform:\n";
+    //for(size_t i = 0; i < 100; ++i) {
+        //for(size_t k = 0; k < leanvec_dim; ++k) {
+            //double tmp = 0.0;
+            //for(size_t j = 0; j < loaded.dimensions(); ++j) {
+                //tmp += (*(loaded.data() + i * loaded.dimensions() + j)) * (*(leanvec_matrix.data_matrix_.data() + j * leanvec_dim + k ));
+            //}
+            //std::cerr << tmp << "\n";
+        //}
+    //}
     auto data = svs::leanvec::LeanDataset<
         svs::leanvec::UsingLVQ<4>,
         svs::leanvec::UsingLVQ<8>,
@@ -42,7 +69,7 @@ int main() {
         svs::Dynamic>::
         reduce(
             loaded,
-            std::nullopt,
+            leanvec_matrix,
             threadpool,
             padding,
             svs::lib::MaybeStatic<svs::Dynamic>(leanvec_dim)
@@ -53,24 +80,27 @@ int main() {
     //! [Index Build]
     auto parameters = svs::index::vamana::VamanaBuildParameters{};
     svs::Vamana index = svs::Vamana::build<float>(
-        parameters, data, svs::distance::DistanceL2(), num_threads
+        parameters, data, svs::distance::DistanceIP(), num_threads
     );
+    index.save("config", "graph", "data");
     //! [Index Build]
 
     // STEP 3: Search the Index
     //! [Perform Queries]
-    const size_t search_window_size = 50;
+    const size_t search_window_size = 450;
     const size_t n_neighbors = 10;
     index.set_search_window_size(search_window_size);
 
     auto queries =
-        svs::load_data<float>(std::filesystem::path(SVS_DATA_DIR) / "queries_f32.fvecs");
+        svs::load_data<float>("/raid0/ishwarsi/datasets/rqa/rqa_query_10k_ood.fvecs");
+        //svs::load_data<float>("/raid0/ishwarsi/datasets/open-images/oi_queries_10k.fvecs");
     auto results = index.search(queries, n_neighbors);
     //! [Perform Queries]
 
     //! [Recall]
     auto groundtruth = svs::load_data<int>(
-        std::filesystem::path(SVS_DATA_DIR) / "groundtruth_euclidean.ivecs"
+        //"/raid0/ishwarsi/datasets/open-images/oi_gtruth_1M.ivecs"
+        "/raid0/ishwarsi/datasets/rqa/rqa_1M_gtruth_ood.ivecs"
     );
     double recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
 
@@ -79,23 +109,23 @@ int main() {
 
     // STEP 4: Saving and reloading the index
     //! [Saving Loading]
-    index.save("config", "graph", "data");
-    index = svs::Vamana::assemble<float>(
-        "config",
-        svs::GraphLoader("graph"),
-        svs::lib::load_from_disk<svs::leanvec::LeanDataset<
-            svs::leanvec::UsingLVQ<4>,
-            svs::leanvec::UsingLVQ<8>,
-            svs::Dynamic,
-            svs::Dynamic>>("data", padding),
-        svs::distance::DistanceL2(),
-        num_threads
-    );
-    //! [Saving Loading]
-    index.set_search_window_size(search_window_size);
-    recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
+    //index.save("config", "graph", "data");
+    //index = svs::Vamana::assemble<float>(
+        //"config",
+        //svs::GraphLoader("graph"),
+        //svs::lib::load_from_disk<svs::leanvec::LeanDataset<
+            //svs::leanvec::UsingLVQ<4>,
+            //svs::leanvec::UsingLVQ<8>,
+            //svs::Dynamic,
+            //svs::Dynamic>>("data", padding),
+        //svs::distance::DistanceL2(),
+        //num_threads
+    //);
+    ////! [Saving Loading]
+    //index.set_search_window_size(search_window_size);
+    //recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
 
-    fmt::print("Recall@{} after saving and reloading = {:.4f}\n", n_neighbors, recall);
+    //fmt::print("Recall@{} after saving and reloading = {:.4f}\n", n_neighbors, recall);
 
     return 0;
 }
