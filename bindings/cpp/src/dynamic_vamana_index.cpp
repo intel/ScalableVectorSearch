@@ -115,10 +115,8 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 };
 
 using DynamicVamanaIndexManager = DynamicVamanaIndexManagerBase<DynamicVamanaIndexImpl>;
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 using DynamicVamanaIndexLeanVecImplManager =
     DynamicVamanaIndexManagerBase<DynamicVamanaIndexLeanVecImpl>;
-#endif
 
 } // namespace
 

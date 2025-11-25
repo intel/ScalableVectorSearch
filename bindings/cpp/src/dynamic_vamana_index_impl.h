@@ -494,7 +494,6 @@ class DynamicVamanaIndexImpl {
     size_t ntotal_soft_deleted{0};
 };
 
-#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     DynamicVamanaIndexLeanVecImpl(
         std::unique_ptr<svs::DynamicVamana>&& impl,
@@ -502,11 +501,14 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         StorageKind storage_kind
     )
         : DynamicVamanaIndexImpl{std::move(impl), metric, storage_kind}
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         , leanvec_dims_{0}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+#endif
+ {
         check_storage_kind(storage_kind);
     }
-
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     DynamicVamanaIndexLeanVecImpl(
         size_t dim,
         MetricType metric,
@@ -516,34 +518,42 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         const VamanaIndex::SearchParams& default_search_params = {10, 10}
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         , leanvec_dims_{training_data.get_leanvec_dims()}
-        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
+        , leanvec_matrices_{training_data.get_leanvec_matrices()}
+#endif
+        {
         check_storage_kind(storage_kind);
     }
-
+#endif
     DynamicVamanaIndexLeanVecImpl(
         size_t dim,
         MetricType metric,
         StorageKind storage_kind,
-        size_t leanvec_dims,
+        [[maybe_unused]] size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params = {10, 10}
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         , leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+#endif
+        {
         check_storage_kind(storage_kind);
     }
 
     template <typename F, typename... Args>
-    static auto dispatch_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) {
+    static auto dispatch_leanvec_storage_kind(StorageKind kind, [[maybe_unused]] F&& f, [[maybe_unused]] Args&&... args) {
         switch (kind) {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
             case StorageKind::LeanVec4x4:
                 return f(storage::LeanVec4x4Tag{}, std::forward<Args>(args)...);
             case StorageKind::LeanVec4x8:
                 return f(storage::LeanVec4x8Tag{}, std::forward<Args>(args)...);
             case StorageKind::LeanVec8x8:
                 return f(storage::LeanVec8x8Tag{}, std::forward<Args>(args)...);
+#endif
             default:
                 throw StatusException{
                     ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"};
@@ -552,6 +562,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
 
     void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
         override {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         assert(storage::is_leanvec_storage(this->storage_kind_));
         impl_.reset(dispatch_leanvec_storage_kind(
             this->storage_kind_,
@@ -574,28 +585,37 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
             data,
             labels
         ));
+#else
+        (void)data;
+        (void)labels;
+        throw StatusException{
+            ErrorCode::NOT_IMPLEMENTED,
+            "LeanVec storage kind requested but not supported"};
+#endif
     }
 
   protected:
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
     size_t leanvec_dims_;
     std::optional<LeanVecMatricesType> leanvec_matrices_;
-
-    StorageKind check_storage_kind(StorageKind kind) {
+#endif
+    StorageKind check_storage_kind([[maybe_unused]] StorageKind kind) {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
         if (!storage::is_leanvec_storage(kind)) {
             throw StatusException(
                 ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"
             );
         }
-        if (!svs::detail::lvq_leanvec_enabled()) {
-            throw StatusException(
+        if (svs::detail::lvq_leanvec_enabled()) {
+            return kind;
+        }
+#endif
+        throw StatusException(
                 ErrorCode::NOT_IMPLEMENTED,
                 "LeanVec storage kind requested but not supported by CPU"
-            );
-        }
-        return kind;
+        );
     }
 };
-#endif
 
 } // namespace runtime
 } // namespace svs
