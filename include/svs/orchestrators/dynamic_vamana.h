@@ -322,8 +322,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         typename ThreadPoolProto>
     static DynamicVamana assemble(
         const std::filesystem::path& config_path,
-        const GraphLoader& graph_loader,
-        const DataLoader& data_loader,
+        GraphLoader&& graph_loader,
+        DataLoader&& data_loader,
         const Distance& distance,
         ThreadPoolProto threadpool_proto,
         bool debug_load_from_static = false
@@ -333,8 +333,8 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
             manager::as_typelist<QueryTypes>(),
             index::vamana::auto_dynamic_assemble(
                 config_path,
-                graph_loader,
-                data_loader,
+                std::forward<GraphLoader>(graph_loader),
+                std::forward<DataLoader>(data_loader),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto)),
                 debug_load_from_static
