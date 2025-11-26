@@ -451,18 +451,12 @@ class DynamicVamanaIndexImpl {
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
 
-        // Create allocator with custom block size for data loading
-        auto parameters =
-            svs::data::BlockingParameters{.blocksize_bytes = svs::lib::PowerOfTwo(26)};
-        auto allocator = svs::data::Blocked<svs::lib::Allocator<std::byte>>{parameters};
-
         return distance_dispatcher([&](auto&& distance) {
             return new svs::DynamicVamana(
                 svs::DynamicVamana::assemble<float, storage::StorageType_t<Tag>>(
                     stream,
                     std::forward<decltype(distance)>(distance),
-                    std::move(threadpool),
-                    allocator
+                    std::move(threadpool)
                 )
             );
         });
