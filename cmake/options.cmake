@@ -41,6 +41,11 @@ option(SVS_BUILD_EXAMPLES
     OFF # disabled by default
 )
 
+option(SVS_BUILD_CPP_RUNTIME_BINDINGS
+    "Build the C++ runtime bindings library."
+    OFF # disabled by default
+)
+
 option(SVS_BUILD_BENCHMARK
     "Build the benchmark executable."
     OFF # disabled by default
