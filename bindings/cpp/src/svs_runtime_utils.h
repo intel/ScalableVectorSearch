@@ -96,6 +96,26 @@ inline auto runtime_error_wrapper(Callable&& func) noexcept -> Status {
     }
 }
 
+inline void set_if_specified(bool& target, const OptionalBool& value) {
+    if (is_specified(value)) {
+        target = value.is_enabled();
+    }
+}
+
+template <typename T> void set_if_specified(T& target, const T& value) {
+    if (is_specified(value)) {
+        target = value;
+    }
+}
+
+template <typename T> void require_specified(const T& value, const char* name) {
+    if (!is_specified(value)) {
+        throw StatusException{
+            ErrorCode::INVALID_ARGUMENT,
+            std::string("The parameter '") + name + "' must be specified."};
+    }
+}
+
 namespace storage {
 
 // Consolidated storage kind checks using constexpr functions

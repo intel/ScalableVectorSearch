@@ -29,19 +29,19 @@ struct SVS_RUNTIME_API VamanaIndex {
     virtual ~VamanaIndex();
 
     struct BuildParams {
-        size_t graph_max_degree;
-        size_t prune_to = 0;
-        float alpha = 0;
-        size_t construction_window_size = 40;
-        size_t max_candidate_pool_size = 200;
-        bool use_full_search_history = true;
+        size_t graph_max_degree = Unspecify<size_t>();
+        size_t prune_to = Unspecify<size_t>();
+        float alpha = Unspecify<float>();
+        size_t construction_window_size = Unspecify<size_t>();
+        size_t max_candidate_pool_size = Unspecify<size_t>();
+        OptionalBool use_full_search_history = Unspecify<bool>();
     };
 
     struct SearchParams {
-        size_t search_window_size = 10;
-        size_t search_buffer_capacity = 10;
-        size_t prefetch_lookahead = 0;
-        size_t prefetch_step = 0;
+        size_t search_window_size = Unspecify<size_t>();
+        size_t search_buffer_capacity = Unspecify<size_t>();
+        size_t prefetch_lookahead = Unspecify<size_t>();
+        size_t prefetch_step = Unspecify<size_t>();
     };
 
     virtual Status search(

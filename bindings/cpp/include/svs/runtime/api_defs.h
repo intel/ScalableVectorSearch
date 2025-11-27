@@ -19,6 +19,7 @@
 #include <svs/runtime/version.h>
 
 #include <cstdint>
+#include <limits>
 #include <span>
 
 #ifdef svs_runtime_EXPORTS
@@ -32,6 +33,53 @@
 namespace svs {
 namespace runtime {
 namespace v0 {
+
+class OptionalBool {
+    enum class Value : int8_t { Undef = -1, True = 1, False = 0 };
+    Value value_;
+
+  public:
+    constexpr OptionalBool()
+        : value_(Value::Undef) {}
+    constexpr OptionalBool(bool b)
+        : value_(b ? Value::True : Value::False) {}
+
+    constexpr bool is_enabled() const { return value_ == Value::True; }
+    constexpr bool is_disabled() const { return value_ == Value::False; }
+    constexpr bool is_default() const { return value_ == Value::Undef; }
+
+    friend constexpr bool operator==(const OptionalBool& lhs, const OptionalBool& rhs) {
+        return lhs.value_ == rhs.value_;
+    }
+    friend constexpr bool operator!=(const OptionalBool& lhs, const OptionalBool& rhs) {
+        return lhs.value_ != rhs.value_;
+    }
+};
+
+template <typename T> struct Unspecified;
+template <> struct Unspecified<size_t> {
+    static constexpr size_t value = std::numeric_limits<size_t>::max();
+};
+template <> struct Unspecified<float> {
+    static constexpr float value = std::numeric_limits<float>::infinity();
+};
+template <> struct Unspecified<int> {
+    static constexpr int value = std::numeric_limits<int>::max();
+};
+template <> struct Unspecified<bool> {
+    static constexpr OptionalBool value = {};
+};
+template <> struct Unspecified<OptionalBool> {
+    static constexpr OptionalBool value = {};
+};
+
+template <typename T> constexpr auto Unspecify() { return Unspecified<T>::value; }
+
+inline bool is_specified(const OptionalBool& value) { return !value.is_default(); }
+
+template <typename T> bool is_specified(const T& value) {
+    return value != Unspecified<T>::value;
+}
 
 enum class MetricType { L2, INNER_PRODUCT };
 

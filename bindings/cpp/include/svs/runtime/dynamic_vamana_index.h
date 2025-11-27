@@ -45,8 +45,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
         size_t dim,
         MetricType metric,
         StorageKind storage_kind,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10, 0, 0}
+        const VamanaIndex::BuildParams& params = {},
+        const VamanaIndex::SearchParams& default_search_params = {}
     ) noexcept;
 
     static Status destroy(DynamicVamanaIndex* index) noexcept;
@@ -68,8 +68,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         MetricType metric,
         StorageKind storage_kind,
         size_t leanvec_dims,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10, 0, 0}
+        const VamanaIndex::BuildParams& params = {},
+        const VamanaIndex::SearchParams& default_search_params = {}
     ) noexcept;
 
     // Specialization to build LeanVec-based Vamana index with provided training data
@@ -79,8 +79,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         MetricType metric,
         StorageKind storage_kind,
         const LeanVecTrainingData* training_data,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10, 0, 0}
+        const VamanaIndex::BuildParams& params = {},
+        const VamanaIndex::SearchParams& default_search_params = {}
     ) noexcept;
 };
 

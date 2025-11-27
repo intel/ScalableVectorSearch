@@ -54,7 +54,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10}
+        const VamanaIndex::SearchParams& default_search_params
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{training_data.get_leanvec_dims()}
@@ -68,7 +68,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10}
+        const VamanaIndex::SearchParams& default_search_params
     )
         : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{leanvec_dims}

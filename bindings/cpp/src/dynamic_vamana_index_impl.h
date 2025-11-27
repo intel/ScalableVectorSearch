@@ -59,15 +59,6 @@ class DynamicVamanaIndexImpl {
                 "The specified storage kind is not compatible with the "
                 "DynamicVamanaIndex"};
         }
-
-        if (build_params_.prune_to == 0) {
-            build_params_.prune_to = build_params_.graph_max_degree < 4
-                                         ? build_params_.graph_max_degree
-                                         : build_params_.graph_max_degree - 4;
-        }
-        if (build_params_.alpha == 0) {
-            build_params_.alpha = metric == MetricType::L2 ? 1.2f : 0.95f;
-        }
     }
 
     size_t size() const { return impl_ ? impl_->size() : 0; }
@@ -337,13 +328,19 @@ class DynamicVamanaIndexImpl {
   protected:
     // Utility functions
     svs::index::vamana::VamanaBuildParameters vamana_build_parameters() const {
-        return svs::index::vamana::VamanaBuildParameters{
-            build_params_.alpha,
-            build_params_.graph_max_degree,
-            build_params_.construction_window_size,
-            build_params_.max_candidate_pool_size,
-            build_params_.prune_to,
-            build_params_.use_full_search_history};
+        svs::index::vamana::VamanaBuildParameters result;
+        set_if_specified(result.alpha, build_params_.alpha);
+        set_if_specified(result.graph_max_degree, build_params_.graph_max_degree);
+        set_if_specified(result.window_size, build_params_.construction_window_size);
+        set_if_specified(
+            result.max_candidate_pool_size, build_params_.max_candidate_pool_size
+        );
+        set_if_specified(result.prune_to, build_params_.prune_to);
+        if (is_specified(build_params_.use_full_search_history)) {
+            result.use_full_search_history =
+                build_params_.use_full_search_history.is_enabled();
+        }
+        return result;
     }
 
     svs::index::vamana::VamanaSearchParameters
@@ -352,33 +349,37 @@ class DynamicVamanaIndexImpl {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
 
-        auto sp = impl_->get_search_parameters();
-
-        auto search_window_size = default_search_params_.search_window_size;
-        auto search_buffer_capacity = default_search_params_.search_buffer_capacity;
-        if (default_search_params_.prefetch_lookahead > 0) {
-            sp = sp.prefetch_lookahead(default_search_params_.prefetch_lookahead);
+        // Copy default search parameters
+        auto search_params = default_search_params_;
+        // Update with user-specified parameters
+        if (params) {
+            set_if_specified(search_params.search_window_size, params->search_window_size);
+            set_if_specified(
+                search_params.search_buffer_capacity, params->search_buffer_capacity
+            );
+            set_if_specified(search_params.prefetch_lookahead, params->prefetch_lookahead);
+            set_if_specified(search_params.prefetch_step, params->prefetch_step);
         }
-        if (default_search_params_.prefetch_step > 0) {
-            sp = sp.prefetch_step(default_search_params_.prefetch_step);
-        }
 
-        if (params != nullptr) {
-            if (params->search_window_size > 0)
-                search_window_size = params->search_window_size;
-            if (params->search_buffer_capacity > 0)
-                search_buffer_capacity = params->search_buffer_capacity;
-            if (params->prefetch_lookahead > 0) {
-                sp = sp.prefetch_lookahead(params->prefetch_lookahead);
+        // Get current search parameters from the index
+        auto result = impl_->get_search_parameters();
+        // Update with specified parameters
+        if (is_specified(search_params.search_window_size)) {
+            if (is_specified(search_params.search_buffer_capacity)) {
+                result.buffer_config(
+                    {search_params.search_window_size, search_params.search_buffer_capacity}
+                );
+            } else {
+                result.buffer_config(search_params.search_window_size);
             }
-            if (params->prefetch_step > 0) {
-                sp = sp.prefetch_step(params->prefetch_step);
-            }
+        } else if (is_specified(search_params.search_buffer_capacity)) {
+            result.buffer_config(search_params.search_buffer_capacity);
         }
 
-        return impl_->get_search_parameters().buffer_config(
-            {search_window_size, search_buffer_capacity}
-        );
+        set_if_specified(result.prefetch_lookahead_, search_params.prefetch_lookahead);
+        set_if_specified(result.prefetch_step_, search_params.prefetch_step);
+
+        return result;
     }
 
     template <typename Tag, typename... StorageArgs>
@@ -447,7 +448,7 @@ class DynamicVamanaIndexImpl {
             buffer_config.get_search_window_size(), buffer_config.get_total_capacity()};
         metric_type_ = metric;
         storage_kind_ = storage_kind;
-        build_params_ = {
+        build_params_ = VamanaIndex::BuildParams{
             impl_->get_graph_max_degree(),
             impl_->get_prune_to(),
             impl_->get_alpha(),
