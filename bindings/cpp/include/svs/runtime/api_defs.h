@@ -65,6 +65,46 @@ struct SVS_RUNTIME_API Status {
         }
     }
 
+    Status(const Status& other)
+        : code(other.code)
+        , message_storage_(nullptr) {
+        if (other.message_storage_ != nullptr) {
+            store_message(other.message_storage_);
+        }
+    }
+
+    Status& operator=(const Status& other) {
+        if (this != &other) {
+            code = other.code;
+            if (message_storage_ != nullptr) {
+                destroy_message();
+            }
+            message_storage_ = nullptr;
+            if (other.message_storage_ != nullptr) {
+                store_message(other.message_storage_);
+            }
+        }
+        return *this;
+    }
+
+    Status(Status&& other) noexcept
+        : code(other.code)
+        , message_storage_(other.message_storage_) {
+        other.message_storage_ = nullptr;
+    }
+
+    Status& operator=(Status&& other) noexcept {
+        if (this != &other) {
+            code = other.code;
+            if (message_storage_ != nullptr) {
+                destroy_message();
+            }
+            message_storage_ = other.message_storage_;
+            other.message_storage_ = nullptr;
+        }
+        return *this;
+    }
+
     constexpr ~Status() noexcept {
         if (message_storage_ != nullptr) {
             destroy_message();

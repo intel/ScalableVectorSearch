@@ -17,9 +17,8 @@
 #pragma once
 
 #include "svs_runtime_utils.h"
-#include "training_impl.h"
 
-#include <svs/runtime/dynamic_vamana_index.h>
+#include <svs/runtime/vamana_index.h>
 
 #include <algorithm>
 #include <memory>
@@ -28,15 +27,13 @@
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
+#include <svs/core/graph.h>
 #include <svs/core/query_result.h>
-#include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
+#include <svs/lib/file.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
-
-#include SVS_LVQ_HEADER
-#include SVS_LEANVEC_HEADER
 
 namespace svs {
 namespace runtime {
@@ -56,6 +53,13 @@ class DynamicVamanaIndexImpl {
         , storage_kind_{storage_kind}
         , build_params_{params}
         , default_search_params_{default_search_params} {
+        if (!storage::is_supported_storage_kind(storage_kind)) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT,
+                "The specified storage kind is not compatible with the "
+                "DynamicVamanaIndex"};
+        }
+
         if (build_params_.prune_to == 0) {
             build_params_.prune_to = build_params_.graph_max_degree < 4
                                          ? build_params_.graph_max_degree
@@ -319,7 +323,15 @@ class DynamicVamanaIndexImpl {
                 ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."};
         }
 
-        impl_->save(out);
+        lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
+        const auto config_dir = tempdir.get() / "config";
+        const auto graph_dir = tempdir.get() / "graph";
+        const auto data_dir = tempdir.get() / "data";
+        std::filesystem::create_directories(config_dir);
+        std::filesystem::create_directories(graph_dir);
+        std::filesystem::create_directories(data_dir);
+        impl_->save(config_dir, graph_dir, data_dir);
+        lib::DirectoryArchiver::pack(tempdir, out);
     }
 
   protected:
@@ -446,19 +458,46 @@ class DynamicVamanaIndexImpl {
 
     template <storage::StorageTag Tag>
     static svs::DynamicVamana*
-    load_impl_t(Tag&& SVS_UNUSED(tag), std::istream& stream, MetricType metric) {
+    load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
+        namespace fs = std::filesystem;
+        lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
+        lib::DirectoryArchiver::unpack(stream, tempdir);
+
+        const auto config_path = tempdir.get() / "config";
+        if (!fs::is_directory(config_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR,
+                "Invalid Vamana index archive: missing config directory!"};
+        }
+
+        const auto graph_path = tempdir.get() / "graph";
+        if (!fs::is_directory(graph_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR,
+                "Invalid Vamana index archive: missing graph directory!"};
+        }
+
+        const auto data_path = tempdir.get() / "data";
+        if (!fs::is_directory(data_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR,
+                "Invalid Vamana index archive: missing data directory!"};
+        }
+
+        auto storage = storage::load_storage(std::forward<Tag>(tag), data_path);
         auto threadpool = default_threadpool();
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
 
         return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(
-                svs::DynamicVamana::assemble<float, storage::StorageType_t<Tag>>(
-                    stream,
-                    std::forward<decltype(distance)>(distance),
-                    std::move(threadpool)
-                )
-            );
+            return new svs::DynamicVamana(svs::DynamicVamana::assemble<float>(
+                config_path,
+                svs::GraphLoader{graph_path},
+                std::move(storage),
+                std::forward<decltype(distance)>(distance),
+                std::move(threadpool),
+                false
+            ));
         });
     }
 
@@ -488,107 +527,6 @@ class DynamicVamanaIndexImpl {
     VamanaIndex::SearchParams default_search_params_;
     std::unique_ptr<svs::DynamicVamana> impl_;
     size_t ntotal_soft_deleted{0};
-};
-
-struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
-    DynamicVamanaIndexLeanVecImpl(
-        std::unique_ptr<svs::DynamicVamana>&& impl,
-        MetricType metric,
-        StorageKind storage_kind
-    )
-        : DynamicVamanaIndexImpl{std::move(impl), metric, storage_kind}
-        , leanvec_dims_{0}
-        , leanvec_matrices_{std::nullopt} {
-        check_storage_kind(storage_kind);
-    }
-
-    DynamicVamanaIndexLeanVecImpl(
-        size_t dim,
-        MetricType metric,
-        StorageKind storage_kind,
-        const LeanVecTrainingDataImpl& training_data,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10}
-    )
-        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
-        , leanvec_dims_{training_data.get_leanvec_dims()}
-        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
-        check_storage_kind(storage_kind);
-    }
-
-    DynamicVamanaIndexLeanVecImpl(
-        size_t dim,
-        MetricType metric,
-        StorageKind storage_kind,
-        size_t leanvec_dims,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params = {10, 10}
-    )
-        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
-        , leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{std::nullopt} {
-        check_storage_kind(storage_kind);
-    }
-
-    template <typename F, typename... Args>
-    static auto dispatch_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) {
-        switch (kind) {
-            case StorageKind::LeanVec4x4:
-                return f(storage::LeanVec4x4Tag{}, std::forward<Args>(args)...);
-            case StorageKind::LeanVec4x8:
-                return f(storage::LeanVec4x8Tag{}, std::forward<Args>(args)...);
-            case StorageKind::LeanVec8x8:
-                return f(storage::LeanVec8x8Tag{}, std::forward<Args>(args)...);
-            default:
-                throw StatusException{
-                    ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"};
-        }
-    }
-
-    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
-        override {
-        assert(storage::is_leanvec_storage(this->storage_kind_));
-        impl_.reset(dispatch_leanvec_storage_kind(
-            this->storage_kind_,
-            [this](
-                auto&& tag,
-                data::ConstSimpleDataView<float> data,
-                std::span<const size_t> labels
-            ) {
-                using Tag = std::decay_t<decltype(tag)>;
-                return DynamicVamanaIndexImpl::build_impl(
-                    std::forward<Tag>(tag),
-                    this->metric_type_,
-                    this->vamana_build_parameters(),
-                    data,
-                    labels,
-                    this->leanvec_dims_,
-                    this->leanvec_matrices_
-                );
-            },
-            data,
-            labels
-        ));
-    }
-
-  protected:
-    size_t leanvec_dims_;
-    std::optional<LeanVecMatricesType> leanvec_matrices_;
-
-    StorageKind check_storage_kind(StorageKind kind) {
-        if (!storage::is_leanvec_storage(kind)) {
-            throw StatusException(
-                ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"
-            );
-        }
-        if (!svs::detail::lvq_leanvec_enabled()) {
-            throw StatusException(
-                ErrorCode::NOT_IMPLEMENTED,
-                "LeanVec storage kind requested but not supported by CPU"
-            );
-        }
-        return kind;
-    }
 };
 
 } // namespace runtime

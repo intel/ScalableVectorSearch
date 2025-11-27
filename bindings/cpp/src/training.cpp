@@ -17,6 +17,8 @@
 #include <svs/runtime/training.h>
 
 #include "svs_runtime_utils.h"
+
+#ifdef SVS_LEANVEC_HEADER
 #include "training_impl.h"
 
 namespace svs {
@@ -50,3 +52,38 @@ LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in)
 }
 } // namespace runtime
 } // namespace svs
+
+#else  // SVS_LEANVEC_HEADER
+namespace svs {
+namespace runtime {
+LeanVecTrainingData::~LeanVecTrainingData() = default;
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** SVS_UNUSED(training_data),
+    size_t SVS_UNUSED(dim),
+    size_t SVS_UNUSED(n),
+    const float* SVS_UNUSED(x),
+    size_t SVS_UNUSED(leanvec_dims)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
+Status LeanVecTrainingData::destroy(LeanVecTrainingData* SVS_UNUSED(training_data)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
+Status LeanVecTrainingData::load(
+    LeanVecTrainingData** SVS_UNUSED(training_data), std::istream& SVS_UNUSED(in)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
+} // namespace runtime
+} // namespace svs
+#endif // SVS_LEANVEC_HEADER

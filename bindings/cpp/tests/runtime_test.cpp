@@ -88,6 +88,10 @@ void write_and_read_index(
     // Build index
     svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
     svs::runtime::v0::Status status = build_func(&index);
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(storage_kind).ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(index != nullptr);
 
@@ -306,6 +310,13 @@ CATCH_TEST_CASE("LeanVecWithTrainingData", "[runtime]") {
         32,
         build_params
     );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(index != nullptr);
 

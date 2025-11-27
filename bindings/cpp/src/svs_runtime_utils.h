@@ -32,23 +32,27 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
-#include <svs/cpuid.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/exception.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
-#ifndef SVS_LVQ_HEADER
-#define SVS_LVQ_HEADER "svs/quantization/lvq/lvq.h"
-#endif
-
-#ifndef SVS_LEANVEC_HEADER
-#define SVS_LEANVEC_HEADER "svs/leanvec/leanvec.h"
-#endif
-
+#ifdef SVS_LVQ_HEADER
 #include SVS_LVQ_HEADER
+#endif
+
+#ifdef SVS_LEANVEC_HEADER
 #include SVS_LEANVEC_HEADER
+#endif
+
+#if defined(SVS_LEANVEC_HEADER) || defined(SVS_LVQ_HEADER)
+#include <svs/cpuid.h>
+#else
+namespace svs::detail {
+inline bool lvq_leanvec_enabled() { return false; }
+} // namespace svs::detail
+#endif
 
 namespace svs::runtime {
 
@@ -92,18 +96,7 @@ inline auto runtime_error_wrapper(Callable&& func) noexcept -> Status {
     }
 }
 
-using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
-
 namespace storage {
-
-// Simplified trait checking
-template <typename T> inline constexpr bool is_simple_dataset = false;
-template <typename Elem, size_t Extent, typename Allocator>
-inline constexpr bool is_simple_dataset<svs::data::SimpleData<Elem, Extent, Allocator>> =
-    true;
-
-template <typename T>
-concept IsSimpleDataset = is_simple_dataset<T>;
 
 // Consolidated storage kind checks using constexpr functions
 inline constexpr bool is_lvq_storage(StorageKind kind) {
@@ -114,6 +107,13 @@ inline constexpr bool is_lvq_storage(StorageKind kind) {
 inline constexpr bool is_leanvec_storage(StorageKind kind) {
     return kind == StorageKind::LeanVec4x4 || kind == StorageKind::LeanVec4x8 ||
            kind == StorageKind::LeanVec8x8;
+}
+
+inline bool is_supported_storage_kind(StorageKind kind) {
+    if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
+        return svs::detail::lvq_leanvec_enabled();
+    }
+    return true;
 }
 
 // Storage kind processing
@@ -153,6 +153,89 @@ template <typename T>
 using SQDatasetType = svs::quantization::scalar::
     SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
+// Storage type mapping
+
+// Unsupported storage type defined as unique type to cause runtime error if used
+struct UnsupportedStorageType {};
+
+// clang-format off
+template <StorageTag Tag> struct StorageType { using type = UnsupportedStorageType; };
+template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
+
+template <> struct StorageType<FP32Tag> { using type = SimpleDatasetType<float>; };
+template <> struct StorageType<FP16Tag> { using type = SimpleDatasetType<svs::Float16>; };
+template <> struct StorageType<SQI8Tag> { using type = SQDatasetType<std::int8_t>; };
+// clang-format on
+
+// Storage factory
+template <typename T> struct StorageFactory;
+
+// Unsupported storage type factory returning runtime error when attempted to be used.
+// Return type defined to simple to allow substitution in templates.
+template <> struct StorageFactory<UnsupportedStorageType> {
+    using StorageType = SimpleDatasetType<float>;
+
+    template <svs::threads::ThreadPool Pool>
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& SVS_UNUSED(data),
+        Pool& SVS_UNUSED(pool)
+    ) {
+        throw StatusException(
+            ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
+        );
+    }
+
+    template <typename... Args>
+    static StorageType
+    load(const std::filesystem::path& SVS_UNUSED(path), Args&&... SVS_UNUSED(args)) {
+        throw StatusException(
+            ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
+        );
+    }
+};
+
+template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementType>> {
+    using StorageType = SimpleDatasetType<ElementType>;
+
+    template <svs::threads::ThreadPool Pool>
+    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
+        StorageType result(data.size(), data.dimensions());
+        svs::threads::parallel_for(
+            pool,
+            svs::threads::StaticPartition(result.size()),
+            [&](auto is, auto SVS_UNUSED(tid)) {
+                for (auto i : is) {
+                    result.set_datum(i, data.get_datum(i));
+                }
+            }
+        );
+        return result;
+    }
+
+    template <typename... Args>
+    static StorageType load(const std::filesystem::path& path, Args&&... args) {
+        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
+    }
+};
+
+// SQ Storage support
+template <svs::quantization::scalar::IsSQData SQStorageType>
+struct StorageFactory<SQStorageType> {
+    using StorageType = SQStorageType;
+
+    template <svs::threads::ThreadPool Pool>
+    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
+        return SQStorageType::compress(data, pool);
+    }
+
+    template <typename... Args>
+    static StorageType load(const std::filesystem::path& path, Args&&... args) {
+        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
+    }
+};
+
+// LVQ Storage support
+#ifdef SVS_LVQ_HEADER
 template <size_t Primary, size_t Residual>
 using LVQDatasetType = svs::quantization::lvq::LVQDataset<
     Primary,
@@ -161,6 +244,29 @@ using LVQDatasetType = svs::quantization::lvq::LVQDataset<
     svs::quantization::lvq::Turbo<16, 8>,
     svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
 
+// clang-format off
+template <> struct StorageType<LVQ4x0Tag> { using type = LVQDatasetType<4, 0>; };
+template <> struct StorageType<LVQ4x4Tag> { using type = LVQDatasetType<4, 4>; };
+template <> struct StorageType<LVQ4x8Tag> { using type = LVQDatasetType<4, 8>; };
+// clang-format on
+
+template <svs::quantization::lvq::IsLVQDataset LVQStorageType>
+struct StorageFactory<LVQStorageType> {
+    using StorageType = LVQStorageType;
+
+    template <svs::threads::ThreadPool Pool>
+    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
+        return LVQStorageType::compress(data, pool, 0);
+    }
+
+    template <typename... Args>
+    static StorageType load(const std::filesystem::path& path, Args&&... args) {
+        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
+    }
+};
+#endif // SVS_LVQ_HEADER
+
+#ifdef SVS_LEANVEC_HEADER
 template <size_t I1, size_t I2>
 using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::leanvec::UsingLVQ<I1>,
@@ -169,80 +275,46 @@ using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::Dynamic,
     svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
 
-// Storage type mapping - use macro to reduce repetition
-template <StorageTag Tag> struct StorageType;
-template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
+// clang-format off
+template <> struct StorageType<LeanVec4x4Tag> { using type = LeanDatasetType<4, 4>; };
+template <> struct StorageType<LeanVec4x8Tag> { using type = LeanDatasetType<4, 8>; };
+template <> struct StorageType<LeanVec8x8Tag> { using type = LeanDatasetType<8, 8>; };
+// clang-format on
 
-#define DEFINE_STORAGE_TYPE(Kind, ...)          \
-    template <> struct StorageType<Kind##Tag> { \
-        using type = __VA_ARGS__;               \
-    }
+template <svs::leanvec::IsLeanDataset LeanVecStorageType>
+struct StorageFactory<LeanVecStorageType> {
+    using StorageType = LeanVecStorageType;
 
-DEFINE_STORAGE_TYPE(FP32, SimpleDatasetType<float>);
-DEFINE_STORAGE_TYPE(FP16, SimpleDatasetType<svs::Float16>);
-DEFINE_STORAGE_TYPE(SQI8, SQDatasetType<std::int8_t>);
-DEFINE_STORAGE_TYPE(LVQ4x0, LVQDatasetType<4, 0>);
-DEFINE_STORAGE_TYPE(LVQ4x4, LVQDatasetType<4, 4>);
-DEFINE_STORAGE_TYPE(LVQ4x8, LVQDatasetType<4, 8>);
-DEFINE_STORAGE_TYPE(LeanVec4x4, LeanDatasetType<4, 4>);
-DEFINE_STORAGE_TYPE(LeanVec4x8, LeanDatasetType<4, 8>);
-DEFINE_STORAGE_TYPE(LeanVec8x8, LeanDatasetType<8, 8>);
-
-#undef DEFINE_STORAGE_TYPE
-
-// Storage factory functions
-template <IsSimpleDataset StorageType, svs::threads::ThreadPool Pool>
-StorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-    StorageType result(data.size(), data.dimensions());
-    svs::threads::parallel_for(
-        pool,
-        svs::threads::StaticPartition(result.size()),
-        [&](auto is, auto SVS_UNUSED(tid)) {
-            for (auto i : is) {
-                result.set_datum(i, data.get_datum(i));
-            }
+    template <svs::threads::ThreadPool Pool>
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        size_t leanvec_d = 0,
+        std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
+    ) {
+        if (leanvec_d == 0) {
+            leanvec_d = (data.dimensions() + 1) / 2;
         }
-    );
-    return result;
-}
-
-template <svs::quantization::scalar::IsSQData SQStorageType, svs::threads::ThreadPool Pool>
-SQStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-    return SQStorageType::compress(data, pool);
-}
-
-template <
-    svs::quantization::lvq::IsLVQDataset LVQStorageType,
-    svs::threads::ThreadPool Pool>
-LVQStorageType make_storage(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-    return LVQStorageType::compress(data, pool, 0);
-}
-
-template <svs::leanvec::IsLeanDataset LeanVecStorageType, svs::threads::ThreadPool Pool>
-LeanVecStorageType make_storage(
-    const svs::data::ConstSimpleDataView<float>& data,
-    Pool& pool,
-    size_t leanvec_d = 0,
-    std::optional<LeanVecMatricesType> matrices = std::nullopt
-) {
-    if (leanvec_d == 0) {
-        leanvec_d = (data.dimensions() + 1) / 2;
+        return LeanVecStorageType::reduce(
+            data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}
+        );
     }
-    return LeanVecStorageType::reduce(
-        data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}
-    );
-}
+
+    template <typename... Args>
+    static StorageType load(const std::filesystem::path& path, Args&&... args) {
+        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
+    }
+};
+#endif // SVS_LEANVEC_HEADER
 
 template <StorageTag Tag, typename... Args>
 auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
-    return make_storage<StorageType_t<Tag>>(std::forward<Args>(args)...);
+    return StorageFactory<StorageType_t<Tag>>::init(std::forward<Args>(args)...);
 }
 
-inline bool is_supported_storage_kind(StorageKind kind) {
-    if (is_lvq_storage(kind) || is_leanvec_storage(kind)) {
-        return svs::detail::lvq_leanvec_enabled();
-    }
-    return true;
+template <StorageTag Tag, typename... Args>
+auto load_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
+    return StorageFactory<StorageType_t<Tag>>::load(std::forward<Args>(args)...);
 }
 
 template <typename F, typename... Args>

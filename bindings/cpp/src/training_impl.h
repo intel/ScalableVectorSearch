@@ -27,14 +27,14 @@
 #include <svs/core/medioid.h>
 #include <svs/lib/saveload.h>
 #include <svs/lib/threads.h>
-
-#include SVS_LVQ_HEADER
 #include SVS_LEANVEC_HEADER
 
 namespace svs {
 namespace runtime {
 
 struct LeanVecTrainingDataImpl {
+    using LeanVecMatricesType = svs::leanvec::LeanVecMatrices<svs::Dynamic>;
+
     LeanVecTrainingDataImpl(LeanVecMatricesType&& matrices)
         : leanvec_dims_{matrices.view_data_matrix().dimensions()}
         , leanvec_matrices_{std::move(matrices)} {}

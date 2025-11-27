@@ -28,6 +28,8 @@ set(SVS_RUNTIME_HEADERS
 set(SVS_RUNTIME_SOURCES
     src/svs_runtime_utils.h
     src/dynamic_vamana_index_impl.h
+    src/dynamic_vamana_index_leanvec_impl.h
+    src/training_impl.h
     src/flat_index_impl.h
     src/api_defs.cpp
     src/training.cpp
@@ -72,16 +74,16 @@ set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
 
-if(DEFINED SVS_LVQ_HEADER AND DEFINED SVS_LEANVEC_HEADER)
-    # expected that pre-defined headers are implementation headers
-    message(STATUS "Using pre-defined LVQ header: ${SVS_LVQ_HEADER}")
-    message(STATUS "Using pre-defined LeanVec header: ${SVS_LEANVEC_HEADER}")
-else()
-    set(SVS_LVQ_HEADER "svs/extensions/vamana/lvq.h")
-    set(SVS_LEANVEC_HEADER "svs/extensions/vamana/leanvec.h")
-endif()
-
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    if(DEFINED SVS_LVQ_HEADER AND DEFINED SVS_LEANVEC_HEADER)
+        # expected that pre-defined headers are implementation headers
+        message(STATUS "Using pre-defined LVQ header: ${SVS_LVQ_HEADER}")
+        message(STATUS "Using pre-defined LeanVec header: ${SVS_LEANVEC_HEADER}")
+    else()
+        set(SVS_LVQ_HEADER "svs/extensions/vamana/lvq.h")
+        set(SVS_LEANVEC_HEADER "svs/extensions/vamana/leanvec.h")
+    endif()
+
     if(RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
         message(STATUS "Building directly from private sources")
         target_link_libraries(${TARGET_NAME} PRIVATE
@@ -117,7 +119,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
         FetchContent_Declare(
             svs
             URL ${SVS_URL}
-DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
         FetchContent_MakeAvailable(svs)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
