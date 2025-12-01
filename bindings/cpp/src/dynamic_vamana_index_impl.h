@@ -69,9 +69,10 @@ class DynamicVamanaIndexImpl {
 
     StorageKind get_storage_kind() const { return storage_kind_; }
 
-    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels,
+             int blocksize_exp) {
         if (!impl_) {
-            return init_impl(data, labels);
+            return init_impl(data, labels, blocksize_exp);
         }
 
         impl_->add_points(data, labels);
@@ -389,14 +390,17 @@ class DynamicVamanaIndexImpl {
         const index::vamana::VamanaBuildParameters& parameters,
         const svs::data::ConstSimpleDataView<float>& data,
         std::span<const size_t> labels,
+        int blocksize_exp,
         StorageArgs&&... storage_args
     ) {
         auto threadpool = default_threadpool();
 
+        auto blocksize_bytes = svs::lib::PowerOfTwo(blocksize_exp);
         auto storage = make_storage(
             std::forward<Tag>(tag),
             data,
             threadpool,
+            blocksize_bytes,
             std::forward<StorageArgs>(storage_args)...
         );
 
@@ -413,13 +417,15 @@ class DynamicVamanaIndexImpl {
     }
 
     virtual void
-    init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+    init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels,
+              int blocksize_exp) {
         impl_.reset(storage::dispatch_storage_kind(
             get_storage_kind(),
             [this](
                 auto&& tag,
                 data::ConstSimpleDataView<float> data,
-                std::span<const size_t> labels
+                std::span<const size_t> labels,
+                int blocksize_exp
             ) {
                 using Tag = std::decay_t<decltype(tag)>;
                 return build_impl(
@@ -427,11 +433,13 @@ class DynamicVamanaIndexImpl {
                     this->metric_type_,
                     this->vamana_build_parameters(),
                     data,
-                    labels
+                    labels,
+                    blocksize_exp
                 );
             },
             data,
-            labels
+            labels,
+            blocksize_exp
         ));
     }
 

@@ -29,7 +29,7 @@ namespace v0 {
 
 // Abstract interface for Dynamic Vamana-based indexes.
 struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
-    virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
+    virtual Status add(size_t n, const size_t* labels, const float* x, int blocksize_exp = 30) noexcept = 0;
     virtual Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
     virtual Status remove(size_t n, const size_t* labels) noexcept = 0;

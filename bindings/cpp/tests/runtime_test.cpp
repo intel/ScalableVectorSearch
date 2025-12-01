@@ -83,6 +83,7 @@ void write_and_read_index(
     size_t n,
     size_t d,
     svs::runtime::v0::StorageKind storage_kind,
+    int blocksize_exp2,
     svs::runtime::v0::MetricType metric = svs::runtime::v0::MetricType::L2
 ) {
     // Build index
@@ -99,7 +100,7 @@ void write_and_read_index(
     std::vector<size_t> labels(n);
     std::iota(labels.begin(), labels.end(), 0);
 
-    status = index->add(n, labels.data(), xb.data());
+    status = index->add(n, labels.data(), xb.data(), blocksize_exp2);
     CATCH_REQUIRE(status.ok());
 
     svs_test::prepare_temp_directory();
@@ -141,7 +142,7 @@ void write_and_read_index(
 
 // Helper that writes and reads and index of requested size
 // Reports memory usage
-UsageInfo run_save_and_load_test(const size_t target_mibytes) {
+UsageInfo run_save_and_load_test(const size_t target_mibytes, int blocksize_exp2) {
     // Generate requested MiB of test data
     constexpr size_t mem_test_d = 128;
     const size_t target_bytes = target_mibytes * 1024 * 1024;
@@ -171,7 +172,7 @@ UsageInfo run_save_and_load_test(const size_t target_mibytes) {
         );
         CATCH_REQUIRE(status.ok());
         CATCH_REQUIRE(index != nullptr);
-        status = index->add(mem_test_n, labels.data(), large_test_data.data());
+        status = index->add(mem_test_n, labels.data(), large_test_data.data(), blocksize_exp2);
         CATCH_REQUIRE(status.ok());
 
         std::ofstream out(filename, std::ios::binary);
@@ -224,7 +225,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVS", "[runtime]") {
         );
     };
     write_and_read_index(
-        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP32
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP32, 30
     );
 }
 
@@ -241,7 +242,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSFP16", "[runtime]") {
         );
     };
     write_and_read_index(
-        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP16
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP16, 30
     );
 }
 
@@ -258,7 +259,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSSQI8", "[runtime]") {
         );
     };
     write_and_read_index(
-        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::SQI8
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::SQI8, 30
     );
 }
 
@@ -275,7 +276,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSLVQ4x4", "[runtime]") {
         );
     };
     write_and_read_index(
-        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LVQ4x4
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LVQ4x4, 30
     );
 }
 
@@ -293,7 +294,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVec4x4", "[runtime]") {
         );
     };
     write_and_read_index(
-        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LeanVec4x4
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LeanVec4x4, 30
     );
 }
 
@@ -325,6 +326,40 @@ CATCH_TEST_CASE("LeanVecWithTrainingData", "[runtime]") {
     std::iota(labels.begin(), labels.end(), 0);
 
     status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("LeanVecWithTrainingDataCustomBlockSize", "[runtime]") {
+    const auto& test_data = get_test_data();
+    // Build LeanVec index with explicit training
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        32,
+        build_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data - should work with provided leanvec dims
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    int block_size_exp = 17; // block_size = 2^block_size_exp
+    status = index->add(test_n, labels.data(), test_data.data(), block_size_exp);
     CATCH_REQUIRE(status.ok());
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
@@ -399,7 +434,7 @@ CATCH_TEST_CASE("SearchWithIDFilter", "[runtime]") {
     // Add data
     std::vector<size_t> labels(test_n);
     std::iota(labels.begin(), labels.end(), 0);
-    status = index->add(test_n, labels.data(), test_data.data());
+    status = index->add(test_n, labels.data(), test_data.data(), 30);
     CATCH_REQUIRE(status.ok());
 
     const int nq = 8;
@@ -445,7 +480,7 @@ CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
     // Add data
     std::vector<size_t> labels(test_n);
     std::iota(labels.begin(), labels.end(), 0);
-    status = index->add(test_n, labels.data(), test_data.data());
+    status = index->add(test_n, labels.data(), test_data.data(), 30);
     CATCH_REQUIRE(status.ok());
 
     const int nq = 5;
@@ -472,19 +507,19 @@ CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
     };
 
     CATCH_SECTION("SmallIndex") {
-        auto stats = run_save_and_load_test(10);
+        auto stats = run_save_and_load_test(10, 30);
         CATCH_REQUIRE(stats.file_size < 20 * 1024 * 1024);
         CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
 
     CATCH_SECTION("MediumIndex") {
-        auto stats = run_save_and_load_test(50);
+        auto stats = run_save_and_load_test(50, 30);
         CATCH_REQUIRE(stats.file_size < 100 * 1024 * 1024);
         CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
 
     CATCH_SECTION("LargeIndex") {
-        auto stats = run_save_and_load_test(200);
+        auto stats = run_save_and_load_test(200, 30);
         CATCH_REQUIRE(stats.file_size < 400 * 1024 * 1024);
         CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
