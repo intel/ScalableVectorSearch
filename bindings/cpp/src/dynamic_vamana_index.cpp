@@ -55,7 +55,9 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
     DynamicVamanaIndexManagerBase& operator=(DynamicVamanaIndexManagerBase&&) = default;
     ~DynamicVamanaIndexManagerBase() override = default;
 
-    Status add(size_t n, const size_t* labels, const float* x, int blocksize_exp) noexcept override {
+    Status
+    add(size_t n, const size_t* labels, const float* x, int blocksize_exp
+    ) noexcept override {
         return runtime_error_wrapper([&] {
             svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
             std::span<const size_t> lbls(labels, n);

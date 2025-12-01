@@ -219,10 +219,13 @@ template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementT
     using StorageType = SimpleDatasetType<ElementType>;
 
     template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool,
-                            svs::lib::PowerOfTwo blocksize_bytes = svs::data::BlockingParameters::default_blocksize_bytes) {
-        auto parameters = svs::data::BlockingParameters{
-            .blocksize_bytes = blocksize_bytes};
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        svs::lib::PowerOfTwo blocksize_bytes =
+            svs::data::BlockingParameters::default_blocksize_bytes
+    ) {
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
         typename StorageType::allocator_type alloc(parameters);
         StorageType result(data.size(), data.dimensions(), alloc);
         svs::threads::parallel_for(
@@ -249,8 +252,11 @@ struct StorageFactory<SQStorageType> {
     using StorageType = SQStorageType;
 
     template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool,
-                            svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)) {
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)
+    ) {
         return SQStorageType::compress(data, pool);
     }
 
@@ -281,8 +287,11 @@ struct StorageFactory<LVQStorageType> {
     using StorageType = LVQStorageType;
 
     template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool,
-                            svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)) {
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)
+    ) {
         return LVQStorageType::compress(data, pool, 0);
     }
 

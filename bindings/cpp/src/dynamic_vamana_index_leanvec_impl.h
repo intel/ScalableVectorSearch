@@ -91,9 +91,11 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         }
     }
 
-    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels,
-                   int blocksize_exp)
-        override {
+    void init_impl(
+        data::ConstSimpleDataView<float> data,
+        std::span<const size_t> labels,
+        int blocksize_exp
+    ) override {
         assert(storage::is_leanvec_storage(this->storage_kind_));
         impl_.reset(dispatch_leanvec_storage_kind(
             this->storage_kind_,

@@ -69,8 +69,10 @@ class DynamicVamanaIndexImpl {
 
     StorageKind get_storage_kind() const { return storage_kind_; }
 
-    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels,
-             int blocksize_exp) {
+    void
+    add(data::ConstSimpleDataView<float> data,
+        std::span<const size_t> labels,
+        int blocksize_exp) {
         if (!impl_) {
             return init_impl(data, labels, blocksize_exp);
         }
@@ -416,9 +418,11 @@ class DynamicVamanaIndexImpl {
         });
     }
 
-    virtual void
-    init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels,
-              int blocksize_exp) {
+    virtual void init_impl(
+        data::ConstSimpleDataView<float> data,
+        std::span<const size_t> labels,
+        int blocksize_exp
+    ) {
         impl_.reset(storage::dispatch_storage_kind(
             get_storage_kind(),
             [this](

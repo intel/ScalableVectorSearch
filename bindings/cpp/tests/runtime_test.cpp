@@ -172,7 +172,8 @@ UsageInfo run_save_and_load_test(const size_t target_mibytes, int blocksize_exp2
         );
         CATCH_REQUIRE(status.ok());
         CATCH_REQUIRE(index != nullptr);
-        status = index->add(mem_test_n, labels.data(), large_test_data.data(), blocksize_exp2);
+        status =
+            index->add(mem_test_n, labels.data(), large_test_data.data(), blocksize_exp2);
         CATCH_REQUIRE(status.ok());
 
         std::ofstream out(filename, std::ios::binary);
