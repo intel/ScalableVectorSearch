@@ -295,6 +295,7 @@ template <typename Index, typename QueryType> class BatchIterator {
 
                     if constexpr (Index::needs_id_translation) {
                         buffer.cleanup();
+                        buffer.sort();
                     }
                 };
 

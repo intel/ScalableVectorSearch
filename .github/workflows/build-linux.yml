@@ -49,7 +49,7 @@ jobs:
             ivf: ON
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
     - name: Install MKL
       timeout-minutes: 5
       run: |
