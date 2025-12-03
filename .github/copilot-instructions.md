@@ -25,7 +25,7 @@
 
 ### Prerequisites
 - CMake 3.21 or higher
-- C++20 compiler: GCC 11+, GCC 12+, or Clang 15+
+- C++20 compiler: GCC 11+ or Clang 15+
 - Optional: Intel MKL (for IVF support with `-DSVS_EXPERIMENTAL_ENABLE_IVF=ON`)
 - Python 3.9+ (for bindings)
 
@@ -174,7 +174,7 @@ ScalableVectorSearch/
 │   │   ├── build-linux.yml  # Main build & test (Ubuntu 22.04, g++/clang)
 │   │   ├── pre-commit.yml   # Format checking
 │   │   ├── cibuildwheel.yml # Python wheel building
-│   │   └── build-*.y{a}ml   # macOS, ARM builds
+│   │   └── build-*.yml      # macOS, ARM builds
 │   └── scripts/             # CI helper scripts
 ├── benchmark/               # Benchmarking framework
 │   ├── include/             # Benchmark headers
