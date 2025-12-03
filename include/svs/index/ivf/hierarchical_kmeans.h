@@ -91,15 +91,24 @@ auto hierarchical_kmeans_clustering_impl(
     svs::logging::debug(logger, "Level1 clusters: {}\n", num_level1_clusters);
 
     // Step 1: Create training set
-    size_t num_training_data =
-        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_));
-    if (num_training_data < num_clusters || num_training_data > data.size()) {
+    // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of clusters,
+    // or training_fraction of data, whichever is larger.
+    // This ensures we have enough training data even for small datasets
+    size_t min_training_data =
+        std::min(num_clusters * MIN_TRAINING_SAMPLE_MULTIPLIER, data.size());
+    size_t num_training_data = std::max(
+        min_training_data,
+        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_))
+    );
+    // Ensure we don't exceed the data size
+    num_training_data = std::min(num_training_data, data.size());
+
+    if (num_training_data < num_clusters) {
         throw ANNEXCEPTION(
-            "Invalid number of training data: {}, num_clusters: {}, total data size: "
-            "{}\n",
-            num_training_data,
-            num_clusters,
-            data.size()
+            "Insufficient data for clustering: {} datapoints, {} clusters required. "
+            "Need at least as many datapoints as clusters.\n",
+            data.size(),
+            num_clusters
         );
     }
     auto rng = std::mt19937(parameters.seed_);

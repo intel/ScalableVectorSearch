@@ -47,6 +47,13 @@ namespace svs::index::ivf {
 // threshold for numerical stability in algorithms such as k-means clustering, where exact
 constexpr double EPSILON = 1.0 / 1024.0;
 
+/// Minimum training sample multiplier for clustering algorithms.
+/// When training data size is small relative to the number of clusters, we ensure
+/// at least (num_clusters * MIN_TRAINING_SAMPLE_MULTIPLIER) samples are used for
+/// training to maintain clustering quality. This prevents degenerate cases where
+/// training_fraction would produce insufficient samples.
+constexpr size_t MIN_TRAINING_SAMPLE_MULTIPLIER = 2;
+
 /// @brief Parameters controlling the IVF build/k-means algortihm.
 struct IVFBuildParameters {
   public:

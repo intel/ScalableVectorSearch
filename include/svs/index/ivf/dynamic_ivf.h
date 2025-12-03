@@ -462,12 +462,35 @@ class DynamicIVFIndex {
 
     ///// Search /////
 
+    /// Translate internal IDs to external IDs in search results.
+    /// This method converts all IDs in the result view from internal (global) IDs
+    /// to external IDs using the ID map.
+    ///
+    /// @param ids Result indices to translate (2D array)
+    template <class Dims, class Base>
+        requires(std::tuple_size_v<Dims> == 2)
+    void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
+        threads::parallel_for(
+            inter_query_threadpool_,
+            threads::StaticPartition{getsize<0>(ids)},
+            [&](const auto is, auto /*tid*/) {
+                for (auto i : is) {
+                    for (size_t j = 0, jmax = getsize<1>(ids); j < jmax; ++j) {
+                        auto internal = lib::narrow_cast<Idx>(ids.at(i, j));
+                        ids.at(i, j) = translate_internal_id(internal);
+                    }
+                }
+            }
+        );
+    }
+
     /// @brief Perform similarity search
     ///
-    /// Search process:
-    /// 1. Find n_probe nearest centroids for each query
-    /// 2. Search within those clusters, skipping empty entries
-    /// 3. Return top-k neighbors
+    /// Search Process:
+    /// 1. Inter-query parallel: Distribute queries across primary threads
+    /// 2. For each query: Find n_probe nearest centroids
+    /// 3. Intra-query parallel: Explore identified clusters using inner threads
+    /// 4. Combine results from all explored clusters (skipping empty entries)
     ///
     /// @param results View for storing search results
     /// @param queries Query vectors
@@ -478,14 +501,14 @@ class DynamicIVFIndex {
         QueryResultView<size_t> results,
         const Queries& queries,
         const search_parameters_type& search_parameters,
-        const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
+        const lib::DefaultPredicate& SVS_UNUSED(cancel) = lib::Returns(lib::Const<false>())
     ) {
         validate_query_batch_size(queries.size());
 
         size_t num_neighbors = results.n_neighbors();
         size_t buffer_leaves_size = search_parameters.k_reorder_ * num_neighbors;
 
-        // Phase 1: Compute distances to centroids
+        // Phase 1: Inter-query parallel - Compute distances to centroids
         compute_centroid_distances(
             queries, centroids_, matmul_results_, inter_query_threadpool_
         );
@@ -495,29 +518,35 @@ class DynamicIVFIndex {
             inter_query_threadpool_,
             threads::StaticPartition(queries.size()),
             [&](auto is, auto tid) {
-                // Check for cancellation
-                if (cancel()) {
-                    return;
-                }
-
-                // Create buffers for this thread
+                // Initialize search buffers
                 auto buffer_centroids = create_centroid_buffer(search_parameters.n_probes_);
                 auto buffer_leaves = create_leaf_buffers(buffer_leaves_size);
 
-                // Search for each query
-                for (auto query_idx : is) {
-                    search_single_query(
-                        queries,
-                        query_idx,
-                        results,
-                        buffer_centroids,
-                        buffer_leaves,
-                        search_parameters,
-                        tid
-                    );
-                }
+                // Prepare cluster search scratch space (distance copy)
+                auto scratch =
+                    extensions::per_thread_batch_search_setup(centroids_, distance_);
+
+                // Execute search with intra-query parallelism
+                // Note: We pass centroids_ as the data parameter (unused) and this as
+                // cluster
+                extensions::per_thread_batch_search(
+                    centroids_,
+                    *this,
+                    buffer_centroids,
+                    buffer_leaves,
+                    scratch,
+                    queries,
+                    results,
+                    threads::UnitRange{is},
+                    tid,
+                    search_centroids_closure(),
+                    search_leaves_closure()
+                );
             }
         );
+
+        // Convert internal IDs to external IDs
+        this->translate_to_external(results.indices());
     }
 
     ///// Saving /////
@@ -640,24 +669,48 @@ class DynamicIVFIndex {
         return indices;
     }
 
+    /// @brief Assign points to their nearest centroids using parallel processing
+    ///
+    /// Uses centroid_assignment with batching to handle matmul_results size constraints.
+    /// Processes points in batches for efficient parallel centroid assignment.
+    ///
+    /// @param points Dataset to assign to clusters
+    /// @param assignments Output vector for cluster assignments
     template <typename Points>
     void assign_to_clusters(const Points& points, std::vector<size_t>& assignments) {
-        // For each point, find nearest centroid
-        for (size_t i = 0; i < points.size(); ++i) {
-            auto point = points.get_datum(i);
-            float min_dist = std::numeric_limits<float>::max();
-            size_t best_cluster = 0;
+        size_t num_points = points.size();
+        size_t num_centroids = centroids_.size();
 
-            for (size_t c = 0; c < centroids_.size(); ++c) {
-                auto centroid = centroids_.get_datum(c);
-                float dist = distance::compute(distance_, point, centroid);
-                if (dist < min_dist) {
-                    min_dist = dist;
-                    best_cluster = c;
-                }
-            }
+        // Compute norms if using L2 distance
+        auto data_norm = maybe_compute_norms<Dist>(points, inter_query_threadpool_);
 
-            assignments[i] = best_cluster;
+        // Determine batch size based on matmul_results capacity
+        // matmul_results_ is sized for queries, reuse for point assignment
+        size_t batch_size = matmul_results_[0].size(); // Number of queries it can hold
+        size_t num_batches = lib::div_round_up(num_points, batch_size);
+
+        // Create a local matmul buffer for assignments (batch_size x num_centroids)
+        auto matmul_buffer = data::SimpleData<float>{batch_size, num_centroids};
+        auto timer = lib::Timer();
+
+        // Process points in batches
+        for (size_t batch = 0; batch < num_batches; ++batch) {
+            auto batch_range = threads::UnitRange{
+                batch * batch_size, std::min((batch + 1) * batch_size, num_points)};
+
+            // Use centroid_assignment to compute assignments for this batch
+            centroid_assignment(
+                const_cast<Points&>(points), // centroid_assignment expects non-const
+                data_norm,
+                batch_range,
+                distance_,
+                centroids_,
+                centroids_norm_,
+                assignments,
+                matmul_buffer,
+                inter_query_threadpool_,
+                timer
+            );
         }
     }
 
@@ -781,75 +834,70 @@ class DynamicIVFIndex {
         translator_.insert(external_ids, new_internal_ids, false);
     }
 
-    template <typename Queries>
-    void search_single_query(
-        const Queries& queries,
-        size_t query_idx,
-        QueryResultView<size_t>& results,
-        auto& buffer_centroids,
-        auto& buffer_leaves,
-        const search_parameters_type& search_parameters,
-        size_t tid
-    ) {
-        // Find nearest centroids
-        auto query = queries.get_datum(query_idx);
-        search_centroids(
-            query,
-            distance_,
-            matmul_results_,
-            buffer_centroids,
-            tid,
-            centroids_norm_,
-            get_num_threads()
-        );
+    ///// Search Closures /////
 
-        // Search within selected clusters
-        size_t n_probes = std::min(search_parameters.n_probes_, buffer_centroids.size());
-
-        for (size_t probe_idx = 0; probe_idx < n_probes; ++probe_idx) {
-            size_t cluster_idx = buffer_centroids[probe_idx].id();
-            search_cluster(query, cluster_idx, buffer_leaves[0]);
-        }
-
-        // Write results (translating to external IDs)
-        size_t num_neighbors = results.n_neighbors();
-        for (size_t i = 0; i < std::min(num_neighbors, buffer_leaves[0].size()); ++i) {
-            size_t internal_id = buffer_leaves[0][i].id();
-            float dist = buffer_leaves[0][i].distance();
-            size_t external_id = translate_internal_id(internal_id);
-
-            results.set(Neighbor<size_t>(external_id, dist), query_idx, i);
-        }
-
-        // Fill remaining slots with invalid neighbors if needed
-        for (size_t i = buffer_leaves[0].size(); i < num_neighbors; ++i) {
-            results.set(
-                Neighbor<size_t>(
-                    std::numeric_limits<size_t>::max(), std::numeric_limits<float>::max()
-                ),
+    /// @brief Create closure for searching centroids
+    auto search_centroids_closure() const {
+        return [this](const auto& query, auto& buffer_centroids, size_t query_idx) {
+            search_centroids(
+                query,
+                distance_,
+                matmul_results_,
+                buffer_centroids,
                 query_idx,
-                i
+                centroids_norm_,
+                get_num_threads()
             );
-        }
+        };
     }
 
-    template <typename Query>
-    void search_cluster(const Query& query, size_t cluster_idx, auto& buffer) {
-        const auto& cluster = clusters_[cluster_idx];
+    /// @brief Create closure for searching clusters/leaves
+    auto search_leaves_closure() {
+        return [this](
+                   const auto& query,
+                   auto& distance,
+                   const auto& buffer_centroids,
+                   auto& buffer_leaves,
+                   size_t tid
+               ) {
+            // Use the common search_leaves function
+            search_leaves(
+                query,
+                distance,
+                *this,
+                buffer_centroids,
+                buffer_leaves,
+                intra_query_threadpools_[tid]
+            );
+        };
+    }
 
-        for (size_t pos = 0; pos < cluster.size(); ++pos) {
-            Idx global_id = cluster.ids_[pos];
+  public:
+    /// @brief Cluster accessor interface for search_leaves
+    /// This method provides filtered access to cluster leaves, skipping empty entries
+    ///
+    /// Note: For DynamicIVFIndex, we pass the global_id as the local_id (3rd parameter)
+    /// because the common search_leaves function will combine it with cluster_id to get
+    /// the final ID. Our get_global_id() just returns the local_id unchanged.
+    template <typename Callback> void on_leaves(Callback&& f, size_t cluster_id) const {
+        const auto& cluster = clusters_[cluster_id];
+        for (size_t i = 0; i < cluster.size(); ++i) {
+            Idx global_id = cluster.ids_[i];
 
             // Skip empty entries
             if (!is_valid(global_id)) {
                 continue;
             }
 
-            auto datum = cluster.data_.get_datum(pos);
-            float dist = distance::compute(distance_, query, datum);
-            buffer.insert({global_id, dist});
+            auto datum = cluster.data_.get_datum(i);
+            // Pass global_id as the local_id (3rd param) since get_global_id returns it
+            // unchanged
+            f(datum, 0 /* unused gid */, global_id);
         }
     }
+
+    /// @brief Get global ID for a point (identity function for dynamic IVF)
+    size_t get_global_id(size_t /*cluster_id*/, size_t local_id) const { return local_id; }
 };
 
 } // namespace svs::index::ivf

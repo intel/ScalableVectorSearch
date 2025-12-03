@@ -45,15 +45,24 @@ auto kmeans_clustering_impl(
     auto num_centroids = parameters.num_centroids_;
 
     // Step 1: Create training set
-    size_t num_training_data =
-        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_));
-    if (num_training_data < num_centroids || num_training_data > data.size()) {
+    // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of centroids,
+    // or training_fraction of data, whichever is larger.
+    // This ensures we have enough training data even for small datasets
+    size_t min_training_data =
+        std::min(num_centroids * MIN_TRAINING_SAMPLE_MULTIPLIER, data.size());
+    size_t num_training_data = std::max(
+        min_training_data,
+        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_))
+    );
+    // Ensure we don't exceed the data size
+    num_training_data = std::min(num_training_data, data.size());
+
+    if (num_training_data < num_centroids) {
         throw ANNEXCEPTION(
-            "Invalid number of training data: {}, num_centroids: {}, total data size: "
-            "{}\n",
-            num_training_data,
-            num_centroids,
-            data.size()
+            "Insufficient data for clustering: {} datapoints, {} centroids required. "
+            "Need at least as many datapoints as centroids.\n",
+            data.size(),
+            num_centroids
         );
     }
     auto rng = std::mt19937(parameters.seed_);

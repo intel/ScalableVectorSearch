@@ -262,3 +262,490 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index", "[dynamic_ivf]") {
 
     test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
 }
+
+CATCH_TEST_CASE("Dynamic IVF - Edge Cases", "[dynamic_ivf]") {
+    const size_t num_threads = 4;
+    const size_t num_points = 100;
+
+    // Create a small dataset
+    auto data = svs::data::SimpleData<Eltype, N>(num_points, N);
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    for (size_t i = 0; i < num_points; ++i) {
+        std::vector<float> vec(N);
+        for (size_t j = 0; j < N; ++j) {
+            vec[j] = dist(rng);
+        }
+        data.set_datum(i, vec);
+    }
+
+    // Build clustering with more clusters than points to test empty clusters
+    // With the fix, this should now work by using all 100 datapoints for training
+    auto build_params = svs::index::ivf::IVFBuildParameters(
+        50,   // More clusters than 10% of data (which would be 10 points)
+        10,   // max_iters
+        false // is_hierarchical
+    );
+
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering = svs::index::ivf::build_clustering<Eltype>(
+        build_params,
+        svs::lib::Lazy([&data]() { return data; }),
+        Distance(),
+        threadpool,
+        false
+    );
+
+    using ClusterType =
+        svs::index::ivf::DynamicDenseCluster<svs::data::SimpleData<Eltype, N>, Idx>;
+
+    std::vector<ClusterType> clusters;
+    std::vector<Idx> initial_indices;
+
+    for (size_t c = 0; c < 50; ++c) {
+        const auto& cluster_indices = clustering.cluster(c);
+        size_t cluster_size = cluster_indices.size();
+
+        ClusterType cluster;
+        cluster.data_ = svs::data::SimpleData<Eltype, N>(cluster_size, N);
+        cluster.ids_.resize(cluster_size);
+
+        for (size_t i = 0; i < cluster_size; ++i) {
+            Idx global_id = cluster_indices[i];
+            cluster.data_.set_datum(i, data.get_datum(global_id));
+            cluster.ids_[i] = global_id;
+            initial_indices.push_back(global_id);
+        }
+
+        clusters.push_back(std::move(cluster));
+    }
+
+    auto centroids = clustering.centroids();
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = svs::index::ivf::DynamicIVFIndex<
+        decltype(centroids),
+        ClusterType,
+        Distance,
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(clusters),
+        initial_indices,
+        Distance(),
+        std::move(threadpool_for_index),
+        1
+    );
+
+    // Test 1: Search with sparse/empty clusters (should not crash)
+    auto query = svs::data::SimpleData<QueryEltype, N>(1, N);
+    std::vector<float> query_vec(N);
+    for (size_t j = 0; j < N; ++j) {
+        query_vec[j] = dist(rng);
+    }
+    query.set_datum(0, query_vec);
+
+    auto results = svs::QueryResult<size_t>(1, NUM_NEIGHBORS);
+    auto search_params = svs::index::ivf::IVFSearchParameters(50, NUM_NEIGHBORS);
+
+    index.search(
+        results.view(),
+        svs::data::ConstSimpleDataView<QueryEltype>{query.data(), 1, N},
+        search_params
+    );
+
+    // Verify results are valid (not all max values)
+    bool found_valid = false;
+    for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+        if (results.index(0, i) != std::numeric_limits<size_t>::max()) {
+            found_valid = true;
+            break;
+        }
+    }
+    CATCH_REQUIRE(found_valid);
+
+    // Test 2: Delete and compact
+    std::vector<Idx> to_delete;
+    for (size_t i = 0; i < 20 && i < initial_indices.size(); ++i) {
+        to_delete.push_back(initial_indices[i]);
+    }
+
+    index.delete_entries(to_delete);
+
+    index.compact(10);
+
+    // Search after compaction
+    index.search(
+        results.view(),
+        svs::data::ConstSimpleDataView<QueryEltype>{query.data(), 1, N},
+        search_params
+    );
+
+    CATCH_REQUIRE(results.index(0, 0) != std::numeric_limits<size_t>::max());
+}
+
+CATCH_TEST_CASE("Dynamic IVF - Search Parameters Variations", "[dynamic_ivf]") {
+    const size_t num_threads = 4;
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    // Build with standard parameters
+    auto build_params = svs::index::ivf::IVFBuildParameters(NUM_CLUSTERS, 10, false);
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering = svs::index::ivf::build_clustering<Eltype>(
+        build_params,
+        svs::lib::Lazy([&data]() { return data; }),
+        Distance(),
+        threadpool,
+        false
+    );
+
+    using ClusterType =
+        svs::index::ivf::DynamicDenseCluster<svs::data::SimpleData<Eltype, N>, Idx>;
+
+    std::vector<ClusterType> clusters;
+    std::vector<Idx> indices;
+
+    for (size_t c = 0; c < NUM_CLUSTERS; ++c) {
+        const auto& cluster_indices = clustering.cluster(c);
+        ClusterType cluster;
+        cluster.data_ = svs::data::SimpleData<Eltype, N>(cluster_indices.size(), N);
+        cluster.ids_.resize(cluster_indices.size());
+
+        for (size_t i = 0; i < cluster_indices.size(); ++i) {
+            Idx global_id = cluster_indices[i];
+            cluster.data_.set_datum(i, data.get_datum(global_id));
+            cluster.ids_[i] = global_id;
+            indices.push_back(global_id);
+        }
+        clusters.push_back(std::move(cluster));
+    }
+
+    auto centroids = clustering.centroids();
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = svs::index::ivf::DynamicIVFIndex<
+        decltype(centroids),
+        ClusterType,
+        Distance,
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(clusters),
+        indices,
+        Distance(),
+        std::move(threadpool_for_index),
+        1
+    );
+
+    auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+
+    // Test with different n_probes values
+    std::vector<size_t> probe_counts = {1, 3, 5, NUM_CLUSTERS};
+    std::vector<double> recalls;
+
+    for (auto n_probes : probe_counts) {
+        auto params = svs::index::ivf::IVFSearchParameters(n_probes, NUM_NEIGHBORS);
+        index.search(
+            results.view(),
+            svs::data::ConstSimpleDataView<QueryEltype>{
+                queries.data(), queries.size(), queries.dimensions()},
+            params
+        );
+
+        // Verify all results are valid
+        for (size_t i = 0; i < queries.size(); ++i) {
+            for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                auto idx = results.index(i, j);
+                CATCH_REQUIRE(
+                    (idx < data.size() || idx == std::numeric_limits<size_t>::max())
+                );
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE("Dynamic IVF - Threading Configurations", "[dynamic_ivf]") {
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    auto build_params = svs::index::ivf::IVFBuildParameters(NUM_CLUSTERS, 10, false);
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering = svs::index::ivf::build_clustering<Eltype>(
+        build_params,
+        svs::lib::Lazy([&data]() { return data; }),
+        Distance(),
+        threadpool,
+        false
+    );
+
+    using ClusterType =
+        svs::index::ivf::DynamicDenseCluster<svs::data::SimpleData<Eltype, N>, Idx>;
+
+    // Test with different thread configurations
+    std::vector<size_t> thread_configs = {1, 2, 4, 8};
+    std::vector<size_t> intra_query_configs = {1, 2};
+
+    for (auto num_threads : thread_configs) {
+        for (auto intra_threads : intra_query_configs) {
+            std::vector<ClusterType> clusters;
+            std::vector<Idx> indices;
+
+            for (size_t c = 0; c < NUM_CLUSTERS; ++c) {
+                const auto& cluster_indices = clustering.cluster(c);
+                ClusterType cluster;
+                cluster.data_ = svs::data::SimpleData<Eltype, N>(cluster_indices.size(), N);
+                cluster.ids_.resize(cluster_indices.size());
+
+                for (size_t i = 0; i < cluster_indices.size(); ++i) {
+                    Idx global_id = cluster_indices[i];
+                    cluster.data_.set_datum(i, data.get_datum(global_id));
+                    cluster.ids_[i] = global_id;
+                    indices.push_back(global_id);
+                }
+                clusters.push_back(std::move(cluster));
+            }
+
+            auto centroids_copy = clustering.centroids();
+            auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+            using IndexType = svs::index::ivf::DynamicIVFIndex<
+                decltype(centroids_copy),
+                ClusterType,
+                Distance,
+                decltype(threadpool_for_index)>;
+
+            auto index = IndexType(
+                std::move(centroids_copy),
+                std::move(clusters),
+                indices,
+                Distance(),
+                std::move(threadpool_for_index),
+                intra_threads
+            );
+
+            auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+            auto params = svs::index::ivf::IVFSearchParameters(NUM_CLUSTERS, NUM_NEIGHBORS);
+
+            index.search(
+                results.view(),
+                svs::data::ConstSimpleDataView<QueryEltype>{
+                    queries.data(), queries.size(), queries.dimensions()},
+                params
+            );
+
+            // Verify results are consistent
+            for (size_t i = 0; i < queries.size(); ++i) {
+                for (size_t j = 0; j < NUM_NEIGHBORS; ++j) {
+                    auto idx = results.index(i, j);
+                    CATCH_REQUIRE(
+                        (idx < data.size() || idx == std::numeric_limits<size_t>::max())
+                    );
+                }
+            }
+        }
+    }
+}
+
+CATCH_TEST_CASE("Dynamic IVF - Add/Delete Stress Test", "[dynamic_ivf]") {
+    const size_t num_threads = 4;
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    auto build_params = svs::index::ivf::IVFBuildParameters(NUM_CLUSTERS, 10, false);
+    auto threadpool = svs::threads::SequentialThreadPool();
+
+    // Start with half the data
+    size_t initial_size = data.size() / 2;
+    auto initial_data = svs::data::SimpleData<Eltype, N>(initial_size, N);
+    for (size_t i = 0; i < initial_size; ++i) {
+        initial_data.set_datum(i, data.get_datum(i));
+    }
+
+    auto clustering = svs::index::ivf::build_clustering<Eltype>(
+        build_params,
+        svs::lib::Lazy([&initial_data]() { return initial_data; }),
+        Distance(),
+        threadpool,
+        false
+    );
+
+    using ClusterType =
+        svs::index::ivf::DynamicDenseCluster<svs::data::SimpleData<Eltype, N>, Idx>;
+
+    std::vector<ClusterType> clusters;
+    std::vector<Idx> indices;
+
+    for (size_t c = 0; c < NUM_CLUSTERS; ++c) {
+        const auto& cluster_indices = clustering.cluster(c);
+        ClusterType cluster;
+        cluster.data_ = svs::data::SimpleData<Eltype, N>(cluster_indices.size(), N);
+        cluster.ids_.resize(cluster_indices.size());
+
+        for (size_t i = 0; i < cluster_indices.size(); ++i) {
+            Idx global_id = cluster_indices[i];
+            cluster.data_.set_datum(i, initial_data.get_datum(global_id));
+            cluster.ids_[i] = global_id;
+            indices.push_back(global_id);
+        }
+        clusters.push_back(std::move(cluster));
+    }
+
+    auto centroids = clustering.centroids();
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = svs::index::ivf::DynamicIVFIndex<
+        decltype(centroids),
+        ClusterType,
+        Distance,
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(clusters),
+        indices,
+        Distance(),
+        std::move(threadpool_for_index),
+        1
+    );
+
+    auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+    auto params = svs::index::ivf::IVFSearchParameters(NUM_CLUSTERS, NUM_NEIGHBORS);
+
+    // Test: Rapid add/delete cycles
+    std::mt19937 rng(12345);
+    std::uniform_int_distribution<size_t> idx_dist(0, indices.size() - 1);
+
+    for (size_t cycle = 0; cycle < 5; ++cycle) {
+        // Delete random entries
+        std::vector<Idx> deleted;
+        for (size_t i = 0; i < 10 && i < indices.size(); ++i) {
+            size_t idx = idx_dist(rng) % indices.size();
+            deleted.push_back(indices[idx]);
+        }
+        if (!deleted.empty()) {
+            index.delete_entries(deleted);
+        }
+
+        // Search after deletion
+        index.search(
+            results.view(),
+            svs::data::ConstSimpleDataView<QueryEltype>{
+                queries.data(), queries.size(), queries.dimensions()},
+            params
+        );
+
+        // Verify deleted IDs don't appear in results
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t k = 0; k < NUM_NEIGHBORS; ++k) {
+                auto result_id = results.index(q, k);
+                for (auto deleted_id : deleted) {
+                    CATCH_REQUIRE(result_id != deleted_id);
+                }
+            }
+        }
+
+        // Add new entries
+        std::vector<Idx> new_ids;
+        auto new_data = svs::data::SimpleData<Eltype, N>(10, N);
+        Idx new_base_id = 10000 + cycle * 100;
+        for (size_t i = 0; i < 10; ++i) {
+            new_ids.push_back(new_base_id + i);
+            new_data.set_datum(i, data.get_datum(i % data.size()));
+        }
+        index.add_points(new_data, new_ids, false);
+
+        // Search after addition
+        index.search(
+            results.view(),
+            svs::data::ConstSimpleDataView<QueryEltype>{
+                queries.data(), queries.size(), queries.dimensions()},
+            params
+        );
+
+        // All results should be valid
+        for (size_t q = 0; q < queries.size(); ++q) {
+            CATCH_REQUIRE(results.index(q, 0) != std::numeric_limits<size_t>::max());
+        }
+
+        // Compact periodically
+        if (cycle % 2 == 1) {
+            index.compact(50);
+        }
+    }
+}
+
+CATCH_TEST_CASE("Dynamic IVF - Single Query Search", "[dynamic_ivf]") {
+    const size_t num_threads = 2;
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    auto build_params = svs::index::ivf::IVFBuildParameters(NUM_CLUSTERS, 10, false);
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering = svs::index::ivf::build_clustering<Eltype>(
+        build_params,
+        svs::lib::Lazy([&data]() { return data; }),
+        Distance(),
+        threadpool,
+        false
+    );
+
+    using ClusterType =
+        svs::index::ivf::DynamicDenseCluster<svs::data::SimpleData<Eltype, N>, Idx>;
+
+    std::vector<ClusterType> clusters;
+    std::vector<Idx> indices;
+
+    for (size_t c = 0; c < NUM_CLUSTERS; ++c) {
+        const auto& cluster_indices = clustering.cluster(c);
+        ClusterType cluster;
+        cluster.data_ = svs::data::SimpleData<Eltype, N>(cluster_indices.size(), N);
+        cluster.ids_.resize(cluster_indices.size());
+
+        for (size_t i = 0; i < cluster_indices.size(); ++i) {
+            Idx global_id = cluster_indices[i];
+            cluster.data_.set_datum(i, data.get_datum(global_id));
+            cluster.ids_[i] = global_id;
+            indices.push_back(global_id);
+        }
+        clusters.push_back(std::move(cluster));
+    }
+
+    auto centroids = clustering.centroids();
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = svs::index::ivf::DynamicIVFIndex<
+        decltype(centroids),
+        ClusterType,
+        Distance,
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(clusters),
+        indices,
+        Distance(),
+        std::move(threadpool_for_index),
+        1
+    );
+
+    // Test single query search
+    auto single_query = svs::data::SimpleData<QueryEltype, N>(1, N);
+    single_query.set_datum(0, queries.get_datum(0));
+
+    auto results = svs::QueryResult<size_t>(1, NUM_NEIGHBORS);
+    auto params = svs::index::ivf::IVFSearchParameters(NUM_CLUSTERS, NUM_NEIGHBORS);
+
+    index.search(
+        results.view(),
+        svs::data::ConstSimpleDataView<QueryEltype>{single_query.data(), 1, N},
+        params
+    );
+
+    // Verify we got valid results
+    CATCH_REQUIRE(results.index(0, 0) != std::numeric_limits<size_t>::max());
+
+    // Verify distances are in ascending order
+    for (size_t k = 1; k < NUM_NEIGHBORS; ++k) {
+        if (results.index(0, k) != std::numeric_limits<size_t>::max()) {
+            CATCH_REQUIRE(results.distance(0, k) >= results.distance(0, k - 1));
+        }
+    }
+}
