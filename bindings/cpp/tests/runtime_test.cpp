@@ -489,3 +489,94 @@ CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
         CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
     }
 }
+
+CATCH_TEST_CASE("SetIfSpecifiedUtility", "[runtime]") {
+    using svs::runtime::set_if_specified;
+    using svs::runtime::v0::is_specified;
+    using svs::runtime::v0::OptionalBool;
+    using svs::runtime::v0::Unspecify;
+
+    CATCH_SECTION("OptionalBool") {
+        OptionalBool undef;
+        OptionalBool t(true);
+        OptionalBool f(false);
+
+        CATCH_REQUIRE(!is_specified(undef));
+        CATCH_REQUIRE(is_specified(t));
+        CATCH_REQUIRE(is_specified(f));
+
+        bool target = true;
+        set_if_specified(target, undef);
+        CATCH_REQUIRE(target);
+        set_if_specified(target, f);
+        CATCH_REQUIRE(!target);
+        set_if_specified(target, undef);
+        CATCH_REQUIRE(!target);
+        set_if_specified(target, t);
+        CATCH_REQUIRE(target);
+    }
+
+    CATCH_SECTION("size_t") {
+        size_t undef = Unspecify<size_t>();
+        size_t val = 42;
+
+        CATCH_REQUIRE(!is_specified(undef));
+        CATCH_REQUIRE(is_specified(val));
+
+        size_t target = 100;
+        set_if_specified(target, undef);
+        CATCH_REQUIRE(target == 100);
+        set_if_specified(target, val);
+        CATCH_REQUIRE(target == 42);
+        set_if_specified(target, size_t{0});
+        CATCH_REQUIRE(target == 0);
+    }
+
+    CATCH_SECTION("float") {
+        float undef = Unspecify<float>();
+        float val = 3.14f;
+
+        CATCH_REQUIRE(!is_specified(undef));
+        CATCH_REQUIRE(is_specified(val));
+
+        float target = 1.0f;
+        set_if_specified(target, undef);
+        CATCH_REQUIRE(target == 1.0f);
+        set_if_specified(target, val);
+        CATCH_REQUIRE(target == 3.14f);
+        set_if_specified(target, 0.0f);
+        CATCH_REQUIRE(target == 0.0f);
+    }
+
+    CATCH_SECTION("int") {
+        int undef = Unspecify<int>();
+        int val = -7;
+
+        CATCH_REQUIRE(!is_specified(undef));
+        CATCH_REQUIRE(is_specified(val));
+
+        int target = 10;
+        set_if_specified(target, undef);
+        CATCH_REQUIRE(target == 10);
+        set_if_specified(target, val);
+        CATCH_REQUIRE(target == -7);
+        set_if_specified(target, 0);
+        CATCH_REQUIRE(target == 0);
+    }
+
+    CATCH_SECTION("bool") {
+        auto undef = Unspecify<bool>();
+        auto val = true;
+
+        CATCH_REQUIRE(!is_specified(undef));
+        CATCH_REQUIRE(is_specified(val));
+
+        bool target = false;
+        set_if_specified(target, undef);
+        CATCH_REQUIRE(target == false);
+        set_if_specified(target, val);
+        CATCH_REQUIRE(target == true);
+        set_if_specified(target, false);
+        CATCH_REQUIRE(target == false);
+    }
+}
