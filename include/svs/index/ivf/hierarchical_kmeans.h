@@ -85,7 +85,7 @@ auto hierarchical_kmeans_clustering_impl(
 
     size_t num_level1_clusters = parameters.hierarchical_level1_clusters_;
     if (num_level1_clusters == 0) {
-        num_level1_clusters = std::sqrt(num_clusters);
+        num_level1_clusters = static_cast<size_t>(std::sqrt(num_clusters));
     }
 
     svs::logging::debug(logger, "Level1 clusters: {}\n", num_level1_clusters);

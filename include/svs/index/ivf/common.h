@@ -257,12 +257,12 @@ void compute_matmul(
             m_int,         // const int M
             n_int,         // const int N
             k_int,         // const int K
-            1.0f,          // float alpha
+            1.0F,          // float alpha
             data,          // const float* A
             k_int,         // const int lda
             centroids,     // const float* B
             k_int,         // const int ldb
-            0.0f,          // const float beta
+            0.0F,          // const float beta
             results,       // float* c
             n_int          // const int ldc
         );
@@ -278,12 +278,12 @@ void compute_matmul(
             m_int,                      // const int M
             n_int,                      // const int N
             k_int,                      // const int K
-            1.0f,                       // float alpha
+            1.0F,                       // float alpha
             (const uint16_t*)data,      // const *uint16_t A
             k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
             k_int,                      // const int ldb
-            0.0f,                       // const float beta
+            0.0F,                       // const float beta
             results,                    // float* c
             n_int                       // const int ldc
         );
@@ -299,12 +299,12 @@ void compute_matmul(
             m_int,                      // const int M
             n_int,                      // const int N
             k_int,                      // const int K
-            1.0f,                       // float alpha
+            1.0F,                       // float alpha
             (const uint16_t*)data,      // const *uint16_t A
             k_int,                      // const int lda
             (const uint16_t*)centroids, // const uint16_t* B
             k_int,                      // const int ldb
-            0.0f,                       // const float beta
+            0.0F,                       // const float beta
             results,                    // float* c
             n_int                       // const int ldc
         );
@@ -343,7 +343,7 @@ void normalize_centroids(
                 auto datum = centroids.get_datum(i);
                 float norm = distance::norm(datum);
                 if (norm != 0.0) {
-                    float norm_inv = 1.0 / norm;
+                    float norm_inv = 1.0F / norm;
                     for (size_t j = 0; j < datum.size(); j++) {
                         datum[j] = datum[j] * norm_inv;
                     }
@@ -425,7 +425,7 @@ void centroid_assignment(
                     auto dists = matmul_results.get_datum(i);
                     for (size_t j = 0; j < centroids.size(); j++) {
                         auto dist = data_norm[batch_range.start() + i] + centroids_norm[j] -
-                                    2 * dists[j];
+                                    (2 * dists[j]);
                         nearest = std::min(nearest, Neighbor<size_t>(j, dist));
                     }
                     assignments[batch_range.start() + i] = nearest.id();
@@ -513,7 +513,7 @@ void centroid_split(
                 if (counts.at(j) == 0) {
                     continue;
                 }
-                float p = counts.at(j) / float(num_data);
+                float p = static_cast<float>(counts.at(j)) / static_cast<float>(num_data);
                 float r = distribution(rng);
                 if (r < p) {
                     break;
@@ -695,8 +695,9 @@ data::SimpleData<BuildType, Data::extent, Alloc> make_training_set(
         threadpool,
         threads::StaticPartition{num_training},
         [&](auto indices, auto /*tid*/) {
-            for (auto i : indices)
+            for (auto i : indices) {
                 trainset.set_datum(i, data.get_datum(ids[i]));
+            }
         }
     );
     return trainset;
@@ -717,8 +718,9 @@ data::SimpleData<BuildType> init_centroids(
         threadpool,
         threads::StaticPartition{num_centroids},
         [&](auto indices, auto) {
-            for (auto i : indices)
+            for (auto i : indices) {
                 centroids.set_datum(i, trainset.get_datum(ids[i]));
+            }
         }
     );
     return centroids;
@@ -740,8 +742,9 @@ std::vector<std::vector<I>> group_assignments(
     const std::vector<size_t>& assignments, size_t num_clusters, const Data& data
 ) {
     std::vector<std::vector<I>> clusters(num_clusters);
-    for (auto i : data.eachindex())
+    for (auto i : data.eachindex()) {
         clusters[assignments[i]].push_back(i);
+    }
     return clusters;
 }
 
@@ -867,7 +870,7 @@ void search_centroids(
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
             for (size_t k = 0; k < distance.size(); k++) {
-                float dist = query_norm + centroids_norm[count] - 2 * distance[k];
+                float dist = query_norm + centroids_norm[count] - (2 * distance[k]);
                 buffer.insert({count, dist});
                 count++;
             }

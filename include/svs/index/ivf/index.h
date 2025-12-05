@@ -227,7 +227,9 @@ class IVFIndex {
         validate_query_batch_size(queries.size());
 
         size_t num_neighbors = results.n_neighbors();
-        size_t buffer_leaves_size = search_parameters.k_reorder_ * num_neighbors;
+        size_t buffer_leaves_size = static_cast<size_t>(
+            search_parameters.k_reorder_ * static_cast<float>(num_neighbors)
+        );
 
         // Phase 1: Inter-query parallel - Compute distances to centroids
         compute_centroid_distances(
@@ -281,7 +283,7 @@ class IVFIndex {
     ///// Search Data /////
     std::vector<data::SimpleData<float>> matmul_results_;
     std::vector<float> centroids_norm_;
-    search_parameters_type search_parameters_{};
+    search_parameters_type search_parameters_;
 
     // SVS logger for per index logging
     svs::logging::logger_ptr logger_;

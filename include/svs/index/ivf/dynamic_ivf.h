@@ -17,24 +17,18 @@
 #pragma once
 
 // Include the IVF index
-#include "svs/index/ivf/clustering.h"
 #include "svs/index/ivf/index.h"
 
 // svs
 #include "svs/concepts/distance.h"
-#include "svs/core/data.h"
-#include "svs/core/loading.h"
 #include "svs/core/logging.h"
 #include "svs/core/query_result.h"
 #include "svs/core/translation.h"
-#include "svs/lib/boundscheck.h"
-#include "svs/lib/invoke.h"
 #include "svs/lib/misc.h"
 #include "svs/lib/threads.h"
 
 // stdlib
 #include <filesystem>
-#include <memory>
 #include <vector>
 
 namespace svs::index::ivf {
@@ -151,7 +145,7 @@ class DynamicIVFIndex {
     // Search infrastructure (same as static IVF)
     std::vector<data::SimpleData<float>> matmul_results_;
     std::vector<float> centroids_norm_;
-    search_parameters_type search_parameters_{};
+    search_parameters_type search_parameters_;
 
     // Logger
     svs::logging::logger_ptr logger_;
@@ -178,12 +172,8 @@ class DynamicIVFIndex {
     )
         : centroids_{std::move(centroids)}
         , clusters_{std::move(clusters)}
-        , status_()
-        , id_to_cluster_()
-        , id_in_cluster_()
         , first_empty_{0}
         , prefetch_offset_{8}
-        , translator_()
         , distance_{std::move(distance_function)}
         , inter_query_threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , intra_query_thread_count_{intra_query_thread_count}
@@ -237,9 +227,6 @@ class DynamicIVFIndex {
     )
         : centroids_{std::move(centroids)}
         , clusters_{std::move(clusters)}
-        , status_()
-        , id_to_cluster_()
-        , id_in_cluster_()
         , first_empty_{0}
         , prefetch_offset_{8}
         , translator_{std::move(translator)}
@@ -506,7 +493,9 @@ class DynamicIVFIndex {
         validate_query_batch_size(queries.size());
 
         size_t num_neighbors = results.n_neighbors();
-        size_t buffer_leaves_size = search_parameters.k_reorder_ * num_neighbors;
+        size_t buffer_leaves_size = static_cast<size_t>(
+            search_parameters.k_reorder_ * static_cast<float>(num_neighbors)
+        );
 
         // Phase 1: Inter-query parallel - Compute distances to centroids
         compute_centroid_distances(
