@@ -889,4 +889,60 @@ class DynamicIVFIndex {
     size_t get_global_id(size_t /*cluster_id*/, size_t local_id) const { return local_id; }
 };
 
+///
+/// @brief Build a DynamicIVFIndex from clustering and data
+///
+template <
+    typename Centroids,
+    data::ImmutableMemoryDataset SourceData,
+    typename Distance,
+    typename ThreadPoolProto>
+auto build_dynamic_ivf(
+    Centroids centroids,
+    const index::ivf::Clustering<Centroids, uint32_t>& clustering,
+    const SourceData& source_data,
+    std::span<const size_t> ids,
+    Distance distance,
+    ThreadPoolProto threadpool_proto
+) {
+    using I = uint32_t;
+    using ElementType = typename SourceData::element_type;
+    using BlockedDataType = data::
+        SimpleData<ElementType, Dynamic, data::Blocked<HugepageAllocator<ElementType>>>;
+    using Cluster = DynamicDenseCluster<BlockedDataType, I>;
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // Create dynamic clusters from the clustering
+    std::vector<Cluster> clusters;
+    clusters.reserve(clustering.size());
+
+    for (size_t cluster_idx = 0; cluster_idx < clustering.size(); ++cluster_idx) {
+        const auto& cluster_assignments = clustering.cluster(cluster_idx);
+        size_t cluster_size = cluster_assignments.size();
+
+        // Create BlockedData for this cluster
+        auto cluster_data = BlockedDataType(cluster_size, source_data.dimensions());
+        std::vector<I> cluster_ids;
+        cluster_ids.reserve(cluster_size);
+
+        for (size_t i = 0; i < cluster_size; ++i) {
+            I data_idx = cluster_assignments[i];
+            cluster_data.set_datum(i, source_data.get_datum(data_idx));
+            cluster_ids.push_back(ids[data_idx]);
+        }
+
+        clusters.emplace_back(std::move(cluster_data), std::move(cluster_ids));
+    }
+
+    // Create the index
+    return DynamicIVFIndex<Centroids, Cluster, Distance, decltype(threadpool)>(
+        std::move(centroids),
+        std::move(clusters),
+        ids,
+        std::move(distance),
+        std::move(threadpool)
+    );
+}
+
 } // namespace svs::index::ivf
