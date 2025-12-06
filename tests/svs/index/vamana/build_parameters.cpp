@@ -42,6 +42,16 @@ window_size = 200
 
 CATCH_TEST_CASE("VamanaBuildParameters", "[index][vamana]") {
     CATCH_SECTION("Constructors") {
+        svs::index::vamana::VamanaBuildParameters empty;
+        CATCH_REQUIRE(empty.alpha == svs::FLOAT_PLACEHOLDER);
+        CATCH_REQUIRE(empty.graph_max_degree == svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT);
+        CATCH_REQUIRE(empty.window_size == svs::VAMANA_WINDOW_SIZE_DEFAULT);
+        CATCH_REQUIRE(empty.max_candidate_pool_size == svs::UNSIGNED_INTEGER_PLACEHOLDER);
+        CATCH_REQUIRE(empty.prune_to == svs::UNSIGNED_INTEGER_PLACEHOLDER);
+        CATCH_REQUIRE(
+            empty.use_full_search_history == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
+        );
+
         auto p = svs::index::vamana::VamanaBuildParameters{1.2f, 64, 128, 750, 60, true};
         CATCH_REQUIRE(p.alpha == 1.2f);
         CATCH_REQUIRE(p.graph_max_degree == 64);

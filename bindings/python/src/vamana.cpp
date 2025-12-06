@@ -414,6 +414,7 @@ void wrap(py::module& m) {
         m, "VamanaBuildParameters", "Build parameters for Vamana index construction."
     );
 
+    svs::index::vamana::VamanaBuildParameters default_parameters;
     parameters
         .def(
             py::init([](float alpha,
@@ -430,13 +431,12 @@ void wrap(py::module& m) {
                     prune_to,
                     use_full_search_history};
             }),
-            py::arg("alpha") = svs::FLOAT_PLACEHOLDER,
-            py::arg("graph_max_degree") = svs::VAMANA_GRAPH_MAX_DEGREE_DEFAULT,
-            py::arg("window_size") = svs::VAMANA_WINDOW_SIZE_DEFAULT,
-            py::arg("max_candidate_pool_size") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
-            py::arg("prune_to") = svs::UNSIGNED_INTEGER_PLACEHOLDER,
-            py::arg("use_full_search_history") =
-                svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT,
+            py::arg("alpha") = default_parameters.alpha,
+            py::arg("graph_max_degree") = default_parameters.graph_max_degree,
+            py::arg("window_size") = default_parameters.window_size,
+            py::arg("max_candidate_pool_size") = default_parameters.max_candidate_pool_size,
+            py::arg("prune_to") = default_parameters.prune_to,
+            py::arg("use_full_search_history") = default_parameters.use_full_search_history,
             R"(
             Construct a new instance from keyword arguments.
 
