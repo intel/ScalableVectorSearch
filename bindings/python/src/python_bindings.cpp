@@ -24,6 +24,7 @@
 
 SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
 #if SVS_ENABLE_IVF
+#include "svs/python/dynamic_ivf.h"
 #include "svs/python/ivf.h"
 #endif // SVS_ENABLE_IVF
 
@@ -255,5 +256,6 @@ Args:
     SVS_VALIDATE_BOOL_ENV(SVS_ENABLE_IVF)
 #if SVS_ENABLE_IVF
     svs::python::ivf::wrap(m);
+    svs::python::dynamic_ivf::wrap(m);
 #endif // SVS_ENABLE_IVF
 }

@@ -207,6 +207,7 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
         ${TEST_DIR}/svs/index/ivf/kmeans.cpp
         ${TEST_DIR}/svs/index/ivf/hierarchical_kmeans.cpp
         ${TEST_DIR}/svs/index/ivf/common.cpp
+        ${TEST_DIR}/svs/index/ivf/dynamic_ivf.cpp
     )
 endif()
 
