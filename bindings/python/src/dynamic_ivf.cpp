@@ -198,7 +198,7 @@ Furthermore, all entries in ``ids`` must be unique and not already exist in the 
 If either of these does not hold, an exception will be thrown without mutating the
 underlying index.
 
-When ``delete_entries`` is called, a soft deletion is performed, marking the entries as ``deleted``.
+When ``delete`` is called, a soft deletion is performed, marking the entries as ``deleted``.
 When ``consolidate`` is called, the state of these deleted entries becomes ``empty``.
 When ``add_points`` is called with the ``reuse_empty`` flag enabled, the memory is scanned from the beginning to locate and fill these empty entries with new points.
 )";
@@ -215,9 +215,12 @@ void add_points_specialization(py::class_<svs::DynamicIVF>& index) {
     );
 }
 
-///// Docstrings
-// Put docstrings here to hopefully make the implementation of `wrap` a bit less
-// cluttered.
+const char* CONSOLIDATE_DOCSTRING = R"(
+No-op method for compatibility with dynamic index interface.
+For the IVF index, deletion marks entries as Empty and they are excluded from searches.
+Empty slots can be reused when adding new points.
+)";
+
 const char* COMPACT_DOCSTRING = R"(
 Remove any holes created in the data by renumbering internal IDs.
 Shrink the underlying data structures.
@@ -322,6 +325,7 @@ void wrap(py::module& m) {
     ivf::add_interface(ivf_index);
 
     // Dynamic interface.
+    ivf_index.def("consolidate", &svs::DynamicIVF::consolidate, CONSOLIDATE_DOCSTRING);
     ivf_index.def(
         "compact",
         &svs::DynamicIVF::compact,
@@ -378,7 +382,7 @@ void wrap(py::module& m) {
     ivf_index.def(
         "delete",
         [](svs::DynamicIVF& index, const py_contiguous_array_t<size_t>& ids) {
-            return index.delete_entries(as_span(ids));
+            return index.delete_points(as_span(ids));
         },
         py::arg("ids"),
         DELETE_DOCSTRING
@@ -402,6 +406,31 @@ void wrap(py::module& m) {
             return npv;
         },
         ALL_IDS_DOCSTRING
+    );
+
+    // Distance calculation
+    ivf_index.def(
+        "get_distance",
+        [](const svs::DynamicIVF& index,
+           size_t id,
+           const py_contiguous_array_t<float>& query) {
+            return index.get_distance(id, as_span(query));
+        },
+        py::arg("id"),
+        py::arg("query"),
+        R"(
+        Compute the distance between a query vector and a vector in the index.
+
+        Args:
+            id: The external ID of the vector in the index.
+            query: The query vector as a numpy array.
+
+        Returns:
+            The distance between the query and the indexed vector.
+
+        Raises:
+            RuntimeError: If the ID doesn't exist or dimensions don't match.
+        )"
     );
 
     // Saving

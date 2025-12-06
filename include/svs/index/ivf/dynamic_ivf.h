@@ -337,6 +337,37 @@ class DynamicIVFIndex {
         return clusters_[cluster_idx].get_datum(pos);
     }
 
+    ///// Distance
+
+    /// @brief Compute the distance between an external vector and a vector in the index.
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Check if id exists
+        if (!has_id(id)) {
+            throw ANNEXCEPTION("ID {} does not exist in the index!", id);
+        }
+
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Translate external ID to internal ID and get cluster location
+        size_t internal_id = translate_external_id(id);
+        size_t cluster_idx = id_to_cluster_[internal_id];
+        size_t pos = id_in_cluster_[internal_id];
+
+        // Call extension for distance computation
+        return svs::index::ivf::extensions::get_distance_ext(
+            clusters_, distance_, cluster_idx, pos, query
+        );
+    }
+
     /// @brief Iterate over all external IDs
     template <typename F> void on_ids(F&& f) const {
         for (size_t i = 0; i < status_.size(); ++i) {
@@ -421,6 +452,16 @@ class DynamicIVFIndex {
     }
 
     ///// Compaction /////
+
+    /// @brief Consolidate the data structure (no-op for IVF).
+    ///
+    /// In the IVF index implementation, deletion marks entries as Empty in metadata,
+    /// making them invalid for searches. These empty slots can be reused by add_points.
+    /// This method is a no-op for compatibility with the dynamic index interface.
+    ///
+    void consolidate() {
+        // No-op: Deleted entries are marked Empty and excluded from searches
+    }
 
     /// @brief Compact the data structure
     ///

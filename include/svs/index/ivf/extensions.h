@@ -217,4 +217,46 @@ void svs_invoke(
     }
 }
 
+/////
+///// Distance Computation
+/////
+
+struct ComputeDistanceType {
+    template <typename Clusters, typename Distance, typename Query>
+    double operator()(
+        const Clusters& clusters,
+        const Distance& distance,
+        size_t cluster_idx,
+        size_t pos,
+        const Query& query
+    ) const {
+        return svs_invoke(*this, clusters, distance, cluster_idx, pos, query);
+    }
+};
+
+// CPO for distance computation
+inline constexpr ComputeDistanceType get_distance_ext{};
+
+template <typename Clusters, typename Distance, typename Query>
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Clusters& clusters,
+    const Distance& distance,
+    size_t cluster_idx,
+    size_t pos,
+    const Query& query
+) {
+    // Get distance function
+    auto dist_f = per_thread_batch_search_setup(clusters[cluster_idx].data_, distance);
+    svs::distance::maybe_fix_argument(dist_f, query);
+
+    // Get the vector from the cluster
+    auto indexed_span = clusters[cluster_idx].get_datum(pos);
+
+    // Compute the distance using the appropriate distance function
+    auto dist = svs::distance::compute(dist_f, query, indexed_span);
+
+    return static_cast<double>(dist);
+}
+
 } // namespace svs::index::ivf::extensions

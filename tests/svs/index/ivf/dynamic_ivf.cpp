@@ -749,3 +749,189 @@ CATCH_TEST_CASE("Dynamic IVF - Single Query Search", "[dynamic_ivf]") {
         }
     }
 }
+
+CATCH_TEST_CASE("Dynamic IVF Get Distance", "[index][ivf][dynamic_ivf]") {
+    const size_t num_threads = 2;
+    const size_t num_points = 200;
+
+    // Create test dataset
+    auto data = svs::data::SimpleData<Eltype, N>(num_points, N);
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+    for (size_t i = 0; i < num_points; ++i) {
+        std::vector<float> vec(N);
+        for (size_t j = 0; j < N; ++j) {
+            vec[j] = dist(rng);
+        }
+        data.set_datum(i, vec);
+    }
+
+    // Create queries
+    const size_t num_queries = 20;
+    auto queries = svs::data::SimpleData<QueryEltype, N>(num_queries, N);
+    for (size_t i = 0; i < num_queries; ++i) {
+        std::vector<float> vec(N);
+        for (size_t j = 0; j < N; ++j) {
+            vec[j] = dist(rng);
+        }
+        queries.set_datum(i, vec);
+    }
+
+    // Build IVF clustering
+    auto build_params = svs::index::ivf::IVFBuildParameters(
+        NUM_CLUSTERS,
+        /* max_iters */ 10,
+        /* is_hierarchical */ false
+    );
+
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering = svs::index::ivf::build_clustering<Eltype>(
+        build_params,
+        svs::lib::Lazy([&data]() { return data; }),
+        Distance(),
+        threadpool,
+        /* train_only */ false
+    );
+
+    // Create dynamic clusters from the clustering result
+    using ClusterType =
+        svs::index::ivf::DynamicDenseCluster<svs::data::SimpleData<Eltype, N>, Idx>;
+
+    std::vector<ClusterType> clusters;
+    std::vector<Idx> initial_indices; // External IDs in order
+    size_t internal_id = 0;           // Sequential internal IDs
+
+    for (size_t c = 0; c < NUM_CLUSTERS; ++c) {
+        const auto& cluster_indices = clustering.cluster(c);
+        size_t cluster_size = cluster_indices.size();
+
+        ClusterType cluster;
+        cluster.data_ = svs::data::SimpleData<Eltype, N>(cluster_size, N);
+        cluster.ids_.resize(cluster_size);
+
+        for (size_t i = 0; i < cluster_size; ++i) {
+            Idx external_id = cluster_indices[i]; // Use clustering index as external ID
+            cluster.data_.set_datum(i, data.get_datum(external_id));
+            cluster.ids_[i] = internal_id;          // Sequential internal ID
+            initial_indices.push_back(external_id); // Map internal_id -> external_id
+            internal_id++;
+        }
+
+        clusters.push_back(std::move(cluster));
+    }
+
+    // Create the dynamic IVF index
+    auto centroids = clustering.centroids();
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = svs::index::ivf::DynamicIVFIndex<
+        decltype(centroids),
+        ClusterType,
+        Distance,
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(clusters),
+        initial_indices,
+        Distance(),
+        std::move(threadpool_for_index),
+        1 // intra_query_threads
+    );
+
+    // Test get_distance functionality using the standard tester
+    CATCH_SECTION("Get Distance Test") {
+        // Test with strict tolerance to verify correctness
+        constexpr double TOLERANCE = 1e-2; // 1% tolerance, same as flat index
+
+        // Test with a few different IDs
+        std::vector<size_t> test_ids = {0, 10, 50};
+        if (index.size() > 100) {
+            test_ids.push_back(100);
+        }
+
+        for (size_t test_id : test_ids) {
+            if (test_id >= index.size()) {
+                continue;
+            }
+
+            // Get a query vector
+            size_t query_id = std::min<size_t>(5, queries.size() - 1);
+            auto query = queries.get_datum(query_id);
+
+            // Get distance from index
+            double index_distance = index.get_distance(test_id, query);
+
+            // Compute expected distance from original data
+            // test_id is the external ID which maps to data[test_id]
+            auto datum = data.get_datum(test_id);
+            Distance dist_copy = Distance();
+            svs::distance::maybe_fix_argument(dist_copy, query);
+            double expected_distance = svs::distance::compute(dist_copy, query, datum);
+
+            // Verify the distance is correct
+            double relative_diff =
+                std::abs((index_distance - expected_distance) / expected_distance);
+            CATCH_REQUIRE(relative_diff < TOLERANCE);
+        }
+
+        // Test with out of bounds ID - should throw
+        CATCH_REQUIRE_THROWS_AS(
+            index.get_distance(index.size() + 1000, queries.get_datum(0)), svs::ANNException
+        );
+    }
+
+    // Test get_distance after adding and removing points
+    CATCH_SECTION("Get Distance After Modifications") {
+        // Test with strict tolerance to verify correctness
+        constexpr double TOLERANCE = 1e-2; // 1% tolerance, same as flat index
+
+        // Add some new points
+        std::vector<Idx> new_ids = {10000, 10001, 10002};
+
+        // Prepare data for batch insertion
+        auto new_data = svs::data::SimpleData<Eltype, N>(new_ids.size(), N);
+        for (size_t i = 0; i < new_ids.size(); ++i) {
+            new_data.set_datum(i, data.get_datum(i));
+        }
+
+        // Add points in batch
+        index.add_points(new_data, new_ids);
+
+        // Test get_distance for newly added points
+        for (size_t i = 0; i < new_ids.size(); ++i) {
+            size_t query_id = std::min<size_t>(7, queries.size() - 1);
+            auto query = queries.get_datum(query_id);
+
+            double index_distance = index.get_distance(new_ids[i], query);
+
+            // Compute expected distance from the original data we added
+            auto datum = data.get_datum(i);
+            Distance dist_copy = Distance();
+            svs::distance::maybe_fix_argument(dist_copy, query);
+            double expected_distance = svs::distance::compute(dist_copy, query, datum);
+
+            double relative_diff =
+                std::abs((index_distance - expected_distance) / expected_distance);
+            CATCH_REQUIRE(relative_diff < TOLERANCE);
+        }
+
+        // Delete a point
+        std::vector<Idx> ids_to_delete = {new_ids[0]};
+        index.delete_entries(ids_to_delete);
+
+        // Verify the deleted point throws exception
+        CATCH_REQUIRE_THROWS_AS(
+            index.get_distance(new_ids[0], queries.get_datum(0)), svs::ANNException
+        );
+
+        // Verify other points still work
+        for (size_t i = 1; i < new_ids.size(); ++i) {
+            size_t query_id = std::min<size_t>(8, queries.size() - 1);
+            auto query = queries.get_datum(query_id);
+
+            // Should not throw
+            double distance = index.get_distance(new_ids[i], query);
+            CATCH_REQUIRE(distance >= 0.0);
+        }
+    }
+}

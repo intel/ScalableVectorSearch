@@ -40,12 +40,16 @@ class DynamicIVFInterface : public IVFInterface {
         bool reuse_empty = false
     ) = 0;
 
-    virtual size_t delete_entries(std::span<const size_t> ids) = 0;
+    virtual size_t delete_points(std::span<const size_t> ids) = 0;
+    virtual void consolidate() = 0;
     virtual void compact(size_t batchsize = 1'000'000) = 0;
 
     // ID inspection.
     virtual bool has_id(size_t id) const = 0;
     virtual void all_ids(std::vector<size_t>& ids) const = 0;
+
+    // Distance calculation
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 
     // Saving
     virtual void save(
@@ -79,9 +83,11 @@ class DynamicIVFImpl : public IVFImpl<QueryTypes, Impl, DynamicIVFInterface> {
         impl().add_points(points, ids, reuse_empty);
     }
 
-    size_t delete_entries(std::span<const size_t> ids) override {
+    size_t delete_points(std::span<const size_t> ids) override {
         return impl().delete_entries(ids);
     }
+
+    void consolidate() override { impl().consolidate(); }
 
     void compact(size_t batchsize) override { impl().compact(batchsize); }
 
@@ -91,6 +97,18 @@ class DynamicIVFImpl : public IVFImpl<QueryTypes, Impl, DynamicIVFInterface> {
     void all_ids(std::vector<size_t>& ids) const override {
         ids.clear();
         impl().on_ids([&ids](size_t id) { ids.push_back(id); });
+    }
+
+    ///// Distance
+    double get_distance(size_t id, const AnonymousArray<1>& query) const override {
+        return svs::lib::match(
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T>) {
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                return impl().get_distance(id, query_span);
+            }
+        );
     }
 
     ///// Saving
@@ -133,11 +151,6 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         : base_type{std::make_unique<DynamicIVFImpl<QueryTypes, Impl>>(std::move(impl))} {}
 
     // Mutable Interface.
-    DynamicIVF& compact(size_t batchsize = 1'000'000) {
-        impl_->compact(batchsize);
-        return *this;
-    }
-
     DynamicIVF& add_points(
         data::ConstSimpleDataView<float> points,
         std::span<const size_t> ids,
@@ -149,8 +162,16 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         return *this;
     }
 
-    size_t delete_entries(std::span<const size_t> ids) {
-        return impl_->delete_entries(ids);
+    size_t delete_points(std::span<const size_t> ids) { return impl_->delete_points(ids); }
+
+    DynamicIVF& consolidate() {
+        impl_->consolidate();
+        return *this;
+    }
+
+    DynamicIVF& compact(size_t batchsize = 1'000'000) {
+        impl_->compact(batchsize);
+        return *this;
     }
 
     // Backend String
@@ -185,6 +206,13 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         const std::filesystem::path& data_directory
     ) {
         impl_->save(config_directory, data_directory);
+    }
+
+    ///// Distance
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Create AnonymousArray from the query
+        AnonymousArray<1> query_array{query.data(), query.size()};
+        return impl_->get_distance(id, query_array);
     }
 
     // Building
