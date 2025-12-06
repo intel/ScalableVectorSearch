@@ -237,7 +237,13 @@ struct ComputeDistanceType {
 // CPO for distance computation
 inline constexpr ComputeDistanceType get_distance_ext{};
 
+// Overload for container types with view_cluster/get_datum methods (e.g.,
+// DenseClusteredDataset)
 template <typename Clusters, typename Distance, typename Query>
+    requires requires(const Clusters& c, size_t i) {
+                 { c.view_cluster(i) };
+                 { c.get_datum(i, i) };
+             }
 double svs_invoke(
     svs::tag_t<get_distance_ext>,
     const Clusters& clusters,
@@ -247,11 +253,39 @@ double svs_invoke(
     const Query& query
 ) {
     // Get distance function
-    auto dist_f = per_thread_batch_search_setup(clusters[cluster_idx].data_, distance);
-    svs::distance::maybe_fix_argument(dist_f, query);
+    auto cluster_data = clusters.view_cluster(cluster_idx);
+    auto dist_f = per_thread_batch_search_setup(cluster_data, distance);
 
     // Get the vector from the cluster
-    auto indexed_span = clusters[cluster_idx].get_datum(pos);
+    auto indexed_span = clusters.get_datum(cluster_idx, pos);
+
+    // Compute the distance using the appropriate distance function
+    auto dist = svs::distance::compute(dist_f, query, indexed_span);
+
+    return static_cast<double>(dist);
+}
+
+// Overload for vector-like containers (e.g., std::vector<DynamicDenseCluster>)
+template <typename Clusters, typename Distance, typename Query>
+    requires requires(const Clusters& c, size_t i) {
+                 { c[i] };
+                 { c[i].data_ };
+                 { c[i].get_datum(i) };
+             }
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Clusters& clusters,
+    const Distance& distance,
+    size_t cluster_idx,
+    size_t pos,
+    const Query& query
+) {
+    // Get distance function
+    const auto& cluster = clusters[cluster_idx];
+    auto dist_f = per_thread_batch_search_setup(cluster.data_, distance);
+
+    // Get the vector from the cluster
+    auto indexed_span = cluster.get_datum(pos);
 
     // Compute the distance using the appropriate distance function
     auto dist = svs::distance::compute(dist_f, query, indexed_span);

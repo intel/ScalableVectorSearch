@@ -164,6 +164,52 @@ class IVFIndex {
         search_parameters_ = search_parameters;
     }
 
+    ///// ID Mapping /////
+
+    /// @brief Check if an ID exists in the index
+    bool has_id(size_t id) const {
+        return id < id_to_cluster_.size() && id_to_cluster_[id] != SIZE_MAX;
+    }
+
+    ///// Distance Computation /////
+
+    /// @brief Compute the distance between a query vector and a vector in the index
+    template <typename Query> double get_distance(size_t id, const Query& query) const {
+        // Lazily initialize ID mapping on first call
+        if (id_to_cluster_.empty()) {
+            const_cast<IVFIndex*>(this)->initialize_id_mapping();
+        }
+
+        // Check if id exists
+        if (!has_id(id)) {
+            throw ANNEXCEPTION("ID {} does not exist in the index!", id);
+        }
+
+        // Verify dimensions match
+        const size_t query_size = query.size();
+        const size_t index_vector_size = dimensions();
+        if (query_size != index_vector_size) {
+            throw ANNEXCEPTION(
+                "Incompatible dimensions. Query has {} while the index expects {}.",
+                query_size,
+                index_vector_size
+            );
+        }
+
+        // Get cluster and position
+        size_t cluster_id = id_to_cluster_[id];
+        size_t pos = id_in_cluster_[id];
+
+        // Fix distance argument if needed (e.g., for cosine similarity)
+        auto distance_copy = distance_;
+        svs::distance::maybe_fix_argument(distance_copy, query);
+
+        // Call extension for distance computation
+        return svs::index::ivf::extensions::get_distance_ext(
+            cluster_, distance_copy, cluster_id, pos, query
+        );
+    }
+
     ///// Search Implementation /////
 
     /// @brief Search closure for centroid distance computation
@@ -274,6 +320,12 @@ class IVFIndex {
     Data cluster0_;
     Dist distance_;
 
+    ///// ID Mapping for get_distance /////
+    // Maps ID -> cluster_id
+    std::vector<size_t> id_to_cluster_{};
+    // Maps ID -> position within cluster
+    std::vector<size_t> id_in_cluster_{};
+
     ///// Threading Infrastructure /////
     InterQueryThreadPool inter_query_threadpool_; // Handles parallelism across queries
     const size_t intra_query_thread_count_;       // Number of threads per query processing
@@ -326,6 +378,31 @@ class IVFIndex {
             centroids_norm_.reserve(centroids_.size());
             for (size_t i = 0; i < centroids_.size(); i++) {
                 centroids_norm_.push_back(distance::norm_square(centroids_.get_datum(i)));
+            }
+        }
+    }
+
+    void initialize_id_mapping() {
+        // Build ID-to-location mapping from cluster data
+        // Compute total size by summing all cluster sizes
+        size_t total_size = 0;
+        size_t num_clusters = centroids_.size();
+        for (size_t cluster_id = 0; cluster_id < num_clusters; ++cluster_id) {
+            total_size += cluster_.view_cluster(cluster_id).size();
+        }
+
+        // Initialize mapping vectors with sentinel value
+        id_to_cluster_.resize(total_size, SIZE_MAX);
+        id_in_cluster_.resize(total_size, SIZE_MAX);
+
+        // Populate mappings
+        for (size_t cluster_id = 0; cluster_id < num_clusters; ++cluster_id) {
+            auto cluster_view = cluster_.view_cluster(cluster_id);
+            size_t cluster_size = cluster_view.size();
+            for (size_t pos = 0; pos < cluster_size; ++pos) {
+                size_t id = cluster_.get_global_id(cluster_id, pos);
+                id_to_cluster_[id] = cluster_id;
+                id_in_cluster_[id] = pos;
             }
         }
     }

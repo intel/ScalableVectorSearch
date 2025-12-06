@@ -139,3 +139,54 @@ CATCH_TEST_CASE("IVF Search", "[integration][search][ivf]") {
     test_search(data_f16, dist_ip, queries, gt_ip);
     test_search(data_f16, dist_ip, queries, gt_ip, 2);
 }
+
+CATCH_TEST_CASE("IVF get_distance", "[integration][ivf][get_distance]") {
+    auto datafile = test_dataset::data_svs_file();
+    auto queries = test_dataset::queries();
+    auto dist_l2 = svs::distance::DistanceL2();
+
+    auto data = svs::data::SimpleData<float>::load(datafile);
+
+    size_t num_threads = 2;
+    auto index = svs::IVF::assemble_from_file<float, svs::BFloat16>(
+        test_dataset::clustering_directory(), data, dist_l2, num_threads, 1
+    );
+
+    // Test get_distance functionality with strict tolerance
+    constexpr double TOLERANCE = 1e-2; // 1% tolerance
+
+    // Test with a few different IDs
+    std::vector<size_t> test_ids = {0, 10, 50};
+    if (data.size() > 100) {
+        test_ids.push_back(100);
+    }
+
+    for (size_t test_id : test_ids) {
+        if (test_id >= data.size()) {
+            continue;
+        }
+
+        // Get a query vector
+        size_t query_id = std::min<size_t>(5, queries.size() - 1);
+        auto query = queries.get_datum(query_id);
+
+        // Get distance from index
+        double index_distance = index.get_distance(test_id, query);
+
+        // Compute expected distance from original data
+        auto datum = data.get_datum(test_id);
+        svs::distance::DistanceL2 dist_copy;
+        svs::distance::maybe_fix_argument(dist_copy, query);
+        double expected_distance = svs::distance::compute(dist_copy, query, datum);
+
+        // Verify the distance is correct
+        double relative_diff =
+            std::abs((index_distance - expected_distance) / expected_distance);
+        CATCH_REQUIRE(relative_diff < TOLERANCE);
+    }
+
+    // Test with out of bounds ID - should throw
+    CATCH_REQUIRE_THROWS_AS(
+        index.get_distance(data.size() + 1000, queries.get_datum(0)), svs::ANNException
+    );
+}

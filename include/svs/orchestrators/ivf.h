@@ -27,6 +27,9 @@ class IVFInterface {
 
     ///// Backend information interface
     virtual std::string experimental_backend_string() const = 0;
+
+    ///// Distance calculation
+    virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = IVFInterface>
@@ -56,6 +59,19 @@ class IVFImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     [[nodiscard]] std::string experimental_backend_string() const override {
         return std::string{typename_impl.begin(), typename_impl.end() - 1};
     }
+
+    ///// Distance Calculation
+    [[nodiscard]] double
+    get_distance(size_t id, const AnonymousArray<1>& query) const override {
+        return svs::lib::match(
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T>) {
+                auto query_span = std::span<const T>(get<T>(query), query.size(0));
+                return impl().get_distance(id, query_span);
+            }
+        );
+    }
 };
 
 /////
@@ -79,6 +95,14 @@ class IVF : public manager::IndexManager<IVFInterface> {
     ///// Backend String
     std::string experimental_backend_string() const {
         return impl_->experimental_backend_string();
+    }
+
+    ///// Distance Calculation
+    template <typename QueryType>
+    double get_distance(size_t id, const QueryType& query) const {
+        // Create AnonymousArray from the query
+        AnonymousArray<1> query_array{query.data(), query.size()};
+        return impl_->get_distance(id, query_array);
     }
 
     ///// Assembling

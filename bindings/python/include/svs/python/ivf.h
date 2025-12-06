@@ -82,6 +82,28 @@ template <typename Manager> void add_interface(pybind11::class_<Manager>& manage
 
             See also: `svs.IVFSearchParameters`.)"
     );
+
+    manager.def(
+        "get_distance",
+        [](const Manager& index, size_t id, const py_contiguous_array_t<float>& query) {
+            return index.get_distance(id, as_span(query));
+        },
+        pybind11::arg("id"),
+        pybind11::arg("query"),
+        R"(
+        Compute the distance between a query vector and a vector in the index.
+
+        Args:
+            id: The ID of the vector in the index.
+            query: The query vector as a numpy array.
+
+        Returns:
+            The distance between the query and the indexed vector.
+
+        Raises:
+            RuntimeError: If the ID doesn't exist or dimensions don't match.
+        )"
+    );
 }
 
 void wrap(pybind11::module& m);
