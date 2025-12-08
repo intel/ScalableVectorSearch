@@ -260,6 +260,12 @@ class MutableVamanaIndex {
         );
     }
 
+    template <template <typename> class T, typename C>
+    struct is_specialization_of : std::false_type {};
+
+    template <template <typename> class T, typename C>
+    struct is_specialization_of<T, T<C>> : std::true_type {};
+
     /// @brief Post re-load constructor.
     ///
     /// Preconditions
@@ -729,10 +735,13 @@ class MutableVamanaIndex {
                               typename Data::element_type,
                               Data::value_type::extent,
                               typename Data::allocator_type>>) {
-            return data_.blocksize_bytes();
-        } else {
-            return lib::PowerOfTwo(0);
+            if constexpr (is_specialization_of<
+                              svs::data::Blocked,
+                              typename Data::allocator_type>::value) {
+                return data_.blocksize_bytes();
+            }
         }
+        return lib::PowerOfTwo(0);
     }
 
     ///
