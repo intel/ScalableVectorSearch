@@ -38,13 +38,6 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Catch2)
 
-FetchContent_Declare(
-    fmt
-    GIT_REPOSITORY https://github.com/fmtlib/fmt
-    GIT_TAG 11.2.0
-)
-FetchContent_MakeAvailable(fmt)
-
 set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANDARD})
 
 # Add test executable
