@@ -19,6 +19,7 @@
 #include "svs_runtime_utils.h"
 
 #include <svs/runtime/flat_index.h>
+#include <svs/runtime/index_blocksize.h>
 
 #include <algorithm>
 #include <memory>

@@ -32,7 +32,8 @@ namespace svs_test {
 
 inline std::filesystem::path temp_directory() {
     // Use /tmp for runtime binding tests
-    return std::filesystem::path("/tmp/svs_runtime_test");
+    // return std::filesystem::path("/tmp/svs_runtime_test");
+    return std::filesystem::path("~/svs_runtime_test");
 }
 
 inline bool cleanup_temp_directory() {

@@ -722,6 +722,19 @@ class MutableVamanaIndex {
         return slots;
     }
 
+    lib::PowerOfTwo blocksize_bytes() const {
+        if constexpr (std::is_same_v<
+                          Data,
+                          svs::data::SimpleData<
+                              typename Data::element_type,
+                              Data::value_type::extent,
+                              typename Data::allocator_type>>) {
+            return data_.blocksize_bytes();
+        } else {
+            return lib::PowerOfTwo(0);
+        }
+    }
+
     ///
     /// Delete all IDs stored in the random-access container `ids`.
     ///
