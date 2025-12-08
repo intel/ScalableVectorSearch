@@ -378,3 +378,23 @@ class VamanaTester(unittest.TestCase):
         self._test_build(loader, svs.DistanceType.L2, matcher)
         self._test_build(loader, svs.DistanceType.MIP, matcher)
         self._test_build(loader, svs.DistanceType.Cosine, matcher)
+
+    def test_vamana_build_parameters(self):
+        """Test VamanaBuildParameters construction and member accessors."""
+
+        params = svs.VamanaBuildParameters(
+            alpha = 1.5,
+            graph_max_degree = 64,
+            prune_to = 32,
+            window_size = 128,
+            max_candidate_pool_size = 256
+        )
+
+        self.assertEqual(params.alpha, 1.5)
+        self.assertEqual(params.graph_max_degree, 64)
+        self.assertEqual(params.prune_to, 32)
+        self.assertEqual(params.window_size, 128)
+        self.assertEqual(params.max_candidate_pool_size, 256)
+
+        # Test instatiation with default parameter values
+        params = svs.VamanaBuildParameters()
