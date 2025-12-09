@@ -252,7 +252,15 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
             auto data = svs::detail::dispatch_load(data_proto, threadpool);
 
             // Build clustering first
-            using BuildType = BFloat16; // Use BFloat16 for building centroids
+            // Choose build type for clustering to leverage AMX instructions:
+            // - Float32 data -> BFloat16 (AMX supports BFloat16)
+            // - Float16 data -> Float16 (AMX supports Float16)
+            // - BFloat16 data -> BFloat16 (already optimal)
+            using DataElementType = typename decltype(data)::element_type;
+            using BuildType = std::conditional_t<
+                std::is_same_v<DataElementType, float>,
+                BFloat16,
+                DataElementType>;
             // Note: build_clustering takes threadpool by value, so we need a copy
             auto clustering = [&]() {
                 size_t clustering_threads = (num_clustering_threads == 0)
