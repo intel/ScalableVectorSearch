@@ -135,6 +135,7 @@ void write_and_read_index(
     status = loaded->search(nq, xq, k, distances.data(), result_labels.data());
     CATCH_REQUIRE(status.ok());
 
+    CATCH_REQUIRE(index->blocksize_bytes() == blocksize.BlockSizeBytes());
     // Clean up
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
     svs::runtime::v0::DynamicVamanaIndex::destroy(loaded);
@@ -232,7 +233,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVS", "[runtime]") {
         test_n,
         test_d,
         svs::runtime::v0::StorageKind::FP32,
-        svs::runtime::v0::IndexBlockSize(30)
+        svs::runtime::v0::IndexBlockSize(15)
     );
 }
 
@@ -254,7 +255,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSFP16", "[runtime]") {
         test_n,
         test_d,
         svs::runtime::v0::StorageKind::FP16,
-        svs::runtime::v0::IndexBlockSize(30)
+        svs::runtime::v0::IndexBlockSize(16)
     );
 }
 
@@ -276,7 +277,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSSQI8", "[runtime]") {
         test_n,
         test_d,
         svs::runtime::v0::StorageKind::SQI8,
-        svs::runtime::v0::IndexBlockSize(30)
+        svs::runtime::v0::IndexBlockSize(17)
     );
 }
 
@@ -298,7 +299,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSLVQ4x4", "[runtime]") {
         test_n,
         test_d,
         svs::runtime::v0::StorageKind::LVQ4x4,
-        svs::runtime::v0::IndexBlockSize(30)
+        svs::runtime::v0::IndexBlockSize(18)
     );
 }
 
@@ -321,7 +322,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVec4x4", "[runtime]") {
         test_n,
         test_d,
         svs::runtime::v0::StorageKind::LeanVec4x4,
-        svs::runtime::v0::IndexBlockSize(30)
+        svs::runtime::v0::IndexBlockSize(19)
     );
 }
 
