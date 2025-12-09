@@ -729,19 +729,13 @@ class MutableVamanaIndex {
     }
 
     lib::PowerOfTwo blocksize_bytes() const {
-        if constexpr (std::is_same_v<
-                          Data,
-                          svs::data::SimpleData<
-                              typename Data::element_type,
-                              Data::value_type::extent,
-                              typename Data::allocator_type>>) {
-            if constexpr (is_specialization_of<
-                              svs::data::Blocked,
-                              typename Data::allocator_type>::value) {
-                return data_.blocksize_bytes();
-            }
+        if constexpr (is_specialization_of<
+                          svs::data::Blocked,
+                          typename Data::allocator_type>::value) {
+            return data_.blocksize_bytes();
+        } else {
+            return lib::PowerOfTwo(0);
         }
-        return lib::PowerOfTwo(0);
     }
 
     ///

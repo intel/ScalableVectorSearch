@@ -259,9 +259,11 @@ struct StorageFactory<SQStorageType> {
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)
+        svs::lib::PowerOfTwo blocksize_bytes
     ) {
-        return SQStorageType::compress(data, pool);
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename StorageType::allocator_type alloc(parameters);
+        return SQStorageType::compress(data, pool, alloc);
     }
 
     template <typename... Args>
@@ -294,9 +296,11 @@ struct StorageFactory<LVQStorageType> {
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)
+        svs::lib::PowerOfTwo blocksize_bytes
     ) {
-        return LVQStorageType::compress(data, pool, 0);
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename LVQStorageType::allocator_type alloc(parameters);
+        return LVQStorageType::compress(data, pool, 0, alloc);
     }
 
     template <typename... Args>
@@ -329,15 +333,17 @@ struct StorageFactory<LeanVecStorageType> {
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes),
+        svs::lib::PowerOfTwo blocksize_bytes,
         size_t leanvec_d = 0,
         std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
     ) {
         if (leanvec_d == 0) {
             leanvec_d = (data.dimensions() + 1) / 2;
         }
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename LeanVecStorageType::allocator_type alloc(parameters);
         return LeanVecStorageType::reduce(
-            data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}
+            data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}, alloc
         );
     }
 

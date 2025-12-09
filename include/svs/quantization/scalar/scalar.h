@@ -397,6 +397,13 @@ class SQDataset {
 
     const_value_type get_datum(size_t i) const { return data_.get_datum(i); }
 
+    ///
+    /// Return the blocksize with respect to bytes.
+    ///
+    lib::PowerOfTwo blocksize_bytes() const {
+        return data_.get_allocator().parameters().blocksize_bytes;
+    }
+
     std::vector<float> decompress_datum(size_t i) const {
         auto datum = get_datum(i);
         std::vector<float> buffer(datum.size());

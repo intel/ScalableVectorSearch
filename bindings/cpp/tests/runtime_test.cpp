@@ -358,6 +358,47 @@ CATCH_TEST_CASE("LeanVecWithTrainingData", "[runtime]") {
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("LeanVecWithTrainingDataCustomBlockSize", "[runtime]") {
+    const auto& test_data = get_test_data();
+    // Build LeanVec index with explicit training
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        32,
+        build_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data - should work with provided leanvec dims
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    int block_size_exp = 17; // block_size_bytes = 2^block_size_exp
+    status = index->add(
+        test_n,
+        labels.data(),
+        test_data.data(),
+        svs::runtime::v0::IndexBlockSize(block_size_exp)
+    );
+    CATCH_REQUIRE(status.ok());
+
+    CATCH_REQUIRE(index->blocksize_bytes().raw() == block_size_exp);
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
 CATCH_TEST_CASE("TrainingDataCustomBlockSize", "[runtime]") {
     const auto& test_data = get_test_data();
     // Build LeanVec index with explicit training
