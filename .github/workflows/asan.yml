@@ -1,0 +1,54 @@
+name: Linux ASan Test
+run-name: ${{ github.event.inputs.run_name || github.event.pull_request.title }}
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  asan-test:
+    name: Clang ASan
+    runs-on: [self-hosted, Linux, ubuntu-22.04]
+    env:
+      CXX: clang++-15
+      CC: clang-15
+
+    steps:
+      - name: "Cleanup build folder"
+        run: |
+          ls -la ./
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.??* || true
+          ls -la ./
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Configure build
+        working-directory: ${{ runner.temp }}
+        env:
+          TEMP_WORKSPACE: ${{ runner.temp }}
+        run: |
+          cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
+                -DCMAKE_BUILD_TYPE=Debug \
+                -DCMAKE_CXX_FLAGS="-fsanitize=address -fno-omit-frame-pointer -g" \
+                -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address" \
+                -DSVS_BUILD_TESTS=YES \
+                -DSVS_BUILD_BINARIES=NO \
+                -DSVS_BUILD_EXAMPLES=NO
+
+      - name: Build tests
+        working-directory: ${{ runner.temp }}/build
+        run: make tests -j10
+
+      - name: Run tests
+        env:
+          CTEST_OUTPUT_ON_FAILURE: 1
+          ASAN_OPTIONS: detect_leaks=0
+        working-directory: ${{ runner.temp }}/build/tests
+        run: ./tests "[distance][simd][asan]"
