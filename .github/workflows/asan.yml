@@ -1,4 +1,4 @@
-name: Linux ASan Test
+name: Linux Build and Test
 run-name: ${{ github.event.inputs.run_name || github.event.pull_request.title }}
 
 on:
@@ -11,11 +11,11 @@ concurrency:
 
 jobs:
   asan-test:
-    name: Clang ASan
+    name: clang-18 fsanitize=address
     runs-on: [self-hosted, Linux, ubuntu-22.04]
     env:
-      CXX: clang++-15
-      CC: clang-15
+      CXX: clang++-18
+      CC: clang-18
 
     steps:
       - name: "Cleanup build folder"
@@ -44,11 +44,11 @@ jobs:
 
       - name: Build tests
         working-directory: ${{ runner.temp }}/build
-        run: make tests -j10
+        run: make tests -j
 
       - name: Run tests
         env:
           CTEST_OUTPUT_ON_FAILURE: 1
           ASAN_OPTIONS: detect_leaks=0
         working-directory: ${{ runner.temp }}/build/tests
-        run: ./tests "[distance][simd][asan]"
+        run: ./tests
