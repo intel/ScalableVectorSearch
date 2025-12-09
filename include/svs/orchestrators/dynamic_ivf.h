@@ -18,6 +18,7 @@
 
 #include "svs/index/ivf/dynamic_ivf.h"
 #include "svs/index/ivf/index.h"
+#include "svs/lib/bfloat16.h"
 #include "svs/orchestrators/ivf.h"
 #include "svs/orchestrators/manager.h"
 
@@ -226,7 +227,9 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         const DataProto& data_proto,
         std::span<const size_t> ids,
         Distance distance,
-        ThreadPoolProto threadpool_proto
+        ThreadPoolProto threadpool_proto,
+        size_t intra_query_threads = 1,
+        size_t num_clustering_threads = 0
     ) {
         // Handle DistanceType enum by dispatching to concrete distance types
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
@@ -237,7 +240,9 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
                     data_proto,
                     ids,
                     distance_function,
-                    std::move(threadpool_proto)
+                    std::move(threadpool_proto),
+                    intra_query_threads,
+                    num_clustering_threads
                 );
             });
         } else {
@@ -247,10 +252,13 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
             auto data = svs::detail::dispatch_load(data_proto, threadpool);
 
             // Build clustering first
-            using BuildType = float; // Use float for building centroids
+            using BuildType = BFloat16; // Use BFloat16 for building centroids
             // Note: build_clustering takes threadpool by value, so we need a copy
             auto clustering = [&]() {
-                auto threadpool_copy = threads::NativeThreadPool(threadpool.size());
+                size_t clustering_threads = (num_clustering_threads == 0)
+                                                ? threadpool.size()
+                                                : num_clustering_threads;
+                auto threadpool_copy = threads::NativeThreadPool(clustering_threads);
                 return index::ivf::build_clustering<BuildType>(
                     build_parameters, data, distance, std::move(threadpool_copy), false
                 );
@@ -263,7 +271,8 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
                 data, // Pass by const reference - build_dynamic_ivf will create BlockedData
                 ids,
                 distance,
-                std::move(threadpool)
+                std::move(threadpool),
+                intra_query_threads
             );
 
             return DynamicIVF(

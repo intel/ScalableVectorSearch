@@ -944,15 +944,26 @@ auto build_dynamic_ivf(
     const SourceData& source_data,
     std::span<const size_t> ids,
     Distance distance,
-    ThreadPoolProto threadpool_proto
+    ThreadPoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1
 ) {
     using I = uint32_t;
     using ElementType = typename SourceData::element_type;
-    using BlockedDataType = data::
-        SimpleData<ElementType, Dynamic, data::Blocked<HugepageAllocator<ElementType>>>;
+    // Use default lib::Allocator instead of HugepageAllocator to avoid memory issues
+    using BlockedDataType =
+        data::SimpleData<ElementType, Dynamic, data::Blocked<lib::Allocator<ElementType>>>;
     using Cluster = DynamicDenseCluster<BlockedDataType, I>;
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // Use a small block size for IVF clusters (1MB instead of 1GB default)
+    // With many clusters, large blocks cause excessive memory usage
+    auto blocking_params = data::BlockingParameters{
+        .blocksize_bytes = lib::PowerOfTwo(20) // 2^20 = 1MB
+    };
+    auto blocked_allocator = data::Blocked<lib::Allocator<ElementType>>(
+        blocking_params, lib::Allocator<ElementType>()
+    );
 
     // Create dynamic clusters from the clustering
     std::vector<Cluster> clusters;
@@ -962,8 +973,9 @@ auto build_dynamic_ivf(
         const auto& cluster_assignments = clustering.cluster(cluster_idx);
         size_t cluster_size = cluster_assignments.size();
 
-        // Create BlockedData for this cluster
-        auto cluster_data = BlockedDataType(cluster_size, source_data.dimensions());
+        // Create BlockedData for this cluster with custom block size
+        auto cluster_data =
+            BlockedDataType(cluster_size, source_data.dimensions(), blocked_allocator);
         std::vector<I> cluster_ids;
         cluster_ids.reserve(cluster_size);
 
@@ -982,7 +994,8 @@ auto build_dynamic_ivf(
         std::move(clusters),
         ids,
         std::move(distance),
-        std::move(threadpool)
+        std::move(threadpool),
+        intra_query_thread_count
     );
 }
 

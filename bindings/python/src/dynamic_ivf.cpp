@@ -51,7 +51,9 @@ svs::DynamicIVF build_from_array(
     py_contiguous_array_t<ElementType> py_data,
     py_contiguous_array_t<size_t> py_ids,
     svs::DistanceType distance_type,
-    size_t num_threads
+    size_t num_index_threads,
+    size_t intra_query_threads,
+    size_t num_clustering_threads
 ) {
     auto dispatcher = svs::DistanceDispatcher(distance_type);
     return dispatcher([&](auto distance) {
@@ -66,7 +68,9 @@ svs::DynamicIVF build_from_array(
             data_view,
             std::span(py_ids.data(), py_ids.size()),
             distance,
-            num_threads
+            num_index_threads,
+            intra_query_threads,
+            num_clustering_threads
         );
     });
 }
@@ -81,7 +85,9 @@ Args:
         dataset. This may change in future releases.
     ids: Vector of ids to assign to each row in the dataset; must match dataset length and contain unique values.
     distance_type: The distance type to use for this dataset.
-    num_threads: Number of threads to use for index construction.
+    num_index_threads: Number of threads to use for index construction and search.
+    intra_query_threads: Number of threads to use for intra-query parallelism. Default: 1.
+    num_clustering_threads: Number of threads to use for clustering. Default: 0 (use num_index_threads).
 )";
 
 template <typename ElementType>
@@ -93,7 +99,9 @@ void add_build_specialization(py::class_<svs::DynamicIVF>& index) {
         py::arg("data"),
         py::arg("ids"),
         py::arg("distance_type"),
-        py::arg("num_threads"),
+        py::arg("num_index_threads"),
+        py::arg("intra_query_threads") = 1,
+        py::arg("num_clustering_threads") = 0,
         BUILD_FROM_ARRAY_DOC
     );
 }
@@ -108,10 +116,18 @@ svs::DynamicIVF dynamic_ivf_build_uncompressed(
     svs::VectorDataLoader<T, N, RebindAllocator<T>> data_loader,
     std::span<const size_t> ids,
     svs::DistanceType distance_type,
-    size_t num_threads
+    size_t num_index_threads,
+    size_t intra_query_threads,
+    size_t num_clustering_threads
 ) {
     return svs::DynamicIVF::build<Q>(
-        parameters, std::move(data_loader), ids, distance_type, num_threads
+        parameters,
+        std::move(data_loader),
+        ids,
+        distance_type,
+        num_index_threads,
+        intra_query_threads,
+        num_clustering_threads
     );
 }
 
@@ -121,6 +137,8 @@ using DynamicIVFBuildFromFileDispatcher = svs::lib::Dispatcher<
     UnspecializedVectorDataLoader,
     std::span<const size_t>,
     svs::DistanceType,
+    size_t,
+    size_t,
     size_t>;
 
 DynamicIVFBuildFromFileDispatcher dynamic_ivf_build_from_file_dispatcher() {
@@ -138,11 +156,19 @@ svs::DynamicIVF dynamic_ivf_build_from_file(
     UnspecializedVectorDataLoader data_loader,
     const py_contiguous_array_t<size_t>& py_ids,
     svs::DistanceType distance_type,
-    size_t num_threads
+    size_t num_index_threads,
+    size_t intra_query_threads,
+    size_t num_clustering_threads
 ) {
     auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
     return dynamic_ivf_build_from_file_dispatcher().invoke(
-        parameters, std::move(data_loader), ids, distance_type, num_threads
+        parameters,
+        std::move(data_loader),
+        ids,
+        distance_type,
+        num_index_threads,
+        intra_query_threads,
+        num_clustering_threads
     );
 }
 
@@ -154,7 +180,9 @@ Args:
     data_loader: Data loader (e.g., a VectorDataLoader instance).
     ids: Vector of ids to assign to each row in the dataset; must match dataset length and contain unique values.
     distance_type: The similarity function to use for this index.
-    num_threads: Number of threads to use for index construction. Default: 1.
+    num_index_threads: Number of threads to use for index construction and search. Default: 1.
+    intra_query_threads: Number of threads to use for intra-query parallelism. Default: 1.
+    num_clustering_threads: Number of threads to use for clustering. Default: 0 (use num_index_threads).
 
 Specializations compiled into the binary are listed below.
 
@@ -367,7 +395,9 @@ void wrap(py::module& m) {
             py::arg("data_loader"),
             py::arg("ids"),
             py::arg("distance_type"),
-            py::arg("num_threads") = 1,
+            py::arg("num_index_threads") = 1,
+            py::arg("intra_query_threads") = 1,
+            py::arg("num_clustering_threads") = 0,
             fmt::format(DYNAMIC_IVF_BUILD_FROM_FILE_DOCSTRING_PROTO, dynamic).c_str()
         );
     }
