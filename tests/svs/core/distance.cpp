@@ -20,6 +20,9 @@
 // catch 2
 #include "catch2/catch_test_macros.hpp"
 
+#include <numeric>
+#include <vector>
+
 namespace {
 
 std::string_view test_table = R"(
@@ -92,5 +95,60 @@ CATCH_TEST_CASE("Distance Utils", "[core][distance][distance_type]") {
                 svs::ANNException
             );
         }
+    }
+}
+
+CATCH_TEST_CASE("Distance asan L2", "[distance][simd][asan][l2]") {
+    // Try various sizes to hit the case where vector capacity == size
+    // and the SIMD load reads past the end into the redzone.
+    // We test sizes that are not multiples of 8 (AVX2 width) or 16 (AVX512 width).
+    for (size_t size = 1; size < 128; ++size) {
+        std::vector<float> a(size);
+        std::vector<float> b(size);
+
+        std::iota(a.begin(), a.end(), 0.0f);
+        std::iota(b.begin(), b.end(), 1.0f);
+
+        // Ensure no spare capacity
+        a.shrink_to_fit();
+        b.shrink_to_fit();
+
+        auto dist = svs::distance::L2::compute(a.data(), b.data(), size);
+        CATCH_REQUIRE(dist >= 0);
+    }
+}
+
+CATCH_TEST_CASE("Distance asan Cosine", "[distance][simd][asan][cosine]") {
+    for (size_t size = 1; size < 128; ++size) {
+        std::vector<float> a(size);
+        std::vector<float> b(size);
+
+        std::iota(a.begin(), a.end(), 0.0f);
+        std::iota(b.begin(), b.end(), 1.0f);
+
+        // Ensure no spare capacity
+        a.shrink_to_fit();
+        b.shrink_to_fit();
+
+        auto dist =
+            svs::distance::CosineSimilarity::compute(a.data(), b.data(), 1.0f, size);
+        CATCH_REQUIRE(dist >= 0);
+    }
+}
+
+CATCH_TEST_CASE("Distance asan IP", "[distance][simd][asan][ip]") {
+    for (size_t size = 1; size < 128; ++size) {
+        std::vector<float> a(size);
+        std::vector<float> b(size);
+
+        std::iota(a.begin(), a.end(), 0.0f);
+        std::iota(b.begin(), b.end(), 1.0f);
+
+        // Ensure no spare capacity
+        a.shrink_to_fit();
+        b.shrink_to_fit();
+
+        auto dist = svs::distance::IP::compute(a.data(), b.data(), size);
+        CATCH_REQUIRE(dist >= 0);
     }
 }
