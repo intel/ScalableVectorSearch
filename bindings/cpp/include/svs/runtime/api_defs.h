@@ -81,6 +81,18 @@ template <typename T> bool is_specified(const T& value) {
     return value != Unspecified<T>::value;
 }
 
+inline void set_if_specified(bool& target, const OptionalBool& value) {
+    if (is_specified(value)) {
+        target = value.is_enabled();
+    }
+}
+
+template <typename T> void set_if_specified(T& target, const T& value) {
+    if (is_specified(value)) {
+        target = value;
+    }
+}
+
 enum class MetricType { L2, INNER_PRODUCT };
 
 enum class StorageKind {

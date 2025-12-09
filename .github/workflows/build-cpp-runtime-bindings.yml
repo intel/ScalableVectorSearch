@@ -37,6 +37,15 @@ concurrency:
 jobs:
   build-cpp-runtime-bindings:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: "with static library"
+            enable_lvq_leanvec: "ON"
+            suffix: ""
+          - name: "public only"
+            enable_lvq_leanvec: "OFF"
+            suffix: "-public-only"
 
     steps:
       - uses: actions/checkout@v5
@@ -50,14 +59,16 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
+            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
+            -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
             /bin/bash -c "chmod +x docker/x86_64/build-cpp-runtime-bindings.sh && ./docker/x86_64/build-cpp-runtime-bindings.sh"
 
       - name: Upload cpp runtime bindings artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: svs-cpp-runtime-bindings
-          path: svs-cpp-runtime-bindings.tar.gz
+          name: svs-cpp-runtime-bindings${{ matrix.suffix }}
+          path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
 
       - name: Run unit tests in Docker container
@@ -72,6 +83,13 @@ jobs:
   test:
     needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: "with static library"
+            suffix: ""
+          - name: "public only"
+            suffix: "-public-only"
 
     steps:
       - uses: actions/checkout@v5
@@ -84,7 +102,7 @@ jobs:
       - name: Download shared libraries
         uses: actions/download-artifact@v4
         with:
-          name: svs-cpp-runtime-bindings
+          name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: runtime_lib
 
       - name: List available artifacts
@@ -97,5 +115,6 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -v ${{ github.workspace }}/runtime_lib:/runtime_lib \
             -w /workspace \
+            -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
             /bin/bash -c "chmod +x docker/x86_64/test-cpp-runtime-bindings.sh && ./docker/x86_64/test-cpp-runtime-bindings.sh"

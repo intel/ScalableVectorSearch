@@ -24,11 +24,11 @@ mkdir -p /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindi
 
 # Build and install runtime bindings library
 cd /workspace/bindings/cpp/build_cpp_bindings
-CC=gcc CXX=g++ cmake .. -S /workspace -DSVS_BUILD_RUNTIME_TESTS=ON -DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings -DCMAKE_INSTALL_LIBDIR=lib
+CC=gcc CXX=g++ cmake .. -S /workspace -DSVS_BUILD_RUNTIME_TESTS=ON -DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings -DCMAKE_INSTALL_LIBDIR=lib -DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}
 cmake --build . -j
 cmake --install .
 
 # Create tarball with symlink for compatibility
 cd /workspace/install_cpp_bindings && \
 ln -s lib lib64 && \
-tar -czvf /workspace/svs-cpp-runtime-bindings.tar.gz .
+tar -czvf /workspace/svs-cpp-runtime-bindings${SUFFIX}.tar.gz .
