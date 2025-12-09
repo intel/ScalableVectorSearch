@@ -333,7 +333,7 @@ template <> struct ConvertToFloat<8> {
     // from float
     static __m256 load(const float* ptr) { return _mm256_loadu_ps(ptr); }
     static __m256 load(mask_t m, const float* ptr) {
-        // Full width load with blending may case out-of-bounds read (SEGV)
+        // Full width load with blending may cause out-of-bounds read (SEGV)
         // Therefore we use _mm256_maskload_ps which safely handles masked loads
         auto mask_vec = _mm256_castps_si256(create_blend_mask_avx2(m));
         return _mm256_maskload_ps(ptr, mask_vec);
