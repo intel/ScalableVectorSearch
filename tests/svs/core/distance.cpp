@@ -132,42 +132,39 @@ CATCH_TEMPLATE_TEST_CASE(
 
     CATCH_SECTION("Default") { run_test(); }
 
-    CATCH_SECTION("No AVX512VNNI") {
-        if (!svs::detail::avx_runtime_flags.is_avx512vnni_supported()) {
-            CATCH_SKIP("AVX512VNNI not supported on this platform");
+    if (svs::detail::avx_runtime_flags.is_avx512vnni_supported()) {
+        CATCH_SECTION("No AVX512VNNI") {
+            auto& mutable_flags =
+                const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+            auto original = mutable_flags;
+            mutable_flags.avx512vnni = false;
+            run_test();
+            mutable_flags = original;
         }
-        auto& mutable_flags =
-            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
-        auto original = mutable_flags;
-        mutable_flags.avx512vnni = false;
-        run_test();
-        mutable_flags = original;
     }
 
-    CATCH_SECTION("No AVX512F") {
-        if (!svs::detail::avx_runtime_flags.is_avx512f_supported()) {
-            CATCH_SKIP("AVX512F not supported on this platform");
+    if (svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+        CATCH_SECTION("No AVX512F") {
+            auto& mutable_flags =
+                const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+            auto original = mutable_flags;
+            mutable_flags.avx512vnni = false;
+            mutable_flags.avx512f = false;
+            run_test();
+            mutable_flags = original;
         }
-        auto& mutable_flags =
-            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
-        auto original = mutable_flags;
-        mutable_flags.avx512vnni = false;
-        mutable_flags.avx512f = false;
-        run_test();
-        mutable_flags = original;
     }
 
-    CATCH_SECTION("No AVX2") {
-        if (!svs::detail::avx_runtime_flags.is_avx2_supported()) {
-            CATCH_SKIP("AVX2 not supported on this platform");
+    if (svs::detail::avx_runtime_flags.is_avx2_supported()) {
+        CATCH_SECTION("No AVX2") {
+            auto& mutable_flags =
+                const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+            auto original = mutable_flags;
+            mutable_flags.avx512vnni = false;
+            mutable_flags.avx512f = false;
+            mutable_flags.avx2 = false;
+            run_test();
+            mutable_flags = original;
         }
-        auto& mutable_flags =
-            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
-        auto original = mutable_flags;
-        mutable_flags.avx512vnni = false;
-        mutable_flags.avx512f = false;
-        mutable_flags.avx2 = false;
-        run_test();
-        mutable_flags = original;
     }
 }
