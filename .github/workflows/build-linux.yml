@@ -86,7 +86,6 @@ jobs:
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
               -DSVS_BUILD_TESTS=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=YES \
               -DSVS_NO_AVX512=NO \
               -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }} \
               ${{ matrix.cmake_extra_args }}
