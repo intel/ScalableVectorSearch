@@ -132,6 +132,7 @@ CATCH_TEMPLATE_TEST_CASE(
 
     CATCH_SECTION("Default") { run_test(); }
 
+#ifdef __x86_64__
     if (svs::detail::avx_runtime_flags.is_avx512vnni_supported()) {
         CATCH_SECTION("No AVX512VNNI") {
             auto& mutable_flags =
@@ -167,4 +168,5 @@ CATCH_TEMPLATE_TEST_CASE(
             mutable_flags = original;
         }
     }
+#endif // __x86_64__
 }
