@@ -39,5 +39,5 @@ CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
         CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512f_supported() == false);
         mutable_flags.avx512f = original;
     }
-#endifx
+#endif
 }
