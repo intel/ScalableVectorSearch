@@ -18,9 +18,6 @@ set -e
 # Source environment setup (for compiler and MKL)
 source /etc/bashrc || true
 
-# chmod +x docker/x86_64/list-dependencies.sh
-# ./docker/x86_64/list-dependencies.sh
-
 # FAISS validation scope for now
 # Create conda env matching https://github.com/facebookresearch/faiss/blob/main/.github/actions/build_cmake/action.yml
 conda create -y -n svsenv python=3.11
@@ -31,22 +28,20 @@ conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0"
 conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
 conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 
-# TODO: point to root repo eventually
-git clone -b svs-io https://github.com/ahuber21/faiss.git
+# Validate python and C++ tests against FAISS CI
+git clone https://github.com/facebookresearch/faiss.git
 cd faiss
-sed -i "s|set(SVS_URL .*|set(SVS_URL \"file:///runtime_lib/svs-cpp-runtime-bindings${SUFFIX}.tar.gz\" CACHE STRING \"SVS URL\")|" faiss/CMakeLists.txt
 
 echo "================================================"
 echo " Runnning validation of library against FAISS CI"
 echo "------------------------------------------------"
 echo " FAISS Build: "
 mkdir build && cd build
-# TODO: create conda env
-cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF ..
-make -j swigfaiss faiss_test
+cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF -DSVS_URL="file:///runtime_lib/svs-cpp-runtime-bindings${SUFFIX}.tar.gz" ..
+make -j$(nproc) swigfaiss faiss_test
 echo "------------------------------------------------"
 echo " FAISS C++ tests: "
-./tests/faiss_test --gtest_filter="SVS.*:SVS_LL.*:SVS_NoLL.*"
+./tests/faiss_test --gtest_filter=SVS.*
 echo "------------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
@@ -55,5 +50,3 @@ echo "------------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
 PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs.py
-
-# TODO: C++ tests

@@ -13,21 +13,15 @@
 # limitations under the License.
 
 name: Build C++ Runtime Bindings
-run-name: ${{ github.event.inputs.run_name || github.event.pull_request.title }}
 
 on:
-  workflow_dispatch:
-    inputs:
-      run_name:
-        description: "Custom workflow name"
-        required: false
-      submodule_url:
-        description: "Submodule url (e.g. https://github.com/intel/ScalableVectorSearch.git)"
-        required: false
-      submodule_sha:
-        description: "Submodule sha/branch"
-        required: false
+  push:
+    branches:
+      - main
   pull_request:
+
+permissions:
+  contents: read
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
@@ -46,14 +40,15 @@ jobs:
           - name: "public only"
             enable_lvq_leanvec: "OFF"
             suffix: "-public-only"
+      fail-fast: false
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Build Docker image
         run: |
           docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
-          
+
       - name: Build libraries in Docker container
         run: |
           docker run --rm \
@@ -71,6 +66,7 @@ jobs:
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
 
+      # Run unit tests that were built as part of this job
       - name: Run unit tests in Docker container
         continue-on-error: true  # Don't fail the job if tests fail
         run: |
@@ -80,6 +76,7 @@ jobs:
             svs-manylinux228:latest \
             /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --verbose"
 
+  # Run full test script using the built artifacts
   test:
     needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
@@ -92,7 +89,7 @@ jobs:
             suffix: "-public-only"
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Build Docker image
         run: |
