@@ -55,7 +55,9 @@ jobs:
             # address sanitizer flags
             cmake_extra_args: >-
               -DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
+              -DCMAKE_C_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
               -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'
+              -DCMAKE_SHARED_LINKER_FLAGS='-fsanitize=address'
               -DSVS_BUILD_BINARIES=NO
               -DSVS_BUILD_EXAMPLES=NO
             # skip longer-running tests
