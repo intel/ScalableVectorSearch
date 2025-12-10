@@ -24,6 +24,8 @@
 #include <numeric>
 #include <vector>
 
+#include "svs/lib/avx_detection.h"
+
 namespace {
 
 std::string_view test_table = R"(
@@ -108,21 +110,58 @@ CATCH_TEMPLATE_TEST_CASE(
 ) {
     using Distance = TestType;
 
-    // Try various sizes to hit the case where vector capacity == size
-    // and the SIMD load reads past the end into the redzone.
-    // We test sizes that are not multiples of 8 (AVX2 width) or 16 (AVX512 width).
-    for (size_t size = 1; size < 128; ++size) {
-        std::vector<float> a(size);
-        std::vector<float> b(size);
+    auto run_test = []() {
+        // Try various sizes to hit the case where vector capacity == size
+        // and the SIMD load reads past the end into the redzone.
+        // We test sizes that are not multiples of 8 (AVX2 width) or 16 (AVX512 width).
+        for (size_t size = 1; size < 128; ++size) {
+            std::vector<float> a(size);
+            std::vector<float> b(size);
 
-        std::iota(a.begin(), a.end(), 1.0f);
-        std::iota(b.begin(), b.end(), 2.0f);
+            std::iota(a.begin(), a.end(), 1.0f);
+            std::iota(b.begin(), b.end(), 2.0f);
 
-        // Ensure no spare capacity
-        a.shrink_to_fit();
-        b.shrink_to_fit();
+            // Ensure no spare capacity
+            a.shrink_to_fit();
+            b.shrink_to_fit();
 
-        auto dist = svs::distance::compute(Distance(), std::span(a), std::span(b));
-        CATCH_REQUIRE(dist >= 0);
+            auto dist = svs::distance::compute(Distance(), std::span(a), std::span(b));
+            CATCH_REQUIRE(dist >= 0);
+        }
+    };
+
+    CATCH_SECTION("Default") { run_test(); }
+
+    CATCH_SECTION("No AVX512VNNI") {
+        if (!svs::detail::avx_runtime_flags.is_avx512vnni_supported()) {
+            CATCH_SKIP("AVX512VNNI not supported on this platform");
+        }
+        auto original = svs::detail::avx_runtime_flags;
+        svs::detail::avx_runtime_flags.avx512vnni = false;
+        run_test();
+        svs::detail::avx_runtime_flags = original;
+    }
+
+    CATCH_SECTION("No AVX512F") {
+        if (!svs::detail::avx_runtime_flags.is_avx512f_supported()) {
+            CATCH_SKIP("AVX512F not supported on this platform");
+        }
+        auto original = svs::detail::avx_runtime_flags;
+        svs::detail::avx_runtime_flags.avx512vnni = false;
+        svs::detail::avx_runtime_flags.avx512f = false;
+        run_test();
+        svs::detail::avx_runtime_flags = original;
+    }
+
+    CATCH_SECTION("No AVX2") {
+        if (!svs::detail::avx_runtime_flags.is_avx2_supported()) {
+            CATCH_SKIP("AVX2 not supported on this platform");
+        }
+        auto original = svs::detail::avx_runtime_flags;
+        svs::detail::avx_runtime_flags.avx512vnni = false;
+        svs::detail::avx_runtime_flags.avx512f = false;
+        svs::detail::avx_runtime_flags.avx2 = false;
+        run_test();
+        svs::detail::avx_runtime_flags = original;
     }
 }
