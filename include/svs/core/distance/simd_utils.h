@@ -19,7 +19,6 @@
 #if defined(__i386__) || defined(__x86_64__)
 
 #include <array>
-#include <cstring>
 #include <limits>
 #include <type_traits>
 
@@ -333,10 +332,11 @@ template <> struct ConvertToFloat<8> {
     // from float
     static __m256 load(const float* ptr) { return _mm256_loadu_ps(ptr); }
     static __m256 load(mask_t m, const float* ptr) {
-        // Full width load with blending may cause out-of-bounds read (SEGV)
-        // Therefore we use _mm256_maskload_ps which safely handles masked loads
-        auto mask_vec = _mm256_castps_si256(create_blend_mask_avx2(m));
-        return _mm256_maskload_ps(ptr, mask_vec);
+        // AVX2 doesn't have native masked load, so we load and then blend
+        auto data = _mm256_loadu_ps(ptr);
+        auto zero = _mm256_setzero_ps();
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // from float16
@@ -345,10 +345,10 @@ template <> struct ConvertToFloat<8> {
     }
 
     static __m256 load(mask_t m, const Float16* ptr) {
-        // Safe masked load using a temporary buffer to avoid SEGV
-        __m128i buffer = _mm_setzero_si128();
-        std::memcpy(&buffer, ptr, __builtin_popcount(m) * sizeof(Float16));
-        return _mm256_cvtph_ps(buffer);
+        auto data = _mm256_cvtph_ps(_mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr)));
+        auto zero = _mm256_setzero_ps();
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // from uint8
@@ -359,10 +359,12 @@ template <> struct ConvertToFloat<8> {
     }
 
     static __m256 load(mask_t m, const uint8_t* ptr) {
-        // Safe masked load using a temporary buffer to avoid SEGV
-        int64_t buffer = 0;
-        std::memcpy(&buffer, ptr, __builtin_popcount(m) * sizeof(uint8_t));
-        return _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(_mm_cvtsi64_si128(buffer)));
+        auto data = _mm256_cvtepi32_ps(_mm256_cvtepu8_epi32(
+            _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
+        ));
+        auto zero = _mm256_setzero_ps();
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // from int8
@@ -373,10 +375,12 @@ template <> struct ConvertToFloat<8> {
     }
 
     static __m256 load(mask_t m, const int8_t* ptr) {
-        // Safe masked load using a temporary buffer to avoid SEGV
-        int64_t buffer = 0;
-        std::memcpy(&buffer, ptr, __builtin_popcount(m) * sizeof(int8_t));
-        return _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(_mm_cvtsi64_si128(buffer)));
+        auto data = _mm256_cvtepi32_ps(_mm256_cvtepi8_epi32(
+            _mm_cvtsi64_si128(*(reinterpret_cast<const int64_t*>(ptr)))
+        ));
+        auto zero = _mm256_setzero_ps();
+        auto mask_vec = create_blend_mask_avx2(m);
+        return _mm256_blendv_ps(zero, data, mask_vec);
     }
 
     // We do not need to treat the left or right-hand differently.
