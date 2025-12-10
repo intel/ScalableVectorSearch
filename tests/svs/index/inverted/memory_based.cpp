@@ -23,7 +23,7 @@
 #include "tests/utils/test_dataset.h"
 #include <filesystem>
 
-CATCH_TEST_CASE("InvertedIndex Logging Test", "[logging]") {
+CATCH_TEST_CASE("InvertedIndex Logging Test", "[long][logging]") {
     // Vector to store captured log messages
     std::vector<std::string> captured_logs;
     std::vector<std::string> global_captured_logs;
