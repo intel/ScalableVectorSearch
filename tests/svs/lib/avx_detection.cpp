@@ -30,6 +30,7 @@ CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
     std::cout << "AVX512VNNI: " << std::boolalpha
               << svs::detail::avx_runtime_flags.is_avx512vnni_supported() << "\n";
 
+#ifdef __x86_64__
     CATCH_SECTION("Patching") {
         auto& mutable_flags =
             const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
@@ -38,4 +39,5 @@ CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
         CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512f_supported() == false);
         mutable_flags.avx512f = original;
     }
+#endif // __x86_64__
 }
