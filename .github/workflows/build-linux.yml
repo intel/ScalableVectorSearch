@@ -58,8 +58,8 @@ jobs:
               -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'
               -DSVS_BUILD_BINARIES=NO
               -DSVS_BUILD_EXAMPLES=NO
-            # skip longer-running integration tests
-            ctest_args: "-LE integration"
+            # skip longer-running tests
+            ctest_args: "-LE long"
         exclude:
           - cxx: g++-12
             ivf: ON

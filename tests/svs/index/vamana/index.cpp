@@ -181,7 +181,7 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
 }
 
-CATCH_TEST_CASE("Vamana Index Default Parameters", "[parameter][vamana]") {
+CATCH_TEST_CASE("Vamana Index Default Parameters", "[long][parameter][vamana]") {
     using Catch::Approx;
     std::filesystem::path data_path = test_dataset::data_svs_file();
 
