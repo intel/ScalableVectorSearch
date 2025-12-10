@@ -57,53 +57,54 @@ jobs:
             ivf: ON
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - name: Install MKL
-        timeout-minutes: 5
-        run: |
-          .github/scripts/setup_apt_repo_linux.sh
-          sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
-          # Setup environment variables for building against MKL.
-          # Persist the environment variables for use across multiple subsequent actions.
-          source /opt/intel/oneapi/setvars.sh
-          printenv >> $GITHUB_ENV
+    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - name: Install MKL
+      timeout-minutes: 5
+      run: |
+       .github/scripts/setup_apt_repo_linux.sh
+       sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+       # Setup environment variables for building against MKL.
+       # Persist the environment variables for use across multiple subsequent actions.
+       source /opt/intel/oneapi/setvars.sh
+       printenv >> $GITHUB_ENV
 
-      - name: Install Clang 18
-        if: matrix.cxx == 'clang++-18'
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 18
+    - name: Install Clang 18
+      if: matrix.cxx == 'clang++-18'
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 18
 
-      - name: Configure build
-        working-directory: ${{ runner.temp }}
-        env:
-          CXX: ${{ matrix.cxx }}
-          CC: ${{ matrix.cc }}
-          TEMP_WORKSPACE: ${{ runner.temp }}
-        run: |
-          cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
-                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                -DSVS_BUILD_TESTS=YES \
-                -DSVS_EXPERIMENTAL_LEANVEC=YES \
-                -DSVS_NO_AVX512=NO \
-                -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }} \
-                ${{ matrix.cmake_extra_args }}
 
-      - name: Build Tests and Utilities
-        working-directory: ${{ runner.temp }}/build
-        run: make -j$(nproc)
+    - name: Configure build
+      working-directory: ${{ runner.temp }}
+      env:
+        CXX: ${{ matrix.cxx }}
+        CC: ${{ matrix.cc }}
+        TEMP_WORKSPACE: ${{ runner.temp }}
+      run: |
+        cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
+              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DSVS_BUILD_TESTS=YES \
+              -DSVS_EXPERIMENTAL_LEANVEC=YES \
+              -DSVS_NO_AVX512=NO \
+              -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }} \
+              ${{ matrix.cmake_extra_args }}
 
-      - name: Run tests
-        env:
-          CTEST_OUTPUT_ON_FAILURE: 1
-          ASAN_OPTIONS: detect_leaks=0
-        working-directory: ${{ runner.temp }}/build/tests
-        run: ctest -C ${{ matrix.build_type }}
+    - name: Build Tests and Utilities
+      working-directory: ${{ runner.temp }}/build
+      run: make -j$(nproc)
 
-      - name: Run Cpp Examples
-        if: matrix.asan != 'ON'
-        env:
-          CTEST_OUTPUT_ON_FAILURE: 1
-        working-directory: ${{ runner.temp }}/build/examples/cpp
-        run: ctest -C ${{ matrix.build_type }}
+    - name: Run tests
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+        ASAN_OPTIONS: detect_leaks=0
+      working-directory: ${{ runner.temp }}/build/tests
+      run: ctest -C ${{ matrix.build_type }}
+
+    - name: Run Cpp Examples
+      if: matrix.asan != 'ON'
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+      working-directory: ${{ runner.temp }}/build/examples/cpp
+      run: ctest -C ${{ matrix.build_type }}
