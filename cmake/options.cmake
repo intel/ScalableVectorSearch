@@ -174,7 +174,6 @@ target_compile_options(
         -Wno-gnu-zero-variadic-macro-arguments
         -Wno-address-of-packed-member # When calling Intel(R) MKL GEMMs with BFloat16/Float16
         -Wno-parentheses # GCC in CI has issues without it
-        -Wno-deprecated-literal-operator # TODO: remove once eve releases with clang-20 support
 )
 
 
@@ -198,6 +197,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         INTERFACE
         -fconcepts-diagnostics-depth=10
         -ftemplate-backtrace-limit=0
+	-Wno-deprecated-literal-operator # TODO: remove once eve releases with clang-20 support
     )
 
     if (CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 12.0)
