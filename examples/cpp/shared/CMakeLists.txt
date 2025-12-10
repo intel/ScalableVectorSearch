@@ -24,7 +24,7 @@ find_package(svs QUIET)
 if(NOT svs_FOUND)
     # If sourcing from pip/conda, the following steps are not necessary, simplifying workflow
     # If not found, download tarball from GitHub release and follow steps to fetch and find
-    set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.9/svs-shared-library-0.0.9.tar.gz")
+    set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.11/svs-shared-library-0.0.11.tar.gz")
     
     message(STATUS "SVS not found in system, downloading from: ${SVS_URL}")
     

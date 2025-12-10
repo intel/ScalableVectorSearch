@@ -43,9 +43,9 @@ make -j
 
 ### Option 2: Using pip-installed libsvs
 
-Install the `libsvs` package (currently only available from GitHub releases) and ensure CMake can find it by setting `CMAKE_PREFIX_PATH`:
+Install the `libsvs` package and ensure CMake can find it by setting `CMAKE_PREFIX_PATH`:
 ```bash
-pip install https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/libsvs-0.0.10+NIGHTLY20251023.184-py3-none-any.whl
+pip install --index-url https://software.repos.intel.com/python/pypi libsvs
 
 mkdir build
 cd build
