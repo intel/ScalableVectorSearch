@@ -124,5 +124,10 @@ CATCH_TEMPLATE_TEST_CASE(
 
         auto dist = svs::distance::compute(Distance(), std::span(a), std::span(b));
         CATCH_REQUIRE(dist >= 0);
+
+        dist = svs::distance::
+            L2Impl<svs::Dynamic, float, float, svs::distance::AVX_AVAILABILITY::AVX2>::
+                compute(a.data(), b.data(), svs::lib::MaybeStatic(size));
+        CATCH_REQUIRE(dist >= 0);
     }
 }
