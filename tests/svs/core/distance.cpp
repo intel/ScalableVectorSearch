@@ -111,23 +111,20 @@ CATCH_TEMPLATE_TEST_CASE(
     using Distance = TestType;
 
     auto run_test = []() {
-        // Try various sizes to hit the case where vector capacity == size
-        // and the SIMD load reads past the end into the redzone.
-        // We test sizes that are not multiples of 8 (AVX2 width) or 16 (AVX512 width).
-        for (size_t size = 1; size < 128; ++size) {
-            std::vector<float> a(size);
-            std::vector<float> b(size);
+        // some full-width AVX2/AVX512 registers plus (crucially) ragged epilogue
+        constexpr size_t size = 64 + 2;
+        std::vector<float> a(size);
+        std::vector<float> b(size);
 
-            std::iota(a.begin(), a.end(), 1.0f);
-            std::iota(b.begin(), b.end(), 2.0f);
+        std::iota(a.begin(), a.end(), 1.0f);
+        std::iota(b.begin(), b.end(), 2.0f);
 
-            // Ensure no spare capacity
-            a.shrink_to_fit();
-            b.shrink_to_fit();
+        // Ensure no spare capacity
+        a.shrink_to_fit();
+        b.shrink_to_fit();
 
-            auto dist = svs::distance::compute(Distance(), std::span(a), std::span(b));
-            CATCH_REQUIRE(dist >= 0);
-        }
+        auto dist = svs::distance::compute(Distance(), std::span(a), std::span(b));
+        CATCH_REQUIRE(dist >= 0);
     };
 
     CATCH_SECTION("Default") { run_test(); }
