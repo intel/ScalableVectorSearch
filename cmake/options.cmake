@@ -197,7 +197,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         INTERFACE
         -fconcepts-diagnostics-depth=10
         -ftemplate-backtrace-limit=0
-	-Wno-deprecated-literal-operator # TODO: remove once eve releases with clang-20 support
+        -Wno-deprecated-literal-operator # TODO: remove once eve releases with clang-20 support
     )
 
     if (CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 12.0)
