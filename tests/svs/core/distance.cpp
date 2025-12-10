@@ -136,32 +136,38 @@ CATCH_TEMPLATE_TEST_CASE(
         if (!svs::detail::avx_runtime_flags.is_avx512vnni_supported()) {
             CATCH_SKIP("AVX512VNNI not supported on this platform");
         }
-        auto original = svs::detail::avx_runtime_flags;
-        svs::detail::avx_runtime_flags.avx512vnni = false;
+        auto& mutable_flags =
+            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+        auto original = mutable_flags;
+        mutable_flags.avx512vnni = false;
         run_test();
-        svs::detail::avx_runtime_flags = original;
+        mutable_flags = original;
     }
 
     CATCH_SECTION("No AVX512F") {
         if (!svs::detail::avx_runtime_flags.is_avx512f_supported()) {
             CATCH_SKIP("AVX512F not supported on this platform");
         }
-        auto original = svs::detail::avx_runtime_flags;
-        svs::detail::avx_runtime_flags.avx512vnni = false;
-        svs::detail::avx_runtime_flags.avx512f = false;
+        auto& mutable_flags =
+            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+        auto original = mutable_flags;
+        mutable_flags.avx512vnni = false;
+        mutable_flags.avx512f = false;
         run_test();
-        svs::detail::avx_runtime_flags = original;
+        mutable_flags = original;
     }
 
     CATCH_SECTION("No AVX2") {
         if (!svs::detail::avx_runtime_flags.is_avx2_supported()) {
             CATCH_SKIP("AVX2 not supported on this platform");
         }
-        auto original = svs::detail::avx_runtime_flags;
-        svs::detail::avx_runtime_flags.avx512vnni = false;
-        svs::detail::avx_runtime_flags.avx512f = false;
-        svs::detail::avx_runtime_flags.avx2 = false;
+        auto& mutable_flags =
+            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+        auto original = mutable_flags;
+        mutable_flags.avx512vnni = false;
+        mutable_flags.avx512f = false;
+        mutable_flags.avx2 = false;
         run_test();
-        svs::detail::avx_runtime_flags = original;
+        mutable_flags = original;
     }
 }

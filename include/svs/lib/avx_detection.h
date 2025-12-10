@@ -54,6 +54,6 @@ struct AVXRuntimeFlags {
 };
 #endif
 
-inline AVXRuntimeFlags avx_runtime_flags = {};
+inline const AVXRuntimeFlags avx_runtime_flags = {};
 
 } // namespace svs::detail

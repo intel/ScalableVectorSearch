@@ -31,9 +31,11 @@ CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
               << svs::detail::avx_runtime_flags.is_avx512vnni_supported() << "\n";
 
     CATCH_SECTION("Patching") {
-        auto original = svs::detail::avx_runtime_flags.avx512f;
-        svs::detail::avx_runtime_flags.avx512f = false;
+        auto& mutable_flags =
+            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+        auto original = mutable_flags.avx512f;
+        mutable_flags.avx512f = false;
         CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512f_supported() == false);
-        svs::detail::avx_runtime_flags.avx512f = original;
+        mutable_flags.avx512f = original;
     }
 }
