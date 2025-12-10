@@ -335,6 +335,12 @@ class DenseClusteredDataset {
 
     size_t get_prefetch_offset() const { return prefetch_offset_; }
     void set_prefetch_offset(size_t offset) { prefetch_offset_ = offset; }
+
+    // Cluster access
+    const DenseCluster<Data, I>& operator[](size_t cluster) const {
+        return clusters_[cluster];
+    }
+
     auto get_datum(size_t cluster, size_t id) const {
         return clusters_.at(cluster).get_datum(id);
     }
