@@ -39,6 +39,7 @@ jobs:
         cxx: [g++-11, g++-12, clang++-15]
         asan: [OFF]
         cmake_extra_args: ["-DSVS_BUILD_BINARIES=YES -DSVS_BUILD_EXAMPLES=YES"]
+        ctest_args: [""]
         include:
           - cxx: g++-11
             cc: gcc-11
@@ -51,7 +52,14 @@ jobs:
             build_type: Debug
             ivf: OFF
             asan: ON
-            cmake_extra_args: "-DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g' -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address' -DSVS_BUILD_BINARIES=NO -DSVS_BUILD_EXAMPLES=NO"
+            # address sanitizer flags
+            cmake_extra_args: >-
+              -DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
+              -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'
+              -DSVS_BUILD_BINARIES=NO
+              -DSVS_BUILD_EXAMPLES=NO
+            # skip longer-running integration tests
+            ctest_args: "-LE integration"
         exclude:
           - cxx: g++-12
             ivf: ON
@@ -74,7 +82,6 @@ jobs:
         wget https://apt.llvm.org/llvm.sh
         chmod +x llvm.sh
         sudo ./llvm.sh 18
-
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
@@ -99,7 +106,7 @@ jobs:
         CTEST_OUTPUT_ON_FAILURE: 1
         ASAN_OPTIONS: detect_leaks=0
       working-directory: ${{ runner.temp }}/build/tests
-      run: ctest -C ${{ matrix.build_type }}
+      run: ctest -C ${{ matrix.build_type }} ${{ matrix.ctest_args }}
 
     - name: Run Cpp Examples
       if: matrix.asan != 'ON'
