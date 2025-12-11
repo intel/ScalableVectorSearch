@@ -105,9 +105,6 @@ else() # if static link and not custom mkl
             ${MKL_ROOT}/lib/intel64/libmkl_core.a
             -Wl,--end-group -lpthread -lm -ldl
         )
-        if(UNIX AND NOT APPLE)
-            target_link_options(${target} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
-        endif()
         target_include_directories(
             ${target} PRIVATE $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
         )

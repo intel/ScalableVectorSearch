@@ -24,7 +24,21 @@ mkdir -p /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindi
 
 # Build and install runtime bindings library
 cd /workspace/bindings/cpp/build_cpp_bindings
-CC=gcc CXX=g++ cmake .. -DSVS_BUILD_RUNTIME_TESTS=ON -DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings -DCMAKE_INSTALL_LIBDIR=lib -DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}
+
+# Set default cmake args and add SVS_URL if specified
+CMAKE_ARGS=(
+    "-DSVS_BUILD_RUNTIME_TESTS=ON"
+    "-DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings"
+    "-DCMAKE_INSTALL_LIBDIR=lib"
+    "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
+)
+
+if [ -n "$SVS_URL" ]; then
+    CMAKE_ARGS+=("-DSVS_URL=$SVS_URL")
+fi
+
+# Build and install runtime bindings library (from bindings/cpp)
+CC=gcc CXX=g++ cmake .. "${CMAKE_ARGS[@]}"
 cmake --build . -j
 cmake --install .
 

@@ -32,21 +32,21 @@ conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 git clone https://github.com/facebookresearch/faiss.git
 cd faiss
 
-echo "================================================"
-echo " Runnning validation of library against FAISS CI"
-echo "------------------------------------------------"
+echo "==============================================="
+echo " Running validation of library against FAISS CI"
+echo "-----------------------------------------------"
 echo " FAISS Build: "
 mkdir build && cd build
 cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF -DSVS_URL="file:///runtime_lib/svs-cpp-runtime-bindings${SUFFIX}.tar.gz" ..
 make -j$(nproc) swigfaiss faiss_test
-echo "------------------------------------------------"
+echo "-----------------------------------------------"
 echo " FAISS C++ tests: "
 ./tests/faiss_test --gtest_filter=SVS.*
-echo "------------------------------------------------"
+echo "-----------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
 python setup.py build
-echo "------------------------------------------------"
+echo "-----------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
 PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs.py
