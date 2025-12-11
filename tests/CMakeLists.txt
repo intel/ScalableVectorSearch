@@ -37,7 +37,7 @@ set(CMAKE_CXX_STANDARD ${SVS_CXX_STANDARD})
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.4.0
+    GIT_TAG v3.11.0
 )
 
 FetchContent_MakeAvailable(Catch2)
@@ -230,5 +230,4 @@ target_include_directories(tests PRIVATE ${PROJECT_SOURCE_DIR})
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
-catch_discover_tests(tests)
-
+catch_discover_tests(tests ADD_TAGS_AS_LABELS SKIP_IS_FAILURE)
