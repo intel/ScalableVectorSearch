@@ -1,3 +1,4 @@
+---
 # Copyright 2024 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,16 +14,17 @@
 # limitations under the License.
 
 repos:
-  - repo: local
-    hooks:
-      - id: clang-format
-        name: clang-format
-        language: python
-        entry: tools/clang-format.sh
-        args: [clang-format]
-        additional_dependencies: ["clang-format>=15,<16"]
+- repo: local
+  hooks:
+  - id: clang-format
+    name: clang-format
+    language: python
+    entry: tools/clang-format.sh
+    args: [clang-format]
+    additional_dependencies: ['clang-format>=15,<16']
 
-  - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1 # specify latest tag
-    hooks:
-      - id: yamllint
+- repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+  rev: 0.2.3
+  hooks:
+  - id: yamlfmt
+    args: [--mapping, '2', --sequence, '2', --offset, '0', --colons, --width, '150']
