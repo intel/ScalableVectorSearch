@@ -337,6 +337,16 @@ class DynamicIVFIndex {
         return clusters_[cluster_idx].get_datum(pos);
     }
 
+    /// @brief Get raw data by cluster and local position (for extension compatibility)
+    auto get_datum(size_t cluster_idx, size_t local_pos) const {
+        return clusters_[cluster_idx].get_datum(local_pos);
+    }
+
+    /// @brief Get secondary data by cluster and local position (for LeanVec)
+    auto get_secondary(size_t cluster_idx, size_t local_pos) const {
+        return clusters_[cluster_idx].data_.get_secondary(local_pos);
+    }
+
     ///// Distance
 
     /// @brief Compute the distance between an external vector and a vector in the index.
@@ -553,14 +563,15 @@ class DynamicIVFIndex {
                 auto buffer_leaves = create_leaf_buffers(buffer_leaves_size);
 
                 // Prepare cluster search scratch space (distance copy)
-                auto scratch =
-                    extensions::per_thread_batch_search_setup(centroids_, distance_);
+                // Pass cluster data (not centroids) to support quantized datasets
+                auto scratch = extensions::per_thread_batch_search_setup(
+                    clusters_[0].data_, distance_
+                );
 
                 // Execute search with intra-query parallelism
-                // Note: We pass centroids_ as the data parameter (unused) and this as
-                // cluster
+                // Pass cluster data as first parameter to enable dataset-specific overrides
                 extensions::per_thread_batch_search(
-                    centroids_,
+                    clusters_[0].data_,
                     *this,
                     buffer_centroids,
                     buffer_leaves,

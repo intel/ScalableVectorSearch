@@ -230,33 +230,32 @@ struct ComputeDistanceType {
         size_t pos,
         const Query& query
     ) const {
-        return svs_invoke(*this, clusters, distance, cluster_idx, pos, query);
+        return svs_invoke(
+            *this, clusters[cluster_idx].view_cluster(), distance, pos, query
+        );
     }
 };
 
 // CPO for distance computation
 inline constexpr ComputeDistanceType get_distance_ext{};
 
-template <typename Clusters, typename Distance, typename Query>
+// Default overload
+template <typename Data, typename Distance, typename Query>
 double svs_invoke(
     svs::tag_t<get_distance_ext>,
-    const Clusters& clusters,
+    const Data& data,
     const Distance& distance,
-    size_t cluster_idx,
     size_t pos,
     const Query& query
 ) {
-    // Get cluster reference
-    const auto& cluster = clusters[cluster_idx];
-
-    // Get distance function using the cluster's data view
-    auto dist_f = per_thread_batch_search_setup(cluster.view_cluster(), distance);
+    // Get distance function
+    auto dist_f = per_thread_batch_search_setup(data, distance);
     svs::distance::maybe_fix_argument(dist_f, query);
 
-    // Get the vector from the cluster
-    auto indexed_span = cluster.get_datum(pos);
+    // Get the vector
+    auto indexed_span = data.get_datum(pos);
 
-    // Compute the distance using the appropriate distance function
+    // Compute the distance
     auto dist = svs::distance::compute(dist_f, query, indexed_span);
 
     return static_cast<double>(dist);
