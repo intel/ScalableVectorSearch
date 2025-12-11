@@ -340,7 +340,7 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     /// returns ``true``.
     ///
     bool can_skip(float distance) const {
-        return compare_(back().distance(), distance) && full();
+        return full() && (capacity() == 0 || compare_(back().distance(), distance));
     }
 
     ///
