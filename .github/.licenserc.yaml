@@ -1,3 +1,4 @@
+---
 # Copyright 2024 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -32,25 +33,25 @@ header:
       limitations under the License\.
 
   paths:
-    - '**'
+  - '**'
 
   paths-ignore: # `paths-ignore` are the path list that will be ignored by license-eye.
-    - '.clang-format'
-    - '.clang-tidy'
-    - '.gitignore'
-    - '.github/scripts/setup_apt_repo_linux.sh'
-    - 'HISTORY.md'
-    - 'NEWS.md'
-    - 'LICENSE'
-    - 'THIRD-PARTY-PROGRAMS'
-    - '.github/renovate.json'
-    - '.github/CODEOWNERS'
-    - 'cmake/mkl_functions'
-    - 'cmake/mkl_functions_ivf'
-    - 'cmake/patches/tomlplusplus_v330.patch'
-    - 'docker/x86_64/manylinux2014/oneAPI.repo'
-    - 'docs/cpp/index/loader-compatibility.csv'
-    - 'docs/requirements.txt'
+  - .clang-format
+  - .clang-tidy
+  - .gitignore
+  - .github/scripts/setup_apt_repo_linux.sh
+  - HISTORY.md
+  - NEWS.md
+  - LICENSE
+  - THIRD-PARTY-PROGRAMS
+  - .github/renovate.json
+  - .github/CODEOWNERS
+  - cmake/mkl_functions
+  - cmake/mkl_functions_ivf
+  - cmake/patches/tomlplusplus_v330.patch
+  - docker/x86_64/manylinux2014/oneAPI.repo
+  - docs/cpp/index/loader-compatibility.csv
+  - docs/requirements.txt
 
   comment: never
 

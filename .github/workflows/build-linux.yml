@@ -1,3 +1,4 @@
+---
 # Copyright 2023 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +18,7 @@ name: Linux Build and Test
 on:
   push:
     branches:
-      - main
+    - main
   pull_request:
 
 permissions:
@@ -25,7 +26,7 @@ permissions:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
-  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,27 +39,27 @@ jobs:
         ivf: [OFF, ON]
         cxx: [g++-11, g++-12, clang++-15]
         include:
-          - cxx: g++-11
-            cc: gcc-11
-          - cxx: g++-12
-            cc: gcc-12
-          - cxx: clang++-15
-            cc: clang-15
+        - cxx: g++-11
+          cc: gcc-11
+        - cxx: g++-12
+          cc: gcc-12
+        - cxx: clang++-15
+          cc: clang-15
         exclude:
-          - cxx: g++-12
-            ivf: ON
+        - cxx: g++-12
+          ivf: ON
 
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
     - name: Install MKL
       timeout-minutes: 5
       run: |
-       .github/scripts/setup_apt_repo_linux.sh
-       sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
-       # Setup environment variables for building against MKL.
-       # Persist the environment variables for use across multiple subsequent actions.
-       source /opt/intel/oneapi/setvars.sh
-       printenv >> $GITHUB_ENV
+        .github/scripts/setup_apt_repo_linux.sh
+        sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+        # Setup environment variables for building against MKL.
+        # Persist the environment variables for use across multiple subsequent actions.
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
 
     - name: Configure build
       working-directory: ${{ runner.temp }}
@@ -82,12 +83,12 @@ jobs:
 
     - name: Run tests
       env:
-          CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
 
     - name: Run Cpp Examples
       env:
-          CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/examples/cpp
       run: ctest -C RelWithDebugInfo

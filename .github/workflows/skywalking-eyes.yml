@@ -1,3 +1,4 @@
+---
 # Copyright 2024 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +18,10 @@ name: Check License Header
 on:
   pull_request:
     branches:
-      - main
+    - main
   push:
     branches:
-      - main
+    - main
 
 permissions: read-all
 
@@ -33,10 +34,10 @@ jobs:
     name: Copyright Check
     runs-on: ubuntu-24.04
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-      - name: "Run check"
-        uses: apache/skywalking-eyes/header@61275cc80d0798a405cb070f7d3a8aaf7cf2c2c1 # v0.8.0
-        with:
-          config: ".github/.licenserc.yaml"
-          mode: "check"
+    - name: Checkout code
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8   # v6.0.1
+    - name: Run check
+      uses: apache/skywalking-eyes/header@61275cc80d0798a405cb070f7d3a8aaf7cf2c2c1   # v0.8.0
+      with:
+        config: .github/.licenserc.yaml
+        mode: check
