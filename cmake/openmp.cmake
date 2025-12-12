@@ -18,4 +18,3 @@ if (OPENMP_CXX_FOUND)
 else()
     message(FATAL_ERROR "no OpenMP support")
 endif()
-

@@ -1,10 +1,10 @@
 # C/C++ library code
 /include/               @ibhati @ahuber21
-/cmake/                 @mihaic @ibhati @ahuber21 
-/tests/                 @mihaic @ibhati @ahuber21 @yuejiaointel 
-/benchmark/             @mihaic @ibhati @ahuber21 
-/tools/                 @mihaic @ibhati @ahuber21 
-/utils/                 @mihaic @ibhati @ahuber21 
+/cmake/                 @mihaic @ibhati @ahuber21
+/tests/                 @mihaic @ibhati @ahuber21 @yuejiaointel
+/benchmark/             @mihaic @ibhati @ahuber21
+/tools/                 @mihaic @ibhati @ahuber21
+/utils/                 @mihaic @ibhati @ahuber21
 
 # Python and other language bindings
 /bindings/              @ethanglaser @ibhati @ahuber21
@@ -14,7 +14,7 @@
 /data/                  @ibhati @ahuber21
 
 # Docker and build environment
-/docker/                @mihaic @ahuber21 
+/docker/                @mihaic @ahuber21
 
 # CI and infra
 /.github                @mihaic @homksei @yuejiaointel @ethanglaser
