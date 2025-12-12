@@ -16,18 +16,18 @@
 
 #pragma once
 
+#include "svs/runtime/training.h"
+
 #include "svs_runtime_utils.h"
-
-#include <svs/runtime/training.h>
-
-#include <cstddef>
-#include <memory>
 
 #include <svs/core/data.h>
 #include <svs/core/medioid.h>
 #include <svs/lib/saveload.h>
 #include <svs/lib/threads.h>
 #include SVS_LEANVEC_HEADER
+
+#include <cstddef>
+#include <memory>
 
 namespace svs {
 namespace runtime {

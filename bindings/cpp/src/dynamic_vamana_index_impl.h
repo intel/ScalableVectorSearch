@@ -16,14 +16,9 @@
 
 #pragma once
 
+#include "svs/runtime/vamana_index.h"
+
 #include "svs_runtime_utils.h"
-
-#include <svs/runtime/vamana_index.h>
-
-#include <algorithm>
-#include <memory>
-#include <variant>
-#include <vector>
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
@@ -34,6 +29,11 @@
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
+
+#include <algorithm>
+#include <memory>
+#include <variant>
+#include <vector>
 
 namespace svs {
 namespace runtime {
@@ -85,9 +85,9 @@ class DynamicVamanaIndexImpl {
     ) const {
         if (!impl_) {
             auto& dists = result.distances();
-            std::fill(dists.begin(), dists.end(), std::numeric_limits<float>::infinity());
+            std::fill(dists.begin(), dists.end(), Unspecify<float>());
             auto& inds = result.indices();
-            std::fill(inds.begin(), inds.end(), static_cast<size_t>(-1));
+            std::fill(inds.begin(), inds.end(), Unspecify<size_t>());
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
 
@@ -134,13 +134,9 @@ class DynamicVamanaIndexImpl {
                 // Pad results if not enough neighbors found
                 if (found < k) {
                     auto& dists = result.distances();
-                    std::fill(
-                        dists.begin() + found,
-                        dists.end(),
-                        std::numeric_limits<float>::infinity()
-                    );
+                    std::fill(dists.begin() + found, dists.end(), Unspecify<float>());
                     auto& inds = result.indices();
-                    std::fill(inds.begin() + found, inds.end(), static_cast<size_t>(-1));
+                    std::fill(inds.begin() + found, inds.end(), Unspecify<size_t>());
                 }
             }
         };

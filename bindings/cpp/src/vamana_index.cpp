@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <svs/runtime/vamana_index.h>
+#include "svs/runtime/vamana_index.h"
 
 namespace svs {
 namespace runtime {

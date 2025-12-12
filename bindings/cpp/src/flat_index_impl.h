@@ -16,19 +16,19 @@
 
 #pragma once
 
+#include "svs/runtime/flat_index.h"
+
 #include "svs_runtime_utils.h"
-
-#include <svs/runtime/flat_index.h>
-
-#include <algorithm>
-#include <memory>
-#include <variant>
-#include <vector>
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
 #include <svs/orchestrators/exhaustive.h>
+
+#include <algorithm>
+#include <memory>
+#include <variant>
+#include <vector>
 
 namespace svs {
 namespace runtime {

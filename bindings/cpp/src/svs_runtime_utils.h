@@ -16,18 +16,7 @@
 
 #pragma once
 
-#include <svs/runtime/api_defs.h>
-
-// TODO remove unused includes
-#include <algorithm>
-#include <concepts>
-#include <functional>
-#include <memory>
-#include <type_traits>
-#include <variant>
-#include <vector>
-
-#include <omp.h>
+#include "svs/runtime/api_defs.h"
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
@@ -53,6 +42,16 @@ namespace svs::detail {
 inline bool lvq_leanvec_enabled() { return false; }
 } // namespace svs::detail
 #endif
+
+#include <algorithm>
+#include <concepts>
+#include <functional>
+#include <memory>
+#include <type_traits>
+#include <variant>
+#include <vector>
+
+#include <omp.h>
 
 namespace svs::runtime {
 

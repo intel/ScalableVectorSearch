@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <svs/runtime/dynamic_vamana_index.h>
+#include "svs/runtime/dynamic_vamana_index.h"
 
 #include "dynamic_vamana_index_impl.h"
 #include "svs_runtime_utils.h"
@@ -23,11 +23,6 @@
 #include "dynamic_vamana_index_leanvec_impl.h"
 #endif
 
-#include <algorithm>
-#include <memory>
-#include <variant>
-#include <vector>
-
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
@@ -35,6 +30,11 @@
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
+
+#include <algorithm>
+#include <memory>
+#include <variant>
+#include <vector>
 
 namespace svs {
 namespace runtime {

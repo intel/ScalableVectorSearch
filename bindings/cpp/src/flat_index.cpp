@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include <svs/runtime/flat_index.h>
+#include "svs/runtime/flat_index.h"
 
 #include "flat_index_impl.h"
 #include "svs_runtime_utils.h"
+
+#include <svs/core/data.h>
+#include <svs/core/distance.h>
+#include <svs/core/query_result.h>
 
 #include <algorithm>
 #include <memory>
 #include <span>
 #include <variant>
-
-#include <svs/core/data.h>
-#include <svs/core/distance.h>
-#include <svs/core/query_result.h>
 
 namespace svs {
 namespace runtime {

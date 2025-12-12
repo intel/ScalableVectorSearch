@@ -16,19 +16,19 @@
 
 #pragma once
 
+#include "svs/runtime/vamana_index.h"
+
 #include "dynamic_vamana_index_impl.h"
 #include "training_impl.h"
-
-#include <svs/runtime/vamana_index.h>
-
-#include <cassert>
-#include <optional>
-#include <span>
 
 #include <svs/core/data.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 
 #include SVS_LEANVEC_HEADER
+
+#include <cassert>
+#include <optional>
+#include <span>
 
 namespace svs {
 namespace runtime {
