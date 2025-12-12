@@ -25,13 +25,13 @@ namespace svs::python::dynamic_ivf {
 
 // Specializations
 template <typename F> void for_standard_specializations(F&& f) {
-#define X(Q, T, Dist, N) f.template operator()<Q, T, Dist, N>()
-    X(float, float, DistanceL2, Dynamic);
-    X(float, float, DistanceIP, Dynamic);
-    X(float, svs::Float16, DistanceL2, Dynamic);
-    X(float, svs::Float16, DistanceIP, Dynamic);
-    X(float, svs::BFloat16, DistanceL2, Dynamic);
-    X(float, svs::BFloat16, DistanceIP, Dynamic);
+#define X(Q, T, N) f.template operator()<Q, T, N>()
+    X(float, float, Dynamic);
+    X(float, float, Dynamic);
+    X(float, svs::Float16, Dynamic);
+    X(float, svs::Float16, Dynamic);
+    X(float, svs::BFloat16, Dynamic);
+    X(float, svs::BFloat16, Dynamic);
 #undef X
 }
 

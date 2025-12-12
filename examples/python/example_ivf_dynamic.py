@@ -65,34 +65,59 @@ def main():
     print(f"   ✓ Configured {build_parameters.num_centroids} centroids")
     # [build-parameters]
     
-    # [build-index]
-    # Build the dynamic IVF index with initial vectors
-    print("\n3. Building dynamic IVF index...")
-    n = 900  # Use 900 vectors for initial index
+    # [build-clustering-and-assemble]
+    # Build clustering and then assemble the dynamic IVF index
+    print("\n3. Building clustering and assembling dynamic IVF index...")
     
-    # Load the data and create IDs
+    # Load all data
     data = svs.read_vecs(os.path.join(test_data_dir, "data.fvecs"))
-    ids = np.arange(data.shape[0]).astype('uint64')
+    n_total = data.shape[0]  # Total vectors (1000)
+    ids_all = np.arange(n_total).astype('uint64')
     
-    # Build the index
-    index = svs.DynamicIVF.build(
-        parameters = build_parameters,
-        data = data[:n],
-        ids = ids[:n],
-        distance_type = svs.DistanceType.L2,
-        num_index_threads = 4,
+    # Build the clustering using all data
+    data_loader = svs.VectorDataLoader(
+        os.path.join(test_data_dir, "data.fvecs"),
+        svs.DataType.float32,
+        dims = 128
     )
-    print(f"   ✓ Index built with {index.size} vectors")
-    print(f"   ✓ Index dimensions: {index.dimensions}")
-    # [build-index]
+    clustering = svs.Clustering.build(
+        build_parameters = build_parameters,
+        data_loader = data_loader,
+        distance = svs.DistanceType.L2,
+        num_threads = 4,
+    )
+    print(f"   ✓ Clustering built with {build_parameters.num_centroids} centroids")
     
-    # [add-vectors]
-    # Add new vectors to the index
-    print("\n4. Adding 100 new vectors to the index...")
-    initial_size = index.size
-    index.add(data[n:n+100], ids[n:n+100])
-    print(f"   ✓ Index size: {initial_size} → {index.size}")
-    # [add-vectors]
+    # Assemble the dynamic IVF index with all vectors
+    print("   Assembling dynamic IVF index from clustering...")
+    index = svs.DynamicIVF.assemble_from_clustering(
+        clustering = clustering,
+        data_loader = data_loader,
+        ids = ids_all,            # Index all vectors
+        distance = svs.DistanceType.L2,
+        num_threads = 4,
+        intra_query_threads = 1,
+    )
+    print(f"   ✓ Index assembled with {index.size} vectors")
+    print(f"   ✓ Index dimensions: {index.dimensions}")
+    # [build-clustering-and-assemble]
+    
+    # [demonstrate-dynamic-operations]
+    # Demonstrate add and delete operations (even though we already have all vectors)
+    print("\n4. Demonstrating dynamic operations...")
+    print(f"   Initial index size: {index.size}")
+    
+    # Delete some vectors
+    print("   Deleting first 100 vectors...")
+    ids_to_delete = np.arange(100).astype('uint64')
+    index.delete(ids_to_delete)
+    print(f"   After deletion: {index.size} vectors")
+    
+    # Add them back
+    print("   Adding 100 vectors back...")
+    index.add(data[:100], ids_to_delete)
+    print(f"   After addition: {index.size} vectors")
+    # [demonstrate-dynamic-operations]
     
     # [search-before-delete]
     # Search before deletion
@@ -130,7 +155,7 @@ def main():
     # [remove-vectors]
     # Remove vectors from the index
     print("\n7. Removing the first 50 vectors...")
-    ids_to_delete = ids[:50]
+    ids_to_delete = ids_all[:50]
     num_deleted = index.delete(ids_to_delete)
     print(f"   ✓ Deleted {num_deleted} vectors")
     print(f"   ✓ Index size after deletion: {index.size}")

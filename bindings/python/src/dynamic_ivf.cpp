@@ -43,151 +43,207 @@
 namespace py = pybind11;
 namespace svs::python::dynamic_ivf {
 
-namespace {
+// Reuse the Clustering type from static IVF since clustering is the same
+using Clustering = svs::python::ivf::Clustering;
 
-template <typename ElementType>
-svs::DynamicIVF build_from_array(
-    const svs::index::ivf::IVFBuildParameters& parameters,
-    py_contiguous_array_t<ElementType> py_data,
-    py_contiguous_array_t<size_t> py_ids,
-    svs::DistanceType distance_type,
-    size_t num_index_threads,
-    size_t intra_query_threads,
-    size_t num_clustering_threads
-) {
-    auto dispatcher = svs::DistanceDispatcher(distance_type);
-    return dispatcher([&](auto distance) {
-        // Create a view for building - build_clustering needs immutable data
-        // Note: Even though we use SimpleDataView (non-const), the data won't be modified
-        // during clustering, and BlockedData created from it will have mutable element type
-        auto data_view = data::SimpleDataView<ElementType>(
-            const_cast<ElementType*>(py_data.data()), py_data.shape(0), py_data.shape(1)
-        );
-        return svs::DynamicIVF::build<ElementType>(
-            parameters,
-            data_view,
-            std::span(py_ids.data(), py_ids.size()),
-            distance,
-            num_index_threads,
-            intra_query_threads,
-            num_clustering_threads
-        );
-    });
-}
-
-const char* BUILD_FROM_ARRAY_DOC = R"(
-Construct a DynamicIVF index over the given data, returning a searchable index.
-
-Args:
-    parameters: Parameters controlling IVF construction (clustering and search parameters).
-        See below for the documentation of this class.
-    data: The dataset to index. **NOTE**: SVS will maintain an internal copy of the
-        dataset. This may change in future releases.
-    ids: Vector of ids to assign to each row in the dataset; must match dataset length and contain unique values.
-    distance_type: The distance type to use for this dataset.
-    num_index_threads: Number of threads to use for index construction and search.
-    intra_query_threads: Number of threads to use for intra-query parallelism. Default: 1.
-    num_clustering_threads: Number of threads to use for clustering. Default: 0 (use num_index_threads).
-)";
-
-template <typename ElementType>
-void add_build_specialization(py::class_<svs::DynamicIVF>& index) {
-    index.def_static(
-        "build",
-        &build_from_array<ElementType>,
-        py::arg("parameters"),
-        py::arg("data"),
-        py::arg("ids"),
-        py::arg("distance_type"),
-        py::arg("num_index_threads"),
-        py::arg("intra_query_threads") = 1,
-        py::arg("num_clustering_threads") = 0,
-        BUILD_FROM_ARRAY_DOC
-    );
-}
+using IVFAssembleTypes =
+    std::variant<UnspecializedVectorDataLoader, svs::lib::SerializedObject>;
 
 /////
-///// Build from file (data loader)
+///// Dispatch Invocation
 /////
 
-template <typename Q, typename T, typename Dist, size_t N>
-svs::DynamicIVF dynamic_ivf_build_uncompressed(
-    const svs::index::ivf::IVFBuildParameters& parameters,
-    svs::VectorDataLoader<T, N, RebindAllocator<T>> data_loader,
+/////
+///// Assembly from Clustering
+/////
+
+template <typename Q, typename T, size_t N>
+svs::DynamicIVF assemble_uncompressed(
+    Clustering clustering,
+    svs::VectorDataLoader<T, N, RebindAllocator<T>> data,
     std::span<const size_t> ids,
     svs::DistanceType distance_type,
-    size_t num_index_threads,
-    size_t intra_query_threads,
-    size_t num_clustering_threads
+    size_t num_threads,
+    size_t intra_query_threads = 1
 ) {
-    return svs::DynamicIVF::build<Q>(
-        parameters,
-        std::move(data_loader),
-        ids,
-        distance_type,
-        num_index_threads,
-        intra_query_threads,
-        num_clustering_threads
+    // Use std::visit to handle the variant clustering type
+    return std::visit(
+        [&](auto&& actual_clustering) {
+            return svs::DynamicIVF::assemble_from_clustering<Q>(
+                std::move(actual_clustering),
+                std::move(data),
+                ids,
+                distance_type,
+                num_threads,
+                intra_query_threads
+            );
+        },
+        std::move(clustering)
     );
 }
 
-using DynamicIVFBuildFromFileDispatcher = svs::lib::Dispatcher<
-    svs::DynamicIVF,
-    const svs::index::ivf::IVFBuildParameters&,
-    UnspecializedVectorDataLoader,
-    std::span<const size_t>,
-    svs::DistanceType,
-    size_t,
-    size_t,
-    size_t>;
+template <typename Dispatcher>
+void register_uncompressed_ivf_assemble(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N>() {
+            auto method = &assemble_uncompressed<Q, T, N>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
 
-DynamicIVFBuildFromFileDispatcher dynamic_ivf_build_from_file_dispatcher() {
-    auto dispatcher = DynamicIVFBuildFromFileDispatcher{};
-    // Register uncompressed specializations (Dynamic dimensionality only)
-    for_standard_specializations([&]<typename Q, typename T, typename D, size_t N>() {
-        auto method = &dynamic_ivf_build_uncompressed<Q, T, D, N>;
-        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-    });
+template <typename Dispatcher> void register_ivf_assembly(Dispatcher& dispatcher) {
+    register_uncompressed_ivf_assemble(dispatcher);
+}
+
+/////
+///// Assembly from File
+/////
+template <typename Q, typename T, size_t N>
+svs::DynamicIVF assemble_from_file_uncompressed(
+    const std::filesystem::path& cluster_path,
+    svs::VectorDataLoader<T, N, RebindAllocator<T>> data,
+    std::span<const size_t> ids,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::DynamicIVF::assemble_from_file<Q, svs::BFloat16>(
+        cluster_path, std::move(data), ids, distance_type, num_threads, intra_query_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_uncompressed_ivf_assemble_from_file(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N>() {
+            auto method = &assemble_from_file_uncompressed<Q, T, N>;
+            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+        }
+    );
+}
+
+template <typename Dispatcher>
+void register_ivf_assembly_from_file(Dispatcher& dispatcher) {
+    register_uncompressed_ivf_assemble_from_file(dispatcher);
+}
+
+using IVFAssembleTypes =
+    std::variant<UnspecializedVectorDataLoader, svs::lib::SerializedObject>;
+
+/////
+///// Dispatch Invocation
+/////
+
+using AssemblyDispatcher = svs::lib::
+    Dispatcher<svs::DynamicIVF, Clustering, IVFAssembleTypes, std::span<const size_t>, svs::DistanceType, size_t, size_t>;
+
+AssemblyDispatcher assembly_dispatcher() {
+    auto dispatcher = AssemblyDispatcher{};
+
+    // Register available backend methods.
+    register_ivf_assembly(dispatcher);
     return dispatcher;
 }
 
-svs::DynamicIVF dynamic_ivf_build_from_file(
-    const svs::index::ivf::IVFBuildParameters& parameters,
-    UnspecializedVectorDataLoader data_loader,
+// Assemble
+svs::DynamicIVF assemble_from_clustering(
+    Clustering clustering,
+    IVFAssembleTypes data_kind,
     const py_contiguous_array_t<size_t>& py_ids,
     svs::DistanceType distance_type,
-    size_t num_index_threads,
-    size_t intra_query_threads,
-    size_t num_clustering_threads
+    svs::DataType SVS_UNUSED(query_type),
+    bool SVS_UNUSED(enforce_dims),
+    size_t num_threads,
+    size_t intra_query_threads = 1
 ) {
     auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
-    return dynamic_ivf_build_from_file_dispatcher().invoke(
-        parameters,
-        std::move(data_loader),
+    return assembly_dispatcher().invoke(
+        std::move(clustering),
+        std::move(data_kind),
         ids,
         distance_type,
-        num_index_threads,
-        intra_query_threads,
-        num_clustering_threads
+        num_threads,
+        intra_query_threads
     );
 }
 
-constexpr std::string_view DYNAMIC_IVF_BUILD_FROM_FILE_DOCSTRING_PROTO = R"(
-Construct a DynamicIVF index using a data loader, returning the index.
+using AssemblyFromFileDispatcher = svs::lib::Dispatcher<
+    svs::DynamicIVF,
+    const std::filesystem::path&,
+    IVFAssembleTypes,
+    std::span<const size_t>,
+    svs::DistanceType,
+    size_t,
+    size_t>;
+
+AssemblyFromFileDispatcher assembly_from_file_dispatcher() {
+    auto dispatcher = AssemblyFromFileDispatcher{};
+
+    // Register available backend methods.
+    register_ivf_assembly_from_file(dispatcher);
+    return dispatcher;
+}
+
+// Assemble from file
+svs::DynamicIVF assemble_from_file(
+    const std::string& cluster_path,
+    IVFAssembleTypes data_kind,
+    const py_contiguous_array_t<size_t>& py_ids,
+    svs::DistanceType distance_type,
+    svs::DataType SVS_UNUSED(query_type),
+    bool SVS_UNUSED(enforce_dims),
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
+    return assembly_from_file_dispatcher().invoke(
+        cluster_path, std::move(data_kind), ids, distance_type, num_threads, intra_query_threads
+    );
+}
+
+constexpr std::string_view ASSEMBLE_DOCSTRING_PROTO = R"(
+Assemble a searchable IVF index from provided clustering and data
 
 Args:
-    parameters: Build parameters controlling IVF construction (clustering and search parameters).
-    data_loader: Data loader (e.g., a VectorDataLoader instance).
-    ids: Vector of ids to assign to each row in the dataset; must match dataset length and contain unique values.
-    distance_type: The similarity function to use for this index.
-    num_index_threads: Number of threads to use for index construction and search. Default: 1.
-    intra_query_threads: Number of threads to use for intra-query parallelism. Default: 1.
-    num_clustering_threads: Number of threads to use for clustering. Default: 0 (use num_index_threads).
+    clustering_path/clustering: Path to the directory where the clustering was generated.
+        OR directly provide the loaded Clustering.
+    data_loader: The loader for the dataset. See comment below for accepted types.
+    ids: External IDs for the vectors. Must match dataset length and contain unique values.
+    distance: The distance function to use.
+    query_type: The data type of the queries.
+    enforce_dims: Require that the compiled dimensionality of the returned index matches
+        the dimensionality provided in the ``data_loader`` argument. If a match is not
+        found, an exception is thrown.
+
+        This is meant to ensure that specialized dimensionality is provided without falling
+        back to generic implementations. Leaving the ``dims`` out when constructing the
+        ``data_loader`` will with `enable_dims = True` will always attempt to use a generic
+        implementation.
+    num_threads: The number of threads to use for queries (can't be changed after loading).
+    intra_query_threads: (default: 1) these many threads work on a single query.
+        Total number of threads required = ``query_batch_size`` * ``intra_query_threads``.
+        Where ``query_batch_size`` is the number of queries processed in parallel.
+        Use this parameter only when the ``query_batch_size`` is smaller and ensure your
+        system has sufficient threads available. Set ``num_threads`` = ``query_batch_size``
+
+The top level type is an abstract type backed by various specialized backends that will
+be instantiated based on their applicability to the particular problem instance.
+
+The arguments upon which specialization is conducted are:
+
+* `data_loader`: Both kind (type of loader) and inner aspects of the loader like data type,
+  quantization type, and number of dimensions.
+* `distance`: The distance measure being used.
 
 Specializations compiled into the binary are listed below.
 
-{}  # (Method listing auto-generated)
+{}
 )";
+
+/////
+///// Add points
+/////
 
 template <typename ElementType>
 void add_points(
@@ -279,137 +335,119 @@ void save_index(
     index.save(config_path, data_dir);
 }
 
-/////
-///// Assembly
-/////
-
-template <typename Q, typename T, typename Dist, size_t N>
-svs::DynamicIVF assemble_uncompressed(
-    svs::VectorDataLoader<float, N, RebindAllocator<float>> centroids_loader,
-    svs::VectorDataLoader<T, N, RebindAllocator<T>> datafile,
-    std::span<const size_t> ids,
-    Dist distance,
-    size_t num_threads
-) {
-    using DataAlloc = RebindAllocator<T>;
-
-    // Load centroids as SimpleData - they are immutable in IVF
-    auto centroids = svs::data::SimpleData<float, N>::load(centroids_loader.path_);
-
-    // Load data as BlockedData - it will grow/shrink with insertions/deletions
-    auto data = svs::data::BlockedData<T, N, DataAlloc>::load(
-        datafile.path_, as_blocked(DataAlloc(datafile.allocator_))
-    );
-
-    return svs::DynamicIVF::assemble<Q>(
-        std::move(centroids), std::move(data), ids, distance, num_threads
-    );
-}
-
-template <typename Dispatcher> void register_assembly(Dispatcher& dispatcher) {
-    for_standard_specializations([&]<typename Q, typename T, typename D, size_t N>() {
-        dispatcher.register_target(&assemble_uncompressed<Q, T, D, N>);
-    });
-}
-
-using DynamicIVFAssembleTypes = std::variant<UnspecializedVectorDataLoader>;
-
-svs::DynamicIVF assemble(
-    DynamicIVFAssembleTypes centroids_loader,
-    DynamicIVFAssembleTypes data_loader,
-    const py_contiguous_array_t<size_t>& py_ids,
-    svs::DistanceType distance_type,
-    svs::DataType SVS_UNUSED(query_type),
-    size_t num_threads
-) {
-    auto dispatcher = svs::lib::Dispatcher<
-        svs::DynamicIVF,
-        DynamicIVFAssembleTypes,
-        DynamicIVFAssembleTypes,
-        std::span<const size_t>,
-        svs::DistanceType,
-        size_t>();
-
-    register_assembly(dispatcher);
-    auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
-    return dispatcher.invoke(
-        std::move(centroids_loader), std::move(data_loader), ids, distance_type, num_threads
-    );
-}
-
-} // namespace
-
 void wrap(py::module& m) {
     std::string name = "DynamicIVF";
-    py::class_<svs::DynamicIVF> ivf_index(
+    py::class_<svs::DynamicIVF> dynamic_ivf(
         m, name.c_str(), "Top level class for the dynamic IVF index."
     );
 
-    add_search_specialization<float>(ivf_index);
-    add_threading_interface(ivf_index);
-    add_data_interface(ivf_index);
+    add_search_specialization<float>(dynamic_ivf);
+    add_threading_interface(dynamic_ivf);
+    add_data_interface(dynamic_ivf);
 
     // IVF specific extensions.
-    ivf::add_interface(ivf_index);
+    ivf::add_interface(dynamic_ivf);
 
     // Dynamic interface.
-    ivf_index.def("consolidate", &svs::DynamicIVF::consolidate, CONSOLIDATE_DOCSTRING);
-    ivf_index.def(
+    dynamic_ivf.def("consolidate", &svs::DynamicIVF::consolidate, CONSOLIDATE_DOCSTRING);
+    dynamic_ivf.def(
         "compact",
         &svs::DynamicIVF::compact,
         py::arg("batchsize") = 1'000'000,
         COMPACT_DOCSTRING
     );
 
-    // Reloading/Assembly
-    ivf_index.def(
-        py::init(&assemble),
-        py::arg("centroids_loader"),
-        py::arg("data_loader"),
-        py::arg("ids"),
-        py::arg("distance") = svs::L2,
-        py::arg("query_type") = svs::DataType::float32,
-        py::arg("num_threads") = 1
-    );
-
-    // Index building.
-    add_build_specialization<float>(ivf_index);
-
-    // Build from file / data loader (dynamic docstring)
+    // Assemble interface
     {
-        auto dispatcher = dynamic_ivf_build_from_file_dispatcher();
-        std::string dynamic;
+        auto dispatcher = assembly_dispatcher();
+        // Procedurally generate the dispatch string.
+        auto dynamic = std::string{};
         for (size_t i = 0; i < dispatcher.size(); ++i) {
             fmt::format_to(
                 std::back_inserter(dynamic),
-                R"(Method {}:\n    - data_loader: {}\n    - distance: {}\n)",
+                R"(
+Method {}:
+    - data_loader: {}
+    - distance: {}
+)",
                 i,
-                dispatcher.description(i, 1),
+                dispatcher.description(i, 2),
                 dispatcher.description(i, 3)
             );
         }
-        ivf_index.def_static(
-            "build",
-            &dynamic_ivf_build_from_file,
-            py::arg("parameters"),
+
+        dynamic_ivf.def_static(
+            "assemble_from_clustering",
+            [](Clustering clustering,
+               IVFAssembleTypes data_loader,
+               const py_contiguous_array_t<size_t>& py_ids,
+               svs::DistanceType distance,
+               svs::DataType query_type,
+               bool enforce_dims,
+               size_t num_threads,
+               size_t intra_query_threads) {
+                return assemble_from_clustering(
+                    std::move(clustering),
+                    std::move(data_loader),
+                    py_ids,
+                    distance,
+                    query_type,
+                    enforce_dims,
+                    num_threads,
+                    intra_query_threads
+                );
+            },
+            py::arg("clustering"),
             py::arg("data_loader"),
             py::arg("ids"),
-            py::arg("distance_type"),
-            py::arg("num_index_threads") = 1,
+            py::arg("distance") = svs::L2,
+            py::arg("query_type") = svs::DataType::float32,
+            py::arg("enforce_dims") = false,
+            py::arg("num_threads") = 1,
             py::arg("intra_query_threads") = 1,
-            py::arg("num_clustering_threads") = 0,
-            fmt::format(DYNAMIC_IVF_BUILD_FROM_FILE_DOCSTRING_PROTO, dynamic).c_str()
+            fmt::format(ASSEMBLE_DOCSTRING_PROTO, dynamic).c_str()
+        );
+        dynamic_ivf.def_static(
+            "assemble_from_file",
+            [](const std::string& clustering_path,
+               IVFAssembleTypes data_loader,
+               const py_contiguous_array_t<size_t>& py_ids,
+               svs::DistanceType distance,
+               svs::DataType query_type,
+               bool enforce_dims,
+               size_t num_threads,
+               size_t intra_query_threads) {
+                return assemble_from_file(
+                    clustering_path,
+                    std::move(data_loader),
+                    py_ids,
+                    distance,
+                    query_type,
+                    enforce_dims,
+                    num_threads,
+                    intra_query_threads
+                );
+            },
+            py::arg("clustering_path"),
+            py::arg("data_loader"),
+            py::arg("ids"),
+            py::arg("distance") = svs::L2,
+            py::arg("query_type") = svs::DataType::float32,
+            py::arg("enforce_dims") = false,
+            py::arg("num_threads") = 1,
+            py::arg("intra_query_threads") = 1,
+            fmt::format(ASSEMBLE_DOCSTRING_PROTO, dynamic).c_str()
         );
     }
 
     // Index modification.
-    add_points_specialization<float>(ivf_index);
+    add_points_specialization<float>(dynamic_ivf);
 
     // Note: DynamicIVFIndex doesn't support reconstruct_at, so we don't add reconstruct
     // interface
 
     // Index Deletion.
-    ivf_index.def(
+    dynamic_ivf.def(
         "delete",
         [](svs::DynamicIVF& index, const py_contiguous_array_t<size_t>& ids) {
             return index.delete_points(as_span(ids));
@@ -419,14 +457,14 @@ void wrap(py::module& m) {
     );
 
     // ID inspection
-    ivf_index.def(
+    dynamic_ivf.def(
         "has_id",
         &svs::DynamicIVF::has_id,
         py::arg("id"),
         "Return whether the ID exists in the index."
     );
 
-    ivf_index.def(
+    dynamic_ivf.def(
         "all_ids",
         [](const svs::DynamicIVF& index) {
             const auto& v = index.all_ids();
@@ -439,7 +477,7 @@ void wrap(py::module& m) {
     );
 
     // Distance calculation
-    ivf_index.def(
+    dynamic_ivf.def(
         "get_distance",
         [](const svs::DynamicIVF& index,
            size_t id,
@@ -464,7 +502,7 @@ void wrap(py::module& m) {
     );
 
     // Saving
-    ivf_index.def(
+    dynamic_ivf.def(
         "save",
         &save_index,
         py::arg("config_directory"),

@@ -216,80 +216,148 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         return impl_->get_distance(id, query_array);
     }
 
-    // Building
-    template <
-        manager::QueryTypeDefinition QueryTypes,
-        typename DataProto,
-        typename Distance,
-        typename ThreadPoolProto>
-    static DynamicIVF build(
+    ///// Building - Build clustering from data
+    template <typename BuildType, typename DataProto, typename Distance>
+    static auto build_clustering(
         const index::ivf::IVFBuildParameters& build_parameters,
         const DataProto& data_proto,
-        std::span<const size_t> ids,
-        Distance distance,
-        ThreadPoolProto threadpool_proto,
-        size_t intra_query_threads = 1,
-        size_t num_clustering_threads = 0
+        const Distance& distance,
+        size_t num_threads
     ) {
-        // Handle DistanceType enum by dispatching to concrete distance types
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
-                return build<QueryTypes>(
-                    build_parameters,
-                    data_proto,
-                    ids,
-                    distance_function,
-                    std::move(threadpool_proto),
-                    intra_query_threads,
-                    num_clustering_threads
+                return index::ivf::build_clustering<BuildType>(
+                    build_parameters, data_proto, std::move(distance_function), num_threads
                 );
             });
         } else {
-            auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+            return index::ivf::build_clustering<BuildType>(
+                build_parameters, data_proto, distance, num_threads
+            );
+        }
+    }
 
-            // Load the data (handles both loaders and views)
-            auto data = svs::detail::dispatch_load(data_proto, threadpool);
-
-            // Build clustering first
-            // Choose build type for clustering to leverage AMX instructions:
-            // - Float32 data -> BFloat16 (AMX supports BFloat16)
-            // - Float16 data -> Float16 (AMX supports Float16)
-            // - BFloat16 data -> BFloat16 (already optimal)
-            using DataElementType = typename decltype(data)::element_type;
-            using BuildType = std::conditional_t<
-                std::is_same_v<DataElementType, float>,
-                BFloat16,
-                DataElementType>;
-            // Note: build_clustering takes threadpool by value, so we need a copy
-            auto clustering = [&]() {
-                size_t clustering_threads = (num_clustering_threads == 0)
-                                                ? threadpool.size()
-                                                : num_clustering_threads;
-                auto threadpool_copy = threads::NativeThreadPool(clustering_threads);
-                return index::ivf::build_clustering<BuildType>(
-                    build_parameters, data, distance, std::move(threadpool_copy), false
+    ///// Assembly - Assemble from clustering and data
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Clustering,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicIVF assemble_from_clustering(
+        Clustering clustering,
+        Data data,
+        std::span<const size_t> ids,
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        size_t intra_query_threads = 1
+    ) {
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        
+        if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+            auto dispatcher = DistanceDispatcher(distance);
+            return dispatcher([&](auto distance_function) {
+                return assemble_from_clustering_impl<QueryTypes>(
+                    std::move(clustering),
+                    data,
+                    ids,
+                    std::move(distance_function),
+                    std::move(threadpool),
+                    intra_query_threads
                 );
-            }();
-
-            // Now build the dynamic IVF index from the clustering
-            auto impl = index::ivf::build_dynamic_ivf(
-                std::move(clustering.centroids_),
-                clustering,
-                data, // Pass by const reference - build_dynamic_ivf will create BlockedData
+            });
+        } else {
+            return assemble_from_clustering_impl<QueryTypes>(
+                std::move(clustering),
+                data,
                 ids,
                 distance,
                 std::move(threadpool),
                 intra_query_threads
             );
-
-            return DynamicIVF(
-                AssembleTag(), manager::as_typelist<QueryTypes>{}, std::move(impl)
-            );
         }
     }
 
-    // Assembly
+private:
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename Clustering,
+        typename Data,
+        typename Distance,
+        typename ThreadPool>
+    static DynamicIVF assemble_from_clustering_impl(
+        Clustering clustering,
+        Data data,
+        std::span<const size_t> ids,
+        Distance distance,
+        ThreadPool threadpool,
+        size_t intra_query_threads
+    ) {
+        using I = uint32_t;
+        // Centroids type is extracted from the clustering's centroids_ member
+        using Centroids = std::remove_reference_t<decltype(clustering.centroids())>;
+
+        // Load the data to get the actual data type
+        auto loaded_data = svs::detail::dispatch_load(data, threadpool);
+        using data_type = typename decltype(loaded_data)::lib_alloc_data_type;
+
+        // Get centroids from clustering
+        auto centroids = clustering.centroids();
+
+        // Create DenseClusteredDataset from clustering and loaded data
+        auto dense_clusters = index::ivf::DenseClusteredDataset<Centroids, I, data_type>(
+            clustering, loaded_data, threadpool, lib::Allocator<std::byte>()
+        );
+
+        // Create the index
+        auto impl = index::ivf::DynamicIVFIndex<Centroids, decltype(dense_clusters), Distance, decltype(threadpool)>(
+            std::move(centroids),
+            std::move(dense_clusters),
+            ids,
+            std::move(distance),
+            std::move(threadpool),
+            intra_query_threads
+        );
+
+        return DynamicIVF(
+            AssembleTag(), manager::as_typelist<QueryTypes>{}, std::move(impl)
+        );
+    }
+
+public:
+
+    ///// Assembly - Assemble from file (load clustering from disk)
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename BuildType,
+        typename Data,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicIVF assemble_from_file(
+        const std::filesystem::path& cluster_path,
+        Data data,
+        std::span<const size_t> ids,
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        size_t intra_query_threads = 1
+    ) {
+        using centroids_type = data::SimpleData<BuildType>;
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        auto clustering = lib::load_from_disk<index::ivf::Clustering<centroids_type, uint32_t>>(
+            cluster_path, threadpool
+        );
+        return assemble_from_clustering<QueryTypes>(
+            std::move(clustering),
+            data,
+            ids,
+            distance,
+            std::move(threadpool),
+            intra_query_threads
+        );
+    }
+
+    // Legacy assembly method for backward compatibility (used by Python bindings)
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename Centroids,
@@ -304,23 +372,17 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         ThreadPoolProto threadpool_proto
     ) {
         using I = uint32_t;
-        using Cluster = index::ivf::DynamicDenseCluster<Data, I>;
+        using Clusters = index::ivf::DenseClusteredDataset<Centroids, I, Data>;
 
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
 
-        // For assembly, create empty clusters - user will add points later
-        std::vector<Cluster> clusters;
-        clusters.reserve(centroids.size());
-
-        for (size_t i = 0; i < centroids.size(); ++i) {
-            auto cluster_data = Data(0, data.dimensions());
-            std::vector<I> cluster_ids;
-            clusters.emplace_back(std::move(cluster_data), std::move(cluster_ids));
-        }
+        // Create empty DenseClusteredDataset for assembly
+        // Use default allocator - data already has the right allocator built in
+        auto clusters = Clusters(centroids.size(), data.dimensions(), data.get_allocator());
 
         // Create the index with empty clusters
         auto impl =
-            index::ivf::DynamicIVFIndex<Centroids, Cluster, Distance, decltype(threadpool)>(
+            index::ivf::DynamicIVFIndex<Centroids, Clusters, Distance, decltype(threadpool)>(
                 std::move(centroids),
                 std::move(clusters),
                 ids,

@@ -16,7 +16,8 @@
 
 #pragma once
 
-// Include the IVF index
+// Include the IVF index and clustering
+#include "svs/index/ivf/clustering.h"
 #include "svs/index/ivf/index.h"
 
 // svs
@@ -43,54 +44,10 @@ namespace svs::index::ivf {
 enum class IVFSlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01 };
 
 ///
-/// @brief Dynamic cluster implementation using blocked data for resizeability
-///
-/// Similar to DenseCluster but uses BlockedData to support dynamic operations
-///
-template <typename Data, std::integral I> struct DynamicDenseCluster {
-    using data_type = Data;
-    using index_type = I;
-
-    template <typename Callback>
-    void on_leaves(Callback&& f, size_t prefetch_offset) const {
-        size_t p = prefetch_offset;
-        for (size_t i = 0; i < data_.size(); ++i) {
-            if (p < data_.size()) {
-                data_.prefetch(p);
-                ++p;
-            }
-            f(accessor(data_, i), ids_[i], i);
-        }
-    }
-
-    auto get_datum(size_t id) const { return data_.get_datum(id); }
-    auto get_secondary(size_t id) const { return data_.get_secondary(id); }
-    auto get_global_id(size_t local_id) const { return ids_[local_id]; }
-    const Data& view_cluster() const { return data_; }
-    Data& view_cluster() { return data_; }
-
-    // Allow resizing for dynamic operations
-    void resize(size_t new_size) {
-        data_.resize(new_size);
-        ids_.resize(new_size);
-    }
-
-    size_t size() const { return data_.size(); }
-    size_t capacity() const { return data_.capacity(); }
-
-  public:
-    Data data_;
-    std::vector<I> ids_;
-};
-
-///
 /// @brief Dynamic IVF Index with insertion and deletion support
 ///
-/// Uses the same cluster framework as static IVF (DenseClusteredDataset pattern)
-/// but with BlockedData allocators for resizeability.
-///
 /// @tparam Centroids The type of centroid storage
-/// @tparam Cluster Type representing cluster storage (DynamicDenseCluster with BlockedData)
+/// @tparam Cluster Type representing cluster storage (DenseCluster with BlockedData)
 /// @tparam Dist The distance functor used to compare queries with the elements
 /// @tparam ThreadPoolProto Thread pool prototype type
 ///
@@ -124,7 +81,7 @@ class DynamicIVFIndex {
   private:
     // Core IVF components (same structure as static IVF)
     centroids_type centroids_;
-    std::vector<cluster_type> clusters_; // Each cluster contains data_ and ids_
+    Cluster clusters_; // Cluster container
 
     // Metadata tracking for dynamic operations
     std::vector<IVFSlotMetadata> status_; // Status of each global slot
@@ -151,10 +108,10 @@ class DynamicIVFIndex {
     svs::logging::logger_ptr logger_;
 
   public:
-    /// @brief Construct a Dynamic IVF Index from clusters
+    /// @brief Construct a new Dynamic IVF Index
     ///
     /// @param centroids Centroid collection for space partitioning
-    /// @param clusters Vector of cluster data structures (each with data_ and ids_)
+    /// @param clusters Cluster container
     /// @param external_ids External IDs for all vectors
     /// @param distance_function Distance metric for similarity computation
     /// @param threadpool_proto Primary thread pool prototype
@@ -163,7 +120,7 @@ class DynamicIVFIndex {
     template <typename ExternalIds, typename TP>
     DynamicIVFIndex(
         centroids_type centroids,
-        std::vector<cluster_type> clusters,
+        Cluster clusters,
         const ExternalIds& external_ids,
         Dist distance_function,
         TP threadpool_proto,
@@ -180,7 +137,8 @@ class DynamicIVFIndex {
         , logger_{std::move(logger)} {
         // Initialize metadata structures
         size_t total_size = 0;
-        for (const auto& cluster : clusters_) {
+        for (size_t cluster_idx = 0; cluster_idx < clusters_.size(); ++cluster_idx) {
+            const auto& cluster = clusters_[cluster_idx];
             for (size_t pos = 0; pos < cluster.ids_.size(); ++pos) {
                 total_size =
                     std::max(total_size, static_cast<size_t>(cluster.ids_[pos]) + 1);
@@ -218,7 +176,7 @@ class DynamicIVFIndex {
     template <typename TP>
     DynamicIVFIndex(
         centroids_type centroids,
-        std::vector<cluster_type> clusters,
+        Cluster clusters,
         IDTranslator translator,
         Dist distance_function,
         TP threadpool_proto,
@@ -960,10 +918,9 @@ auto build_dynamic_ivf(
 ) {
     using I = uint32_t;
     using ElementType = typename SourceData::element_type;
-    // Use default lib::Allocator instead of HugepageAllocator to avoid memory issues
+    // Use BlockedData with default lib::Allocator for dynamic operations
     using BlockedDataType =
         data::SimpleData<ElementType, Dynamic, data::Blocked<lib::Allocator<ElementType>>>;
-    using Cluster = DynamicDenseCluster<BlockedDataType, I>;
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
 
@@ -976,33 +933,15 @@ auto build_dynamic_ivf(
         blocking_params, lib::Allocator<ElementType>()
     );
 
-    // Create dynamic clusters from the clustering
-    std::vector<Cluster> clusters;
-    clusters.reserve(clustering.size());
-
-    for (size_t cluster_idx = 0; cluster_idx < clustering.size(); ++cluster_idx) {
-        const auto& cluster_assignments = clustering.cluster(cluster_idx);
-        size_t cluster_size = cluster_assignments.size();
-
-        // Create BlockedData for this cluster with custom block size
-        auto cluster_data =
-            BlockedDataType(cluster_size, source_data.dimensions(), blocked_allocator);
-        std::vector<I> cluster_ids;
-        cluster_ids.reserve(cluster_size);
-
-        for (size_t i = 0; i < cluster_size; ++i) {
-            I data_idx = cluster_assignments[i];
-            cluster_data.set_datum(i, source_data.get_datum(data_idx));
-            cluster_ids.push_back(ids[data_idx]);
-        }
-
-        clusters.emplace_back(std::move(cluster_data), std::move(cluster_ids));
-    }
+    // Use DenseClusteredDataset to create clusters, just like static IVF
+    auto dense_clusters = DenseClusteredDataset<Centroids, I, BlockedDataType>(
+        clustering, source_data, threadpool, blocked_allocator
+    );
 
     // Create the index
-    return DynamicIVFIndex<Centroids, Cluster, Distance, decltype(threadpool)>(
+    return DynamicIVFIndex<Centroids, decltype(dense_clusters), Distance, decltype(threadpool)>(
         std::move(centroids),
-        std::move(clusters),
+        std::move(dense_clusters),
         ids,
         std::move(distance),
         std::move(threadpool),

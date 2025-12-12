@@ -180,14 +180,30 @@ struct CreateDenseCluster {
 
 inline constexpr CreateDenseCluster create_dense_cluster{};
 
-template <typename T, size_t Extent, typename Alloc, typename NewAlloc>
+// Specialization for default allocator (backward compatibility)
+// When no specific allocator is provided, use default construction with same extent
+template <typename T, size_t Extent, typename SrcAlloc>
 svs::data::SimpleData<T, Extent> svs_invoke(
     svs::tag_t<create_dense_cluster>,
-    const svs::data::SimpleData<T, Extent, Alloc>& original,
+    const svs::data::SimpleData<T, Extent, SrcAlloc>& original,
     size_t new_size,
-    const NewAlloc& SVS_UNUSED(allocator)
+    const svs::lib::Allocator<std::byte>& SVS_UNUSED(allocator)
 ) {
     return svs::data::SimpleData<T, Extent>(new_size, original.dimensions());
+}
+
+// General implementation for Blocked allocators: Always use Dynamic extent for flexibility
+// This enables dynamic resizing which is essential for dynamic IVF operations
+template <typename T, size_t SrcExtent, typename SrcAlloc, typename BlockedAlloc>
+svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<BlockedAlloc>> svs_invoke(
+    svs::tag_t<create_dense_cluster>,
+    const svs::data::SimpleData<T, SrcExtent, SrcAlloc>& original,
+    size_t new_size,
+    const svs::data::Blocked<BlockedAlloc>& allocator
+) {
+    return svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<BlockedAlloc>>(
+        new_size, original.dimensions(), allocator
+    );
 }
 
 struct SetDenseCluster {
