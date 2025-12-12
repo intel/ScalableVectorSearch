@@ -141,11 +141,11 @@ void write_and_read_index(
 
 // Helper that writes and reads and index of requested size
 // Reports memory usage
-UsageInfo run_save_and_load_test(const size_t target_mibytes) {
+UsageInfo
+run_save_and_load_test(const size_t target_mibytes, size_t d, size_t graph_max_degree) {
     // Generate requested MiB of test data
-    constexpr size_t mem_test_d = 128;
     const size_t target_bytes = target_mibytes * 1024 * 1024;
-    const size_t mem_test_n = target_bytes / (mem_test_d * sizeof(float));
+    const size_t mem_test_n = target_bytes / (d * sizeof(float));
 
     svs_test::prepare_temp_directory();
     auto temp_dir = svs_test::temp_directory();
@@ -153,7 +153,7 @@ UsageInfo run_save_and_load_test(const size_t target_mibytes) {
 
     {
         // Build Vamana FP32 index, scoped for memory cleanup
-        auto large_test_data = create_test_data(mem_test_n, mem_test_d, 456);
+        auto large_test_data = create_test_data(mem_test_n, d, 456);
 
         // Add data to index
         std::vector<size_t> labels(mem_test_n);
@@ -161,10 +161,10 @@ UsageInfo run_save_and_load_test(const size_t target_mibytes) {
 
         size_t mem_before = get_current_rss();
         svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
-        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{graph_max_degree};
         svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
             &index,
-            mem_test_d,
+            d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::FP32,
             build_params
@@ -465,28 +465,48 @@ CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
 }
 
 CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
-    auto threshold = [](size_t size_on_disk) {
-        // On load, the allocator allocates blocks of 64 MB
-        constexpr std::uint64_t ALIGN = 64ull * 1024 * 1024; // 64 MB
-        return size_t((size_on_disk + ALIGN - 1) / ALIGN * ALIGN);
+    constexpr auto file_threshold =
+        [](size_t generated_data_bytes, size_t dim, size_t graph_max_degree) {
+            // The index consists of the vectors (d * float) plus the graph (i.e., neighbor
+            // indices; R * size_t). With d=128 and R=64, the graph overhead is 50% of the
+            // vector size. So the total size is ~1.5x the vector size. Using 1.5x should be
+            // safe, as R is the max degree, and thus the average degree is usually lower.
+            size_t num_vectors = generated_data_bytes / (dim * sizeof(float));
+            size_t graph_size = num_vectors * graph_max_degree * sizeof(size_t);
+            return generated_data_bytes + graph_size;
+        };
+
+    constexpr auto rss_threshold = [](size_t generated_data_bytes,
+                                      size_t allocator_block_size) {
+        // Alias long names
+        const size_t g = generated_data_bytes;
+        const size_t a = allocator_block_size;
+        // On load, the allocator allocates blocks of block_size
+        // We allow for size_on_disk / block_size + 1 for the graph
+        size_t per_entity = size_t((g + a - 1) / a * a);
+        // Graph and Data can both be loaded with blocked allocators, therefore
+        // we allow two times the aligned size calculated from the data size
+        return per_entity + per_entity;
     };
 
+    constexpr size_t MiB = 1024 * 1024;
+
     CATCH_SECTION("SmallIndex") {
-        auto stats = run_save_and_load_test(10);
-        CATCH_REQUIRE(stats.file_size < 20 * 1024 * 1024);
-        CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
+        auto stats = run_save_and_load_test(10, 128, 64);
+        CATCH_REQUIRE(stats.file_size < file_threshold(10 * MiB, 128, 64));
+        CATCH_REQUIRE(stats.rss_increase < rss_threshold(20 * MiB, 1024 * MiB));
     }
 
     CATCH_SECTION("MediumIndex") {
-        auto stats = run_save_and_load_test(50);
-        CATCH_REQUIRE(stats.file_size < 100 * 1024 * 1024);
-        CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
+        auto stats = run_save_and_load_test(50, 128, 64);
+        CATCH_REQUIRE(stats.file_size < file_threshold(50 * MiB, 128, 64));
+        CATCH_REQUIRE(stats.rss_increase < rss_threshold(50 * MiB, 1024 * MiB));
     }
 
     CATCH_SECTION("LargeIndex") {
-        auto stats = run_save_and_load_test(200);
-        CATCH_REQUIRE(stats.file_size < 400 * 1024 * 1024);
-        CATCH_REQUIRE(stats.rss_increase < threshold(stats.file_size));
+        auto stats = run_save_and_load_test(200, 128, 64);
+        CATCH_REQUIRE(stats.file_size < file_threshold(200 * MiB, 128, 64));
+        CATCH_REQUIRE(stats.rss_increase < rss_threshold(200 * MiB, 1024 * MiB));
     }
 }
 
