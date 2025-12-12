@@ -30,7 +30,9 @@
 
 // For memory tracking
 #include <fstream>
+#include <optional>
 #include <sys/resource.h>
+#include <type_traits>
 #include <unistd.h>
 
 #include "utils.h"
@@ -76,30 +78,40 @@ struct UsageInfo {
 } // namespace
 
 // Template function to write and read an index
-template <typename BuildFunc>
+template <typename Index, typename BuildFunc>
 void write_and_read_index(
     BuildFunc build_func,
     const std::vector<float>& xb,
     size_t n,
     size_t d,
-    svs::runtime::v0::StorageKind storage_kind,
+    std::optional<svs::runtime::v0::StorageKind> storage_kind = std::nullopt,
     svs::runtime::v0::MetricType metric = svs::runtime::v0::MetricType::L2
 ) {
     // Build index
-    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    Index* index = nullptr;
     svs::runtime::v0::Status status = build_func(&index);
-    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(storage_kind).ok()) {
-        CATCH_REQUIRE(!status.ok());
-        CATCH_SKIP("Storage kind is not supported, skipping test.");
+
+    // Stop here if storage kind is not supported on this platform
+    if constexpr (std::is_same_v<Index, svs::runtime::v0::DynamicVamanaIndex>) {
+        if (storage_kind.has_value()) {
+            if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(*storage_kind)
+                     .ok()) {
+                CATCH_REQUIRE(!status.ok());
+                return;
+            }
+        }
     }
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(index != nullptr);
 
     // Add data to index
-    std::vector<size_t> labels(n);
-    std::iota(labels.begin(), labels.end(), 0);
-
-    status = index->add(n, labels.data(), xb.data());
+    if constexpr (std::is_same_v<Index, svs::runtime::v0::FlatIndex>) {
+        status = index->add(n, xb.data());
+    } else {
+        std::vector<size_t> labels(n);
+        std::iota(labels.begin(), labels.end(), 0);
+        status = index->add(n, labels.data(), xb.data());
+    }
     CATCH_REQUIRE(status.ok());
 
     svs_test::prepare_temp_directory();
@@ -114,11 +126,16 @@ void write_and_read_index(
     out.close();
 
     // Deserialize
-    svs::runtime::v0::DynamicVamanaIndex* loaded = nullptr;
+    Index* loaded = nullptr;
     std::ifstream in(filename, std::ios::binary);
     CATCH_REQUIRE(in.is_open());
 
-    status = svs::runtime::v0::DynamicVamanaIndex::load(&loaded, in, metric, storage_kind);
+    if constexpr (std::is_same_v<Index, svs::runtime::v0::FlatIndex>) {
+        status = Index::load(&loaded, in, metric);
+    } else {
+        CATCH_REQUIRE(storage_kind.has_value());
+        status = Index::load(&loaded, in, metric, *storage_kind);
+    }
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(loaded != nullptr);
     in.close();
@@ -135,8 +152,8 @@ void write_and_read_index(
     CATCH_REQUIRE(status.ok());
 
     // Clean up
-    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
-    svs::runtime::v0::DynamicVamanaIndex::destroy(loaded);
+    Index::destroy(index);
+    Index::destroy(loaded);
 }
 
 // Helper that writes and reads and index of requested size
@@ -223,7 +240,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVS", "[runtime]") {
             build_params
         );
     };
-    write_and_read_index(
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
         build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP32
     );
 }
@@ -240,7 +257,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSFP16", "[runtime]") {
             build_params
         );
     };
-    write_and_read_index(
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
         build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP16
     );
 }
@@ -257,7 +274,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSSQI8", "[runtime]") {
             build_params
         );
     };
-    write_and_read_index(
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
         build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::SQI8
     );
 }
@@ -274,7 +291,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSLVQ4x4", "[runtime]") {
             build_params
         );
     };
-    write_and_read_index(
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
         build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LVQ4x4
     );
 }
@@ -292,7 +309,7 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVec4x4", "[runtime]") {
             build_params
         );
     };
-    write_and_read_index(
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
         build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LeanVec4x4
     );
 }
@@ -332,53 +349,14 @@ CATCH_TEST_CASE("LeanVecWithTrainingData", "[runtime]") {
 
 CATCH_TEST_CASE("FlatIndexWriteAndRead", "[runtime]") {
     const auto& test_data = get_test_data();
-    svs::runtime::v0::FlatIndex* index = nullptr;
-    svs::runtime::v0::Status status = svs::runtime::v0::FlatIndex::build(
-        &index, test_d, svs::runtime::v0::MetricType::L2
+    auto build_func = [](svs::runtime::v0::FlatIndex** index) {
+        return svs::runtime::v0::FlatIndex::build(
+            index, test_d, svs::runtime::v0::MetricType::L2
+        );
+    };
+    write_and_read_index<svs::runtime::v0::FlatIndex>(
+        build_func, test_data, test_n, test_d
     );
-    CATCH_REQUIRE(status.ok());
-    CATCH_REQUIRE(index != nullptr);
-
-    // Add data
-    status = index->add(test_n, test_data.data());
-    CATCH_REQUIRE(status.ok());
-
-    svs_test::prepare_temp_directory();
-    auto temp_dir = svs_test::temp_directory();
-    auto filename = temp_dir / "flat_index_test.bin";
-
-    // Serialize
-    std::ofstream out(filename, std::ios::binary);
-    CATCH_REQUIRE(out.is_open());
-    status = index->save(out);
-    CATCH_REQUIRE(status.ok());
-    out.close();
-
-    // Deserialize
-    svs::runtime::v0::FlatIndex* loaded = nullptr;
-    std::ifstream in(filename, std::ios::binary);
-    CATCH_REQUIRE(in.is_open());
-
-    status =
-        svs::runtime::v0::FlatIndex::load(&loaded, in, svs::runtime::v0::MetricType::L2);
-    CATCH_REQUIRE(status.ok());
-    CATCH_REQUIRE(loaded != nullptr);
-    in.close();
-
-    // Test search
-    const int nq = 5;
-    const float* xq = test_data.data();
-    const int k = 10;
-
-    std::vector<float> distances(nq * k);
-    std::vector<size_t> result_labels(nq * k);
-
-    status = loaded->search(nq, xq, k, distances.data(), result_labels.data());
-    CATCH_REQUIRE(status.ok());
-
-    // Clean up
-    svs::runtime::v0::FlatIndex::destroy(index);
-    svs::runtime::v0::FlatIndex::destroy(loaded);
 }
 
 CATCH_TEST_CASE("SearchWithIDFilter", "[runtime]") {
