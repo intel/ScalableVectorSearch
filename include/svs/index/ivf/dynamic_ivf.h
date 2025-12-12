@@ -22,6 +22,7 @@
 
 // svs
 #include "svs/concepts/distance.h"
+#include "svs/core/loading.h"
 #include "svs/core/logging.h"
 #include "svs/core/query_result.h"
 #include "svs/core/translation.h"
@@ -899,52 +900,66 @@ class DynamicIVFIndex {
     size_t get_global_id(size_t /*cluster_id*/, size_t local_id) const { return local_id; }
 };
 
+/// @brief Assemble a DynamicIVFIndex from clustering and data prototype
 ///
-/// @brief Build a DynamicIVFIndex from clustering and data
+/// @param clustering The clustering result containing centroids and assignments
+/// @param data_proto Data prototype (file path or data object) to load
+/// @param ids External IDs for the data points (must match data size)
+/// @param distance Distance function to use
+/// @param threadpool_proto Thread pool for parallel operations
+/// @param intra_query_thread_count Number of threads for intra-query parallelism
 ///
 template <
-    typename Centroids,
-    data::ImmutableMemoryDataset SourceData,
+    typename Clustering,
+    typename DataProto,
     typename Distance,
-    typename ThreadPoolProto>
-auto build_dynamic_ivf(
-    Centroids centroids,
-    const index::ivf::Clustering<Centroids, uint32_t>& clustering,
-    const SourceData& source_data,
+    typename ThreadpoolProto>
+auto assemble_dynamic_from_clustering(
+    Clustering clustering,
+    const DataProto& data_proto,
     std::span<const size_t> ids,
     Distance distance,
-    ThreadPoolProto threadpool_proto,
+    ThreadpoolProto threadpool_proto,
     const size_t intra_query_thread_count = 1
 ) {
     using I = uint32_t;
-    using ElementType = typename SourceData::element_type;
-    // Use BlockedData with default lib::Allocator for dynamic operations
-    using BlockedDataType =
-        data::SimpleData<ElementType, Dynamic, data::Blocked<lib::Allocator<ElementType>>>;
+    using centroids_type = data::SimpleData<typename Clustering::T>;
 
+    // Load the data
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    auto data = svs::detail::dispatch_load(data_proto, threadpool);
+
+    // Validate that ids size matches data size
+    if (ids.size() != data.size()) {
+        throw ANNEXCEPTION(
+            "IDs size (", ids.size(), ") does not match data size (", data.size(), ")"
+        );
+    }
+
+    // Use lib_blocked_alloc_data_type for Dynamic IVF
+    using blocked_data_type = typename decltype(data)::lib_blocked_alloc_data_type;
 
     // Use a small block size for IVF clusters (1MB instead of 1GB default)
-    // With many clusters, large blocks cause excessive memory usage
     auto blocking_params = data::BlockingParameters{
         .blocksize_bytes = lib::PowerOfTwo(20) // 2^20 = 1MB
     };
-    auto blocked_allocator = data::Blocked<lib::Allocator<ElementType>>(
-        blocking_params, lib::Allocator<ElementType>()
-    );
+    using allocator_type = typename blocked_data_type::allocator_type;
+    auto blocked_allocator =
+        allocator_type(blocking_params, typename allocator_type::allocator_type());
 
-    // Use DenseClusteredDataset to create clusters, just like static IVF
-    auto dense_clusters = DenseClusteredDataset<Centroids, I, BlockedDataType>(
-        clustering, source_data, threadpool, blocked_allocator
+    // Create clustered dataset - DenseClusteredDataset will use the extension system
+    // to create the appropriate data type with blocked allocator via create_dense_cluster
+    auto dense_clusters = DenseClusteredDataset<centroids_type, I, blocked_data_type>(
+        clustering, data, threadpool, blocked_allocator
     );
 
     // Create the index
     return DynamicIVFIndex<
-        Centroids,
+        centroids_type,
         decltype(dense_clusters),
         Distance,
         decltype(threadpool)>(
-        std::move(centroids),
+        std::move(clustering.centroids()),
         std::move(dense_clusters),
         ids,
         std::move(distance),

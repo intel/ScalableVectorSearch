@@ -263,13 +263,12 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
         build_params, data, Distance(), threadpool, false
     );
 
-    // Use build_dynamic_ivf which automatically creates BlockedData clusters
+    // Use assemble_dynamic_from_clustering with external IDs
     std::vector<size_t> ids(data.size());
     std::iota(ids.begin(), ids.end(), 0);
 
-    auto index = svs::index::ivf::build_dynamic_ivf(
-        std::move(clustering.centroids_),
-        clustering,
+    auto index = svs::index::ivf::assemble_dynamic_from_clustering(
+        std::move(clustering),
         data,
         ids,
         Distance(),
