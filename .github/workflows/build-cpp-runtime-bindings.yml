@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build C++ Runtime Bindings
+name: Build and test C++ Runtime Bindings
 
 on:
   push:
@@ -30,6 +30,7 @@ concurrency:
 
 jobs:
   build-cpp-runtime-bindings:
+    name: Build and unit tests for C++ runtime bindings
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -68,7 +69,6 @@ jobs:
 
       # Run unit tests that were built as part of this job
       - name: Run unit tests in Docker container
-        continue-on-error: true  # Don't fail the job if tests fail
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -78,6 +78,7 @@ jobs:
 
   # Run full test script using the built artifacts
   test:
+    name: Integration tests for C++ runtime
     needs: build-cpp-runtime-bindings
     runs-on: ubuntu-22.04
     strategy:
