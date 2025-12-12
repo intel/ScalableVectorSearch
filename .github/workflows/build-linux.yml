@@ -30,13 +30,16 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}, ivf=${{ matrix.ivf }}
+    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}, ivf=${{ matrix.ivf }}, asan=${{ matrix.asan }}
     runs-on: ubuntu-22.04
     strategy:
       matrix:
         build_type: [RelWithDebugInfo]
         ivf: [OFF, ON]
         cxx: [g++-11, g++-12, clang++-15]
+        asan: [OFF]
+        cmake_extra_args: ["-DSVS_BUILD_BINARIES=YES -DSVS_BUILD_EXAMPLES=YES"]
+        ctest_args: [""]
         include:
           - cxx: g++-11
             cc: gcc-11
@@ -44,6 +47,21 @@ jobs:
             cc: gcc-12
           - cxx: clang++-15
             cc: clang-15
+          - cxx: clang++-18
+            cc: clang-18
+            build_type: Debug
+            ivf: OFF
+            asan: ON
+            # address sanitizer flags
+            cmake_extra_args: >-
+              -DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
+              -DCMAKE_C_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
+              -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'
+              -DCMAKE_SHARED_LINKER_FLAGS='-fsanitize=address'
+              -DSVS_BUILD_BINARIES=NO
+              -DSVS_BUILD_EXAMPLES=NO
+            # skip longer-running tests
+            ctest_args: "-LE long"
         exclude:
           - cxx: g++-12
             ivf: ON
@@ -60,6 +78,13 @@ jobs:
        source /opt/intel/oneapi/setvars.sh
        printenv >> $GITHUB_ENV
 
+    - name: Install Clang 18
+      if: matrix.cxx == 'clang++-18'
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 18
+
     - name: Configure build
       working-directory: ${{ runner.temp }}
       env:
@@ -69,12 +94,10 @@ jobs:
       run: |
         cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE} \
               -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DSVS_BUILD_BINARIES=YES \
               -DSVS_BUILD_TESTS=YES \
-              -DSVS_BUILD_EXAMPLES=YES \
-              -DSVS_EXPERIMENTAL_LEANVEC=YES \
               -DSVS_NO_AVX512=NO \
-              -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }}
+              -DSVS_EXPERIMENTAL_ENABLE_IVF=${{ matrix.ivf }} \
+              ${{ matrix.cmake_extra_args }}
 
     - name: Build Tests and Utilities
       working-directory: ${{ runner.temp }}/build
@@ -82,12 +105,13 @@ jobs:
 
     - name: Run tests
       env:
-          CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
-      run: ctest -C ${{ matrix.build_type }}
+      run: ctest -C ${{ matrix.build_type }} ${{ matrix.ctest_args }}
 
     - name: Run Cpp Examples
+      if: matrix.asan != 'ON'
       env:
-          CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/examples/cpp
-      run: ctest -C RelWithDebugInfo
+      run: ctest -C ${{ matrix.build_type }}
