@@ -61,7 +61,7 @@ jobs:
             /bin/bash -c "chmod +x docker/x86_64/build-cpp-runtime-bindings.sh && ./docker/x86_64/build-cpp-runtime-bindings.sh"
 
       - name: Upload cpp runtime bindings artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
@@ -98,7 +98,7 @@ jobs:
 
       # Need to download for a new job
       - name: Download shared libraries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: runtime_lib
