@@ -321,4 +321,3 @@ schema_version = "v0.0.0"
     graph = "str"
     queries_f32 = "str"
     queries_in_training_set = "int"
-

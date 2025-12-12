@@ -90,4 +90,3 @@ if(DEFINED SKBUILD)
     # wheel.
     install(FILES "${CMAKE_CURRENT_LIST_DIR}/../../data/serialization.toml" DESTINATION .)
 endif()
-

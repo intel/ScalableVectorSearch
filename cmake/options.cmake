@@ -208,4 +208,3 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         target_compile_options(svs_compile_options INTERFACE -Wno-uninitialized)
     endif()
 endif()
-
