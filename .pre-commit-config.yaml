@@ -26,5 +26,4 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-yaml
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+        files: \.ya?ml$
