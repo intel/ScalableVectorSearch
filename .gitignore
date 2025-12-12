@@ -1,5 +1,7 @@
 # Build directories
-/build*/
+build/
+build-*/
+build_*/
 usr/
 wheelhouse/
 

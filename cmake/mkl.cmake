@@ -95,4 +95,18 @@ elseif(NOT SVS_EXPERIMENTAL_LINK_STATIC_MKL)
         ${SVS_LIB} INTERFACE $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
     )
     target_link_libraries(${SVS_LIB} INTERFACE $<LINK_ONLY:MKL::MKL>)
+else() # if static link and not custom mkl
+    message(STATUS "Statically linking ${target} to Intel(R) MKL")
+    function(link_mkl_static target)
+        target_link_libraries(${target} PRIVATE
+            -Wl,--start-group
+            ${MKL_ROOT}/lib/intel64/libmkl_intel_lp64.a
+            ${MKL_ROOT}/lib/intel64/libmkl_sequential.a
+            ${MKL_ROOT}/lib/intel64/libmkl_core.a
+            -Wl,--end-group -lpthread -lm -ldl
+        )
+        target_include_directories(
+            ${target} PRIVATE $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>
+        )
+    endfunction()
 endif()
