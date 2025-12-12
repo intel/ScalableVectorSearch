@@ -189,6 +189,6 @@ install(FILES
 )
 
 # Build tests if requested
-if(SVS_BUILD_TESTS)
+if(SVS_BUILD_RUNTIME_TESTS)
     add_subdirectory(tests)
 endif()
