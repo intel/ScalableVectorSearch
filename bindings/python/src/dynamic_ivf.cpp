@@ -84,12 +84,10 @@ svs::DynamicIVF assemble_uncompressed(
 
 template <typename Dispatcher>
 void register_uncompressed_ivf_assemble(Dispatcher& dispatcher) {
-    for_standard_specializations(
-        [&dispatcher]<typename Q, typename T, size_t N>() {
-            auto method = &assemble_uncompressed<Q, T, N>;
-            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-        }
-    );
+    for_standard_specializations([&dispatcher]<typename Q, typename T, size_t N>() {
+        auto method = &assemble_uncompressed<Q, T, N>;
+        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+    });
 }
 
 template <typename Dispatcher> void register_ivf_assembly(Dispatcher& dispatcher) {
@@ -115,12 +113,10 @@ svs::DynamicIVF assemble_from_file_uncompressed(
 
 template <typename Dispatcher>
 void register_uncompressed_ivf_assemble_from_file(Dispatcher& dispatcher) {
-    for_standard_specializations(
-        [&dispatcher]<typename Q, typename T, size_t N>() {
-            auto method = &assemble_from_file_uncompressed<Q, T, N>;
-            dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
-        }
-    );
+    for_standard_specializations([&dispatcher]<typename Q, typename T, size_t N>() {
+        auto method = &assemble_from_file_uncompressed<Q, T, N>;
+        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+    });
 }
 
 template <typename Dispatcher>
@@ -135,8 +131,14 @@ using IVFAssembleTypes =
 ///// Dispatch Invocation
 /////
 
-using AssemblyDispatcher = svs::lib::
-    Dispatcher<svs::DynamicIVF, Clustering, IVFAssembleTypes, std::span<const size_t>, svs::DistanceType, size_t, size_t>;
+using AssemblyDispatcher = svs::lib::Dispatcher<
+    svs::DynamicIVF,
+    Clustering,
+    IVFAssembleTypes,
+    std::span<const size_t>,
+    svs::DistanceType,
+    size_t,
+    size_t>;
 
 AssemblyDispatcher assembly_dispatcher() {
     auto dispatcher = AssemblyDispatcher{};
@@ -198,7 +200,12 @@ svs::DynamicIVF assemble_from_file(
 ) {
     auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
     return assembly_from_file_dispatcher().invoke(
-        cluster_path, std::move(data_kind), ids, distance_type, num_threads, intra_query_threads
+        cluster_path,
+        std::move(data_kind),
+        ids,
+        distance_type,
+        num_threads,
+        intra_query_threads
     );
 }
 

@@ -231,7 +231,9 @@ template <typename T>
 void compute_matmul(
     const T* data, const T* centroids, float* results, size_t m, size_t n, size_t k
 ) {
-    // Validate parameters to avoid Intel MKL errors
+    // Early return for zero dimensions.
+    // Calling Intel MKL functions with zero dimensions may result in undefined behavior
+    // or runtime errors. This check ensures we avoid such cases.
     if (m == 0 || n == 0 || k == 0) {
         return; // Nothing to compute
     }

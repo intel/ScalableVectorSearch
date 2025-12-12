@@ -166,10 +166,10 @@ void test_kmeans_train_only_performance(const Data& data, Distance distance) {
         end_train_only - start_train_only
     );
 
-    // Verify train_only doesn't take significantly longer (allow some variance)
-    // In practice, train_only should be faster, but we allow it to be up to 50% longer due
-    // to variance
     CATCH_REQUIRE(train_only_duration.count() <= normal_duration.count() * 1.5);
+    // Note: We do not assert on performance here, as wall-clock timing is unreliable in CI.
+    // In practice, train_only should be faster, but this is best verified with dedicated
+    // benchmarks.
 
     // Verify results are still valid
     CATCH_REQUIRE(centroids_train_only.size() == n_centroids);

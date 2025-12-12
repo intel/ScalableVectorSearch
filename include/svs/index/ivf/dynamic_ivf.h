@@ -939,7 +939,11 @@ auto build_dynamic_ivf(
     );
 
     // Create the index
-    return DynamicIVFIndex<Centroids, decltype(dense_clusters), Distance, decltype(threadpool)>(
+    return DynamicIVFIndex<
+        Centroids,
+        decltype(dense_clusters),
+        Distance,
+        decltype(threadpool)>(
         std::move(centroids),
         std::move(dense_clusters),
         ids,

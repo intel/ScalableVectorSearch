@@ -254,7 +254,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         size_t intra_query_threads = 1
     ) {
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-        
+
         if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
@@ -279,7 +279,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         }
     }
 
-private:
+  private:
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename Clustering,
@@ -311,7 +311,11 @@ private:
         );
 
         // Create the index
-        auto impl = index::ivf::DynamicIVFIndex<Centroids, decltype(dense_clusters), Distance, decltype(threadpool)>(
+        auto impl = index::ivf::DynamicIVFIndex<
+            Centroids,
+            decltype(dense_clusters),
+            Distance,
+            decltype(threadpool)>(
             std::move(centroids),
             std::move(dense_clusters),
             ids,
@@ -325,8 +329,7 @@ private:
         );
     }
 
-public:
-
+  public:
     ///// Assembly - Assemble from file (load clustering from disk)
     template <
         manager::QueryTypeDefinition QueryTypes,
@@ -344,9 +347,10 @@ public:
     ) {
         using centroids_type = data::SimpleData<BuildType>;
         auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-        auto clustering = lib::load_from_disk<index::ivf::Clustering<centroids_type, uint32_t>>(
-            cluster_path, threadpool
-        );
+        auto clustering =
+            lib::load_from_disk<index::ivf::Clustering<centroids_type, uint32_t>>(
+                cluster_path, threadpool
+            );
         return assemble_from_clustering<QueryTypes>(
             std::move(clustering),
             data,
@@ -381,8 +385,8 @@ public:
         auto clusters = Clusters(centroids.size(), data.dimensions(), data.get_allocator());
 
         // Create the index with empty clusters
-        auto impl =
-            index::ivf::DynamicIVFIndex<Centroids, Clusters, Distance, decltype(threadpool)>(
+        auto impl = index::ivf::
+            DynamicIVFIndex<Centroids, Clusters, Distance, decltype(threadpool)>(
                 std::move(centroids),
                 std::move(clusters),
                 ids,

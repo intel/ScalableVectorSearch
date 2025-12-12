@@ -344,18 +344,11 @@ class DenseClusteredDataset {
 
     // Constructor for empty clusters (for assembly/dynamic operations)
     template <typename Alloc>
-    DenseClusteredDataset(
-        size_t num_clusters,
-        size_t dimensions,
-        const Alloc& allocator
-    )
+    DenseClusteredDataset(size_t num_clusters, size_t dimensions, const Alloc& allocator)
         : clusters_{} {
         clusters_.reserve(num_clusters);
         for (size_t i = 0; i < num_clusters; ++i) {
-            clusters_.emplace_back(
-                Data(0, dimensions, allocator),
-                std::vector<I>()
-            );
+            clusters_.emplace_back(Data(0, dimensions, allocator), std::vector<I>());
         }
     }
 
@@ -372,9 +365,7 @@ class DenseClusteredDataset {
     }
 
     // Cluster access (mutable) - for dynamic IVF operations
-    DenseCluster<Data, I>& operator[](size_t cluster) {
-        return clusters_[cluster];
-    }
+    DenseCluster<Data, I>& operator[](size_t cluster) { return clusters_[cluster]; }
 
     // Number of clusters
     size_t size() const { return clusters_.size(); }
@@ -396,9 +387,7 @@ class DenseClusteredDataset {
     }
 
     // View cluster data (mutable) - for dynamic IVF operations
-    Data& view_cluster(size_t cluster) {
-        return clusters_[cluster].view_cluster();
-    }
+    Data& view_cluster(size_t cluster) { return clusters_[cluster].view_cluster(); }
 
   private:
     std::vector<DenseCluster<Data, I>> clusters_;

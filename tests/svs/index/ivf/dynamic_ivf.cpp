@@ -220,10 +220,10 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index", "[dynamic_ivf]") {
     // Create dynamic clusters using DenseClusteredDataset
     auto centroids = clustering.centroids();
     using DataType = svs::data::SimpleData<Eltype, N>;
-    auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-        decltype(centroids),
-        Idx,
-        DataType>(clustering, initial_data, threadpool, svs::lib::Allocator<std::byte>());
+    auto dense_clusters =
+        svs::index::ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+            clustering, initial_data, threadpool, svs::lib::Allocator<std::byte>()
+        );
 
     // Create the dynamic IVF index
     auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
@@ -260,17 +260,13 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
     auto build_params = svs::index::ivf::IVFBuildParameters(10, 10, false);
     auto threadpool = svs::threads::SequentialThreadPool();
     auto clustering = svs::index::ivf::build_clustering<Eltype>(
-        build_params,
-        data,
-        Distance(),
-        threadpool,
-        false
+        build_params, data, Distance(), threadpool, false
     );
 
     // Use build_dynamic_ivf which automatically creates BlockedData clusters
     std::vector<size_t> ids(data.size());
     std::iota(ids.begin(), ids.end(), 0);
-    
+
     auto index = svs::index::ivf::build_dynamic_ivf(
         std::move(clustering.centroids_),
         clustering,
@@ -284,14 +280,14 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
     // Test 1: Initial search works
     auto params = svs::index::ivf::IVFSearchParameters(10, NUM_NEIGHBORS);
     auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
-    
+
     index.search(
         results.view(),
         svs::data::ConstSimpleDataView<float>{
             queries.data(), queries.size(), queries.dimensions()},
         params
     );
-    
+
     // Verify we got results
     size_t valid_results = 0;
     for (size_t i = 0; i < results.n_queries(); ++i) {
@@ -300,7 +296,7 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
         }
     }
     CATCH_REQUIRE(valid_results > 0);
-    
+
     // Test 2: Add points (BlockedData's resize capability)
     constexpr size_t num_add = 100;
     std::vector<size_t> new_ids;
@@ -309,11 +305,11 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
         new_ids.push_back(data.size() + i);
         new_data.set_datum(i, data.get_datum(i % data.size()));
     }
-    
+
     size_t size_before = index.size();
     index.add_points(new_data, new_ids, false);
     CATCH_REQUIRE(index.size() == size_before + num_add);
-    
+
     // Test 3: Search still works after adding
     index.search(
         results.view(),
@@ -321,7 +317,7 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
             queries.data(), queries.size(), queries.dimensions()},
         params
     );
-    
+
     valid_results = 0;
     for (size_t i = 0; i < results.n_queries(); ++i) {
         if (results.index(i, 0) != std::numeric_limits<size_t>::max()) {
@@ -329,7 +325,7 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
         }
     }
     CATCH_REQUIRE(valid_results > 0);
-    
+
     // Test 4: Delete some points
     std::vector<size_t> to_delete;
     for (size_t i = 0; i < 50; ++i) {
@@ -338,11 +334,11 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
     size_t deleted = index.delete_entries(to_delete);
     CATCH_REQUIRE(deleted == to_delete.size());
     CATCH_REQUIRE(index.size() == size_before + num_add - deleted);
-    
+
     // Test 5: Compact works with BlockedData
     index.compact(1000);
     CATCH_REQUIRE(index.size() == size_before + num_add - deleted);
-    
+
     // Test 6: Search after compaction
     index.search(
         results.view(),
@@ -350,7 +346,7 @@ CATCH_TEST_CASE("Testing Dynamic IVF Index with BlockedData", "[dynamic_ivf]") {
             queries.data(), queries.size(), queries.dimensions()},
         params
     );
-    
+
     valid_results = 0;
     for (size_t i = 0; i < results.n_queries(); ++i) {
         if (results.index(i, 0) != std::numeric_limits<size_t>::max()) {
@@ -403,10 +399,10 @@ CATCH_TEST_CASE("Dynamic IVF - Edge Cases", "[dynamic_ivf]") {
 
     auto centroids = clustering.centroids();
     using DataType = svs::data::SimpleData<Eltype, N>;
-    auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-        decltype(centroids),
-        Idx,
-        DataType>(clustering, data, threadpool, svs::lib::Allocator<std::byte>());
+    auto dense_clusters =
+        svs::index::ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+            clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+        );
 
     auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
     using IndexType = svs::index::ivf::DynamicIVFIndex<
@@ -497,10 +493,10 @@ CATCH_TEST_CASE("Dynamic IVF - Search Parameters Variations", "[dynamic_ivf]") {
 
     auto centroids = clustering.centroids();
     using DataType = svs::data::SimpleData<Eltype, N>;
-    auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-        decltype(centroids),
-        Idx,
-        DataType>(clustering, data, threadpool, svs::lib::Allocator<std::byte>());
+    auto dense_clusters =
+        svs::index::ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+            clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+        );
 
     auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
     using IndexType = svs::index::ivf::DynamicIVFIndex<
@@ -559,7 +555,6 @@ CATCH_TEST_CASE("Dynamic IVF - Threading Configurations", "[dynamic_ivf]") {
         false
     );
 
-
     // Test with different thread configurations
     std::vector<size_t> thread_configs = {1, 2, 4, 8};
     std::vector<size_t> intra_query_configs = {1, 2};
@@ -575,10 +570,10 @@ CATCH_TEST_CASE("Dynamic IVF - Threading Configurations", "[dynamic_ivf]") {
 
             auto centroids_copy = clustering.centroids();
             using DataType = svs::data::SimpleData<Eltype, N>;
-            auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-                decltype(centroids_copy),
-                Idx,
-                DataType>(clustering, data, threadpool, svs::lib::Allocator<std::byte>());
+            auto dense_clusters = svs::index::ivf::
+                DenseClusteredDataset<decltype(centroids_copy), Idx, DataType>(
+                    clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+                );
 
             auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
             using IndexType = svs::index::ivf::DynamicIVFIndex<
@@ -652,10 +647,10 @@ CATCH_TEST_CASE("Dynamic IVF - Add/Delete Stress Test", "[dynamic_ivf]") {
 
     auto centroids = clustering.centroids();
     using DataType = svs::data::SimpleData<Eltype, N>;
-    auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-        decltype(centroids),
-        Idx,
-        DataType>(clustering, initial_data, threadpool, svs::lib::Allocator<std::byte>());
+    auto dense_clusters =
+        svs::index::ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+            clustering, initial_data, threadpool, svs::lib::Allocator<std::byte>()
+        );
 
     auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
     using IndexType = svs::index::ivf::DynamicIVFIndex<
@@ -764,10 +759,10 @@ CATCH_TEST_CASE("Dynamic IVF - Single Query Search", "[dynamic_ivf]") {
 
     auto centroids = clustering.centroids();
     using DataType = svs::data::SimpleData<Eltype, N>;
-    auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-        decltype(centroids),
-        Idx,
-        DataType>(clustering, data, threadpool, svs::lib::Allocator<std::byte>());
+    auto dense_clusters =
+        svs::index::ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+            clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+        );
 
     auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
     using IndexType = svs::index::ivf::DynamicIVFIndex<
@@ -853,26 +848,22 @@ CATCH_TEST_CASE("Dynamic IVF Get Distance", "[index][ivf][dynamic_ivf]") {
     );
 
     // Create dynamic clusters using DenseClusteredDataset
-    // Note: This test uses sequential internal IDs, so we can't use the simple helper
     std::vector<Idx> initial_indices; // External IDs in order
-    size_t internal_id = 0;           // Sequential internal IDs
 
-    // Build mapping: internal_id -> external_id
     for (size_t c = 0; c < clustering.size(); ++c) {
         const auto& cluster_indices = clustering.cluster(c);
         for (size_t i = 0; i < cluster_indices.size(); ++i) {
             Idx external_id = cluster_indices[i]; // Use clustering index as external ID
-            initial_indices.push_back(external_id); // Map internal_id -> external_id
-            internal_id++;
+            initial_indices.push_back(external_id);
         }
     }
 
     auto centroids = clustering.centroids();
     using DataType = svs::data::SimpleData<Eltype, N>;
-    auto dense_clusters = svs::index::ivf::DenseClusteredDataset<
-        decltype(centroids),
-        Idx,
-        DataType>(clustering, data, threadpool, svs::lib::Allocator<std::byte>());
+    auto dense_clusters =
+        svs::index::ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+            clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+        );
 
     // Need to update cluster IDs to use sequential internal IDs
     for (size_t c = 0, global_idx = 0; c < dense_clusters.size(); ++c) {

@@ -46,8 +46,8 @@ auto kmeans_clustering_impl(
 
     // Step 1: Create training set
     // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of centroids,
-    // or training_fraction of data, whichever is larger.
-    // This ensures we have enough training data even for small datasets
+    // but no more than the dataset size. This ensures we have enough training data
+    // even for small datasets, without exceeding the available data.
     size_t min_training_data =
         std::min(num_centroids * MIN_TRAINING_SAMPLE_MULTIPLIER, data.size());
     size_t num_training_data = std::max(

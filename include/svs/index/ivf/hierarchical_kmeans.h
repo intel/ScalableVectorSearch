@@ -91,9 +91,9 @@ auto hierarchical_kmeans_clustering_impl(
     svs::logging::debug(logger, "Level1 clusters: {}\n", num_level1_clusters);
 
     // Step 1: Create training set
-    // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of clusters,
-    // or training_fraction of data, whichever is larger.
-    // This ensures we have enough training data even for small datasets
+    // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of centroids,
+    // but no more than the dataset size. This ensures we have enough training data
+    // even for small datasets, without exceeding the available data.
     size_t min_training_data =
         std::min(num_clusters * MIN_TRAINING_SAMPLE_MULTIPLIER, data.size());
     size_t num_training_data = std::max(
