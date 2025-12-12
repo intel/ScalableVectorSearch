@@ -472,7 +472,7 @@ CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
     CATCH_SECTION("SmallIndex") {
         auto stats = run_save_and_load_test(10, 128, 64);
         CATCH_REQUIRE(stats.file_size < file_threshold(10 * MiB, 128, 64));
-        CATCH_REQUIRE(stats.rss_increase < rss_threshold(20 * MiB, 1024 * MiB));
+        CATCH_REQUIRE(stats.rss_increase < rss_threshold(10 * MiB, 1024 * MiB));
     }
 
     CATCH_SECTION("MediumIndex") {
