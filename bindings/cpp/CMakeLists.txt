@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_runtime VERSION 0.0.10 LANGUAGES CXX)
+project(svs_runtime VERSION 0.0.11 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
 
 set(SVS_RUNTIME_HEADERS
@@ -90,14 +90,6 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs::svs
         )
         link_mkl_static(${TARGET_NAME})
-    elseif(TARGET svs_static_library)
-        # Links to SVS static library built as part of the main SVS build
-        target_link_libraries(${TARGET_NAME} PRIVATE
-            svs_devel
-            svs_static_library
-            svs_compile_options
-            svs_x86_options_base
-        )
     elseif(TARGET svs::svs)
         message(FATAL_ERROR
             "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
@@ -197,6 +189,6 @@ install(FILES
 )
 
 # Build tests if requested
-if(SVS_BUILD_RUNTIME_TESTS)
+if(SVS_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
