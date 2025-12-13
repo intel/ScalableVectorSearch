@@ -438,21 +438,93 @@ class DynamicIVFIndex {
     /// for optimal memory usage and search performance.
     ///
     /// @param batch_size Granularity at which points are shuffled (unused for IVF)
-    void compact(size_t SVS_UNUSED(batch_size) = 1'000) {
-        // Collect all valid indices
+    void compact(size_t batch_size = 1'000) {
+        // Step 1: Compute mapping from new to old indices
         auto valid_indices = nonmissing_indices();
 
-        // Rebuild clusters compactly, removing empty slots
-        rebuild_clusters_compact(valid_indices);
+        // Step 2: Group valid indices by cluster
+        std::vector<std::vector<std::pair<size_t, size_t>>> cluster_valid_indices(
+            clusters_.size()
+        );
 
-        // Update metadata
+        // Collect all external ID mappings BEFORE modifying translator
+        std::vector<Idx> external_ids;
+        std::vector<size_t> new_internal_ids;
+        external_ids.reserve(valid_indices.size());
+        new_internal_ids.reserve(valid_indices.size());
+
+        for (size_t new_id = 0; new_id < valid_indices.size(); ++new_id) {
+            size_t old_id = valid_indices[new_id];
+            size_t cluster_idx = id_to_cluster_[old_id];
+            cluster_valid_indices[cluster_idx].push_back({new_id, old_id});
+
+            auto external_id = translator_.get_external(old_id);
+            external_ids.push_back(external_id);
+            new_internal_ids.push_back(new_id);
+        }
+
+        // Step 3: Save old metadata before clearing
+        auto old_id_in_cluster = id_in_cluster_;
+        translator_ = IDTranslator();
+
+        // Step 4: Compact each cluster using data_.compact()
+        for (size_t cluster_idx = 0; cluster_idx < clusters_.size(); ++cluster_idx) {
+            const auto& indices = cluster_valid_indices[cluster_idx];
+            if (indices.empty()) {
+                clusters_[cluster_idx].data_.resize(0);
+                clusters_[cluster_idx].ids_.clear();
+                continue;
+            }
+
+            // Create a map from old position in cluster to new_global_id
+            // Use std::map to automatically sort by old position
+            std::map<size_t, size_t> old_pos_to_global_id;
+            std::vector<size_t> old_positions_sorted;
+            old_positions_sorted.reserve(indices.size());
+
+            for (const auto& [new_global_id, old_global_id] : indices) {
+                size_t old_pos = old_id_in_cluster[old_global_id];
+                old_pos_to_global_id[old_pos] = new_global_id;
+            }
+
+            // Extract sorted old positions (map keeps them sorted by key)
+            for (const auto& [old_pos, _] : old_pos_to_global_id) {
+                old_positions_sorted.push_back(old_pos);
+            }
+
+            // Use data's compact() method - this reorders data in place
+            clusters_[cluster_idx].data_.compact(
+                lib::as_const_span(old_positions_sorted),
+                inter_query_threadpool_,
+                batch_size
+            );
+            clusters_[cluster_idx].data_.resize(indices.size());
+
+            // After compact(), data is at positions [0, 1, 2, ...] corresponding to
+            // the sorted old positions. Build new IDs and metadata.
+            std::vector<Idx> new_ids(indices.size());
+            size_t compacted_pos = 0;
+            for (size_t old_pos : old_positions_sorted) {
+                size_t new_global_id = old_pos_to_global_id[old_pos];
+                new_ids[compacted_pos] = static_cast<Idx>(new_global_id);
+                id_to_cluster_[new_global_id] = cluster_idx;
+                id_in_cluster_[new_global_id] = compacted_pos;
+                compacted_pos++;
+            }
+
+            clusters_[cluster_idx].ids_ = std::move(new_ids);
+        }
+
+        // Step 5: Update global metadata
         size_t new_size = valid_indices.size();
         status_.resize(new_size);
-        // After compaction, all retained entries are valid
         std::fill(status_.begin(), status_.end(), IVFSlotMetadata::Valid);
         id_to_cluster_.resize(new_size);
         id_in_cluster_.resize(new_size);
         first_empty_ = new_size;
+
+        // Step 6: Re-add all IDs to translator
+        translator_.insert(external_ids, new_internal_ids, false);
 
         svs::logging::info(logger_, "Compaction complete: {} valid entries", new_size);
     }
@@ -770,70 +842,6 @@ class DynamicIVFIndex {
         }
     }
 
-    void rebuild_clusters_compact(const std::vector<size_t>& valid_indices) {
-        // Group valid indices by cluster
-        // cluster_valid_indices[cluster_idx] contains pairs of (new_id, old_id)
-        std::vector<std::vector<std::pair<size_t, size_t>>> cluster_valid_indices(
-            clusters_.size()
-        );
-
-        // Collect all mappings: (external_id, new_internal_id)
-        // NOTE: This must be done BEFORE we modify the translator
-        std::vector<Idx> external_ids;
-        std::vector<size_t> new_internal_ids;
-        external_ids.reserve(valid_indices.size());
-        new_internal_ids.reserve(valid_indices.size());
-
-        for (size_t new_id = 0; new_id < valid_indices.size(); ++new_id) {
-            size_t old_id = valid_indices[new_id];
-            size_t cluster_idx = id_to_cluster_[old_id];
-            cluster_valid_indices[cluster_idx].push_back({new_id, old_id});
-
-            // Save the external ID mapping for later
-            auto external_id = translator_.get_external(old_id);
-            external_ids.push_back(external_id);
-            new_internal_ids.push_back(new_id);
-        }
-
-        // Phase 1: Clear the translator completely
-        // This is simpler and safer than trying to selectively delete entries
-        translator_ = IDTranslator();
-
-        // Phase 2: Rebuild clusters and update metadata
-        for (size_t cluster_idx = 0; cluster_idx < clusters_.size(); ++cluster_idx) {
-            const auto& indices = cluster_valid_indices[cluster_idx];
-            if (indices.empty()) {
-                clusters_[cluster_idx].data_ =
-                    Data(0, clusters_[cluster_idx].data_.dimensions());
-                clusters_[cluster_idx].ids_.clear();
-                continue;
-            }
-
-            Data new_data(indices.size(), clusters_[cluster_idx].data_.dimensions());
-            std::vector<Idx> new_ids;
-            new_ids.reserve(indices.size());
-
-            for (size_t pos = 0; pos < indices.size(); ++pos) {
-                auto [new_global_id, old_global_id] = indices[pos];
-                size_t old_cluster = id_to_cluster_[old_global_id];
-                size_t old_pos = id_in_cluster_[old_global_id];
-
-                new_data.set_datum(pos, clusters_[old_cluster].data_.get_datum(old_pos));
-                new_ids.push_back(static_cast<Idx>(new_global_id));
-
-                // Update metadata
-                id_to_cluster_[new_global_id] = cluster_idx;
-                id_in_cluster_[new_global_id] = pos;
-            }
-
-            clusters_[cluster_idx].data_ = std::move(new_data);
-            clusters_[cluster_idx].ids_ = std::move(new_ids);
-        }
-
-        // Phase 3: Re-add all IDs to the translator with their new internal IDs
-        translator_.insert(external_ids, new_internal_ids, false);
-    }
-
     ///// Search Closures /////
 
     /// @brief Create closure for searching centroids
@@ -860,7 +868,8 @@ class DynamicIVFIndex {
                    auto& buffer_leaves,
                    size_t tid
                ) {
-            // Use the common search_leaves function
+            // Use the common search_leaves function with *this as cluster accessor
+            // DynamicIVFIndex provides a custom on_leaves that filters invalid entries
             search_leaves(
                 query,
                 distance,
@@ -873,31 +882,24 @@ class DynamicIVFIndex {
     }
 
   public:
-    /// @brief Cluster accessor interface for search_leaves
-    /// This method provides filtered access to cluster leaves, skipping empty entries
-    ///
-    /// Note: For DynamicIVFIndex, we pass the global_id as the local_id (3rd parameter)
-    /// because the common search_leaves function will combine it with cluster_id to get
-    /// the final ID. Our get_global_id() just returns the local_id unchanged.
+    /// @brief Custom on_leaves that wraps DenseCluster::on_leaves with validity filtering
+    /// This ensures deleted entries are skipped during search
     template <typename Callback> void on_leaves(Callback&& f, size_t cluster_id) const {
-        const auto& cluster = clusters_[cluster_id];
-        for (size_t i = 0; i < cluster.size(); ++i) {
-            Idx global_id = cluster.ids_[i];
-
-            // Skip empty entries
-            if (!is_valid(global_id)) {
-                continue;
-            }
-
-            auto datum = cluster.data_.get_datum(i);
-            // Pass global_id as the local_id (3rd param) since get_global_id returns it
-            // unchanged
-            f(datum, 0 /* unused gid */, global_id);
-        }
+        clusters_[cluster_id].on_leaves(
+            [this, &f](const auto& datum, auto global_id, auto local_pos) {
+                // Only invoke callback for valid (non-deleted) entries
+                if (is_valid(global_id)) {
+                    f(datum, global_id, local_pos);
+                }
+            },
+            prefetch_offset_
+        );
     }
 
-    /// @brief Get global ID for a point (identity function for dynamic IVF)
-    size_t get_global_id(size_t /*cluster_id*/, size_t local_id) const { return local_id; }
+    /// @brief Get global ID - delegates to DenseClusteredDataset
+    size_t get_global_id(size_t cluster_id, size_t local_pos) const {
+        return clusters_.get_global_id(cluster_id, local_pos);
+    }
 };
 
 /// @brief Assemble a DynamicIVFIndex from clustering and data prototype
