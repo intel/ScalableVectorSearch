@@ -45,4 +45,21 @@ auto svs_invoke(
     return new_sqdata;
 }
 
+// Specialization for blocked allocators (Dynamic IVF)
+template <IsSQData Data, typename BlockedAlloc>
+auto svs_invoke(
+    svs::tag_t<index::ivf::extensions::create_dense_cluster>,
+    const Data& original,
+    size_t new_size,
+    const data::Blocked<BlockedAlloc>& SVS_UNUSED(blocked_alloc)
+) {
+    auto new_sqdata = SQDataset<
+        typename Data::element_type,
+        Data::extent,
+        data::Blocked<BlockedAlloc>>(new_size, original.dimensions());
+    new_sqdata.set_scale(original.get_scale());
+    new_sqdata.set_bias(original.get_bias());
+    return new_sqdata;
+}
+
 } // namespace svs::quantization::scalar
