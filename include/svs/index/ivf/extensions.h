@@ -180,14 +180,30 @@ struct CreateDenseCluster {
 
 inline constexpr CreateDenseCluster create_dense_cluster{};
 
-template <typename T, size_t Extent, typename Alloc, typename NewAlloc>
+// Specialization for default allocator (backward compatibility)
+// When no specific allocator is provided, use default construction with same extent
+template <typename T, size_t Extent, typename SrcAlloc>
 svs::data::SimpleData<T, Extent> svs_invoke(
     svs::tag_t<create_dense_cluster>,
-    const svs::data::SimpleData<T, Extent, Alloc>& original,
+    const svs::data::SimpleData<T, Extent, SrcAlloc>& original,
     size_t new_size,
-    const NewAlloc& SVS_UNUSED(allocator)
+    const svs::lib::Allocator<std::byte>& SVS_UNUSED(allocator)
 ) {
     return svs::data::SimpleData<T, Extent>(new_size, original.dimensions());
+}
+
+// General implementation for Blocked allocators: Always use Dynamic extent for flexibility
+// This enables dynamic resizing which is essential for dynamic IVF operations
+template <typename T, size_t SrcExtent, typename SrcAlloc, typename BlockedAlloc>
+svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<BlockedAlloc>> svs_invoke(
+    svs::tag_t<create_dense_cluster>,
+    const svs::data::SimpleData<T, SrcExtent, SrcAlloc>& original,
+    size_t new_size,
+    const svs::data::Blocked<BlockedAlloc>& allocator
+) {
+    return svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<BlockedAlloc>>(
+        new_size, original.dimensions(), allocator
+    );
 }
 
 struct SetDenseCluster {
@@ -215,6 +231,50 @@ void svs_invoke(
         dst_ids[i] = id;
         ++i;
     }
+}
+
+/////
+///// Distance Computation
+/////
+
+struct ComputeDistanceType {
+    template <typename Clusters, typename Distance, typename Query>
+    double operator()(
+        const Clusters& clusters,
+        const Distance& distance,
+        size_t cluster_idx,
+        size_t pos,
+        const Query& query
+    ) const {
+        return svs_invoke(
+            *this, clusters[cluster_idx].view_cluster(), distance, pos, query
+        );
+    }
+};
+
+// CPO for distance computation
+inline constexpr ComputeDistanceType get_distance_ext{};
+
+// Default overload
+template <typename Data, typename Distance, typename Query>
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Data& data,
+    const Distance& distance,
+    size_t pos,
+    const Query& query
+) {
+    // Get distance function
+    auto dist_f = per_thread_batch_search_setup(data, distance);
+    svs::distance::maybe_fix_argument(dist_f, query);
+
+    // Get the vector
+    auto indexed_span = data.get_datum(pos);
+
+    // Compute the distance
+    auto dist = svs::distance::compute(dist_f, query, indexed_span);
+
+    return static_cast<double>(dist);
 }
 
 } // namespace svs::index::ivf::extensions

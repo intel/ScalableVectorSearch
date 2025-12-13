@@ -20,7 +20,9 @@
 #include "svs/python/common.h"
 #include "svs/python/core.h"
 
+#include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
+#include "svs/index/ivf/clustering.h"
 #include "svs/lib/bfloat16.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/float16.h"
@@ -29,6 +31,8 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl/filesystem.h>
+
+#include <variant>
 
 namespace svs::python {
 namespace ivf_specializations {
@@ -61,6 +65,18 @@ template <typename F> void for_standard_specializations(F&& f) {
 } // namespace ivf_specializations
 
 namespace ivf {
+
+// The build process in IVF uses Kmeans to get centroids and assignments of data.
+// This sparse clustering can be saved with centroids stored as float datatype.
+// While assembling, the sparse clustering is used to create DenseClusters and
+// centroids datatype can be changed as per the search specializations.
+// Support both BFloat16 and Float16 centroids to match data types and leverage AMX.
+using ClusteringBF16 =
+    svs::index::ivf::Clustering<svs::data::SimpleData<svs::BFloat16>, uint32_t>;
+using ClusteringF16 =
+    svs::index::ivf::Clustering<svs::data::SimpleData<svs::Float16>, uint32_t>;
+using Clustering = std::variant<ClusteringBF16, ClusteringF16>;
+
 template <typename Manager> void add_interface(pybind11::class_<Manager>& manager) {
     manager.def_property_readonly(
         "experimental_backend_string",
@@ -81,6 +97,28 @@ template <typename Manager> void add_interface(pybind11::class_<Manager>& manage
             and non-algorthmic properties of search (affecting queries-per-second).
 
             See also: `svs.IVFSearchParameters`.)"
+    );
+
+    manager.def(
+        "get_distance",
+        [](const Manager& index, size_t id, const py_contiguous_array_t<float>& query) {
+            return index.get_distance(id, as_span(query));
+        },
+        pybind11::arg("id"),
+        pybind11::arg("query"),
+        R"(
+        Compute the distance between a query vector and a vector in the index.
+
+        Args:
+            id: The ID of the vector in the index.
+            query: The query vector as a numpy array.
+
+        Returns:
+            The distance between the query and the indexed vector.
+
+        Raises:
+            RuntimeError: If the ID doesn't exist or dimensions don't match.
+        )"
     );
 }
 
