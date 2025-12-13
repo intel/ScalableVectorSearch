@@ -175,8 +175,7 @@ void test_dynamic_ivf_scalar_stress(const Distance& distance) {
 
         // Pass uncompressed data as ConstSimpleDataView - index will compress
         auto new_data_view = svs::data::ConstSimpleDataView<float>{
-            new_data.data(), new_data.size(), new_data.dimensions()
-        };
+            new_data.data(), new_data.size(), new_data.dimensions()};
         index.add_points(new_data_view, new_ids, false);
 
         // Search after modifications
@@ -217,14 +216,12 @@ void test_dynamic_ivf_scalar_stress(const Distance& distance) {
 
 } // anonymous namespace
 
-CATCH_TEST_CASE("Dynamic IVF with Scalar Quantization", "[integration][dynamic_ivf][scalar]") {
+CATCH_TEST_CASE(
+    "Dynamic IVF with Scalar Quantization", "[integration][dynamic_ivf][scalar]"
+) {
     auto distance = svs::DistanceL2();
 
-    CATCH_SECTION("int8 quantization") {
-        test_dynamic_ivf_scalar<int8_t>(distance);
-    }
+    CATCH_SECTION("int8 quantization") { test_dynamic_ivf_scalar<int8_t>(distance); }
 
-    CATCH_SECTION("int8 stress test") {
-        test_dynamic_ivf_scalar_stress<int8_t>(distance);
-    }
+    CATCH_SECTION("int8 stress test") { test_dynamic_ivf_scalar_stress<int8_t>(distance); }
 }

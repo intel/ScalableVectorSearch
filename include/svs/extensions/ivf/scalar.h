@@ -53,10 +53,10 @@ auto svs_invoke(
     size_t new_size,
     const data::Blocked<BlockedAlloc>& SVS_UNUSED(blocked_alloc)
 ) {
-    auto new_sqdata = SQDataset<
-        typename Data::element_type,
-        Data::extent,
-        data::Blocked<BlockedAlloc>>(new_size, original.dimensions());
+    auto new_sqdata =
+        SQDataset<typename Data::element_type, Data::extent, data::Blocked<BlockedAlloc>>(
+            new_size, original.dimensions()
+        );
     new_sqdata.set_scale(original.get_scale());
     new_sqdata.set_bias(original.get_bias());
     return new_sqdata;
