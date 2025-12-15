@@ -385,7 +385,7 @@ void test_end_to_end_clustering(
 
 } // namespace
 
-CATCH_TEST_CASE("Random Clustering - End to End", "[inverted][random_clustering]") {
+CATCH_TEST_CASE("Random Clustering - End to End", "[long][inverted][random_clustering]") {
     CATCH_SECTION("Uncompressed Data") {
         auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
         test_end_to_end_clustering(data, svs::DistanceL2(), 1.2f);
