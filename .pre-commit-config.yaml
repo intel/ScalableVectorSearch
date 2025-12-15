@@ -36,4 +36,5 @@ repos:
         files: \.toml$
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
       - id: mixed-line-ending
