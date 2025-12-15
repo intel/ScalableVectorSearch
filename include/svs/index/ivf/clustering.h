@@ -270,7 +270,7 @@ template <typename Data, std::integral I> struct DenseCluster {
 
     size_t size() const { return data_.size(); }
 
-    // Support for dynamic operations - SimpleData already has resize()
+    // Support for dynamic operations
     void resize(size_t new_size) {
         data_.resize(new_size);
         ids_.resize(new_size);

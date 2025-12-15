@@ -772,7 +772,7 @@ class DynamicIVFIndex {
 
             // Use centroid_assignment to compute assignments for this batch
             centroid_assignment(
-                const_cast<Points&>(points), // centroid_assignment expects non-const
+                points,
                 data_norm,
                 batch_range,
                 distance_,

@@ -39,7 +39,7 @@ namespace svs::index::ivf {
 // performance. This value was chosen based on empirical testing to avoid excessive memory
 // allocation while supporting large batch operations typical in high-throughput
 // environments.
-const size_t MAX_QUERY_BATCH_SIZE = 10000;
+constexpr size_t MAX_QUERY_BATCH_SIZE = 10000;
 
 /// @brief IVF (Inverted File) Index implementation for efficient similarity search
 ///
@@ -177,7 +177,7 @@ class IVFIndex {
     template <typename Query> double get_distance(size_t id, const Query& query) const {
         // Lazily initialize ID mapping on first call
         if (id_to_cluster_.empty()) {
-            const_cast<IVFIndex*>(this)->initialize_id_mapping();
+            initialize_id_mapping();
         }
 
         // Check if id exists
@@ -200,7 +200,7 @@ class IVFIndex {
         size_t cluster_id = id_to_cluster_[id];
         size_t pos = id_in_cluster_[id];
 
-        // Fix distance argument if needed (e.g., for cosine similarity)
+        // Fix distance argument if needed
         auto distance_copy = distance_;
         svs::distance::maybe_fix_argument(distance_copy, query);
 
@@ -322,9 +322,9 @@ class IVFIndex {
 
     ///// ID Mapping for get_distance /////
     // Maps ID -> cluster_id
-    std::vector<size_t> id_to_cluster_{};
+    mutable std::vector<size_t> id_to_cluster_{};
     // Maps ID -> position within cluster
-    std::vector<size_t> id_in_cluster_{};
+    mutable std::vector<size_t> id_in_cluster_{};
 
     ///// Threading Infrastructure /////
     InterQueryThreadPool inter_query_threadpool_; // Handles parallelism across queries
@@ -382,7 +382,7 @@ class IVFIndex {
         }
     }
 
-    void initialize_id_mapping() {
+    void initialize_id_mapping() const {
         // Build ID-to-location mapping from cluster data
         // Compute total size by summing all cluster sizes
         size_t total_size = 0;

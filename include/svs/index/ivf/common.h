@@ -242,16 +242,19 @@ void compute_matmul(
     constexpr size_t max_int = static_cast<size_t>(std::numeric_limits<int>::max());
     if (m > max_int || n > max_int || k > max_int) {
         throw ANNEXCEPTION(
-            "Matrix dimensions too large for Intel MKL GEMM: m={}, n={}, k={}", m, n, k
+            "Matrix dimensions too large for Intel MKL GEMM: m={}, n={}, k={}, max={}",
+            m,
+            n,
+            k,
+            max_int
         );
     }
 
+    // Cast size_t parameters to int for MKL GEMM functions
+    int m_int = static_cast<int>(m);
+    int n_int = static_cast<int>(n);
+    int k_int = static_cast<int>(k);
     if constexpr (std::is_same_v<T, float>) {
-        // Cast size_t parameters to int for MKL GEMM functions
-        int m_int = static_cast<int>(m);
-        int n_int = static_cast<int>(n);
-        int k_int = static_cast<int>(k);
-
         cblas_sgemm(
             CblasRowMajor, // CBLAS_LAYOUT layout
             CblasNoTrans,  // CBLAS_TRANSPOSE TransA
@@ -269,10 +272,6 @@ void compute_matmul(
             n_int          // const int ldc
         );
     } else if constexpr (std::is_same_v<T, BFloat16>) {
-        int m_int = static_cast<int>(m);
-        int n_int = static_cast<int>(n);
-        int k_int = static_cast<int>(k);
-
         cblas_gemm_bf16bf16f32(
             CblasRowMajor,              // CBLAS_LAYOUT layout
             CblasNoTrans,               // CBLAS_TRANSPOSE TransA
@@ -290,10 +289,6 @@ void compute_matmul(
             n_int                       // const int ldc
         );
     } else if constexpr (std::is_same_v<T, Float16>) {
-        int m_int = static_cast<int>(m);
-        int n_int = static_cast<int>(n);
-        int k_int = static_cast<int>(k);
-
         cblas_gemm_f16f16f32(
             CblasRowMajor,              // CBLAS_LAYOUT layout
             CblasNoTrans,               // CBLAS_TRANSPOSE TransA
@@ -362,7 +357,7 @@ template <
     typename Distance,
     threads::ThreadPool Pool>
 void centroid_assignment(
-    Data& data,
+    const Data& data,
     std::vector<float>& data_norm,
     threads::UnitRange<uint64_t> batch_range,
     Distance& SVS_UNUSED(distance),
