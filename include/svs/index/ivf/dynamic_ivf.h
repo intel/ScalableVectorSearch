@@ -79,6 +79,14 @@ class DynamicIVFIndex {
     using InterQueryThreadPool = threads::ThreadPoolHandle;
     using IntraQueryThreadPool = threads::DefaultThreadPool;
 
+    // Reuse scratchspace types from static IVF
+    using buffer_centroids_type = SortedBuffer<Idx, compare>;
+    using buffer_leaves_type = std::vector<SortedBuffer<Idx, compare>>;
+    using inner_scratch_type =
+        svs::tag_t<extensions::per_thread_batch_search_setup>::result_t<Data, Dist>;
+    using scratchspace_type =
+        ivf::IVFScratchspace<buffer_centroids_type, buffer_leaves_type, inner_scratch_type>;
+
   private:
     // Core IVF components (same structure as static IVF)
     centroids_type centroids_;
@@ -98,7 +106,7 @@ class DynamicIVFIndex {
     // Threading infrastructure (same as static IVF)
     InterQueryThreadPool inter_query_threadpool_;
     const size_t intra_query_thread_count_;
-    std::vector<IntraQueryThreadPool> intra_query_threadpools_;
+    mutable std::vector<IntraQueryThreadPool> intra_query_threadpools_;
 
     // Search infrastructure (same as static IVF)
     std::vector<data::SimpleData<float>> matmul_results_;
@@ -334,6 +342,60 @@ class DynamicIVFIndex {
         // Call extension for distance computation
         return svs::index::ivf::extensions::get_distance_ext(
             clusters_, distance_, cluster_idx, pos, query
+        );
+    }
+
+    /// @brief Return scratch space resources for external threading
+    /// @param sp Search parameters to configure the scratchspace
+    /// @param num_neighbors Number of neighbors to return (default: 10)
+    scratchspace_type
+    scratchspace(const search_parameters_type& sp, size_t num_neighbors = 10) const {
+        size_t buffer_leaves_size =
+            static_cast<size_t>(sp.k_reorder_ * static_cast<float>(num_neighbors));
+        return scratchspace_type{
+            create_centroid_buffer(sp.n_probes_),
+            create_leaf_buffers(buffer_leaves_size),
+            extensions::per_thread_batch_search_setup(clusters_[0].data_, distance_)};
+    }
+
+    /// @brief Return scratch space resources for external threading with default parameters
+    scratchspace_type scratchspace() const { return scratchspace(search_parameters_); }
+
+    /// @brief Perform a nearest neighbor search for a single query using provided scratch
+    /// space
+    ///
+    /// Operations performed:
+    /// * Search centroids to find n_probes nearest clusters
+    /// * Search within selected clusters to find k nearest neighbors
+    ///
+    /// Results will be present in the scratch.buffer_leaves[0] data structure.
+    /// The caller is responsible for extracting and processing results.
+    /// Results will contain internal IDs - use translate_to_external() to convert to
+    /// external IDs.
+    ///
+    /// **Note**: It is the caller's responsibility to ensure that the scratch space has
+    /// been initialized properly to return the requested number of neighbors.
+    ///
+    template <typename Query>
+    void search(const Query& query, scratchspace_type& scratch) const {
+        // Wrapper lambdas that drop query_idx and tid parameters
+        auto search_centroids_fn = [&](const auto& q, auto& buf) {
+            search_centroids_closure()(q, buf, 0);
+        };
+        auto search_leaves_fn =
+            [&](const auto& q, auto& dist, const auto& buf_cent, auto& buf_leaves) {
+                search_leaves_closure()(q, dist, buf_cent, buf_leaves, 0);
+            };
+
+        extensions::single_search(
+            clusters_[0].data_,
+            *this,
+            scratch.buffer_centroids,
+            scratch.buffer_leaves,
+            scratch.scratch,
+            query,
+            search_centroids_fn,
+            search_leaves_fn
         );
     }
 
@@ -860,7 +922,7 @@ class DynamicIVFIndex {
     }
 
     /// @brief Create closure for searching clusters/leaves
-    auto search_leaves_closure() {
+    auto search_leaves_closure() const {
         return [this](
                    const auto& query,
                    auto& distance,

@@ -986,3 +986,152 @@ CATCH_TEST_CASE("Dynamic IVF Get Distance", "[index][ivf][dynamic_ivf]") {
         }
     }
 }
+
+CATCH_TEST_CASE("Dynamic IVF Single Search", "[ivf][dynamic_ivf][single_search]") {
+    namespace ivf = svs::index::ivf;
+
+    // Load test data
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    size_t num_threads = 2;
+    size_t num_inner_threads = 2;
+    auto distance = Distance();
+
+    // Build clustering
+    auto build_params = ivf::IVFBuildParameters(NUM_CLUSTERS, 10, false);
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering =
+        ivf::build_clustering<Eltype>(build_params, data, distance, threadpool, false);
+
+    // Create external IDs
+    std::vector<size_t> ids(data.size());
+    std::iota(ids.begin(), ids.end(), 0);
+
+    // Create dense clusters
+    auto centroids = clustering.centroids();
+    using DataType = svs::data::SimpleData<Eltype, N>;
+    auto dense_clusters = ivf::DenseClusteredDataset<decltype(centroids), Idx, DataType>(
+        clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+    );
+
+    // Build dynamic IVF index
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = ivf::DynamicIVFIndex<
+        decltype(centroids),
+        decltype(dense_clusters),
+        Distance,
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(dense_clusters),
+        ids,
+        distance,
+        std::move(threadpool_for_index),
+        num_inner_threads
+    );
+
+    CATCH_SECTION("Test scratchspace creation") {
+        // Test scratchspace with custom parameters
+        auto search_params = ivf::IVFSearchParameters();
+        search_params.n_probes_ = 5;
+        search_params.k_reorder_ = 100;
+
+        auto scratch = index.scratchspace(search_params);
+
+        // Verify scratchspace structure
+        CATCH_REQUIRE(scratch.buffer_centroids.capacity() == search_params.n_probes_);
+        CATCH_REQUIRE(scratch.buffer_leaves.size() == num_inner_threads);
+
+        // Test default scratchspace
+        auto default_scratch = index.scratchspace();
+        CATCH_REQUIRE(default_scratch.buffer_leaves.size() == num_inner_threads);
+    }
+
+    CATCH_SECTION("Test single query search") {
+        size_t num_neighbors = NUM_NEIGHBORS;
+
+        // Create scratchspace
+        auto search_params = ivf::IVFSearchParameters();
+        search_params.n_probes_ = 5;
+        search_params.k_reorder_ = 100;
+        auto scratch = index.scratchspace(search_params);
+
+        // Perform single search
+        auto query = queries.get_datum(0);
+        index.search(query, scratch);
+
+        // Verify results - note these are internal IDs
+        auto& results_buffer = scratch.buffer_leaves[0];
+        CATCH_REQUIRE(results_buffer.size() > 0);
+        CATCH_REQUIRE(results_buffer.size() >= num_neighbors);
+
+        // Results should be sorted by distance
+        results_buffer.sort();
+        for (size_t i = 1; i < results_buffer.size(); ++i) {
+            CATCH_REQUIRE(results_buffer[i].distance() >= results_buffer[i - 1].distance());
+        }
+    }
+
+    CATCH_SECTION("Test scratchspace reusability") {
+        auto search_params = ivf::IVFSearchParameters();
+        search_params.n_probes_ = 5;
+        search_params.k_reorder_ = 100;
+        auto scratch = index.scratchspace(search_params);
+
+        // Search with multiple queries using same scratchspace
+        for (size_t i = 0; i < std::min<size_t>(5, queries.size()); ++i) {
+            auto query = queries.get_datum(i);
+            index.search(query, scratch);
+
+            // Verify each search produces results
+            CATCH_REQUIRE(scratch.buffer_leaves[0].size() > 0);
+        }
+    }
+
+    CATCH_SECTION("Compare single search with batch search") {
+        size_t num_neighbors = NUM_NEIGHBORS;
+
+        auto search_params = ivf::IVFSearchParameters();
+        search_params.n_probes_ = 5;
+        search_params.k_reorder_ = 100;
+
+        // Single search
+        auto scratch = index.scratchspace(search_params);
+        auto query = queries.get_datum(0);
+        index.search(query, scratch);
+
+        // Extract results from single search (already sorted and ID-converted)
+        auto& single_results = scratch.buffer_leaves[0];
+        std::vector<size_t> single_ids;
+        for (size_t i = 0; i < num_neighbors && i < single_results.size(); ++i) {
+            single_ids.push_back(single_results[i].id());
+        }
+
+        // Convert internal IDs to external IDs for comparison
+        std::vector<size_t> single_external_ids;
+        for (auto internal_id : single_ids) {
+            single_external_ids.push_back(index.translate_internal_id(internal_id));
+        }
+
+        // Batch search
+        auto batch_queries = svs::data::ConstSimpleDataView<QueryEltype>(
+            queries.data(), 1, queries.dimensions()
+        );
+        auto batch_results = svs::QueryResult<size_t>(1, num_neighbors);
+        index.search(batch_results.view(), batch_queries, search_params);
+
+        // Extract results from batch search (external IDs)
+        std::vector<size_t> batch_ids;
+        for (size_t i = 0; i < num_neighbors; ++i) {
+            batch_ids.push_back(batch_results.index(0, i));
+        }
+
+        // Results should match
+        CATCH_REQUIRE(single_external_ids.size() == batch_ids.size());
+        for (size_t i = 0; i < num_neighbors; ++i) {
+            CATCH_REQUIRE(single_external_ids[i] == batch_ids[i]);
+        }
+    }
+}

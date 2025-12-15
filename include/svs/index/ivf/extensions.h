@@ -62,6 +62,95 @@ Distance svs_invoke(
 }
 
 ///
+/// @brief Customization point for single query search.
+///
+struct IVFSingleSearchType {
+    template <
+        typename Data,
+        typename Cluster,
+        typename BufferCentroids,
+        typename BufferLeaves,
+        typename Scratch,
+        typename Query,
+        typename SearchCentroids,
+        typename SearchLeaves>
+    void operator()(
+        const Data& data,
+        const Cluster& cluster,
+        BufferCentroids& buffer_centroids,
+        BufferLeaves& buffer_leaves,
+        Scratch& scratch,
+        const Query& query,
+        const SearchCentroids& search_centroids,
+        const SearchLeaves& search_leaves
+    ) const {
+        svs::svs_invoke(
+            *this,
+            data,
+            cluster,
+            buffer_centroids,
+            buffer_leaves,
+            scratch,
+            query,
+            search_centroids,
+            search_leaves
+        );
+    }
+};
+
+inline constexpr IVFSingleSearchType single_search{};
+
+// Default implementation for single query search
+template <
+    typename Data,
+    typename Cluster,
+    typename BufferCentroids,
+    typename BufferLeaves,
+    typename Distance,
+    typename Query,
+    typename SearchCentroids,
+    typename SearchLeaves>
+void svs_invoke(
+    svs::tag_t<single_search>,
+    const Data& SVS_UNUSED(data),
+    const Cluster& cluster,
+    BufferCentroids& buffer_centroids,
+    BufferLeaves& buffer_leaves,
+    Distance& distance,
+    const Query& query,
+    const SearchCentroids& search_centroids,
+    const SearchLeaves& search_leaves
+) {
+    size_t n_inner_threads = buffer_leaves.size();
+    size_t buffer_leaves_size = buffer_leaves[0].capacity();
+
+    // Search centroids to find nearest clusters
+    search_centroids(query, buffer_centroids);
+
+    // Search within selected clusters
+    search_leaves(query, distance, buffer_centroids, buffer_leaves);
+
+    // Accumulate results from intra-query threads into buffer_leaves[0]
+    for (size_t j = 1; j < n_inner_threads; ++j) {
+        for (size_t k = 0; k < buffer_leaves_size; ++k) {
+            buffer_leaves[0].insert(buffer_leaves[j][k]);
+        }
+    }
+
+    // Sort buffer to get valid results in order
+    buffer_leaves[0].sort();
+
+    // Convert (cluster_id, local_id) to global_id
+    for (size_t j = 0; j < buffer_leaves_size; ++j) {
+        auto& neighbor = buffer_leaves[0][j];
+        auto cluster_id = neighbor.id();
+        auto local_id = neighbor.get_local_id();
+        auto global_id = cluster.get_global_id(cluster_id, local_id);
+        neighbor.set_id(global_id);
+    }
+}
+
+///
 /// @brief Customization point for working with a batch of threads.
 ///
 struct IVFPerThreadBatchSearchType {

@@ -41,6 +41,33 @@ namespace svs::index::ivf {
 // environments.
 constexpr size_t MAX_QUERY_BATCH_SIZE = 10000;
 
+///
+/// @brief Search scratchspace used by the IVF index.
+///
+/// These can be pre-allocated and passed to the index when performing externally
+/// threaded searches to reduce allocations.
+///
+/// **NOTE**: The members ``buffer_centroids``, ``buffer_leaves``, and ``scratch`` are part
+/// of the public API for this class. Users are free to access and manipulate these objects.
+/// However, doing so incorrectly can yield undefined-behavior.
+///
+template <typename BufferCentroids, typename BufferLeaves, typename Scratch>
+struct IVFScratchspace {
+  public:
+    // Members
+    BufferCentroids buffer_centroids;
+    BufferLeaves buffer_leaves;
+    Scratch scratch;
+
+    // Constructors
+    IVFScratchspace(
+        BufferCentroids buffer_centroids_, BufferLeaves buffer_leaves_, Scratch scratch_
+    )
+        : buffer_centroids{std::move(buffer_centroids_)}
+        , buffer_leaves{std::move(buffer_leaves_)}
+        , scratch{std::move(scratch_)} {}
+};
+
 /// @brief IVF (Inverted File) Index implementation for efficient similarity search
 ///
 /// This class implements an IVF index structure that partitions the search space using
@@ -84,6 +111,14 @@ class IVFIndex {
     // Thread-related type aliases for clarity
     using InterQueryThreadPool = threads::ThreadPoolHandle;  // For inter-query parallelism
     using IntraQueryThreadPool = threads::DefaultThreadPool; // For intra-query parallelism
+
+    // Scratchspace type for external threading
+    using buffer_centroids_type = SortedBuffer<Idx, distance::compare_t<Dist>>;
+    using buffer_leaves_type = std::vector<SortedBuffer<Idx, distance::compare_t<Dist>>>;
+    using inner_scratch_type =
+        svs::tag_t<extensions::per_thread_batch_search_setup>::result_t<Data, Dist>;
+    using scratchspace_type =
+        IVFScratchspace<buffer_centroids_type, buffer_leaves_type, inner_scratch_type>;
 
     /// @brief Construct a new IVF Index
     ///
@@ -210,12 +245,64 @@ class IVFIndex {
         );
     }
 
+    /// @brief Return scratch space resources for external threading
+    /// @param sp Search parameters to configure the scratchspace
+    /// @param num_neighbors Number of neighbors to return (default: 10)
+    scratchspace_type
+    scratchspace(const search_parameters_type& sp, size_t num_neighbors = 10) const {
+        size_t buffer_leaves_size =
+            static_cast<size_t>(sp.k_reorder_ * static_cast<float>(num_neighbors));
+        return scratchspace_type{
+            create_centroid_buffer(sp.n_probes_),
+            create_leaf_buffers(buffer_leaves_size),
+            extensions::per_thread_batch_search_setup(cluster0_, distance_)};
+    }
+
+    /// @brief Return scratch space resources for external threading with default parameters
+    scratchspace_type scratchspace() const { return scratchspace(get_search_parameters()); }
+
+    /// @brief Perform a nearest neighbor search for a single query using provided scratch
+    /// space
+    ///
+    /// Operations performed:
+    /// * Search centroids to find n_probes nearest clusters
+    /// * Search within selected clusters to find k nearest neighbors
+    ///
+    /// Results will be present in the scratch.buffer_leaves[0] data structure.
+    /// The caller is responsible for extracting and processing results.
+    ///
+    /// **Note**: It is the caller's responsibility to ensure that the scratch space has
+    /// been initialized properly to return the requested number of neighbors.
+    ///
+    template <typename Query>
+    void search(const Query& query, scratchspace_type& scratch) const {
+        // Wrapper lambdas that drop query_idx and tid parameters
+        auto search_centroids_fn = [&](const auto& q, auto& buf) {
+            search_centroids_closure()(q, buf, 0);
+        };
+        auto search_leaves_fn =
+            [&](const auto& q, auto& dist, const auto& buf_cent, auto& buf_leaves) {
+                search_leaves_closure()(q, dist, buf_cent, buf_leaves, 0);
+            };
+
+        extensions::single_search(
+            cluster0_,
+            cluster_,
+            scratch.buffer_centroids,
+            scratch.buffer_leaves,
+            scratch.scratch,
+            query,
+            search_centroids_fn,
+            search_leaves_fn
+        );
+    }
+
     ///// Search Implementation /////
 
     /// @brief Search closure for centroid distance computation
     /// @return Function object handling initial centroid search phase (inter-query
     /// parallel)
-    auto search_centroids_closure() {
+    auto search_centroids_closure() const {
         return [&](const auto& query, auto& buffer, size_t id) {
             search_centroids(
                 query,
@@ -231,7 +318,7 @@ class IVFIndex {
 
     /// @brief Search closure for cluster traversal
     /// @return Function object handling cluster exploration (intra-query parallel)
-    auto search_leaves_closure() {
+    auto search_leaves_closure() const {
         return [&](const auto& query,
                    auto& distance,
                    const auto& buffer_centroids,
@@ -329,11 +416,11 @@ class IVFIndex {
     ///// Threading Infrastructure /////
     InterQueryThreadPool inter_query_threadpool_; // Handles parallelism across queries
     const size_t intra_query_thread_count_;       // Number of threads per query processing
-    std::vector<IntraQueryThreadPool>
+    mutable std::vector<IntraQueryThreadPool>
         intra_query_threadpools_; // Per-query parallel cluster exploration
 
     ///// Search Data /////
-    std::vector<data::SimpleData<float>> matmul_results_;
+    mutable std::vector<data::SimpleData<float>> matmul_results_;
     std::vector<float> centroids_norm_;
     search_parameters_type search_parameters_;
 
