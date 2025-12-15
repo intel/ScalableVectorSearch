@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-# Copyright 2023 Intel Corporation
+# Copyright 2025 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+@PACKAGE_INIT@
 
-# Allow users to supply a custom path to `clang-format`
-CLANGFORMAT="${1:-clang-format}"
-DIRECTORIES=( "bindings/python/src" "bindings/python/include" "bindings/cpp" "include" "benchmark" "tests" "utils" "examples/cpp" )
-
-for i in "${DIRECTORIES[@]}"
-do
-    find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
-done
-
+include("${CMAKE_CURRENT_LIST_DIR}/svs_runtime.cmake")
+check_required_components(svs_runtime)

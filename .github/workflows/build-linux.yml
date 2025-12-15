@@ -17,7 +17,7 @@ name: Linux Build and Test
 on:
   push:
     branches:
-      - main
+    - main
   pull_request:
 
 permissions:
@@ -25,7 +25,7 @@ permissions:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
-  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -38,45 +38,45 @@ jobs:
         ivf: [OFF, ON]
         cxx: [g++-11, g++-12, clang++-15]
         asan: [OFF]
-        cmake_extra_args: ["-DSVS_BUILD_BINARIES=YES -DSVS_BUILD_EXAMPLES=YES"]
-        ctest_args: [""]
+        cmake_extra_args: [-DSVS_BUILD_BINARIES=YES -DSVS_BUILD_EXAMPLES=YES]
+        ctest_args: ['']
         include:
-          - cxx: g++-11
-            cc: gcc-11
-          - cxx: g++-12
-            cc: gcc-12
-          - cxx: clang++-15
-            cc: clang-15
-          - cxx: clang++-18
-            cc: clang-18
-            build_type: Debug
-            ivf: OFF
-            asan: ON
+        - cxx: g++-11
+          cc: gcc-11
+        - cxx: g++-12
+          cc: gcc-12
+        - cxx: clang++-15
+          cc: clang-15
+        - cxx: clang++-18
+          cc: clang-18
+          build_type: Debug
+          ivf: OFF
+          asan: ON
             # address sanitizer flags
-            cmake_extra_args: >-
-              -DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
-              -DCMAKE_C_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
-              -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'
-              -DCMAKE_SHARED_LINKER_FLAGS='-fsanitize=address'
-              -DSVS_BUILD_BINARIES=NO
-              -DSVS_BUILD_EXAMPLES=NO
-            # skip longer-running tests
-            ctest_args: "-LE long"
+          cmake_extra_args: >-
+            -DCMAKE_CXX_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
+            -DCMAKE_C_FLAGS='-fsanitize=address -fno-omit-frame-pointer -g'
+            -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address'
+            -DCMAKE_SHARED_LINKER_FLAGS='-fsanitize=address'
+            -DSVS_BUILD_BINARIES=NO
+            -DSVS_BUILD_EXAMPLES=NO
+           # skip longer-running tests
+          ctest_args: -LE long
         exclude:
-          - cxx: g++-12
-            ivf: ON
+        - cxx: g++-12
+          ivf: ON
 
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
     - name: Install MKL
       timeout-minutes: 5
       run: |
-       .github/scripts/setup_apt_repo_linux.sh
-       sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
-       # Setup environment variables for building against MKL.
-       # Persist the environment variables for use across multiple subsequent actions.
-       source /opt/intel/oneapi/setvars.sh
-       printenv >> $GITHUB_ENV
+        .github/scripts/setup_apt_repo_linux.sh
+        sudo apt install intel-oneapi-mkl intel-oneapi-mkl-devel
+        # Setup environment variables for building against MKL.
+        # Persist the environment variables for use across multiple subsequent actions.
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
 
     - name: Install Clang 18
       if: matrix.cxx == 'clang++-18'

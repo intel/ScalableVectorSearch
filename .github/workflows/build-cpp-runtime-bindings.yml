@@ -1,0 +1,118 @@
+# Copyright 2025 Intel Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build and test C++ Runtime Bindings
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+# This allows a subsequently queued workflow run to interrupt previous runs
+concurrency:
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build-cpp-runtime-bindings:
+    name: Build and unit tests for C++ runtime bindings
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: "with static library"
+            enable_lvq_leanvec: "ON"
+            suffix: ""
+          - name: "public only"
+            enable_lvq_leanvec: "OFF"
+            suffix: "-public-only"
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Build Docker image
+        run: |
+          docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+
+      - name: Build libraries in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
+            -e SUFFIX=${{ matrix.suffix }} \
+            svs-manylinux228:latest \
+            /bin/bash -c "chmod +x docker/x86_64/build-cpp-runtime-bindings.sh && ./docker/x86_64/build-cpp-runtime-bindings.sh"
+
+      - name: Upload cpp runtime bindings artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: svs-cpp-runtime-bindings${{ matrix.suffix }}
+          path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
+          retention-days: 7  # Reduce retention due to size
+
+      # Run unit tests that were built as part of this job
+      - name: Run unit tests in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            svs-manylinux228:latest \
+            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --verbose"
+
+  # Run full test script using the built artifacts
+  test:
+    name: Integration tests for C++ runtime
+    needs: build-cpp-runtime-bindings
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: "with static library"
+            suffix: ""
+          - name: "public only"
+            suffix: "-public-only"
+
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Build Docker image
+        run: |
+          docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+
+      # Need to download for a new job
+      - name: Download shared libraries
+        uses: actions/download-artifact@v4
+        with:
+          name: svs-cpp-runtime-bindings${{ matrix.suffix }}
+          path: runtime_lib
+
+      - name: List available artifacts
+        run: |
+          ls -la runtime_lib/
+
+      - name: Test in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/runtime_lib:/runtime_lib \
+            -w /workspace \
+            -e SUFFIX=${{ matrix.suffix }} \
+            svs-manylinux228:latest \
+            /bin/bash -c "chmod +x docker/x86_64/test-cpp-runtime-bindings.sh && ./docker/x86_64/test-cpp-runtime-bindings.sh"

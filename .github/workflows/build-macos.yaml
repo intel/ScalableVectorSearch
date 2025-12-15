@@ -17,7 +17,7 @@ name: MacOS Build and Test
 on:
   push:
     branches:
-      - main
+    - main
   pull_request:
 
 permissions:
@@ -25,7 +25,7 @@ permissions:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
-  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
+  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -37,11 +37,11 @@ jobs:
         build_type: [RelWithDebugInfo]
         cxx: [clang++-15]
         include:
-          - cxx: clang++-15
-            package: llvm@15
-            cc_name: clang
-            cxx_name: clang++
-            needs_prefix: true
+        - cxx: clang++-15
+          package: llvm@15
+          cc_name: clang
+          cxx_name: clang++
+          needs_prefix: true
 
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -80,6 +80,6 @@ jobs:
 
     - name: Run tests
       env:
-          CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_OUTPUT_ON_FAILURE: 1
       working-directory: ${{ runner.temp }}/build/tests
       run: ctest -C ${{ matrix.build_type }}
