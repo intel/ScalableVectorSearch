@@ -35,6 +35,9 @@
 
 namespace svs::index::ivf {
 
+// Forward declaration of BatchIterator
+template <typename Index, typename QueryType> class BatchIterator;
+
 // The maximum batch size for queries is set to 10,000 to balance memory usage and
 // performance. This value was chosen based on empirical testing to avoid excessive memory
 // allocation while supporting large batch operations typical in high-throughput
@@ -153,8 +156,20 @@ class IVFIndex {
 
     ///// Index Information /////
 
-    /// @brief Get the number of centroids in the index
-    size_t size() const { return centroids_.size(); }
+    /// @brief Indicates whether internal IDs need translation to external IDs
+    static constexpr bool needs_id_translation = false;
+
+    /// @brief Get the total number of vectors in the index
+    size_t size() const {
+        size_t total = 0;
+        for (size_t i = 0; i < centroids_.size(); ++i) {
+            total += cluster_.view_cluster(i).size();
+        }
+        return total;
+    }
+
+    /// @brief Get the number of clusters/centroids in the index
+    size_t num_clusters() const { return centroids_.size(); }
 
     /// @brief Get the dimensionality of the indexed vectors
     size_t dimensions() const { return centroids_.dimensions(); }
@@ -265,6 +280,7 @@ class IVFIndex {
     /// space
     ///
     /// Operations performed:
+    /// * Compute centroid distances for the single query
     /// * Search centroids to find n_probes nearest clusters
     /// * Search within selected clusters to find k nearest neighbors
     ///
@@ -274,8 +290,14 @@ class IVFIndex {
     /// **Note**: It is the caller's responsibility to ensure that the scratch space has
     /// been initialized properly to return the requested number of neighbors.
     ///
-    template <typename Query>
-    void search(const Query& query, scratchspace_type& scratch) const {
+    template <typename Query> void search(const Query& query, scratchspace_type& scratch) {
+        // Compute centroid distances for the single query
+        // Create a 1-query view and compute matmul_results
+        auto query_view = data::ConstSimpleDataView<float>(query.data(), 1, query.size());
+        compute_centroid_distances(
+            query_view, centroids_, matmul_results_, inter_query_threadpool_
+        );
+
         // Wrapper lambdas that drop query_idx and tid parameters
         auto search_centroids_fn = [&](const auto& q, auto& buf) {
             search_centroids_closure()(q, buf, 0);
@@ -295,6 +317,26 @@ class IVFIndex {
             search_centroids_fn,
             search_leaves_fn
         );
+    }
+
+    ///// Batch Iterator /////
+
+    /// @brief Create a batch iterator for retrieving neighbors in batches.
+    ///
+    /// The iterator allows incremental retrieval of neighbors, expanding the search
+    /// space on each call to `next()`. This is useful for applications that need
+    /// to process neighbors in batches or implement early termination.
+    ///
+    /// @tparam QueryType The element type of the query vector.
+    /// @param query The query vector as a span.
+    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
+    /// @return A BatchIterator for the given query.
+    ///
+    template <typename QueryType>
+    auto make_batch_iterator(
+        std::span<const QueryType> query, size_t extra_search_buffer_capacity = 0
+    ) {
+        return BatchIterator(*this, query, extra_search_buffer_capacity);
     }
 
     ///// Search Implementation /////

@@ -35,6 +35,10 @@
 
 namespace svs::index::ivf {
 
+// Forward declaration of BatchIterator (already declared in index.h, but redeclaring for
+// clarity)
+template <typename Index, typename QueryType> class BatchIterator;
+
 ///
 /// Metadata tracking the state of a particular data index for DynamicIVFIndex.
 /// The following states have the given meaning for their corresponding slot:
@@ -365,6 +369,7 @@ class DynamicIVFIndex {
     /// space
     ///
     /// Operations performed:
+    /// * Compute centroid distances for the single query
     /// * Search centroids to find n_probes nearest clusters
     /// * Search within selected clusters to find k nearest neighbors
     ///
@@ -376,8 +381,14 @@ class DynamicIVFIndex {
     /// **Note**: It is the caller's responsibility to ensure that the scratch space has
     /// been initialized properly to return the requested number of neighbors.
     ///
-    template <typename Query>
-    void search(const Query& query, scratchspace_type& scratch) const {
+    template <typename Query> void search(const Query& query, scratchspace_type& scratch) {
+        // Compute centroid distances for the single query
+        // Create a 1-query view and compute matmul_results
+        auto query_view = data::ConstSimpleDataView<float>(query.data(), 1, query.size());
+        compute_centroid_distances(
+            query_view, centroids_, matmul_results_, inter_query_threadpool_
+        );
+
         // Wrapper lambdas that drop query_idx and tid parameters
         auto search_centroids_fn = [&](const auto& q, auto& buf) {
             search_centroids_closure()(q, buf, 0);
@@ -397,6 +408,26 @@ class DynamicIVFIndex {
             search_centroids_fn,
             search_leaves_fn
         );
+    }
+
+    ///// Batch Iterator /////
+
+    /// @brief Create a batch iterator for retrieving neighbors in batches.
+    ///
+    /// The iterator allows incremental retrieval of neighbors, expanding the search
+    /// space on each call to `next()`. This is useful for applications that need
+    /// to process neighbors in batches or implement early termination.
+    ///
+    /// @tparam QueryType The element type of the query vector.
+    /// @param query The query vector as a span.
+    /// @param extra_search_buffer_capacity Additional buffer capacity for the search.
+    /// @return A BatchIterator for the given query.
+    ///
+    template <typename QueryType>
+    auto make_batch_iterator(
+        std::span<const QueryType> query, size_t extra_search_buffer_capacity = 0
+    ) {
+        return BatchIterator(*this, query, extra_search_buffer_capacity);
     }
 
     /// @brief Iterate over all external IDs
