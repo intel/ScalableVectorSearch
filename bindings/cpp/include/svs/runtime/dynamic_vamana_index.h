@@ -16,6 +16,7 @@
 
 #pragma once
 #include <svs/runtime/api_defs.h>
+#include <svs/runtime/index_blocksize.h>
 #include <svs/runtime/training.h>
 #include <svs/runtime/vamana_index.h>
 
@@ -29,6 +30,9 @@ namespace v0 {
 
 // Abstract interface for Dynamic Vamana-based indexes.
 struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
+    virtual Status
+    add(size_t n, const size_t* labels, const float* x, IndexBlockSize blocksize
+    ) noexcept = 0;
     virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
     virtual Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
@@ -58,6 +62,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
         MetricType metric,
         StorageKind storage_kind
     ) noexcept;
+
+    virtual lib::PowerOfTwo blocksize_bytes() const noexcept = 0;
 };
 
 struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {

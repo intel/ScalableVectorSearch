@@ -63,18 +63,28 @@ class DynamicVamanaIndexImpl {
 
     size_t size() const { return impl_ ? impl_->size() : 0; }
 
+    lib::PowerOfTwo blocksize_bytes() const { return impl_->blocksize_bytes(); }
+
     size_t dimensions() const { return dim_; }
 
     MetricType metric_type() const { return metric_type_; }
 
     StorageKind get_storage_kind() const { return storage_kind_; }
 
-    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+    void
+    add(data::ConstSimpleDataView<float> data,
+        std::span<const size_t> labels,
+        IndexBlockSize blocksize) {
         if (!impl_) {
-            return init_impl(data, labels);
+            return init_impl(data, labels, blocksize);
         }
 
         impl_->add_points(data, labels);
+    }
+
+    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+        IndexBlockSize blocksize(data::BlockingParameters::default_blocksize_bytes.raw());
+        add(data, labels, blocksize);
     }
 
     void search(
@@ -385,6 +395,7 @@ class DynamicVamanaIndexImpl {
         const index::vamana::VamanaBuildParameters& parameters,
         const svs::data::ConstSimpleDataView<float>& data,
         std::span<const size_t> labels,
+        IndexBlockSize blocksize,
         StorageArgs&&... storage_args
     ) {
         auto threadpool = default_threadpool();
@@ -393,6 +404,7 @@ class DynamicVamanaIndexImpl {
             std::forward<Tag>(tag),
             data,
             threadpool,
+            blocksize.BlockSizeBytes(),
             std::forward<StorageArgs>(storage_args)...
         );
 
@@ -408,14 +420,18 @@ class DynamicVamanaIndexImpl {
         });
     }
 
-    virtual void
-    init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+    virtual void init_impl(
+        data::ConstSimpleDataView<float> data,
+        std::span<const size_t> labels,
+        IndexBlockSize blocksize
+    ) {
         impl_.reset(storage::dispatch_storage_kind(
             get_storage_kind(),
             [this](
                 auto&& tag,
                 data::ConstSimpleDataView<float> data,
-                std::span<const size_t> labels
+                std::span<const size_t> labels,
+                IndexBlockSize blocksize
             ) {
                 using Tag = std::decay_t<decltype(tag)>;
                 return build_impl(
@@ -423,11 +439,13 @@ class DynamicVamanaIndexImpl {
                     this->metric_type_,
                     this->vamana_build_parameters(),
                     data,
-                    labels
+                    labels,
+                    blocksize
                 );
             },
             data,
-            labels
+            labels,
+            blocksize
         ));
     }
 

@@ -177,7 +177,8 @@ template <> struct StorageFactory<UnsupportedStorageType> {
     template <svs::threads::ThreadPool Pool>
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& SVS_UNUSED(data),
-        Pool& SVS_UNUSED(pool)
+        Pool& SVS_UNUSED(pool),
+        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)
     ) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
@@ -197,8 +198,14 @@ template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementT
     using StorageType = SimpleDatasetType<ElementType>;
 
     template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-        StorageType result(data.size(), data.dimensions());
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        svs::lib::PowerOfTwo blocksize_bytes
+    ) {
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename StorageType::allocator_type alloc(parameters);
+        StorageType result(data.size(), data.dimensions(), alloc);
         svs::threads::parallel_for(
             pool,
             svs::threads::StaticPartition(result.size()),
@@ -209,6 +216,11 @@ template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementT
             }
         );
         return result;
+    }
+
+    template <svs::threads::ThreadPool Pool>
+    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
+        return init(data, pool, svs::data::BlockingParameters::default_blocksize_bytes);
     }
 
     template <typename... Args>
@@ -223,8 +235,14 @@ struct StorageFactory<SQStorageType> {
     using StorageType = SQStorageType;
 
     template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-        return SQStorageType::compress(data, pool);
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        svs::lib::PowerOfTwo blocksize_bytes
+    ) {
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename StorageType::allocator_type alloc(parameters);
+        return SQStorageType::compress(data, pool, alloc);
     }
 
     template <typename... Args>
@@ -254,8 +272,14 @@ struct StorageFactory<LVQStorageType> {
     using StorageType = LVQStorageType;
 
     template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-        return LVQStorageType::compress(data, pool, 0);
+    static StorageType init(
+        const svs::data::ConstSimpleDataView<float>& data,
+        Pool& pool,
+        svs::lib::PowerOfTwo blocksize_bytes
+    ) {
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename LVQStorageType::allocator_type alloc(parameters);
+        return LVQStorageType::compress(data, pool, 0, alloc);
     }
 
     template <typename... Args>
@@ -288,14 +312,17 @@ struct StorageFactory<LeanVecStorageType> {
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
+        svs::lib::PowerOfTwo blocksize_bytes,
         size_t leanvec_d = 0,
         std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
     ) {
         if (leanvec_d == 0) {
             leanvec_d = (data.dimensions() + 1) / 2;
         }
+        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+        typename LeanVecStorageType::allocator_type alloc(parameters);
         return LeanVecStorageType::reduce(
-            data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}
+            data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}, alloc
         );
     }
 

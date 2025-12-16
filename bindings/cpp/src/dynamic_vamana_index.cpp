@@ -55,6 +55,16 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
     DynamicVamanaIndexManagerBase& operator=(DynamicVamanaIndexManagerBase&&) = default;
     ~DynamicVamanaIndexManagerBase() override = default;
 
+    Status
+    add(size_t n, const size_t* labels, const float* x, IndexBlockSize blocksize
+    ) noexcept override {
+        return runtime_error_wrapper([&] {
+            svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
+            std::span<const size_t> lbls(labels, n);
+            impl_->add(data, lbls, blocksize);
+        });
+    }
+
     Status add(size_t n, const size_t* labels, const float* x) noexcept override {
         return runtime_error_wrapper([&] {
             svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
@@ -62,6 +72,8 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
             impl_->add(data, lbls);
         });
     }
+
+    lib::PowerOfTwo blocksize_bytes() const noexcept { return impl_->blocksize_bytes(); }
 
     Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
