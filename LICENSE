@@ -202,10 +202,10 @@
    limitations under the License.
   ============================================================================
    Intel® oneAPI Math Kernel Library (Intel® oneMKL): Copyright 2022 Intel Corporation
-    
+
    Intel® Scalable Vector Search: Copyright (C) Intel Corporation provides shared library in binary form with optional algorithms implementations that can be used with Scalable Vector Search library
-   
-   ------------------------------   
+
+   ------------------------------
    Intel Simplified Software License (Version October 2022)
 
    Use and Redistribution.  You may use and redistribute the software, which is
@@ -277,4 +277,3 @@
    objections. THE UNITED NATIONS CONVENTION ON CONTRACTS FOR THE INTERNATIONAL
    SALE OF GOODS (1980) IS SPECIFICALLY EXCLUDED AND WILL NOT APPLY TO THE
    SOFTWARE.
-

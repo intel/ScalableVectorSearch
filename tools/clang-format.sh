@@ -22,4 +22,3 @@ for i in "${DIRECTORIES[@]}"
 do
     find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
 done
-
