@@ -50,7 +50,7 @@ set(DATA_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../../data/test_dataset")
 function(create_example_executable exe file)
     add_executable(${exe} ${file})
     target_compile_definitions(${exe} PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
-    target_link_libraries(${exe} PUBLIC 
+    target_link_libraries(${exe} PUBLIC
         svs::svs_shared_library
         svs::svs
     )
