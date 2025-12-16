@@ -179,6 +179,7 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
         ${TEST_DIR}/integration/ivf/index_search.cpp
         ${TEST_DIR}/integration/ivf/scalar_search.cpp
         ${TEST_DIR}/integration/ivf/dynamic_scalar.cpp
+        ${TEST_DIR}/integration/ivf/iterator.cpp
     )
 endif()
 
@@ -208,7 +209,9 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
         ${TEST_DIR}/svs/index/ivf/kmeans.cpp
         ${TEST_DIR}/svs/index/ivf/hierarchical_kmeans.cpp
         ${TEST_DIR}/svs/index/ivf/common.cpp
+        ${TEST_DIR}/svs/index/ivf/index.cpp
         ${TEST_DIR}/svs/index/ivf/dynamic_ivf.cpp
+        ${TEST_DIR}/svs/index/ivf/iterator.cpp
     )
 endif()
 

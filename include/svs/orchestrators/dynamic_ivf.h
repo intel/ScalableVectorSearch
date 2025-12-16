@@ -216,6 +216,28 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         return impl_->get_distance(id, query_array);
     }
 
+    ///
+    /// @brief Return a new iterator (an instance of `svs::IVFIterator`) for the query.
+    ///
+    /// @tparam QueryType The element type of the query that will be given to the iterator.
+    /// @tparam N The dimension of the query.
+    ///
+    /// @param query The query to use for the iterator.
+    /// @param extra_search_buffer_capacity An optional extra search buffer capacity.
+    ///     For IVF, the default of 0 means the buffer will be sized based on the first
+    ///     batch_size passed to next().
+    ///
+    /// The returned iterator will maintain an internal copy of the query.
+    ///
+    template <typename QueryType, size_t N>
+    svs::IVFIterator batch_iterator(
+        std::span<const QueryType, N> query, size_t extra_search_buffer_capacity = 0
+    ) {
+        return impl_->batch_iterator(
+            svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
+        );
+    }
+
     ///// Assembly - Assemble from clustering and data
     template <
         manager::QueryTypeDefinition QueryTypes,

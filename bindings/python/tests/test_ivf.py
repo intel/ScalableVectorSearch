@@ -36,7 +36,7 @@ from .common import \
     test_groundtruth_cosine, \
     test_ivf_reference, \
     test_ivf_clustering, \
-    test_number_of_clusters, \
+    test_number_of_vectors, \
     test_dimensions, \
     timed, \
     get_test_set, \
@@ -167,7 +167,7 @@ class IVFTester(unittest.TestCase):
         test_get_distance(ivf, svs.DistanceType.L2, data)
 
         # Data interface
-        self.assertEqual(ivf.size, test_number_of_clusters)
+        self.assertEqual(ivf.size, test_number_of_vectors)
 
         # The dimensionality exposed by the index should always match the original
         # dataset dimensions.
