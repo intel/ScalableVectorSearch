@@ -31,12 +31,12 @@ def main():
     print("=" * 80)
     print("Static IVF Index Example")
     print("=" * 80)
-    
+
     # [generate-dataset]
     # Create a test dataset
     test_data_dir = "./example_data_ivf"
     print(f"\n1. Generating test dataset in '{test_data_dir}'...")
-    
+
     svs.generate_test_dataset(
         10000,                          # Create 10,000 vectors in the dataset
         1000,                           # Generate 1,000 query vectors
@@ -49,7 +49,7 @@ def main():
     )
     print("   ✓ Dataset generated")
     # [generate-dataset]
-    
+
     # [build-parameters]
     # Configure clustering parameters for IVF
     print("\n2. Configuring build parameters...")
@@ -63,7 +63,7 @@ def main():
     )
     print(f"   ✓ Configured {build_parameters.num_centroids} centroids")
     # [build-parameters]
-    
+
     # [load-data]
     # Load the dataset
     print("\n3. Loading dataset...")
@@ -75,7 +75,7 @@ def main():
     )
     print(f"   ✓ Data loader created")
     # [load-data]
-    
+
     # [build-clustering]
     # Build the clustering
     print("\n4. Building clustering (k-means)...")
@@ -87,7 +87,7 @@ def main():
     )
     print(f"   ✓ Clustering built with {build_parameters.num_centroids} centroids")
     # [build-clustering]
-    
+
     # [assemble-index]
     # Assemble the IVF index from clustering
     print("\n5. Assembling IVF index from clustering...")
@@ -101,7 +101,7 @@ def main():
     print(f"   ✓ Index assembled with {index.size} vectors")
     print(f"   ✓ Index dimensions: {index.dimensions}")
     # [assemble-index]
-    
+
     # [configure-search]
     # Configure search parameters
     print("\n6. Configuring search parameters...")
@@ -112,20 +112,20 @@ def main():
     index.search_parameters = search_params
     print(f"   ✓ Search parameters: n_probes={search_params.n_probes}")
     # [configure-search]
-    
+
     # [search]
     # Perform search
     print("\n7. Searching the index...")
     queries = svs.read_vecs(os.path.join(test_data_dir, "queries.fvecs"))
     groundtruth = svs.read_vecs(os.path.join(test_data_dir, "groundtruth.ivecs"))
-    
+
     num_neighbors = 10
     I, D = index.search(queries, num_neighbors)
     recall = svs.k_recall_at(groundtruth, I, num_neighbors, num_neighbors)
     print(f"   ✓ Recall@{num_neighbors}: {recall:.4f}")
     print(f"   ✓ Result shape: {I.shape}")
     # [search]
-    
+
     # [save-clustering]
     # Save the clustering for later use
     print("\n8. Saving clustering...")
@@ -133,12 +133,12 @@ def main():
     clustering.save(clustering_path)
     print(f"   ✓ Clustering saved to '{clustering_path}'")
     # [save-clustering]
-    
+
     # [load-and-assemble]
     # Load clustering and assemble a new index
     print("\n9. Loading clustering and assembling new index...")
     loaded_clustering = svs.Clustering.load_clustering(clustering_path)
-    
+
     new_index = svs.IVF.assemble_from_clustering(
         clustering = loaded_clustering,
         data_loader = data_loader,
@@ -148,7 +148,7 @@ def main():
     )
     print(f"   ✓ New index assembled with {new_index.size} vectors")
     # [load-and-assemble]
-    
+
     # [assemble-from-file]
     # Or directly assemble from file
     print("\n10. Assembling index directly from clustering file...")
@@ -161,7 +161,7 @@ def main():
     )
     print(f"   ✓ Index assembled with {index_from_file.size} vectors")
     # [assemble-from-file]
-    
+
     # [search-verification]
     # Verify both indices produce the same results
     print("\n11. Verifying search results consistency...")
@@ -169,13 +169,13 @@ def main():
     I2, D2 = index_from_file.search(queries, num_neighbors)
     recall2 = svs.k_recall_at(groundtruth, I2, num_neighbors, num_neighbors)
     print(f"   ✓ Recall@{num_neighbors}: {recall2:.4f}")
-    
+
     if np.allclose(D, D2):
         print("   ✓ Both indices produce identical results")
     else:
         print("   ✗ Warning: Results differ slightly (expected due to floating point)")
     # [search-verification]
-    
+
     # [tune-search-parameters]
     # Experiment with different search parameters
     print("\n12. Tuning search parameters...")
@@ -186,7 +186,7 @@ def main():
         recall_tuned = svs.k_recall_at(groundtruth, I_tuned, num_neighbors, num_neighbors)
         print(f"   ✓ n_probes={n_probes:2d}: Recall@{num_neighbors} = {recall_tuned:.4f}")
     # [tune-search-parameters]
-    
+
     print("\n" + "=" * 80)
     print("Example completed successfully!")
     print("=" * 80)
