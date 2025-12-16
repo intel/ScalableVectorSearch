@@ -30,6 +30,8 @@
 #include "fmt/core.h"
 
 // stl
+#include <memory>
+#include <mutex>
 #include <random>
 #include <vector>
 
@@ -175,10 +177,8 @@ class IVFIndex {
 
     /// @brief Compute the distance between a query vector and a vector in the index
     template <typename Query> double get_distance(size_t id, const Query& query) const {
-        // Lazily initialize ID mapping on first call
-        if (id_to_cluster_.empty()) {
-            initialize_id_mapping();
-        }
+        // Thread-safe lazy initialization of ID mapping
+        std::call_once(*id_mapping_init_flag_, [this]() { initialize_id_mapping(); });
 
         // Check if id exists
         if (!has_id(id)) {
@@ -325,6 +325,9 @@ class IVFIndex {
     mutable std::vector<size_t> id_to_cluster_{};
     // Maps ID -> position within cluster
     mutable std::vector<size_t> id_in_cluster_{};
+    // Thread-safe initialization flag for ID mapping (wrapped in unique_ptr for movability)
+    mutable std::unique_ptr<std::once_flag> id_mapping_init_flag_{
+        std::make_unique<std::once_flag>()};
 
     ///// Threading Infrastructure /////
     InterQueryThreadPool inter_query_threadpool_; // Handles parallelism across queries
