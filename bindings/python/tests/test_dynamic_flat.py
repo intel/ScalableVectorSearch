@@ -72,7 +72,7 @@ class DynamicFlatTester(unittest.TestCase):
             print(f"Reloaded index has {len(reloaded.all_ids())} IDs")
             print(f"Original IDs sample: {sorted(list(index.all_ids()))[:10]}")
             print(f"Reloaded IDs sample: {sorted(list(reloaded.all_ids()))[:10]}")
-            
+
             I, D = reloaded.search(reference.queries, num_neighbors)
             reloaded_recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
 

@@ -60,7 +60,7 @@ def run():
         svs.DataType.float32
     )
 
-    # Next - we construct a LVQLoader which is configured to use LVQ compression with 4 
+    # Next - we construct a LVQLoader which is configured to use LVQ compression with 4
     # bits for the primary and 8 bits for the residual quantization.
     B1 = 4    # Number of bits for the first level LVQ quantization
     B2 = 8    # Number of bits for the residuals quantization
@@ -69,9 +69,9 @@ def run():
         residual=B2,
     )
     # [create-loader]
-    
+
     # An index can be constructed using a LeanVec dataset.
-    # [build-parameters]    
+    # [build-parameters]
     parameters = svs.VamanaBuildParameters(
         graph_max_degree = 64,
         window_size = 128,
@@ -89,19 +89,19 @@ def run():
 
     # Set the search window size of the index and perform queries and load the queries.
     # [perform-queries]
-    n_neighbors = 10    
+    n_neighbors = 10
     index.search_window_size = 20
-    index.num_threads = 4    
+    index.num_threads = 4
 
-    queries = svs.read_vecs(os.path.join(test_data_dir, "queries.fvecs"))    
+    queries = svs.read_vecs(os.path.join(test_data_dir, "queries.fvecs"))
     I, D = index.search(queries, n_neighbors)
     # [perform-queries]
 
     # Compare with the groundtruth.
     # [recall]
-    groundtruth = svs.read_vecs(os.path.join(test_data_dir, "groundtruth.ivecs"))    
+    groundtruth = svs.read_vecs(os.path.join(test_data_dir, "groundtruth.ivecs"))
     recall = svs.k_recall_at(groundtruth, I, n_neighbors, n_neighbors)
-    print(f"Recall = {recall}")    
+    print(f"Recall = {recall}")
     # [recall]
     assert_equal(recall, 0.953)
 
@@ -112,10 +112,10 @@ def run():
         os.path.join(test_data_dir, "example_graph"),
         os.path.join(test_data_dir, "example_data"),
     )
-    
+
     index = svs.Vamana(
         os.path.join(test_data_dir, "example_config"),
-        os.path.join(test_data_dir, "example_graph"),        
+        os.path.join(test_data_dir, "example_graph"),
         os.path.join(test_data_dir, "example_data"),
         svs.DistanceType.L2,
         num_threads = 4,
