@@ -1,3 +1,13 @@
+# SVS 0.0.11 Release Notes
+
+## Additions and Changes
+
+* IVF support for SQDataset (#184), LVQ, and LeanVec
+
+* Added shared library support for gcc-14+
+
+* Various bug resolutions, fixes, and tooling support
+
 # SVS 0.0.10 Release Notes
 
 ## Additions and Changes
