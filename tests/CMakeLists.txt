@@ -179,6 +179,7 @@ if (SVS_EXPERIMENTAL_ENABLE_IVF)
         ${TEST_DIR}/integration/ivf/index_search.cpp
         ${TEST_DIR}/integration/ivf/scalar_search.cpp
         ${TEST_DIR}/integration/ivf/dynamic_scalar.cpp
+        ${TEST_DIR}/integration/ivf/iterator.cpp
     )
 endif()
 
