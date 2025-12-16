@@ -188,6 +188,10 @@ endif()
 # Fix Clang complaining about the sized delete operator.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
     target_compile_options(${SVS_LIB} INTERFACE -fsized-deallocation)
+    # TODO: remove once eve releases with clang-20 support
+    if (CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 20.0)
+        target_compile_options(svs_compile_options INTERFACE -Wno-deprecated-literal-operator)
+    endif()
 endif()
 
 # Provide better diagnostics for broken templates.
