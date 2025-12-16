@@ -27,3 +27,14 @@ repos:
     hooks:
       - id: check-yaml
         files: \.ya?ml$
+      - id: check-added-large-files
+      - id: check-illegal-windows-names
+      - id: check-json
+        files: \.json$
+      - id: check-merge-conflict
+      - id: check-toml
+        files: \.toml$
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: mixed-line-ending

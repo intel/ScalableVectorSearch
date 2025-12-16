@@ -81,4 +81,3 @@ class ReferenceDataset:
         index = svs.Flat(sub_dataset, svs.DistanceType.L2, self.num_threads)
         I, D = index.search(self.queries, num_neighbors)
         return ids_np[I]
-

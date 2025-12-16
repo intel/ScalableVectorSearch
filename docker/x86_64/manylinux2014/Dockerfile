@@ -26,4 +26,3 @@ RUN yum --disablerepo=epel install -y \
 # Enable CMake to find the config files for Intel(R) MKL.
 COPY ./entry.sh .
 ENTRYPOINT ["./entry.sh"]
-

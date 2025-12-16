@@ -90,4 +90,3 @@ class ReconstructionTester(unittest.TestCase):
                 self.assertTrue(np.array_equal(shuffled_data, r))
             else:
                 raise Exception(f"Unhandled loader kind: {loader}")
-
