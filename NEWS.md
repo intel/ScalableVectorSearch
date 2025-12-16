@@ -1,7 +1,13 @@
-# SVS 0.0.11 Release Notes
+# SVS 0.1.0 Release Notes
 
 ## Additions and Changes
 
-IVF support for SQDataset (#184), LVQ, and LeanVec
+* Creation of SVS C++ Runtime Bindings package (#208)
 
-Various bug resolutions, fixes, and tooling support
+* Addition of `libsvs` conda and python packages along with existing tarballs
+
+* Added shared library support for Clang-20
+
+* LVQ8x8 support added to SVS python package
+
+* Fixes related to VamanaBuildParameters (#237) and unmasked AVX2 load (#239)
