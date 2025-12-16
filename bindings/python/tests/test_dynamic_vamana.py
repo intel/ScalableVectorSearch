@@ -201,4 +201,3 @@ class DynamicVamanaTester(unittest.TestCase):
         recall = svs.k_recall_at(groundtruth, I, k, k)
         # Recall in plausible range
         self.assertTrue(0.5 < recall <= 1.0)
-

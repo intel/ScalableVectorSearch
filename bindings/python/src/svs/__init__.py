@@ -30,4 +30,3 @@ from .common import \
 
 # Make the upgrader available without explicit import.
 from . import upgrader
-
