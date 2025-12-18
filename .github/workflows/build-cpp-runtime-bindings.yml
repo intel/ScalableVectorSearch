@@ -74,7 +74,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             svs-manylinux228:latest \
-            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --verbose"
+            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --no-tests=error --verbose"
 
   # Run full test script using the built artifacts
   test:
