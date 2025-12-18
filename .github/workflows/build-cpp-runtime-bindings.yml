@@ -58,7 +58,7 @@ jobs:
             -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash -c "chmod +x .github/scripts/build-cpp-runtime-bindings.sh && ./.github/scripts/build-cpp-runtime-bindings.sh"
+            /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 
       - name: Upload cpp runtime bindings artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -115,4 +115,4 @@ jobs:
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash -c "chmod +x .github/scripts/test-cpp-runtime-bindings.sh && ./.github/scripts/test-cpp-runtime-bindings.sh"
+            /bin/bash .github/scripts/test-cpp-runtime-bindings.sh
