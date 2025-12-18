@@ -22,7 +22,6 @@ set(SVS_RUNTIME_HEADERS
     include/svs/runtime/training.h
     include/svs/runtime/vamana_index.h
     include/svs/runtime/dynamic_vamana_index.h
-    include/svs/runtime/index_blocksize.h
     include/svs/runtime/flat_index.h
 )
 

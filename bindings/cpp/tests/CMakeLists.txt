@@ -50,7 +50,6 @@ add_executable(svs_runtime_test ${TEST_SOURCES})
 target_link_libraries(svs_runtime_test PRIVATE
     svs_runtime
     Catch2::Catch2WithMain
-    fmt::fmt
 )
 
 # Set C++ standard
@@ -65,7 +64,6 @@ set_target_properties(svs_runtime_test PROPERTIES
 target_include_directories(svs_runtime_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include
 )
 
 # Enable testing with CTest

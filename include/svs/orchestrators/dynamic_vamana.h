@@ -43,8 +43,6 @@ class DynamicVamanaInterface : public VamanaInterface {
         bool reuse_empty = false
     ) = 0;
 
-    virtual lib::PowerOfTwo blocksize_bytes() const = 0;
-
     virtual void delete_points(std::span<const size_t> ids) = 0;
     virtual void consolidate() = 0;
     virtual void compact(size_t batchsize = 1'000'000) = 0;
@@ -81,8 +79,6 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
         auto points = data::ConstSimpleDataView<float>(data, dim0, dim1);
         impl().add_points(points, ids, reuse_empty);
     }
-
-    lib::PowerOfTwo blocksize_bytes() const override { return impl().blocksize_bytes(); }
 
     void delete_points(std::span<const size_t> ids) override { impl().delete_entries(ids); }
     void consolidate() override { impl().consolidate(); }
@@ -188,8 +184,6 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         );
         return *this;
     }
-
-    lib::PowerOfTwo blocksize_bytes() const { return impl_->blocksize_bytes(); }
 
     DynamicVamana& delete_points(std::span<const size_t> ids) {
         impl_->delete_points(ids);

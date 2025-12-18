@@ -55,16 +55,6 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
     DynamicVamanaIndexManagerBase& operator=(DynamicVamanaIndexManagerBase&&) = default;
     ~DynamicVamanaIndexManagerBase() override = default;
 
-    Status
-    add(size_t n, const size_t* labels, const float* x, IndexBlockSize blocksize
-    ) noexcept override {
-        return runtime_error_wrapper([&] {
-            svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
-            std::span<const size_t> lbls(labels, n);
-            impl_->add(data, lbls, blocksize);
-        });
-    }
-
     Status add(size_t n, const size_t* labels, const float* x) noexcept override {
         return runtime_error_wrapper([&] {
             svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
@@ -73,7 +63,7 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
         });
     }
 
-    lib::PowerOfTwo blocksize_bytes() const noexcept { return impl_->blocksize_bytes(); }
+    size_t blocksize_bytes() const noexcept { return impl_->blocksize_bytes(); }
 
     Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
@@ -148,19 +138,40 @@ Status DynamicVamanaIndex::check_storage_kind(StorageKind storage_kind) noexcept
                        );
 }
 
+Status DynamicVamanaIndex::check_params(
+    const DynamicVamanaIndex::DynamicIndexParams& dynamic_index_params
+) noexcept {
+    constexpr static size_t kMaxBlockSizeExp = 30; // 1GB
+    constexpr static size_t kMinBlockSizeExp = 12; // 4KB
+
+    if (dynamic_index_params.blocksize_exp > kMaxBlockSizeExp)
+        return Status(ErrorCode::INVALID_ARGUMENT, "Blocksize is too large");
+
+    if (dynamic_index_params.blocksize_exp < kMinBlockSizeExp)
+        return Status(ErrorCode::INVALID_ARGUMENT, "Blocksize is too small");
+
+    return Status_Ok;
+}
+
 Status DynamicVamanaIndex::build(
     DynamicVamanaIndex** index,
     size_t dim,
     MetricType metric,
     StorageKind storage_kind,
     const DynamicVamanaIndex::BuildParams& params,
-    const DynamicVamanaIndex::SearchParams& default_search_params
+    const DynamicVamanaIndex::SearchParams& default_search_params,
+    const DynamicVamanaIndex::DynamicIndexParams& dynamic_index_params
 ) noexcept {
     using Impl = DynamicVamanaIndexImpl;
     *index = nullptr;
+
+    auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
+    if (!status.ok())
+        return status;
+
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
-            dim, metric, storage_kind, params, default_search_params
+            dim, metric, storage_kind, params, default_search_params, dynamic_index_params
         );
         *index = new DynamicVamanaIndexManagerBase<Impl>{std::move(impl)};
     });
@@ -193,13 +204,20 @@ Status DynamicVamanaIndexLeanVec::build(
     StorageKind storage_kind,
     size_t leanvec_dims,
     const DynamicVamanaIndex::BuildParams& params,
-    const DynamicVamanaIndex::SearchParams& default_search_params
+    const DynamicVamanaIndex::SearchParams& default_search_params,
+    const DynamicVamanaIndex::DynamicIndexParams& dynamic_index_params
 ) noexcept {
     using Impl = DynamicVamanaIndexLeanVecImpl;
     *index = nullptr;
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
-            dim, metric, storage_kind, leanvec_dims, params, default_search_params
+            dim,
+            metric,
+            storage_kind,
+            leanvec_dims,
+            params,
+            default_search_params,
+            dynamic_index_params
         );
         *index = new DynamicVamanaIndexManagerBase<Impl>{std::move(impl)};
     });
@@ -213,7 +231,8 @@ Status DynamicVamanaIndexLeanVec::build(
     StorageKind storage_kind,
     const LeanVecTrainingData* training_data,
     const DynamicVamanaIndex::BuildParams& params,
-    const DynamicVamanaIndex::SearchParams& default_search_params
+    const DynamicVamanaIndex::SearchParams& default_search_params,
+    const DynamicVamanaIndex::DynamicIndexParams& dynamic_index_params
 ) noexcept {
     using Impl = DynamicVamanaIndexLeanVecImpl;
     *index = nullptr;
@@ -221,7 +240,13 @@ Status DynamicVamanaIndexLeanVec::build(
         auto training_data_impl =
             static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
         auto impl = std::make_unique<Impl>(
-            dim, metric, storage_kind, training_data_impl, params, default_search_params
+            dim,
+            metric,
+            storage_kind,
+            training_data_impl,
+            params,
+            default_search_params,
+            dynamic_index_params
         );
         *index = new DynamicVamanaIndexManagerBase<Impl>{std::move(impl)};
     });
@@ -230,7 +255,7 @@ Status DynamicVamanaIndexLeanVec::build(
 #else  // SVS_LEANVEC_HEADER
 // LeanVec storage kind is not supported in this build configuration
 Status DynamicVamanaIndexLeanVec::
-    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, size_t, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&) noexcept {
+    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, size_t, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."
@@ -238,7 +263,7 @@ Status DynamicVamanaIndexLeanVec::
 }
 
 Status DynamicVamanaIndexLeanVec::
-    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&) noexcept {
+    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."

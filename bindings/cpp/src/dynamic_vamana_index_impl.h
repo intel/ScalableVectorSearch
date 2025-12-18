@@ -46,13 +46,15 @@ class DynamicVamanaIndexImpl {
         MetricType metric,
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params
     )
         : dim_{dim}
         , metric_type_{metric}
         , storage_kind_{storage_kind}
         , build_params_{params}
-        , default_search_params_{default_search_params} {
+        , default_search_params_{default_search_params}
+        , dynamic_index_params_{dynamic_index_params} {
         if (!storage::is_supported_storage_kind(storage_kind)) {
             throw StatusException{
                 ErrorCode::INVALID_ARGUMENT,
@@ -63,7 +65,7 @@ class DynamicVamanaIndexImpl {
 
     size_t size() const { return impl_ ? impl_->size() : 0; }
 
-    lib::PowerOfTwo blocksize_bytes() const { return impl_->blocksize_bytes(); }
+    size_t blocksize_bytes() const { return 1u << dynamic_index_params_.blocksize_exp; }
 
     size_t dimensions() const { return dim_; }
 
@@ -71,20 +73,13 @@ class DynamicVamanaIndexImpl {
 
     StorageKind get_storage_kind() const { return storage_kind_; }
 
-    void
-    add(data::ConstSimpleDataView<float> data,
-        std::span<const size_t> labels,
-        IndexBlockSize blocksize) {
+    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
         if (!impl_) {
-            return init_impl(data, labels, blocksize);
+            auto blocksize_bytes = lib::PowerOfTwo(dynamic_index_params_.blocksize_exp);
+            return init_impl(data, labels, blocksize_bytes);
         }
 
         impl_->add_points(data, labels);
-    }
-
-    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
-        IndexBlockSize blocksize(data::BlockingParameters::default_blocksize_bytes.raw());
-        add(data, labels, blocksize);
     }
 
     void search(
@@ -395,7 +390,7 @@ class DynamicVamanaIndexImpl {
         const index::vamana::VamanaBuildParameters& parameters,
         const svs::data::ConstSimpleDataView<float>& data,
         std::span<const size_t> labels,
-        IndexBlockSize blocksize,
+        svs::lib::PowerOfTwo blocksize_bytes,
         StorageArgs&&... storage_args
     ) {
         auto threadpool = default_threadpool();
@@ -404,7 +399,7 @@ class DynamicVamanaIndexImpl {
             std::forward<Tag>(tag),
             data,
             threadpool,
-            blocksize.BlockSizeBytes(),
+            blocksize_bytes,
             std::forward<StorageArgs>(storage_args)...
         );
 
@@ -423,7 +418,7 @@ class DynamicVamanaIndexImpl {
     virtual void init_impl(
         data::ConstSimpleDataView<float> data,
         std::span<const size_t> labels,
-        IndexBlockSize blocksize
+        lib::PowerOfTwo blocksize_bytes
     ) {
         impl_.reset(storage::dispatch_storage_kind(
             get_storage_kind(),
@@ -431,7 +426,7 @@ class DynamicVamanaIndexImpl {
                 auto&& tag,
                 data::ConstSimpleDataView<float> data,
                 std::span<const size_t> labels,
-                IndexBlockSize blocksize
+                lib::PowerOfTwo blocksize_bytes
             ) {
                 using Tag = std::decay_t<decltype(tag)>;
                 return build_impl(
@@ -440,12 +435,12 @@ class DynamicVamanaIndexImpl {
                     this->vamana_build_parameters(),
                     data,
                     labels,
-                    blocksize
+                    blocksize_bytes
                 );
             },
             data,
             labels,
-            blocksize
+            blocksize_bytes
         ));
     }
 
@@ -540,6 +535,7 @@ class DynamicVamanaIndexImpl {
     StorageKind storage_kind_;
     VamanaIndex::BuildParams build_params_;
     VamanaIndex::SearchParams default_search_params_;
+    VamanaIndex::DynamicIndexParams dynamic_index_params_;
     std::unique_ptr<svs::DynamicVamana> impl_;
     size_t ntotal_soft_deleted{0};
 };

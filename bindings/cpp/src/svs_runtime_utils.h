@@ -220,7 +220,17 @@ template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementT
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-        return init(data, pool, svs::data::BlockingParameters::default_blocksize_bytes);
+        StorageType result(data.size(), data.dimensions());
+        svs::threads::parallel_for(
+            pool,
+            svs::threads::StaticPartition(result.size()),
+            [&](auto is, auto SVS_UNUSED(tid)) {
+                for (auto i : is) {
+                    result.set_datum(i, data.get_datum(i));
+                }
+            }
+        );
+        return result;
     }
 
     template <typename... Args>
