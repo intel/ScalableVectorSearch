@@ -100,6 +100,7 @@ enum class StorageKind {
     FP16,
     SQI8,
     LVQ4x0,
+    LVQ8x0,
     LVQ4x4,
     LVQ4x8,
     LeanVec4x4,

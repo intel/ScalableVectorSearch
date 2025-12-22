@@ -99,8 +99,8 @@ namespace storage {
 
 // Consolidated storage kind checks using constexpr functions
 inline constexpr bool is_lvq_storage(StorageKind kind) {
-    return kind == StorageKind::LVQ4x0 || kind == StorageKind::LVQ4x4 ||
-           kind == StorageKind::LVQ4x8;
+    return kind == StorageKind::LVQ4x0 || kind == StorageKind::LVQ8x0 ||
+           kind == StorageKind::LVQ4x4 || kind == StorageKind::LVQ4x8;
 }
 
 inline constexpr bool is_leanvec_storage(StorageKind kind) {
@@ -129,6 +129,7 @@ SVS_DEFINE_STORAGE_KIND_TAG(FP32);
 SVS_DEFINE_STORAGE_KIND_TAG(FP16);
 SVS_DEFINE_STORAGE_KIND_TAG(SQI8);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x0);
+SVS_DEFINE_STORAGE_KIND_TAG(LVQ8x0);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x4);
 SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x8);
 SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x4);
@@ -245,6 +246,7 @@ using LVQDatasetType = svs::quantization::lvq::LVQDataset<
 
 // clang-format off
 template <> struct StorageType<LVQ4x0Tag> { using type = LVQDatasetType<4, 0>; };
+template <> struct StorageType<LVQ8x0Tag> { using type = LVQDatasetType<8, 0>; };
 template <> struct StorageType<LVQ4x4Tag> { using type = LVQDatasetType<4, 4>; };
 template <> struct StorageType<LVQ4x8Tag> { using type = LVQDatasetType<4, 8>; };
 // clang-format on
@@ -332,6 +334,8 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
             return f(SQI8Tag{}, std::forward<Args>(args)...);
         case StorageKind::LVQ4x0:
             return f(LVQ4x0Tag{}, std::forward<Args>(args)...);
+        case StorageKind::LVQ8x0:
+            return f(LVQ8x0Tag{}, std::forward<Args>(args)...);
         case StorageKind::LVQ4x4:
             return f(LVQ4x4Tag{}, std::forward<Args>(args)...);
         case StorageKind::LVQ4x8:
