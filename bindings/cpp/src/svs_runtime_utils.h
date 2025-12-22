@@ -236,19 +236,22 @@ struct StorageFactory<SQStorageType> {
 
 // LVQ Storage support
 #ifdef SVS_LVQ_HEADER
-template <size_t Primary, size_t Residual>
+template <size_t Primary, size_t Residual, typename Strategy>
 using LVQDatasetType = svs::quantization::lvq::LVQDataset<
     Primary,
     Residual,
     svs::Dynamic,
-    svs::quantization::lvq::Turbo<16, 8>,
+    Strategy,
     svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
 
+using Sequential = svs::quantization::lvq::Sequential;
+using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
+
 // clang-format off
-template <> struct StorageType<LVQ4x0Tag> { using type = LVQDatasetType<4, 0>; };
-template <> struct StorageType<LVQ8x0Tag> { using type = LVQDatasetType<8, 0>; };
-template <> struct StorageType<LVQ4x4Tag> { using type = LVQDatasetType<4, 4>; };
-template <> struct StorageType<LVQ4x8Tag> { using type = LVQDatasetType<4, 8>; };
+template <> struct StorageType<LVQ4x0Tag> { using type = LVQDatasetType<4, 0, Turbo16x8>; };
+template <> struct StorageType<LVQ8x0Tag> { using type = LVQDatasetType<8, 0, Sequential>; };
+template <> struct StorageType<LVQ4x4Tag> { using type = LVQDatasetType<4, 4, Turbo16x8>; };
+template <> struct StorageType<LVQ4x8Tag> { using type = LVQDatasetType<4, 8, Turbo16x8>; };
 // clang-format on
 
 template <svs::quantization::lvq::IsLVQDataset LVQStorageType>
