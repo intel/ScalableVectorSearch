@@ -28,8 +28,11 @@ conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0"
 conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
 conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 
+# Install libsvs-runtime from local conda package
+conda install -y -c /runtime_conda libsvs-runtime
+
 # Validate python and C++ tests against FAISS CI
-git clone https://github.com/facebookresearch/faiss.git
+git clone -b eglaser/svs-runtime-conda-enabling https://github.com/ethanglaser/faiss.git
 cd faiss
 
 echo "==============================================="
@@ -37,7 +40,7 @@ echo " Running validation of library against FAISS CI"
 echo "-----------------------------------------------"
 echo " FAISS Build: "
 mkdir build && cd build
-cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF -DSVS_URL="file:///runtime_lib/svs-cpp-runtime-bindings${SUFFIX}.tar.gz" ..
+cmake -DBUILD_TESTING=ON -DFAISS_ENABLE_SVS=ON -DFAISS_ENABLE_GPU=OFF ..
 make -j$(nproc) swigfaiss faiss_test
 echo "-----------------------------------------------"
 echo " FAISS C++ tests: "
