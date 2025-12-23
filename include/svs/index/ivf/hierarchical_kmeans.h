@@ -71,7 +71,8 @@ auto hierarchical_kmeans_clustering_impl(
     Distance& distance,
     Pool& threadpool,
     lib::Type<I> SVS_UNUSED(integer_type) = {},
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    bool train_only = false
 ) {
     auto timer = lib::Timer();
     auto kmeans_timer = timer.push_back("Hierarchical kmeans clustering");
@@ -84,21 +85,30 @@ auto hierarchical_kmeans_clustering_impl(
 
     size_t num_level1_clusters = parameters.hierarchical_level1_clusters_;
     if (num_level1_clusters == 0) {
-        num_level1_clusters = std::sqrt(num_clusters);
+        num_level1_clusters = static_cast<size_t>(std::sqrt(num_clusters));
     }
 
     svs::logging::debug(logger, "Level1 clusters: {}\n", num_level1_clusters);
 
     // Step 1: Create training set
-    size_t num_training_data =
-        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_));
-    if (num_training_data < num_clusters || num_training_data > data.size()) {
+    // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of centroids,
+    // but no more than the dataset size. This ensures we have enough training data
+    // even for small datasets, without exceeding the available data.
+    size_t min_training_data =
+        std::min(num_clusters * MIN_TRAINING_SAMPLE_MULTIPLIER, data.size());
+    size_t num_training_data = std::max(
+        min_training_data,
+        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_))
+    );
+    // Ensure we don't exceed the data size
+    num_training_data = std::min(num_training_data, data.size());
+
+    if (num_training_data < num_clusters) {
         throw ANNEXCEPTION(
-            "Invalid number of training data: {}, num_clusters: {}, total data size: "
-            "{}\n",
-            num_training_data,
-            num_clusters,
-            data.size()
+            "Insufficient data for clustering: {} datapoints, {} clusters required. "
+            "Need at least as many datapoints as clusters.\n",
+            data.size(),
+            num_clusters
         );
     }
     auto rng = std::mt19937(parameters.seed_);
@@ -157,41 +167,46 @@ auto hierarchical_kmeans_clustering_impl(
     auto clusters_level1 =
         group_assignments(assignments_level1, num_level1_clusters, data_train);
 
-    // Step 5: Assign all data to clusters
+    std::vector<std::vector<I>> clusters_level1_all;
+
+    // Declare timer outside of block to avoid scope issues
     auto all_assignments_time = timer.push_back("level1 all assignments");
-    auto all_assignments_alloc = timer.push_back("level1 all assignments alloc");
-    auto assignments_level1_all = std::vector<size_t>(data.size());
-    all_assignments_alloc.finish();
 
-    batchsize = parameters.minibatch_size_;
-    num_batches = lib::div_round_up(data.size(), batchsize);
+    if (!train_only) {
+        // Step 5: Assign all data to clusters
+        auto assignments_level1_all = std::vector<size_t>(data.size());
 
-    data_norm = maybe_compute_norms<Distance>(data, threadpool);
-    auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
-    for (size_t batch = 0; batch < num_batches; ++batch) {
-        auto this_batch = threads::UnitRange{
-            batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
-        auto data_batch_view = data::make_view(data, this_batch);
-        auto all_assignments_convert = timer.push_back("level1 all assignments convert");
-        convert_data(data_batch_view, data_batch, threadpool);
-        all_assignments_convert.finish();
-        centroid_assignment(
-            data_batch,
-            data_norm,
-            this_batch,
-            distance,
-            centroids_level1,
-            centroids_level1_norm,
-            assignments_level1_all,
-            matmul_results_level1,
-            threadpool,
-            timer
-        );
+        batchsize = parameters.minibatch_size_;
+        num_batches = lib::div_round_up(data.size(), batchsize);
+
+        data_norm = maybe_compute_norms<Distance>(data, threadpool);
+        auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
+        for (size_t batch = 0; batch < num_batches; ++batch) {
+            auto this_batch = threads::UnitRange{
+                batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+            auto data_batch_view = data::make_view(data, this_batch);
+            convert_data(data_batch_view, data_batch, threadpool);
+            centroid_assignment(
+                data_batch,
+                data_norm,
+                this_batch,
+                distance,
+                centroids_level1,
+                centroids_level1_norm,
+                assignments_level1_all,
+                matmul_results_level1,
+                threadpool,
+                timer
+            );
+        }
+        auto all_assignments_cluster = timer.push_back("level1 all assignments clusters");
+        clusters_level1_all =
+            group_assignments(assignments_level1_all, num_level1_clusters, data);
+        all_assignments_cluster.finish();
+    } else {
+        // For train_only, create empty clusters
+        clusters_level1_all.resize(num_level1_clusters);
     }
-    auto all_assignments_cluster = timer.push_back("level1 all assignments clusters");
-    auto clusters_level1_all =
-        group_assignments(assignments_level1_all, num_level1_clusters, data);
-    all_assignments_cluster.finish();
 
     all_assignments_time.finish();
     level1_training_time.finish();
@@ -206,10 +221,20 @@ auto hierarchical_kmeans_clustering_impl(
     auto clusters_final = std::vector<std::vector<I>>(num_clusters);
 
     size_t max_data_per_cluster = 0;
-    for (size_t cluster = 0; cluster < num_level1_clusters; cluster++) {
-        max_data_per_cluster = clusters_level1_all[cluster].size() > max_data_per_cluster
-                                   ? clusters_level1_all[cluster].size()
-                                   : max_data_per_cluster;
+    if (!train_only) {
+        for (size_t cluster = 0; cluster < num_level1_clusters; cluster++) {
+            max_data_per_cluster =
+                clusters_level1_all[cluster].size() > max_data_per_cluster
+                    ? clusters_level1_all[cluster].size()
+                    : max_data_per_cluster;
+        }
+    } else {
+        // In train_only mode, use training clusters for Level 2 training
+        for (size_t cluster = 0; cluster < num_level1_clusters; cluster++) {
+            max_data_per_cluster = clusters_level1[cluster].size() > max_data_per_cluster
+                                       ? clusters_level1[cluster].size()
+                                       : max_data_per_cluster;
+        }
     }
     auto data_level2 =
         data::SimpleData<BuildType, Dims, Alloc>{max_data_per_cluster, ndims};
@@ -219,7 +244,8 @@ auto hierarchical_kmeans_clustering_impl(
     for (size_t cluster = 0; cluster < num_level1_clusters; cluster++) {
         size_t num_clusters_l2 = num_level2_clusters[cluster];
         size_t num_assignments_l2 = clusters_level1[cluster].size();
-        size_t num_assignments_l2_all = clusters_level1_all[cluster].size();
+        size_t num_assignments_l2_all =
+            train_only ? 0 : clusters_level1_all[cluster].size();
 
         auto matmul_results_level2 =
             data::SimpleData<float>{parameters.minibatch_size_, num_clusters_l2};
@@ -255,47 +281,51 @@ auto hierarchical_kmeans_clustering_impl(
         );
 
         auto all_assignments_level2 = timer.push_back("level2 all assignments");
-        threads::parallel_for(
-            threadpool,
-            threads::StaticPartition{num_assignments_l2_all},
-            [&](auto indices, auto /*tid*/) {
-                for (auto i : indices) {
-                    data_level2.set_datum(
-                        i, data.get_datum(clusters_level1_all[cluster][i])
-                    );
-                }
-            }
-        );
 
-        batchsize = parameters.minibatch_size_;
-        num_batches = lib::div_round_up(num_assignments_l2_all, batchsize);
-
-        data_norm = maybe_compute_norms<Distance>(data_level2, threadpool);
-        auto centroids_level2_norm =
-            maybe_compute_norms<Distance>(centroids_level2_fp32, threadpool);
-        for (size_t batch = 0; batch < num_batches; ++batch) {
-            auto this_batch = threads::UnitRange{
-                batch * batchsize,
-                std::min((batch + 1) * batchsize, num_assignments_l2_all)};
-            auto data_batch = data::make_view(data_level2, this_batch);
-            centroid_assignment(
-                data_batch,
-                data_norm,
-                this_batch,
-                distance,
-                centroids_level2,
-                centroids_level2_norm,
-                assignments_level2_all,
-                matmul_results_level2,
+        if (!train_only) {
+            // Only do Level 2 assignments if not in train_only mode
+            threads::parallel_for(
                 threadpool,
-                timer
+                threads::StaticPartition{num_assignments_l2_all},
+                [&](auto indices, auto /*tid*/) {
+                    for (auto i : indices) {
+                        data_level2.set_datum(
+                            i, data.get_datum(clusters_level1_all[cluster][i])
+                        );
+                    }
+                }
             );
-        }
 
-        for (size_t i = 0; i < num_assignments_l2_all; i++) {
-            clusters_final[cluster_start + assignments_level2_all[i]].push_back(
-                clusters_level1_all[cluster][i]
-            );
+            batchsize = parameters.minibatch_size_;
+            num_batches = lib::div_round_up(num_assignments_l2_all, batchsize);
+
+            data_norm = maybe_compute_norms<Distance>(data_level2, threadpool);
+            auto centroids_level2_norm =
+                maybe_compute_norms<Distance>(centroids_level2_fp32, threadpool);
+            for (size_t batch = 0; batch < num_batches; ++batch) {
+                auto this_batch = threads::UnitRange{
+                    batch * batchsize,
+                    std::min((batch + 1) * batchsize, num_assignments_l2_all)};
+                auto data_batch = data::make_view(data_level2, this_batch);
+                centroid_assignment(
+                    data_batch,
+                    data_norm,
+                    this_batch,
+                    distance,
+                    centroids_level2,
+                    centroids_level2_norm,
+                    assignments_level2_all,
+                    matmul_results_level2,
+                    threadpool,
+                    timer
+                );
+            }
+
+            for (size_t i = 0; i < num_assignments_l2_all; i++) {
+                clusters_final[cluster_start + assignments_level2_all[i]].push_back(
+                    clusters_level1_all[cluster][i]
+                );
+            }
         }
 
         threads::parallel_for(
@@ -313,6 +343,7 @@ auto hierarchical_kmeans_clustering_impl(
         cluster_start += num_clusters_l2;
         all_assignments_level2.finish();
     }
+
     level2_training_time.finish();
 
     kmeans_timer.finish();
@@ -338,10 +369,11 @@ auto hierarchical_kmeans_clustering(
     Distance& distance,
     Pool& threadpool,
     lib::Type<I> integer_type = {},
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    bool train_only = false
 ) {
     return hierarchical_kmeans_clustering_impl<BuildType>(
-        parameters, data, distance, threadpool, integer_type, std::move(logger)
+        parameters, data, distance, threadpool, integer_type, std::move(logger), train_only
     );
 }
 

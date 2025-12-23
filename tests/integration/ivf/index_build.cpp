@@ -17,6 +17,10 @@
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/recall.h"
+#include "svs/index/ivf/clustering.h"
+#include "svs/index/ivf/common.h"
+#include "svs/index/ivf/hierarchical_kmeans.h"
+#include "svs/lib/float16.h"
 #include "svs/lib/timing.h"
 #include "svs/orchestrators/ivf.h"
 
@@ -99,6 +103,96 @@ void test_build(const Distance& distance, size_t num_inner_threads = 1) {
     }
 }
 
+template <typename T, typename Distance>
+void test_build_train_only(const Distance& distance, size_t num_inner_threads = 1) {
+    const double epsilon = 0.06; // Wider tolerance for train_only workflow
+    const auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    CATCH_REQUIRE(svs_test::prepare_temp_directory());
+    size_t num_threads = 2;
+
+    auto expected_result = test_dataset::ivf::expected_build_results(
+        svs::distance_type_v<Distance>, svsbenchmark::Uncompressed(svs::datatype_v<T>)
+    );
+
+    // Load data
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto threadpool = svs::threads::as_threadpool(num_threads);
+    auto parameters = expected_result.build_parameters_.value();
+
+    // Step 1: Use train_only mode to get centroids
+    svs::data::SimpleData<T> centroids_train;
+    std::vector<std::vector<uint32_t>> clusters_train;
+    fmt::print(
+        "Starting Train-Only Mode Clustering with {} centroids\n", parameters.num_centroids_
+    );
+
+    if (parameters.is_hierarchical_) {
+        fmt::print("Using Hierarchical KMeans Clustering\n");
+        std::tie(centroids_train, clusters_train) =
+            svs::index::ivf::hierarchical_kmeans_clustering<T>(
+                parameters,
+                data,
+                distance,
+                threadpool,
+                svs::lib::Type<uint32_t>(),
+                svs::logging::get(),
+                true // train_only = true
+            );
+    } else {
+        std::tie(centroids_train, clusters_train) = svs::index::ivf::kmeans_clustering<T>(
+            parameters,
+            data,
+            distance,
+            threadpool,
+            svs::lib::Type<uint32_t>(),
+            svs::logging::get(),
+            true // train_only = true
+        );
+    }
+
+    fmt::print("Train-Only Mode - Obtained {} centroids\n", centroids_train.size());
+
+    // Step 2: Assign data to clusters using cluster_assignment
+    auto clusters = svs::index::ivf::cluster_assignment<T>(
+        data,
+        centroids_train,
+        distance,
+        threadpool,
+        10'000, // minibatch_size
+        svs::lib::Type<uint32_t>()
+    );
+
+    // Step 3: Create clustering and assemble index
+    svs::index::ivf::Clustering clustering(std::move(centroids_train), std::move(clusters));
+
+    auto index = svs::IVF::assemble_from_clustering<float>(
+        std::move(clustering), std::move(data), distance, num_threads, num_inner_threads
+    );
+
+    // Test the index with the same expected results
+    auto groundtruth = test_dataset::load_groundtruth(svs::distance_type_v<Distance>);
+    for (const auto& expected : expected_result.config_and_recall_) {
+        auto these_queries = test_dataset::get_test_set(queries, expected.num_queries_);
+        auto these_groundtruth =
+            test_dataset::get_test_set(groundtruth, expected.num_queries_);
+        index.set_search_parameters(expected.search_parameters_);
+        auto results = index.search(these_queries, expected.num_neighbors_);
+        double recall = svs::k_recall_at_n(
+            these_groundtruth, results, expected.num_neighbors_, expected.recall_k_
+        );
+
+        fmt::print(
+            "Train-Only Mode - n_probes: {}, Expected Recall: {}, Actual Recall: {}\n",
+            index.get_search_parameters().n_probes_,
+            expected.recall_,
+            recall
+        );
+        // Just check that recall is reasonable (within wider tolerance)
+        CATCH_REQUIRE(recall > expected.recall_ - epsilon);
+        CATCH_REQUIRE(recall < expected.recall_ + epsilon);
+    }
+}
+
 } // namespace
 
 CATCH_TEST_CASE("IVF Build/Clustering", "[integration][build][ivf]") {
@@ -112,4 +206,12 @@ CATCH_TEST_CASE("IVF Build/Clustering", "[integration][build][ivf]") {
     // TBD: CI is not happy with this, investigate
     // test_build<svs::BFloat16>(svs::DistanceL2(), 4);
     // test_build<svs::BFloat16>(svs::DistanceIP(), 4);
+}
+
+CATCH_TEST_CASE("IVF Build/Clustering", "[integration][build][ivf][train_only]") {
+    test_build_train_only<float>(svs::DistanceL2());
+    test_build_train_only<svs::Float16>(svs::DistanceIP());
+
+    test_build_train_only<svs::BFloat16>(svs::DistanceL2());
+    test_build_train_only<svs::BFloat16>(svs::DistanceIP());
 }

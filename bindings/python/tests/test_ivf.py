@@ -39,7 +39,8 @@ from .common import \
     test_number_of_clusters, \
     test_dimensions, \
     timed, \
-    get_test_set
+    get_test_set, \
+    test_get_distance
 
 from .dataset import UncompressedMatcher
 
@@ -160,6 +161,10 @@ class IVFTester(unittest.TestCase):
 
         self.assertEqual(queries.shape, (1000, 128))
         self.assertEqual(groundtruth.shape, (1000, 100))
+
+        # Test get_distance
+        data = svs.read_vecs(test_data_vecs)
+        test_get_distance(ivf, svs.DistanceType.L2, data)
 
         # Data interface
         self.assertEqual(ivf.size, test_number_of_clusters)

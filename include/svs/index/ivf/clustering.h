@@ -254,6 +254,12 @@ template <data::ImmutableMemoryDataset Data, std::integral I> class Clustering {
 
 template <typename Data, std::integral I> struct DenseCluster {
   public:
+    using data_type = Data;
+    using index_type = I;
+
+    // Default constructor for in-place initialization
+    DenseCluster() = default;
+
     DenseCluster(Data data, std::vector<I> ids)
         : data_{std::move(data)}
         , ids_{std::move(ids)} {
@@ -263,6 +269,12 @@ template <typename Data, std::integral I> struct DenseCluster {
     }
 
     size_t size() const { return data_.size(); }
+
+    // Support for dynamic operations
+    void resize(size_t new_size) {
+        data_.resize(new_size);
+        ids_.resize(new_size);
+    }
 
     template <typename Callback>
     void on_leaves(Callback&& f, size_t prefetch_offset) const {
@@ -287,6 +299,7 @@ template <typename Data, std::integral I> struct DenseCluster {
     auto get_secondary(size_t id) const { return data_.get_secondary(id); }
     auto get_global_id(size_t local_id) const { return ids_[local_id]; }
     const Data& view_cluster() const { return data_; }
+    Data& view_cluster() { return data_; }
 
   public:
     Data data_;
@@ -303,7 +316,7 @@ class DenseClusteredDataset {
     using index_type = I;
     using data_type = Data;
 
-    // Constructor
+    // Constructor from clustering (for building from existing data)
     template <typename Original, threads::ThreadPool Pool, typename Alloc>
     DenseClusteredDataset(
         const Clustering<Centroids, I>& clustering,
@@ -329,12 +342,35 @@ class DenseClusteredDataset {
         );
     }
 
+    // Constructor for empty clusters (for assembly/dynamic operations)
+    template <typename Alloc>
+    DenseClusteredDataset(size_t num_clusters, size_t dimensions, const Alloc& allocator)
+        : clusters_{} {
+        clusters_.reserve(num_clusters);
+        for (size_t i = 0; i < num_clusters; ++i) {
+            clusters_.emplace_back(Data(0, dimensions, allocator), std::vector<I>());
+        }
+    }
+
     template <typename Callback> void on_leaves(Callback&& f, size_t cluster) const {
         clusters_.at(cluster).on_leaves(SVS_FWD(f), prefetch_offset_);
     }
 
     size_t get_prefetch_offset() const { return prefetch_offset_; }
     void set_prefetch_offset(size_t offset) { prefetch_offset_ = offset; }
+
+    // Cluster access (const)
+    const DenseCluster<Data, I>& operator[](size_t cluster) const {
+        return clusters_[cluster];
+    }
+
+    // Cluster access (mutable) - for dynamic IVF operations
+    DenseCluster<Data, I>& operator[](size_t cluster) { return clusters_[cluster]; }
+
+    // Number of clusters
+    size_t size() const { return clusters_.size(); }
+
+    // Datum access (const)
     auto get_datum(size_t cluster, size_t id) const {
         return clusters_.at(cluster).get_datum(id);
     }
@@ -344,9 +380,14 @@ class DenseClusteredDataset {
     auto get_global_id(size_t cluster, size_t id) const {
         return clusters_.at(cluster).get_global_id(id);
     }
+
+    // View cluster data (const)
     const Data& view_cluster(size_t cluster) const {
         return clusters_.at(cluster).view_cluster();
     }
+
+    // View cluster data (mutable) - for dynamic IVF operations
+    Data& view_cluster(size_t cluster) { return clusters_[cluster].view_cluster(); }
 
   private:
     std::vector<DenseCluster<Data, I>> clusters_;

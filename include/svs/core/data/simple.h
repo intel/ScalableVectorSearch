@@ -38,6 +38,9 @@
 namespace svs {
 namespace data {
 
+// Forward declaration for Blocked allocator
+template <typename Alloc> class Blocked;
+
 template <size_t M, size_t N> bool check_dims(size_t m, size_t n) {
     if constexpr (M == Dynamic || N == Dynamic) {
         return m == n;
@@ -247,6 +250,8 @@ class SimpleData {
 
     /// Data wrapped in the library allocator.
     using lib_alloc_data_type = SimpleData<T, Extent, lib::Allocator<T>>;
+    /// Data wrapped in the library blocked allocator for dynamic IVF.
+    using lib_blocked_alloc_data_type = SimpleData<T, Dynamic, Blocked<lib::Allocator<T>>>;
 
     /// Return the underlying allocator.
     const allocator_type& get_allocator() const { return data_.get_allocator(); }
@@ -607,6 +612,8 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     using const_value_type = std::span<const T, Extent>;
 
     using lib_alloc_data_type = SimpleData<T, Extent, Blocked<lib::Allocator<T>>>;
+    /// Already blocked, so lib_blocked_alloc_data_type is the same as lib_alloc_data_type.
+    using lib_blocked_alloc_data_type = SimpleData<T, Dynamic, Blocked<lib::Allocator<T>>>;
 
     ///// Constructors
     SimpleData(size_t n_elements, size_t n_dimensions, const Blocked<Alloc>& alloc)
