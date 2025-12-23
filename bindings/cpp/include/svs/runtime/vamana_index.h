@@ -44,6 +44,10 @@ struct SVS_RUNTIME_API VamanaIndex {
         size_t prefetch_step = Unspecify<size_t>();
     };
 
+    struct DynamicIndexParams {
+        size_t blocksize_exp = 30;
+    };
+
     virtual Status search(
         size_t n,
         const float* x,

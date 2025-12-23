@@ -158,8 +158,9 @@ void write_and_read_index(
 
 // Helper that writes and reads and index of requested size
 // Reports memory usage
-UsageInfo
-run_save_and_load_test(const size_t target_mibytes, size_t d, size_t graph_max_degree) {
+UsageInfo run_save_and_load_test(
+    const size_t target_mibytes, size_t d, size_t graph_max_degree, size_t blocksize_exp
+) {
     // Generate requested MiB of test data
     const size_t target_bytes = target_mibytes * 1024 * 1024;
     const size_t mem_test_n = target_bytes / (d * sizeof(float));
@@ -179,12 +180,16 @@ run_save_and_load_test(const size_t target_mibytes, size_t d, size_t graph_max_d
         size_t mem_before = get_current_rss();
         svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
         svs::runtime::v0::VamanaIndex::BuildParams build_params{graph_max_degree};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{
+            blocksize_exp};
         svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
             &index,
             d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::FP32,
-            build_params
+            build_params,
+            {},
+            dynamic_index_params
         );
         CATCH_REQUIRE(status.ok());
         CATCH_REQUIRE(index != nullptr);
@@ -232,12 +237,15 @@ CATCH_TEST_CASE("WriteAndReadIndexSVS", "[runtime]") {
     const auto& test_data = get_test_data();
     auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
         svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{15};
         return svs::runtime::v0::DynamicVamanaIndex::build(
             index,
             test_d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::FP32,
-            build_params
+            build_params,
+            {},
+            dynamic_index_params
         );
     };
     write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
@@ -249,12 +257,15 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSFP16", "[runtime]") {
     const auto& test_data = get_test_data();
     auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
         svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{16};
         return svs::runtime::v0::DynamicVamanaIndex::build(
             index,
             test_d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::FP16,
-            build_params
+            build_params,
+            {},
+            dynamic_index_params
         );
     };
     write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
@@ -266,12 +277,15 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSSQI8", "[runtime]") {
     const auto& test_data = get_test_data();
     auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
         svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{17};
         return svs::runtime::v0::DynamicVamanaIndex::build(
             index,
             test_d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::SQI8,
-            build_params
+            build_params,
+            {},
+            dynamic_index_params
         );
     };
     write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
@@ -283,12 +297,15 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSLVQ4x4", "[runtime]") {
     const auto& test_data = get_test_data();
     auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
         svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{18};
         return svs::runtime::v0::DynamicVamanaIndex::build(
             index,
             test_d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::LVQ4x4,
-            build_params
+            build_params,
+            {},
+            dynamic_index_params
         );
     };
     write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
@@ -300,13 +317,16 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVec4x4", "[runtime]") {
     const auto& test_data = get_test_data();
     auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
         svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{19};
         return svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
             index,
             test_d,
             svs::runtime::v0::MetricType::L2,
             svs::runtime::v0::StorageKind::LeanVec4x4,
             32,
-            build_params
+            build_params,
+            {},
+            dynamic_index_params
         );
     };
     write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
@@ -343,6 +363,83 @@ CATCH_TEST_CASE("LeanVecWithTrainingData", "[runtime]") {
 
     status = index->add(test_n, labels.data(), test_data.data());
     CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("LeanVecWithTrainingDataCustomBlockSize", "[runtime]") {
+    const auto& test_data = get_test_data();
+    size_t block_size_exp = 17; // block_size_bytes = 2^block_size_exp
+    // Build LeanVec index with explicit training
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{block_size_exp};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        32,
+        build_params,
+        {},
+        dynamic_index_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data - should work with provided leanvec dims
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    CATCH_REQUIRE(index->blocksize_bytes() == 1u << block_size_exp);
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("TrainingDataCustomBlockSize", "[runtime]") {
+    const auto& test_data = get_test_data();
+    size_t block_size_exp = 17; // block_size_bytes = 2^block_size_exp
+    // Build LeanVec index with explicit training
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{block_size_exp};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params,
+        {},
+        dynamic_index_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::FP32
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data - should work with provided leanvec dims
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    CATCH_REQUIRE(index->blocksize_bytes() == 1u << block_size_exp);
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
@@ -470,19 +567,19 @@ CATCH_TEST_CASE("MemoryUsageOnLoad", "[runtime][memory]") {
     constexpr size_t MiB = 1024 * 1024;
 
     CATCH_SECTION("SmallIndex") {
-        auto stats = run_save_and_load_test(10, 128, 64);
+        auto stats = run_save_and_load_test(10, 128, 64, 30);
         CATCH_REQUIRE(stats.file_size < file_threshold(10 * MiB, 128, 64));
         CATCH_REQUIRE(stats.rss_increase < rss_threshold(10 * MiB, 1024 * MiB));
     }
 
     CATCH_SECTION("MediumIndex") {
-        auto stats = run_save_and_load_test(50, 128, 64);
+        auto stats = run_save_and_load_test(50, 128, 64, 30);
         CATCH_REQUIRE(stats.file_size < file_threshold(50 * MiB, 128, 64));
         CATCH_REQUIRE(stats.rss_increase < rss_threshold(50 * MiB, 1024 * MiB));
     }
 
     CATCH_SECTION("LargeIndex") {
-        auto stats = run_save_and_load_test(200, 128, 64);
+        auto stats = run_save_and_load_test(200, 128, 64, 30);
         CATCH_REQUIRE(stats.file_size < file_threshold(200 * MiB, 128, 64));
         CATCH_REQUIRE(stats.rss_increase < rss_threshold(200 * MiB, 1024 * MiB));
     }
