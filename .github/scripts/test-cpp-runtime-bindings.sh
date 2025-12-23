@@ -43,6 +43,11 @@ echo "-----------------------------------------------"
 echo " FAISS C++ tests: "
 ./tests/faiss_test --gtest_filter=SVS.*
 echo "-----------------------------------------------"
+echo " FAISS-SVS C++ examples: "
+make 10-SVS-Vamana-LVQ 11-SVS-Vamana-LeanVec
+./tutorial/cpp/10-SVS-Vamana-LVQ
+./tutorial/cpp/11-SVS-Vamana-LeanVec
+echo "-----------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
 python setup.py build
@@ -50,3 +55,7 @@ echo "-----------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
 PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs.py
+echo "-----------------------------------------------"
+echo " FAISS-SVS python examples: "
+cd ../tutorial/python/
+PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python 11-SVS.py
