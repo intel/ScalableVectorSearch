@@ -32,5 +32,7 @@ RUN echo '# Configure gcc-11' > /etc/profile.d/01-gcc.sh && \
 # Download and install Miniforge
 RUN wget -nv https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh && \
     bash /tmp/miniforge.sh -b -p /opt/conda && \
-    rm /tmp/miniforge.sh
+    rm /tmp/miniforge.sh && \
+    /opt/conda/bin/conda install -y conda-build && \
+    /opt/conda/bin/conda clean -afy
 ENV PATH="/opt/conda/bin:$PATH"
