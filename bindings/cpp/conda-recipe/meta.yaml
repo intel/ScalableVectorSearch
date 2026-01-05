@@ -44,8 +44,8 @@ about:
   home: https://intel.github.io/ScalableVectorSearch/index.html
   license: Intel Simplified Software License (Version October 2022)
   license_file:
-    - distributions/LICENSE
-    - ScalableVectorSearch/THIRD-PARTY-PROGRAMS
+    - LICENSE
+    - THIRD-PARTY-PROGRAMS
   summary: SVS C++ shared libraries for CMake integration
   description: |
     <strong>LEGAL NOTICE: Use of this software package is subject to the
