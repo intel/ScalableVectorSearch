@@ -28,6 +28,7 @@ fi
 # build runtime tests flag?
 CMAKE_ARGS=(
     "-DCMAKE_INSTALL_PREFIX=${PREFIX}"
+    "-DSVS_BUILD_RUNTIME_TESTS=OFF"
     "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
 )
 
@@ -36,7 +37,7 @@ if [ -n "$SVS_URL" ]; then
     CMAKE_ARGS+=("-DSVS_URL=$SVS_URL")
 fi
 
-cmake -B build "${CMAKE_ARGS[@]}" -S .
+cmake -B build "${CMAKE_ARGS[@]}" -S bindings/cpp
 
 cmake --build build -j
 cmake --install build
