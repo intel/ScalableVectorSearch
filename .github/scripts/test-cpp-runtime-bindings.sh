@@ -45,8 +45,26 @@ echo " FAISS C++ tests: "
 echo "-----------------------------------------------"
 echo " FAISS-SVS C++ examples: "
 make 10-SVS-Vamana-LVQ 11-SVS-Vamana-LeanVec
-./tutorial/cpp/10-SVS-Vamana-LVQ
-./tutorial/cpp/11-SVS-Vamana-LeanVec
+# Check if running on Intel hardware (LVQ/LeanVec require Intel-specific instructions)
+if grep -q "GenuineIntel" /proc/cpuinfo; then
+  ./tutorial/cpp/10-SVS-Vamana-LVQ
+  ./tutorial/cpp/11-SVS-Vamana-LeanVec
+else
+  echo "Non-Intel CPU detected - LVQ/LeanVec examples expected to fail"
+  set +e
+  ./tutorial/cpp/10-SVS-Vamana-LVQ
+  exit_code_10=$?
+  ./tutorial/cpp/11-SVS-Vamana-LeanVec
+  exit_code_11=$?
+  set -e
+  
+  if [ $exit_code_10 -ne 0 ] && [ $exit_code_11 -ne 0 ]; then
+    echo "XFAIL: Examples failed as expected on non-Intel hardware"
+  else
+    echo "UNEXPECTED: One or more tests passed on non-Intel hardware (exit codes: $exit_code_10, $exit_code_11)"
+    exit 1
+  fi
+fi
 echo "-----------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
