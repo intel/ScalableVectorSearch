@@ -42,6 +42,11 @@ CC=gcc CXX=g++ cmake .. "${CMAKE_ARGS[@]}"
 cmake --build . -j
 cmake --install .
 
+# Build conda package for cpp runtime bindings
+source /opt/conda/etc/profile.d/conda.sh
+cd /workspace
+ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
+
 # Create tarball with symlink for compatibility
 cd /workspace/install_cpp_bindings && \
 ln -s lib lib64 && \
