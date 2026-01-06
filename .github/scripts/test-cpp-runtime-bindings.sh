@@ -57,7 +57,7 @@ else
   ./tutorial/cpp/11-SVS-Vamana-LeanVec
   exit_code_11=$?
   set -e
-  
+
   if [ $exit_code_10 -ne 0 ] && [ $exit_code_11 -ne 0 ]; then
     echo "XFAIL: Examples failed as expected on non-Intel hardware"
   else
@@ -84,7 +84,7 @@ else
   PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python 11-SVS.py
   exit_code=$?
   set -e
-  
+
   if [ $exit_code -ne 0 ]; then
     echo "XFAIL: Python example failed as expected on non-Intel hardware"
   else
