@@ -15,7 +15,7 @@
 
 {% set version = '0.1.0' %}
 {% set buildnumber = 0 %}
-{% set variant_suffix = environ.get('SUFFIX', '') %}
+{% set variant_suffix = environ.get('SUFFIX', '').replace('-', '_') %}
 
 package:
   name: libsvs-runtime
