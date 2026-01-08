@@ -61,7 +61,7 @@ jobs:
             /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 
       - name: Upload cpp runtime bindings artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@v4
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
