@@ -58,10 +58,10 @@ jobs:
             -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash -c "chmod +x docker/x86_64/build-cpp-runtime-bindings.sh && ./docker/x86_64/build-cpp-runtime-bindings.sh"
+            /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 
       - name: Upload cpp runtime bindings artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
@@ -74,7 +74,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             svs-manylinux228:latest \
-            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --verbose"
+            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --no-tests=error --verbose"
 
   # Run full test script using the built artifacts
   test:
@@ -98,7 +98,7 @@ jobs:
 
       # Need to download for a new job
       - name: Download shared libraries
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: runtime_lib
@@ -115,4 +115,4 @@ jobs:
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash -c "chmod +x docker/x86_64/test-cpp-runtime-bindings.sh && ./docker/x86_64/test-cpp-runtime-bindings.sh"
+            /bin/bash .github/scripts/test-cpp-runtime-bindings.sh
