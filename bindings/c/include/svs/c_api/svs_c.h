@@ -1,0 +1,118 @@
+/*
+ * Copyright 2026 Intel Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include <stddef.h>
+
+enum svs_error_code {
+    SVS_OK = 0,
+    SVS_ERROR_GENERIC = 1,
+    SVS_ERROR_INVALID_ARGUMENT = 2,
+    SVS_ERROR_OUT_OF_MEMORY = 3,
+    SVS_ERROR_INDEX_BUILD_FAILED = 4,
+    SVS_ERROR_NOT_IMPLEMENTED = 5
+};
+
+enum svs_distance_metric {
+    SVS_DISTANCE_METRIC_EUCLIDEAN = 0,
+    SVS_DISTANCE_METRIC_COSINE = 1,
+    SVS_DISTANCE_METRIC_DOT_PRODUCT = 2
+};
+
+enum svs_algorithm_type {
+    SVS_ALGORITHM_TYPE_VAMANA = 0,
+    SVS_ALGORITHM_TYPE_FLAT = 1,
+    SVS_ALGORITHM_TYPE_IVF = 2,
+};
+
+enum svs_data_type {
+    SVS_DATA_TYPE_FLOAT32 = 0,
+    SVS_DATA_TYPE_FLOAT16 = 1,
+    SVS_DATA_TYPE_INT8 = 2,
+    SVS_DATA_TYPE_UINT8 = 1,
+    SVS_DATA_TYPE_INT4 = 4,
+    SVS_DATA_TYPE_UINT4 = 5
+};
+
+enum svs_storage_kind { SVS_STORAGE_KIND_SIMPLE = 0, SVS_STORAGE_KIND_LEANVEC = 1 };
+
+struct svs_search_results {
+    size_t num_queries;
+    size_t* results_per_query;
+    size_t* indices;
+    float* distances;
+};
+
+typedef struct svs_index* svs_index_t;
+typedef struct svs_index_builder* svs_index_builder_t;
+typedef struct svs_algorithm* svs_algorithm_t;
+typedef struct svs_storage* svs_storage_t;
+typedef struct svs_search_results* svs_search_results_t;
+
+typedef enum svs_error_code svs_error_code_t;
+typedef enum svs_distance_metric svs_distance_metric_t;
+typedef enum svs_algorithm_type svs_algorithm_type_t;
+typedef enum svs_data_type svs_data_type_t;
+
+svs_algorithm_t svs_algorithm_create_vamana(
+    size_t graph_degree,
+    size_t build_window_size,
+    size_t search_window_size,
+    svs_error_code_t* out_code
+);
+void svs_algorithm_free(svs_algorithm_t algorithm);
+
+svs_storage_t
+svs_storage_create_simple(svs_data_type_t data_type, svs_error_code_t* out_code);
+svs_storage_t svs_storage_create_leanvec(
+    size_t lenavec_dims,
+    svs_data_type_t primary,
+    svs_data_type_t secondary,
+    svs_error_code_t* out_code
+);
+void svs_storage_free(svs_storage_t storage);
+
+svs_index_builder_t svs_index_builder_create(
+    svs_distance_metric_t metric,
+    size_t dimension,
+    svs_algorithm_t algorithm,
+    svs_error_code_t* out_code
+);
+void svs_index_builder_free(svs_index_builder_t builder);
+
+void svs_index_builder_set_storage(
+    svs_index_builder_t builder, svs_storage_t storage, svs_error_code_t* out_code
+);
+
+svs_index_t svs_index_build(
+    svs_index_builder_t builder,
+    const float* data,
+    size_t num_vectors,
+    svs_error_code_t* out_code
+);
+void svs_index_free(svs_index_t index);
+
+svs_search_results_t
+svs_index_search(svs_index_t index, const float* queries, size_t num_queries, size_t k);
+void svs_search_results_free(svs_search_results_t results);
+
+#ifdef __cplusplus
+}
+#endif

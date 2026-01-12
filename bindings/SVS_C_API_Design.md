@@ -129,6 +129,7 @@ svs_threadpool_t svs_threadpool_create_native(size, svs_status_t* err_ret /*=NUL
 svs_threadpool_t svs_threadpool_create_omp(svs_status_t* err_ret /*=NULL*/);
 
 typedef struct {
+  void* ctx;
   size_t (*size)(void);
   void (*parallel_for)(void (*f)(size_t), size_t);
 } svs_threadpool_i;
@@ -139,6 +140,7 @@ svs_allocator_t svs_allocator_create_simple(svs_status_t* err_ret /*=NULL*/);
 svs_allocator_t svs_allocator_create_hugepage(svs_status_t* err_ret /*=NULL*/);
 
 typedef struct svs_allocator_i_tag {
+  void* ctx;
   void* (*alloc)(size_t);
   void (*dealloc)(void*, size_t);
 } svs_allocator_i;
