@@ -32,7 +32,8 @@ auto kmeans_clustering_impl(
     Distance& distance,
     Pool& threadpool,
     lib::Type<I> SVS_UNUSED(integer_type) = {},
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    bool train_only = false
 ) {
     auto timer = lib::Timer();
     auto kmeans_timer = timer.push_back("Non-hierarchical kmeans clustering");
@@ -44,15 +45,24 @@ auto kmeans_clustering_impl(
     auto num_centroids = parameters.num_centroids_;
 
     // Step 1: Create training set
-    size_t num_training_data =
-        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_));
-    if (num_training_data < num_centroids || num_training_data > data.size()) {
+    // Use at least MIN_TRAINING_SAMPLE_MULTIPLIER times the number of centroids,
+    // but no more than the dataset size. This ensures we have enough training data
+    // even for small datasets, without exceeding the available data.
+    size_t min_training_data =
+        std::min(num_centroids * MIN_TRAINING_SAMPLE_MULTIPLIER, data.size());
+    size_t num_training_data = std::max(
+        min_training_data,
+        lib::narrow<size_t>(std::ceil(data.size() * parameters.training_fraction_))
+    );
+    // Ensure we don't exceed the data size
+    num_training_data = std::min(num_training_data, data.size());
+
+    if (num_training_data < num_centroids) {
         throw ANNEXCEPTION(
-            "Invalid number of training data: {}, num_centroids: {}, total data size: "
-            "{}\n",
-            num_training_data,
-            num_centroids,
-            data.size()
+            "Insufficient data for clustering: {} datapoints, {} centroids required. "
+            "Need at least as many datapoints as centroids.\n",
+            data.size(),
+            num_centroids
         );
     }
     auto rng = std::mt19937(parameters.seed_);
@@ -74,38 +84,45 @@ auto kmeans_clustering_impl(
         parameters, data_train, distance, centroids, matmul_results, rng, threadpool, timer
     );
 
-    auto final_assignments_time = timer.push_back("final assignments");
-    auto assignments = std::vector<size_t>(data.size());
-    auto batchsize = parameters.minibatch_size_;
-    auto num_batches = lib::div_round_up(data.size(), batchsize);
+    std::vector<std::vector<uint32_t>> clusters;
 
-    auto data_norm = maybe_compute_norms<Distance>(data, threadpool);
-    auto centroids_norm = maybe_compute_norms<Distance>(centroids_fp32, threadpool);
+    if (train_only) {
+        // Only train centroids, return empty clusters
+        clusters.resize(num_centroids);
+    } else {
+        // Step 4: Assign all data to clusters
+        auto final_assignments_time = timer.push_back("final assignments");
+        auto assignments = std::vector<size_t>(data.size());
+        auto batchsize = parameters.minibatch_size_;
+        auto num_batches = lib::div_round_up(data.size(), batchsize);
 
-    // Step 4: Assign training data to clusters
-    auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
-    for (size_t batch = 0; batch < num_batches; ++batch) {
-        auto this_batch = threads::UnitRange{
-            batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
-        auto data_batch_view = data::make_view(data, this_batch);
-        convert_data(data_batch_view, data_batch, threadpool);
-        centroid_assignment(
-            data_batch,
-            data_norm,
-            this_batch,
-            distance,
-            centroids,
-            centroids_norm,
-            assignments,
-            matmul_results,
-            threadpool,
-            timer
-        );
+        auto data_norm = maybe_compute_norms<Distance>(data, threadpool);
+        auto centroids_norm = maybe_compute_norms<Distance>(centroids_fp32, threadpool);
+
+        auto data_batch = data::SimpleData<BuildType, Dims, Alloc>{batchsize, ndims};
+        for (size_t batch = 0; batch < num_batches; ++batch) {
+            auto this_batch = threads::UnitRange{
+                batch * batchsize, std::min((batch + 1) * batchsize, data.size())};
+            auto data_batch_view = data::make_view(data, this_batch);
+            convert_data(data_batch_view, data_batch, threadpool);
+            centroid_assignment(
+                data_batch,
+                data_norm,
+                this_batch,
+                distance,
+                centroids,
+                centroids_norm,
+                assignments,
+                matmul_results,
+                threadpool,
+                timer
+            );
+        }
+
+        // Step 5: Group assignments into clusters
+        clusters = group_assignments(assignments, num_centroids, data);
+        final_assignments_time.finish();
     }
-
-    // Step 5: Assign all data to clusters
-    auto clusters = group_assignments(assignments, num_centroids, data);
-    final_assignments_time.finish();
     kmeans_timer.finish();
     svs::logging::debug(logger, "{}", timer);
     svs::logging::debug(
@@ -126,10 +143,11 @@ auto kmeans_clustering(
     Distance& distance,
     Pool& threadpool,
     lib::Type<I> integer_type = {},
-    svs::logging::logger_ptr logger = svs::logging::get()
+    svs::logging::logger_ptr logger = svs::logging::get(),
+    bool train_only = false
 ) {
     return kmeans_clustering_impl<BuildType>(
-        parameters, data, distance, threadpool, integer_type, std::move(logger)
+        parameters, data, distance, threadpool, integer_type, std::move(logger), train_only
     );
 }
 } // namespace svs::index::ivf
