@@ -46,8 +46,6 @@ CATCH_TEST_CASE("Version Numbers", "[lib][versions]") {
 
 // Keep in-sync with CMakeLists.txt
 CATCH_TEST_CASE("Global Version", "[lib][versions]") {
-    static_assert(
-        svs::lib::svs_version == svs::lib::Version(0, 0, 11), "Version mismatch!"
-    );
-    CATCH_REQUIRE(svs::lib::svs_version == svs::lib::Version(0, 0, 11));
+    static_assert(svs::lib::svs_version == svs::lib::Version(0, 1, 0), "Version mismatch!");
+    CATCH_REQUIRE(svs::lib::svs_version == svs::lib::Version(0, 1, 0));
 }
