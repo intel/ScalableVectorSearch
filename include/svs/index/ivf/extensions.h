@@ -122,7 +122,6 @@ void svs_invoke(
     const SearchLeaves& search_leaves
 ) {
     size_t n_inner_threads = buffer_leaves.size();
-    size_t buffer_leaves_size = buffer_leaves[0].capacity();
 
     // Search centroids to find nearest clusters
     search_centroids(query, buffer_centroids);
@@ -132,7 +131,7 @@ void svs_invoke(
 
     // Accumulate results from intra-query threads into buffer_leaves[0]
     for (size_t j = 1; j < n_inner_threads; ++j) {
-        for (size_t k = 0; k < buffer_leaves_size; ++k) {
+        for (size_t k = 0; k < buffer_leaves[j].size(); ++k) {
             buffer_leaves[0].insert(buffer_leaves[j][k]);
         }
     }
@@ -141,7 +140,7 @@ void svs_invoke(
     buffer_leaves[0].sort();
 
     // Convert (cluster_id, local_id) to global_id
-    for (size_t j = 0; j < buffer_leaves_size; ++j) {
+    for (size_t j = 0; j < buffer_leaves[0].size(); ++j) {
         auto& neighbor = buffer_leaves[0][j];
         auto cluster_id = neighbor.id();
         auto local_id = neighbor.get_local_id();
@@ -223,7 +222,6 @@ void svs_invoke(
     const SearchLeaves& search_leaves
 ) {
     size_t n_inner_threads = buffer_leaves.size();
-    size_t buffer_leaves_size = buffer_leaves[0].capacity();
     size_t num_neighbors = result.n_neighbors();
 
     // Fallback implementation
@@ -234,12 +232,12 @@ void svs_invoke(
 
         // Accumulate results from intra-query threads
         for (size_t j = 1; j < n_inner_threads; ++j) {
-            for (size_t k = 0; k < buffer_leaves_size; ++k) {
+            for (size_t k = 0; k < buffer_leaves[j].size(); ++k) {
                 buffer_leaves[0].insert(buffer_leaves[j][k]);
             }
         }
 
-        for (size_t j = 0; j < buffer_leaves_size; ++j) {
+        for (size_t j = 0; j < buffer_leaves[0].size(); ++j) {
             auto& neighbor = buffer_leaves[0][j];
             auto cluster_id = neighbor.id();
             auto local_id = neighbor.get_local_id();
