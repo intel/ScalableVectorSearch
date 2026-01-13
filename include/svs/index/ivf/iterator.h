@@ -75,7 +75,9 @@ template <typename Index, typename QueryType> class BatchIterator {
     void copy_from_scratch(size_t batch_size) {
         results_.clear();
         const auto& buffer = scratchspace_->buffer_leaves[0];
-        for (size_t i = 0, imax = buffer.size(); i < imax; ++i) {
+        // Use capacity() instead of size() because the search extensions populate
+        // entries up to capacity and sort them, without updating the size_ member.
+        for (size_t i = 0, imax = buffer.capacity(); i < imax; ++i) {
             auto neighbor = buffer[i];
             auto internal_id = neighbor.id();
             auto result = yielded_.insert(internal_id);
