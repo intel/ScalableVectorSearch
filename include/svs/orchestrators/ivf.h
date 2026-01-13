@@ -17,6 +17,7 @@
 #pragma once
 
 #include "svs/index/ivf/index.h"
+#include "svs/orchestrators/ivf_iterator.h"
 #include "svs/orchestrators/manager.h"
 
 namespace svs {
@@ -30,6 +31,11 @@ class IVFInterface {
 
     ///// Distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
+
+    ///// Iterator
+    virtual IVFIterator batch_iterator(
+        svs::AnonymousArray<1> query, size_t extra_search_buffer_capacity = 0
+    ) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = IVFInterface>
@@ -72,6 +78,23 @@ class IVFImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
             }
         );
     }
+
+    ///// Iterator
+    IVFIterator batch_iterator(
+        svs::AnonymousArray<1> query, size_t extra_search_buffer_capacity = 0
+    ) override {
+        // Match the query type.
+        return svs::lib::match(
+            QueryTypes{},
+            query.type(),
+            [&]<typename T>(svs::lib::Type<T> SVS_UNUSED(type)) {
+                return IVFIterator{
+                    impl(),
+                    std::span<const T>(svs::get<T>(query), query.size(0)),
+                    extra_search_buffer_capacity};
+            }
+        );
+    }
 };
 
 /////
@@ -103,6 +126,28 @@ class IVF : public manager::IndexManager<IVFInterface> {
         // Create AnonymousArray from the query
         AnonymousArray<1> query_array{query.data(), query.size()};
         return impl_->get_distance(id, query_array);
+    }
+
+    ///
+    /// @brief Return a new iterator (an instance of `svs::IVFIterator`) for the query.
+    ///
+    /// @tparam QueryType The element type of the query that will be given to the iterator.
+    /// @tparam N The dimension of the query.
+    ///
+    /// @param query The query to use for the iterator.
+    /// @param extra_search_buffer_capacity An optional extra search buffer capacity.
+    ///     For IVF, the default of 0 means the buffer will be sized based on the first
+    ///     batch_size passed to next().
+    ///
+    /// The returned iterator will maintain an internal copy of the query.
+    ///
+    template <typename QueryType, size_t N>
+    svs::IVFIterator batch_iterator(
+        std::span<const QueryType, N> query, size_t extra_search_buffer_capacity = 0
+    ) {
+        return impl_->batch_iterator(
+            svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
+        );
     }
 
     ///// Assembling
