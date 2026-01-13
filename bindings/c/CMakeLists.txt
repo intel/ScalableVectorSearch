@@ -21,6 +21,10 @@ set(SVS_C_API_HEADERS
 )
 
 set(SVS_C_API_SOURCES
+    src/algorithm.hpp
+    src/storage.hpp
+    src/index.hpp
+    src/index_builder.hpp
     src/svs_c.cpp
 )
 
