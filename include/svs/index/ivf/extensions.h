@@ -62,6 +62,95 @@ Distance svs_invoke(
 }
 
 ///
+/// @brief Customization point for single query search.
+///
+struct IVFSingleSearchType {
+    template <
+        typename Data,
+        typename Cluster,
+        typename BufferCentroids,
+        typename BufferLeaves,
+        typename Scratch,
+        typename Query,
+        typename SearchCentroids,
+        typename SearchLeaves>
+    void operator()(
+        const Data& data,
+        const Cluster& cluster,
+        BufferCentroids& buffer_centroids,
+        BufferLeaves& buffer_leaves,
+        Scratch& scratch,
+        const Query& query,
+        const SearchCentroids& search_centroids,
+        const SearchLeaves& search_leaves
+    ) const {
+        svs::svs_invoke(
+            *this,
+            data,
+            cluster,
+            buffer_centroids,
+            buffer_leaves,
+            scratch,
+            query,
+            search_centroids,
+            search_leaves
+        );
+    }
+};
+
+inline constexpr IVFSingleSearchType single_search{};
+
+// Default implementation for single query search
+template <
+    typename Data,
+    typename Cluster,
+    typename BufferCentroids,
+    typename BufferLeaves,
+    typename Distance,
+    typename Query,
+    typename SearchCentroids,
+    typename SearchLeaves>
+void svs_invoke(
+    svs::tag_t<single_search>,
+    const Data& SVS_UNUSED(data),
+    const Cluster& cluster,
+    BufferCentroids& buffer_centroids,
+    BufferLeaves& buffer_leaves,
+    Distance& distance,
+    const Query& query,
+    const SearchCentroids& search_centroids,
+    const SearchLeaves& search_leaves
+) {
+    size_t n_inner_threads = buffer_leaves.size();
+    size_t buffer_leaves_size = buffer_leaves[0].capacity();
+
+    // Search centroids to find nearest clusters
+    search_centroids(query, buffer_centroids);
+
+    // Search within selected clusters
+    search_leaves(query, distance, buffer_centroids, buffer_leaves);
+
+    // Accumulate results from intra-query threads into buffer_leaves[0]
+    for (size_t j = 1; j < n_inner_threads; ++j) {
+        for (size_t k = 0; k < buffer_leaves_size; ++k) {
+            buffer_leaves[0].insert(buffer_leaves[j][k]);
+        }
+    }
+
+    // Sort buffer to get valid results in order
+    buffer_leaves[0].sort();
+
+    // Convert (cluster_id, local_id) to global_id
+    for (size_t j = 0; j < buffer_leaves_size; ++j) {
+        auto& neighbor = buffer_leaves[0][j];
+        auto cluster_id = neighbor.id();
+        auto local_id = neighbor.get_local_id();
+        auto global_id = cluster.get_global_id(cluster_id, local_id);
+        neighbor.set_id(global_id);
+    }
+}
+
+///
 /// @brief Customization point for working with a batch of threads.
 ///
 struct IVFPerThreadBatchSearchType {
@@ -180,14 +269,30 @@ struct CreateDenseCluster {
 
 inline constexpr CreateDenseCluster create_dense_cluster{};
 
-template <typename T, size_t Extent, typename Alloc, typename NewAlloc>
+// Specialization for default allocator (backward compatibility)
+// When no specific allocator is provided, use default construction with same extent
+template <typename T, size_t Extent, typename SrcAlloc>
 svs::data::SimpleData<T, Extent> svs_invoke(
     svs::tag_t<create_dense_cluster>,
-    const svs::data::SimpleData<T, Extent, Alloc>& original,
+    const svs::data::SimpleData<T, Extent, SrcAlloc>& original,
     size_t new_size,
-    const NewAlloc& SVS_UNUSED(allocator)
+    const svs::lib::Allocator<std::byte>& SVS_UNUSED(allocator)
 ) {
     return svs::data::SimpleData<T, Extent>(new_size, original.dimensions());
+}
+
+// General implementation for Blocked allocators: Always use Dynamic extent for flexibility
+// This enables dynamic resizing which is essential for dynamic IVF operations
+template <typename T, size_t SrcExtent, typename SrcAlloc, typename BlockedAlloc>
+svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<BlockedAlloc>> svs_invoke(
+    svs::tag_t<create_dense_cluster>,
+    const svs::data::SimpleData<T, SrcExtent, SrcAlloc>& original,
+    size_t new_size,
+    const svs::data::Blocked<BlockedAlloc>& allocator
+) {
+    return svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<BlockedAlloc>>(
+        new_size, original.dimensions(), allocator
+    );
 }
 
 struct SetDenseCluster {
@@ -215,6 +320,50 @@ void svs_invoke(
         dst_ids[i] = id;
         ++i;
     }
+}
+
+/////
+///// Distance Computation
+/////
+
+struct ComputeDistanceType {
+    template <typename Clusters, typename Distance, typename Query>
+    double operator()(
+        const Clusters& clusters,
+        const Distance& distance,
+        size_t cluster_idx,
+        size_t pos,
+        const Query& query
+    ) const {
+        return svs_invoke(
+            *this, clusters[cluster_idx].view_cluster(), distance, pos, query
+        );
+    }
+};
+
+// CPO for distance computation
+inline constexpr ComputeDistanceType get_distance_ext{};
+
+// Default overload
+template <typename Data, typename Distance, typename Query>
+double svs_invoke(
+    svs::tag_t<get_distance_ext>,
+    const Data& data,
+    const Distance& distance,
+    size_t pos,
+    const Query& query
+) {
+    // Get distance function
+    auto dist_f = per_thread_batch_search_setup(data, distance);
+    svs::distance::maybe_fix_argument(dist_f, query);
+
+    // Get the vector
+    auto indexed_span = data.get_datum(pos);
+
+    // Compute the distance
+    auto dist = svs::distance::compute(dist_f, query, indexed_span);
+
+    return static_cast<double>(dist);
 }
 
 } // namespace svs::index::ivf::extensions
