@@ -68,7 +68,7 @@ jobs:
           retention-days: 7  # Reduce retention due to size
 
       - name: Upload conda package artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: libsvs-runtime-conda${{ matrix.suffix }}
           path: conda-bld/linux-64/libsvs-runtime-*.conda
