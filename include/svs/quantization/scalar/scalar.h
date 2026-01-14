@@ -374,6 +374,9 @@ class SQDataset {
 
     // Data wrapped in the library allocator.
     using lib_alloc_data_type = SQDataset<T, Extent, lib::Allocator<T>>;
+    // Data wrapped in the blocked library allocator (for Dynamic IVF).
+    using lib_blocked_alloc_data_type =
+        SQDataset<T, Extent, data::Blocked<lib::Allocator<T>>>;
 
   private:
     float scale_;

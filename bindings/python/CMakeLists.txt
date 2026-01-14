@@ -43,6 +43,7 @@ set(CPP_FILES
 # ivf
 if (SVS_EXPERIMENTAL_ENABLE_IVF)
     list(APPEND CPP_FILES
+        src/dynamic_ivf.cpp
         src/ivf.cpp
     )
 endif()
@@ -90,4 +91,3 @@ if(DEFINED SKBUILD)
     # wheel.
     install(FILES "${CMAKE_CURRENT_LIST_DIR}/../../data/serialization.toml" DESTINATION .)
 endif()
-

@@ -23,7 +23,7 @@ project(svs
     # - /bindings/python/tests/test_common.py
     # Manually keep in-sync with:
     # - /bindings/python/setup.py
-    VERSION 0.0.11
+    VERSION 0.1.0
 )
 
 set(SVS_LIB svs_devel)
@@ -177,4 +177,3 @@ install(FILES
     ${SVS_CMAKE_FIND_FILES}
     DESTINATION "${LIB_CONFIG_INSTALL_DIR}"
 )
-

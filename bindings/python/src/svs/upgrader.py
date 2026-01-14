@@ -297,4 +297,3 @@ def upgrade(
         )
 
     print(f"File {path} is up to date!")
-
