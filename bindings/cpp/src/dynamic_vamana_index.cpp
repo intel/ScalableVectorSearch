@@ -209,6 +209,11 @@ Status DynamicVamanaIndexLeanVec::build(
 ) noexcept {
     using Impl = DynamicVamanaIndexLeanVecImpl;
     *index = nullptr;
+
+    auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
+    if (!status.ok())
+        return status;
+
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
             dim,
@@ -236,6 +241,11 @@ Status DynamicVamanaIndexLeanVec::build(
 ) noexcept {
     using Impl = DynamicVamanaIndexLeanVecImpl;
     *index = nullptr;
+
+    auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
+    if (!status.ok())
+        return status;
+
     return runtime_error_wrapper([&] {
         auto training_data_impl =
             static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
