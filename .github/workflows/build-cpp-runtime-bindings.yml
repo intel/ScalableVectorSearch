@@ -67,6 +67,13 @@ jobs:
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
 
+      - name: Upload conda package artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: libsvs-runtime-conda${{ matrix.suffix }}
+          path: conda-bld/linux-64/libsvs-runtime-*.conda
+          retention-days: 7
+
       # Run unit tests that were built as part of this job
       - name: Run unit tests in Docker container
         run: |
@@ -97,21 +104,21 @@ jobs:
           docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
 
       # Need to download for a new job
-      - name: Download shared libraries
+      - name: Download conda package
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: svs-cpp-runtime-bindings${{ matrix.suffix }}
-          path: runtime_lib
+          name: libsvs-runtime-conda${{ matrix.suffix }}
+          path: runtime_conda
 
       - name: List available artifacts
         run: |
-          ls -la runtime_lib/
+          ls -la runtime_conda/
 
       - name: Test in Docker container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            -v ${{ github.workspace }}/runtime_lib:/runtime_lib \
+            -v ${{ github.workspace }}/runtime_conda:/runtime_conda \
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
