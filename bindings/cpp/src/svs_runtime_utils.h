@@ -202,26 +202,12 @@ template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementT
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo blocksize_bytes
+        svs::lib::PowerOfTwo blocksize_bytes =
+            svs::data::BlockingParameters::default_blocksize_bytes
     ) {
         auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
         typename StorageType::allocator_type alloc(parameters);
         StorageType result(data.size(), data.dimensions(), alloc);
-        svs::threads::parallel_for(
-            pool,
-            svs::threads::StaticPartition(result.size()),
-            [&](auto is, auto SVS_UNUSED(tid)) {
-                for (auto i : is) {
-                    result.set_datum(i, data.get_datum(i));
-                }
-            }
-        );
-        return result;
-    }
-
-    template <svs::threads::ThreadPool Pool>
-    static StorageType init(const svs::data::ConstSimpleDataView<float>& data, Pool& pool) {
-        StorageType result(data.size(), data.dimensions());
         svs::threads::parallel_for(
             pool,
             svs::threads::StaticPartition(result.size()),
