@@ -54,9 +54,10 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params
     )
-        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params, dynamic_index_params}
         , leanvec_dims_{training_data.get_leanvec_dims()}
         , leanvec_matrices_{training_data.get_leanvec_matrices()} {
         check_storage_kind(storage_kind);
@@ -68,9 +69,10 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params
     )
-        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+        : DynamicVamanaIndexImpl{dim, metric, storage_kind, params, default_search_params, dynamic_index_params}
         , leanvec_dims_{leanvec_dims}
         , leanvec_matrices_{std::nullopt} {
         check_storage_kind(storage_kind);
@@ -91,15 +93,19 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         }
     }
 
-    void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> labels)
-        override {
+    void init_impl(
+        data::ConstSimpleDataView<float> data,
+        std::span<const size_t> labels,
+        lib::PowerOfTwo blocksize_bytes
+    ) override {
         assert(storage::is_leanvec_storage(this->storage_kind_));
         impl_.reset(dispatch_leanvec_storage_kind(
             this->storage_kind_,
             [this](
                 auto&& tag,
                 data::ConstSimpleDataView<float> data,
-                std::span<const size_t> labels
+                std::span<const size_t> labels,
+                lib::PowerOfTwo blocksize_bytes
             ) {
                 using Tag = std::decay_t<decltype(tag)>;
                 return DynamicVamanaIndexImpl::build_impl(
@@ -108,12 +114,14 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
                     this->vamana_build_parameters(),
                     data,
                     labels,
+                    blocksize_bytes,
                     this->leanvec_dims_,
                     this->leanvec_matrices_
                 );
             },
             data,
-            labels
+            labels,
+            blocksize_bytes
         ));
     }
 

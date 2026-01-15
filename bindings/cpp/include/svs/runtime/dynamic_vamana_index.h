@@ -39,6 +39,9 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
+    static Status check_params(const VamanaIndex::DynamicIndexParams& dynamic_index_params
+    ) noexcept;
+
     // Static constructors and destructors
     static Status build(
         DynamicVamanaIndex** index,
@@ -46,7 +49,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
         MetricType metric,
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {},
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params = {}
     ) noexcept;
 
     static Status destroy(DynamicVamanaIndex* index) noexcept;
@@ -58,6 +62,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
         MetricType metric,
         StorageKind storage_kind
     ) noexcept;
+
+    virtual size_t blocksize_bytes() const noexcept = 0;
 };
 
 struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
@@ -69,7 +75,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {},
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params = {}
     ) noexcept;
 
     // Specialization to build LeanVec-based Vamana index with provided training data
@@ -80,7 +87,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         StorageKind storage_kind,
         const LeanVecTrainingData* training_data,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {},
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params = {}
     ) noexcept;
 };
 
