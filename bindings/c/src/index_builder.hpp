@@ -20,6 +20,7 @@
 #include "algorithm.hpp"
 #include "index.hpp"
 #include "storage.hpp"
+#include "types_support.hpp"
 
 #include <svs/concepts/data.h>
 #include <svs/core/distance.h>
@@ -28,6 +29,64 @@
 #include <svs/orchestrators/vamana.h>
 
 namespace svs::c_runtime {
+
+template <typename T>
+svs::Vamana build_vamana_index_uncompressed(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    svs::data::ConstSimpleDataView<float> src_data,
+    SimpleDataBuilder<T> builder,
+    svs::DistanceType distance_type
+) {
+    auto data = builder.build(std::move(src_data));
+    return svs::Vamana::build<float>(build_params, std::move(data), distance_type);
+}
+
+template <size_t I1, size_t I2>
+svs::Vamana build_vamana_index_leanvec(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    svs::data::ConstSimpleDataView<float> src_data,
+    LeanVecDataBuilder<I1, I2> builder,
+    svs::DistanceType distance_type
+) {
+    auto data = builder.build(std::move(src_data));
+    return svs::Vamana::build<float>(build_params, std::move(data), distance_type);
+}
+
+template <typename Dispatcher>
+void register_build_vamana_index_methods(Dispatcher& dispatcher) {
+    dispatcher
+        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_uncompressed<float>);
+
+    dispatcher
+        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<4, 4>);
+    dispatcher
+        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<4, 8>);
+    dispatcher
+        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<8, 8>);
+}
+using BuildIndexDispatcher = svs::lib::Dispatcher<
+    svs::Vamana,
+    const svs::index::vamana::VamanaBuildParameters&,
+    svs::data::ConstSimpleDataView<float>,
+    const Storage*,
+    svs::DistanceType>;
+
+BuildIndexDispatcher build_vamana_index_dispatcher() {
+    auto dispatcher = BuildIndexDispatcher{};
+    register_build_vamana_index_methods(dispatcher);
+    return dispatcher;
+}
+
+svs::Vamana build_vamana_index(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    svs::data::ConstSimpleDataView<float> src_data,
+    const Storage* storage,
+    svs::DistanceType distance_type
+) {
+    return build_vamana_index_dispatcher().invoke(
+        build_params, std::move(src_data), storage, distance_type
+    );
+}
 
 struct IndexBuilder {
     svs_distance_metric_t distance_metric;
@@ -50,35 +109,20 @@ struct IndexBuilder {
         this->storage = std::move(storage);
     }
 
-    svs::DistanceType get_distance_type() const {
-        switch (distance_metric) {
-            case SVS_DISTANCE_METRIC_EUCLIDEAN:
-                return svs::DistanceType::L2;
-            case SVS_DISTANCE_METRIC_DOT_PRODUCT:
-                return svs::DistanceType::MIP;
-            case SVS_DISTANCE_METRIC_COSINE:
-                return svs::DistanceType::Cosine;
-            default:
-                return svs::DistanceType::L2; // Default fallback
-        }
-    }
-
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data) {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA &&
-            storage->kind == SVS_STORAGE_KIND_SIMPLE) {
+            (storage->kind == SVS_STORAGE_KIND_SIMPLE ||
+             storage->kind == SVS_STORAGE_KIND_LEANVEC)) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             svs::index::vamana::VamanaBuildParameters build_params =
                 vamana_algorithm->get_build_parameters();
 
-            auto storage = svs::data::SimpleData<float>(data.size(), data.dimensions());
-
-            svs::data::copy(data, storage);
-
-            auto index = std::make_shared<IndexVamana>(svs::Vamana::build<float>(
+            auto index = std::make_shared<IndexVamana>(build_vamana_index(
                 vamana_algorithm->get_build_parameters(),
-                std::move(storage),
-                get_distance_type()
+                data,
+                storage.get(),
+                to_distance_type(distance_metric)
             ));
 
             return index;

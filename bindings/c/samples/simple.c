@@ -17,7 +17,7 @@ void generate_random_data(float* data, size_t count, size_t dim) {
 int main() {
     int ret = 0;
     srand(time(NULL));
-    svs_error_code_t error = SVS_OK;
+    svs_error_t error = svs_error_init();
 
     float* data = NULL;
     float* queries = NULL;
@@ -30,7 +30,7 @@ int main() {
     // Allocate random data
     data = (float*)malloc(NUM_VECTORS * DIMENSION * sizeof(float));
     queries = (float*)malloc(NUM_QUERIES * DIMENSION * sizeof(float));
-    
+
     if (!data || !queries) {
         fprintf(stderr, "Failed to allocate memory\n");
         ret = 1;
@@ -41,42 +41,60 @@ int main() {
     generate_random_data(queries, NUM_QUERIES, DIMENSION);
 
     // Create Vamana algorithm
-    algorithm = svs_algorithm_create_vamana(64, 128, 100, &error);
-    if (error != SVS_OK) {
-        fprintf(stderr, "Failed to create algorithm: %d\n", error);
+    algorithm = svs_algorithm_create_vamana(64, 128, 100, error);
+    if (!algorithm) {
+        fprintf(stderr, "Failed to create algorithm: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
     }
 
     // Create storage
-    storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, &error);
-    if (error != SVS_OK) {
-        fprintf(stderr, "Failed to create storage: %d\n", error);
+    // Simple storage
+    // storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, &error);
+
+    // LeanVec storage
+    size_t leanvec_dims = DIMENSION / 2;
+    // OK: storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT4,
+    // SVS_DATA_TYPE_UINT4, error);
+
+    // OK: storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT4,
+    // SVS_DATA_TYPE_UINT8, error);
+
+    // ERROR: storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT8,
+    // SVS_DATA_TYPE_UINT4, error);
+
+    storage = svs_storage_create_leanvec(
+        leanvec_dims, SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_UINT4, error
+    );
+    if (!storage) {
+        fprintf(stderr, "Failed to create storage: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
     }
 
     // Create index builder
     builder = svs_index_builder_create(
-        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, &error);
-    if (error != SVS_OK) {
-        fprintf(stderr, "Failed to create index builder: %d\n", error);
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    if (!builder) {
+        fprintf(
+            stderr, "Failed to create index builder: %s\n", svs_error_get_message(error)
+        );
         ret = 1;
         goto cleanup;
     }
 
-    svs_index_builder_set_storage(builder, storage, &error);
-    if (error != SVS_OK) {
-        fprintf(stderr, "Failed to set storage: %d\n", error);
+    if (!svs_index_builder_set_storage(builder, storage, error)) {
+        fprintf(stderr, "Failed to set storage: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
     }
 
     // Build index
     printf("Building index with %d vectors of dimension %d...\n", NUM_VECTORS, DIMENSION);
-    index = svs_index_build(builder, data, NUM_VECTORS, &error);
-    if (error != SVS_OK) {
-        fprintf(stderr, "Failed to build index: %d\n", error);
+    index = svs_index_build(builder, data, NUM_VECTORS, error);
+    if (!index) {
+        fprintf(stderr, "Failed to build index: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
     }
@@ -84,15 +102,25 @@ int main() {
 
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results = svs_index_search(index, queries, NUM_QUERIES, K);
+    results = svs_index_search(index, queries, NUM_QUERIES, K, error);
+    if (!results) {
+        fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
+        ret = 1;
+        goto cleanup;
+    }
+    printf("Search completed successfully!\n");
 
     // Print results
     size_t offset = 0;
     for (size_t q = 0; q < results->num_queries; q++) {
         printf("Query %zu results:\n", q);
         for (size_t i = 0; i < results->results_per_query[q]; i++) {
-            printf("  [%zu] id=%zu, distance=%.4f\n", 
-                   i, results->indices[offset + i], results->distances[offset + i]);
+            printf(
+                "  [%zu] id=%zu, distance=%.4f\n",
+                i,
+                results->indices[offset + i],
+                results->distances[offset + i]
+            );
         }
         offset += results->results_per_query[q];
     }
@@ -108,6 +136,7 @@ cleanup:
     svs_algorithm_free(algorithm);
     free(data);
     free(queries);
+    svs_error_free(error);
 
     return ret;
 }

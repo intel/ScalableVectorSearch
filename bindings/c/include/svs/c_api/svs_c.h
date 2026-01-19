@@ -19,6 +19,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#include <stdbool.h>
 #include <stddef.h>
 
 enum svs_error_code {
@@ -43,12 +44,13 @@ enum svs_algorithm_type {
 };
 
 enum svs_data_type {
-    SVS_DATA_TYPE_FLOAT32 = 0,
-    SVS_DATA_TYPE_FLOAT16 = 1,
-    SVS_DATA_TYPE_INT8 = 2,
-    SVS_DATA_TYPE_UINT8 = 1,
-    SVS_DATA_TYPE_INT4 = 4,
-    SVS_DATA_TYPE_UINT4 = 5
+    SVS_DATA_TYPE_VOID = 0,
+    SVS_DATA_TYPE_FLOAT32 = 32,
+    SVS_DATA_TYPE_FLOAT16 = 16,
+    SVS_DATA_TYPE_INT8 = 9,
+    SVS_DATA_TYPE_UINT8 = 8,
+    SVS_DATA_TYPE_INT4 = 5,
+    SVS_DATA_TYPE_UINT4 = 4
 };
 
 enum svs_storage_kind { SVS_STORAGE_KIND_SIMPLE = 0, SVS_STORAGE_KIND_LEANVEC = 1 };
@@ -60,6 +62,7 @@ struct svs_search_results {
     float* distances;
 };
 
+typedef struct svs_error_desc* svs_error_t;
 typedef struct svs_index* svs_index_t;
 typedef struct svs_index_builder* svs_index_builder_t;
 typedef struct svs_algorithm* svs_algorithm_t;
@@ -71,21 +74,26 @@ typedef enum svs_distance_metric svs_distance_metric_t;
 typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
 
+svs_error_t svs_error_init();
+bool svs_error_ok(svs_error_t err);
+svs_error_code_t svs_error_get_code(svs_error_t err);
+const char* svs_error_get_message(svs_error_t err);
+void svs_error_free(svs_error_t err);
+
 svs_algorithm_t svs_algorithm_create_vamana(
     size_t graph_degree,
     size_t build_window_size,
     size_t search_window_size,
-    svs_error_code_t* out_code
+    svs_error_t out_err /*=NULL*/
 );
 void svs_algorithm_free(svs_algorithm_t algorithm);
 
-svs_storage_t
-svs_storage_create_simple(svs_data_type_t data_type, svs_error_code_t* out_code);
+svs_storage_t svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err);
 svs_storage_t svs_storage_create_leanvec(
     size_t lenavec_dims,
     svs_data_type_t primary,
     svs_data_type_t secondary,
-    svs_error_code_t* out_code
+    svs_error_t out_err /*=NULL*/
 );
 void svs_storage_free(svs_storage_t storage);
 
@@ -93,24 +101,29 @@ svs_index_builder_t svs_index_builder_create(
     svs_distance_metric_t metric,
     size_t dimension,
     svs_algorithm_t algorithm,
-    svs_error_code_t* out_code
+    svs_error_t out_err /*=NULL*/
 );
 void svs_index_builder_free(svs_index_builder_t builder);
 
-void svs_index_builder_set_storage(
-    svs_index_builder_t builder, svs_storage_t storage, svs_error_code_t* out_code
+bool svs_index_builder_set_storage(
+    svs_index_builder_t builder, svs_storage_t storage, svs_error_t out_err /*=NULL*/
 );
 
 svs_index_t svs_index_build(
     svs_index_builder_t builder,
     const float* data,
     size_t num_vectors,
-    svs_error_code_t* out_code
+    svs_error_t out_err /*=NULL*/
 );
 void svs_index_free(svs_index_t index);
 
-svs_search_results_t
-svs_index_search(svs_index_t index, const float* queries, size_t num_queries, size_t k);
+svs_search_results_t svs_index_search(
+    svs_index_t index,
+    const float* queries,
+    size_t num_queries,
+    size_t k,
+    svs_error_t out_err /*=NULL*/
+);
 void svs_search_results_free(svs_search_results_t results);
 
 #ifdef __cplusplus

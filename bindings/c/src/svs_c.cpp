@@ -26,12 +26,36 @@
 #include <svs/orchestrators/vamana.h>
 
 // C API implementation
-#define SET_ERR_CODE(code_ptr, code_value) \
-    do {                                   \
-        if (code_ptr) {                    \
-            *(code_ptr) = (code_value);    \
-        }                                  \
+struct svs_error_desc {
+    svs_error_code_t code;
+    std::string message;
+};
+
+#define SET_ERROR(err, c, msg)    \
+    do {                          \
+        if (err) {                \
+            err->code = (c);      \
+            err->message = (msg); \
+        }                         \
     } while (0)
+
+template <typename Result, typename Callable>
+inline auto
+runtime_error_wrapper(Callable&& func, Result err_res, svs_error_t err) noexcept {
+    try {
+        SET_ERROR(err, SVS_OK, "Success");
+        return func();
+    } catch (const std::invalid_argument& ex) {
+        SET_ERROR(err, SVS_ERROR_INVALID_ARGUMENT, ex.what());
+        return err_res;
+    } catch (const std::exception& ex) {
+        SET_ERROR(err, SVS_ERROR_GENERIC, ex.what());
+        return err_res;
+    } catch (...) {
+        SET_ERROR(err, SVS_ERROR_GENERIC, "An unknown error has occurred.");
+        return err_res;
+    }
+}
 
 struct svs_index {
     std::shared_ptr<svs::c_runtime::Index> impl;
@@ -49,46 +73,70 @@ struct svs_storage {
     std::shared_ptr<svs::c_runtime::Storage> impl;
 };
 
+extern "C" svs_error_t svs_error_init() { return new svs_error_desc{SVS_OK, "Success"}; }
+extern "C" bool svs_error_ok(svs_error_t err) { return err->code == SVS_OK; }
+extern "C" svs_error_code_t svs_error_get_code(svs_error_t err) { return err->code; }
+extern "C" const char* svs_error_get_message(svs_error_t err) {
+    return err->message.c_str();
+}
+extern "C" void svs_error_free(svs_error_t err) { delete err; }
+
 extern "C" svs_algorithm_t svs_algorithm_create_vamana(
     size_t graph_degree,
     size_t build_window_size,
     size_t search_window_size,
-    svs_error_code_t* out_code
+    svs_error_t out_err
 ) {
-    using namespace svs::c_runtime;
-    auto algorithm = std::make_shared<AlgorithmVamana>(
-        graph_degree, build_window_size, search_window_size
+    return runtime_error_wrapper<svs_algorithm_t>(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto algorithm = std::make_shared<AlgorithmVamana>(
+                graph_degree, build_window_size, search_window_size
+            );
+            auto result = new svs_algorithm;
+            result->impl = algorithm;
+            return result;
+        },
+        nullptr,
+        out_err
     );
-    SET_ERR_CODE(out_code, SVS_OK);
-    auto result = new svs_algorithm;
-    result->impl = algorithm;
-    return result;
 }
 
 extern "C" void svs_algorithm_free(svs_algorithm_t algorithm) { delete algorithm; }
 
 extern "C" svs_storage_t
-svs_storage_create_simple(svs_data_type_t data_type, svs_error_code_t* out_code) {
-    using namespace svs::c_runtime;
-    auto storage = std::make_shared<StorageSimple>(data_type);
-    SET_ERR_CODE(out_code, SVS_OK);
-    auto result = new svs_storage;
-    result->impl = storage;
-    return result;
+svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err) {
+    return runtime_error_wrapper<svs_storage_t>(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto storage = std::make_shared<StorageSimple>(data_type);
+            auto result = new svs_storage;
+            result->impl = storage;
+            return result;
+        },
+        nullptr,
+        out_err
+    );
 }
 
 extern "C" svs_storage_t svs_storage_create_leanvec(
     size_t lenavec_dims,
     svs_data_type_t primary,
     svs_data_type_t secondary,
-    svs_error_code_t* out_code
+    svs_error_t out_err
 ) {
-    using namespace svs::c_runtime;
-    auto storage = std::make_shared<StorageLeanVec>(lenavec_dims, primary, secondary);
-    SET_ERR_CODE(out_code, SVS_OK);
-    auto result = new svs_storage;
-    result->impl = storage;
-    return result;
+    return runtime_error_wrapper<svs_storage_t>(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto storage =
+                std::make_shared<StorageLeanVec>(lenavec_dims, primary, secondary);
+            auto result = new svs_storage;
+            result->impl = storage;
+            return result;
+        },
+        nullptr,
+        out_err
+    );
 }
 
 extern "C" void svs_storage_free(svs_storage_t storage) { delete storage; }
@@ -97,97 +145,131 @@ extern "C" svs_index_builder_t svs_index_builder_create(
     svs_distance_metric_t metric,
     size_t dimension,
     svs_algorithm_t algorithm,
-    svs_error_code_t* out_code
+    svs_error_t out_err
 ) {
-    using namespace svs::c_runtime;
-    auto builder = std::make_shared<IndexBuilder>(metric, dimension, algorithm->impl);
-    SET_ERR_CODE(out_code, SVS_OK);
-    auto result = new svs_index_builder;
-    result->impl = builder;
-    return result;
+    return runtime_error_wrapper<svs_index_builder_t>(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto builder =
+                std::make_shared<IndexBuilder>(metric, dimension, algorithm->impl);
+            auto result = new svs_index_builder;
+            result->impl = builder;
+            return result;
+        },
+        nullptr,
+        out_err
+    );
 }
 
 extern "C" void svs_index_builder_free(svs_index_builder_t builder) { delete builder; }
 
-extern "C" void svs_index_builder_set_storage(
-    svs_index_builder_t builder, svs_storage_t storage, svs_error_code_t* out_code
+extern "C" bool svs_index_builder_set_storage(
+    svs_index_builder_t builder, svs_storage_t storage, svs_error_t out_err
 ) {
-    builder->impl->set_storage(storage->impl);
-    SET_ERR_CODE(out_code, SVS_OK);
-    return;
+    if (builder == nullptr || storage == nullptr) {
+        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
+        return false;
+    }
+    return runtime_error_wrapper<bool>(
+        [&]() {
+            builder->impl->set_storage(storage->impl);
+            return true;
+        },
+        false,
+        out_err
+    );
 }
 
 extern "C" svs_index_t svs_index_build(
-    svs_index_builder_t builder,
-    const float* data,
-    size_t num_vectors,
-    svs_error_code_t* out_code
+    svs_index_builder_t builder, const float* data, size_t num_vectors, svs_error_t out_err
 ) {
     if (builder == nullptr || num_vectors == 0 || data == nullptr) {
-        SET_ERR_CODE(out_code, SVS_ERROR_INVALID_ARGUMENT);
+        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
         return nullptr;
     }
     if (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
-        SET_ERR_CODE(out_code, SVS_ERROR_NOT_IMPLEMENTED);
+        SET_ERROR(out_err, SVS_ERROR_NOT_IMPLEMENTED, "Not implemented");
         return nullptr;
     }
-    if (builder->impl->storage->kind != SVS_STORAGE_KIND_SIMPLE) {
-        SET_ERR_CODE(out_code, SVS_ERROR_NOT_IMPLEMENTED);
-        return nullptr;
-    }
-
-    auto src_data =
-        svs::data::ConstSimpleDataView<float>(data, num_vectors, builder->impl->dimension);
-
-    auto index = builder->impl->build(src_data);
-    if (index == nullptr) {
-        SET_ERR_CODE(out_code, SVS_ERROR_INDEX_BUILD_FAILED);
+    if (builder->impl->storage->kind != SVS_STORAGE_KIND_SIMPLE &&
+        builder->impl->storage->kind != SVS_STORAGE_KIND_LEANVEC) {
+        SET_ERROR(out_err, SVS_ERROR_NOT_IMPLEMENTED, "Not implemented");
         return nullptr;
     }
 
-    SET_ERR_CODE(out_code, SVS_OK);
-    auto result = new svs_index;
-    result->impl = index;
-    return result;
+    return runtime_error_wrapper<svs_index_t>(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto src_data = svs::data::ConstSimpleDataView<float>(
+                data, num_vectors, builder->impl->dimension
+            );
+
+            auto index = builder->impl->build(src_data);
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_INDEX_BUILD_FAILED, "Index build failed");
+                return svs_index_t{nullptr};
+            }
+
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        nullptr,
+        out_err
+    );
 }
 
 extern "C" void svs_index_free(svs_index_t index) { delete index; }
 
-extern "C" svs_search_results_t
-svs_index_search(svs_index_t index, const float* queries, size_t num_queries, size_t k) {
+extern "C" svs_search_results_t svs_index_search(
+    svs_index_t index,
+    const float* queries,
+    size_t num_queries,
+    size_t k,
+    svs_error_t out_err
+) {
     if (index == nullptr || queries == nullptr || num_queries == 0 || k == 0) {
+        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
         return nullptr;
     }
     if (index->impl->algorithm != SVS_ALGORITHM_TYPE_VAMANA) {
+        SET_ERROR(out_err, SVS_ERROR_NOT_IMPLEMENTED, "Not implemented");
         return nullptr;
     }
 
-    using namespace svs::c_runtime;
+    return runtime_error_wrapper<svs_search_results_t>(
+        [&]() {
+            using namespace svs::c_runtime;
 
-    auto& vamana_index = static_cast<IndexVamana&>(*index->impl).index;
+            auto& vamana_index = static_cast<IndexVamana&>(*index->impl).index;
 
-    auto queries_view = svs::data::ConstSimpleDataView<float>(
-        queries, num_queries, vamana_index.dimensions()
+            auto queries_view = svs::data::ConstSimpleDataView<float>(
+                queries, num_queries, vamana_index.dimensions()
+            );
+
+            auto search_results = index->impl->search(queries_view, k, nullptr);
+
+            svs_search_results_t results =
+                new svs_search_results{0, nullptr, nullptr, nullptr};
+
+            results->num_queries = num_queries;
+            results->results_per_query = new size_t[num_queries];
+            results->indices = new size_t[num_queries * k];
+            results->distances = new float[num_queries * k];
+
+            for (size_t i = 0; i < num_queries; ++i) {
+                results->results_per_query[i] = k;
+                for (size_t j = 0; j < k; ++j) {
+                    results->indices[i * k + j] = search_results.index(i, j);
+                    results->distances[i * k + j] = search_results.distance(i, j);
+                }
+            }
+
+            return results;
+        },
+        nullptr,
+        out_err
     );
-
-    auto search_results = index->impl->search(queries_view, k, nullptr);
-
-    svs_search_results_t results = new svs_search_results{0, nullptr, nullptr, nullptr};
-
-    results->num_queries = num_queries;
-    results->results_per_query = new size_t[num_queries];
-    results->indices = new size_t[num_queries * k];
-    results->distances = new float[num_queries * k];
-
-    for (size_t i = 0; i < num_queries; ++i) {
-        results->results_per_query[i] = k;
-        for (size_t j = 0; j < k; ++j) {
-            results->indices[i * k + j] = search_results.index(i, j);
-            results->distances[i * k + j] = search_results.distance(i, j);
-        }
-    }
-
-    return results;
 }
 
 extern "C" void svs_search_results_free(svs_search_results_t results) {

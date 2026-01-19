@@ -17,9 +17,17 @@
 
 #include "svs/c_api/svs_c.h"
 
-#include <svs/concepts/data.h>
+#include "types_support.hpp"
 
-namespace svs::c_runtime {
+#include <svs/concepts/data.h>
+#include <svs/core/data/simple.h>
+#include <svs/leanvec/impl/leanvec_impl.h>
+#include <svs/lib/datatype.h>
+#include <svs/lib/dispatcher.h>
+#include <svs/lib/type_traits.h>
+
+namespace svs {
+namespace c_runtime {
 
 struct Storage {
     svs_storage_kind kind;
@@ -29,23 +37,117 @@ struct Storage {
 };
 
 struct StorageSimple : public Storage {
-    svs_data_type_t data_type;
+    svs::DataType data_type;
 
     StorageSimple(svs_data_type_t data_type)
         : Storage{SVS_STORAGE_KIND_SIMPLE}
-        , data_type(data_type) {}
+        , data_type(to_data_type(data_type)) {}
 };
 
 struct StorageLeanVec : public Storage {
     size_t lenavec_dims;
-    svs_data_type_t primary_type;
-    svs_data_type_t secondary_type;
+    size_t primary_bits;
+    size_t secondary_bits;
 
     StorageLeanVec(size_t lenavec_dims, svs_data_type_t primary, svs_data_type_t secondary)
         : Storage{SVS_STORAGE_KIND_LEANVEC}
         , lenavec_dims(lenavec_dims)
-        , primary_type(primary)
-        , secondary_type(secondary) {}
+        , primary_bits(to_bits_number(primary))
+        , secondary_bits(to_bits_number(secondary)) {}
+
+    static size_t to_bits_number(svs_data_type_t data_type) {
+        switch (data_type) {
+            case SVS_DATA_TYPE_INT4:
+            case SVS_DATA_TYPE_UINT4:
+                return 4;
+            case SVS_DATA_TYPE_INT8:
+            case SVS_DATA_TYPE_UINT8:
+                return 8;
+            default:
+                return 0;
+        }
+    }
 };
 
-} // namespace svs::c_runtime
+} // namespace c_runtime
+
+template <Arithmetic T> class SimpleDataBuilder {
+  public:
+    SimpleDataBuilder() {}
+
+    using SimpleDataType =
+        svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
+
+    SimpleDataType build(svs::data::ConstSimpleDataView<T> view) {
+        auto data = SimpleDataType(view.size(), view.dimensions());
+        svs::data::copy(view, data);
+        return data;
+    }
+};
+
+template <Arithmetic T>
+struct lib::DispatchConverter<const c_runtime::Storage*, SimpleDataBuilder<T>> {
+    using From = const svs::c_runtime::Storage*;
+    using To = SimpleDataBuilder<T>;
+
+    static int64_t match(From from) {
+        if constexpr (svs::is_arithmetic_v<T>) {
+            if (from->kind == SVS_STORAGE_KIND_SIMPLE) {
+                auto simple = static_cast<const c_runtime::StorageSimple*>(from);
+                if (simple->data_type == svs::datatype_v<T>) {
+                    return svs::lib::perfect_match;
+                }
+            }
+        }
+        return svs::lib::invalid_match;
+    }
+
+    static To convert(From from) { return To{}; }
+};
+
+template <size_t I1, size_t I2> class LeanVecDataBuilder {
+    size_t leanvec_dims_;
+
+  public:
+    LeanVecDataBuilder(size_t leanvec_dims)
+        : leanvec_dims_(leanvec_dims) {}
+    svs::threads::ThreadPoolHandle default_threadpool() {
+        return svs::threads::ThreadPoolHandle(svs::threads::DefaultThreadPool(4));
+    }
+    using LeanDatasetType = svs::leanvec::LeanDataset<
+        svs::leanvec::UsingLVQ<I1>,
+        svs::leanvec::UsingLVQ<I2>,
+        svs::Dynamic,
+        svs::Dynamic,
+        svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
+
+    template <Arithmetic T> LeanDatasetType build(svs::data::ConstSimpleDataView<T> view) {
+        auto pool = default_threadpool();
+        return LeanDatasetType::reduce(
+            view, std::nullopt, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}
+        );
+    }
+};
+
+template <size_t I1, size_t I2>
+struct lib::DispatchConverter<const c_runtime::Storage*, LeanVecDataBuilder<I1, I2>> {
+    using From = const svs::c_runtime::Storage*;
+    using To = LeanVecDataBuilder<I1, I2>;
+
+    static int64_t match(From from) {
+        if (from->kind == SVS_STORAGE_KIND_LEANVEC) {
+            auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
+            if (leanvec->primary_bits == I1 && leanvec->secondary_bits == I2) {
+                return svs::lib::perfect_match;
+            }
+        }
+        return svs::lib::invalid_match;
+    }
+
+    static To convert(From from) {
+        auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
+        return LeanVecDataBuilder<I1, I2>(leanvec->lenavec_dims);
+    }
+};
+
+} // namespace svs
