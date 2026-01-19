@@ -49,8 +49,17 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
         MetricType metric,
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {},
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {}
+    ) noexcept;
+
+    static Status build(
+        DynamicVamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        const VamanaIndex::BuildParams& params,
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params
     ) noexcept;
 
     static Status destroy(DynamicVamanaIndex* index) noexcept;
