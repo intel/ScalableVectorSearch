@@ -32,53 +32,11 @@
 
 namespace svs::c_runtime {
 
-template <typename T>
-svs::Vamana build_vamana_index_uncompressed(
+template <typename DataBuilder>
+svs::Vamana build_vamana_index(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> src_data,
-    SimpleDataBuilder<T> builder,
-    svs::DistanceType distance_type,
-    svs::threads::ThreadPoolHandle pool
-) {
-    auto data = builder.build(std::move(src_data), pool);
-    return svs::Vamana::build<float>(
-        build_params, std::move(data), distance_type, std::move(pool)
-    );
-}
-
-template <size_t I1, size_t I2>
-svs::Vamana build_vamana_index_leanvec(
-    const svs::index::vamana::VamanaBuildParameters& build_params,
-    svs::data::ConstSimpleDataView<float> src_data,
-    LeanVecDataBuilder<I1, I2> builder,
-    svs::DistanceType distance_type,
-    svs::threads::ThreadPoolHandle pool
-) {
-    auto data = builder.build(std::move(src_data), pool);
-    return svs::Vamana::build<float>(
-        build_params, std::move(data), distance_type, std::move(pool)
-    );
-}
-
-template <size_t PrimaryBits, size_t ResidualBits>
-svs::Vamana build_vamana_index_lvq(
-    const svs::index::vamana::VamanaBuildParameters& build_params,
-    svs::data::ConstSimpleDataView<float> src_data,
-    LVQDataBuilder<PrimaryBits, ResidualBits> builder,
-    svs::DistanceType distance_type,
-    svs::threads::ThreadPoolHandle pool
-) {
-    auto data = builder.build(std::move(src_data), pool);
-    return svs::Vamana::build<float>(
-        build_params, std::move(data), distance_type, std::move(pool)
-    );
-}
-
-template <typename T>
-svs::Vamana build_vamana_index_sq(
-    const svs::index::vamana::VamanaBuildParameters& build_params,
-    svs::data::ConstSimpleDataView<float> src_data,
-    SQDataBuilder<T> builder,
+    DataBuilder builder,
     svs::DistanceType distance_type,
     svs::threads::ThreadPoolHandle pool
 ) {
@@ -90,20 +48,20 @@ svs::Vamana build_vamana_index_sq(
 
 template <typename Dispatcher>
 void register_build_vamana_index_methods(Dispatcher& dispatcher) {
-    dispatcher.register_target(&build_vamana_index_uncompressed<float>);
-    dispatcher.register_target(&build_vamana_index_uncompressed<svs::Float16>);
+    dispatcher.register_target(&build_vamana_index<SimpleDataBuilder<float>>);
+    dispatcher.register_target(&build_vamana_index<SimpleDataBuilder<svs::Float16>>);
 
-    dispatcher.register_target(&build_vamana_index_leanvec<4, 4>);
-    dispatcher.register_target(&build_vamana_index_leanvec<4, 8>);
-    dispatcher.register_target(&build_vamana_index_leanvec<8, 8>);
+    dispatcher.register_target(&build_vamana_index<LeanVecDataBuilder<4, 4>>);
+    dispatcher.register_target(&build_vamana_index<LeanVecDataBuilder<4, 8>>);
+    dispatcher.register_target(&build_vamana_index<LeanVecDataBuilder<8, 8>>);
 
-    dispatcher.register_target(&build_vamana_index_lvq<4, 0>);
-    dispatcher.register_target(&build_vamana_index_lvq<8, 0>);
-    dispatcher.register_target(&build_vamana_index_lvq<4, 4>);
-    dispatcher.register_target(&build_vamana_index_lvq<4, 8>);
+    dispatcher.register_target(&build_vamana_index<LVQDataBuilder<4, 0>>);
+    dispatcher.register_target(&build_vamana_index<LVQDataBuilder<8, 0>>);
+    dispatcher.register_target(&build_vamana_index<LVQDataBuilder<4, 4>>);
+    dispatcher.register_target(&build_vamana_index<LVQDataBuilder<4, 8>>);
 
-    dispatcher.register_target(&build_vamana_index_sq<uint8_t>);
-    dispatcher.register_target(&build_vamana_index_sq<int8_t>);
+    dispatcher.register_target(&build_vamana_index<SQDataBuilder<uint8_t>>);
+    dispatcher.register_target(&build_vamana_index<SQDataBuilder<int8_t>>);
 }
 using BuildIndexDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
@@ -119,7 +77,7 @@ BuildIndexDispatcher build_vamana_index_dispatcher() {
     return dispatcher;
 }
 
-svs::Vamana build_vamana_index(
+svs::Vamana dispatch_vamana_index_build(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> src_data,
     const Storage* storage,
@@ -166,7 +124,7 @@ struct IndexBuilder {
             svs::index::vamana::VamanaBuildParameters build_params =
                 vamana_algorithm->get_build_parameters();
 
-            auto index = std::make_shared<IndexVamana>(build_vamana_index(
+            auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_build(
                 vamana_algorithm->get_build_parameters(),
                 data,
                 storage.get(),
