@@ -60,19 +60,50 @@ svs::Vamana build_vamana_index_leanvec(
     );
 }
 
+template <size_t PrimaryBits, size_t ResidualBits>
+svs::Vamana build_vamana_index_lvq(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    svs::data::ConstSimpleDataView<float> src_data,
+    LVQDataBuilder<PrimaryBits, ResidualBits> builder,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
+) {
+    auto data = builder.build(std::move(src_data), pool);
+    return svs::Vamana::build<float>(
+        build_params, std::move(data), distance_type, std::move(pool)
+    );
+}
+
+template <typename T>
+svs::Vamana build_vamana_index_sq(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    svs::data::ConstSimpleDataView<float> src_data,
+    SQDataBuilder<T> builder,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
+) {
+    auto data = builder.build(std::move(src_data), pool);
+    return svs::Vamana::build<float>(
+        build_params, std::move(data), distance_type, std::move(pool)
+    );
+}
+
 template <typename Dispatcher>
 void register_build_vamana_index_methods(Dispatcher& dispatcher) {
-    dispatcher
-        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_uncompressed<float>);
-    dispatcher
-        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_uncompressed<svs::Float16>);
+    dispatcher.register_target(&build_vamana_index_uncompressed<float>);
+    dispatcher.register_target(&build_vamana_index_uncompressed<svs::Float16>);
 
-    dispatcher
-        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<4, 4>);
-    dispatcher
-        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<4, 8>);
-    dispatcher
-        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<8, 8>);
+    dispatcher.register_target(&build_vamana_index_leanvec<4, 4>);
+    dispatcher.register_target(&build_vamana_index_leanvec<4, 8>);
+    dispatcher.register_target(&build_vamana_index_leanvec<8, 8>);
+
+    dispatcher.register_target(&build_vamana_index_lvq<4, 0>);
+    dispatcher.register_target(&build_vamana_index_lvq<8, 0>);
+    dispatcher.register_target(&build_vamana_index_lvq<4, 4>);
+    dispatcher.register_target(&build_vamana_index_lvq<4, 8>);
+
+    dispatcher.register_target(&build_vamana_index_sq<uint8_t>);
+    dispatcher.register_target(&build_vamana_index_sq<int8_t>);
 }
 using BuildIndexDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
@@ -129,9 +160,7 @@ struct IndexBuilder {
     }
 
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data) {
-        if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA &&
-            (storage->kind == SVS_STORAGE_KIND_SIMPLE ||
-             storage->kind == SVS_STORAGE_KIND_LEANVEC)) {
+        if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             svs::index::vamana::VamanaBuildParameters build_params =

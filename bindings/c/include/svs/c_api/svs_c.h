@@ -55,7 +55,12 @@ enum svs_data_type {
     SVS_DATA_TYPE_UINT4 = 4
 };
 
-enum svs_storage_kind { SVS_STORAGE_KIND_SIMPLE = 0, SVS_STORAGE_KIND_LEANVEC = 1 };
+enum svs_storage_kind {
+    SVS_STORAGE_KIND_SIMPLE = 0,
+    SVS_STORAGE_KIND_LEANVEC = 1,
+    SVS_STORAGE_KIND_LVQ = 2,
+    SVS_STORAGE_KIND_SQ = 3
+};
 
 enum svs_thread_pool_kind {
     SVS_THREAD_POOL_KIND_NATIVE = 0,
@@ -103,8 +108,7 @@ SVS_API svs_algorithm_h svs_algorithm_create_vamana(
 SVS_API void svs_algorithm_free(svs_algorithm_h algorithm);
 
 SVS_API svs_search_params_h svs_search_params_create_vamana(
-    size_t search_window_size,
-    svs_error_h out_err /*=NULL*/
+    size_t search_window_size, svs_error_h out_err /*=NULL*/
 );
 SVS_API void svs_search_params_free(svs_search_params_h params);
 
@@ -115,6 +119,12 @@ SVS_API svs_storage_h svs_storage_create_leanvec(
     svs_data_type_t primary,
     svs_data_type_t secondary,
     svs_error_h out_err /*=NULL*/
+);
+SVS_API svs_storage_h svs_storage_create_lvq(
+    svs_data_type_t primary, svs_data_type_t residual, svs_error_h out_err /*=NULL*/
+);
+SVS_API svs_storage_h svs_storage_create_sq(
+    svs_data_type_t data_type, svs_error_h out_err /*=NULL*/
 );
 SVS_API void svs_storage_free(svs_storage_h storage);
 

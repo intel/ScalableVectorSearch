@@ -72,6 +72,20 @@ int main() {
     // storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT8,
     // SVS_DATA_TYPE_UINT4, error);
 
+    // LVQ Storage
+    // storage = svs_storage_create_lvq(SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_VOID, error);
+
+    // storage = svs_storage_create_lvq(SVS_DATA_TYPE_UINT8, SVS_DATA_TYPE_VOID, error);
+
+    // storage = svs_storage_create_lvq(SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_UINT4, error);
+
+    // storage = svs_storage_create_lvq(SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_UINT8, error);
+
+    // Scalar Quantized Storage
+    // storage = svs_storage_create_sq(SVS_DATA_TYPE_UINT8, error);
+
+    // storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+
     if (!storage) {
         fprintf(stderr, "Failed to create storage: %s\n", svs_error_get_message(error));
         ret = 1;
@@ -109,7 +123,9 @@ int main() {
     // Search params
     svs_search_params_h search_params = svs_search_params_create_vamana(100, error);
     if (!search_params) {
-        fprintf(stderr, "Failed to create search params: %s\n", svs_error_get_message(error));
+        fprintf(
+            stderr, "Failed to create search params: %s\n", svs_error_get_message(error)
+        );
         ret = 1;
         goto cleanup;
     }

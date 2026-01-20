@@ -109,16 +109,13 @@ extern "C" svs_algorithm_h svs_algorithm_create_vamana(
 
 extern "C" void svs_algorithm_free(svs_algorithm_h algorithm) { delete algorithm; }
 
-extern "C" svs_search_params_h svs_search_params_create_vamana(
-    size_t search_window_size,
-    svs_error_h out_err
-) {
+extern "C" svs_search_params_h
+svs_search_params_create_vamana(size_t search_window_size, svs_error_h out_err) {
     return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
-            auto params = std::make_shared<AlgorithmVamana::SearchParams>(
-                search_window_size
-            );
+            auto params =
+                std::make_shared<AlgorithmVamana::SearchParams>(search_window_size);
             auto result = new svs_search_params;
             result->impl = params;
             return result;
@@ -127,9 +124,7 @@ extern "C" svs_search_params_h svs_search_params_create_vamana(
     );
 }
 
-extern "C" void svs_search_params_free(svs_search_params_h params) {
-    delete params;
-}
+extern "C" void svs_search_params_free(svs_search_params_h params) { delete params; }
 
 extern "C" svs_storage_h
 svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err) {
@@ -156,6 +151,35 @@ extern "C" svs_storage_h svs_storage_create_leanvec(
             using namespace svs::c_runtime;
             auto storage =
                 std::make_shared<StorageLeanVec>(lenavec_dims, primary, secondary);
+            auto result = new svs_storage;
+            result->impl = storage;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_storage_h svs_storage_create_lvq(
+    svs_data_type_t primary, svs_data_type_t residual, svs_error_h out_err
+) {
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto storage = std::make_shared<StorageLVQ>(primary, residual);
+            auto result = new svs_storage;
+            result->impl = storage;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_storage_h
+svs_storage_create_sq(svs_data_type_t data_type, svs_error_h out_err) {
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto storage = std::make_shared<StorageSQ>(data_type);
             auto result = new svs_storage;
             result->impl = storage;
             return result;
@@ -230,11 +254,6 @@ extern "C" svs_index_h svs_index_build(
         return nullptr;
     }
     if (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA) {
-        SET_ERROR(out_err, SVS_ERROR_NOT_IMPLEMENTED, "Not implemented");
-        return nullptr;
-    }
-    if (builder->impl->storage->kind != SVS_STORAGE_KIND_SIMPLE &&
-        builder->impl->storage->kind != SVS_STORAGE_KIND_LEANVEC) {
         SET_ERROR(out_err, SVS_ERROR_NOT_IMPLEMENTED, "Not implemented");
         return nullptr;
     }

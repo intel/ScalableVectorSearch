@@ -21,11 +21,16 @@
 
 #include <svs/concepts/data.h>
 #include <svs/core/data/simple.h>
+#include <svs/extensions/vamana/leanvec.h>
+#include <svs/extensions/vamana/lvq.h>
+#include <svs/extensions/vamana/scalar.h>
 #include <svs/leanvec/impl/leanvec_impl.h>
 #include <svs/lib/datatype.h>
 #include <svs/lib/dispatcher.h>
 #include <svs/lib/float16.h>
 #include <svs/lib/type_traits.h>
+#include <svs/quantization/lvq/impl/lvq_impl.h>
+#include <svs/quantization/scalar/scalar.h>
 
 namespace svs {
 namespace c_runtime {
@@ -40,9 +45,15 @@ struct Storage {
 struct StorageSimple : public Storage {
     svs::DataType data_type;
 
-    StorageSimple(svs_data_type_t data_type)
+    StorageSimple(svs_data_type_t dt)
         : Storage{SVS_STORAGE_KIND_SIMPLE}
-        , data_type(to_data_type(data_type)) {}
+        , data_type(to_data_type(dt)) {
+        if (dt != SVS_DATA_TYPE_FLOAT32 && dt != SVS_DATA_TYPE_FLOAT16) {
+            throw std::invalid_argument(
+                "Simple storage only supports float32 and float16 data types"
+            );
+        }
+    }
 };
 
 struct StorageLeanVec : public Storage {
@@ -64,8 +75,48 @@ struct StorageLeanVec : public Storage {
             case SVS_DATA_TYPE_INT8:
             case SVS_DATA_TYPE_UINT8:
                 return 8;
-            default:
+            case SVS_DATA_TYPE_VOID:
                 return 0;
+            default:
+                throw std::invalid_argument("Unsupported data type for LeanVec storage");
+        }
+    }
+};
+
+struct StorageLVQ : public Storage {
+    size_t primary_bits;
+    size_t residual_bits;
+
+    StorageLVQ(svs_data_type_t primary, svs_data_type_t residual)
+        : Storage{SVS_STORAGE_KIND_LVQ}
+        , primary_bits(to_bits_number(primary))
+        , residual_bits(to_bits_number(residual)) {}
+
+    static size_t to_bits_number(svs_data_type_t data_type) {
+        switch (data_type) {
+            case SVS_DATA_TYPE_INT4:
+            case SVS_DATA_TYPE_UINT4:
+                return 4;
+            case SVS_DATA_TYPE_INT8:
+            case SVS_DATA_TYPE_UINT8:
+                return 8;
+            case SVS_DATA_TYPE_VOID:
+                return 0;
+            default:
+                throw std::invalid_argument("Unsupported data type for LVQ storage");
+        }
+    }
+};
+
+struct StorageSQ : public Storage {
+    svs::DataType data_type;
+
+    StorageSQ(svs_data_type_t dt)
+        : Storage{SVS_STORAGE_KIND_SQ}
+        , data_type(to_data_type(dt)) {
+        if (dt != SVS_DATA_TYPE_UINT8 && dt != SVS_DATA_TYPE_INT8) {
+            throw std::invalid_argument("Scalar quantization only supports 8-bit data types"
+            );
         }
     }
 };
@@ -116,9 +167,7 @@ template <size_t I1, size_t I2> class LeanVecDataBuilder {
   public:
     LeanVecDataBuilder(size_t leanvec_dims)
         : leanvec_dims_(leanvec_dims) {}
-    svs::threads::ThreadPoolHandle default_threadpool() {
-        return svs::threads::ThreadPoolHandle(svs::threads::DefaultThreadPool(4));
-    }
+
     using LeanDatasetType = svs::leanvec::LeanDataset<
         svs::leanvec::UsingLVQ<I1>,
         svs::leanvec::UsingLVQ<I2>,
@@ -154,6 +203,76 @@ struct lib::DispatchConverter<const c_runtime::Storage*, LeanVecDataBuilder<I1, 
         auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
         return LeanVecDataBuilder<I1, I2>(leanvec->lenavec_dims);
     }
+};
+
+template <size_t PrimaryBits, size_t ResidualBits> class LVQDataBuilder {
+  public:
+    LVQDataBuilder() {}
+
+    using LVQDatasetType = svs::quantization::lvq::LVQDataset<
+        PrimaryBits,
+        ResidualBits,
+        svs::Dynamic,
+        svs::quantization::lvq::Sequential,
+        svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
+
+    template <Arithmetic T>
+    LVQDatasetType
+    build(svs::data::ConstSimpleDataView<T> view, svs::threads::ThreadPoolHandle& pool) {
+        return LVQDatasetType::compress(view, pool, 0);
+    }
+};
+
+template <size_t PrimaryBits, size_t ResidualBits>
+struct lib::DispatchConverter<
+    const c_runtime::Storage*,
+    LVQDataBuilder<PrimaryBits, ResidualBits>> {
+    using From = const svs::c_runtime::Storage*;
+    using To = LVQDataBuilder<PrimaryBits, ResidualBits>;
+
+    static int64_t match(From from) {
+        if (from->kind == SVS_STORAGE_KIND_LVQ) {
+            auto lvq = static_cast<const c_runtime::StorageLVQ*>(from);
+            if (lvq->primary_bits == PrimaryBits && lvq->residual_bits == ResidualBits) {
+                return svs::lib::perfect_match;
+            }
+        }
+        return svs::lib::invalid_match;
+    }
+
+    static To convert(From from) { return To{}; }
+};
+
+template <Arithmetic T> class SQDataBuilder {
+  public:
+    SQDataBuilder() {}
+
+    using SQDatasetType = svs::quantization::scalar::
+        SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
+
+    template <Arithmetic U>
+    SQDatasetType
+    build(svs::data::ConstSimpleDataView<U> view, svs::threads::ThreadPoolHandle& pool) {
+        return SQDatasetType::compress(view, pool);
+    }
+};
+
+template <Arithmetic T>
+struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T>> {
+    using From = const svs::c_runtime::Storage*;
+    using To = SQDataBuilder<T>;
+
+    static int64_t match(From from) {
+        if (from->kind == SVS_STORAGE_KIND_SQ) {
+            auto sq = static_cast<const c_runtime::StorageSQ*>(from);
+            if (sq->data_type == svs::datatype_v<T>) {
+                return svs::lib::perfect_match;
+            }
+        }
+        return svs::lib::invalid_match;
+    }
+
+    static To convert(From from) { return To{}; }
 };
 
 } // namespace svs
