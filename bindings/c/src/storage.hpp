@@ -24,6 +24,7 @@
 #include <svs/leanvec/impl/leanvec_impl.h>
 #include <svs/lib/datatype.h>
 #include <svs/lib/dispatcher.h>
+#include <svs/lib/float16.h>
 #include <svs/lib/type_traits.h>
 
 namespace svs {
@@ -78,8 +79,9 @@ template <Arithmetic T> class SimpleDataBuilder {
     using SimpleDataType =
         svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
+    template <Arithmetic U>
     SimpleDataType build(
-        svs::data::ConstSimpleDataView<T> view,
+        svs::data::ConstSimpleDataView<U> view,
         svs::threads::ThreadPoolHandle& SVS_UNUSED(pool)
     ) {
         auto data = SimpleDataType(view.size(), view.dimensions());

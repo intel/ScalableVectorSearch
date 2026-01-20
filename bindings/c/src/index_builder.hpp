@@ -27,6 +27,7 @@
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
+#include <svs/lib/float16.h>
 #include <svs/orchestrators/vamana.h>
 
 namespace svs::c_runtime {
@@ -63,6 +64,8 @@ template <typename Dispatcher>
 void register_build_vamana_index_methods(Dispatcher& dispatcher) {
     dispatcher
         .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_uncompressed<float>);
+    dispatcher
+        .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_uncompressed<svs::Float16>);
 
     dispatcher
         .register_target(svs::lib::dispatcher_build_docs, &build_vamana_index_leanvec<4, 4>);

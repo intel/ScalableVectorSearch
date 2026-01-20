@@ -50,22 +50,28 @@ int main() {
 
     // Create storage
     // Simple storage
-    // storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, &error);
+    // storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
+    // storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
 
     // LeanVec storage
     size_t leanvec_dims = DIMENSION / 2;
-    // OK: storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT4,
+    // OK:
+    // storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT4,
     // SVS_DATA_TYPE_UINT4, error);
 
-    // OK: storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT4,
+    // OK:
+    // storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT4,
     // SVS_DATA_TYPE_UINT8, error);
 
-    // ERROR: storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT8,
+    // OK:
+    storage = svs_storage_create_leanvec(
+        leanvec_dims, SVS_DATA_TYPE_UINT8, SVS_DATA_TYPE_UINT8, error
+    );
+
+    // ERROR:
+    // storage = svs_storage_create_leanvec(leanvec_dims, SVS_DATA_TYPE_UINT8,
     // SVS_DATA_TYPE_UINT4, error);
 
-    storage = svs_storage_create_leanvec(
-        leanvec_dims, SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_UINT4, error
-    );
     if (!storage) {
         fprintf(stderr, "Failed to create storage: %s\n", svs_error_get_message(error));
         ret = 1;
