@@ -71,77 +71,87 @@ struct svs_search_results {
     float* distances;
 };
 
-typedef struct svs_error_desc* svs_error_t;
-typedef struct svs_index* svs_index_t;
-typedef struct svs_index_builder* svs_index_builder_t;
-typedef struct svs_algorithm* svs_algorithm_t;
-typedef struct svs_storage* svs_storage_t;
-typedef struct svs_search_results* svs_search_results_t;
-typedef struct svs_thread_pool* svs_thread_pool_t;
+// Handle typedefs; "_h" suffix indicates a handle to an opaque struct
+typedef struct svs_error_desc* svs_error_h;
+typedef struct svs_index* svs_index_h;
+typedef struct svs_index_builder* svs_index_builder_h;
+typedef struct svs_algorithm* svs_algorithm_h;
+typedef struct svs_storage* svs_storage_h;
+typedef struct svs_search_params* svs_search_params_h;
 
+// Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
 typedef enum svs_distance_metric svs_distance_metric_t;
 typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_thread_pool_kind svs_thread_pool_kind_t;
 
-SVS_API svs_error_t svs_error_init();
-SVS_API bool svs_error_ok(svs_error_t err);
-SVS_API svs_error_code_t svs_error_get_code(svs_error_t err);
-SVS_API const char* svs_error_get_message(svs_error_t err);
-SVS_API void svs_error_free(svs_error_t err);
+typedef struct svs_search_results* svs_search_results_t;
 
-SVS_API svs_algorithm_t svs_algorithm_create_vamana(
+SVS_API svs_error_h svs_error_init();
+SVS_API bool svs_error_ok(svs_error_h err);
+SVS_API svs_error_code_t svs_error_get_code(svs_error_h err);
+SVS_API const char* svs_error_get_message(svs_error_h err);
+SVS_API void svs_error_free(svs_error_h err);
+
+SVS_API svs_algorithm_h svs_algorithm_create_vamana(
     size_t graph_degree,
     size_t build_window_size,
     size_t search_window_size,
-    svs_error_t out_err /*=NULL*/
+    svs_error_h out_err /*=NULL*/
 );
-SVS_API void svs_algorithm_free(svs_algorithm_t algorithm);
+SVS_API void svs_algorithm_free(svs_algorithm_h algorithm);
 
-SVS_API svs_storage_t
-svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err);
-SVS_API svs_storage_t svs_storage_create_leanvec(
+SVS_API svs_search_params_h svs_search_params_create_vamana(
+    size_t search_window_size,
+    svs_error_h out_err /*=NULL*/
+);
+SVS_API void svs_search_params_free(svs_search_params_h params);
+
+SVS_API svs_storage_h
+svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err);
+SVS_API svs_storage_h svs_storage_create_leanvec(
     size_t lenavec_dims,
     svs_data_type_t primary,
     svs_data_type_t secondary,
-    svs_error_t out_err /*=NULL*/
+    svs_error_h out_err /*=NULL*/
 );
-SVS_API void svs_storage_free(svs_storage_t storage);
+SVS_API void svs_storage_free(svs_storage_h storage);
 
-SVS_API svs_index_builder_t svs_index_builder_create(
+SVS_API svs_index_builder_h svs_index_builder_create(
     svs_distance_metric_t metric,
     size_t dimension,
-    svs_algorithm_t algorithm,
-    svs_error_t out_err /*=NULL*/
+    svs_algorithm_h algorithm,
+    svs_error_h out_err /*=NULL*/
 );
-SVS_API void svs_index_builder_free(svs_index_builder_t builder);
+SVS_API void svs_index_builder_free(svs_index_builder_h builder);
 
 SVS_API bool svs_index_builder_set_storage(
-    svs_index_builder_t builder, svs_storage_t storage, svs_error_t out_err /*=NULL*/
+    svs_index_builder_h builder, svs_storage_h storage, svs_error_h out_err /*=NULL*/
 );
 
 SVS_API bool svs_index_builder_set_thread_pool(
-    svs_index_builder_t builder,
+    svs_index_builder_h builder,
     svs_thread_pool_kind_t kind,
     size_t num_threads,
-    svs_error_t out_err /*=NULL*/
+    svs_error_h out_err /*=NULL*/
 );
 
-SVS_API svs_index_t svs_index_build(
-    svs_index_builder_t builder,
+SVS_API svs_index_h svs_index_build(
+    svs_index_builder_h builder,
     const float* data,
     size_t num_vectors,
-    svs_error_t out_err /*=NULL*/
+    svs_error_h out_err /*=NULL*/
 );
-SVS_API void svs_index_free(svs_index_t index);
+SVS_API void svs_index_free(svs_index_h index);
 
 SVS_API svs_search_results_t svs_index_search(
-    svs_index_t index,
+    svs_index_h index,
     const float* queries,
     size_t num_queries,
     size_t k,
-    svs_error_t out_err /*=NULL*/
+    svs_search_params_h search_params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
 );
 SVS_API void svs_search_results_free(svs_search_results_t results);
 

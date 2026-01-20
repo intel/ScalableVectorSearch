@@ -50,7 +50,7 @@ struct IndexVamana : public Index {
         const std::shared_ptr<Algorithm::SearchParams>& search_params
     ) {
         auto vamana_search_params =
-            std::static_pointer_cast<AlgorithmVamana::SearchParamsVamana>(search_params);
+            std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
         auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
 
         auto params = index.get_search_parameters();

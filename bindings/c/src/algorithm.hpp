@@ -43,10 +43,10 @@ struct Algorithm {
 };
 
 struct AlgorithmVamana : public Algorithm {
-    struct SearchParamsVamana : public SearchParams {
+    struct SearchParams : public Algorithm::SearchParams {
         size_t search_window_size;
-        SearchParamsVamana(size_t search_window_size)
-            : SearchParams{SVS_ALGORITHM_TYPE_VAMANA}
+        SearchParams(size_t search_window_size)
+            : Algorithm::SearchParams{SVS_ALGORITHM_TYPE_VAMANA}
             , search_window_size(search_window_size) {}
 
         svs::index::vamana::VamanaSearchParameters get_search_parameters() const {
@@ -59,7 +59,7 @@ struct AlgorithmVamana : public Algorithm {
 
     size_t graph_degree;
     size_t build_window_size;
-    SearchParamsVamana default_search_params;
+    SearchParams default_search_params;
 
     AlgorithmVamana(
         size_t graph_degree, size_t build_window_size, size_t search_window_size
@@ -76,8 +76,8 @@ struct AlgorithmVamana : public Algorithm {
         return params;
     }
 
-    std::shared_ptr<SearchParams> get_default_search_params() const override {
-        return std::make_shared<SearchParamsVamana>(default_search_params);
+    std::shared_ptr<Algorithm::SearchParams> get_default_search_params() const override {
+        return std::make_shared<SearchParams>(default_search_params);
     }
 };
 

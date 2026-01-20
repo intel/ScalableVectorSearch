@@ -17,14 +17,14 @@ void generate_random_data(float* data, size_t count, size_t dim) {
 int main() {
     int ret = 0;
     srand(time(NULL));
-    svs_error_t error = svs_error_init();
+    svs_error_h error = svs_error_init();
 
     float* data = NULL;
     float* queries = NULL;
-    svs_algorithm_t algorithm = NULL;
-    svs_storage_t storage = NULL;
-    svs_index_builder_t builder = NULL;
-    svs_index_t index = NULL;
+    svs_algorithm_h algorithm = NULL;
+    svs_storage_h storage = NULL;
+    svs_index_builder_h builder = NULL;
+    svs_index_h index = NULL;
     svs_search_results_t results = NULL;
 
     // Allocate random data
@@ -106,9 +106,17 @@ int main() {
     }
     printf("Index built successfully!\n");
 
+    // Search params
+    svs_search_params_h search_params = svs_search_params_create_vamana(100, error);
+    if (!search_params) {
+        fprintf(stderr, "Failed to create search params: %s\n", svs_error_get_message(error));
+        ret = 1;
+        goto cleanup;
+    }
+
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results = svs_index_search(index, queries, NUM_QUERIES, K, error);
+    results = svs_index_search(index, queries, NUM_QUERIES, K, search_params, error);
     if (!results) {
         fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
         ret = 1;

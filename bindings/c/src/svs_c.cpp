@@ -43,7 +43,7 @@ struct svs_error_desc {
 
 template <typename Callable, typename Result = std::invoke_result_t<Callable>>
 inline Result
-runtime_error_wrapper(Callable&& func, svs_error_t err, Result err_res = {}) noexcept {
+runtime_error_wrapper(Callable&& func, svs_error_h err, Result err_res = {}) noexcept {
     try {
         SET_ERROR(err, SVS_OK, "Success");
         return func();
@@ -71,23 +71,27 @@ struct svs_algorithm {
     std::shared_ptr<svs::c_runtime::Algorithm> impl;
 };
 
+struct svs_search_params {
+    std::shared_ptr<svs::c_runtime::Algorithm::SearchParams> impl;
+};
+
 struct svs_storage {
     std::shared_ptr<svs::c_runtime::Storage> impl;
 };
 
-extern "C" svs_error_t svs_error_init() { return new svs_error_desc{SVS_OK, "Success"}; }
-extern "C" bool svs_error_ok(svs_error_t err) { return err->code == SVS_OK; }
-extern "C" svs_error_code_t svs_error_get_code(svs_error_t err) { return err->code; }
-extern "C" const char* svs_error_get_message(svs_error_t err) {
+extern "C" svs_error_h svs_error_init() { return new svs_error_desc{SVS_OK, "Success"}; }
+extern "C" bool svs_error_ok(svs_error_h err) { return err->code == SVS_OK; }
+extern "C" svs_error_code_t svs_error_get_code(svs_error_h err) { return err->code; }
+extern "C" const char* svs_error_get_message(svs_error_h err) {
     return err->message.c_str();
 }
-extern "C" void svs_error_free(svs_error_t err) { delete err; }
+extern "C" void svs_error_free(svs_error_h err) { delete err; }
 
-extern "C" svs_algorithm_t svs_algorithm_create_vamana(
+extern "C" svs_algorithm_h svs_algorithm_create_vamana(
     size_t graph_degree,
     size_t build_window_size,
     size_t search_window_size,
-    svs_error_t out_err
+    svs_error_h out_err
 ) {
     return runtime_error_wrapper(
         [&]() {
@@ -103,10 +107,32 @@ extern "C" svs_algorithm_t svs_algorithm_create_vamana(
     );
 }
 
-extern "C" void svs_algorithm_free(svs_algorithm_t algorithm) { delete algorithm; }
+extern "C" void svs_algorithm_free(svs_algorithm_h algorithm) { delete algorithm; }
 
-extern "C" svs_storage_t
-svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err) {
+extern "C" svs_search_params_h svs_search_params_create_vamana(
+    size_t search_window_size,
+    svs_error_h out_err
+) {
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto params = std::make_shared<AlgorithmVamana::SearchParams>(
+                search_window_size
+            );
+            auto result = new svs_search_params;
+            result->impl = params;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" void svs_search_params_free(svs_search_params_h params) {
+    delete params;
+}
+
+extern "C" svs_storage_h
+svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err) {
     return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
@@ -119,11 +145,11 @@ svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err) {
     );
 }
 
-extern "C" svs_storage_t svs_storage_create_leanvec(
+extern "C" svs_storage_h svs_storage_create_leanvec(
     size_t lenavec_dims,
     svs_data_type_t primary,
     svs_data_type_t secondary,
-    svs_error_t out_err
+    svs_error_h out_err
 ) {
     return runtime_error_wrapper(
         [&]() {
@@ -138,13 +164,13 @@ extern "C" svs_storage_t svs_storage_create_leanvec(
     );
 }
 
-extern "C" void svs_storage_free(svs_storage_t storage) { delete storage; }
+extern "C" void svs_storage_free(svs_storage_h storage) { delete storage; }
 
-extern "C" svs_index_builder_t svs_index_builder_create(
+extern "C" svs_index_builder_h svs_index_builder_create(
     svs_distance_metric_t metric,
     size_t dimension,
-    svs_algorithm_t algorithm,
-    svs_error_t out_err
+    svs_algorithm_h algorithm,
+    svs_error_h out_err
 ) {
     return runtime_error_wrapper(
         [&]() {
@@ -159,10 +185,10 @@ extern "C" svs_index_builder_t svs_index_builder_create(
     );
 }
 
-extern "C" void svs_index_builder_free(svs_index_builder_t builder) { delete builder; }
+extern "C" void svs_index_builder_free(svs_index_builder_h builder) { delete builder; }
 
 extern "C" bool svs_index_builder_set_storage(
-    svs_index_builder_t builder, svs_storage_t storage, svs_error_t out_err
+    svs_index_builder_h builder, svs_storage_h storage, svs_error_h out_err
 ) {
     if (builder == nullptr || storage == nullptr) {
         SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
@@ -178,10 +204,10 @@ extern "C" bool svs_index_builder_set_storage(
 }
 
 extern "C" bool svs_index_builder_set_thread_pool(
-    svs_index_builder_t builder,
+    svs_index_builder_h builder,
     svs_thread_pool_kind_t kind,
     size_t num_threads,
-    svs_error_t out_err
+    svs_error_h out_err
 ) {
     if (builder == nullptr) {
         SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
@@ -196,8 +222,8 @@ extern "C" bool svs_index_builder_set_thread_pool(
     );
 }
 
-extern "C" svs_index_t svs_index_build(
-    svs_index_builder_t builder, const float* data, size_t num_vectors, svs_error_t out_err
+extern "C" svs_index_h svs_index_build(
+    svs_index_builder_h builder, const float* data, size_t num_vectors, svs_error_h out_err
 ) {
     if (builder == nullptr || num_vectors == 0 || data == nullptr) {
         SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
@@ -223,7 +249,7 @@ extern "C" svs_index_t svs_index_build(
             auto index = builder->impl->build(src_data);
             if (index == nullptr) {
                 SET_ERROR(out_err, SVS_ERROR_INDEX_BUILD_FAILED, "Index build failed");
-                return svs_index_t{nullptr};
+                return svs_index_h{nullptr};
             }
 
             auto result = new svs_index;
@@ -234,14 +260,15 @@ extern "C" svs_index_t svs_index_build(
     );
 }
 
-extern "C" void svs_index_free(svs_index_t index) { delete index; }
+extern "C" void svs_index_free(svs_index_h index) { delete index; }
 
 extern "C" svs_search_results_t svs_index_search(
-    svs_index_t index,
+    svs_index_h index,
     const float* queries,
     size_t num_queries,
     size_t k,
-    svs_error_t out_err
+    svs_search_params_h search_params,
+    svs_error_h out_err
 ) {
     if (index == nullptr || queries == nullptr || num_queries == 0 || k == 0) {
         SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
@@ -262,7 +289,7 @@ extern "C" svs_search_results_t svs_index_search(
                 queries, num_queries, vamana_index.dimensions()
             );
 
-            auto search_results = index->impl->search(queries_view, k, nullptr);
+            auto search_results = index->impl->search(queries_view, k, search_params->impl);
 
             svs_search_results_t results =
                 new svs_search_results{0, nullptr, nullptr, nullptr};
