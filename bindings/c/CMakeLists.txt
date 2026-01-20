@@ -17,6 +17,7 @@ project(svs_c_api VERSION 0.1.0 LANGUAGES CXX C)
 set(TARGET_NAME svs_c_api)
 
 set(SVS_C_API_HEADERS
+    include/svs/c_api/svs_c_config.h
     include/svs/c_api/svs_c.h
 )
 
@@ -25,6 +26,8 @@ set(SVS_C_API_SOURCES
     src/storage.hpp
     src/index.hpp
     src/index_builder.hpp
+    src/thread_pool.hpp
+    src/types_support.hpp
     src/svs_c.cpp
 )
 
@@ -42,7 +45,7 @@ target_link_libraries(${TARGET_NAME} PUBLIC OpenMP::OpenMP_CXX)
 
 target_compile_options(${TARGET_NAME} PRIVATE
     -DSVS_ENABLE_OMP=1
-#    -fvisibility=hidden
+    -fvisibility=hidden
 )
 
 if(UNIX AND NOT APPLE)
@@ -66,54 +69,54 @@ link_mkl_static(${TARGET_NAME})
 #     PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
 # )
 
-# installing
-# include(GNUInstallDirs)
+# Installing
+include(GNUInstallDirs)
 
-# set(SVS_RUNTIME_EXPORT_NAME ${TARGET_NAME})
-# set(VERSION_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/${SVS_RUNTIME_EXPORT_NAME}ConfigVersion.cmake")
-# set(SVS_RUNTIME_CONFIG_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/svs_runtime)
-# set(SVS_RUNTIME_COMPONENT_NAME "Runtime")
+set(SVS_C_API_EXPORT_NAME ${TARGET_NAME})
+set(VERSION_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}ConfigVersion.cmake")
+set(SVS_C_API_CONFIG_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/svs_c_api)
+set(SVS_C_API_COMPONENT_NAME "C_API")
 
-# install(TARGETS ${TARGET_NAME}
-#     EXPORT ${SVS_RUNTIME_EXPORT_NAME}
-#     COMPONENT ${SVS_RUNTIME_COMPONENT_NAME}
-#     LIBRARY DESTINATION lib
-#     PUBLIC_HEADER DESTINATION include/svs/runtime
-#     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-# )
+install(TARGETS ${TARGET_NAME}
+    EXPORT ${SVS_C_API_EXPORT_NAME}
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include/svs/c_api
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
-# install(DIRECTORY include/svs/runtime
-#     COMPONENT ${SVS_RUNTIME_COMPONENT_NAME}
-#     DESTINATION include/svs
-#     FILES_MATCHING PATTERN "*.h"
-# )
+install(DIRECTORY include/svs/c_api
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    DESTINATION include/svs
+    FILES_MATCHING PATTERN "*.h"
+)
 
-# install(EXPORT ${SVS_RUNTIME_EXPORT_NAME}
-#     COMPONENT ${SVS_RUNTIME_COMPONENT_NAME}
-#     NAMESPACE svs::
-#     DESTINATION ${SVS_RUNTIME_CONFIG_INSTALL_DIR}
-# )
+install(EXPORT ${SVS_C_API_EXPORT_NAME}
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    NAMESPACE svs::
+    DESTINATION ${SVS_C_API_CONFIG_INSTALL_DIR}
+)
 
-# include(CMakePackageConfigHelpers)
-# configure_package_config_file(
-#     "${CMAKE_CURRENT_LIST_DIR}/runtimeConfig.cmake.in"
-#     "${CMAKE_CURRENT_BINARY_DIR}/${SVS_RUNTIME_EXPORT_NAME}Config.cmake"
-#     INSTALL_DESTINATION "${SVS_RUNTIME_CONFIG_INSTALL_DIR}"
-# )
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+    "${CMAKE_CURRENT_LIST_DIR}/c_apiConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}Config.cmake"
+    INSTALL_DESTINATION "${SVS_C_API_CONFIG_INSTALL_DIR}"
+)
 
-# # Don't make compatibility guarantees until we reach a compatibility milestone.
-# write_basic_package_version_file(
-#     ${VERSION_CONFIG}
-#     VERSION ${PROJECT_VERSION}
-#     COMPATIBILITY ExactVersion
-# )
+# Don't make compatibility guarantees until we reach a compatibility milestone.
+write_basic_package_version_file(
+    ${VERSION_CONFIG}
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY ExactVersion
+)
 
-# install(FILES
-#     "${CMAKE_CURRENT_BINARY_DIR}/${SVS_RUNTIME_EXPORT_NAME}Config.cmake"
-#     "${VERSION_CONFIG}"
-#     COMPONENT ${SVS_RUNTIME_COMPONENT_NAME}
-#     DESTINATION "${SVS_RUNTIME_CONFIG_INSTALL_DIR}"
-# )
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}Config.cmake"
+    "${VERSION_CONFIG}"
+    COMPONENT ${SVS_C_API_COMPONENT_NAME}
+    DESTINATION "${SVS_C_API_CONFIG_INSTALL_DIR}"
+)
 
 # Build tests if requested
 # if(SVS_BUILD_C_API_TESTS)
