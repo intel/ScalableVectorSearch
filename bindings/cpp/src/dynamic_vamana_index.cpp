@@ -215,7 +215,6 @@ Status DynamicVamanaIndex::load(
     });
 }
 
-#ifdef SVS_LEANVEC_HEADER
 // Specialization to build LeanVec-based Vamana index with specified leanvec dims
 // ABI backward compatibility
 Status DynamicVamanaIndexLeanVec::build(
@@ -239,6 +238,8 @@ Status DynamicVamanaIndexLeanVec::build(
     );
 }
 
+#ifdef SVS_LEANVEC_HEADER
+// Specialization to build LeanVec-based Vamana index with specified leanvec dims
 Status DynamicVamanaIndexLeanVec::build(
     DynamicVamanaIndex** index,
     size_t dim,
@@ -271,27 +272,6 @@ Status DynamicVamanaIndexLeanVec::build(
 }
 
 // Specialization to build LeanVec-based Vamana index with provided training data
-// ABI backward compatibility
-Status DynamicVamanaIndexLeanVec::build(
-    DynamicVamanaIndex** index,
-    size_t dim,
-    MetricType metric,
-    StorageKind storage_kind,
-    const LeanVecTrainingData* training_data,
-    const DynamicVamanaIndex::BuildParams& params,
-    const DynamicVamanaIndex::SearchParams& default_search_params
-) noexcept {
-    return build(
-        index,
-        dim,
-        metric,
-        storage_kind,
-        training_data,
-        params,
-        default_search_params,
-        DynamicVamanaIndex::DynamicIndexParams{}
-    );
-}
 
 Status DynamicVamanaIndexLeanVec::build(
     DynamicVamanaIndex** index,
