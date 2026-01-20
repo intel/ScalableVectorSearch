@@ -20,6 +20,8 @@
 #include "index.hpp"
 #include "index_builder.hpp"
 #include "storage.hpp"
+#include "thread_pool.hpp"
+#include "types_support.hpp"
 
 #include <svs/core/data.h>
 #include <svs/core/query_result.h>
@@ -31,17 +33,17 @@ struct svs_error_desc {
     std::string message;
 };
 
-#define SET_ERROR(err, c, msg)    \
-    do {                          \
-        if (err) {                \
-            err->code = (c);      \
-            err->message = (msg); \
-        }                         \
+#define SET_ERROR(err, c, msg)      \
+    do {                            \
+        if (err) {                  \
+            (err)->code = (c);      \
+            (err)->message = (msg); \
+        }                           \
     } while (0)
 
-template <typename Result, typename Callable>
-inline auto
-runtime_error_wrapper(Callable&& func, Result err_res, svs_error_t err) noexcept {
+template <typename Callable, typename Result = std::invoke_result_t<Callable>>
+inline Result
+runtime_error_wrapper(Callable&& func, svs_error_t err, Result err_res = {}) noexcept {
     try {
         SET_ERROR(err, SVS_OK, "Success");
         return func();
@@ -87,7 +89,7 @@ extern "C" svs_algorithm_t svs_algorithm_create_vamana(
     size_t search_window_size,
     svs_error_t out_err
 ) {
-    return runtime_error_wrapper<svs_algorithm_t>(
+    return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
             auto algorithm = std::make_shared<AlgorithmVamana>(
@@ -97,7 +99,6 @@ extern "C" svs_algorithm_t svs_algorithm_create_vamana(
             result->impl = algorithm;
             return result;
         },
-        nullptr,
         out_err
     );
 }
@@ -106,7 +107,7 @@ extern "C" void svs_algorithm_free(svs_algorithm_t algorithm) { delete algorithm
 
 extern "C" svs_storage_t
 svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err) {
-    return runtime_error_wrapper<svs_storage_t>(
+    return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
             auto storage = std::make_shared<StorageSimple>(data_type);
@@ -114,7 +115,6 @@ svs_storage_create_simple(svs_data_type_t data_type, svs_error_t out_err) {
             result->impl = storage;
             return result;
         },
-        nullptr,
         out_err
     );
 }
@@ -125,7 +125,7 @@ extern "C" svs_storage_t svs_storage_create_leanvec(
     svs_data_type_t secondary,
     svs_error_t out_err
 ) {
-    return runtime_error_wrapper<svs_storage_t>(
+    return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
             auto storage =
@@ -134,7 +134,6 @@ extern "C" svs_storage_t svs_storage_create_leanvec(
             result->impl = storage;
             return result;
         },
-        nullptr,
         out_err
     );
 }
@@ -147,7 +146,7 @@ extern "C" svs_index_builder_t svs_index_builder_create(
     svs_algorithm_t algorithm,
     svs_error_t out_err
 ) {
-    return runtime_error_wrapper<svs_index_builder_t>(
+    return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
             auto builder =
@@ -156,7 +155,6 @@ extern "C" svs_index_builder_t svs_index_builder_create(
             result->impl = builder;
             return result;
         },
-        nullptr,
         out_err
     );
 }
@@ -170,12 +168,30 @@ extern "C" bool svs_index_builder_set_storage(
         SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
         return false;
     }
-    return runtime_error_wrapper<bool>(
+    return runtime_error_wrapper(
         [&]() {
             builder->impl->set_storage(storage->impl);
             return true;
         },
-        false,
+        out_err
+    );
+}
+
+extern "C" bool svs_index_builder_set_thread_pool(
+    svs_index_builder_t builder,
+    svs_thread_pool_kind_t kind,
+    size_t num_threads,
+    svs_error_t out_err
+) {
+    if (builder == nullptr) {
+        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
+        return false;
+    }
+    return runtime_error_wrapper(
+        [&]() {
+            builder->impl->set_thread_pool({kind, num_threads});
+            return true;
+        },
         out_err
     );
 }
@@ -197,7 +213,7 @@ extern "C" svs_index_t svs_index_build(
         return nullptr;
     }
 
-    return runtime_error_wrapper<svs_index_t>(
+    return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
             auto src_data = svs::data::ConstSimpleDataView<float>(
@@ -214,7 +230,6 @@ extern "C" svs_index_t svs_index_build(
             result->impl = index;
             return result;
         },
-        nullptr,
         out_err
     );
 }
@@ -237,7 +252,7 @@ extern "C" svs_search_results_t svs_index_search(
         return nullptr;
     }
 
-    return runtime_error_wrapper<svs_search_results_t>(
+    return runtime_error_wrapper(
         [&]() {
             using namespace svs::c_runtime;
 
@@ -267,7 +282,6 @@ extern "C" svs_search_results_t svs_index_search(
 
             return results;
         },
-        nullptr,
         out_err
     );
 }

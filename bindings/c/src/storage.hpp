@@ -78,7 +78,10 @@ template <Arithmetic T> class SimpleDataBuilder {
     using SimpleDataType =
         svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
 
-    SimpleDataType build(svs::data::ConstSimpleDataView<T> view) {
+    SimpleDataType build(
+        svs::data::ConstSimpleDataView<T> view,
+        svs::threads::ThreadPoolHandle& SVS_UNUSED(pool)
+    ) {
         auto data = SimpleDataType(view.size(), view.dimensions());
         svs::data::copy(view, data);
         return data;
@@ -121,8 +124,9 @@ template <size_t I1, size_t I2> class LeanVecDataBuilder {
         svs::Dynamic,
         svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
 
-    template <Arithmetic T> LeanDatasetType build(svs::data::ConstSimpleDataView<T> view) {
-        auto pool = default_threadpool();
+    template <Arithmetic T>
+    LeanDatasetType
+    build(svs::data::ConstSimpleDataView<T> view, svs::threads::ThreadPoolHandle& pool) {
         return LeanDatasetType::reduce(
             view, std::nullopt, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}
         );

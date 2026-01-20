@@ -20,6 +20,7 @@
 #include "algorithm.hpp"
 #include "index.hpp"
 #include "storage.hpp"
+#include "thread_pool.hpp"
 #include "types_support.hpp"
 
 #include <svs/concepts/data.h>
@@ -35,10 +36,13 @@ svs::Vamana build_vamana_index_uncompressed(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> src_data,
     SimpleDataBuilder<T> builder,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
 ) {
-    auto data = builder.build(std::move(src_data));
-    return svs::Vamana::build<float>(build_params, std::move(data), distance_type);
+    auto data = builder.build(std::move(src_data), pool);
+    return svs::Vamana::build<float>(
+        build_params, std::move(data), distance_type, std::move(pool)
+    );
 }
 
 template <size_t I1, size_t I2>
@@ -46,10 +50,13 @@ svs::Vamana build_vamana_index_leanvec(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> src_data,
     LeanVecDataBuilder<I1, I2> builder,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
 ) {
-    auto data = builder.build(std::move(src_data));
-    return svs::Vamana::build<float>(build_params, std::move(data), distance_type);
+    auto data = builder.build(std::move(src_data), pool);
+    return svs::Vamana::build<float>(
+        build_params, std::move(data), distance_type, std::move(pool)
+    );
 }
 
 template <typename Dispatcher>
@@ -69,7 +76,8 @@ using BuildIndexDispatcher = svs::lib::Dispatcher<
     const svs::index::vamana::VamanaBuildParameters&,
     svs::data::ConstSimpleDataView<float>,
     const Storage*,
-    svs::DistanceType>;
+    svs::DistanceType,
+    svs::threads::ThreadPoolHandle>;
 
 BuildIndexDispatcher build_vamana_index_dispatcher() {
     auto dispatcher = BuildIndexDispatcher{};
@@ -81,10 +89,11 @@ svs::Vamana build_vamana_index(
     const svs::index::vamana::VamanaBuildParameters& build_params,
     svs::data::ConstSimpleDataView<float> src_data,
     const Storage* storage,
-    svs::DistanceType distance_type
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
 ) {
     return build_vamana_index_dispatcher().invoke(
-        build_params, std::move(src_data), storage, distance_type
+        build_params, std::move(src_data), storage, distance_type, std::move(pool)
     );
 }
 
@@ -93,6 +102,8 @@ struct IndexBuilder {
     size_t dimension;
     std::shared_ptr<Algorithm> algorithm;
     std::shared_ptr<Storage> storage;
+    ThreadPoolBuilder pool_builder;
+
     IndexBuilder(
         svs_distance_metric_t distance_metric,
         size_t dimension,
@@ -101,12 +112,17 @@ struct IndexBuilder {
         : distance_metric(distance_metric)
         , dimension(dimension)
         , algorithm(std::move(algorithm))
-        , storage(std::make_shared<StorageSimple>(SVS_DATA_TYPE_FLOAT32)) {}
+        , storage(std::make_shared<StorageSimple>(SVS_DATA_TYPE_FLOAT32))
+        , pool_builder{} {}
 
     ~IndexBuilder() {}
 
     void set_storage(std::shared_ptr<Storage> storage) {
         this->storage = std::move(storage);
+    }
+
+    void set_thread_pool(ThreadPoolBuilder thread_pool_builder) {
+        std::swap(this->pool_builder, thread_pool_builder);
     }
 
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data) {
@@ -122,7 +138,8 @@ struct IndexBuilder {
                 vamana_algorithm->get_build_parameters(),
                 data,
                 storage.get(),
-                to_distance_type(distance_metric)
+                to_distance_type(distance_metric),
+                pool_builder.build()
             ));
 
             return index;

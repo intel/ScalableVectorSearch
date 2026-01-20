@@ -55,6 +55,13 @@ enum svs_data_type {
 
 enum svs_storage_kind { SVS_STORAGE_KIND_SIMPLE = 0, SVS_STORAGE_KIND_LEANVEC = 1 };
 
+enum svs_thread_pool_kind {
+    SVS_THREAD_POOL_KIND_NATIVE = 0,
+    SVS_THREAD_POOL_KIND_OMP = 1,
+    SVS_THREAD_POOL_KIND_SINGLE_THREAD = 2,
+    SVS_THREAD_POOL_KIND_MANUAL = 3
+};
+
 struct svs_search_results {
     size_t num_queries;
     size_t* results_per_query;
@@ -68,11 +75,13 @@ typedef struct svs_index_builder* svs_index_builder_t;
 typedef struct svs_algorithm* svs_algorithm_t;
 typedef struct svs_storage* svs_storage_t;
 typedef struct svs_search_results* svs_search_results_t;
+typedef struct svs_thread_pool* svs_thread_pool_t;
 
 typedef enum svs_error_code svs_error_code_t;
 typedef enum svs_distance_metric svs_distance_metric_t;
 typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
+typedef enum svs_thread_pool_kind svs_thread_pool_kind_t;
 
 svs_error_t svs_error_init();
 bool svs_error_ok(svs_error_t err);
@@ -107,6 +116,13 @@ void svs_index_builder_free(svs_index_builder_t builder);
 
 bool svs_index_builder_set_storage(
     svs_index_builder_t builder, svs_storage_t storage, svs_error_t out_err /*=NULL*/
+);
+
+bool svs_index_builder_set_thread_pool(
+    svs_index_builder_t builder,
+    svs_thread_pool_kind_t kind,
+    size_t num_threads,
+    svs_error_t out_err /*=NULL*/
 );
 
 svs_index_t svs_index_build(
