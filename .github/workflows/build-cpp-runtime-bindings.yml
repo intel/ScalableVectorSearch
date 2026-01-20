@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@v6
 
       - name: Build Docker image
         run: |
@@ -61,7 +61,7 @@ jobs:
             /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 
       - name: Upload cpp runtime bindings artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
@@ -97,7 +97,7 @@ jobs:
             suffix: "-public-only"
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@v6
 
       - name: Build Docker image
         run: |
@@ -105,7 +105,7 @@ jobs:
 
       # Need to download for a new job
       - name: Download conda package
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@v7
         with:
           name: libsvs-runtime-conda${{ matrix.suffix }}
           path: runtime_conda
