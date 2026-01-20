@@ -253,8 +253,8 @@ Status DynamicVamanaIndexLeanVec::build(
         index,
         dim,
         metric,
+        storage_kind,
         training_data,
-        leanvec_dims,
         params,
         default_search_params,
         DynamicVamanaIndex::DynamicIndexParams{}
