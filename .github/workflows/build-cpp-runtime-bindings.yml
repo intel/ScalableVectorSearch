@@ -61,14 +61,14 @@ jobs:
             /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 
       - name: Upload cpp runtime bindings artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
 
       - name: Upload conda package artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: libsvs-runtime-conda${{ matrix.suffix }}
           path: conda-bld/linux-64/libsvs-runtime-*.conda
