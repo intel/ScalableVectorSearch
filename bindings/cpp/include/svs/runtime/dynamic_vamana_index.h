@@ -43,6 +43,7 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     ) noexcept;
 
     // Static constructors and destructors
+    // ABI backward compatibility
     static Status build(
         DynamicVamanaIndex** index,
         size_t dim,
@@ -77,6 +78,7 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
 
 struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
     // Specialization to build LeanVec-based Vamana index with specified leanvec dims
+    // ABI backward compatibility
     static Status build(
         DynamicVamanaIndex** index,
         size_t dim,
@@ -84,11 +86,22 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {},
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {}
+    ) noexcept;
+
+    static Status build(
+        DynamicVamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        size_t leanvec_dims,
+        const VamanaIndex::BuildParams& params,
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params
     ) noexcept;
 
     // Specialization to build LeanVec-based Vamana index with provided training data
+    // ABI backward compatibility
     static Status build(
         DynamicVamanaIndex** index,
         size_t dim,
@@ -96,8 +109,18 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         StorageKind storage_kind,
         const LeanVecTrainingData* training_data,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {},
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {}
+    ) noexcept;
+
+    static Status build(
+        DynamicVamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        const LeanVecTrainingData* training_data,
+        const VamanaIndex::BuildParams& params,
+        const VamanaIndex::SearchParams& default_search_params,
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params
     ) noexcept;
 };
 
