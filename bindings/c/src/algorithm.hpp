@@ -40,6 +40,7 @@ struct Algorithm {
     virtual ~Algorithm() = default;
 
     virtual std::shared_ptr<SearchParams> get_default_search_params() const = 0;
+    virtual void set_default_search_params(const std::shared_ptr<SearchParams>& params) = 0;
 };
 
 struct AlgorithmVamana : public Algorithm {
@@ -57,27 +58,32 @@ struct AlgorithmVamana : public Algorithm {
         }
     };
 
-    size_t graph_degree;
-    size_t build_window_size;
+    svs::index::vamana::VamanaBuildParameters build_params;
     SearchParams default_search_params;
 
     AlgorithmVamana(
         size_t graph_degree, size_t build_window_size, size_t search_window_size
     )
         : Algorithm{SVS_ALGORITHM_TYPE_VAMANA}
-        , graph_degree(graph_degree)
-        , build_window_size(build_window_size)
-        , default_search_params(search_window_size) {}
+        , build_params()
+        , default_search_params(search_window_size) {
+        build_params.graph_max_degree = graph_degree;
+        build_params.window_size = build_window_size;
+    }
 
-    svs::index::vamana::VamanaBuildParameters get_build_parameters() const {
-        svs::index::vamana::VamanaBuildParameters params;
-        params.graph_max_degree = graph_degree;
-        params.window_size = build_window_size;
-        return params;
+    svs::index::vamana::VamanaBuildParameters& build_parameters() { return build_params; }
+
+    const svs::index::vamana::VamanaBuildParameters& build_parameters() const {
+        return build_params;
     }
 
     std::shared_ptr<Algorithm::SearchParams> get_default_search_params() const override {
         return std::make_shared<SearchParams>(default_search_params);
+    }
+
+    void set_default_search_params(const std::shared_ptr<Algorithm::SearchParams>& params
+    ) override {
+        default_search_params = *std::static_pointer_cast<SearchParams>(params);
     }
 };
 

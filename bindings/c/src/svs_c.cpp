@@ -41,6 +41,38 @@ struct svs_error_desc {
         }                           \
     } while (0)
 
+#define EXPECT_NOT_NULL(arg, out_err)                                                     \
+    do {                                                                                  \
+        if ((arg) == nullptr) {                                                           \
+            SET_ERROR((out_err), SVS_ERROR_INVALID_ARGUMENT, #arg " should not be NULL"); \
+            return false;                                                                 \
+        }                                                                                 \
+    } while (0)
+
+#define EXPECT_EQUAL(actual, expected, out_err, msg)               \
+    do {                                                           \
+        if ((actual) != (expected)) {                              \
+            SET_ERROR((out_err), SVS_ERROR_INVALID_ARGUMENT, msg); \
+            return false;                                          \
+        }                                                          \
+    } while (0)
+
+#define EXPECT_NEQUAL(actual, unexpected, out_err, msg)            \
+    do {                                                           \
+        if ((actual) == (unexpected)) {                            \
+            SET_ERROR((out_err), SVS_ERROR_INVALID_ARGUMENT, msg); \
+            return false;                                          \
+        }                                                          \
+    } while (0)
+
+#define NOT_IMPLEMENTED_IF(cond, out_err, msg)                    \
+    do {                                                          \
+        if (cond) {                                               \
+            SET_ERROR((out_err), SVS_ERROR_NOT_IMPLEMENTED, msg); \
+            return false;                                         \
+        }                                                         \
+    } while (0)
+
 template <typename Callable, typename Result = std::invoke_result_t<Callable>>
 inline Result
 runtime_error_wrapper(Callable&& func, svs_error_h err, Result err_res = {}) noexcept {
@@ -108,6 +140,188 @@ extern "C" svs_algorithm_h svs_algorithm_create_vamana(
 }
 
 extern "C" void svs_algorithm_free(svs_algorithm_h algorithm) { delete algorithm; }
+
+extern "C" bool svs_algorithm_vamana_get_alpha(
+    svs_algorithm_h algorithm, float* out_alpha, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_NOT_NULL(out_alpha, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            *out_alpha = vamana_algorithm->build_parameters().alpha;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_set_alpha(
+    svs_algorithm_h algorithm, float alpha, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            vamana_algorithm->build_parameters().alpha = alpha;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_get_graph_degree(
+    svs_algorithm_h algorithm, size_t* out_graph_degree, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_NOT_NULL(out_graph_degree, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            *out_graph_degree = vamana_algorithm->build_parameters().graph_max_degree;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_set_graph_degree(
+    svs_algorithm_h algorithm, size_t graph_degree, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            vamana_algorithm->build_parameters().graph_max_degree = graph_degree;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_get_build_window_size(
+    svs_algorithm_h algorithm, size_t* out_build_window_size, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_NOT_NULL(out_build_window_size, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            *out_build_window_size = vamana_algorithm->build_parameters().window_size;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_set_build_window_size(
+    svs_algorithm_h algorithm, size_t build_window_size, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            vamana_algorithm->build_parameters().window_size = build_window_size;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_get_use_search_history(
+    svs_algorithm_h algorithm, bool* out_use_full_search_history, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_NOT_NULL(out_use_full_search_history, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            *out_use_full_search_history =
+                vamana_algorithm->build_parameters().use_full_search_history;
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_vamana_set_use_search_history(
+    svs_algorithm_h algorithm, bool use_full_search_history, svs_error_h out_err
+) {
+    EXPECT_NOT_NULL(algorithm, out_err);
+    EXPECT_EQUAL(
+        algorithm->impl->type,
+        SVS_ALGORITHM_TYPE_VAMANA,
+        out_err,
+        "Algorithm type does not support this operation"
+    );
+    return runtime_error_wrapper(
+        [&]() {
+            using namespace svs::c_runtime;
+            auto vamana_algorithm =
+                std::static_pointer_cast<AlgorithmVamana>(algorithm->impl);
+            vamana_algorithm->build_parameters().use_full_search_history =
+                use_full_search_history;
+            return true;
+        },
+        out_err
+    );
+}
 
 extern "C" svs_search_params_h
 svs_search_params_create_vamana(size_t search_window_size, svs_error_h out_err) {

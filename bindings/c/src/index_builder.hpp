@@ -121,11 +121,8 @@ struct IndexBuilder {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
-            svs::index::vamana::VamanaBuildParameters build_params =
-                vamana_algorithm->get_build_parameters();
-
             auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_build(
-                vamana_algorithm->get_build_parameters(),
+                vamana_algorithm->build_parameters(),
                 data,
                 storage.get(),
                 to_distance_type(distance_metric),

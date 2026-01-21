@@ -152,6 +152,80 @@ SVS_API svs_algorithm_h svs_algorithm_create_vamana(
 /// @param algorithm The algorithm handle to free
 SVS_API void svs_algorithm_free(svs_algorithm_h algorithm);
 
+/// @brief Get the alpha parameter from a Vamana algorithm configuration
+/// @param algorithm The algorithm handle
+/// @param out_alpha Pointer to store the retrieved alpha parameter
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_get_alpha(
+    svs_algorithm_h algorithm, float* out_alpha, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the alpha parameter in a Vamana algorithm configuration
+/// @param algorithm The algorithm handle
+/// @param alpha The alpha parameter to set
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_set_alpha(
+    svs_algorithm_h algorithm, float alpha, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the graph degree parameter from a Vamana algorithm configuration
+/// @param algorithm The algorithm handle
+/// @param out_graph_degree Pointer to store the retrieved graph degree parameter
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_get_graph_degree(
+    svs_algorithm_h algorithm, size_t* out_graph_degree, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the graph degree parameter in a Vamana algorithm configuration
+/// @param algorithm The algorithm handle
+/// @param graph_degree The graph degree parameter to set
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_set_graph_degree(
+    svs_algorithm_h algorithm, size_t graph_degree, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the build window size parameter from a Vamana algorithm configuration
+/// @param algorithm The algorithm handle
+/// @param out_build_window_size Pointer to store the retrieved build window size parameter
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_get_build_window_size(
+    svs_algorithm_h algorithm, size_t* out_build_window_size, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set the build window size parameter in a Vamana algorithm configuration
+/// @param algorithm The algorithm handle
+/// @param build_window_size The build window size parameter to set
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_set_build_window_size(
+    svs_algorithm_h algorithm, size_t build_window_size, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get whether to use full search history in the Vamana algorithm
+/// @param algorithm The algorithm handle
+/// @param out_use_full_search_history Pointer to store whether full search history is used
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_get_use_search_history(
+    svs_algorithm_h algorithm,
+    bool* out_use_full_search_history,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set whether to use full search history in the Vamana algorithm
+/// @param algorithm The algorithm handle
+/// @param use_full_search_history Whether to use full search history
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_vamana_set_use_search_history(
+    svs_algorithm_h algorithm, bool use_full_search_history, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Create Vamana search parameters
 /// @param search_window_size The search window size parameter
 /// @param out_err An optional error handle to capture errors
