@@ -26,7 +26,7 @@ set(SVS_C_API_SOURCES
     src/storage.hpp
     src/index.hpp
     src/index_builder.hpp
-    src/thread_pool.hpp
+    src/threadpool.hpp
     src/types_support.hpp
     src/svs_c.cpp
 )

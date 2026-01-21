@@ -20,7 +20,7 @@
 #include "index.hpp"
 #include "index_builder.hpp"
 #include "storage.hpp"
-#include "thread_pool.hpp"
+#include "threadpool.hpp"
 #include "types_support.hpp"
 
 #include <svs/core/data.h>
@@ -227,9 +227,9 @@ extern "C" bool svs_index_builder_set_storage(
     );
 }
 
-extern "C" bool svs_index_builder_set_thread_pool(
+extern "C" bool svs_index_builder_set_threadpool(
     svs_index_builder_h builder,
-    svs_thread_pool_kind_t kind,
+    svs_threadpool_kind_t kind,
     size_t num_threads,
     svs_error_h out_err
 ) {
@@ -239,7 +239,25 @@ extern "C" bool svs_index_builder_set_thread_pool(
     }
     return runtime_error_wrapper(
         [&]() {
-            builder->impl->set_thread_pool({kind, num_threads});
+            builder->impl->set_threadpool_builder({kind, num_threads});
+            return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_index_builder_set_threadpool_custom(
+    svs_index_builder_h builder,
+    svs_threadpool_interface_t pool,
+    svs_error_h out_err /*=NULL*/
+) {
+    if (builder == nullptr) {
+        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
+        return false;
+    }
+    return runtime_error_wrapper(
+        [&]() {
+            builder->impl->set_threadpool_builder({pool});
             return true;
         },
         out_err

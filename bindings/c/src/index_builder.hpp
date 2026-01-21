@@ -20,7 +20,7 @@
 #include "algorithm.hpp"
 #include "index.hpp"
 #include "storage.hpp"
-#include "thread_pool.hpp"
+#include "threadpool.hpp"
 #include "types_support.hpp"
 
 #include <svs/concepts/data.h>
@@ -113,8 +113,8 @@ struct IndexBuilder {
         this->storage = std::move(storage);
     }
 
-    void set_thread_pool(ThreadPoolBuilder thread_pool_builder) {
-        std::swap(this->pool_builder, thread_pool_builder);
+    void set_threadpool_builder(ThreadPoolBuilder threadpool_builder) {
+        std::swap(this->pool_builder, threadpool_builder);
     }
 
     std::shared_ptr<Index> build(const svs::data::ConstSimpleDataView<float>& data) {

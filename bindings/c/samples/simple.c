@@ -14,6 +14,24 @@ void generate_random_data(float* data, size_t count, size_t dim) {
     }
 }
 
+size_t sequential_tp_size(void* self) { return 1; }
+
+void sequential_tp_parallel_for(
+    void* self, void (*func)(void*, size_t), void* svs_param, size_t n
+) {
+    for (size_t i = 0; i < n; ++i) {
+        func(svs_param, i);
+    }
+}
+
+static struct svs_threadpool_interface sequential_threadpool = {
+    {
+        &sequential_tp_size,
+        &sequential_tp_parallel_for,
+    },
+    NULL,
+};
+
 int main() {
     int ret = 0;
     srand(time(NULL));
@@ -106,6 +124,13 @@ int main() {
 
     if (!svs_index_builder_set_storage(builder, storage, error)) {
         fprintf(stderr, "Failed to set storage: %s\n", svs_error_get_message(error));
+        ret = 1;
+        goto cleanup;
+    }
+
+    // Set custom sequential threadpool
+    if (!svs_index_builder_set_threadpool_custom(builder, &sequential_threadpool, error)) {
+        fprintf(stderr, "Failed to set threadpool: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
     }
