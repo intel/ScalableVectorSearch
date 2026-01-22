@@ -442,6 +442,62 @@ class IVFIndex {
         );
     }
 
+    ///// Saving /////
+
+    /// @brief Indicates that the index supports saving
+    static constexpr bool supports_saving = true;
+
+    /// @brief Save version for the IVF index
+    static constexpr lib::Version save_version = lib::Version(0, 0, 0);
+
+    /// @brief Serialization schema identifier
+    static constexpr std::string_view serialization_schema = "ivf_index";
+
+    /// @brief Save the IVF index to disk
+    ///
+    /// This saves all components needed to reconstruct the index:
+    /// - Centroids
+    /// - Clustered dataset (DenseClusteredDataset)
+    /// - Configuration (search parameters)
+    ///
+    /// @param config_directory Directory where the index configuration will be saved.
+    /// @param data_directory Directory where the centroids and cluster data will be saved.
+    ///
+    /// Each directory may be created as a side-effect of this method call provided that
+    /// the parent directory exists.
+    ///
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& data_directory
+    ) const {
+        // Create directories if they don't exist
+        auto centroids_dir = data_directory / "centroids";
+        auto clusters_dir = data_directory / "clusters";
+        std::filesystem::create_directories(config_directory);
+        std::filesystem::create_directories(centroids_dir);
+        std::filesystem::create_directories(clusters_dir);
+
+        // Save configuration
+        lib::save_to_disk(
+            lib::SaveOverride([&](const lib::SaveContext& SVS_UNUSED(ctx)) {
+                return lib::SaveTable(
+                    serialization_schema,
+                    save_version,
+                    {{"name", lib::save(name())},
+                     {"search_parameters", lib::save(search_parameters_)},
+                     {"intra_query_thread_count", lib::save(intra_query_thread_count_)}}
+                );
+            }),
+            config_directory
+        );
+
+        // Save centroids
+        lib::save_to_disk(centroids_, centroids_dir);
+
+        // Save clustered dataset
+        lib::save_to_disk(cluster_, clusters_dir);
+    }
+
   private:
     ///// Core Components /////
     Centroids centroids_;
@@ -762,6 +818,90 @@ auto assemble_from_file(
         intra_query_thread_count,
         std::move(logger)
     );
+}
+
+/// @brief Load a saved IVF index from disk
+///
+/// This function loads a previously saved IVF index, including centroids and
+/// clustered dataset. Unlike assemble_from_clustering which requires the original
+/// data, this function loads the pre-built index directly.
+///
+/// @tparam CentroidType Element type of centroids (e.g., float, Float16)
+/// @tparam DataType The element type of cluster data (e.g., float)
+/// @tparam Distance Distance metric type
+/// @tparam ThreadpoolProto Thread pool prototype type
+///
+/// @param config_path Path to the saved index configuration directory
+/// @param data_path Path to the saved data directory (centroids and clusters)
+/// @param distance Distance metric for searching
+/// @param threadpool_proto Thread pool for parallel processing
+/// @param intra_query_thread_count Number of threads for intra-query parallelism (default:
+///     1)
+/// @param logger Logger for logging customization
+///
+/// @return Fully constructed IVF index ready for searching
+///
+template <
+    typename CentroidType,
+    typename DataType,
+    typename Distance,
+    typename ThreadpoolProto>
+auto load_ivf_index(
+    const std::filesystem::path& config_path,
+    const std::filesystem::path& data_path,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    // Initialize timer for performance tracking
+    auto timer = lib::Timer();
+    auto load_timer = timer.push_back("Total loading time");
+
+    // Initialize thread pool
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // Load centroids
+    auto centroids_timer = timer.push_back("Loading centroids");
+    using centroids_type = data::SimpleData<CentroidType>;
+    auto centroids = lib::load_from_disk<centroids_type>(data_path / "centroids");
+    centroids_timer.finish();
+
+    // Load clustered dataset
+    auto clusters_timer = timer.push_back("Loading clusters");
+    using data_type = data::SimpleData<DataType>;
+    using cluster_type = DenseClusteredDataset<centroids_type, uint32_t, data_type>;
+    auto clusters = lib::load_from_disk<cluster_type>(data_path / "clusters", threadpool);
+    clusters_timer.finish();
+
+    // Construct the IVF index
+    auto index_timer = timer.push_back("Index construction");
+    auto index = IVFIndex(
+        std::move(centroids),
+        std::move(clusters),
+        std::move(distance),
+        std::move(threadpool),
+        intra_query_thread_count,
+        logger
+    );
+    index_timer.finish();
+
+    // Load and apply configuration if available
+    auto config_file = config_path / "svs_config.toml";
+    if (std::filesystem::exists(config_file)) {
+        auto config_timer = timer.push_back("Loading configuration");
+        auto serialized = lib::begin_deserialization(config_path);
+        // Cast to table and load search parameters from the nested table
+        auto table = serialized.cast<toml::table>();
+        auto search_params = lib::load_at<IVFSearchParameters>(table, "search_parameters");
+        index.set_search_parameters(search_params);
+        config_timer.finish();
+    }
+
+    load_timer.finish();
+    svs::logging::debug(logger, "{}", timer);
+
+    return index;
 }
 
 } // namespace svs::index::ivf

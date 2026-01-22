@@ -532,6 +532,26 @@ auto load_clustering(const std::string& clustering_path, size_t num_threads = 1)
     }
 }
 
+// Save the IVF index to directories
+void save_index(
+    svs::IVF& index, const std::string& config_path, const std::string& data_dir
+) {
+    index.save(config_path, data_dir);
+}
+
+// Load the IVF index from directories
+svs::IVF load_index(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::IVF::assemble<float, svs::BFloat16, float>(
+        config_path, data_path, distance_type, num_threads, intra_query_threads
+    );
+}
+
 } // namespace detail
 
 void wrap(py::module& m) {
@@ -629,6 +649,53 @@ void wrap(py::module& m) {
 
     // IVF Specific Extensions.
     add_interface(ivf);
+
+    // Index Saving.
+    ivf.def(
+        "save",
+        &detail::save_index,
+        py::arg("config_directory"),
+        py::arg("data_directory"),
+        R"(
+Save a constructed index to disk (useful following index construction).
+
+Args:
+    config_directory: Directory where index configuration information will be saved.
+    data_directory: Directory where the dataset will be saved.
+
+Note: All directories should be separate to avoid accidental name collision with any
+auxiliary files that are needed when saving the various components of the index.
+
+If the directory does not exist, it will be created if its parent exists.
+
+It is the caller's responsibility to ensure that no existing data will be
+overwritten when saving the index to this directory.
+    )"
+    );
+
+    // Index Loading.
+    ivf.def_static(
+        "load",
+        &detail::load_index,
+        py::arg("config_directory"),
+        py::arg("data_directory"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Load a saved IVF index from disk.
+
+Args:
+    config_directory: Directory where index configuration was saved.
+    data_directory: Directory where the dataset was saved.
+    distance: The distance function to use.
+    num_threads: The number of threads to use for queries.
+    intra_query_threads: Number of threads for intra-query parallelism (default: 1).
+
+Returns:
+    A loaded IVF index ready for searching.
+    )"
+    );
 
     // Reconstruction.
     // add_reconstruct_interface(ivf);

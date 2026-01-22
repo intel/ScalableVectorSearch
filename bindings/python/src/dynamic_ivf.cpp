@@ -342,6 +342,19 @@ void save_index(
     index.save(config_path, data_dir);
 }
 
+// Index loading.
+svs::DynamicIVF load_index(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::DynamicIVF::assemble<float, svs::BFloat16, svs::data::SimpleData<float>>(
+        config_path, data_path, distance_type, num_threads, intra_query_threads
+    );
+}
+
 void wrap(py::module& m) {
     std::string name = "DynamicIVF";
     py::class_<svs::DynamicIVF> dynamic_ivf(
@@ -528,6 +541,30 @@ If the directory does not exist, it will be created if its parent exists.
 
 It is the caller's responsibility to ensure that no existing data will be
 overwritten when saving the index to this directory.
+    )"
+    );
+
+    // Loading
+    dynamic_ivf.def_static(
+        "load",
+        &load_index,
+        py::arg("config_directory"),
+        py::arg("data_directory"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Load a saved DynamicIVF index from disk.
+
+Args:
+    config_directory: Directory where index configuration was saved.
+    data_directory: Directory where the dataset was saved.
+    distance: The distance function to use.
+    num_threads: The number of threads to use for queries.
+    intra_query_threads: Number of threads for intra-query parallelism (default: 1).
+
+Returns:
+    A loaded DynamicIVF index ready for searching and modifications.
     )"
     );
 }

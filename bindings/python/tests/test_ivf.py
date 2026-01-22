@@ -224,6 +224,30 @@ class IVFTester(unittest.TestCase):
             test_single_query = first_iter,
         )
 
+        # Test saving and reloading.
+        print("Testing save and load")
+        with TemporaryDirectory() as tempdir:
+            configdir = os.path.join(tempdir, "config")
+            datadir = os.path.join(tempdir, "data")
+            ivf.save(configdir, datadir)
+
+            # Reload from saved directories.
+            reloaded = svs.IVF.load(
+                config_directory = configdir,
+                data_directory = datadir,
+                distance = svs.DistanceType.L2,
+                num_threads = num_threads
+            )
+
+            print(f"Testing reloaded: {reloaded.experimental_backend_string}")
+            self._test_basic_inner(
+                reloaded,
+                matcher,
+                num_threads,
+                skip_thread_test = True,
+                first_iter = first_iter,
+            )
+
     def test_basic(self):
         # Load the index from files.
         default_loader = svs.VectorDataLoader(

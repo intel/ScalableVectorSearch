@@ -343,12 +343,12 @@ class DenseClusteredDataset {
     }
 
     // Constructor for empty clusters (for assembly/dynamic operations)
-    template <typename Alloc>
-    DenseClusteredDataset(size_t num_clusters, size_t dimensions, const Alloc& allocator)
+    // Note: This constructor creates empty clusters using the default allocator for Data
+    DenseClusteredDataset(size_t num_clusters, size_t dimensions)
         : clusters_{} {
         clusters_.reserve(num_clusters);
         for (size_t i = 0; i < num_clusters; ++i) {
-            clusters_.emplace_back(Data(0, dimensions, allocator), std::vector<I>());
+            clusters_.emplace_back(Data(0, dimensions), std::vector<I>());
         }
     }
 
@@ -388,6 +388,110 @@ class DenseClusteredDataset {
 
     // View cluster data (mutable) - for dynamic IVF operations
     Data& view_cluster(size_t cluster) { return clusters_[cluster].view_cluster(); }
+
+    // Get the dimensions of the data
+    size_t dimensions() const {
+        if (clusters_.empty()) {
+            return 0;
+        }
+        return clusters_[0].data_.dimensions();
+    }
+
+    ///// Saving and Loading /////
+
+    static constexpr lib::Version save_version{0, 0, 0};
+    static constexpr std::string_view serialization_schema = "ivf_dense_clustered_dataset";
+
+    /// @brief Save the DenseClusteredDataset to disk
+    ///
+    /// Saves each cluster's data and IDs to separate subdirectories.
+    /// The centroids are expected to be saved separately by the caller.
+    ///
+    /// @param ctx The save context providing directory and naming utilities
+    /// @return SaveTable containing metadata for reloading
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        auto num_clusters = size();
+
+        // Save cluster data and IDs to subdirectories
+        for (size_t i = 0; i < num_clusters; ++i) {
+            auto cluster_dir = ctx.get_directory() / fmt::format("cluster_{}", i);
+            std::filesystem::create_directories(cluster_dir);
+
+            // Save cluster data
+            lib::save_to_disk(clusters_[i].data_, cluster_dir / "data");
+
+            // Save cluster IDs to a binary file
+            auto ids_path = cluster_dir / "ids.bin";
+            {
+                auto stream = lib::open_write(ids_path);
+                lib::write_binary(stream, clusters_[i].ids_.size());
+                lib::write_binary(stream, clusters_[i].ids_);
+            }
+        }
+
+        return lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"num_clusters", lib::save(num_clusters)},
+             {"dimensions", lib::save(dimensions())},
+             {"prefetch_offset", lib::save(prefetch_offset_)},
+             {"index_type", lib::save(datatype_v<I>)}}
+        );
+    }
+
+    /// @brief Check if a saved file is compatible with this loader
+    static bool check_load_compatibility(std::string_view schema, lib::Version version) {
+        return schema == serialization_schema && version <= save_version;
+    }
+
+    /// @brief Load a DenseClusteredDataset from disk
+    ///
+    /// @tparam Pool Thread pool type for parallel loading
+    /// @param table The load table containing saved metadata
+    /// @param threadpool Thread pool for parallel operations (unused, kept for API
+    /// consistency)
+    /// @return Loaded DenseClusteredDataset
+    template <threads::ThreadPool Pool>
+    static DenseClusteredDataset
+    load(const lib::LoadTable& table, Pool& SVS_UNUSED(threadpool)) {
+        auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
+        auto dims = lib::load_at<size_t>(table, "dimensions");
+        auto prefetch_offset = lib::load_at<size_t>(table, "prefetch_offset");
+
+        // Verify index type matches
+        auto saved_index_type = lib::load_at<DataType>(table, "index_type");
+        if (saved_index_type != datatype_v<I>) {
+            throw ANNEXCEPTION(
+                "DenseClusteredDataset was saved using index type {} but we're trying to "
+                "reload it using {}!",
+                saved_index_type,
+                datatype_v<I>
+            );
+        }
+
+        // Create empty dataset and load each cluster
+        DenseClusteredDataset result(num_clusters, dims);
+        result.prefetch_offset_ = prefetch_offset;
+
+        auto base_dir = table.context().get_directory();
+        for (size_t i = 0; i < num_clusters; ++i) {
+            auto cluster_dir = base_dir / fmt::format("cluster_{}", i);
+
+            // Load cluster data
+            result.clusters_[i].data_ = lib::load_from_disk<Data>(cluster_dir / "data");
+
+            // Load cluster IDs
+            auto ids_path = cluster_dir / "ids.bin";
+            {
+                auto stream = lib::open_read(ids_path);
+                auto ids_size = lib::read_binary<size_t>(stream);
+                result.clusters_[i].ids_.resize(ids_size);
+                lib::read_binary(stream, result.clusters_[i].ids_);
+            }
+        }
+
+        return result;
+    }
 
   private:
     std::vector<DenseCluster<Data, I>> clusters_;
