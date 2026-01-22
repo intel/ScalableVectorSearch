@@ -404,7 +404,7 @@ extern "C" bool svs_index_builder_set_threadpool(
 
 extern "C" bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder,
-    svs_threadpool_interface_t pool,
+    svs_threadpool_i pool,
     svs_error_h out_err /*=NULL*/
 ) {
     using namespace svs::c_runtime;

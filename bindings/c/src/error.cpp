@@ -19,7 +19,7 @@
 
 #include <string>
 
-extern "C" svs_error_h svs_error_init() { return new svs_error_desc{SVS_OK, "Success"}; }
+extern "C" svs_error_h svs_error_create() { return new svs_error_desc{SVS_OK, "Success"}; }
 extern "C" bool svs_error_ok(svs_error_h err) { return err->code == SVS_OK; }
 extern "C" svs_error_code_t svs_error_get_code(svs_error_h err) { return err->code; }
 extern "C" const char* svs_error_get_message(svs_error_h err) {

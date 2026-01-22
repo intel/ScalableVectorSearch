@@ -28,7 +28,7 @@ namespace svs::c_runtime {
 
 class ThreadPoolBuilder {
     struct CustomThreadPool {
-        static svs_threadpool_interface_t validate(svs_threadpool_interface_t impl) {
+        static svs_threadpool_i validate(svs_threadpool_i impl) {
             if (impl == nullptr) {
                 throw std::invalid_argument("Custom threadpool pointer cannot be null.");
             }
@@ -40,7 +40,7 @@ class ThreadPoolBuilder {
             return impl;
         }
 
-        CustomThreadPool(svs_threadpool_interface_t impl)
+        CustomThreadPool(svs_threadpool_i impl)
             : impl{validate(impl)} {}
 
         size_t size() const {
@@ -61,12 +61,12 @@ class ThreadPoolBuilder {
             );
         }
 
-        svs_threadpool_interface_t impl;
+        svs_threadpool_i impl;
     };
 
     svs_threadpool_kind kind;
     size_t num_threads;
-    svs_threadpool_interface_t user_threadpool;
+    svs_threadpool_i user_threadpool;
 
   public:
     ThreadPoolBuilder()
@@ -82,7 +82,7 @@ class ThreadPoolBuilder {
         }
     }
 
-    ThreadPoolBuilder(svs_threadpool_interface_t pool)
+    ThreadPoolBuilder(svs_threadpool_i pool)
         : kind(SVS_THREADPOOL_KIND_CUSTOM)
         , num_threads(0)
         , user_threadpool(CustomThreadPool::validate(pool)) {}

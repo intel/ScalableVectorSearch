@@ -112,12 +112,12 @@ typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 
-typedef struct svs_threadpool_interface* svs_threadpool_interface_t;
+typedef struct svs_threadpool_interface* svs_threadpool_i;
 typedef struct svs_search_results* svs_search_results_t;
 
 /// @brief Create an error handle
 /// @return A handle to the created error object
-SVS_API svs_error_h svs_error_init();
+SVS_API svs_error_h svs_error_create();
 
 /// @brief Check if the error handle indicates success
 /// @param err The error handle to check
@@ -330,7 +330,7 @@ SVS_API bool svs_index_builder_set_threadpool(
 /// @return true on success, false on failure
 SVS_API bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder,
-    svs_threadpool_interface_t pool,
+    svs_threadpool_i pool,
     svs_error_h out_err /*=NULL*/
 );
 

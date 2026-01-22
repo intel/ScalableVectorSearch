@@ -35,7 +35,7 @@ static struct svs_threadpool_interface sequential_threadpool = {
 int main() {
     int ret = 0;
     srand(time(NULL));
-    svs_error_h error = svs_error_init();
+    svs_error_h error = svs_error_create();
 
     float* data = NULL;
     float* queries = NULL;
