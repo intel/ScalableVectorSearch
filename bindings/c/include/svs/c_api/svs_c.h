@@ -30,7 +30,10 @@ enum svs_error_code {
     SVS_ERROR_INVALID_ARGUMENT = 2,
     SVS_ERROR_OUT_OF_MEMORY = 3,
     SVS_ERROR_INDEX_BUILD_FAILED = 4,
-    SVS_ERROR_NOT_IMPLEMENTED = 5
+    SVS_ERROR_NOT_IMPLEMENTED = 5,
+    SVS_ERROR_UNSUPPORTED_HW = 6,
+    SVS_ERROR_RUNTIME = 7,
+    SVS_ERROR_UNKNOWN = 1000
 };
 
 enum svs_distance_metric {
@@ -246,13 +249,13 @@ SVS_API svs_storage_h
 svs_storage_create_simple(svs_data_type_t data_type, svs_error_h out_err);
 
 /// @brief Create a LeanVec storage configuration
-/// @param lenavec_dims The number of LeanVec dimensions
+/// @param leanvec_dims The number of LeanVec dimensions
 /// @param primary The data type of the primary quantization
 /// @param secondary The data type of the secondary quantization
 /// @param out_err An optional error handle to capture errors
 /// @return A handle to the created LeanVec storage
 SVS_API svs_storage_h svs_storage_create_leanvec(
-    size_t lenavec_dims,
+    size_t leanvec_dims,
     svs_data_type_t primary,
     svs_data_type_t secondary,
     svs_error_h out_err /*=NULL*/

@@ -23,11 +23,14 @@ set(SVS_C_API_HEADERS
 
 set(SVS_C_API_SOURCES
     src/algorithm.hpp
-    src/storage.hpp
+    src/error.hpp
     src/index.hpp
     src/index_builder.hpp
+    src/storage.hpp
     src/threadpool.hpp
     src/types_support.hpp
+
+    src/error.cpp
     src/svs_c.cpp
 )
 
