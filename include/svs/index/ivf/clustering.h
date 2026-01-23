@@ -343,7 +343,7 @@ class DenseClusteredDataset {
     }
 
     // Constructor for empty clusters (for assembly/dynamic operations)
-    // Note: This constructor creates empty clusters using the default allocator for Data
+    // Note: This constructor creates empty clusters with the given dimensionality
     DenseClusteredDataset(size_t num_clusters, size_t dimensions)
         : clusters_{} {
         clusters_.reserve(num_clusters);

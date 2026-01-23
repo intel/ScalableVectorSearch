@@ -371,11 +371,26 @@ void centroid_assignment(
     using DataType = typename Data::element_type;
     using CentroidType = T;
 
-    // Convert data to match centroid type if necessary
-    data::SimpleData<CentroidType> data_conv;
+    // Validate distance type at compile time
+    static_assert(
+        std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP> ||
+            std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>,
+        "Only L2 and MIP distances are supported in IVF build!"
+    );
+
+    // Convert data to match centroid type if necessary, otherwise use original data
+    [[maybe_unused]] data::SimpleData<CentroidType> data_conv;
     if constexpr (!std::is_same_v<CentroidType, DataType>) {
         data_conv = convert_data<CentroidType>(data, threadpool);
     }
+    const auto& matmul_data = [&]() -> const auto& {
+        if constexpr (!std::is_same_v<CentroidType, DataType>) {
+            return data_conv;
+        } else {
+            return data;
+        }
+    }
+    ();
 
     auto generate_assignments = timer.push_back("generate assignments");
     threads::parallel_for(
@@ -383,25 +398,14 @@ void centroid_assignment(
         threads::StaticPartition{batch_range.size()},
         [&](auto indices, auto /*tid*/) {
             auto range = threads::UnitRange(indices);
-            if constexpr (!std::is_same_v<CentroidType, DataType>) {
-                compute_matmul(
-                    data_conv.get_datum(range.start()).data(),
-                    centroids.data(),
-                    matmul_results.get_datum(range.start()).data(),
-                    range.size(),
-                    centroids.size(),
-                    data.dimensions()
-                );
-            } else {
-                compute_matmul(
-                    data.get_datum(range.start()).data(),
-                    centroids.data(),
-                    matmul_results.get_datum(range.start()).data(),
-                    range.size(),
-                    centroids.size(),
-                    data.dimensions()
-                );
-            }
+            compute_matmul(
+                matmul_data.get_datum(range.start()).data(),
+                centroids.data(),
+                matmul_results.get_datum(range.start()).data(),
+                range.size(),
+                centroids.size(),
+                matmul_data.dimensions()
+            );
             if constexpr (std::is_same_v<
                               std::remove_cvref_t<Distance>,
                               distance::DistanceIP>) {
@@ -427,8 +431,6 @@ void centroid_assignment(
                     }
                     assignments[batch_range.start() + i] = nearest.id();
                 }
-            } else {
-                throw ANNEXCEPTION("Only L2 and MIP distances supported in IVF build!");
             }
         }
     );
