@@ -289,8 +289,15 @@ CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
         // Save the dense clusters
         svs::lib::save_to_disk(dense_clusters, tempdir);
 
-        // Verify file exists
+        // Verify config file exists
         CATCH_REQUIRE(std::filesystem::exists(tempdir / "svs_config.toml"));
+
+        // Verify saved format: should have data.bin, ids.bin, and offset files
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "data.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "ids.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "cluster_sizes.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "data_offsets.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "ids_offsets.bin"));
 
         // Load the dense clusters
         auto loaded_clusters = svs::lib::load_from_disk<

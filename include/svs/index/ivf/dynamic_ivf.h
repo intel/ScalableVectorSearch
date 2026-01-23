@@ -729,6 +729,8 @@ class DynamicIVFIndex {
         // Create directories
         std::filesystem::create_directories(config_directory);
         std::filesystem::create_directories(data_directory);
+        auto clusters_dir = data_directory / "clusters";
+        std::filesystem::create_directories(clusters_dir);
 
         // Save configuration
         lib::save_to_disk(
@@ -746,16 +748,11 @@ class DynamicIVFIndex {
             config_directory
         );
 
-        // Save centroids and cluster data
+        // Save centroids
         lib::save_to_disk(centroids_, data_directory / "centroids");
 
-        for (size_t i = 0; i < clusters_.size(); ++i) {
-            auto cluster_path = data_directory / fmt::format("cluster_{}", i);
-            lib::save_to_disk(clusters_[i].data_, cluster_path);
-
-            auto ids_path = data_directory / fmt::format("cluster_ids_{}", i);
-            lib::save_to_disk(clusters_[i].ids_, ids_path);
-        }
+        // Save clustered dataset
+        lib::save_to_disk(clusters_, clusters_dir);
     }
 
   private:
@@ -1108,11 +1105,10 @@ auto load_dynamic_ivf_index(
     // Initialize thread pool
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
 
-    // Load configuration to get num_clusters and translator
+    // Load configuration to get translator
     auto config_timer = timer.push_back("Loading configuration");
     auto serialized = lib::begin_deserialization(config_path);
     auto table = serialized.cast<toml::table>();
-    auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
     auto translator = lib::load_at<IDTranslator>(table, "translation");
     config_timer.finish();
 
@@ -1122,40 +1118,18 @@ auto load_dynamic_ivf_index(
     auto centroids = lib::load_from_disk<centroids_type>(data_path / "centroids");
     centroids_timer.finish();
 
-    // Load cluster data and IDs
-    auto clusters_timer = timer.push_back("Loading clusters");
+    // Define cluster types
     using I = uint32_t;
-    std::vector<DenseCluster<DataType, I>> clusters;
-    clusters.reserve(num_clusters);
+    using cluster_type = DenseClusteredDataset<centroids_type, I, DataType>;
 
-    for (size_t i = 0; i < num_clusters; ++i) {
-        auto cluster_path = data_path / fmt::format("cluster_{}", i);
-        auto ids_path = data_path / fmt::format("cluster_ids_{}", i);
+    auto clusters_timer = timer.push_back("Loading clusters");
 
-        auto cluster_data = lib::load_from_disk<DataType>(cluster_path);
-        auto cluster_ids = lib::load_from_disk<std::vector<I>>(ids_path);
-
-        clusters.emplace_back(std::move(cluster_data), std::move(cluster_ids));
-    }
+    auto clusters_dir = data_path / "clusters";
+    auto dense_clusters = lib::load_from_disk<cluster_type>(clusters_dir, threadpool);
     clusters_timer.finish();
 
-    // Create cluster container (DenseClusteredDataset equivalent structure)
-    // We need to construct the cluster type that the DynamicIVFIndex expects
-    auto index_timer = timer.push_back("Index construction");
-
-    // Get dimensions from centroids
-    size_t dims = centroids.dimensions();
-
-    // Create empty DenseClusteredDataset and populate with loaded clusters
-    using cluster_type = DenseClusteredDataset<centroids_type, I, DataType>;
-    auto dense_clusters = cluster_type(num_clusters, dims);
-
-    // Move loaded cluster data into the DenseClusteredDataset
-    for (size_t i = 0; i < num_clusters; ++i) {
-        dense_clusters[i] = std::move(clusters[i]);
-    }
-
     // Create the index with the translator constructor
+    auto index_timer = timer.push_back("Index construction");
     auto index =
         DynamicIVFIndex<centroids_type, cluster_type, Distance, decltype(threadpool)>(
             std::move(centroids),

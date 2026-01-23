@@ -1213,8 +1213,12 @@ CATCH_TEST_CASE("Dynamic IVF Save and Load", "[dynamic_ivf][saveload]") {
     // Verify saved files exist
     CATCH_REQUIRE(std::filesystem::exists(config_dir));
     CATCH_REQUIRE(std::filesystem::exists(data_dir / "centroids"));
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "cluster_0"));
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "cluster_ids_0"));
+    // Verify format files exist in clusters/ subdirectory
+    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "data.bin"));
+    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids.bin"));
+    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "cluster_sizes.bin"));
+    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "data_offsets.bin"));
+    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids_offsets.bin"));
 
     // Load the index back using the load function
     auto loaded_index = svs::index::ivf::load_dynamic_ivf_index<Eltype, DataType>(
