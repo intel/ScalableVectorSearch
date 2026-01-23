@@ -322,10 +322,9 @@ CATCH_TEST_CASE("IVF Save and Load", "[integration][ivf][saveload]") {
         CATCH_REQUIRE(loaded_index.size() == test_dataset::VECTORS_IN_DATA_SET);
         CATCH_REQUIRE(loaded_index.dimensions() == test_dataset::NUM_DIMENSIONS);
 
-        // Verify search parameters were restored
-        auto loaded_params = loaded_index.get_search_parameters();
-        CATCH_REQUIRE(loaded_params.n_probes_ == params.n_probes_);
-        CATCH_REQUIRE(loaded_params.k_reorder_ == params.k_reorder_);
+        // Search parameters are not persisted (they are runtime configurations)
+        // Set them on the loaded index before searching
+        loaded_index.set_search_parameters(params);
 
         // Run search on loaded index - should produce same results
         run_search(loaded_index, queries, gt_l2, expected_result.config_and_recall_);

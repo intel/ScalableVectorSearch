@@ -788,7 +788,7 @@ class DynamicIVFIndex {
     }
 
     void initialize_distance_metadata() {
-        if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
+        if constexpr (is_l2_v<Dist>) {
             centroids_norm_.reserve(centroids_.size());
             for (size_t i = 0; i < centroids_.size(); ++i) {
                 centroids_norm_.push_back(distance::norm_square(centroids_.get_datum(i)));

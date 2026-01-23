@@ -458,7 +458,7 @@ class IVFIndex {
     /// This saves all components needed to reconstruct the index:
     /// - Centroids
     /// - Clustered dataset (DenseClusteredDataset)
-    /// - Configuration (search parameters)
+    /// - Configuration (number of clusters)
     ///
     /// @param config_directory Directory where the index configuration will be saved.
     /// @param data_directory Directory where the centroids and cluster data will be saved.
@@ -484,8 +484,7 @@ class IVFIndex {
                     serialization_schema,
                     save_version,
                     {{"name", lib::save(name())},
-                     {"search_parameters", lib::save(search_parameters_)},
-                     {"intra_query_thread_count", lib::save(intra_query_thread_count_)}}
+                     {"num_clusters", lib::save(num_clusters())}}
                 );
             }),
             config_directory
@@ -562,7 +561,7 @@ class IVFIndex {
 
     void initialize_distance_metadata() {
         // Precalculate centroid norms for L2 distance
-        if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
+        if constexpr (is_l2_v<Dist>) {
             centroids_norm_.reserve(centroids_.size());
             for (size_t i = 0; i < centroids_.size(); i++) {
                 centroids_norm_.push_back(distance::norm_square(centroids_.get_datum(i)));
@@ -847,7 +846,7 @@ template <
     typename Distance,
     typename ThreadpoolProto>
 auto load_ivf_index(
-    const std::filesystem::path& config_path,
+    const std::filesystem::path& SVS_UNUSED(config_path),
     const std::filesystem::path& data_path,
     Distance distance,
     ThreadpoolProto threadpool_proto,
@@ -885,18 +884,6 @@ auto load_ivf_index(
         logger
     );
     index_timer.finish();
-
-    // Load and apply configuration if available
-    auto config_file = config_path / "svs_config.toml";
-    if (std::filesystem::exists(config_file)) {
-        auto config_timer = timer.push_back("Loading configuration");
-        auto serialized = lib::begin_deserialization(config_path);
-        // Cast to table and load search parameters from the nested table
-        auto table = serialized.cast<toml::table>();
-        auto search_params = lib::load_at<IVFSearchParameters>(table, "search_parameters");
-        index.set_search_parameters(search_params);
-        config_timer.finish();
-    }
 
     load_timer.finish();
     svs::logging::debug(logger, "{}", timer);
