@@ -316,6 +316,9 @@ class DenseClusteredDataset {
     using index_type = I;
     using data_type = Data;
 
+    // Default constructor for use in load()
+    DenseClusteredDataset() = default;
+
     // Constructor from clustering (for building from existing data)
     template <typename Original, threads::ThreadPool Pool, typename Alloc>
     DenseClusteredDataset(
@@ -404,55 +407,52 @@ class DenseClusteredDataset {
 
     /// @brief Save the DenseClusteredDataset to disk.
     ///
-    /// Saves all cluster data and IDs to single binary files with offset tables.
+    /// Saves all cluster data using the existing save mechanisms for each data type
+    /// (SimpleData, LVQ, LeanVec, etc.), then archives everything into a single file.
     ///
     /// File format:
-    /// - data.bin: Concatenated binary data for all clusters
+    /// - clusters_archive.bin: Archive containing all cluster data directories
     /// - ids.bin: Concatenated binary IDs for all clusters
-    /// - Config contains: cluster_sizes array, data_offsets array, ids_offsets array
+    /// - Config contains: cluster_sizes array, ids_offsets array
     ///
     /// @param ctx The save context providing directory and naming utilities
     /// @return SaveTable containing metadata for reloading
     lib::SaveTable save(const lib::SaveContext& ctx) const {
-        using DataElementType = typename Data::element_type;
         auto num_clusters = size();
         auto dims = dimensions();
 
-        // Compute cluster sizes and offsets
+        // Compute cluster sizes and ID offsets
         std::vector<size_t> cluster_sizes(num_clusters);
-        std::vector<size_t> data_offsets(num_clusters + 1); // +1 for end offset
-        std::vector<size_t> ids_offsets(num_clusters + 1);  // +1 for end offset
+        std::vector<size_t> ids_offsets(num_clusters + 1);
 
-        size_t data_offset = 0;
         size_t ids_offset = 0;
         for (size_t i = 0; i < num_clusters; ++i) {
             cluster_sizes[i] = clusters_[i].size();
-            data_offsets[i] = data_offset;
             ids_offsets[i] = ids_offset;
-            // Data offset in bytes: num_vectors * dimensions * sizeof(element_type)
-            data_offset += cluster_sizes[i] * dims * sizeof(DataElementType);
-            // IDs offset in bytes: num_ids * sizeof(I)
             ids_offset += cluster_sizes[i] * sizeof(I);
         }
-        data_offsets[num_clusters] = data_offset;
         ids_offsets[num_clusters] = ids_offset;
 
-        // Write all cluster data to a single file
-        // Use get_datum for each vector to support all data types (SimpleData, BlockedData,
-        // SQDataset)
-        auto data_path = ctx.get_directory() / "data.bin";
+        // Create a temporary directory for cluster data
+        lib::UniqueTempDirectory tempdir{"svs_ivf_clusters_save"};
+        auto clusters_temp_dir = tempdir.get() / "clusters";
+        std::filesystem::create_directories(clusters_temp_dir);
+
+        // Save each cluster's data using lib::save_to_disk
+        // This uses the existing save mechanism for each data type (LVQ, LeanVec, etc.)
+        for (size_t i = 0; i < num_clusters; ++i) {
+            auto cluster_dir = clusters_temp_dir / fmt::format("cluster_{}", i);
+            lib::save_to_disk(clusters_[i].data_, cluster_dir);
+        }
+
+        // Archive all cluster data into a single file
+        auto archive_path = ctx.get_directory() / "clusters_archive.bin";
         {
-            auto stream = lib::open_write(data_path);
-            for (size_t i = 0; i < num_clusters; ++i) {
-                const auto& cluster_data = clusters_[i].data_;
-                for (size_t j = 0; j < cluster_data.size(); ++j) {
-                    auto datum = cluster_data.get_datum(j);
-                    stream.write(
-                        reinterpret_cast<const char*>(datum.data()),
-                        dims * sizeof(DataElementType)
-                    );
-                }
+            std::ofstream archive_stream(archive_path, std::ios::binary);
+            if (!archive_stream) {
+                throw ANNEXCEPTION("Failed to open {} for writing!", archive_path);
             }
+            lib::DirectoryArchiver::pack(clusters_temp_dir, archive_stream);
         }
 
         // Write all cluster IDs to a single file
@@ -473,12 +473,6 @@ class DenseClusteredDataset {
             lib::write_binary(stream, cluster_sizes);
         }
 
-        auto data_offsets_path = ctx.get_directory() / "data_offsets.bin";
-        {
-            auto stream = lib::open_write(data_offsets_path);
-            lib::write_binary(stream, data_offsets);
-        }
-
         auto ids_offsets_path = ctx.get_directory() / "ids_offsets.bin";
         {
             auto stream = lib::open_write(ids_offsets_path);
@@ -492,13 +486,10 @@ class DenseClusteredDataset {
              {"dimensions", lib::save(dims)},
              {"prefetch_offset", lib::save(prefetch_offset_)},
              {"index_type", lib::save(datatype_v<I>)},
-             {"data_type", lib::save(datatype_v<DataElementType>)},
-             {"data_file", lib::save(std::string("data.bin"))},
+             {"clusters_archive_file", lib::save(std::string("clusters_archive.bin"))},
              {"ids_file", lib::save(std::string("ids.bin"))},
              {"cluster_sizes_file", lib::save(std::string("cluster_sizes.bin"))},
-             {"data_offsets_file", lib::save(std::string("data_offsets.bin"))},
              {"ids_offsets_file", lib::save(std::string("ids_offsets.bin"))},
-             {"total_data_bytes", lib::save(data_offset)},
              {"total_ids_bytes", lib::save(ids_offset)}}
         );
     }
@@ -510,8 +501,8 @@ class DenseClusteredDataset {
 
     /// @brief Load a DenseClusteredDataset from disk.
     ///
-    /// Loads from the single-file format where all cluster data
-    /// and IDs are stored in single binary files with offset tables.
+    /// Loads from the archive-based format where cluster data is stored
+    /// using the native save/load mechanism for each data type.
     ///
     /// @tparam Pool Thread pool type for parallel loading
     /// @param table The load table containing saved metadata
@@ -522,7 +513,9 @@ class DenseClusteredDataset {
     static DenseClusteredDataset
     load(const lib::LoadTable& table, Pool& SVS_UNUSED(threadpool)) {
         auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
-        auto dims = lib::load_at<size_t>(table, "dimensions");
+        // Note: "dimensions" field is saved for validation but not used during load
+        // since each cluster's data type determines its own dimensions
+        [[maybe_unused]] auto dims = lib::load_at<size_t>(table, "dimensions");
         auto prefetch_offset = lib::load_at<size_t>(table, "prefetch_offset");
 
         // Verify index type matches
@@ -538,34 +531,8 @@ class DenseClusteredDataset {
 
         auto base_dir = table.context().get_directory();
 
-        return load_impl(table, num_clusters, dims, prefetch_offset, base_dir);
-    }
-
-  private:
-    /// @brief Load implementation
-    static DenseClusteredDataset load_impl(
-        const lib::LoadTable& table,
-        size_t num_clusters,
-        size_t dims,
-        size_t prefetch_offset,
-        const std::filesystem::path& base_dir
-    ) {
-        using DataElementType = typename Data::element_type;
-
-        // Verify data type matches
-        auto saved_data_type = lib::load_at<DataType>(table, "data_type");
-        if (saved_data_type != datatype_v<DataElementType>) {
-            throw ANNEXCEPTION(
-                "DenseClusteredDataset was saved using data type {} but we're trying to "
-                "reload it using {}!",
-                saved_data_type,
-                datatype_v<DataElementType>
-            );
-        }
-
         // Load offset arrays from binary files
         std::vector<size_t> cluster_sizes(num_clusters);
-        std::vector<size_t> data_offsets(num_clusters + 1);
         std::vector<size_t> ids_offsets(num_clusters + 1);
 
         {
@@ -573,53 +540,62 @@ class DenseClusteredDataset {
             lib::read_binary(stream, cluster_sizes);
         }
         {
-            auto stream = lib::open_read(base_dir / "data_offsets.bin");
-            lib::read_binary(stream, data_offsets);
-        }
-        {
             auto stream = lib::open_read(base_dir / "ids_offsets.bin");
             lib::read_binary(stream, ids_offsets);
         }
 
-        // Create result dataset
-        DenseClusteredDataset result(num_clusters, dims);
-        result.prefetch_offset_ = prefetch_offset;
+        // Create a temporary directory to unpack the clusters archive
+        lib::UniqueTempDirectory tempdir{"svs_ivf_clusters_load"};
+        auto clusters_temp_dir = tempdir.get() / "clusters";
+        std::filesystem::create_directories(clusters_temp_dir);
 
-        // Open data and ids files
-        auto data_stream = lib::open_read(base_dir / "data.bin");
-        auto ids_stream = lib::open_read(base_dir / "ids.bin");
-
-        // Load each cluster using offsets
-        for (size_t i = 0; i < num_clusters; ++i) {
-            size_t cluster_size = cluster_sizes[i];
-
-            // Allocate and load data
-            result.clusters_[i].data_ = Data(cluster_size, dims);
-            if (cluster_size > 0) {
-                data_stream.seekg(static_cast<std::streamoff>(data_offsets[i]));
-                data_stream.read(
-                    reinterpret_cast<char*>(result.clusters_[i].data_.data()),
-                    static_cast<std::streamsize>(
-                        cluster_size * dims * sizeof(DataElementType)
-                    )
+        // Unpack the clusters archive
+        {
+            std::ifstream archive_stream(
+                base_dir / "clusters_archive.bin", std::ios::binary
+            );
+            if (!archive_stream) {
+                throw ANNEXCEPTION(
+                    "Failed to open {} for reading!", base_dir / "clusters_archive.bin"
                 );
             }
+            lib::DirectoryArchiver::unpack(archive_stream, clusters_temp_dir);
+        }
 
-            // Allocate and load IDs
-            result.clusters_[i].ids_.resize(cluster_size);
+        // Create result dataset with default constructor
+        DenseClusteredDataset result;
+        result.prefetch_offset_ = prefetch_offset;
+        result.clusters_.reserve(num_clusters);
+
+        // Load IDs file for reading
+        auto ids_stream = lib::open_read(base_dir / "ids.bin");
+
+        // Load each cluster's data and ids together
+        for (size_t i = 0; i < num_clusters; ++i) {
+            // Load cluster data
+            auto cluster_dir = clusters_temp_dir / fmt::format("cluster_{}", i);
+            auto cluster_data = lib::load_from_disk<Data>(cluster_dir);
+
+            // Load cluster IDs
+            size_t cluster_size = cluster_sizes[i];
+            std::vector<I> cluster_ids(cluster_size);
             if (cluster_size > 0) {
                 ids_stream.seekg(static_cast<std::streamoff>(ids_offsets[i]));
-                lib::read_binary(ids_stream, result.clusters_[i].ids_);
+                lib::read_binary(ids_stream, cluster_ids);
             }
+
+            // Construct cluster with both data and ids
+            result.clusters_.emplace_back(std::move(cluster_data), std::move(cluster_ids));
         }
 
         return result;
     }
 
-  public:
   private:
     std::vector<DenseCluster<Data, I>> clusters_;
     size_t prefetch_offset_ = 8;
 };
+
+
 
 } // namespace svs::index::ivf

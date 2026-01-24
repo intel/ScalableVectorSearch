@@ -479,7 +479,7 @@ class IVFIndex {
 
         // Save configuration
         lib::save_to_disk(
-            lib::SaveOverride([&](const lib::SaveContext& SVS_UNUSED(ctx)) {
+            lib::SaveOverride([&]() {
                 return lib::SaveTable(
                     serialization_schema,
                     save_version,
