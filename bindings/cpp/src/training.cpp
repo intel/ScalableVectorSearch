@@ -24,7 +24,38 @@
 namespace svs {
 namespace runtime {
 
+namespace v0 {
+
 LeanVecTrainingData::~LeanVecTrainingData() = default;
+
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** training_data,
+    size_t dim,
+    size_t n,
+    const float* x,
+    size_t leanvec_dims
+) noexcept {
+    return runtime_error_wrapper([&] {
+        const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
+        *training_data =
+            new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
+    });
+}
+
+Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept {
+    return runtime_error_wrapper([&] { delete training_data; });
+}
+
+Status
+LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in) noexcept {
+    return runtime_error_wrapper([&] {
+        *training_data = new LeanVecTrainingDataManager{LeanVecTrainingDataImpl::load(in)};
+    });
+}
+
+} // namespace v0
+
+namespace v1 {
 
 Status LeanVecTrainingData::build(
     LeanVecTrainingData** training_data,
@@ -41,34 +72,36 @@ Status LeanVecTrainingData::build(
             // ID training
             *training_data =
                 new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
-            return;
         } else {
             // OOD training
             const auto queries = svs::data::ConstSimpleDataView<float>(q, n_train, dim);
             *training_data = new LeanVecTrainingDataManager{
                 LeanVecTrainingDataImpl{data, queries, leanvec_dims}};
-            return;
         }
     });
 }
 
-Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept {
-    return runtime_error_wrapper([&] { delete training_data; });
-}
-
 Status
 LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in) noexcept {
-    return runtime_error_wrapper([&] {
-        *training_data = new LeanVecTrainingDataManager{LeanVecTrainingDataImpl::load(in)};
-    });
+    v0::LeanVecTrainingData* ptr = nullptr;
+    auto status = v0::LeanVecTrainingData::load(&ptr, in);
+    // Safe static_cast because we know the implementation (Manager) inherits v1
+    *training_data = static_cast<v1::LeanVecTrainingData*>(ptr);
+    return status;
 }
+
+} // namespace v1
+
 } // namespace runtime
 } // namespace svs
 
 #else  // SVS_LEANVEC_HEADER
 namespace svs {
 namespace runtime {
+
+namespace v0 {
 LeanVecTrainingData::~LeanVecTrainingData() = default;
+
 Status LeanVecTrainingData::build(
     LeanVecTrainingData** SVS_UNUSED(training_data),
     size_t SVS_UNUSED(dim),
@@ -81,6 +114,7 @@ Status LeanVecTrainingData::build(
         "LeanVecTrainingData is not supported in this build configuration."
     );
 }
+
 Status LeanVecTrainingData::destroy(LeanVecTrainingData* SVS_UNUSED(training_data)
 ) noexcept {
     return Status(
@@ -88,6 +122,7 @@ Status LeanVecTrainingData::destroy(LeanVecTrainingData* SVS_UNUSED(training_dat
         "LeanVecTrainingData is not supported in this build configuration."
     );
 }
+
 Status LeanVecTrainingData::load(
     LeanVecTrainingData** SVS_UNUSED(training_data), std::istream& SVS_UNUSED(in)
 ) noexcept {
@@ -96,6 +131,34 @@ Status LeanVecTrainingData::load(
         "LeanVecTrainingData is not supported in this build configuration."
     );
 }
+} // namespace v0
+
+namespace v1 {
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** SVS_UNUSED(training_data),
+    size_t SVS_UNUSED(dim),
+    size_t SVS_UNUSED(n),
+    const float* SVS_UNUSED(x),
+    size_t SVS_UNUSED(n_train),
+    const float* SVS_UNUSED(q),
+    size_t SVS_UNUSED(leanvec_dims)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
+
+Status LeanVecTrainingData::load(
+    LeanVecTrainingData** SVS_UNUSED(training_data), std::istream& SVS_UNUSED(in)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
+} // namespace v1
+
 } // namespace runtime
 } // namespace svs
 #endif // SVS_LEANVEC_HEADER

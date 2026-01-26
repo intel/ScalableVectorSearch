@@ -103,7 +103,7 @@ struct LeanVecTrainingDataImpl {
     }
 };
 
-struct LeanVecTrainingDataManager : public svs::runtime::LeanVecTrainingData {
+struct LeanVecTrainingDataManager : public svs::runtime::v1::LeanVecTrainingData {
     LeanVecTrainingDataManager(LeanVecTrainingDataImpl impl)
         : impl_{std::move(impl)} {}
 

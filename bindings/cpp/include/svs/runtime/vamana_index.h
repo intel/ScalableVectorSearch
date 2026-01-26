@@ -65,5 +65,10 @@ struct SVS_RUNTIME_API VamanaIndex {
 };
 
 } // namespace v0
+
+namespace v1 {
+using v0::VamanaIndex;
+} // namespace v1
+
 } // namespace runtime
 } // namespace svs

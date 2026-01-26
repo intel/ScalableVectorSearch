@@ -85,5 +85,11 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
 };
 
 } // namespace v0
+
+namespace v1 {
+using v0::DynamicVamanaIndex;
+using v0::DynamicVamanaIndexLeanVec;
+} // namespace v1
+
 } // namespace runtime
 } // namespace svs

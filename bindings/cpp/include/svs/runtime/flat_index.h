@@ -47,5 +47,10 @@ struct SVS_RUNTIME_API FlatIndex {
 };
 
 } // namespace v0
+
+namespace v1 {
+using v0::FlatIndex;
+} // namespace v1
+
 } // namespace runtime
 } // namespace svs

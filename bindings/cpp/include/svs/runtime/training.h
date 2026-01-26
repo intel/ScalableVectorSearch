@@ -29,14 +29,44 @@ struct SVS_RUNTIME_API LeanVecTrainingData {
     virtual ~LeanVecTrainingData();
 
     /* Build LeanVec training data (compression matrices) from the provided
-     * data. If q is non-null, it is used as query data for out-of-distribution
-     * training.
+     * data.
      * @param training_data Output parameter to the created training data object
      * @param dim Dimensionality of the input data and queries
      * @param n Number of data points and queries
      * @param x Pointer to the input data
-     * @param n_train Number of query points
-     * @param q Pointer to the query data (can be null)
+     * @param leanvec_dims Number of dimensions in the resulting LeanVec data
+     */
+    static Status build(
+        LeanVecTrainingData** training_data,
+        size_t dim,
+        size_t n,
+        const float* x,
+        size_t leanvec_dims
+    ) noexcept;
+
+    static Status destroy(LeanVecTrainingData* training_data) noexcept;
+
+    virtual Status save(std::ostream& out) const noexcept = 0;
+    static Status load(LeanVecTrainingData** training_data, std::istream& in) noexcept;
+};
+
+} // namespace v0
+
+namespace v1 {
+
+struct SVS_RUNTIME_API LeanVecTrainingData : public v0::LeanVecTrainingData {
+    using v0::LeanVecTrainingData::destroy;
+    using v0::LeanVecTrainingData::save;
+
+    /* Build LeanVec training data (compression matrices) from the provided
+     * data.
+     * Accepts optional training queries for out-of-distribution training.
+     * @param training_data Output parameter to the created training data object
+     * @param dim Dimensionality of the input data and queries
+     * @param n Number of data points and queries
+     * @param x Pointer to the input data
+     * @param n_train Number of training queries (can be 0)
+     * @param q Pointer to the training queries (can be nullptr)
      * @param leanvec_dims Number of dimensions in the resulting LeanVec data
      */
     static Status build(
@@ -49,12 +79,9 @@ struct SVS_RUNTIME_API LeanVecTrainingData {
         size_t leanvec_dims
     ) noexcept;
 
-    static Status destroy(LeanVecTrainingData* training_data) noexcept;
-
-    virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(LeanVecTrainingData** training_data, std::istream& in) noexcept;
 };
 
-} // namespace v0
+} // namespace v1
 } // namespace runtime
 } // namespace svs

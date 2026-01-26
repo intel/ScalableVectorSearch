@@ -66,12 +66,8 @@ template <> struct Unspecified<float> {
 template <> struct Unspecified<int> {
     static constexpr int value = std::numeric_limits<int>::max();
 };
-template <> struct Unspecified<bool> {
-    static constexpr OptionalBool value = {};
-};
-template <> struct Unspecified<OptionalBool> {
-    static constexpr OptionalBool value = {};
-};
+template <> struct Unspecified<bool> { static constexpr OptionalBool value = {}; };
+template <> struct Unspecified<OptionalBool> { static constexpr OptionalBool value = {}; };
 
 template <typename T> constexpr auto Unspecify() { return Unspecified<T>::value; }
 
@@ -208,5 +204,19 @@ struct SVS_RUNTIME_API_INTERFACE ResultsAllocator {
 };
 
 } // namespace v0
+
+namespace v1 {
+using v0::ErrorCode;
+using v0::IDFilter;
+using v0::MetricType;
+using v0::OptionalBool;
+using v0::ResultsAllocator;
+using v0::SearchResultsStorage;
+using v0::set_if_specified;
+using v0::Status;
+using v0::Status_Ok;
+using v0::StorageKind;
+} // namespace v1
+
 } // namespace runtime
 } // namespace svs

@@ -36,12 +36,12 @@
 #ifndef SVS_RUNTIME_VERSION_MAJOR
 /// Major version number - incremented for breaking API changes
 /// When this changes, a new version namespace (e.g., v0 -> v1) is created
-#define SVS_RUNTIME_VERSION_MAJOR 0
+#define SVS_RUNTIME_VERSION_MAJOR 1
 #endif
 
 #ifndef SVS_RUNTIME_VERSION_MINOR
 /// Minor version number - incremented for backward-compatible feature additions
-#define SVS_RUNTIME_VERSION_MINOR 1
+#define SVS_RUNTIME_VERSION_MINOR 0
 #endif
 
 #ifndef SVS_RUNTIME_VERSION_PATCH
@@ -51,7 +51,7 @@
 
 #ifndef SVS_RUNTIME_VERSION_STRING
 /// Complete version string
-#define SVS_RUNTIME_VERSION_STRING "0.1.0"
+#define SVS_RUNTIME_VERSION_STRING "1.0.0"
 #endif
 
 #ifndef SVS_RUNTIME_API_VERSION
@@ -59,13 +59,27 @@
 #define SVS_RUNTIME_API_VERSION SVS_RUNTIME_VERSION_MAJOR
 #endif
 
-#if (SVS_RUNTIME_API_VERSION == 0)
+#if (SVS_RUNTIME_API_VERSION == 1)
+/// Use v1 API
+/// API version namespace (v1)
+#define SVS_RUNTIME_CURRENT_API_NAMESPACE v1
+namespace svs {
+namespace runtime {
+namespace v0 {}
+/// All public runtime APIs live here and are accessible as svs::runtime::FunctionName
+/// due to inline namespace
+inline namespace v1 {
+// Public runtime APIs will be defined in their respective headers
+// IMPORTANT: include this header before other runtime headers to ensure proper versioning
+}
+} // namespace runtime
+} // namespace svs
+#elif (SVS_RUNTIME_API_VERSION == 0)
 /// Use v0 API
-/// Current API version namespace
+/// API version namespace (v0)
 #define SVS_RUNTIME_CURRENT_API_NAMESPACE v0
 namespace svs {
 namespace runtime {
-/// Current API version namespace (v0)
 /// All public runtime APIs live here and are accessible as svs::runtime::FunctionName
 /// due to inline namespace
 inline namespace v0 {
