@@ -404,6 +404,50 @@ Method {}:
     );
 }
 
+void add_vamana_properties(py::class_<svs::Vamana>& vamana) {
+    // Vamana properties (mirrors VamanaInterface).
+    vamana.def_property(
+        "alpha",
+        &svs::Vamana::get_alpha,
+        &svs::Vamana::set_alpha,
+        "Read/Write (float): Get/set the alpha value."
+    );
+
+    vamana.def_property_readonly(
+        "graph_max_degree",
+        &svs::Vamana::get_graph_max_degree,
+        "Read-only (int): Get the maximum degree of the graph."
+    );
+
+    vamana.def_property(
+        "construction_window_size",
+        &svs::Vamana::get_construction_window_size,
+        &svs::Vamana::set_construction_window_size,
+        "Read/Write (int): Get/set the construction window size."
+    );
+
+    vamana.def_property(
+        "max_candidates",
+        &svs::Vamana::get_max_candidates,
+        &svs::Vamana::set_max_candidates,
+        "Read/Write (int): Get/set the maximum number of candidates."
+    );
+
+    vamana.def_property(
+        "prune_to",
+        &svs::Vamana::get_prune_to,
+        &svs::Vamana::set_prune_to,
+        "Read/Write (int): Get/set the target degree after pruning."
+    );
+
+    vamana.def_property(
+        "full_search_history",
+        &svs::Vamana::get_full_search_history,
+        &svs::Vamana::set_full_search_history,
+        "Read/Write (bool): Get/set whether full search history is recorded."
+    );
+}
+
 } // namespace detail
 
 void wrap(py::module& m) {
@@ -506,6 +550,8 @@ void wrap(py::module& m) {
 
     // Vamana Specific Extensions.
     add_interface(vamana);
+
+    detail::add_vamana_properties(vamana);
 
     // Reconstruction.
     add_reconstruct_interface(vamana);
