@@ -27,11 +27,25 @@ namespace v0 {
 
 struct SVS_RUNTIME_API LeanVecTrainingData {
     virtual ~LeanVecTrainingData();
+
+    /* Build LeanVec training data (compression matrices) from the provided
+     * data. If q is non-null, it is used as query data for out-of-distribution
+     * training.
+     * @param training_data Output parameter to the created training data object
+     * @param dim Dimensionality of the input data and queries
+     * @param n Number of data points and queries
+     * @param x Pointer to the input data
+     * @param n_train Number of query points
+     * @param q Pointer to the query data (can be null)
+     * @param leanvec_dims Number of dimensions in the resulting LeanVec data
+     */
     static Status build(
         LeanVecTrainingData** training_data,
         size_t dim,
         size_t n,
         const float* x,
+        size_t n_train,
+        const float* q,
         size_t leanvec_dims
     ) noexcept;
 

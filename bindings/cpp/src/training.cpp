@@ -31,12 +31,24 @@ Status LeanVecTrainingData::build(
     size_t dim,
     size_t n,
     const float* x,
+    size_t n_train,
+    const float* q,
     size_t leanvec_dims
 ) noexcept {
     return runtime_error_wrapper([&] {
         const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
-        *training_data =
-            new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
+        if (!q) {
+            // ID training
+            *training_data =
+                new LeanVecTrainingDataManager{LeanVecTrainingDataImpl{data, leanvec_dims}};
+            return;
+        } else {
+            // OOD training
+            const auto queries = svs::data::ConstSimpleDataView<float>(q, n_train, dim);
+            *training_data = new LeanVecTrainingDataManager{
+                LeanVecTrainingDataImpl{data, queries, leanvec_dims}};
+            return;
+        }
     });
 }
 
