@@ -149,7 +149,6 @@ class IVFTester(unittest.TestCase):
             matcher,
             num_threads: int,
             skip_thread_test: bool = False,
-            first_iter: bool = False,
             test_single_query: bool = False,
         ):
         # Make sure that the number of threads is propagated correctly.
@@ -192,7 +191,7 @@ class IVFTester(unittest.TestCase):
         if test_single_query:
             self._test_single_query(ivf, queries)
 
-    def _test_basic(self, loader, matcher, first_iter: bool = False):
+    def _test_basic(self, loader, matcher, test_single_query: bool = False):
         num_threads = 2
         print("Assemble from file")
         ivf = svs.IVF.assemble_from_file(
@@ -205,8 +204,7 @@ class IVFTester(unittest.TestCase):
         print(f"Testing: {ivf.experimental_backend_string}")
         self._test_basic_inner(ivf, matcher, num_threads,
             skip_thread_test = False,
-            first_iter = first_iter,
-            test_single_query = first_iter,
+            test_single_query = test_single_query,
         )
 
         print("Load and Assemble from clustering")
@@ -220,8 +218,7 @@ class IVFTester(unittest.TestCase):
         print(f"Testing: {ivf.experimental_backend_string}")
         self._test_basic_inner(ivf, matcher, num_threads,
             skip_thread_test = False,
-            first_iter = first_iter,
-            test_single_query = first_iter,
+            test_single_query = test_single_query,
         )
 
         # Test saving and reloading.
@@ -245,7 +242,6 @@ class IVFTester(unittest.TestCase):
                 matcher,
                 num_threads,
                 skip_thread_test = True,
-                first_iter = first_iter,
             )
 
     def test_basic(self):
@@ -255,9 +251,11 @@ class IVFTester(unittest.TestCase):
         )
         self._setup(default_loader)
 
-        # Standard tests
+        # Standard tests - run single query test only on first iteration
+        is_first = True
         for loader, matcher in self.loader_and_matcher:
-            self._test_basic(loader, matcher)
+            self._test_basic(loader, matcher, test_single_query=is_first)
+            is_first = False
 
     def _groundtruth_map(self):
         return {
