@@ -210,6 +210,50 @@ void add_points_specialization(py::class_<svs::DynamicVamana>& index) {
     );
 }
 
+void add_dynamic_vamana_properties(py::class_<svs::DynamicVamana>& vamana) {
+    vamana.def_property(
+        "alpha",
+        &svs::DynamicVamana::get_alpha,
+        &svs::DynamicVamana::set_alpha,
+        "Read/Write (float): Get/set the alpha value used when adding and deleting points."
+    );
+
+    vamana.def_property_readonly(
+        "graph_max_degree",
+        &svs::DynamicVamana::get_graph_max_degree,
+        "Read-only (int): Get the maximum degree of the graph."
+    );
+
+    vamana.def_property(
+        "construction_window_size",
+        &svs::DynamicVamana::get_construction_window_size,
+        &svs::DynamicVamana::set_construction_window_size,
+        "Read/Write (int): Get/set the window size used when adding and deleting points."
+    );
+
+    vamana.def_property(
+        "max_candidates",
+        &svs::DynamicVamana::get_max_candidates,
+        &svs::DynamicVamana::set_max_candidates,
+        "Read/Write (int): Get/set the maximum number of candidates used when adding and "
+        "deleting points."
+    );
+
+    vamana.def_property(
+        "prune_to",
+        &svs::DynamicVamana::get_prune_to,
+        &svs::DynamicVamana::set_prune_to,
+        "Read/Write (int): Get/set the target degree after pruning."
+    );
+
+    vamana.def_property(
+        "full_search_history",
+        &svs::DynamicVamana::get_full_search_history,
+        &svs::DynamicVamana::set_full_search_history,
+        "Read/Write (bool): Get/set whether full search history is recorded."
+    );
+}
+
 ///// Docstrings
 // Put docstrings heere to hopefully make the implementation of `wrap` a bit less
 // cluttered.
@@ -335,20 +379,7 @@ void wrap(py::module& m) {
     // Vamana specific extensions.
     vamana::add_interface(vamana);
 
-    // Dynamic interface.
-    vamana.def_property(
-        "alpha",
-        &svs::DynamicVamana::get_alpha,
-        &svs::DynamicVamana::set_alpha,
-        "Read/Write (float): Get/set the alpha value used when adding and deleting points."
-    );
-
-    vamana.def_property(
-        "construction_window_size",
-        &svs::DynamicVamana::get_construction_window_size,
-        &svs::DynamicVamana::set_construction_window_size,
-        "Read/Write (int): Get/set the window size used when adding and deleting points."
-    );
+    add_dynamic_vamana_properties(vamana);
 
     vamana.def("consolidate", &svs::DynamicVamana::consolidate, CONSOLIDATE_DOCSTRING);
     vamana.def("compact", &svs::DynamicVamana::compact, COMPACT_DOCSTRING);
