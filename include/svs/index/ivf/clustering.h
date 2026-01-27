@@ -602,6 +602,4 @@ class DenseClusteredDataset {
     size_t prefetch_offset_ = 8;
 };
 
-
-
 } // namespace svs::index::ivf

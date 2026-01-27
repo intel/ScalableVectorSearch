@@ -83,7 +83,8 @@ struct DataTypeTraits<quantization::scalar::SQDataset<T, Extent, Alloc>> {
 
     static DataTypeConfig get_config() {
         DataTypeConfig config;
-        config.schema = std::string(quantization::scalar::scalar_quantization_serialization_schema);
+        config.schema =
+            std::string(quantization::scalar::scalar_quantization_serialization_schema);
         config.element_type = datatype_v<T>;
         return config;
     }

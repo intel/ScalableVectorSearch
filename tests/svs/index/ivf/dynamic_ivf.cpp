@@ -1214,7 +1214,8 @@ CATCH_TEST_CASE("Dynamic IVF Save and Load", "[dynamic_ivf][saveload]") {
     CATCH_REQUIRE(std::filesystem::exists(config_dir));
     CATCH_REQUIRE(std::filesystem::exists(data_dir / "centroids"));
     // Verify format files exist in clusters/ subdirectory
-    // DenseClusteredDataset saves: clusters_archive.bin, ids.bin, cluster_sizes.bin, ids_offsets.bin
+    // DenseClusteredDataset saves: clusters_archive.bin, ids.bin, cluster_sizes.bin,
+    // ids_offsets.bin
     CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "clusters_archive.bin"));
     CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids.bin"));
     CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "cluster_sizes.bin"));

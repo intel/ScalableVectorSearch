@@ -622,7 +622,8 @@ svs::IVF load_index(
     // Get the data_type_config section from object
     auto data_type_node = (*object_table)["data_type_config"];
     if (!data_type_node) {
-        // Backward compatibility: no data_type_config means old format, default to float32/bfloat16
+        // Backward compatibility: no data_type_config means old format, default to
+        // float32/bfloat16
         return load_index_uncompressed_float32_bf16(
             config_path, data_path, distance_type, num_threads, intra_query_threads
         );
@@ -665,9 +666,12 @@ svs::IVF load_index(
         }
     }
 
-    throw ANNEXCEPTION("Unknown or unsupported data type schema: ", data_config.schema,
+    throw ANNEXCEPTION(
+        "Unknown or unsupported data type schema: ",
+        data_config.schema,
         ". Only uncompressed data is supported in the public repository. "
-        "For LVQ/LeanVec support, use the private repository.");
+        "For LVQ/LeanVec support, use the private repository."
+    );
 }
 
 } // namespace detail

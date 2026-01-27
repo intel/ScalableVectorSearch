@@ -351,7 +351,8 @@ void save_index(
 // Type alias for lib::Allocator to avoid 1GB hugepage allocations per cluster
 using LibAllocator = svs::lib::Allocator<std::byte>;
 
-// Load the DynamicIVF index from directories - uncompressed float32 data with bfloat16 centroids
+// Load the DynamicIVF index from directories - uncompressed float32 data with bfloat16
+// centroids
 svs::DynamicIVF load_index_uncompressed_float32_bf16(
     const std::string& config_path,
     const std::string& data_path,
@@ -359,13 +360,15 @@ svs::DynamicIVF load_index_uncompressed_float32_bf16(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    using data_type = svs::data::BlockedData<float, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
+    using data_type =
+        svs::data::BlockedData<float, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
     return svs::DynamicIVF::assemble<float, svs::BFloat16, data_type>(
         config_path, data_path, distance_type, num_threads, intra_query_threads
     );
 }
 
-// Load the DynamicIVF index from directories - uncompressed float32 data with float16 centroids
+// Load the DynamicIVF index from directories - uncompressed float32 data with float16
+// centroids
 svs::DynamicIVF load_index_uncompressed_float32_f16(
     const std::string& config_path,
     const std::string& data_path,
@@ -373,13 +376,15 @@ svs::DynamicIVF load_index_uncompressed_float32_f16(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    using data_type = svs::data::BlockedData<float, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
+    using data_type =
+        svs::data::BlockedData<float, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
     return svs::DynamicIVF::assemble<float, svs::Float16, data_type>(
         config_path, data_path, distance_type, num_threads, intra_query_threads
     );
 }
 
-// Load the DynamicIVF index from directories - uncompressed float16 data with bfloat16 centroids
+// Load the DynamicIVF index from directories - uncompressed float16 data with bfloat16
+// centroids
 svs::DynamicIVF load_index_uncompressed_float16_bf16(
     const std::string& config_path,
     const std::string& data_path,
@@ -387,13 +392,15 @@ svs::DynamicIVF load_index_uncompressed_float16_bf16(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    using data_type = svs::data::BlockedData<svs::Float16, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
+    using data_type = svs::data::
+        BlockedData<svs::Float16, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
     return svs::DynamicIVF::assemble<float, svs::BFloat16, data_type>(
         config_path, data_path, distance_type, num_threads, intra_query_threads
     );
 }
 
-// Load the DynamicIVF index from directories - uncompressed float16 data with float16 centroids
+// Load the DynamicIVF index from directories - uncompressed float16 data with float16
+// centroids
 svs::DynamicIVF load_index_uncompressed_float16_f16(
     const std::string& config_path,
     const std::string& data_path,
@@ -401,7 +408,8 @@ svs::DynamicIVF load_index_uncompressed_float16_f16(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    using data_type = svs::data::BlockedData<svs::Float16, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
+    using data_type = svs::data::
+        BlockedData<svs::Float16, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
     return svs::DynamicIVF::assemble<float, svs::Float16, data_type>(
         config_path, data_path, distance_type, num_threads, intra_query_threads
     );
@@ -432,7 +440,8 @@ svs::DynamicIVF load_index_auto(
     // Get the data_type_config section from object
     auto data_type_node = (*object_table)["data_type_config"];
     if (!data_type_node) {
-        // Backward compatibility: no data_type_config means old format, default to float32/bfloat16
+        // Backward compatibility: no data_type_config means old format, default to
+        // float32/bfloat16
         return load_index_uncompressed_float32_bf16(
             config_path, data_path, distance_type, num_threads, intra_query_threads
         );
@@ -475,9 +484,12 @@ svs::DynamicIVF load_index_auto(
         }
     }
 
-    throw ANNEXCEPTION("Unknown or unsupported data type schema: ", data_config.schema,
+    throw ANNEXCEPTION(
+        "Unknown or unsupported data type schema: ",
+        data_config.schema,
         ". Only uncompressed data is supported in the public repository. "
-        "For LVQ/LeanVec support, use the private repository.");
+        "For LVQ/LeanVec support, use the private repository."
+    );
 }
 
 void wrap(py::module& m) {

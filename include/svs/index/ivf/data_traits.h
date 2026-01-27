@@ -33,7 +33,8 @@ namespace svs::index::ivf {
 /// Extensions (e.g., LVQ, LeanVec) can be added by including additional
 /// specialization headers that specialize DataTypeTraits for their types.
 struct DataTypeConfig {
-    // Schema identifier (e.g., "uncompressed_data", "one_level_lvq_dataset", "leanvec_dataset")
+    // Schema identifier (e.g., "uncompressed_data", "one_level_lvq_dataset",
+    // "leanvec_dataset")
     std::string schema;
 
     // For uncompressed data: element type
@@ -45,7 +46,7 @@ struct DataTypeConfig {
     // For LVQ: compression parameters
     size_t primary_bits = 0;
     size_t residual_bits = 0;
-    std::string strategy;  // "sequential" or "turbo"
+    std::string strategy; // "sequential" or "turbo"
 
     // For LeanVec: dimensionality and encoding kinds
     std::string primary_kind;   // "float32", "float16", "lvq4", "lvq8"
@@ -98,8 +99,7 @@ struct DataTypeConfig {
 /// Default implementation for uncompressed SimpleData.
 /// Specializations for LVQ/LeanVec are provided in svs/extensions/ivf/lvq.h
 /// and svs/extensions/ivf/leanvec.h respectively.
-template <typename Data>
-struct DataTypeTraits {
+template <typename Data> struct DataTypeTraits {
     static DataTypeConfig get_config() {
         DataTypeConfig config;
         config.schema = "uncompressed_data";
