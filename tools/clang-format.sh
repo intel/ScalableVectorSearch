@@ -24,6 +24,6 @@ do
     if [[ "$STAGED_ONLY" == "true" ]]; then
         git diff --cached --name-only --diff-filter=ACM | grep -E "^$i/.*\.(h|cpp)$" | grep -v "toml_impl.h" | xargs -r "$CLANGFORMAT" -i
     else
-        find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
+        find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" -print0 | xargs -n1 -0 "$CLANGFORMAT" -i
     fi
 done
