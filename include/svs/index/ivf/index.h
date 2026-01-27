@@ -877,7 +877,7 @@ auto load_ivf_index(
 
     // Load clustered dataset
     auto clusters_timer = timer.push_back("Loading clusters");
-    using data_type = data::SimpleData<DataType>;
+    using data_type = typename DataType::lib_alloc_data_type;
     using cluster_type = DenseClusteredDataset<centroids_type, uint32_t, data_type>;
     auto clusters = lib::load_from_disk<cluster_type>(data_path / "clusters", threadpool);
     clusters_timer.finish();

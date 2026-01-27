@@ -340,7 +340,9 @@ CATCH_TEST_CASE("IVF Save and Load", "[integration][ivf][saveload]") {
         // Load the index back
         // Centroids were saved as BFloat16 (from the original clustering), but cluster
         // data is float (from our input data)
-        auto loaded_index = svs::IVF::assemble<float, svs::BFloat16, float>(
+        using DataType =
+            svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>>;
+        auto loaded_index = svs::IVF::assemble<float, svs::BFloat16, DataType>(
             config_dir, data_dir, dist_l2, num_threads, intra_query_threads
         );
 
@@ -361,7 +363,9 @@ CATCH_TEST_CASE("IVF Save and Load", "[integration][ivf][saveload]") {
         // Load the index from the stream
         std::ifstream file_istream(file, std::ios::binary);
         CATCH_REQUIRE(file_istream.good());
-        auto loaded_index = svs::IVF::assemble<float, svs::BFloat16, float>(
+        using DataType =
+            svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>>;
+        auto loaded_index = svs::IVF::assemble<float, svs::BFloat16, DataType>(
             file_istream, dist_l2, num_threads, intra_query_threads
         );
 

@@ -241,7 +241,9 @@ CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
         CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters"));
 
         // Load the index
-        auto loaded_index = ivf::load_ivf_index<float, float>(
+        using DataType =
+            svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>>;
+        auto loaded_index = ivf::load_ivf_index<float, DataType>(
             config_dir,
             data_dir,
             distance,
