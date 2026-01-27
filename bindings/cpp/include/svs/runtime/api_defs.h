@@ -208,6 +208,7 @@ struct SVS_RUNTIME_API_INTERFACE ResultsAllocator {
 namespace v1 {
 using v0::ErrorCode;
 using v0::IDFilter;
+using v0::is_specified;
 using v0::MetricType;
 using v0::OptionalBool;
 using v0::ResultsAllocator;
@@ -217,7 +218,6 @@ using v0::Status;
 using v0::Status_Ok;
 using v0::StorageKind;
 using v0::Unspecify;
-using v0::is_specified;
 } // namespace v1
 
 } // namespace runtime

@@ -118,9 +118,7 @@ inline bool is_supported_storage_kind(StorageKind kind) {
 // Storage kind processing
 // Most kinds map to std::byte storage, but some have specific element types.
 // Storage kind tag types for function argument deduction
-template <StorageKind K> struct StorageKindTag {
-    static constexpr StorageKind value = K;
-};
+template <StorageKind K> struct StorageKindTag { static constexpr StorageKind value = K; };
 
 #define SVS_DEFINE_STORAGE_KIND_TAG(Kind) \
     using Kind##Tag = StorageKindTag<StorageKind::Kind>
