@@ -19,6 +19,7 @@
 #include "svs/python/common.h"
 #include "svs/python/core.h"
 #include "svs/python/ivf.h"
+#include "svs/python/ivf_loader.h"
 #include "svs/python/manager.h"
 
 // svs
@@ -348,74 +349,7 @@ void save_index(
     index.save(config_path, data_dir);
 }
 
-// Type alias for lib::Allocator to avoid 1GB hugepage allocations per cluster
-using LibAllocator = svs::lib::Allocator<std::byte>;
-
-// Load the DynamicIVF index from directories - uncompressed float32 data with bfloat16
-// centroids
-svs::DynamicIVF load_index_uncompressed_float32_bf16(
-    const std::string& config_path,
-    const std::string& data_path,
-    svs::DistanceType distance_type,
-    size_t num_threads,
-    size_t intra_query_threads = 1
-) {
-    using data_type =
-        svs::data::BlockedData<float, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
-    return svs::DynamicIVF::assemble<float, svs::BFloat16, data_type>(
-        config_path, data_path, distance_type, num_threads, intra_query_threads
-    );
-}
-
-// Load the DynamicIVF index from directories - uncompressed float32 data with float16
-// centroids
-svs::DynamicIVF load_index_uncompressed_float32_f16(
-    const std::string& config_path,
-    const std::string& data_path,
-    svs::DistanceType distance_type,
-    size_t num_threads,
-    size_t intra_query_threads = 1
-) {
-    using data_type =
-        svs::data::BlockedData<float, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
-    return svs::DynamicIVF::assemble<float, svs::Float16, data_type>(
-        config_path, data_path, distance_type, num_threads, intra_query_threads
-    );
-}
-
-// Load the DynamicIVF index from directories - uncompressed float16 data with bfloat16
-// centroids
-svs::DynamicIVF load_index_uncompressed_float16_bf16(
-    const std::string& config_path,
-    const std::string& data_path,
-    svs::DistanceType distance_type,
-    size_t num_threads,
-    size_t intra_query_threads = 1
-) {
-    using data_type = svs::data::
-        BlockedData<svs::Float16, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
-    return svs::DynamicIVF::assemble<float, svs::BFloat16, data_type>(
-        config_path, data_path, distance_type, num_threads, intra_query_threads
-    );
-}
-
-// Load the DynamicIVF index from directories - uncompressed float16 data with float16
-// centroids
-svs::DynamicIVF load_index_uncompressed_float16_f16(
-    const std::string& config_path,
-    const std::string& data_path,
-    svs::DistanceType distance_type,
-    size_t num_threads,
-    size_t intra_query_threads = 1
-) {
-    using data_type = svs::data::
-        BlockedData<svs::Float16, svs::Dynamic, svs::data::Blocked<LibAllocator>>;
-    return svs::DynamicIVF::assemble<float, svs::Float16, data_type>(
-        config_path, data_path, distance_type, num_threads, intra_query_threads
-    );
-}
-
-// Load with auto-detection from saved config
+// Load with auto-detection from saved config using common template dispatcher
 svs::DynamicIVF load_index_auto(
     const std::string& config_path,
     const std::string& data_path,
@@ -423,72 +357,24 @@ svs::DynamicIVF load_index_auto(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Read the config file to get data_type_config
-    auto config_file = std::filesystem::path(config_path) / svs::lib::config_file_name;
-    auto table = toml::parse_file(config_file.string());
-
-    // The data_type_config is nested inside "object" section
-    auto object_node = table["object"];
-    if (!object_node) {
-        throw ANNEXCEPTION("Config file missing 'object' section.");
-    }
-    auto* object_table = object_node.as_table();
-    if (!object_table) {
-        throw ANNEXCEPTION("'object' section is not a table.");
-    }
-
-    // Get the data_type_config section from object
-    auto data_type_node = (*object_table)["data_type_config"];
-    if (!data_type_node) {
-        // Backward compatibility: no data_type_config means old format, default to
-        // float32/bfloat16
-        return load_index_uncompressed_float32_bf16(
-            config_path, data_path, distance_type, num_threads, intra_query_threads
+    // Generic loader that dispatches to DynamicIVF::assemble with the correct types
+    // Using BlockedData for dynamic index to avoid 1GB hugepage allocations per cluster
+    auto loader = []<typename DataType, typename CentroidType>(
+                      const std::string& cfg,
+                      const std::string& data,
+                      svs::DistanceType dist,
+                      size_t threads,
+                      size_t intra_threads
+                  ) {
+        using data_storage =
+            svs::data::BlockedData<DataType, svs::Dynamic, svs::data::Blocked<Allocator>>;
+        return svs::DynamicIVF::assemble<float, CentroidType, data_storage>(
+            cfg, data, dist, threads, intra_threads
         );
-    }
+    };
 
-    // Convert to table and create ContextFreeLoadTable
-    auto* data_type_table = data_type_node.as_table();
-    if (!data_type_table) {
-        throw ANNEXCEPTION("data_type_config is not a table");
-    }
-    auto ctx_free = svs::lib::ContextFreeLoadTable(*data_type_table);
-    auto data_config = svs::index::ivf::DataTypeConfig::load(ctx_free);
-
-    // Dispatch based on schema
-    if (data_config.schema == "uncompressed_data") {
-        // Dispatch based on element type and centroid type
-        bool is_f16_centroids = (data_config.centroid_type == svs::DataType::float16);
-        bool is_f16_data = (data_config.element_type == svs::DataType::float16);
-
-        if (is_f16_data) {
-            if (is_f16_centroids) {
-                return load_index_uncompressed_float16_f16(
-                    config_path, data_path, distance_type, num_threads, intra_query_threads
-                );
-            } else {
-                return load_index_uncompressed_float16_bf16(
-                    config_path, data_path, distance_type, num_threads, intra_query_threads
-                );
-            }
-        } else {
-            if (is_f16_centroids) {
-                return load_index_uncompressed_float32_f16(
-                    config_path, data_path, distance_type, num_threads, intra_query_threads
-                );
-            } else {
-                return load_index_uncompressed_float32_bf16(
-                    config_path, data_path, distance_type, num_threads, intra_query_threads
-                );
-            }
-        }
-    }
-
-    throw ANNEXCEPTION(
-        "Unknown or unsupported data type schema: ",
-        data_config.schema,
-        ". Only uncompressed data is supported in the public repository. "
-        "For LVQ/LeanVec support, use the private repository."
+    return svs::python::ivf_loader::load_index_auto<svs::DynamicIVF>(
+        config_path, data_path, distance_type, num_threads, intra_query_threads, loader
     );
 }
 
