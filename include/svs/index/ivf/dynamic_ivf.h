@@ -732,10 +732,15 @@ class DynamicIVFIndex {
         auto clusters_dir = data_directory / "clusters";
         std::filesystem::create_directories(clusters_dir);
 
+        // Get data type configuration for automatic loader construction during load
+        auto data_type_config = DataTypeTraits<Data>::get_config();
+        // Set the centroid type from the Centroids template parameter
+        data_type_config.centroid_type = datatype_v<typename centroids_type::element_type>;
+
         // Save configuration
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
-                return lib::SaveTable(
+                auto table = lib::SaveTable(
                     "dynamic_ivf_config",
                     save_version,
                     {
@@ -744,6 +749,9 @@ class DynamicIVFIndex {
                         {"num_clusters", lib::save(clusters_.size())},
                     }
                 );
+                // Insert nested table for data type config
+                table.insert("data_type_config", lib::save(data_type_config));
+                return table;
             }),
             config_directory
         );
@@ -1118,14 +1126,27 @@ auto load_dynamic_ivf_index(
     auto centroids = lib::load_from_disk<centroids_type>(data_path / "centroids");
     centroids_timer.finish();
 
-    // Define cluster types
+    // Define cluster types - use lib_blocked_alloc_data_type pattern for proper allocator
+    // This uses lib::Allocator<std::byte> instead of potentially HugepageAllocator
     using I = uint32_t;
-    using cluster_type = DenseClusteredDataset<centroids_type, I, DataType>;
+    using blocked_data_type = typename DataType::lib_blocked_alloc_data_type;
+    using cluster_type = DenseClusteredDataset<centroids_type, I, blocked_data_type>;
 
     auto clusters_timer = timer.push_back("Loading clusters");
 
     auto clusters_dir = data_path / "clusters";
-    auto dense_clusters = lib::load_from_disk<cluster_type>(clusters_dir, threadpool);
+
+    // Use a small block size for IVF clusters (1MB instead of 1GB default)
+    // This prevents excessive memory allocation when loading many clusters
+    auto blocking_params = data::BlockingParameters{
+        .blocksize_bytes = lib::PowerOfTwo(20) // 2^20 = 1MB
+    };
+    using allocator_type = typename blocked_data_type::allocator_type;
+    auto blocked_allocator =
+        allocator_type(blocking_params, typename allocator_type::allocator_type());
+
+    auto dense_clusters =
+        lib::load_from_disk<cluster_type>(clusters_dir, threadpool, blocked_allocator);
     clusters_timer.finish();
 
     // Create the index with the translator constructor

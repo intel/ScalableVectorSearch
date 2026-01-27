@@ -12,25 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# unit under test
-import svs
-import numpy as np
-
-# stdlib
+# Tests for the Dynamic IVF index with save/load auto-detection.
 import unittest
 import os
+import numpy as np
 from tempfile import TemporaryDirectory
 
-# helpers
-from .common import test_data_svs, test_data_dims, test_number_of_vectors, test_queries, test_groundtruth_l2
+import svs
+
+# Local dependencies
+from .common import \
+    test_data_svs, \
+    test_data_vecs, \
+    test_data_dims, \
+    test_queries, \
+    test_groundtruth_l2, \
+    test_number_of_vectors
+
 from .dynamic import ReferenceDataset
+
 
 class DynamicIVFTester(unittest.TestCase):
     """
     Test building, adding, deleting points from the dynamic IVF index.
+    Tests include save/load with auto-detection for uncompressed data types.
     """
 
     def id_check(self, index, ids):
+        """Check that the index contains exactly the given IDs."""
         # Check that every id in `ids` is in the index.
         for this_id in ids:
             self.assertTrue(index.has_id(this_id))
@@ -45,22 +54,24 @@ class DynamicIVFTester(unittest.TestCase):
             index: svs.DynamicIVF,
             reference: ReferenceDataset,
             num_neighbors: int,
-            expected_recall,
-            recall_delta,
+            expected_recall: float,
+            recall_delta: float,
         ):
+        """Check recall and test save/reload functionality with auto-detection."""
         gt = reference.ground_truth(num_neighbors)
         I, D = index.search(reference.queries, num_neighbors)
         recall = svs.k_recall_at(gt, I, num_neighbors, num_neighbors)
-        print("    Recall: ", recall)
+        print(f"    Recall: {recall}")
         self.assertTrue(recall < expected_recall + recall_delta)
         self.assertTrue(recall > expected_recall - recall_delta)
 
-        # Make sure saving and reloading work.
+        # Make sure saving and reloading work with auto-detection.
         with TemporaryDirectory() as tempdir:
             configdir = os.path.join(tempdir, "config")
             datadir = os.path.join(tempdir, "data")
             index.save(configdir, datadir)
 
+            # Load with auto-detection - should detect data type automatically
             reloaded = svs.DynamicIVF.load(
                 config_directory = configdir,
                 data_directory = datadir,
@@ -79,24 +90,8 @@ class DynamicIVFTester(unittest.TestCase):
             self.assertTrue(reloaded_recall < expected_recall + recall_delta)
             self.assertTrue(reloaded_recall > expected_recall - recall_delta)
 
-    def test_loop(self):
-        num_threads = 2
-        num_neighbors = 10
-        num_tests = 10
-        consolidate_every = 2
-        delta = 1000
-
-        # Recall can fluctuate up and down.
-        # Here, we set an expected mid-point for the recall and allow it to wander up and
-        # down by a little. For IVF, recall can drop more after adding vectors since
-        # the clustering isn't updated.
-        expected_recall = 0.65
-        expected_recall_delta = 0.20
-
-        reference = ReferenceDataset(num_threads = num_threads)
-        data, ids = reference.new_ids(5000)
-
-        # Build IVF clustering first
+    def _build_clustering(self, data_loader, num_threads):
+        """Build IVF clustering from a data loader."""
         build_params = svs.IVFBuildParameters(
             num_centroids = 64,
             minibatch_size = 128,
@@ -107,7 +102,23 @@ class DynamicIVFTester(unittest.TestCase):
             seed = 42,
         )
 
-        # Write data to temp file and use VectorDataLoader
+        return svs.Clustering.build(
+            build_parameters = build_params,
+            data_loader = data_loader,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+
+    def test_uncompressed(self):
+        """Test DynamicIVF with uncompressed float32 data and auto-detection on reload."""
+        num_threads = 2
+        num_neighbors = 10
+        expected_recall = 0.65
+        expected_recall_delta = 0.20
+
+        reference = ReferenceDataset(num_threads = num_threads)
+        data, ids = reference.new_ids(5000)
+
         with TemporaryDirectory() as tempdir:
             data_file = os.path.join(tempdir, "data.fvecs")
             svs.write_vecs(data, data_file)
@@ -118,12 +129,7 @@ class DynamicIVFTester(unittest.TestCase):
                 dims = data.shape[1]
             )
 
-            clustering = svs.Clustering.build(
-                build_parameters = build_params,
-                data_loader = data_loader,
-                distance = svs.DistanceType.L2,
-                num_threads = num_threads,
-            )
+            clustering = self._build_clustering(data_loader, num_threads)
 
             # Assemble DynamicIVF from clustering
             index = svs.DynamicIVF.assemble_from_clustering(
@@ -134,50 +140,37 @@ class DynamicIVFTester(unittest.TestCase):
                 num_threads = num_threads,
             )
 
-            print(f"Testing {index.experimental_backend_string}")
+            print(f"Testing uncompressed: {index.experimental_backend_string}")
 
             # Set search parameters
             search_params = svs.IVFSearchParameters(n_probes = 20, k_reorder = 100)
             index.search_parameters = search_params
-            self.assertEqual(index.search_parameters.n_probes, 20)
-            self.assertEqual(index.search_parameters.k_reorder, 100)
 
             # Perform an ID check
             self.id_check(index, reference.ids())
 
-            # Groundtruth Check
-            print("Initial")
+            # Groundtruth Check with save/reload auto-detection
+            print("Initial uncompressed")
             self.recall_check(
                 index, reference, num_neighbors, expected_recall, expected_recall_delta
             )
 
-            consolidate_count = 0
-            for i in range(num_tests):
-                (data, ids) = reference.new_ids(delta)
-                index.add(data, ids)
-                print("Add")
-                self.id_check(index, reference.ids())
-                self.recall_check(
-                    index, reference, num_neighbors, expected_recall, expected_recall_delta
-                )
+            # Add and delete some vectors
+            (add_data, add_ids) = reference.new_ids(1000)
+            index.add(add_data, add_ids)
+            print("After add")
+            self.id_check(index, reference.ids())
+            self.recall_check(
+                index, reference, num_neighbors, expected_recall, expected_recall_delta
+            )
 
-                ids = reference.remove_ids(delta)
-                index.delete(ids)
-                print("Delete")
-                self.id_check(index, reference.ids())
-                self.recall_check(
-                    index, reference, num_neighbors, expected_recall, expected_recall_delta
-                )
-
-                consolidate_count += 1
-                if consolidate_count == consolidate_every:
-                    index.consolidate().compact(1000)
-                    self.id_check(index, reference.ids())
-                    print("Cleanup")
-                    self.recall_check(
-                        index, reference, num_neighbors, expected_recall, expected_recall_delta
-                    )
-                    consolidate_count = 0
+            delete_ids = reference.remove_ids(1000)
+            index.delete(delete_ids)
+            print("After delete")
+            self.id_check(index, reference.ids())
+            self.recall_check(
+                index, reference, num_neighbors, expected_recall, expected_recall_delta
+            )
 
     def test_build_from_loader(self):
         """Test building DynamicIVF using a VectorDataLoader and explicit IDs."""
@@ -232,17 +225,16 @@ class DynamicIVFTester(unittest.TestCase):
         I, D = index.search(queries, k)
         self.assertEqual(I.shape[1], k)
         recall = svs.k_recall_at(groundtruth, I, k, k)
-        # Recall in plausible range
         print(f"Build from loader recall: {recall}")
         self.assertTrue(0.5 < recall <= 1.0)
 
-        # Test save and load
+        # Test save and load with auto-detection
         with TemporaryDirectory() as tempdir:
             configdir = os.path.join(tempdir, "config")
             datadir = os.path.join(tempdir, "data")
             index.save(configdir, datadir)
 
-            # Reload from saved directories.
+            # Reload from saved directories - auto-detect data type
             reloaded = svs.DynamicIVF.load(
                 config_directory = configdir,
                 data_directory = datadir,

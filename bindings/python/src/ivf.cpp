@@ -27,12 +27,17 @@
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
+#include "svs/index/ivf/data_traits.h"
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
+#include "svs/lib/saveload.h"
 #include "svs/orchestrators/ivf.h"
+
+// toml
+#include <toml++/toml.h>
 
 // pybind
 #include <pybind11/numpy.h>
@@ -41,6 +46,7 @@
 
 // stl
 #include <algorithm>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <span>
@@ -539,8 +545,8 @@ void save_index(
     index.save(config_path, data_dir);
 }
 
-// Load the IVF index from directories
-svs::IVF load_index(
+// Load the IVF index - uncompressed float32 data with bfloat16 centroids
+svs::IVF load_index_uncompressed_float32_bf16(
     const std::string& config_path,
     const std::string& data_path,
     svs::DistanceType distance_type,
@@ -550,6 +556,118 @@ svs::IVF load_index(
     return svs::IVF::assemble<float, svs::BFloat16, float>(
         config_path, data_path, distance_type, num_threads, intra_query_threads
     );
+}
+
+// Load the IVF index - uncompressed float32 data with float16 centroids
+svs::IVF load_index_uncompressed_float32_f16(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::IVF::assemble<float, svs::Float16, float>(
+        config_path, data_path, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Load the IVF index - uncompressed float16 data with bfloat16 centroids
+svs::IVF load_index_uncompressed_float16_bf16(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::IVF::assemble<float, svs::BFloat16, svs::Float16>(
+        config_path, data_path, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Load the IVF index - uncompressed float16 data with float16 centroids
+svs::IVF load_index_uncompressed_float16_f16(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::IVF::assemble<float, svs::Float16, svs::Float16>(
+        config_path, data_path, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Load with auto-detection from saved config
+svs::IVF load_index(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    // Read the config file to get data_type_config
+    auto config_file = std::filesystem::path(config_path) / svs::lib::config_file_name;
+    auto table = toml::parse_file(config_file.string());
+
+    // The data_type_config is nested inside "object" section
+    auto object_node = table["object"];
+    if (!object_node) {
+        throw ANNEXCEPTION("Config file missing 'object' section.");
+    }
+    auto* object_table = object_node.as_table();
+    if (!object_table) {
+        throw ANNEXCEPTION("'object' section is not a table.");
+    }
+
+    // Get the data_type_config section from object
+    auto data_type_node = (*object_table)["data_type_config"];
+    if (!data_type_node) {
+        // Backward compatibility: no data_type_config means old format, default to float32/bfloat16
+        return load_index_uncompressed_float32_bf16(
+            config_path, data_path, distance_type, num_threads, intra_query_threads
+        );
+    }
+
+    // Convert to table and create ContextFreeLoadTable
+    auto* data_type_table = data_type_node.as_table();
+    if (!data_type_table) {
+        throw ANNEXCEPTION("data_type_config is not a table");
+    }
+    auto ctx_free = svs::lib::ContextFreeLoadTable(*data_type_table);
+    auto data_config = svs::index::ivf::DataTypeConfig::load(ctx_free);
+
+    // Dispatch based on schema
+    if (data_config.schema == "uncompressed_data") {
+        // Dispatch based on element type and centroid type
+        bool is_f16_centroids = (data_config.centroid_type == svs::DataType::float16);
+        bool is_f16_data = (data_config.element_type == svs::DataType::float16);
+
+        if (is_f16_data) {
+            if (is_f16_centroids) {
+                return load_index_uncompressed_float16_f16(
+                    config_path, data_path, distance_type, num_threads, intra_query_threads
+                );
+            } else {
+                return load_index_uncompressed_float16_bf16(
+                    config_path, data_path, distance_type, num_threads, intra_query_threads
+                );
+            }
+        } else {
+            if (is_f16_centroids) {
+                return load_index_uncompressed_float32_f16(
+                    config_path, data_path, distance_type, num_threads, intra_query_threads
+                );
+            } else {
+                return load_index_uncompressed_float32_bf16(
+                    config_path, data_path, distance_type, num_threads, intra_query_threads
+                );
+            }
+        }
+    }
+
+    throw ANNEXCEPTION("Unknown or unsupported data type schema: ", data_config.schema,
+        ". Only uncompressed data is supported in the public repository. "
+        "For LVQ/LeanVec support, use the private repository.");
 }
 
 } // namespace detail
@@ -685,6 +803,9 @@ overwritten when saving the index to this directory.
         R"(
 Load a saved IVF index from disk.
 
+The data type (uncompressed with float32 or float16) and centroid type (bfloat16 or float16)
+are automatically detected from the saved configuration file.
+
 Args:
     config_directory: Directory where index configuration was saved.
     data_directory: Directory where the dataset was saved.
@@ -694,6 +815,10 @@ Args:
 
 Returns:
     A loaded IVF index ready for searching.
+
+Note:
+    This method auto-detects the data type from the saved configuration.
+    The index must have been saved with a version that includes data type information.
     )"
     );
 

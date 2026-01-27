@@ -21,6 +21,7 @@
 #include "svs/core/loading.h"
 #include "svs/core/query_result.h"
 #include "svs/index/ivf/clustering.h"
+#include "svs/index/ivf/data_traits.h"
 #include "svs/index/ivf/extensions.h"
 #include "svs/index/ivf/hierarchical_kmeans.h"
 #include "svs/index/ivf/kmeans.h"
@@ -477,15 +478,23 @@ class IVFIndex {
         std::filesystem::create_directories(centroids_dir);
         std::filesystem::create_directories(clusters_dir);
 
+        // Get data type configuration for automatic loader construction during load
+        auto data_type_config = DataTypeTraits<Data>::get_config();
+        // Set the centroid type from the Centroids template parameter
+        data_type_config.centroid_type = datatype_v<typename Centroids::element_type>;
+
         // Save configuration
         lib::save_to_disk(
             lib::SaveOverride([&]() {
-                return lib::SaveTable(
+                auto table = lib::SaveTable(
                     serialization_schema,
                     save_version,
                     {{"name", lib::save(name())},
                      {"num_clusters", lib::save(num_clusters())}}
                 );
+                // Insert nested table for data type config
+                table.insert("data_type_config", lib::save(data_type_config));
+                return table;
             }),
             config_directory
         );

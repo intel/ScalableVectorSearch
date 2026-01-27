@@ -505,13 +505,19 @@ class DenseClusteredDataset {
     /// using the native save/load mechanism for each data type.
     ///
     /// @tparam Pool Thread pool type for parallel loading
+    /// @tparam Allocator Allocator type for cluster data (optional)
     /// @param table The load table containing saved metadata
     /// @param threadpool Thread pool for parallel operations (unused, kept for API
     /// consistency)
+    /// @param allocator Optional allocator for cluster data. For blocked data types,
+    ///     this controls the block size. If not provided, default allocator is used.
     /// @return Loaded DenseClusteredDataset
-    template <threads::ThreadPool Pool>
-    static DenseClusteredDataset
-    load(const lib::LoadTable& table, Pool& SVS_UNUSED(threadpool)) {
+    template <threads::ThreadPool Pool, typename Allocator = typename Data::allocator_type>
+    static DenseClusteredDataset load(
+        const lib::LoadTable& table,
+        Pool& SVS_UNUSED(threadpool),
+        const Allocator& allocator = Allocator{}
+    ) {
         auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
         // Note: "dimensions" field is saved for validation but not used during load
         // since each cluster's data type determines its own dimensions
@@ -572,9 +578,9 @@ class DenseClusteredDataset {
 
         // Load each cluster's data and ids together
         for (size_t i = 0; i < num_clusters; ++i) {
-            // Load cluster data
+            // Load cluster data with provided allocator
             auto cluster_dir = clusters_temp_dir / fmt::format("cluster_{}", i);
-            auto cluster_data = lib::load_from_disk<Data>(cluster_dir);
+            auto cluster_data = lib::load_from_disk<Data>(cluster_dir, allocator);
 
             // Load cluster IDs
             size_t cluster_size = cluster_sizes[i];

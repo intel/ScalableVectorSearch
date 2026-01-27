@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include "svs/index/ivf/data_traits.h"
 #include "svs/index/ivf/extensions.h"
 #include "svs/quantization/scalar/scalar.h"
 
@@ -63,3 +66,27 @@ auto svs_invoke(
 }
 
 } // namespace svs::quantization::scalar
+
+/////
+///// DataTypeTraits specialization for Scalar Quantization datasets
+/////
+
+namespace svs::index::ivf {
+
+/// @brief Specialization of DataTypeTraits for SQDataset
+///
+/// This enables automatic save/load of Scalar Quantization data type information
+/// in IVF indices.
+template <typename T, size_t Extent, typename Alloc>
+struct DataTypeTraits<quantization::scalar::SQDataset<T, Extent, Alloc>> {
+    using Data = quantization::scalar::SQDataset<T, Extent, Alloc>;
+
+    static DataTypeConfig get_config() {
+        DataTypeConfig config;
+        config.schema = std::string(quantization::scalar::scalar_quantization_serialization_schema);
+        config.element_type = datatype_v<T>;
+        return config;
+    }
+};
+
+} // namespace svs::index::ivf
