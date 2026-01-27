@@ -216,6 +216,8 @@ using v0::set_if_specified;
 using v0::Status;
 using v0::Status_Ok;
 using v0::StorageKind;
+using v0::Unspecify;
+using v0::is_specified;
 } // namespace v1
 
 } // namespace runtime
