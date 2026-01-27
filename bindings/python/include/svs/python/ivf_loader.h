@@ -45,8 +45,8 @@ using RebindAlloc = typename std::allocator_traits<Allocator>::template rebind_a
 /// @param config_path Path to the configuration directory
 /// @return The parsed DataTypeConfig
 ///
-inline svs::index::ivf::DataTypeConfig
-read_data_type_config(const std::string& config_path) {
+inline svs::index::ivf::DataTypeConfig read_data_type_config(const std::string& config_path
+) {
     auto config_file = std::filesystem::path(config_path) / svs::lib::config_file_name;
     auto table = toml::parse_file(config_file.string());
 

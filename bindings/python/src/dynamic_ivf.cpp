@@ -358,14 +358,10 @@ svs::DynamicIVF load_index_auto(
     size_t intra_query_threads = 1
 ) {
     // Using BlockedData for dynamic index to avoid 1GB hugepage allocations per cluster
-    return svs::python::ivf_loader::load_index_auto<
-        svs::DynamicIVF, svs::data::BlockedData, Allocator>(
-        config_path,
-        data_path,
-        distance_type,
-        num_threads,
-        intra_query_threads
-    );
+    return svs::python::ivf_loader::
+        load_index_auto<svs::DynamicIVF, svs::data::BlockedData, Allocator>(
+            config_path, data_path, distance_type, num_threads, intra_query_threads
+        );
 }
 
 void wrap(py::module& m) {
