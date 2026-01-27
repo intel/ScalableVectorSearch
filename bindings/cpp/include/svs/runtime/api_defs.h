@@ -66,8 +66,12 @@ template <> struct Unspecified<float> {
 template <> struct Unspecified<int> {
     static constexpr int value = std::numeric_limits<int>::max();
 };
-template <> struct Unspecified<bool> { static constexpr OptionalBool value = {}; };
-template <> struct Unspecified<OptionalBool> { static constexpr OptionalBool value = {}; };
+template <> struct Unspecified<bool> {
+    static constexpr OptionalBool value = {};
+};
+template <> struct Unspecified<OptionalBool> {
+    static constexpr OptionalBool value = {};
+};
 
 template <typename T> constexpr auto Unspecify() { return Unspecified<T>::value; }
 

@@ -20,5 +20,5 @@ DIRECTORIES=( "bindings/python/src" "bindings/python/include" "bindings/cpp" "in
 
 for i in "${DIRECTORIES[@]}"
 do
-    find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
+    find "./$i" -maxdepth 1 \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
 done
