@@ -77,13 +77,7 @@ struct DataTypeConfig {
         DataTypeConfig config;
         config.schema = lib::load_at<std::string>(table, "schema");
         config.element_type = lib::load_at<DataType>(table, "element_type");
-        // centroid_type may not exist in older configs - default to bfloat16
-        auto centroid_node = table.try_at("centroid_type");
-        if (centroid_node.has_value()) {
-            config.centroid_type = lib::load<DataType>(*centroid_node);
-        } else {
-            config.centroid_type = DataType::bfloat16;
-        }
+        config.centroid_type = lib::load_at<DataType>(table, "centroid_type");
         config.primary_bits = lib::load_at<size_t>(table, "primary_bits");
         config.residual_bits = lib::load_at<size_t>(table, "residual_bits");
         config.strategy = lib::load_at<std::string>(table, "strategy");

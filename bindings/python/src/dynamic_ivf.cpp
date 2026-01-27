@@ -357,24 +357,14 @@ svs::DynamicIVF load_index_auto(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Generic loader that dispatches to DynamicIVF::assemble with the correct types
     // Using BlockedData for dynamic index to avoid 1GB hugepage allocations per cluster
-    auto loader = []<typename DataType, typename CentroidType>(
-                      const std::string& cfg,
-                      const std::string& data,
-                      svs::DistanceType dist,
-                      size_t threads,
-                      size_t intra_threads
-                  ) {
-        using data_storage =
-            svs::data::BlockedData<DataType, svs::Dynamic, svs::data::Blocked<Allocator>>;
-        return svs::DynamicIVF::assemble<float, CentroidType, data_storage>(
-            cfg, data, dist, threads, intra_threads
-        );
-    };
-
-    return svs::python::ivf_loader::load_index_auto<svs::DynamicIVF>(
-        config_path, data_path, distance_type, num_threads, intra_query_threads, loader
+    return svs::python::ivf_loader::load_index_auto<
+        svs::DynamicIVF, svs::data::BlockedData, Allocator>(
+        config_path,
+        data_path,
+        distance_type,
+        num_threads,
+        intra_query_threads
     );
 }
 

@@ -554,21 +554,13 @@ svs::IVF load_index(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Generic loader that dispatches to IVF::assemble with the correct types
-    auto loader = []<typename DataType, typename CentroidType>(
-                      const std::string& cfg,
-                      const std::string& data,
-                      svs::DistanceType dist,
-                      size_t threads,
-                      size_t intra_threads
-                  ) {
-        return svs::IVF::assemble<float, CentroidType, DataType>(
-            cfg, data, dist, threads, intra_threads
-        );
-    };
-
-    return svs::python::ivf_loader::load_index_auto<svs::IVF>(
-        config_path, data_path, distance_type, num_threads, intra_query_threads, loader
+    return svs::python::ivf_loader::load_index_auto<
+        svs::IVF, svs::data::SimpleData, Allocator>(
+        config_path,
+        data_path,
+        distance_type,
+        num_threads,
+        intra_query_threads
     );
 }
 
