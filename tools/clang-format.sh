@@ -16,9 +16,14 @@
 
 # Allow users to supply a custom path to `clang-format`
 CLANGFORMAT="${1:-clang-format}"
+STAGED_ONLY="${2:-false}"
 DIRECTORIES=( "bindings/python/src" "bindings/python/include" "bindings/cpp" "include" "benchmark" "tests" "utils" "examples/cpp" )
 
 for i in "${DIRECTORIES[@]}"
 do
-    find "./$i" -maxdepth 1 \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
+    if [[ "$STAGED_ONLY" == "true" ]]; then
+        git diff --cached --name-only --diff-filter=ACM | grep -E "^$i/.*\.(h|cpp)$" | grep -v "toml_impl.h" | xargs -r "$CLANGFORMAT" -i
+    else
+        find "./$i" \( -iname "*.h" -o -iname "*.cpp" \) ! -iname "*toml_impl.h" | xargs "$CLANGFORMAT" -i
+    fi
 done

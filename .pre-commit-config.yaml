@@ -18,7 +18,7 @@ repos:
       - id: clang-format
         name: clang-format
         language: python
-        entry: tools/clang-format.sh
+        entry: tools/clang-format.sh clang-format true
         args: [clang-format]
         additional_dependencies: ["clang-format>=15,<16"]
 
