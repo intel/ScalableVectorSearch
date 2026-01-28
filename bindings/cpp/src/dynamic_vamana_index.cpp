@@ -315,23 +315,6 @@ Status DynamicVamanaIndexLeanVec::build(
     return runtime_error_wrapper([&] {
         auto training_data_impl =
             static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
-        std::cout << "Building DynamicVamanaIndexLeanVec with training data..."
-                  << std::endl;
-
-        auto matrices = training_data_impl.get_leanvec_matrices();
-
-        auto print10 = [](const float* vec) {
-            for (size_t i = 0; i < 10; ++i) {
-                printf("   %+.6f", static_cast<float>(vec[i]));
-            }
-        };
-
-        std::cout << "data_matrix[0][:10]    =";
-        print10(matrices.view_data_matrix().get_datum(0).data());
-        std::cout << std::endl;
-        std::cout << "query_matrix[0][:10]   =";
-        print10(matrices.view_query_matrix().get_datum(0).data());
-        std::cout << std::endl;
         auto impl = std::make_unique<Impl>(
             dim,
             metric,

@@ -49,7 +49,7 @@ Status LeanVecTrainingData::build(
     const float* x_q,
     size_t leanvec_dims
 ) noexcept {
-    if (!x_q) {
+    if (n_q == 0 || !x_q) {
         return build(training_data, dim, n, x, leanvec_dims);
     }
 
