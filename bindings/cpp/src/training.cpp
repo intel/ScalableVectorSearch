@@ -40,6 +40,27 @@ Status LeanVecTrainingData::build(
     });
 }
 
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** training_data,
+    size_t dim,
+    size_t n,
+    const float* x,
+    size_t n_q,
+    const float* x_q,
+    size_t leanvec_dims
+) noexcept {
+    if (!x_q) {
+        return build(training_data, dim, n, x, leanvec_dims);
+    }
+
+    return runtime_error_wrapper([&] {
+        const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
+        const auto queries = svs::data::ConstSimpleDataView<float>(x_q, n_q, dim);
+        *training_data = new LeanVecTrainingDataManager{
+            LeanVecTrainingDataImpl{data, queries, leanvec_dims}};
+    });
+}
+
 Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept {
     return runtime_error_wrapper([&] { delete training_data; });
 }
