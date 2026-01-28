@@ -209,12 +209,26 @@ def main():
     # [save-index]
 
     # [load-index]
-    # Note: DynamicIVF.load() is being implemented for easier reload
-    # For now, the index has been successfully saved and can be accessed at:
-    print("\n12. Index saved successfully!")
-    print(f"   ✓ Config: {config_dir}")
-    print(f"   ✓ Data:   {data_dir}")
-    print(f"   Note: load() API coming soon for simplified reload")
+    # Reload the saved index
+    print("\n12. Reloading saved index...")
+    reloaded_index = svs.DynamicIVF.load(
+        config_directory = config_dir,
+        data_directory = data_dir,
+        distance = svs.DistanceType.L2,
+        num_threads = 4,
+    )
+    print(f"   ✓ Index reloaded with {reloaded_index.size} vectors")
+    print(f"   ✓ Index dimensions: {reloaded_index.dimensions}")
+
+    # Verify the reloaded index works correctly
+    reloaded_index.search_parameters = search_params
+    I_reloaded, D_reloaded = reloaded_index.search(queries, num_neighbors)
+    recall_reloaded = svs.k_recall_at(groundtruth, I_reloaded, num_neighbors, num_neighbors)
+    print(f"   ✓ Recall@{num_neighbors}: {recall_reloaded:.4f}")
+
+    # Verify ID consistency
+    all_ids_reloaded = reloaded_index.all_ids()
+    print(f"   ✓ Reloaded index contains {len(all_ids_reloaded)} unique IDs")
     # [load-index]
 
     # [get-all-ids]

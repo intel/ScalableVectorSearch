@@ -19,6 +19,7 @@
 
 // tests
 #include "tests/utils/test_dataset.h"
+#include "tests/utils/utils.h"
 
 // catch
 #include "catch2/catch_test_macros.hpp"
@@ -28,6 +29,7 @@
 #include "svs/core/distance.h"
 #include "svs/index/ivf/clustering.h"
 #include "svs/index/ivf/hierarchical_kmeans.h"
+#include "svs/lib/saveload.h"
 
 // stl
 #include <numeric>
@@ -168,5 +170,172 @@ CATCH_TEST_CASE("IVF Index Single Search", "[ivf][index][single_search]") {
         for (size_t i = 0; i < num_neighbors; ++i) {
             CATCH_REQUIRE(single_ids[i] == batch_ids[i]);
         }
+    }
+}
+
+CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
+    namespace ivf = svs::index::ivf;
+
+    // Load test data
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    size_t num_clusters = 10;
+    size_t num_threads = 2;
+    size_t num_inner_threads = 2;
+    auto distance = svs::distance::DistanceL2();
+
+    // Build clustering
+    auto build_params = ivf::IVFBuildParameters(num_clusters, 10, false);
+    auto threadpool = svs::threads::SequentialThreadPool();
+    auto clustering =
+        ivf::build_clustering<float>(build_params, data, distance, threadpool, false);
+
+    // Create clustered dataset
+    auto centroids = clustering.centroids();
+    using Idx = uint32_t;
+    auto cluster = ivf::DenseClusteredDataset<decltype(centroids), Idx, decltype(data)>(
+        clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+    );
+
+    // Build IVF index
+    auto threadpool_for_index = svs::threads::as_threadpool(num_threads);
+    using IndexType = ivf::IVFIndex<
+        decltype(centroids),
+        decltype(cluster),
+        decltype(distance),
+        decltype(threadpool_for_index)>;
+
+    auto index = IndexType(
+        std::move(centroids),
+        std::move(cluster),
+        distance,
+        std::move(threadpool_for_index),
+        num_inner_threads
+    );
+
+    // Get search results before saving
+    auto search_params = ivf::IVFSearchParameters();
+    search_params.n_probes_ = 5;
+    search_params.k_reorder_ = 100;
+    size_t num_neighbors = 10;
+
+    auto batch_queries = svs::data::ConstSimpleDataView<float>(
+        queries.data(), queries.size(), queries.dimensions()
+    );
+    auto original_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+    index.search(original_results.view(), batch_queries, search_params);
+
+    CATCH_SECTION("Save and load IVF index") {
+        // Prepare temp directory
+        auto tempdir = svs_test::prepare_temp_directory_v2();
+        auto config_dir = tempdir / "config";
+        auto data_dir = tempdir / "data";
+
+        // Save the index
+        index.save(config_dir, data_dir);
+
+        // Verify files exist
+        CATCH_REQUIRE(std::filesystem::exists(config_dir));
+        CATCH_REQUIRE(std::filesystem::exists(data_dir / "centroids"));
+        CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters"));
+
+        // Load the index
+        using DataType =
+            svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>>;
+        auto loaded_index = ivf::load_ivf_index<float, DataType>(
+            config_dir,
+            data_dir,
+            distance,
+            svs::threads::as_threadpool(num_threads),
+            num_inner_threads
+        );
+
+        // Verify index properties
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.num_clusters() == index.num_clusters());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        // Search with loaded index
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded_index.search(loaded_results.view(), batch_queries, search_params);
+
+        // Compare results - should be identical
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == original_results.index(q, i));
+                CATCH_REQUIRE(
+                    loaded_results.distance(q, i) ==
+                    Catch::Approx(original_results.distance(q, i)).epsilon(1e-5)
+                );
+            }
+        }
+
+        // Cleanup
+        svs_test::cleanup_temp_directory();
+    }
+
+    CATCH_SECTION("Save and load DenseClusteredDataset") {
+        // Prepare temp directory
+        auto tempdir = svs_test::prepare_temp_directory_v2();
+
+        // Re-create clustering and dense clusters for this section
+        auto section_clustering =
+            ivf::build_clustering<float>(build_params, data, distance, threadpool, false);
+        auto section_centroids = section_clustering.centroids();
+        auto dense_clusters =
+            ivf::DenseClusteredDataset<decltype(section_centroids), Idx, decltype(data)>(
+                section_clustering, data, threadpool, svs::lib::Allocator<std::byte>()
+            );
+
+        // Save the dense clusters
+        svs::lib::save_to_disk(dense_clusters, tempdir);
+
+        // Verify config file exists
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "svs_config.toml"));
+
+        // Verify saved format: should have clusters_archive.bin, ids.bin, and offset files
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "clusters_archive.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "ids.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "cluster_sizes.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(tempdir / "ids_offsets.bin"));
+
+        // Load the dense clusters
+        auto loaded_clusters = svs::lib::load_from_disk<
+            ivf::DenseClusteredDataset<decltype(section_centroids), Idx, decltype(data)>>(
+            tempdir, threadpool
+        );
+
+        // Verify properties
+        CATCH_REQUIRE(loaded_clusters.size() == dense_clusters.size());
+        CATCH_REQUIRE(loaded_clusters.dimensions() == dense_clusters.dimensions());
+        CATCH_REQUIRE(
+            loaded_clusters.get_prefetch_offset() == dense_clusters.get_prefetch_offset()
+        );
+
+        // Verify cluster contents
+        for (size_t c = 0; c < dense_clusters.size(); ++c) {
+            auto& orig_cluster = dense_clusters[c];
+            auto& loaded_cluster = loaded_clusters[c];
+
+            CATCH_REQUIRE(orig_cluster.size() == loaded_cluster.size());
+
+            // Verify data and IDs match
+            for (size_t i = 0; i < orig_cluster.size(); ++i) {
+                CATCH_REQUIRE(orig_cluster.ids_[i] == loaded_cluster.ids_[i]);
+
+                // Verify data values
+                auto orig_datum = orig_cluster.get_datum(i);
+                auto loaded_datum = loaded_cluster.get_datum(i);
+                for (size_t d = 0; d < data.dimensions(); ++d) {
+                    CATCH_REQUIRE(
+                        orig_datum[d] == Catch::Approx(loaded_datum[d]).epsilon(1e-6)
+                    );
+                }
+            }
+        }
+
+        // Cleanup
+        svs_test::cleanup_temp_directory();
     }
 }
