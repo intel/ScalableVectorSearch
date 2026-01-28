@@ -45,6 +45,14 @@ struct LeanVecTrainingDataImpl {
         : leanvec_dims_{leanvec_dims}
         , leanvec_matrices_{compute_leanvec_matrices(data, leanvec_dims)} {}
 
+    LeanVecTrainingDataImpl(
+        const svs::data::ConstSimpleDataView<float>& data,
+        const svs::data::ConstSimpleDataView<float>& queries,
+        size_t leanvec_dims
+    )
+        : leanvec_dims_{leanvec_dims}
+        , leanvec_matrices_{compute_leanvec_matrices_ood(data, queries, leanvec_dims)} {}
+
     size_t get_leanvec_dims() const { return leanvec_dims_; }
     const LeanVecMatricesType& get_leanvec_matrices() const { return leanvec_matrices_; }
 
@@ -82,6 +90,16 @@ struct LeanVecTrainingDataImpl {
         // TODO fix LeanVecMatrices/SimpleData/DenseArray .ctors/.dctors issues
         // leading explicit creation of a copy of the matrix "to avoid double free".
         return LeanVecMatricesType{std::move(matrix), std::move(query_matrix)};
+    }
+
+    static LeanVecMatricesType compute_leanvec_matrices_ood(
+        const svs::data::ConstSimpleDataView<float>& data,
+        const svs::data::ConstSimpleDataView<float>& queries,
+        size_t leanvec_dims
+    ) {
+        return svs::leanvec::compute_leanvec_matrices_ood<svs::Dynamic>(
+            data, queries, svs::lib::MaybeStatic{leanvec_dims}
+        );
     }
 };
 
