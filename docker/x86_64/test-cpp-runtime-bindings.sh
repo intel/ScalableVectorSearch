@@ -52,4 +52,4 @@ python setup.py build
 echo "-----------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
-PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs.py
+PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs_py.py
