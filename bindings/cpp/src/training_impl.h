@@ -97,8 +97,10 @@ struct LeanVecTrainingDataImpl {
         const svs::data::ConstSimpleDataView<float>& queries,
         size_t leanvec_dims
     ) {
+        auto threadpool = default_threadpool();
+
         return svs::leanvec::compute_leanvec_matrices_ood<svs::Dynamic>(
-            data, queries, svs::lib::MaybeStatic{leanvec_dims}
+            data, queries, threadpool, svs::lib::MaybeStatic{leanvec_dims}
         );
     }
 };
