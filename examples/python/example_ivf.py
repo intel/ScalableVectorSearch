@@ -134,9 +134,38 @@ def main():
     print(f"   ✓ Clustering saved to '{clustering_path}'")
     # [save-clustering]
 
+    # [save-index]
+    # Save the assembled IVF index to disk
+    print("\n9. Saving the IVF index...")
+    config_dir = os.path.join(test_data_dir, "index_config")
+    data_dir = os.path.join(test_data_dir, "index_data")
+    index.save(config_dir, data_dir)
+    print(f"   ✓ Index saved to:")
+    print(f"     Config: {config_dir}")
+    print(f"     Data:   {data_dir}")
+    # [save-index]
+
+    # [load-index]
+    # Reload the saved index
+    print("\n10. Reloading saved index...")
+    reloaded_index = svs.IVF.load(
+        config_directory = config_dir,
+        data_directory = data_dir,
+        distance = svs.DistanceType.L2,
+        num_threads = 4,
+    )
+    print(f"   ✓ Index reloaded with {reloaded_index.size} vectors")
+
+    # Verify the reloaded index works correctly
+    reloaded_index.search_parameters = search_params
+    I_reloaded, D_reloaded = reloaded_index.search(queries, num_neighbors)
+    recall_reloaded = svs.k_recall_at(groundtruth, I_reloaded, num_neighbors, num_neighbors)
+    print(f"   ✓ Recall@{num_neighbors}: {recall_reloaded:.4f}")
+    # [load-index]
+
     # [load-and-assemble]
     # Load clustering and assemble a new index
-    print("\n9. Loading clustering and assembling new index...")
+    print("\n11. Loading clustering and assembling new index...")
     loaded_clustering = svs.Clustering.load_clustering(clustering_path)
 
     new_index = svs.IVF.assemble_from_clustering(
@@ -151,7 +180,7 @@ def main():
 
     # [assemble-from-file]
     # Or directly assemble from file
-    print("\n10. Assembling index directly from clustering file...")
+    print("\n12. Assembling index directly from clustering file...")
     index_from_file = svs.IVF.assemble_from_file(
         clustering_path = clustering_path,
         data_loader = data_loader,
@@ -164,7 +193,7 @@ def main():
 
     # [search-verification]
     # Verify both indices produce the same results
-    print("\n11. Verifying search results consistency...")
+    print("\n13. Verifying search results consistency...")
     index_from_file.search_parameters = search_params
     I2, D2 = index_from_file.search(queries, num_neighbors)
     recall2 = svs.k_recall_at(groundtruth, I2, num_neighbors, num_neighbors)
@@ -178,7 +207,7 @@ def main():
 
     # [tune-search-parameters]
     # Experiment with different search parameters
-    print("\n12. Tuning search parameters...")
+    print("\n14. Tuning search parameters...")
     for n_probes in [5, 10, 20]:
         search_params.n_probes = n_probes
         index.search_parameters = search_params
