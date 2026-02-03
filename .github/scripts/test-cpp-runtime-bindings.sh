@@ -78,16 +78,16 @@ python setup.py build
 echo "-----------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
-PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs_py.py
+PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python -m unittest test_svs_py.py
 echo "-----------------------------------------------"
 echo " FAISS-SVS python examples: "
 cd ../tutorial/python/
 if grep -q "GenuineIntel" /proc/cpuinfo; then
-  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 $RUN_PREFIX python 11-SVS.py
+  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 $RUN_PREFIX python 11-SVS.py
 else
   echo "Non-Intel CPU detected - SVS python example expected to fail"
   set +e
-  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python 11-SVS.py
+  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python 11-SVS.py
   exit_code=$?
   set -e
 
