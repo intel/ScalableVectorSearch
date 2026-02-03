@@ -207,7 +207,8 @@ class DynamicIVFIndex {
         , logger_{std::move(logger)} {
         // Initialize metadata structures based on cluster contents
         size_t total_size = 0;
-        for (const auto& cluster : clusters_) {
+        for (size_t cluster_idx = 0; cluster_idx < clusters_.size(); ++cluster_idx) {
+            const auto& cluster = clusters_[cluster_idx];
             for (size_t pos = 0; pos < cluster.ids_.size(); ++pos) {
                 total_size =
                     std::max(total_size, static_cast<size_t>(cluster.ids_[pos]) + 1);
@@ -725,10 +726,21 @@ class DynamicIVFIndex {
         // Compact before saving to remove empty slots
         compact();
 
+        // Create directories
+        std::filesystem::create_directories(config_directory);
+        std::filesystem::create_directories(data_directory);
+        auto clusters_dir = data_directory / "clusters";
+        std::filesystem::create_directories(clusters_dir);
+
+        // Get data type configuration for automatic loader construction during load
+        auto data_type_config = DataTypeTraits<Data>::get_config();
+        // Set the centroid type from the Centroids template parameter
+        data_type_config.centroid_type = datatype_v<typename centroids_type::element_type>;
+
         // Save configuration
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
-                return lib::SaveTable(
+                auto table = lib::SaveTable(
                     "dynamic_ivf_config",
                     save_version,
                     {
@@ -737,20 +749,18 @@ class DynamicIVFIndex {
                         {"num_clusters", lib::save(clusters_.size())},
                     }
                 );
+                // Insert nested table for data type config
+                table.insert("data_type_config", lib::save(data_type_config));
+                return table;
             }),
             config_directory
         );
 
-        // Save centroids and cluster data
+        // Save centroids
         lib::save_to_disk(centroids_, data_directory / "centroids");
 
-        for (size_t i = 0; i < clusters_.size(); ++i) {
-            auto cluster_path = data_directory / fmt::format("cluster_{}", i);
-            lib::save_to_disk(clusters_[i].data_, cluster_path);
-
-            auto ids_path = data_directory / fmt::format("cluster_ids_{}", i);
-            lib::save_to_disk(clusters_[i].ids_, ids_path);
-        }
+        // Save clustered dataset
+        lib::save_to_disk(clusters_, clusters_dir);
     }
 
   private:
@@ -786,7 +796,7 @@ class DynamicIVFIndex {
     }
 
     void initialize_distance_metadata() {
-        if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
+        if constexpr (is_l2_v<Dist>) {
             centroids_norm_.reserve(centroids_.size());
             for (size_t i = 0; i < centroids_.size(); ++i) {
                 centroids_norm_.push_back(distance::norm_square(centroids_.get_datum(i)));
@@ -1061,6 +1071,102 @@ auto assemble_dynamic_from_clustering(
         std::move(threadpool),
         intra_query_thread_count
     );
+}
+
+/// @brief Load a saved DynamicIVFIndex from disk
+///
+/// This function loads a previously saved DynamicIVFIndex, including centroids,
+/// clustered dataset, and ID translation table.
+///
+/// @tparam CentroidType Element type of centroids (e.g., float, Float16)
+/// @tparam DataType The full type of cluster data (e.g., BlockedData<float>)
+/// @tparam Distance Distance metric type
+/// @tparam ThreadpoolProto Thread pool prototype type
+///
+/// @param config_path Path to the saved index configuration directory
+/// @param data_path Path to the saved data directory (centroids and clusters)
+/// @param distance Distance metric for searching
+/// @param threadpool_proto Thread pool for parallel processing
+/// @param intra_query_thread_count Number of threads for intra-query parallelism (default:
+///     1)
+/// @param logger Logger for logging customization
+///
+/// @return Fully constructed DynamicIVFIndex ready for searching and modifications
+///
+template <
+    typename CentroidType,
+    typename DataType,
+    typename Distance,
+    typename ThreadpoolProto>
+auto load_dynamic_ivf_index(
+    const std::filesystem::path& config_path,
+    const std::filesystem::path& data_path,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    // Initialize timer for performance tracking
+    auto timer = lib::Timer();
+    auto load_timer = timer.push_back("Total loading time");
+
+    // Initialize thread pool
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // Load configuration to get translator
+    auto config_timer = timer.push_back("Loading configuration");
+    auto serialized = lib::begin_deserialization(config_path);
+    auto table = serialized.cast<toml::table>();
+    auto translator = lib::load_at<IDTranslator>(table, "translation");
+    config_timer.finish();
+
+    // Load centroids
+    auto centroids_timer = timer.push_back("Loading centroids");
+    using centroids_type = data::SimpleData<CentroidType>;
+    auto centroids = lib::load_from_disk<centroids_type>(data_path / "centroids");
+    centroids_timer.finish();
+
+    // Define cluster types - use lib_blocked_alloc_data_type pattern for proper allocator
+    // This uses lib::Allocator<std::byte> instead of potentially HugepageAllocator
+    using I = uint32_t;
+    using blocked_data_type = typename DataType::lib_blocked_alloc_data_type;
+    using cluster_type = DenseClusteredDataset<centroids_type, I, blocked_data_type>;
+
+    auto clusters_timer = timer.push_back("Loading clusters");
+
+    auto clusters_dir = data_path / "clusters";
+
+    // Use a small block size for IVF clusters (1MB instead of 1GB default)
+    // This prevents excessive memory allocation when loading many clusters
+    auto blocking_params = data::BlockingParameters{
+        .blocksize_bytes = lib::PowerOfTwo(20) // 2^20 = 1MB
+    };
+    using allocator_type = typename blocked_data_type::allocator_type;
+    auto blocked_allocator =
+        allocator_type(blocking_params, typename allocator_type::allocator_type());
+
+    auto dense_clusters =
+        lib::load_from_disk<cluster_type>(clusters_dir, threadpool, blocked_allocator);
+    clusters_timer.finish();
+
+    // Create the index with the translator constructor
+    auto index_timer = timer.push_back("Index construction");
+    auto index =
+        DynamicIVFIndex<centroids_type, cluster_type, Distance, decltype(threadpool)>(
+            std::move(centroids),
+            std::move(dense_clusters),
+            std::move(translator),
+            std::move(distance),
+            std::move(threadpool),
+            intra_query_thread_count,
+            logger
+        );
+    index_timer.finish();
+
+    load_timer.finish();
+    svs::logging::debug(logger, "{}", timer);
+
+    return index;
 }
 
 } // namespace svs::index::ivf

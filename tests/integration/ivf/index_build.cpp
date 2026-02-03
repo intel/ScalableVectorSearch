@@ -215,3 +215,56 @@ CATCH_TEST_CASE("IVF Build/Clustering", "[integration][build][ivf][train_only]")
     test_build_train_only<svs::BFloat16>(svs::DistanceL2());
     test_build_train_only<svs::BFloat16>(svs::DistanceIP());
 }
+
+// Test Cosine distance (uses IP internally for clustering)
+CATCH_TEST_CASE("IVF Build/Clustering Cosine", "[integration][build][ivf][cosine]") {
+    const auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    CATCH_REQUIRE(svs_test::prepare_temp_directory());
+    size_t num_threads = 2;
+    size_t num_inner_threads = 1;
+
+    // Use simple build parameters for Cosine test
+    svs::index::ivf::IVFBuildParameters parameters;
+    parameters.num_centroids_ = 50;
+    parameters.num_iterations_ = 5;
+    parameters.is_hierarchical_ = true;
+    parameters.training_fraction_ = 0.5;
+
+    // Build index with Cosine distance
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    auto clustering = svs::IVF::build_clustering<svs::BFloat16>(
+        parameters, data, svs::DistanceCosineSimilarity(), num_threads
+    );
+
+    auto index = svs::IVF::assemble_from_clustering<float>(
+        std::move(clustering),
+        std::move(data),
+        svs::DistanceCosineSimilarity(),
+        num_threads,
+        num_inner_threads
+    );
+
+    // Verify index was built correctly
+    CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
+    CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
+
+    // Test search with different n_probes values
+    auto groundtruth = test_dataset::load_groundtruth(svs::DistanceType::Cosine);
+    svs::index::ivf::IVFSearchParameters search_params;
+
+    // Test with n_probes = 10
+    search_params.n_probes_ = 10;
+    index.set_search_parameters(search_params);
+    auto results = index.search(queries, 10);
+    double recall = svs::k_recall_at_n(groundtruth, results, 10, 10);
+    fmt::print("Cosine - n_probes: {}, Recall@10: {}\n", search_params.n_probes_, recall);
+    CATCH_REQUIRE(recall > 0.3); // Basic sanity check
+
+    // Test with n_probes = 30
+    search_params.n_probes_ = 30;
+    index.set_search_parameters(search_params);
+    results = index.search(queries, 10);
+    recall = svs::k_recall_at_n(groundtruth, results, 10, 10);
+    fmt::print("Cosine - n_probes: {}, Recall@10: {}\n", search_params.n_probes_, recall);
+    CATCH_REQUIRE(recall > 0.6); // Higher n_probes should give better recall
+}

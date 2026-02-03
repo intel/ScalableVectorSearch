@@ -269,3 +269,106 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(error_count == 0);
     CATCH_REQUIRE(success_count == NUM_TEST_THREADS * CALLS_PER_THREAD);
 }
+
+CATCH_TEST_CASE("IVF Save and Load", "[integration][ivf][saveload]") {
+    namespace ivf = svs::index::ivf;
+
+    auto datafile = test_dataset::data_svs_file();
+    auto queries = test_dataset::queries();
+    auto gt_l2 = test_dataset::groundtruth_euclidean();
+    auto dist_l2 = svs::distance::DistanceL2();
+
+    auto data = svs::data::SimpleData<float>::load(datafile);
+
+    // Find the expected results for this dataset.
+    auto expected_result = test_dataset::ivf::expected_search_results(
+        svs::distance_type_v<svs::distance::DistanceL2>,
+        svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+
+    size_t num_threads = 2;
+    size_t intra_query_threads = 1;
+
+    // Build and run the original index
+    // Note: The pre-built clustering uses BFloat16 centroids, so we use that as the
+    // second template parameter
+    auto index = svs::IVF::assemble_from_file<float, svs::BFloat16>(
+        test_dataset::clustering_directory(),
+        data,
+        dist_l2,
+        num_threads,
+        intra_query_threads
+    );
+
+    CATCH_REQUIRE(index.size() == test_dataset::VECTORS_IN_DATA_SET);
+    CATCH_REQUIRE(index.dimensions() == test_dataset::NUM_DIMENSIONS);
+
+    // Run search on original index to verify it works
+    run_search(index, queries, gt_l2, expected_result.config_and_recall_);
+
+    // Set some search parameters to verify they're saved
+    ivf::IVFSearchParameters params;
+    params.n_probes_ = 5;
+    params.k_reorder_ = 2.0;
+    index.set_search_parameters(params);
+
+    // Prepare temp directory for save/load tests
+    auto temp_dir = svs_test::temp_directory();
+    svs_test::prepare_temp_directory();
+
+    // Lambda to verify loaded index
+    auto verify_loaded_index = [&](svs::IVF& loaded_index) {
+        // Verify the loaded index has correct properties
+        CATCH_REQUIRE(loaded_index.size() == test_dataset::VECTORS_IN_DATA_SET);
+        CATCH_REQUIRE(loaded_index.dimensions() == test_dataset::NUM_DIMENSIONS);
+
+        // Search parameters are not persisted (they are runtime configurations)
+        // Set them on the loaded index before searching
+        loaded_index.set_search_parameters(params);
+
+        // Run search on loaded index - should produce same results
+        run_search(loaded_index, queries, gt_l2, expected_result.config_and_recall_);
+    };
+
+    CATCH_SECTION("Directory-based save/load") {
+        auto config_dir = temp_dir / "config";
+        auto data_dir = temp_dir / "data";
+
+        // Save the index to directories
+        index.save(config_dir, data_dir);
+
+        // Load the index back
+        // Centroids were saved as BFloat16 (from the original clustering), but cluster
+        // data is float (from our input data)
+        using DataType =
+            svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>>;
+        auto loaded_index = svs::IVF::assemble<float, svs::BFloat16, DataType>(
+            config_dir, data_dir, dist_l2, num_threads, intra_query_threads
+        );
+
+        verify_loaded_index(loaded_index);
+    }
+
+    CATCH_SECTION("Stream-based save/load") {
+        auto file = temp_dir / "ivf_index.bin";
+
+        // Save the index to a stream
+        {
+            std::ofstream file_ostream(file, std::ios::binary);
+            CATCH_REQUIRE(file_ostream.good());
+            index.save(file_ostream);
+            file_ostream.close();
+        }
+
+        // Load the index from the stream
+        std::ifstream file_istream(file, std::ios::binary);
+        CATCH_REQUIRE(file_istream.good());
+        using DataType =
+            svs::data::SimpleData<float, svs::Dynamic, svs::lib::Allocator<float>>;
+        auto loaded_index = svs::IVF::assemble<float, svs::BFloat16, DataType>(
+            file_istream, dist_l2, num_threads, intra_query_threads
+        );
+
+        verify_loaded_index(loaded_index);
+    }
+}
