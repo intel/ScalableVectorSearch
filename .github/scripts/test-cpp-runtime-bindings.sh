@@ -15,6 +15,9 @@
 
 set -e
 
+# Prefix can be set to validate on different architectures via SDE
+RUN_PREFIX="${RUN_PREFIX:-}"
+
 # Source environment setup (for compiler and MKL)
 source /etc/bashrc || true
 
@@ -50,8 +53,8 @@ echo " FAISS-SVS C++ examples: "
 make 10-SVS-Vamana-LVQ 11-SVS-Vamana-LeanVec
 # Check if running on Intel hardware (LVQ/LeanVec require Intel-specific instructions)
 if grep -q "GenuineIntel" /proc/cpuinfo; then
-  ./tutorial/cpp/10-SVS-Vamana-LVQ
-  ./tutorial/cpp/11-SVS-Vamana-LeanVec
+  $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
+  $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
 else
   echo "Non-Intel CPU detected - LVQ/LeanVec examples expected to fail"
   set +e
@@ -80,7 +83,7 @@ echo "-----------------------------------------------"
 echo " FAISS-SVS python examples: "
 cd ../tutorial/python/
 if grep -q "GenuineIntel" /proc/cpuinfo; then
-  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python 11-SVS.py
+  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 $RUN_PREFIX python 11-SVS.py
 else
   echo "Non-Intel CPU detected - SVS python example expected to fail"
   set +e
