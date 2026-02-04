@@ -42,6 +42,17 @@
 // Common definitions.
 namespace svs::index::ivf {
 
+/// Helper trait to check if a distance type behaves like IP (inner product)
+template <typename Distance>
+inline constexpr bool is_ip_like_v =
+    std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP> ||
+    std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceCosineSimilarity>;
+
+/// Helper trait to check if a distance type is L2
+template <typename Distance>
+inline constexpr bool is_l2_v =
+    std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>;
+
 // Small epsilon value used for floating-point comparisons to avoid precision
 // issues.  The value 1/1024 (approximately 0.0009765625) is chosen as a reasonable
 // threshold for numerical stability in algorithms such as k-means clustering, where exact
@@ -371,11 +382,19 @@ void centroid_assignment(
     using DataType = typename Data::element_type;
     using CentroidType = T;
 
-    // Convert data to match centroid type if necessary
-    data::SimpleData<CentroidType> data_conv;
+    // Convert data to match centroid type if necessary, otherwise use original data
+    [[maybe_unused]] data::SimpleData<CentroidType> data_conv;
     if constexpr (!std::is_same_v<CentroidType, DataType>) {
         data_conv = convert_data<CentroidType>(data, threadpool);
     }
+    const auto& matmul_data = [&]() -> const auto& {
+        if constexpr (!std::is_same_v<CentroidType, DataType>) {
+            return data_conv;
+        } else {
+            return data;
+        }
+    }
+    ();
 
     auto generate_assignments = timer.push_back("generate assignments");
     threads::parallel_for(
@@ -383,28 +402,15 @@ void centroid_assignment(
         threads::StaticPartition{batch_range.size()},
         [&](auto indices, auto /*tid*/) {
             auto range = threads::UnitRange(indices);
-            if constexpr (!std::is_same_v<CentroidType, DataType>) {
-                compute_matmul(
-                    data_conv.get_datum(range.start()).data(),
-                    centroids.data(),
-                    matmul_results.get_datum(range.start()).data(),
-                    range.size(),
-                    centroids.size(),
-                    data.dimensions()
-                );
-            } else {
-                compute_matmul(
-                    data.get_datum(range.start()).data(),
-                    centroids.data(),
-                    matmul_results.get_datum(range.start()).data(),
-                    range.size(),
-                    centroids.size(),
-                    data.dimensions()
-                );
-            }
-            if constexpr (std::is_same_v<
-                              std::remove_cvref_t<Distance>,
-                              distance::DistanceIP>) {
+            compute_matmul(
+                matmul_data.get_datum(range.start()).data(),
+                centroids.data(),
+                matmul_results.get_datum(range.start()).data(),
+                range.size(),
+                centroids.size(),
+                matmul_data.dimensions()
+            );
+            if constexpr (is_ip_like_v<Distance>) {
                 for (auto i : indices) {
                     auto nearest =
                         type_traits::sentinel_v<Neighbor<size_t>, std::greater<>>;
@@ -414,9 +420,7 @@ void centroid_assignment(
                     }
                     assignments[batch_range.start() + i] = nearest.id();
                 }
-            } else if constexpr (std::is_same_v<
-                                     std::remove_cvref_t<Distance>,
-                                     distance::DistanceL2>) {
+            } else if constexpr (is_l2_v<Distance>) {
                 for (auto i : indices) {
                     auto nearest = type_traits::sentinel_v<Neighbor<size_t>, std::less<>>;
                     auto dists = matmul_results.get_datum(i);
@@ -428,7 +432,11 @@ void centroid_assignment(
                     assignments[batch_range.start() + i] = nearest.id();
                 }
             } else {
-                throw ANNEXCEPTION("Only L2 and MIP distances supported in IVF build!");
+                // Compile-time error for unsupported distance types
+                static_assert(
+                    sizeof(Distance) == 0,
+                    "Only L2, MIP, and Cosine distances are supported in IVF build!"
+                );
             }
         }
     );
@@ -565,13 +573,13 @@ auto kmeans_training(
     auto training_timer = timer.push_back("Kmeans training");
     data::SimpleData<float> centroids_fp32 = convert_data<float>(centroids, threadpool);
 
-    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP>) {
+    if constexpr (is_ip_like_v<Distance>) {
         normalize_centroids(centroids_fp32, threadpool, timer);
     }
 
     auto assignments = std::vector<size_t>(data.size());
     std::vector<float> data_norm;
-    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
+    if constexpr (is_l2_v<Distance>) {
         generate_norms(data, data_norm, threadpool);
     }
     std::vector<float> centroids_norm;
@@ -580,7 +588,7 @@ auto kmeans_training(
         auto iter_timer = timer.push_back("iteration");
         auto batchsize = parameters.minibatch_size_;
         auto num_batches = lib::div_round_up(data.size(), batchsize);
-        if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
+        if constexpr (is_l2_v<Distance>) {
             generate_norms(centroids_fp32, centroids_norm, threadpool);
         }
 
@@ -613,7 +621,7 @@ auto kmeans_training(
 
         centroid_split(data, centroids_fp32, counts, rng, threadpool, timer);
 
-        if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceIP>) {
+        if constexpr (is_ip_like_v<Distance>) {
             normalize_centroids(centroids_fp32, threadpool, timer);
         }
     }
@@ -727,7 +735,7 @@ data::SimpleData<BuildType> init_centroids(
 template <typename Distance, typename Data, threads::ThreadPool Pool>
 std::vector<float> maybe_compute_norms(const Data& data, Pool& threadpool) {
     std::vector<float> norms;
-    if constexpr (std::is_same_v<std::remove_cvref_t<Distance>, distance::DistanceL2>) {
+    if constexpr (is_l2_v<Distance>) {
         generate_norms(data, norms, threadpool);
     }
     return norms;
@@ -750,7 +758,7 @@ std::vector<std::vector<I>> group_assignments(
 /// @tparam BuildType The numeric type used for matrix operations (float, Float16, BFloat16)
 /// @tparam Data The dataset type
 /// @tparam Centroids The centroids dataset type
-/// @tparam Distance The distance metric type (DistanceIP or DistanceL2)
+/// @tparam Distance The distance metric type
 /// @tparam Pool The thread pool type
 /// @tparam I The integer type for cluster indices
 ///
@@ -854,7 +862,7 @@ void search_centroids(
 ) {
     unsigned int count = 0;
     buffer.clear();
-    if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceIP>) {
+    if constexpr (is_ip_like_v<Dist>) {
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
             for (size_t k = 0; k < distance.size(); k++) {
@@ -862,7 +870,7 @@ void search_centroids(
                 count++;
             }
         }
-    } else if constexpr (std::is_same_v<std::remove_cvref_t<Dist>, distance::DistanceL2>) {
+    } else if constexpr (is_l2_v<Dist>) {
         float query_norm = distance::norm_square(query);
         for (size_t j = 0; j < num_threads; j++) {
             auto distance = matmul_results[j].get_datum(query_id);
@@ -873,7 +881,9 @@ void search_centroids(
             }
         }
     } else {
-        throw ANNEXCEPTION("Only L2 and MIP distances supported in IVF search!");
+        static_assert(
+            sizeof(Dist) == 0, "Only L2, MIP, and Cosine distances supported in IVF search!"
+        );
     }
 }
 
