@@ -16,6 +16,9 @@ cmake_minimum_required(VERSION 3.21)
 project(svs_runtime VERSION 0.1.0 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
 
+# IVF requires MKL, so it's optional
+option(SVS_RUNTIME_ENABLE_IVF "Enable compilation of SVS runtime with IVF support (requires MKL)" OFF)
+
 set(SVS_RUNTIME_HEADERS
     include/svs/runtime/version.h
     include/svs/runtime/api_defs.h
@@ -37,6 +40,15 @@ set(SVS_RUNTIME_SOURCES
     src/dynamic_vamana_index.cpp
     src/flat_index.cpp
 )
+
+# Add IVF files if enabled
+if (SVS_RUNTIME_ENABLE_IVF)
+    message(STATUS "SVS runtime will be built with IVF support (requires MKL)")
+    list(APPEND SVS_RUNTIME_HEADERS include/svs/runtime/ivf_index.h)
+    list(APPEND SVS_RUNTIME_SOURCES src/ivf_index_impl.h src/ivf_index.cpp)
+else()
+    message(STATUS "SVS runtime will be built without IVF support")
+endif()
 
 option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
@@ -130,6 +142,10 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
 else()
     # Include the SVS library directly if needed.
     if (NOT TARGET svs::svs)
+        # Pass IVF flag to parent build if IVF is enabled
+        if (SVS_RUNTIME_ENABLE_IVF)
+            set(SVS_EXPERIMENTAL_ENABLE_IVF ON CACHE BOOL "" FORCE)
+        endif()
         add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
     endif()
     target_link_libraries(${TARGET_NAME} PRIVATE
@@ -137,6 +153,11 @@ else()
        svs_compile_options
        svs_x86_options_base
     )
+endif()
+
+# IVF requires Intel(R) MKL support
+if (SVS_RUNTIME_ENABLE_IVF)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_HAVE_MKL=1)
 endif()
 
 # installing

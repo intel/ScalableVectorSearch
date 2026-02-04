@@ -17,6 +17,9 @@
 #include "svs/runtime/api_defs.h"
 #include "svs/runtime/dynamic_vamana_index.h"
 #include "svs/runtime/flat_index.h"
+#ifdef SVS_RUNTIME_ENABLE_IVF
+#include "svs/runtime/ivf_index.h"
+#endif
 #include "svs/runtime/training.h"
 #include "svs/runtime/vamana_index.h"
 
@@ -675,3 +678,465 @@ CATCH_TEST_CASE("SetIfSpecifiedUtility", "[runtime]") {
         CATCH_REQUIRE(target == false);
     }
 }
+
+//
+// IVF Index Tests
+//
+
+#ifdef SVS_RUNTIME_ENABLE_IVF
+CATCH_TEST_CASE("StaticIVFIndexBuildAndSearch", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build static IVF index
+    svs::runtime::v0::StaticIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10; // Small number for test data
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::IVFIndex::SearchParams search_params;
+    search_params.n_probes = 3;
+    search_params.k_reorder = 1.0f;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::StaticIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params,
+        search_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Search
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Verify results are reasonable (at least some results found)
+    bool found_valid = false;
+    for (int i = 0; i < nq * k; ++i) {
+        if (result_labels[i] < test_n) {
+            found_valid = true;
+            break;
+        }
+    }
+    CATCH_REQUIRE(found_valid);
+
+    svs::runtime::v0::StaticIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("StaticIVFIndexWriteAndRead", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build static IVF index
+    svs::runtime::v0::StaticIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::StaticIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    svs_test::prepare_temp_directory();
+    auto temp_dir = svs_test::temp_directory();
+    auto filename = temp_dir / "static_ivf_test.bin";
+
+    // Serialize
+    std::ofstream out(filename, std::ios::binary);
+    CATCH_REQUIRE(out.is_open());
+    status = index->save(out);
+    CATCH_REQUIRE(status.ok());
+    out.close();
+
+    // Deserialize
+    svs::runtime::v0::StaticIVFIndex* loaded = nullptr;
+    std::ifstream in(filename, std::ios::binary);
+    CATCH_REQUIRE(in.is_open());
+    status = svs::runtime::v0::StaticIVFIndex::load(
+        &loaded, in, svs::runtime::v0::MetricType::L2, svs::runtime::v0::StorageKind::FP32
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+    in.close();
+
+    // Test search on loaded index
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = loaded->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Clean up
+    svs::runtime::v0::StaticIVFIndex::destroy(index);
+    svs::runtime::v0::StaticIVFIndex::destroy(loaded);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexBuildAndSearch", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build dynamic IVF index with initial data
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::IVFIndex::SearchParams search_params;
+    search_params.n_probes = 3;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params,
+        search_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Search
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexAddAndRemove", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build empty dynamic IVF index first, then add data
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    // Create with initial data (needed for clustering)
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Check has_id for existing IDs
+    bool exists = false;
+    status = index->has_id(&exists, 0);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(exists);
+
+    status = index->has_id(&exists, test_n - 1);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(exists);
+
+    // Check has_id for non-existing ID
+    status = index->has_id(&exists, test_n + 100);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(!exists);
+
+    // Remove some IDs
+    std::vector<size_t> ids_to_remove = {0, 1, 2};
+    status = index->remove(ids_to_remove.size(), ids_to_remove.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Verify removed IDs no longer exist
+    status = index->has_id(&exists, 0);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(!exists);
+
+    // Consolidate and compact
+    status = index->consolidate();
+    CATCH_REQUIRE(status.ok());
+
+    status = index->compact();
+    CATCH_REQUIRE(status.ok());
+
+    // Search should still work
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexWriteAndRead", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build dynamic IVF index
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    svs_test::prepare_temp_directory();
+    auto temp_dir = svs_test::temp_directory();
+    auto filename = temp_dir / "dynamic_ivf_test.bin";
+
+    // Serialize
+    std::ofstream out(filename, std::ios::binary);
+    CATCH_REQUIRE(out.is_open());
+    status = index->save(out);
+    CATCH_REQUIRE(status.ok());
+    out.close();
+
+    // Deserialize
+    svs::runtime::v0::DynamicIVFIndex* loaded = nullptr;
+    std::ifstream in(filename, std::ios::binary);
+    CATCH_REQUIRE(in.is_open());
+    status = svs::runtime::v0::DynamicIVFIndex::load(
+        &loaded, in, svs::runtime::v0::MetricType::L2, svs::runtime::v0::StorageKind::FP32
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+    in.close();
+
+    // Test search on loaded index
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = loaded->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Clean up
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+    svs::runtime::v0::DynamicIVFIndex::destroy(loaded);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexRemoveSelected", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build dynamic IVF index
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Remove IDs in range [0, 20) using selector
+    size_t min_id = 0;
+    size_t max_id = 20;
+    test_utils::IDFilterRange selector(min_id, max_id);
+
+    size_t num_removed = 0;
+    status = index->remove_selected(&num_removed, selector);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(num_removed == max_id - min_id);
+
+    // Verify removed IDs no longer exist
+    bool exists = false;
+    for (size_t i = min_id; i < max_id; ++i) {
+        status = index->has_id(&exists, i);
+        CATCH_REQUIRE(status.ok());
+        CATCH_REQUIRE(!exists);
+    }
+
+    // Verify IDs outside range still exist
+    status = index->has_id(&exists, max_id);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(exists);
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexSearchWithParams", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build static IVF index
+    svs::runtime::v0::StaticIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::IVFIndex::SearchParams default_search_params;
+    default_search_params.n_probes = 2;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::StaticIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params,
+        default_search_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances1(nq * k);
+    std::vector<size_t> result_labels1(nq * k);
+
+    // Search with default params
+    status = index->search(nq, xq, k, distances1.data(), result_labels1.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Search with custom params (more probes should potentially give better results)
+    svs::runtime::v0::IVFIndex::SearchParams custom_params;
+    custom_params.n_probes = 5;
+    custom_params.k_reorder = 2.0f;
+
+    std::vector<float> distances2(nq * k);
+    std::vector<size_t> result_labels2(nq * k);
+
+    status =
+        index->search(nq, xq, k, distances2.data(), result_labels2.data(), &custom_params);
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::StaticIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexCheckStorageKind", "[runtime][ivf]") {
+    // FP32 should be supported
+    CATCH_REQUIRE(svs::runtime::v0::StaticIVFIndex::check_storage_kind(
+                      svs::runtime::v0::StorageKind::FP32
+    )
+                      .ok());
+    CATCH_REQUIRE(svs::runtime::v0::DynamicIVFIndex::check_storage_kind(
+                      svs::runtime::v0::StorageKind::FP32
+    )
+                      .ok());
+
+    // FP16 should be supported
+    CATCH_REQUIRE(svs::runtime::v0::StaticIVFIndex::check_storage_kind(
+                      svs::runtime::v0::StorageKind::FP16
+    )
+                      .ok());
+    CATCH_REQUIRE(svs::runtime::v0::DynamicIVFIndex::check_storage_kind(
+                      svs::runtime::v0::StorageKind::FP16
+    )
+                      .ok());
+
+    // LVQ storage kinds should not be supported for IVF
+    CATCH_REQUIRE(!svs::runtime::v0::StaticIVFIndex::check_storage_kind(
+                       svs::runtime::v0::StorageKind::LVQ4x4
+    )
+                       .ok());
+    CATCH_REQUIRE(!svs::runtime::v0::DynamicIVFIndex::check_storage_kind(
+                       svs::runtime::v0::StorageKind::LVQ4x4
+    )
+                       .ok());
+}
+
+CATCH_TEST_CASE("StaticIVFIndexInnerProduct", "[runtime][ivf]") {
+    const auto& test_data = get_test_data();
+
+    // Build static IVF index with inner product metric
+    svs::runtime::v0::StaticIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::StaticIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::INNER_PRODUCT,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Search
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::StaticIVFIndex::destroy(index);
+}
+#endif // SVS_RUNTIME_ENABLE_IVF
