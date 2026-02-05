@@ -76,16 +76,16 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
 
     [[no_unique_address]] Cmp compare_{};
     // Equivalent of the `search_window_size_` in the traditional search buffer.
-    uint16_t target_valid_ = 0;
+    size_t target_valid_ = 0;
     // Number of valid elements can are configured to contain.
     // Equivalent to the `search_buffer_capacity_` in the traditional search buffer.
-    uint16_t valid_capacity_ = 0;
+    size_t valid_capacity_ = 0;
     // Index of the best unvisited candidate.
-    uint16_t best_unvisited_ = 0;
+    size_t best_unvisited_ = 0;
     // One past the "target_valid_"th entry.
-    uint16_t roi_end_ = 0;
+    size_t roi_end_ = 0;
     // number of valid neighbors.
-    uint16_t valid_ = 0;
+    size_t valid_ = 0;
     // A buffer of candidates.
     // Unlike the static buffer, this container *does* dynamically change size and does not
     // reserve one-past-the-end for copying neighbors.
@@ -101,8 +101,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         SearchBufferConfig config, Cmp compare = Cmp{}, bool enable_visited = false
     )
         : compare_{std::move(compare)}
-        , target_valid_{lib::narrow<uint16_t>(config.get_search_window_size())}
-        , valid_capacity_{lib::narrow<uint16_t>(config.get_total_capacity())}
+        , target_valid_{config.get_search_window_size()}
+        , valid_capacity_{config.get_total_capacity()}
         , candidates_{valid_capacity_} {
         candidates_.clear();
         if (enable_visited) {
@@ -142,10 +142,8 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     void change_maxsize(SearchBufferConfig config) {
         // Use temporary variables to ensure the given configuration is valid before
         // committing.
-        //
-        // `lib::narrow` may throw.
-        uint16_t target_valid_temp = lib::narrow<uint16_t>(config.get_search_window_size());
-        uint16_t valid_capacity_temp = lib::narrow<uint16_t>(config.get_total_capacity());
+        size_t target_valid_temp = config.get_search_window_size();
+        size_t valid_capacity_temp = config.get_total_capacity();
 
         // If the new capacity is lower then the current size, shrink the buffer to fit.
         if (valid_capacity_temp < candidates_.size()) {
@@ -466,7 +464,7 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
         size_t i = pos - start;
         valid_ += static_cast<size_t>(neighbor.valid());
         unsafe_insert(neighbor, pos, i);
-        best_unvisited_ = std::min(best_unvisited_, lib::narrow_cast<uint16_t>(i));
+        best_unvisited_ = std::min(best_unvisited_, i);
         return i;
     }
 
