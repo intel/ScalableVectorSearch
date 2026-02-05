@@ -134,9 +134,8 @@ int main() {
     double recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);
 
     fmt::print("Dynamic IVF with LeanVec Recall@{} = {:.4f}\n", n_neighbors, recall);
-    fmt::print(
-        "Note that recall may be low because this example is using a dummy random dataset.\n"
-    );
+    fmt::print("Note that recall may be low because this example is using a dummy random "
+               "dataset.\n");
     //! [Recall]
 
     // STEP 5: Saving and reloading the index
