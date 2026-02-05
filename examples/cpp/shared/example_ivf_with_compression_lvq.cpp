@@ -45,10 +45,7 @@ int main() {
 
     // Assemble IVF index with LVQ compressed data
     auto index = svs::IVF::assemble_from_clustering<float>(
-        std::move(clustering),
-        data,
-        svs::distance::DistanceL2(),
-        num_threads
+        std::move(clustering), data, svs::distance::DistanceL2(), num_threads
     );
     //! [Index Build]
 
@@ -82,10 +79,7 @@ int main() {
     // Reload the index - specify centroid type (float) and data type (LVQDataset)
     using LVQData = svs::quantization::lvq::LVQDataset<4, 8>;
     index = svs::IVF::assemble<float, float, LVQData>(
-        "ivf_config",
-        "ivf_data",
-        svs::distance::DistanceL2(),
-        num_threads
+        "ivf_config", "ivf_data", svs::distance::DistanceL2(), num_threads
     );
     //! [Saving Loading]
     index.set_search_parameters(search_params);
