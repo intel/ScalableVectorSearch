@@ -21,10 +21,12 @@ These examples utilize LVQ and LeanVec interfaces which are available when linki
 - [example_vamana_with_compression_lvq.cpp](./example_vamana_with_compression_lvq.cpp): Demonstrates building, searching, saving, and reloading a Vamana index with a LVQ-compressed dataset.
 - [example_vamana_with_compression_dynamic.cpp](./example_vamana_with_compression_dynamic.cpp): Demonstrates building, searching, saving, and reloading a dynamic Vamana index (allows vector insertions and deletions over time) with a LeanVec-compressed dataset.
 
-### IVF Examples (require SVS_EXPERIMENTAL_ENABLE_IVF=ON)
+### IVF Examples
 - [example_ivf_with_compression_lvq.cpp](./example_ivf_with_compression_lvq.cpp): Demonstrates building, searching, saving, and reloading a Dynamic IVF index with a LVQ-compressed dataset.
 - [example_ivf_with_compression_leanvec.cpp](./example_ivf_with_compression_leanvec.cpp): Demonstrates building, searching, saving, and reloading a Dynamic IVF index with a LeanVec-compressed dataset.
 - [example_ivf_with_compression_dynamic.cpp](./example_ivf_with_compression_dynamic.cpp): Demonstrates building, searching, adding/deleting vectors, compacting, saving, and reloading a Dynamic IVF index with a LeanVec-compressed dataset (similar to the dynamic Vamana example).
+
+> **Note:** IVF examples require a shared/static library built with `SVS_EXPERIMENTAL_ENABLE_IVF=ON`, and compiling the examples with `-DSVS_ENABLE_IVF_EXAMPLES=ON`. Additionally, Intel MKL must be available in the environment (e.g., by sourcing `source /opt/intel/oneapi/setvars.sh`).
 
 See [CMakeLists.txt](./CMakeLists.txt) for details on linking to the SVS shared library.
 
