@@ -15,9 +15,16 @@
 -->
 
 These examples utilize LVQ and LeanVec interfaces which are available when linking to a SVS shared/static library, which are published with [releases](https://github.com/intel/ScalableVectorSearch/releases), as a tarball, pip wheel, or conda package. Note that these examples will _not_ run after building the open source codebase without the shared/static library. These examples include:
-- [example_vamana_with_compression.cpp](./example_vamana_with_compression.cpp): Demonstrates building, searching, saving, and reloading an index with a LeanVec-compressed dataset.
-- [example_vamana_with_compression_lvq.cpp](./example_vamana_with_compression_lvq.cpp): Demonstrates building, searching, saving, and reloading an index with a LVQ-compressed dataset.
-- [example_vamana_with_compression_dynamic.cpp](./example_vamana_with_compression_dynamic.cpp): Demonstrates building, searching, saving, and reloading a dynamic index (allows vector insertions and deletions over time) with a LeanVec-compressed dataset.
+
+### Vamana Examples
+- [example_vamana_with_compression.cpp](./example_vamana_with_compression.cpp): Demonstrates building, searching, saving, and reloading a Vamana index with a LeanVec-compressed dataset.
+- [example_vamana_with_compression_lvq.cpp](./example_vamana_with_compression_lvq.cpp): Demonstrates building, searching, saving, and reloading a Vamana index with a LVQ-compressed dataset.
+- [example_vamana_with_compression_dynamic.cpp](./example_vamana_with_compression_dynamic.cpp): Demonstrates building, searching, saving, and reloading a dynamic Vamana index (allows vector insertions and deletions over time) with a LeanVec-compressed dataset.
+
+### IVF Examples (require SVS_EXPERIMENTAL_ENABLE_IVF=ON)
+- [example_ivf_with_compression_lvq.cpp](./example_ivf_with_compression_lvq.cpp): Demonstrates building, searching, saving, and reloading a Dynamic IVF index with a LVQ-compressed dataset.
+- [example_ivf_with_compression_leanvec.cpp](./example_ivf_with_compression_leanvec.cpp): Demonstrates building, searching, saving, and reloading a Dynamic IVF index with a LeanVec-compressed dataset.
+- [example_ivf_with_compression_dynamic.cpp](./example_ivf_with_compression_dynamic.cpp): Demonstrates building, searching, adding/deleting vectors, compacting, saving, and reloading a Dynamic IVF index with a LeanVec-compressed dataset (similar to the dynamic Vamana example).
 
 See [CMakeLists.txt](./CMakeLists.txt) for details on linking to the SVS shared library.
 
