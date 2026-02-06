@@ -44,7 +44,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@v6
 
       - name: Build Docker image
         run: |
@@ -58,17 +58,17 @@ jobs:
             -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash -c "chmod +x docker/x86_64/build-cpp-runtime-bindings.sh && ./docker/x86_64/build-cpp-runtime-bindings.sh"
+            /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 
       - name: Upload cpp runtime bindings artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: svs-cpp-runtime-bindings${{ matrix.suffix }}
           path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
           retention-days: 7  # Reduce retention due to size
 
       - name: Upload conda package artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: libsvs-runtime-conda${{ matrix.suffix }}
           path: conda-bld/linux-64/libsvs-runtime-*.conda
@@ -81,7 +81,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             svs-manylinux228:latest \
-            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --verbose"
+            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --no-tests=error --verbose"
 
   # Run full test script using the built artifacts
   test:
@@ -97,7 +97,7 @@ jobs:
             suffix: "-public-only"
 
     steps:
-      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - uses: actions/checkout@v6
 
       - name: Build Docker image
         run: |
@@ -105,7 +105,7 @@ jobs:
 
       # Need to download for a new job
       - name: Download conda package
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v4
         with:
           name: libsvs-runtime-conda${{ matrix.suffix }}
           path: runtime_conda
@@ -122,4 +122,4 @@ jobs:
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash -c "chmod +x docker/x86_64/test-cpp-runtime-bindings.sh && ./docker/x86_64/test-cpp-runtime-bindings.sh"
+            /bin/bash .github/scripts/test-cpp-runtime-bindings.sh
