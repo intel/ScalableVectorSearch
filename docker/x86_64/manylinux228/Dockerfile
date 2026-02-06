@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM quay.io/pypa/manylinux_2_28_x86_64:2025.12.07-1
+FROM quay.io/pypa/manylinux_2_28_x86_64:2025.12.29-1
 
 # Install CMake3
 RUN yum install -y cmake-3.26.5 \
