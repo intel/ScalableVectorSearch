@@ -41,7 +41,7 @@
 
 #ifndef SVS_RUNTIME_VERSION_MINOR
 /// Minor version number - incremented for backward-compatible feature additions
-#define SVS_RUNTIME_VERSION_MINOR 1
+#define SVS_RUNTIME_VERSION_MINOR 2
 #endif
 
 #ifndef SVS_RUNTIME_VERSION_PATCH
@@ -51,7 +51,7 @@
 
 #ifndef SVS_RUNTIME_VERSION_STRING
 /// Complete version string
-#define SVS_RUNTIME_VERSION_STRING "0.1.0"
+#define SVS_RUNTIME_VERSION_STRING "0.2.0"
 #endif
 
 #ifndef SVS_RUNTIME_API_VERSION
