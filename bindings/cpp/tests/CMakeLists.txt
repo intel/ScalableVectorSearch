@@ -66,6 +66,11 @@ target_include_directories(svs_runtime_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
+# Pass IVF enable flag to tests
+if (SVS_RUNTIME_ENABLE_IVF)
+    target_compile_definitions(svs_runtime_test PRIVATE SVS_RUNTIME_ENABLE_IVF)
+endif()
+
 # Enable testing with CTest
 include(CTest)
 enable_testing()
