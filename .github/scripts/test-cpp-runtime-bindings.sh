@@ -15,6 +15,9 @@
 
 set -e
 
+# Prefix can be set to validate on different architectures via SDE
+RUN_PREFIX="${RUN_PREFIX:-}"
+
 # Source environment setup (for compiler and MKL)
 source /etc/bashrc || true
 
@@ -46,10 +49,52 @@ echo "-----------------------------------------------"
 echo " FAISS C++ tests: "
 ./tests/faiss_test --gtest_filter=SVS.*
 echo "-----------------------------------------------"
+echo " FAISS-SVS C++ examples: "
+make 10-SVS-Vamana-LVQ 11-SVS-Vamana-LeanVec
+# Check if running on Intel hardware (LVQ/LeanVec require Intel-specific instructions)
+if grep -q "GenuineIntel" /proc/cpuinfo; then
+  $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
+  $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
+else
+  echo "Non-Intel CPU detected - LVQ/LeanVec examples expected to fail"
+  set +e
+  ./tutorial/cpp/10-SVS-Vamana-LVQ
+  exit_code_10=$?
+  ./tutorial/cpp/11-SVS-Vamana-LeanVec
+  exit_code_11=$?
+  set -e
+
+  if [ $exit_code_10 -ne 0 ] && [ $exit_code_11 -ne 0 ]; then
+    echo "XFAIL: Examples failed as expected on non-Intel hardware"
+  else
+    echo "UNEXPECTED: One or more tests passed on non-Intel hardware (exit codes: $exit_code_10, $exit_code_11)"
+    exit 1
+  fi
+fi
+echo "-----------------------------------------------"
 echo " FAISS python bindings: "
 cd faiss/python/
 python setup.py build
 echo "-----------------------------------------------"
 echo " FAISS python tests: "
 cd ../../../tests/
-PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=8 python -m unittest test_svs_py.py
+PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python -m unittest test_svs_py.py
+echo "-----------------------------------------------"
+echo " FAISS-SVS python examples: "
+cd ../tutorial/python/
+if grep -q "GenuineIntel" /proc/cpuinfo; then
+  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 $RUN_PREFIX python 11-SVS.py
+else
+  echo "Non-Intel CPU detected - SVS python example expected to fail"
+  set +e
+  PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python 11-SVS.py
+  exit_code=$?
+  set -e
+
+  if [ $exit_code -ne 0 ]; then
+    echo "XFAIL: Python example failed as expected on non-Intel hardware"
+  else
+    echo "UNEXPECTED: Python example passed on non-Intel hardware"
+    exit 1
+  fi
+fi
