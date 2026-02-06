@@ -60,3 +60,25 @@ create_example_executable(shared shared.cpp)
 create_example_executable(example_vamana_with_compression_lvq example_vamana_with_compression_lvq.cpp)
 create_example_executable(example_vamana_with_compression example_vamana_with_compression.cpp)
 create_example_executable(example_vamana_with_compression_dynamic example_vamana_with_compression_dynamic.cpp)
+
+# IVF examples with LVQ and LeanVec compression (only when IVF is enabled)
+option(SVS_ENABLE_IVF_EXAMPLES "Build IVF examples" OFF)
+if(SVS_ENABLE_IVF_EXAMPLES)
+    # Find MKL for IVF examples (required for cblas_sgemm)
+    set(MKL_THREADING sequential)
+    find_package(MKL REQUIRED)
+
+    function(create_ivf_example_executable exe file)
+        add_executable(${exe} ${file})
+        target_compile_definitions(${exe} PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
+        target_link_libraries(${exe} PUBLIC
+            svs::svs_shared_library
+            svs::svs
+            MKL::MKL
+        )
+    endfunction()
+
+    create_ivf_example_executable(example_ivf_with_compression_lvq example_ivf_with_compression_lvq.cpp)
+    create_ivf_example_executable(example_ivf_with_compression_leanvec example_ivf_with_compression_leanvec.cpp)
+    create_ivf_example_executable(example_ivf_with_compression_dynamic example_ivf_with_compression_dynamic.cpp)
+endif()
