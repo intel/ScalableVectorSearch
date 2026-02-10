@@ -64,6 +64,7 @@ if (SVS_EXPERIMENTAL_BUILD_CUSTOM_MKL)
             "export=${mkl_functions_file}"
             "MKLROOT=${MKL_ROOT}"
             "name=${CMAKE_CURRENT_BINARY_DIR}/${SVS_MKL_CUSTOM_LIBRARY_NAME}"
+        DEPENDS ${mkl_functions_file}
     )
 
     # Create a target for the newly created shared object.
