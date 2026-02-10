@@ -1,4 +1,5 @@
 cblas_sgemm
+cblas_saxpby
 mkl_simatcopy
 LAPACKE_sgesvd
 mkl_get_max_threads
