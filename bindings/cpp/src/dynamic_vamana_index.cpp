@@ -19,7 +19,7 @@
 #include "dynamic_vamana_index_impl.h"
 #include "svs_runtime_utils.h"
 
-#ifdef SVS_LEANVEC_HEADER
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 #include "dynamic_vamana_index_leanvec_impl.h"
 #endif
 
@@ -261,7 +261,7 @@ Status DynamicVamanaIndexLeanVec::build(
     );
 }
 
-#ifdef SVS_LEANVEC_HEADER
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // Specialization to build LeanVec-based Vamana index with specified leanvec dims
 Status DynamicVamanaIndexLeanVec::build(
     DynamicVamanaIndex** index,
@@ -328,7 +328,7 @@ Status DynamicVamanaIndexLeanVec::build(
     });
 }
 
-#else  // SVS_LEANVEC_HEADER
+#else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // LeanVec storage kind is not supported in this build configuration
 Status DynamicVamanaIndexLeanVec::
     build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, size_t, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&) noexcept {
@@ -345,6 +345,6 @@ Status DynamicVamanaIndexLeanVec::
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."
     );
 }
-#endif // SVS_LEANVEC_HEADER
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 } // namespace runtime
 } // namespace svs

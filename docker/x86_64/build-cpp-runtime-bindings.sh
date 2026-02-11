@@ -31,6 +31,7 @@ CMAKE_ARGS=(
     "-DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings"
     "-DCMAKE_INSTALL_LIBDIR=lib"
     "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
+    "-DSVS_RUNTIME_ENABLE_IVF=${ENABLE_IVF:-OFF}"
 )
 
 if [ -n "$SVS_URL" ]; then
@@ -45,7 +46,7 @@ cmake --install .
 # Build conda package for cpp runtime bindings
 source /opt/conda/etc/profile.d/conda.sh
 cd /workspace
-ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
+ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} ENABLE_IVF=${ENABLE_IVF:-OFF} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
 
 # Create tarball with symlink for compatibility
 cd /workspace/install_cpp_bindings && \

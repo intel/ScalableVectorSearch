@@ -18,7 +18,7 @@
 
 #include "svs_runtime_utils.h"
 
-#ifdef SVS_LEANVEC_HEADER
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 #include "training_impl.h"
 
 namespace svs {
@@ -74,7 +74,7 @@ LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in)
 } // namespace runtime
 } // namespace svs
 
-#else  // SVS_LEANVEC_HEADER
+#else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 namespace svs {
 namespace runtime {
 LeanVecTrainingData::~LeanVecTrainingData() = default;
@@ -107,4 +107,4 @@ Status LeanVecTrainingData::load(
 }
 } // namespace runtime
 } // namespace svs
-#endif // SVS_LEANVEC_HEADER
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC

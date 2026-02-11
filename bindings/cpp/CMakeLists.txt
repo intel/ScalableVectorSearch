@@ -44,8 +44,16 @@ set(SVS_RUNTIME_SOURCES
 # Add IVF files if enabled
 if (SVS_RUNTIME_ENABLE_IVF)
     message(STATUS "SVS runtime will be built with IVF support (requires MKL)")
-    list(APPEND SVS_RUNTIME_HEADERS include/svs/runtime/ivf_index.h)
-    list(APPEND SVS_RUNTIME_SOURCES src/ivf_index_impl.h src/ivf_index.cpp)
+    list(APPEND SVS_RUNTIME_HEADERS
+        include/svs/runtime/ivf_index.h
+        include/svs/runtime/dynamic_ivf_index.h
+    )
+    list(APPEND SVS_RUNTIME_SOURCES
+        src/ivf_index_impl.h
+        src/dynamic_ivf_index_impl.h
+        src/ivf_index.cpp
+        src/dynamic_ivf_index.cpp
+    )
 else()
     message(STATUS "SVS runtime will be built without IVF support")
 endif()
@@ -87,14 +95,6 @@ set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
 
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
-    if(DEFINED SVS_LVQ_HEADER AND DEFINED SVS_LEANVEC_HEADER)
-        # expected that pre-defined headers are implementation headers
-        message(STATUS "Using pre-defined LVQ header: ${SVS_LVQ_HEADER}")
-        message(STATUS "Using pre-defined LeanVec header: ${SVS_LEANVEC_HEADER}")
-    else()
-        set(SVS_LVQ_HEADER "svs/extensions/vamana/lvq.h")
-        set(SVS_LEANVEC_HEADER "svs/extensions/vamana/leanvec.h")
-    endif()
 
     if(RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
         message(STATUS "Building directly from private sources")
@@ -135,10 +135,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs::svs_static_library
         )
     endif()
-    target_compile_definitions(${TARGET_NAME} PRIVATE
-        PUBLIC "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
-        PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
-    )
+    target_compile_definitions(${TARGET_NAME} PUBLIC SVS_RUNTIME_HAVE_LVQ_LEANVEC)
 else()
     # Include the SVS library directly if needed.
     if (NOT TARGET svs::svs)

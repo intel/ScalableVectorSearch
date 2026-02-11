@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "svs/runtime/ivf_index.h"
+#include "svs/runtime/dynamic_ivf_index.h"
 
-#include "ivf_index_impl.h"
+#include "dynamic_ivf_index_impl.h"
 #include "svs_runtime_utils.h"
 
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
@@ -37,16 +37,16 @@ namespace runtime {
 
 namespace {
 
-// Manager class for IVF Index
-struct IVFIndexManager : public IVFIndex {
-    std::unique_ptr<IVFIndexImpl> impl_;
+// Manager class for Dynamic IVF Index
+struct DynamicIVFIndexManager : public DynamicIVFIndex {
+    std::unique_ptr<DynamicIVFIndexImpl> impl_;
 
-    IVFIndexManager(std::unique_ptr<IVFIndexImpl> impl)
+    DynamicIVFIndexManager(std::unique_ptr<DynamicIVFIndexImpl> impl)
         : impl_{std::move(impl)} {
         assert(impl_ != nullptr);
     }
 
-    ~IVFIndexManager() override = default;
+    ~DynamicIVFIndexManager() override = default;
 
     Status search(
         size_t n,
@@ -65,6 +65,42 @@ struct IVFIndexManager : public IVFIndex {
         });
     }
 
+    Status
+    add(size_t n, const size_t* labels, const float* x, bool reuse_empty
+    ) noexcept override {
+        return runtime_error_wrapper([&] {
+            svs::data::ConstSimpleDataView<float> data{x, n, impl_->dimensions()};
+            std::span<const size_t> lbls(labels, n);
+            impl_->add(data, lbls, reuse_empty);
+        });
+    }
+
+    Status remove(size_t n, const size_t* labels) noexcept override {
+        return runtime_error_wrapper([&] {
+            std::span<const size_t> lbls(labels, n);
+            impl_->remove(lbls);
+        });
+    }
+
+    Status
+    remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
+        return runtime_error_wrapper([&] {
+            *num_removed = impl_->remove_selected(selector);
+        });
+    }
+
+    Status has_id(bool* exists, size_t id) const noexcept override {
+        return runtime_error_wrapper([&] { *exists = impl_->has_id(id); });
+    }
+
+    Status consolidate() noexcept override {
+        return runtime_error_wrapper([&] { impl_->consolidate(); });
+    }
+
+    Status compact(size_t batchsize) noexcept override {
+        return runtime_error_wrapper([&] { impl_->compact(batchsize); });
+    }
+
     Status save(std::ostream& out) const noexcept override {
         return runtime_error_wrapper([&] { impl_->save(out); });
     }
@@ -72,27 +108,25 @@ struct IVFIndexManager : public IVFIndex {
 
 } // namespace
 
-// IVFIndex interface implementation
-IVFIndex::~IVFIndex() = default;
-
-// IVFIndex interface implementation
-Status IVFIndex::check_storage_kind(StorageKind storage_kind) noexcept {
+// DynamicIVFIndex interface implementation
+Status DynamicIVFIndex::check_storage_kind(StorageKind storage_kind) noexcept {
     if (ivf_storage::is_supported_storage_kind(storage_kind)) {
         return Status_Ok;
     } else {
         return Status{
             ErrorCode::INVALID_ARGUMENT,
-            "IVFIndex only supports FP32, FP16, SQI8, and LVQ storage kinds"};
+            "DynamicIVFIndex only supports FP32, FP16, SQI8, and LVQ storage kinds"};
     }
 }
 
-Status IVFIndex::build(
-    IVFIndex** index,
+Status DynamicIVFIndex::build(
+    DynamicIVFIndex** index,
     size_t dim,
     MetricType metric,
     StorageKind storage_kind,
     size_t n,
     const float* data,
+    const size_t* labels,
     const IVFIndex::BuildParams& params,
     const IVFIndex::SearchParams& default_search_params,
     size_t num_threads,
@@ -100,7 +134,7 @@ Status IVFIndex::build(
 ) noexcept {
     *index = nullptr;
     return runtime_error_wrapper([&] {
-        auto impl = std::make_unique<IVFIndexImpl>(
+        auto impl = std::make_unique<DynamicIVFIndexImpl>(
             dim,
             metric,
             storage_kind,
@@ -110,46 +144,23 @@ Status IVFIndex::build(
             intra_query_threads
         );
 
-        // Build with provided data
-        svs::data::ConstSimpleDataView<float> data_view{data, n, dim};
-        impl->build(data_view);
+        // Build with provided data if any
+        if (n > 0 && data != nullptr && labels != nullptr) {
+            svs::data::ConstSimpleDataView<float> data_view{data, n, dim};
+            std::span<const size_t> labels_span{labels, n};
+            impl->build(data_view, labels_span);
+        }
 
-        *index = new IVFIndexManager{std::move(impl)};
+        *index = new DynamicIVFIndexManager{std::move(impl)};
     });
 }
 
-Status IVFIndex::build(
-    IVFIndex** index,
-    size_t dim,
-    MetricType metric,
-    StorageKind storage_kind,
-    size_t n,
-    const float* data,
-    const IVFIndex::BuildParams& params,
-    size_t num_threads,
-    size_t intra_query_threads
-) noexcept {
-    SearchParams default_search_params;
-    return build(
-        index,
-        dim,
-        metric,
-        storage_kind,
-        n,
-        data,
-        params,
-        default_search_params,
-        num_threads,
-        intra_query_threads
-    );
-}
-
-Status IVFIndex::destroy(IVFIndex* index) noexcept {
+Status DynamicIVFIndex::destroy(DynamicIVFIndex* index) noexcept {
     return runtime_error_wrapper([&] { delete index; });
 }
 
-Status IVFIndex::load(
-    IVFIndex** index,
+Status DynamicIVFIndex::load(
+    DynamicIVFIndex** index,
     std::istream& in,
     MetricType metric,
     StorageKind storage_kind,
@@ -158,32 +169,33 @@ Status IVFIndex::load(
 ) noexcept {
     *index = nullptr;
     return runtime_error_wrapper([&] {
-        std::unique_ptr<IVFIndexImpl> impl;
+        std::unique_ptr<DynamicIVFIndexImpl> impl;
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
         if (ivf_storage::is_leanvec_storage_kind(storage_kind)) {
-            impl.reset(IVFIndexLeanVecImpl::load(
+            impl.reset(DynamicIVFIndexLeanVecImpl::load(
                 in, metric, storage_kind, num_threads, intra_query_threads
             ));
         } else
 #endif
         {
-            impl.reset(IVFIndexImpl::load(
+            impl.reset(DynamicIVFIndexImpl::load(
                 in, metric, storage_kind, num_threads, intra_query_threads
             ));
         }
-        *index = new IVFIndexManager{std::move(impl)};
+        *index = new DynamicIVFIndexManager{std::move(impl)};
     });
 }
 
-// IVFIndexLeanVec implementations
+// DynamicIVFIndexLeanVec implementations
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
-Status IVFIndexLeanVec::build(
-    IVFIndex** index,
+Status DynamicIVFIndexLeanVec::build(
+    DynamicIVFIndex** index,
     size_t dim,
     MetricType metric,
     StorageKind storage_kind,
     size_t n,
     const float* data,
+    const size_t* labels,
     size_t leanvec_dims,
     const IVFIndex::BuildParams& params,
     const IVFIndex::SearchParams& default_search_params,
@@ -192,7 +204,7 @@ Status IVFIndexLeanVec::build(
 ) noexcept {
     *index = nullptr;
     return runtime_error_wrapper([&] {
-        auto impl = std::make_unique<IVFIndexLeanVecImpl>(
+        auto impl = std::make_unique<DynamicIVFIndexLeanVecImpl>(
             dim,
             metric,
             storage_kind,
@@ -203,20 +215,24 @@ Status IVFIndexLeanVec::build(
             intra_query_threads
         );
 
-        svs::data::ConstSimpleDataView<float> data_view{data, n, dim};
-        impl->build(data_view);
+        if (n > 0 && data != nullptr && labels != nullptr) {
+            svs::data::ConstSimpleDataView<float> data_view{data, n, dim};
+            std::span<const size_t> labels_span{labels, n};
+            impl->build(data_view, labels_span);
+        }
 
-        *index = new IVFIndexManager{std::move(impl)};
+        *index = new DynamicIVFIndexManager{std::move(impl)};
     });
 }
 
-Status IVFIndexLeanVec::build(
-    IVFIndex** index,
+Status DynamicIVFIndexLeanVec::build(
+    DynamicIVFIndex** index,
     size_t dim,
     MetricType metric,
     StorageKind storage_kind,
     size_t n,
     const float* data,
+    const size_t* labels,
     const LeanVecTrainingData* training_data,
     const IVFIndex::BuildParams& params,
     const IVFIndex::SearchParams& default_search_params,
@@ -227,7 +243,7 @@ Status IVFIndexLeanVec::build(
     return runtime_error_wrapper([&] {
         auto training_data_impl =
             static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
-        auto impl = std::make_unique<IVFIndexLeanVecImpl>(
+        auto impl = std::make_unique<DynamicIVFIndexLeanVecImpl>(
             dim,
             metric,
             storage_kind,
@@ -238,20 +254,24 @@ Status IVFIndexLeanVec::build(
             intra_query_threads
         );
 
-        svs::data::ConstSimpleDataView<float> data_view{data, n, dim};
-        impl->build(data_view);
+        if (n > 0 && data != nullptr && labels != nullptr) {
+            svs::data::ConstSimpleDataView<float> data_view{data, n, dim};
+            std::span<const size_t> labels_span{labels, n};
+            impl->build(data_view, labels_span);
+        }
 
-        *index = new IVFIndexManager{std::move(impl)};
+        *index = new DynamicIVFIndexManager{std::move(impl)};
     });
 }
 #else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
-Status IVFIndexLeanVec::build(
-    IVFIndex**,
+Status DynamicIVFIndexLeanVec::build(
+    DynamicIVFIndex**,
     size_t,
     MetricType,
     StorageKind,
     size_t,
     const float*,
+    const size_t*,
     size_t,
     const IVFIndex::BuildParams&,
     const IVFIndex::SearchParams&,
@@ -260,17 +280,18 @@ Status IVFIndexLeanVec::build(
 ) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
-        "IVFIndexLeanVec is not supported in this build configuration."
+        "DynamicIVFIndexLeanVec is not supported in this build configuration."
     );
 }
 
-Status IVFIndexLeanVec::build(
-    IVFIndex**,
+Status DynamicIVFIndexLeanVec::build(
+    DynamicIVFIndex**,
     size_t,
     MetricType,
     StorageKind,
     size_t,
     const float*,
+    const size_t*,
     const LeanVecTrainingData*,
     const IVFIndex::BuildParams&,
     const IVFIndex::SearchParams&,
@@ -279,7 +300,7 @@ Status IVFIndexLeanVec::build(
 ) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
-        "IVFIndexLeanVec is not supported in this build configuration."
+        "DynamicIVFIndexLeanVec is not supported in this build configuration."
     );
 }
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC

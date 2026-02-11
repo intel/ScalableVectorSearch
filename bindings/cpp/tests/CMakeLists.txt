@@ -44,6 +44,10 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/runtime_test.cpp
 )
 
+if (SVS_RUNTIME_ENABLE_IVF)
+    list(APPEND TEST_SOURCES ${CMAKE_CURRENT_LIST_DIR}/ivf_runtime_test.cpp)
+endif()
+
 add_executable(svs_runtime_test ${TEST_SOURCES})
 
 # Link with the runtime library
