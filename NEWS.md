@@ -1,13 +1,13 @@
-# SVS 0.1.0 Release Notes
+# SVS 0.2.0 Release Notes
 
 ## Additions and Changes
 
-* Creation of SVS C++ Runtime Bindings package (#208)
+* IVF, including Dynamic IVF Index Implementation (#223), batch iterator in IVF (#247), Save/Load functionality with dense clusters (#260)
 
-* Addition of `libsvs` conda and python packages along with existing tarballs
+* LeanVec OOD added to C++ Runtime Bindings (#264)
 
-* Added shared library support for Clang-20
+* Addition of `libsvs-runtime` conda package for SVS C++ Runtime Bindings (#255)
 
-* LVQ8x8 support added to SVS python package
+* Adds LVQ8x0 support to CPP Runtime API (#252)
 
-* Fixes related to VamanaBuildParameters (#237) and unmasked AVX2 load (#239)
+* Custom index block size enabled in C++ Runtime Bindings (#248)

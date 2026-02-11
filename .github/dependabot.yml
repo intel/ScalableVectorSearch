@@ -1,4 +1,4 @@
-# Copyright 2024 Intel Corporation
+# Copyright 2025 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: pre-commit
-
-on:
-  pull_request:
-
-jobs:
-  pre-commit:
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
-      with:
-        python-version: '3.12'
-    - uses: pre-commit/action@v3.0.1
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(actions)"
+    labels:
+      - dependencies
+      - actions
+    groups:
+      github-actions:
+        patterns:
+          - "*"

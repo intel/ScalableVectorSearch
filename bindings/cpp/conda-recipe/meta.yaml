@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-{% set version = '0.1.0' %}
+{% set version = '0.2.0' %}
 {% set buildnumber = 0 %}
 {% set variant_suffix = environ.get('SUFFIX', '').replace('-', '_') %}
 
