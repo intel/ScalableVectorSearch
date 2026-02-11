@@ -29,6 +29,11 @@ RUN echo '# Configure gcc-11' > /etc/profile.d/01-gcc.sh && \
     echo 'source scl_source enable gcc-toolset-11' >> /etc/profile.d/01-gcc.sh && \
     chmod +x /etc/profile.d/01-gcc.sh
 
+# Download and Install MKL 2025.3 (needed for IVF support)
+RUN wget -nv https://registrationcenter-download.intel.com/akdlm/IRC_NAS/6caa93ca-e10a-4cc5-b210-68f385feea9e/intel-oneapi-base-toolkit-2025.3.1.36.sh -O /tmp/oneapi-installer.sh && \
+    bash /tmp/oneapi-installer.sh -a --components intel.oneapi.lin.mkl.devel --action install --eula accept -s --install-dir /opt/intel/oneapi && \
+    rm -f /tmp/oneapi-installer.sh
+
 # Download and install Miniforge
 RUN wget -nv https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O /tmp/miniforge.sh && \
     bash /tmp/miniforge.sh -b -p /opt/conda && \

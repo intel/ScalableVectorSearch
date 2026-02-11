@@ -15,8 +15,19 @@
 
 set -e  # Exit on error
 
-# Source environment setup (for compiler and MKL)
+# Source environment setup (for compiler)
 source /etc/bashrc || true
+
+# Source MKL environment if IVF is enabled
+if [ "${ENABLE_IVF:-OFF}" = "ON" ]; then
+    if [ -f /opt/intel/oneapi/setvars.sh ]; then
+        source /opt/intel/oneapi/setvars.sh --include-intel-llvm 2>/dev/null || true
+        echo "MKL sourced: MKLROOT=${MKLROOT}"
+    else
+        echo "ERROR: IVF enabled but MKL setvars.sh not found"
+        exit 1
+    fi
+fi
 
 # Create build+install directories for cpp runtime bindings
 rm -rf /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindings
