@@ -182,7 +182,8 @@ CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
 
     size_t num_clusters = 10;
     size_t num_threads = 2;
-    size_t num_inner_threads = 2;
+    // Use 1 inner thread to avoid non-deterministic tie-breaking in search results.
+    size_t num_inner_threads = 1;
     auto distance = svs::distance::DistanceL2();
 
     // Build clustering
