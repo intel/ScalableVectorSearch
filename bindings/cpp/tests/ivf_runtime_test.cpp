@@ -50,6 +50,29 @@ inline const std::vector<float>& get_test_data() {
     return test_data;
 }
 
+// Compute recall@k: fraction of ground-truth neighbors found in the result set,
+// averaged over all queries.
+double compute_recall(
+    const std::vector<size_t>& result_labels,
+    const std::vector<size_t>& gt_labels,
+    size_t nq,
+    size_t k
+) {
+    size_t total_found = 0;
+    for (size_t q = 0; q < nq; ++q) {
+        for (size_t i = 0; i < k; ++i) {
+            size_t gt_id = gt_labels[q * k + i];
+            for (size_t j = 0; j < k; ++j) {
+                if (result_labels[q * k + j] == gt_id) {
+                    ++total_found;
+                    break;
+                }
+            }
+        }
+    }
+    return static_cast<double>(total_found) / static_cast<double>(nq * k);
+}
+
 } // namespace
 
 CATCH_TEST_CASE("IVFIndexBuildAndSearch", "[runtime][ivf]") {
@@ -198,6 +221,44 @@ CATCH_TEST_CASE("DynamicIVFIndexBuildAndSearch", "[runtime][ivf]") {
 
     status = index->search(nq, xq, k, distances.data(), result_labels.data());
     CATCH_REQUIRE(status.ok());
+
+    // Verify that increasing n_probes improves recall for dynamic IVF
+    // Ground truth: search with all centroids probed
+    svs::runtime::v0::IVFIndex::SearchParams exhaustive_params;
+    exhaustive_params.n_probes = 10;
+    std::vector<float> gt_distances(nq * k);
+    std::vector<size_t> gt_labels(nq * k);
+    status = index->search(
+        nq, xq, k, gt_distances.data(), gt_labels.data(), &exhaustive_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    // Low n_probes
+    svs::runtime::v0::IVFIndex::SearchParams low_params;
+    low_params.n_probes = 1;
+    std::vector<float> dist_low(nq * k);
+    std::vector<size_t> labels_low(nq * k);
+    status = index->search(nq, xq, k, dist_low.data(), labels_low.data(), &low_params);
+    CATCH_REQUIRE(status.ok());
+
+    // High n_probes
+    svs::runtime::v0::IVFIndex::SearchParams high_params;
+    high_params.n_probes = 5;
+    std::vector<float> dist_high(nq * k);
+    std::vector<size_t> labels_high(nq * k);
+    status = index->search(nq, xq, k, dist_high.data(), labels_high.data(), &high_params);
+    CATCH_REQUIRE(status.ok());
+
+    double recall_low = compute_recall(labels_low, gt_labels, nq, k);
+    double recall_high = compute_recall(labels_high, gt_labels, nq, k);
+
+    std::cout << "  [Dynamic] recall@" << k << " with n_probes=1: " << recall_low
+              << std::endl;
+    std::cout << "  [Dynamic] recall@" << k << " with n_probes=5: " << recall_high
+              << std::endl;
+
+    CATCH_REQUIRE(recall_high >= recall_low);
+    CATCH_REQUIRE(recall_high > 0.0);
 
     svs::runtime::v0::DynamicIVFIndex::destroy(index);
 }
@@ -421,24 +482,47 @@ CATCH_TEST_CASE("IVFIndexSearchWithParams", "[runtime][ivf]") {
     const float* xq = test_data.data();
     const int k = 10;
 
-    std::vector<float> distances1(nq * k);
-    std::vector<size_t> result_labels1(nq * k);
+    // Step 1: Get ground-truth by searching with all centroids probed
+    svs::runtime::v0::IVFIndex::SearchParams exhaustive_params;
+    exhaustive_params.n_probes = 10; // all centroids
 
-    // Search with default params
-    status = index->search(nq, xq, k, distances1.data(), result_labels1.data());
+    std::vector<float> gt_distances(nq * k);
+    std::vector<size_t> gt_labels(nq * k);
+    status = index->search(
+        nq, xq, k, gt_distances.data(), gt_labels.data(), &exhaustive_params
+    );
     CATCH_REQUIRE(status.ok());
 
-    // Search with custom params (more probes should potentially give better results)
-    svs::runtime::v0::IVFIndex::SearchParams custom_params;
-    custom_params.n_probes = 5;
-    custom_params.k_reorder = 2.0f;
+    // Step 2: Search with low n_probes
+    svs::runtime::v0::IVFIndex::SearchParams low_params;
+    low_params.n_probes = 1;
 
-    std::vector<float> distances2(nq * k);
-    std::vector<size_t> result_labels2(nq * k);
-
+    std::vector<float> distances_low(nq * k);
+    std::vector<size_t> labels_low(nq * k);
     status =
-        index->search(nq, xq, k, distances2.data(), result_labels2.data(), &custom_params);
+        index->search(nq, xq, k, distances_low.data(), labels_low.data(), &low_params);
     CATCH_REQUIRE(status.ok());
+
+    // Step 3: Search with high n_probes
+    svs::runtime::v0::IVFIndex::SearchParams high_params;
+    high_params.n_probes = 5;
+
+    std::vector<float> distances_high(nq * k);
+    std::vector<size_t> labels_high(nq * k);
+    status =
+        index->search(nq, xq, k, distances_high.data(), labels_high.data(), &high_params);
+    CATCH_REQUIRE(status.ok());
+
+    // Step 4: Compute recall for both and verify higher n_probes gives >= recall
+    double recall_low = compute_recall(labels_low, gt_labels, nq, k);
+    double recall_high = compute_recall(labels_high, gt_labels, nq, k);
+
+    std::cout << "  recall@" << k << " with n_probes=1: " << recall_low << std::endl;
+    std::cout << "  recall@" << k << " with n_probes=5: " << recall_high << std::endl;
+
+    CATCH_REQUIRE(recall_high >= recall_low);
+    // With 5 out of 10 centroids probed, recall should be reasonably high
+    CATCH_REQUIRE(recall_high > 0.0);
 
     svs::runtime::v0::IVFIndex::destroy(index);
 }

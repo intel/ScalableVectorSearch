@@ -444,8 +444,7 @@ class IVFIndexImpl {
         }
 
         auto sp = make_search_parameters(params);
-        impl_->set_search_parameters(sp);
-        impl_->search(result, queries, {});
+        impl_->search(result, queries, sp);
     }
 
     void save(std::ostream& out) const {
