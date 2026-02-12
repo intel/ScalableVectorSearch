@@ -35,7 +35,7 @@ conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
 conda install -y /runtime_conda/libsvs-runtime-*.conda
 
 # Validate python and C++ tests against FAISS CI
-git clone https://github.com/facebookresearch/faiss.git
+git clone --branch ib/svs_ivf https://github.com/ibhati/faiss.git
 cd faiss
 
 echo "==============================================="

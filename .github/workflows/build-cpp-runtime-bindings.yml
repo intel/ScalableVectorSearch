@@ -105,6 +105,8 @@ jobs:
             suffix: ""
           - name: "public only"
             suffix: "-public-only"
+          - name: "IVF public only"
+            suffix: "-ivf"
 
     steps:
       - uses: actions/checkout@v6
