@@ -103,10 +103,13 @@ jobs:
         include:
           - name: "with static library"
             suffix: ""
+            enable_ivf: "OFF"
           - name: "public only"
             suffix: "-public-only"
+            enable_ivf: "OFF"
           - name: "IVF public only"
             suffix: "-ivf"
+            enable_ivf: "ON"
 
     steps:
       - uses: actions/checkout@v6
@@ -133,5 +136,6 @@ jobs:
             -v ${{ github.workspace }}/runtime_conda:/runtime_conda \
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
+            -e ENABLE_IVF=${{ matrix.enable_ivf }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-cpp-runtime-bindings.sh
