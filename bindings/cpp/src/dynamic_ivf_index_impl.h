@@ -268,7 +268,8 @@ class DynamicIVFIndexImpl {
 
     void init_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> ids) {
         auto build_params = ivf_build_parameters();
-        auto threadpool = svs::threads::ThreadPoolHandle(svs::threads::DefaultThreadPool(num_threads_));
+        auto threadpool =
+            svs::threads::ThreadPoolHandle(svs::threads::DefaultThreadPool(num_threads_));
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
 
@@ -421,7 +422,8 @@ class DynamicIVFIndexLeanVecImpl : public DynamicIVFIndexImpl {
     void
     init_leanvec_impl(data::ConstSimpleDataView<float> data, std::span<const size_t> ids) {
         auto build_params = ivf_build_parameters();
-        auto threadpool = svs::threads::ThreadPoolHandle(svs::threads::DefaultThreadPool(num_threads_));
+        auto threadpool =
+            svs::threads::ThreadPoolHandle(svs::threads::DefaultThreadPool(num_threads_));
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
 

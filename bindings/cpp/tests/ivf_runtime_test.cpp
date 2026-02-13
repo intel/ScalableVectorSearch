@@ -228,9 +228,8 @@ CATCH_TEST_CASE("DynamicIVFIndexBuildAndSearch", "[runtime][ivf]") {
     exhaustive_params.n_probes = 10;
     std::vector<float> gt_distances(nq * k);
     std::vector<size_t> gt_labels(nq * k);
-    status = index->search(
-        nq, xq, k, gt_distances.data(), gt_labels.data(), &exhaustive_params
-    );
+    status =
+        index->search(nq, xq, k, gt_distances.data(), gt_labels.data(), &exhaustive_params);
     CATCH_REQUIRE(status.ok());
 
     // Low n_probes
@@ -488,9 +487,8 @@ CATCH_TEST_CASE("IVFIndexSearchWithParams", "[runtime][ivf]") {
 
     std::vector<float> gt_distances(nq * k);
     std::vector<size_t> gt_labels(nq * k);
-    status = index->search(
-        nq, xq, k, gt_distances.data(), gt_labels.data(), &exhaustive_params
-    );
+    status =
+        index->search(nq, xq, k, gt_distances.data(), gt_labels.data(), &exhaustive_params);
     CATCH_REQUIRE(status.ok());
 
     // Step 2: Search with low n_probes
@@ -499,8 +497,7 @@ CATCH_TEST_CASE("IVFIndexSearchWithParams", "[runtime][ivf]") {
 
     std::vector<float> distances_low(nq * k);
     std::vector<size_t> labels_low(nq * k);
-    status =
-        index->search(nq, xq, k, distances_low.data(), labels_low.data(), &low_params);
+    status = index->search(nq, xq, k, distances_low.data(), labels_low.data(), &low_params);
     CATCH_REQUIRE(status.ok());
 
     // Step 3: Search with high n_probes
