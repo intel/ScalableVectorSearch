@@ -57,7 +57,9 @@ cmake --install .
 # Build conda package for cpp runtime bindings
 source /opt/conda/etc/profile.d/conda.sh
 cd /workspace
-ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} ENABLE_IVF=${ENABLE_IVF:-OFF} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
+# Use /workspace for temp files to avoid filling up /tmp during LTO compilation
+mkdir -p /workspace/tmp
+TMPDIR=/workspace/tmp ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} ENABLE_IVF=${ENABLE_IVF:-OFF} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
 
 # Create tarball with symlink for compatibility
 cd /workspace/install_cpp_bindings && \

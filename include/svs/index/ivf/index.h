@@ -116,7 +116,7 @@ class IVFIndex {
 
     // Thread-related type aliases for clarity
     using InterQueryThreadPool = threads::ThreadPoolHandle;  // For inter-query parallelism
-    using IntraQueryThreadPool = threads::DefaultThreadPool; // For intra-query parallelism
+    using IntraQueryThreadPool = threads::ThreadPoolHandle; // For intra-query parallelism
 
     // Scratchspace type for external threading
     using buffer_centroids_type = SortedBuffer<Idx, distance::compare_t<Dist>>;
@@ -548,7 +548,7 @@ class IVFIndex {
         // Create thread pools for intra-query (cluster-level) parallelism
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
             intra_query_threadpools_.push_back(
-                threads::as_threadpool(intra_query_thread_count_)
+                threads::ThreadPoolHandle(threads::DefaultThreadPool(intra_query_thread_count_))
             );
         }
     }

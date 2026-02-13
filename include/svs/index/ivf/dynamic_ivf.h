@@ -81,7 +81,7 @@ class DynamicIVFIndex {
 
     // Thread-related type aliases
     using InterQueryThreadPool = threads::ThreadPoolHandle;
-    using IntraQueryThreadPool = threads::DefaultThreadPool;
+    using IntraQueryThreadPool = threads::ThreadPoolHandle;
 
     // Reuse scratchspace types from static IVF
     using buffer_centroids_type = SortedBuffer<Idx, compare>;
@@ -775,7 +775,7 @@ class DynamicIVFIndex {
     void initialize_thread_pools() {
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
             intra_query_threadpools_.push_back(
-                threads::as_threadpool(intra_query_thread_count_)
+                threads::ThreadPoolHandle(threads::DefaultThreadPool(intra_query_thread_count_))
             );
         }
     }
