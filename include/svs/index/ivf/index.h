@@ -115,7 +115,7 @@ class IVFIndex {
     using search_parameters_type = IVFSearchParameters;
 
     // Thread-related type aliases for clarity
-    using InterQueryThreadPool = threads::ThreadPoolHandle;  // For inter-query parallelism
+    using InterQueryThreadPool = threads::ThreadPoolHandle; // For inter-query parallelism
     using IntraQueryThreadPool = threads::ThreadPoolHandle; // For intra-query parallelism
 
     // Scratchspace type for external threading
@@ -547,9 +547,9 @@ class IVFIndex {
     void initialize_thread_pools() {
         // Create thread pools for intra-query (cluster-level) parallelism
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
-            intra_query_threadpools_.push_back(
-                threads::ThreadPoolHandle(threads::DefaultThreadPool(intra_query_thread_count_))
-            );
+            intra_query_threadpools_.push_back(threads::ThreadPoolHandle(
+                threads::DefaultThreadPool(intra_query_thread_count_)
+            ));
         }
     }
 

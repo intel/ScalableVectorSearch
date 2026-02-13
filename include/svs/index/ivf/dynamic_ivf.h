@@ -774,9 +774,9 @@ class DynamicIVFIndex {
 
     void initialize_thread_pools() {
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
-            intra_query_threadpools_.push_back(
-                threads::ThreadPoolHandle(threads::DefaultThreadPool(intra_query_thread_count_))
-            );
+            intra_query_threadpools_.push_back(threads::ThreadPoolHandle(
+                threads::DefaultThreadPool(intra_query_thread_count_)
+            ));
         }
     }
 
