@@ -29,7 +29,7 @@ conda activate svsenv
 conda config --set solver libmamba
 conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0" scipy=1.16 pytest=7.4 gflags=2.2
 conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
-conda install -y mkl=2022.2.1 mkl-devel=2022.2.1
+conda install -y mkl=2025.3 mkl-devel=2025.3
 
 # Install libsvs-runtime from local conda package
 conda install -y /runtime_conda/libsvs-runtime-*.conda
