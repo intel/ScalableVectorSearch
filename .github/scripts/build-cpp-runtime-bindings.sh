@@ -57,9 +57,11 @@ cmake --install .
 # Build conda package for cpp runtime bindings
 source /opt/conda/etc/profile.d/conda.sh
 cd /workspace
-# Clean up cmake build directory to free disk space before conda build
-# (conda build copies the source tree and does its own build)
-rm -rf /workspace/bindings/cpp/build_cpp_bindings
+# Free disk space by removing large build artifacts not needed for ctest or conda build.
+# Keep the test binary (tests/) so the workflow can run ctest in a subsequent step.
+find /workspace/bindings/cpp/build_cpp_bindings -name '*.o' -delete 2>/dev/null || true
+find /workspace/bindings/cpp/build_cpp_bindings -name '*.a' -delete 2>/dev/null || true
+find /workspace/bindings/cpp/build_cpp_bindings -name '*.so*' -not -path '*/tests/*' -delete 2>/dev/null || true
 # Use /workspace for temp files to avoid filling up /tmp during LTO compilation
 mkdir -p /workspace/tmp
 TMPDIR=/workspace/tmp ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} ENABLE_IVF=${ENABLE_IVF:-OFF} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
