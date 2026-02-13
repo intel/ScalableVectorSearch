@@ -57,6 +57,9 @@ cmake --install .
 # Build conda package for cpp runtime bindings
 source /opt/conda/etc/profile.d/conda.sh
 cd /workspace
+# Clean up cmake build directory to free disk space before conda build
+# (conda build copies the source tree and does its own build)
+rm -rf /workspace/bindings/cpp/build_cpp_bindings
 # Use /workspace for temp files to avoid filling up /tmp during LTO compilation
 mkdir -p /workspace/tmp
 TMPDIR=/workspace/tmp ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} ENABLE_IVF=${ENABLE_IVF:-OFF} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
