@@ -382,8 +382,6 @@ template <typename T> void save_to_stream(const T& x, std::ostream& os) {
     auto save_table = x.save_table();
     detail::save_node_to_stream(detail::exit_hook(save_table), os);
 
-    lib::StreamArchiver::size_type serialized_size = x.serialized_size();
-    lib::StreamArchiver::write_size(os, serialized_size);
     x.save(os);
 }
 

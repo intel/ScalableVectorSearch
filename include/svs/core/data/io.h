@@ -139,9 +139,7 @@ void save(const Dataset& data, const File& file, const lib::UUID& uuid = lib::Ze
 template <data::ImmutableMemoryDataset Dataset>
 void save(const Dataset& data, std::ostream& os) {
     auto accessor = DefaultReadAccessor();
-    auto writer = svs::io::v1::StreamWriter<void>(
-        os, data.size(), accessor.serialized_dimensions(data)
-    );
+    auto writer = svs::io::v1::StreamWriter<void>(os);
     for (size_t i = 0; i < data.size(); ++i) {
         writer << accessor.get(data, i);
     }

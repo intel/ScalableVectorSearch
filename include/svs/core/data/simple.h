@@ -75,14 +75,6 @@ class GenericSerializer {
     }
 
     template <data::ImmutableMemoryDataset Data>
-    static size_t serialized_size(const Data& data) {
-        using T = typename Data::element_type;
-        constexpr size_t header_size = svs::io::v1::header_size;
-        size_t data_size = sizeof(T) * data.size() * data.dimensions();
-        return header_size + data_size;
-    }
-
-    template <data::ImmutableMemoryDataset Data>
     static lib::SaveTable save_table(const Data& data) {
         using T = typename Data::element_type;
         auto table = lib::SaveTable(
@@ -453,8 +445,6 @@ class SimpleData {
     void save(std::ostream& os) const { return GenericSerializer::save(*this, os); }
 
     lib::SaveTable save_table() const { return GenericSerializer::save_table(*this); }
-
-    size_t serialized_size() const { return GenericSerializer::serialized_size(*this); }
 
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return GenericSerializer::check_compatibility(schema, version);
@@ -873,8 +863,6 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     void save(std::ostream& os) const { return GenericSerializer::save(*this, os); }
 
     lib::SaveTable save_table() const { return GenericSerializer::save_table(*this); }
-
-    size_t serialized_size() const { return GenericSerializer::serialized_size(*this); }
 
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return GenericSerializer::check_compatibility(schema, version);

@@ -45,7 +45,10 @@ struct StreamArchiver : Archiver<StreamArchiver> {
         std::stringstream ss;
         ss << table << "\n";
 
-        lib::StreamArchiver::size_type tablesize = ss.rdbuf()->view().size();
+        // The best way is to use ss.rdbuf()->view().size(),
+        // but Apple's Clang 15 doesn't support std::stringbuf::view()
+        lib::StreamArchiver::size_type tablesize = ss.tellp();
+
         lib::StreamArchiver::write_size(os, tablesize);
         os << ss.rdbuf();
     }

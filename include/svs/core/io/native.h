@@ -431,11 +431,8 @@ template <typename T = void> class FileWriter : public Writer<T, FileWriter<T>> 
 
 template <typename T = void> class StreamWriter : public Writer<T, StreamWriter<T>> {
   public:
-    StreamWriter(std::ostream& os, size_t num_vectors, size_t dimension)
-        : stream_{os} {
-        auto header = Header(num_vectors, dimension);
-        lib::write_binary(stream_, header);
-    }
+    StreamWriter(std::ostream& os)
+        : stream_{os} {}
 
     std::ostream& stream() { return stream_; }
 
