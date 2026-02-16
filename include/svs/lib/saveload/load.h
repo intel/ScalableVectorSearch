@@ -22,6 +22,9 @@
 // stl
 #include <filesystem>
 
+#include "svs/lib/file.h"
+#include "svs/lib/stream.h"
+
 namespace svs::lib {
 
 ///
@@ -828,6 +831,28 @@ inline SerializedObject begin_deserialization(const std::filesystem::path& fullp
         std::move(table), lib::LoadContext{fullpath.parent_path(), version}};
 }
 
+inline ContextFreeSerializedObject begin_deserialization(std::istream& stream) {
+    lib::StreamArchiver::size_type magic = 0;
+    lib::StreamArchiver::read_size(stream, magic);
+    if (magic == lib::DirectoryArchiver::magic_number) {
+        // Backward compatibility mode for older versions
+        lib::StreamArchiver::size_type num_files = 0;
+        lib::StreamArchiver::read_size(stream, num_files);
+
+        std::string file_name;
+        lib::StreamArchiver::read_name(stream, file_name);
+    } else if (magic != lib::StreamArchiver::magic_number) {
+        throw ANNEXCEPTION("Invalid magic number in stream deserialization!");
+    }
+
+    if (!stream) {
+        throw ANNEXCEPTION("Error reading from stream!");
+    }
+
+    auto table = lib::StreamArchiver::read_table(stream);
+    return ContextFreeSerializedObject{std::move(table)};
+}
+
 } // namespace detail
 
 inline SerializedObject begin_deserialization(const std::filesystem::path& path) {
@@ -875,6 +900,21 @@ T load_from_disk(const Loader<T>& loader, std::filesystem::path path, Args&&... 
 template <typename T, typename... Args>
 T load_from_disk(const std::filesystem::path& path, Args&&... args) {
     return lib::load_from_disk(Loader<T>(), path, SVS_FWD(args)...);
+}
+
+///// load_from_stream
+template <typename T, typename... Args>
+T load_from_stream(const Loader<T>& loader, std::istream& stream, Args&&... args) {
+    // At this point, we will try the saving/loading framework to load the object.
+    // Here we go!
+    return lib::load(
+        loader, detail::begin_deserialization(stream), stream, SVS_FWD(args)...
+    );
+}
+
+template <typename T, typename... Args>
+T load_from_stream(std::istream& stream, Args&&... args) {
+    return lib::load_from_stream(Loader<T>(), stream, SVS_FWD(args)...);
 }
 
 ///// load_from_file

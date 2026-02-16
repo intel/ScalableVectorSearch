@@ -319,6 +319,17 @@ void save_node_to_file(
     auto file = svs::lib::open_write(path, std::ios_base::out);
     file << top_table << "\n";
 }
+
+template <typename Nodelike>
+void save_node_to_stream(
+    Nodelike&& node, std::ostream& os, const lib::Version& version = CURRENT_SAVE_VERSION
+) {
+    auto top_table = toml::table(
+        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(node)}}
+    );
+
+    StreamArchiver::write_table(os, top_table);
+}
 } // namespace detail
 
 ///
@@ -363,6 +374,17 @@ template <typename T> void save_to_disk(const T& x, const std::filesystem::path&
 template <typename T> void save_to_file(const T& x, const std::filesystem::path& path) {
     static_assert(SaveableContextFree<T>, "save_to_file requires context-free saving!");
     detail::save_node_to_file(lib::save(x), path);
+}
+
+template <typename T> void save_to_stream(const T& x, std::ostream& os) {
+    lib::StreamArchiver::write_size(os, lib::StreamArchiver::magic_number);
+
+    auto save_table = x.save_table();
+    detail::save_node_to_stream(detail::exit_hook(save_table), os);
+
+    lib::StreamArchiver::size_type serialized_size = x.serialized_size();
+    lib::StreamArchiver::write_size(os, serialized_size);
+    x.save(os);
 }
 
 } // namespace svs::lib
