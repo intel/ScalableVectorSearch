@@ -22,6 +22,7 @@
 // svs
 #include "svs/lib/file.h"
 #include "svs/lib/readwrite.h"
+#include "svs/lib/stream.h"
 #include "svs/lib/version.h"
 
 // stl

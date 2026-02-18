@@ -24,6 +24,8 @@
 #include "svs/lib/exception.h"
 
 // stl
+#include <cstdint>
+#include <sstream>
 
 namespace svs::lib {
 
@@ -47,10 +49,17 @@ struct StreamArchiver : Archiver<StreamArchiver> {
 
         // The best way is to use ss.rdbuf()->view().size(),
         // but Apple's Clang 15 doesn't support std::stringbuf::view()
-        lib::StreamArchiver::size_type tablesize = ss.tellp();
+        auto stream_output_position = ss.tellp();
+        if (stream_output_position < 0) {
+            throw ANNEXCEPTION("Error writing table!");
+        }
+        lib::StreamArchiver::size_type tablesize = stream_output_position;
 
         lib::StreamArchiver::write_size(os, tablesize);
         os << ss.rdbuf();
+        if (!os) {
+            throw ANNEXCEPTION("Error writing to stream!");
+        }
     }
 };
 

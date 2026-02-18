@@ -20,6 +20,11 @@
 #include "svs/lib/exception.h"
 
 // stl
+#include <algorithm>
+#include <cstdint>
+#include <istream>
+#include <ostream>
+#include <string>
 
 namespace svs::lib {
 
