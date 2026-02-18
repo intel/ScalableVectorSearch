@@ -1,5 +1,12 @@
 # GitHub Copilot Instructions — ScalableVectorSearch
 
+## Source of truth
+This file is the canonical instruction set for Copilot behavior in this repository
+(required flow, precedence, and fallback rules).
+
+`AGENTS.md` is reserved for AGENTS-aware tooling context and should not duplicate
+Copilot policy text.
+
 ## Mandatory
 1. Read root `AGENTS.md` first.
 2. Read the nearest directory `AGENTS.md` for edited files.
