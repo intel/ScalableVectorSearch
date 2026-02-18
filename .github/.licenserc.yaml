@@ -51,6 +51,10 @@ header:
   - docker/x86_64/manylinux2014/oneAPI.repo
   - docs/cpp/index/loader-compatibility.csv
   - docs/requirements.txt
+  - AGENTS.md
+  - '**/AGENTS.md'
+  - .github/copilot-instructions.md
+  - .github/instructions/*.instructions.md
 
   comment: never
 
