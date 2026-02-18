@@ -148,8 +148,8 @@ class GenericSerializer {
             );
         }
 
-        int64_t num_vectors = lib::load_at<size_t>(table, "num_vectors");
-        int64_t dims = lib::load_at<size_t>(table, "dims");
+        size_t num_vectors = lib::load_at<size_t>(table, "num_vectors");
+        size_t dims = lib::load_at<size_t>(table, "dims");
 
         return io::load_dataset(is, lazy, num_vectors, dims);
     }
