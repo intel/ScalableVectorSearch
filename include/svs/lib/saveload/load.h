@@ -835,7 +835,9 @@ inline ContextFreeSerializedObject begin_deserialization(std::istream& stream) {
     lib::StreamArchiver::size_type magic = 0;
     lib::StreamArchiver::read_size(stream, magic);
     if (magic == lib::DirectoryArchiver::magic_number) {
-        // Backward compatibility mode for older versions
+        // Backward compatibility mode for older versions:
+        // Previously, SVS serialized models using an intermediate file,
+        // so some dummy information was added to the stream.
         lib::StreamArchiver::size_type num_files = 0;
         lib::StreamArchiver::read_size(stream, num_files);
 

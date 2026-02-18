@@ -27,6 +27,11 @@
 #include <cstdint>
 #include <sstream>
 
+namespace {
+template <typename Stream>
+concept HasStringbufView = requires(Stream s) { s.rdbuf()->view(); };
+}
+
 namespace svs::lib {
 
 struct StreamArchiver : Archiver<StreamArchiver> {
@@ -47,13 +52,17 @@ struct StreamArchiver : Archiver<StreamArchiver> {
         std::stringstream ss;
         ss << table << "\n";
 
-        // The best way is to use ss.rdbuf()->view().size(),
+        // The best way to get the table size is a c++20 feature:
+        // ss.rdbuf()->view().size(),
         // but Apple's Clang 15 doesn't support std::stringbuf::view()
-        auto stream_output_position = ss.tellp();
-        if (stream_output_position < 0) {
-            throw ANNEXCEPTION("Error writing table!");
+        lib::StreamArchiver::size_type tablesize;
+        if constexpr (HasStringbufView<std::stringstream>) {
+            tablesize = ss.rdbuf()->view().size();
+        } else {
+            // fallback with creating a temporary copy
+            throw ANNEXCEPTION("Fallback!");
+            tablesize = ss.str().size();
         }
-        lib::StreamArchiver::size_type tablesize = stream_output_position;
 
         lib::StreamArchiver::write_size(os, tablesize);
         os << ss.rdbuf();
