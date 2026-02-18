@@ -13,14 +13,10 @@
 # limitations under the License.
 
 repos:
-  - repo: local
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: "ea59a72ffc9a1ce6b79b02a8076d031aa7ea7805" # v15.0.7
     hooks:
       - id: clang-format
-        name: clang-format
-        language: python
-        entry: tools/clang-format.sh
-        args: [clang-format]
-        additional_dependencies: ["clang-format>=15,<16"]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -30,12 +26,11 @@ repos:
         exclude: conda-recipe/meta\.yaml$
       - id: check-added-large-files
       - id: check-illegal-windows-names
-      - id: check-json
-        files: \.json$
       - id: check-merge-conflict
       - id: check-toml
         files: \.toml$
       - id: end-of-file-fixer
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: .*\.svg$
       - id: mixed-line-ending

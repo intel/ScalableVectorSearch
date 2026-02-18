@@ -24,7 +24,7 @@ find_package(svs QUIET)
 if(NOT svs_FOUND)
     # If sourcing from pip/conda, the following steps are not necessary, simplifying workflow
     # If not found, download tarball from GitHub release and follow steps to fetch and find
-    set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.11/svs-shared-library-0.0.11.tar.gz" CACHE STRINGS "URL to download SVS shared library tarball if not found in system")
+    set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.1.0/svs-shared-library-0.1.0.tar.gz" CACHE STRINGS "URL to download SVS shared library tarball if not found in system")
 
     message(STATUS "SVS not found in system, downloading from: ${SVS_URL}")
 
@@ -60,3 +60,25 @@ create_example_executable(shared shared.cpp)
 create_example_executable(example_vamana_with_compression_lvq example_vamana_with_compression_lvq.cpp)
 create_example_executable(example_vamana_with_compression example_vamana_with_compression.cpp)
 create_example_executable(example_vamana_with_compression_dynamic example_vamana_with_compression_dynamic.cpp)
+
+# IVF examples with LVQ and LeanVec compression (only when IVF is enabled)
+option(SVS_ENABLE_IVF_EXAMPLES "Build IVF examples" OFF)
+if(SVS_ENABLE_IVF_EXAMPLES)
+    # Find MKL for IVF examples (required for cblas_sgemm)
+    set(MKL_THREADING sequential)
+    find_package(MKL REQUIRED)
+
+    function(create_ivf_example_executable exe file)
+        add_executable(${exe} ${file})
+        target_compile_definitions(${exe} PRIVATE SVS_DATA_DIR="${DATA_DIRECTORY}")
+        target_link_libraries(${exe} PUBLIC
+            svs::svs_shared_library
+            svs::svs
+            MKL::MKL
+        )
+    endfunction()
+
+    create_ivf_example_executable(example_ivf_with_compression_lvq example_ivf_with_compression_lvq.cpp)
+    create_ivf_example_executable(example_ivf_with_compression_leanvec example_ivf_with_compression_leanvec.cpp)
+    create_ivf_example_executable(example_ivf_with_compression_dynamic example_ivf_with_compression_dynamic.cpp)
+endif()

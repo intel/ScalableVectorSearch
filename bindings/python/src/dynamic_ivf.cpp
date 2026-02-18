@@ -19,11 +19,17 @@
 #include "svs/python/common.h"
 #include "svs/python/core.h"
 #include "svs/python/ivf.h"
+#include "svs/python/ivf_loader.h"
 #include "svs/python/manager.h"
 
 // svs
+#include "svs/index/ivf/data_traits.h"
 #include "svs/lib/dispatcher.h"
+#include "svs/lib/saveload.h"
 #include "svs/orchestrators/dynamic_ivf.h"
+
+// toml
+#include <toml++/toml.h>
 
 // pybind
 #include <pybind11/numpy.h>
@@ -34,6 +40,7 @@
 #include <fmt/format.h>
 
 // stl
+#include <filesystem>
 #include <span>
 
 /////
@@ -342,6 +349,20 @@ void save_index(
     index.save(config_path, data_dir);
 }
 
+// Load with auto-detection from saved config using common template dispatcher
+svs::DynamicIVF load_index_auto(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::python::ivf_loader::
+        load_index_auto<svs::DynamicIVF, svs::data::BlockedData, Allocator>(
+            config_path, data_path, distance_type, num_threads, intra_query_threads
+        );
+}
+
 void wrap(py::module& m) {
     std::string name = "DynamicIVF";
     py::class_<svs::DynamicIVF> dynamic_ivf(
@@ -528,6 +549,37 @@ If the directory does not exist, it will be created if its parent exists.
 
 It is the caller's responsibility to ensure that no existing data will be
 overwritten when saving the index to this directory.
+    )"
+    );
+
+    // Loading
+    dynamic_ivf.def_static(
+        "load",
+        &load_index_auto,
+        py::arg("config_directory"),
+        py::arg("data_directory"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Load a saved DynamicIVF index from disk.
+
+The data type (uncompressed with float32 or float16) and centroid type (bfloat16 or float16)
+are automatically detected from the saved configuration file.
+
+Args:
+    config_directory: Directory where index configuration was saved.
+    data_directory: Directory where the dataset was saved.
+    distance: The distance function to use.
+    num_threads: The number of threads to use for queries.
+    intra_query_threads: Number of threads for intra-query parallelism (default: 1).
+
+Returns:
+    A loaded DynamicIVF index ready for searching and modifications.
+
+Note:
+    This method auto-detects the data type from the saved configuration.
+    The index must have been saved with a version that includes data type information.
     )"
     );
 }

@@ -36,6 +36,13 @@ class IVFInterface {
     virtual IVFIterator batch_iterator(
         svs::AnonymousArray<1> query, size_t extra_search_buffer_capacity = 0
     ) = 0;
+
+    ///// Saving
+    virtual void save(
+        const std::filesystem::path& config_dir, const std::filesystem::path& data_dir
+    ) = 0;
+
+    virtual void save(std::ostream& stream) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = IVFInterface>
@@ -95,6 +102,31 @@ class IVFImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
             }
         );
     }
+
+    ///// Saving
+    void save(
+        const std::filesystem::path& config_dir, const std::filesystem::path& data_dir
+    ) override {
+        if constexpr (Impl::supports_saving) {
+            impl().save(config_dir, data_dir);
+        } else {
+            throw ANNEXCEPTION("The current IVF backend doesn't support saving!");
+        }
+    }
+
+    void save(std::ostream& stream) override {
+        if constexpr (Impl::supports_saving) {
+            lib::UniqueTempDirectory tempdir{"svs_ivf_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(data_dir);
+            save(config_dir, data_dir);
+            lib::DirectoryArchiver::pack(tempdir, stream);
+        } else {
+            throw ANNEXCEPTION("The current IVF backend doesn't support saving!");
+        }
+    }
 };
 
 /////
@@ -149,6 +181,37 @@ class IVF : public manager::IndexManager<IVFInterface> {
             svs::AnonymousArray<1>(query.data(), query.size()), extra_search_buffer_capacity
         );
     }
+
+    ///// Saving
+    ///
+    /// @brief Save the IVF index to disk.
+    ///
+    /// @param config_directory Directory where the index configuration will be saved.
+    /// @param data_directory Directory where the centroids and cluster data will be saved.
+    ///
+    /// Each directory may be created as a side-effect of this method call provided that
+    /// the parent directory exists.
+    ///
+    /// @sa assemble
+    ///
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& data_directory
+    ) {
+        impl_->save(config_directory, data_directory);
+    }
+
+    ///
+    /// @brief Save the IVF index to a stream.
+    ///
+    /// @param stream Output stream to save the index to.
+    ///
+    /// The index is saved in a binary format that can be loaded using the
+    /// stream-based ``assemble`` method.
+    ///
+    /// @sa assemble
+    ///
+    void save(std::ostream& stream) const { impl_->save(stream); }
 
     ///// Assembling
     template <
@@ -219,6 +282,123 @@ class IVF : public manager::IndexManager<IVFInterface> {
             data_proto,
             distance,
             std::move(threadpool),
+            intra_query_threads
+        );
+    }
+
+    ///
+    /// @brief Load an IVF Index from a previously saved index.
+    ///
+    /// @tparam QueryTypes The element types of queries that will be used when requesting
+    ///     searches over the index. Can be a single type or a ``svs::lib::Types``.
+    /// @tparam CentroidType The element type of the centroids.
+    /// @tparam DataType The element type of the cluster data.
+    ///
+    /// @param config_path Path to the directory where the index configuration was saved.
+    ///     This corresponds to the ``config_directory`` argument of ``svs::IVF::save``.
+    /// @param data_path Path to the directory where the centroids and cluster data were
+    ///     saved. This corresponds to the ``data_directory`` argument of
+    ///     ``svs::IVF::save``.
+    /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
+    ///     similarity search computations.
+    /// @param threadpool_proto Precursor for the thread pool to use. Can either be an
+    ///     acceptable thread pool instance or an integer specifying the number of threads
+    ///     to use.
+    /// @param intra_query_threads Number of threads for intra-query parallelism.
+    ///
+    /// @sa save, assemble_from_file
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename CentroidType,
+        typename DataType,
+        typename Distance,
+        typename ThreadpoolProto>
+    static IVF assemble(
+        const std::filesystem::path& config_path,
+        const std::filesystem::path& data_path,
+        const Distance& distance,
+        ThreadpoolProto threadpool_proto,
+        size_t intra_query_threads = 1
+    ) {
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+            auto dispatcher = DistanceDispatcher(distance);
+            return dispatcher([&](auto distance_function) {
+                return IVF(
+                    std::in_place,
+                    manager::as_typelist<QueryTypes>{},
+                    index::ivf::load_ivf_index<CentroidType, DataType>(
+                        config_path,
+                        data_path,
+                        std::move(distance_function),
+                        std::move(threadpool),
+                        intra_query_threads
+                    )
+                );
+            });
+        } else {
+            return IVF(
+                std::in_place,
+                manager::as_typelist<QueryTypes>{},
+                index::ivf::load_ivf_index<CentroidType, DataType>(
+                    config_path,
+                    data_path,
+                    distance,
+                    std::move(threadpool),
+                    intra_query_threads
+                )
+            );
+        }
+    }
+
+    ///
+    /// @brief Load an IVF Index from a stream.
+    ///
+    /// @tparam QueryTypes The element types of queries that will be used when requesting
+    ///     searches over the index. Can be a single type or a ``svs::lib::Types``.
+    /// @tparam CentroidType The element type of the centroids.
+    /// @tparam DataType The element type of the cluster data.
+    ///
+    /// @param stream Input stream to load the index from.
+    /// @param distance The distance functor or ``svs::DistanceType`` enum to use for
+    ///     similarity search computations.
+    /// @param threadpool_proto Precursor for the thread pool to use.
+    /// @param intra_query_threads Number of threads for intra-query parallelism.
+    ///
+    /// @sa save
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename CentroidType,
+        typename DataType,
+        typename Distance,
+        typename ThreadpoolProto>
+    static IVF assemble(
+        std::istream& stream,
+        const Distance& distance,
+        ThreadpoolProto threadpool_proto,
+        size_t intra_query_threads = 1
+    ) {
+        namespace fs = std::filesystem;
+        lib::UniqueTempDirectory tempdir{"svs_ivf_load"};
+        lib::DirectoryArchiver::unpack(stream, tempdir);
+
+        const auto config_path = tempdir.get() / "config";
+        if (!fs::is_directory(config_path)) {
+            throw ANNEXCEPTION("Invalid IVF index archive: missing config directory!");
+        }
+
+        const auto data_path = tempdir.get() / "data";
+        if (!fs::is_directory(data_path)) {
+            throw ANNEXCEPTION("Invalid IVF index archive: missing data directory!");
+        }
+
+        return assemble<QueryTypes, CentroidType, DataType>(
+            config_path,
+            data_path,
+            distance,
+            std::move(threadpool_proto),
             intra_query_threads
         );
     }
