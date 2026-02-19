@@ -1,6 +1,5 @@
 # GitHub Copilot Instructions — ScalableVectorSearch
 
-## Source of truth
 This file is the canonical instruction set for Copilot behavior in this repository
 (required flow, precedence, and fallback rules).
 
