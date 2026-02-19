@@ -27,7 +27,7 @@
 #include <cstdint>
 #include <sstream>
 
-namespace {
+namespace svs::lib::detail {
 template <typename T> auto get_buffer_size(T& ss) {
     if constexpr (requires { ss.rdbuf()->view(); }) {
         return ss.rdbuf()->view().size();
@@ -35,7 +35,7 @@ template <typename T> auto get_buffer_size(T& ss) {
         return ss.str().size();
     }
 }
-} // namespace
+} // namespace svs::lib::detail
 
 namespace svs::lib {
 
@@ -60,7 +60,7 @@ struct StreamArchiver : Archiver<StreamArchiver> {
         // The best way to get the table size is a c++20 feature:
         // ss.rdbuf()->view().size(),
         // but Apple's Clang 15 doesn't support std::stringbuf::view()
-        lib::StreamArchiver::size_type tablesize = get_buffer_size(ss);
+        lib::StreamArchiver::size_type tablesize = detail::get_buffer_size(ss);
 
         lib::StreamArchiver::write_size(os, tablesize);
         os << ss.rdbuf();

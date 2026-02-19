@@ -115,7 +115,7 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         }
     }
 
-    CATCH_SECTION("Load Flat being serialized with intermidiate files") {
+    CATCH_SECTION("Load Flat being serialized with intermediate files") {
         std::stringstream ss;
 
         svs::lib::UniqueTempDirectory tempdir{"svs_flat_save"};
