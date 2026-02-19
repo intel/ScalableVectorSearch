@@ -22,7 +22,9 @@
 // stl
 #include <filesystem>
 
+#include "svs/core/io/native.h"
 #include "svs/lib/file.h"
+#include "svs/lib/readwrite.h"
 #include "svs/lib/stream.h"
 
 namespace svs::lib {
@@ -852,6 +854,18 @@ inline ContextFreeSerializedObject begin_deserialization(std::istream& stream) {
     }
 
     auto table = lib::StreamArchiver::read_table(stream);
+
+    if (magic == lib::DirectoryArchiver::magic_number) {
+        // Backward compatibility mode for older versions:
+        // Previously, SVS serialized models using an intermediate file,
+        // so some dummy information was added to the stream.
+        std::string file_name;
+        lib::StreamArchiver::read_name(stream, file_name);
+
+        lib::StreamArchiver::size_type file_size = 0;
+        lib::StreamArchiver::read_size(stream, file_size);
+        lib::read_binary<io::v1::Header>(stream);
+    }
     return ContextFreeSerializedObject{std::move(table)};
 }
 
