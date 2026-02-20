@@ -100,6 +100,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
         message(STATUS "Building directly from private sources")
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
+            svs_compile_options
         )
         link_mkl_static(${TARGET_NAME})
     elseif(TARGET svs::svs)

@@ -104,6 +104,14 @@ struct DynamicIVFIndexManager : public DynamicIVFIndex {
     Status save(std::ostream& out) const noexcept override {
         return runtime_error_wrapper([&] { impl_->save(out); });
     }
+
+    Status set_num_threads(size_t num_threads) noexcept override {
+        return runtime_error_wrapper([&] { impl_->set_num_threads(num_threads); });
+    }
+
+    Status get_num_threads(size_t* num_threads) const noexcept override {
+        return runtime_error_wrapper([&] { *num_threads = impl_->get_num_threads(); });
+    }
 };
 
 } // namespace

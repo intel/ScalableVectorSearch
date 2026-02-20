@@ -274,12 +274,10 @@ class DynamicIVFIndex {
 
     /// @brief Set threadpool for inter-query parallelism
     void set_threadpool(InterQueryThreadPool threadpool) {
-        if (threadpool.size() != inter_query_threadpool_.size()) {
-            throw std::runtime_error(
-                "Threadpool change not supported - thread count must remain constant"
-            );
-        }
         inter_query_threadpool_ = std::move(threadpool);
+        // Re-initialize per-thread search buffers for the new thread count
+        matmul_results_.clear();
+        initialize_search_buffers();
     }
 
     /// @brief Get threadpool handle

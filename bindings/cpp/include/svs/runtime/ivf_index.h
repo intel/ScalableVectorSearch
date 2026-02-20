@@ -102,6 +102,12 @@ struct SVS_RUNTIME_API IVFIndex {
     /// @brief Save the index to a stream.
     virtual Status save(std::ostream& out) const noexcept = 0;
 
+    /// @brief Set the number of threads used for index operations.
+    virtual Status set_num_threads(size_t num_threads) noexcept = 0;
+
+    /// @brief Get the number of threads used for index operations.
+    virtual Status get_num_threads(size_t* num_threads) const noexcept = 0;
+
     /// @brief Load an IVF index from a stream.
     static Status load(
         IVFIndex** index,

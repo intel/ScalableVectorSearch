@@ -186,7 +186,7 @@ class IVFIndex {
     ///// Threading Configuration /////
 
     /// @brief Indicates if the number of threads can be changed at runtime
-    static constexpr bool can_change_threads() { return false; }
+    static constexpr bool can_change_threads() { return true; }
 
     /// @brief Get the number of threads used for inter-query parallelism
     size_t get_num_threads() const { return inter_query_threadpool_.size(); }
@@ -195,13 +195,11 @@ class IVFIndex {
     size_t get_num_intra_query_threads() const { return intra_query_thread_count_; }
 
     /// @brief Set a new thread pool for inter-query parallelism
-    /// @throws std::runtime_error if thread count differs from original
     void set_threadpool(InterQueryThreadPool threadpool) {
-        if (threadpool.size() != inter_query_threadpool_.size()) {
-            throw std::runtime_error("Threadpool change not supported for IVFIndex - "
-                                     "thread count must remain constant");
-        }
         inter_query_threadpool_ = std::move(threadpool);
+        // Re-initialize per-thread search buffers for the new thread count
+        matmul_results_.clear();
+        initialize_search_buffers();
     }
 
     /// @brief Get the thread pool handle for inter-query parallelism

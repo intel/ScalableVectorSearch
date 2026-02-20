@@ -155,6 +155,23 @@ class DynamicIVFIndexImpl {
         impl_->save(out);
     }
 
+    void set_num_threads(size_t num_threads) {
+        if (num_threads == 0) {
+            num_threads = static_cast<size_t>(omp_get_max_threads());
+        }
+        num_threads_ = num_threads;
+        if (impl_) {
+            impl_->set_threadpool(svs::threads::DefaultThreadPool(num_threads));
+        }
+    }
+
+    size_t get_num_threads() const {
+        if (impl_) {
+            return impl_->get_num_threads();
+        }
+        return num_threads_;
+    }
+
     static DynamicIVFIndexImpl* load(
         std::istream& in,
         MetricType metric,
