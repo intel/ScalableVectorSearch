@@ -1,7 +1,7 @@
 # AGENTS.md — ScalableVectorSearch
 
 ## What this project is
-High-performance C++ library for vector similarity search at billion scale. Uses Intel MKL, AVX-512/multi-arch SIMD dispatch, LVQ quantization, NUMA-aware memory, OpenMP threading. Python bindings via pybind11. Archetype: **C++** (with Python bindings).
+High-performance C++ library for vector similarity search at billion scale. Uses Intel MKL, AVX-512/multi-arch SIMD dispatch, quantization, NUMA-aware memory, OpenMP threading. Python bindings via pybind11. Archetype: **C++** (with Python bindings).
 
 Tech stack: C++20, Intel MKL, OpenMP, pybind11, CMake.
 Core principle: **Performance over simplicity** in hot paths.
