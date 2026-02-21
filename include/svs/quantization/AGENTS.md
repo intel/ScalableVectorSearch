@@ -1,6 +1,6 @@
 # AGENTS.md — include/svs/quantization/
 
-Quantization algorithms and data types (LVQ, scalar quantization).
+Quantization algorithms and data types (scalar quantization).
 
 - **Type safety:** Explicitly validate quantized dtype (uint8, int8, uint16) before operations.
 - **Precision:** Changes to quantization schemes must preserve reconstruction error bounds. Document expected accuracy impact.
