@@ -165,7 +165,7 @@ endif()
 
 # IVF requires Intel(R) MKL support
 if (SVS_RUNTIME_ENABLE_IVF)
-    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_HAVE_MKL=1)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_RUNTIME_ENABLE_IVF SVS_HAVE_MKL=1)
 endif()
 
 # installing

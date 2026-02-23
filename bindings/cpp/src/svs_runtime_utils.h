@@ -32,13 +32,17 @@
 #ifdef SVS_LVQ_HEADER
 #include SVS_LVQ_HEADER
 #else
+#ifdef SVS_RUNTIME_ENABLE_IVF
 #include <svs/extensions/ivf/lvq.h>
+#endif
 #include <svs/extensions/vamana/lvq.h>
 #endif
 #ifdef SVS_LEANVEC_HEADER
 #include SVS_LEANVEC_HEADER
 #else
+#ifdef SVS_RUNTIME_ENABLE_IVF
 #include <svs/extensions/ivf/leanvec.h>
+#endif
 #include <svs/extensions/vamana/leanvec.h>
 #endif
 #else
