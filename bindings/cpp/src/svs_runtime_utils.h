@@ -29,8 +29,18 @@
 
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 #include <svs/cpuid.h>
-#include <svs/extensions/vamana/leanvec.h>
+#ifdef SVS_LVQ_HEADER
+#include SVS_LVQ_HEADER
+#else
+#include <svs/extensions/ivf/lvq.h>
 #include <svs/extensions/vamana/lvq.h>
+#endif
+#ifdef SVS_LEANVEC_HEADER
+#include SVS_LEANVEC_HEADER
+#else
+#include <svs/extensions/ivf/leanvec.h>
+#include <svs/extensions/vamana/leanvec.h>
+#endif
 #else
 namespace svs::detail {
 inline bool lvq_leanvec_enabled() { return false; }

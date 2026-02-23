@@ -24,8 +24,6 @@
 #include <svs/core/data.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 
-#include <svs/extensions/vamana/leanvec.h>
-
 #include <cassert>
 #include <optional>
 #include <span>

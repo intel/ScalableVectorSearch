@@ -77,6 +77,7 @@ struct UsageInfo {
 
 } // namespace
 
+// Template function to write and read an index
 template <typename Index, typename BuildFunc>
 void write_and_read_index(
     BuildFunc build_func,

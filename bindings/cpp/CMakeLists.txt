@@ -103,6 +103,16 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs_compile_options
         )
         link_mkl_static(${TARGET_NAME})
+        if(SVS_LVQ_HEADER)
+            target_compile_definitions(${TARGET_NAME} PRIVATE
+                SVS_LVQ_HEADER="${SVS_LVQ_HEADER}"
+            )
+        endif()
+        if(SVS_LEANVEC_HEADER)
+            target_compile_definitions(${TARGET_NAME} PRIVATE
+                SVS_LEANVEC_HEADER="${SVS_LEANVEC_HEADER}"
+            )
+        endif()
     elseif(TARGET svs::svs)
         message(FATAL_ERROR
             "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "

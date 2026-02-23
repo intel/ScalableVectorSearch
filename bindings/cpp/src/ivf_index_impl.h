@@ -31,11 +31,8 @@
 #include <svs/extensions/ivf/scalar.h>
 #include <svs/quantization/scalar/scalar.h>
 
-// Conditionally include LVQ/LeanVec headers
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 #include "training_impl.h"
-#include <svs/extensions/ivf/leanvec.h>
-#include <svs/extensions/ivf/lvq.h>
 #endif
 
 #include <algorithm>
