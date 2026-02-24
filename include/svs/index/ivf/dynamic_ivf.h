@@ -1062,7 +1062,7 @@ auto assemble_dynamic_from_clustering(
         decltype(dense_clusters),
         Distance,
         decltype(threadpool)>(
-        std::move(clustering.centroids()),
+        clustering.centroids(),
         std::move(dense_clusters),
         ids,
         std::move(distance),

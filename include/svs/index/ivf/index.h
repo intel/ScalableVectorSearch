@@ -756,7 +756,7 @@ auto assemble_from_clustering(
     // Phase 3: Construct IVF index
     auto index_build_timer = timer.push_back("IVF index construction");
     auto ivf_index = IVFIndex(
-        std::move(clustering.centroids()),
+        clustering.centroids(),
         std::move(dense_clusters),
         std::move(distance),
         std::move(threadpool),
