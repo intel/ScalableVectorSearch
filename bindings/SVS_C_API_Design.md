@@ -226,7 +226,6 @@ enum svs_error_code {
     SVS_ERROR_GENERIC = 1,            // Generic/unspecified error
     SVS_ERROR_INVALID_ARGUMENT = 2,   // Invalid function parameter
     SVS_ERROR_OUT_OF_MEMORY = 3,      // Memory allocation failed
-    SVS_ERROR_INDEX_BUILD_FAILED = 4, // Index construction failed
     SVS_ERROR_NOT_IMPLEMENTED = 5,    // Feature not yet available
     SVS_ERROR_UNSUPPORTED_HW = 6,     // Hardware doesn't support required features
     SVS_ERROR_RUNTIME = 7,            // Runtime error during operation

@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(SAMPLE_SIMPLE_TARGET c_api_simple)
+foreach(SAMPLE_NAME simple save_load)
+    set(SAMPLE_TARGET c_api_${SAMPLE_NAME})
+    add_executable(${SAMPLE_TARGET} ${SAMPLE_NAME}.c)
 
-add_executable(${SAMPLE_SIMPLE_TARGET} simple.c)
+    target_link_libraries(${SAMPLE_TARGET} PRIVATE svs_c_api)
 
-target_link_libraries(${SAMPLE_SIMPLE_TARGET} PRIVATE svs_c_api)
-
-target_include_directories(${SAMPLE_SIMPLE_TARGET} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-)
+    target_include_directories(${SAMPLE_TARGET} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    )
+endforeach(SAMPLE_NAME)

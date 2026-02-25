@@ -29,7 +29,6 @@ enum svs_error_code {
     SVS_ERROR_GENERIC = 1,
     SVS_ERROR_INVALID_ARGUMENT = 2,
     SVS_ERROR_OUT_OF_MEMORY = 3,
-    SVS_ERROR_INDEX_BUILD_FAILED = 4,
     SVS_ERROR_NOT_IMPLEMENTED = 5,
     SVS_ERROR_UNSUPPORTED_HW = 6,
     SVS_ERROR_RUNTIME = 7,
@@ -329,9 +328,7 @@ SVS_API bool svs_index_builder_set_threadpool(
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
 SVS_API bool svs_index_builder_set_threadpool_custom(
-    svs_index_builder_h builder,
-    svs_threadpool_i pool,
-    svs_error_h out_err /*=NULL*/
+    svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Build an index from the provided data
@@ -345,6 +342,15 @@ SVS_API svs_index_h svs_index_build(
     const float* data,
     size_t num_vectors,
     svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load an index from disk
+/// @param builder The index builder handle (used for configuration)
+/// @param directory The directory path to load the index from
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded index
+SVS_API svs_index_h svs_index_load(
+    svs_index_builder_h builder, const char* directory, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Free the index handle
@@ -371,6 +377,14 @@ SVS_API svs_search_results_t svs_index_search(
 /// @brief Free the search results structure
 /// @param results The search results structure to release
 SVS_API void svs_search_results_free(svs_search_results_t results);
+
+/// @brief Save the index to disk
+/// @param index The index handle
+/// @param directory The directory path to save the index to
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool
+svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err /*=NULL*/);
 
 #ifdef __cplusplus
 }

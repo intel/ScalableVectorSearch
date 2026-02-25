@@ -32,6 +32,9 @@
 #include <svs/quantization/lvq/impl/lvq_impl.h>
 #include <svs/quantization/scalar/scalar.h>
 
+#include <filesystem>
+#include <stdexcept>
+
 namespace svs {
 namespace c_runtime {
 
@@ -139,6 +142,10 @@ template <Arithmetic T> class SimpleDataBuilder {
         svs::data::copy(view, data);
         return data;
     }
+
+    SimpleDataType load(const std::filesystem::path& path) {
+        return svs::lib::load_from_disk<SimpleDataType>(path);
+    }
 };
 
 template <Arithmetic T>
@@ -182,6 +189,10 @@ template <size_t I1, size_t I2> class LeanVecDataBuilder {
             view, std::nullopt, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}
         );
     }
+
+    LeanDatasetType load(const std::filesystem::path& path) {
+        return svs::lib::load_from_disk<LeanDatasetType>(path);
+    }
 };
 
 template <size_t I1, size_t I2>
@@ -221,6 +232,10 @@ template <size_t PrimaryBits, size_t ResidualBits> class LVQDataBuilder {
     build(svs::data::ConstSimpleDataView<T> view, svs::threads::ThreadPoolHandle& pool) {
         return LVQDatasetType::compress(view, pool, 0);
     }
+
+    LVQDatasetType load(const std::filesystem::path& path) {
+        return svs::lib::load_from_disk<LVQDatasetType>(path);
+    }
 };
 
 template <size_t PrimaryBits, size_t ResidualBits>
@@ -254,6 +269,10 @@ template <Arithmetic T> class SQDataBuilder {
     SQDatasetType
     build(svs::data::ConstSimpleDataView<U> view, svs::threads::ThreadPoolHandle& pool) {
         return SQDatasetType::compress(view, pool);
+    }
+
+    SQDatasetType load(const std::filesystem::path& path) {
+        return svs::lib::load_from_disk<SQDatasetType>(path);
     }
 };
 

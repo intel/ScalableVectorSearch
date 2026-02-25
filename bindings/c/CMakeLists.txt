@@ -66,7 +66,9 @@ set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVER
 target_link_libraries(${TARGET_NAME} PRIVATE
     svs::svs
 )
-link_mkl_static(${TARGET_NAME})
+if (SVS_EXPERIMENTAL_LINK_STATIC_MKL)
+    link_mkl_static(${TARGET_NAME})
+endif()
 # target_compile_definitions(${TARGET_NAME} PRIVATE
 #     PUBLIC "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
 #     PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""

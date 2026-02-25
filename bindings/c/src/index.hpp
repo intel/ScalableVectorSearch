@@ -19,11 +19,13 @@
 
 #include "algorithm.hpp"
 
-// #include <svs/concepts/data.h>
-// #include <svs/core/distance.h>
-// #include <svs/core/query_result.h>
-// #include <svs/index/vamana/build_params.h>
+#include <svs/concepts/data.h>
+#include <svs/core/distance.h>
+#include <svs/core/query_result.h>
 #include <svs/orchestrators/vamana.h>
+
+#include <filesystem>
+#include <memory>
 
 namespace svs::c_runtime {
 struct Index {
@@ -36,6 +38,7 @@ struct Index {
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params
     ) = 0;
+    virtual void save(const std::filesystem::path& directory) = 0;
 };
 
 struct IndexVamana : public Index {
@@ -60,6 +63,10 @@ struct IndexVamana : public Index {
 
         index.search(results.view(), queries, params);
         return std::move(results);
+    }
+
+    void save(const std::filesystem::path& directory) override {
+        index.save(directory / "config", directory / "graph", directory / "data");
     }
 };
 } // namespace svs::c_runtime

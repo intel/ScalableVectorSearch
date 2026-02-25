@@ -30,6 +30,9 @@
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/vamana.h>
 
+#include <filesystem>
+#include <memory>
+
 namespace svs::c_runtime {
 
 template <typename DataBuilder>
@@ -43,6 +46,23 @@ svs::Vamana build_vamana_index(
     auto data = builder.build(std::move(src_data), pool);
     return svs::Vamana::build<float>(
         build_params, std::move(data), distance_type, std::move(pool)
+    );
+}
+
+template <typename DataLoader>
+svs::Vamana load_vamana_index(
+    const std::filesystem::path& directory,
+    DataLoader loader,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
+) {
+    auto data = loader.load(directory / "data");
+    return svs::Vamana::assemble<float>(
+        directory / "config",
+        svs::GraphLoader{directory / "graph"},
+        std::move(data),
+        distance_type,
+        std::move(pool)
     );
 }
 
@@ -63,6 +83,25 @@ void register_build_vamana_index_methods(Dispatcher& dispatcher) {
     dispatcher.register_target(&build_vamana_index<SQDataBuilder<uint8_t>>);
     dispatcher.register_target(&build_vamana_index<SQDataBuilder<int8_t>>);
 }
+
+template <typename Dispatcher>
+void register_load_vamana_index_methods(Dispatcher& dispatcher) {
+    dispatcher.register_target(&load_vamana_index<SimpleDataBuilder<float>>);
+    dispatcher.register_target(&load_vamana_index<SimpleDataBuilder<svs::Float16>>);
+
+    dispatcher.register_target(&load_vamana_index<LeanVecDataBuilder<4, 4>>);
+    dispatcher.register_target(&load_vamana_index<LeanVecDataBuilder<4, 8>>);
+    dispatcher.register_target(&load_vamana_index<LeanVecDataBuilder<8, 8>>);
+
+    dispatcher.register_target(&load_vamana_index<LVQDataBuilder<4, 0>>);
+    dispatcher.register_target(&load_vamana_index<LVQDataBuilder<8, 0>>);
+    dispatcher.register_target(&load_vamana_index<LVQDataBuilder<4, 4>>);
+    dispatcher.register_target(&load_vamana_index<LVQDataBuilder<4, 8>>);
+
+    dispatcher.register_target(&load_vamana_index<SQDataBuilder<uint8_t>>);
+    dispatcher.register_target(&load_vamana_index<SQDataBuilder<int8_t>>);
+}
+
 using BuildIndexDispatcher = svs::lib::Dispatcher<
     svs::Vamana,
     const svs::index::vamana::VamanaBuildParameters&,
@@ -86,6 +125,30 @@ svs::Vamana dispatch_vamana_index_build(
 ) {
     return build_vamana_index_dispatcher().invoke(
         build_params, std::move(src_data), storage, distance_type, std::move(pool)
+    );
+}
+
+using LoadIndexDispatcher = svs::lib::Dispatcher<
+    svs::Vamana,
+    const std::filesystem::path&,
+    const Storage*,
+    svs::DistanceType,
+    svs::threads::ThreadPoolHandle>;
+
+LoadIndexDispatcher load_vamana_index_dispatcher() {
+    auto dispatcher = LoadIndexDispatcher{};
+    register_load_vamana_index_methods(dispatcher);
+    return dispatcher;
+}
+
+svs::Vamana dispatch_vamana_index_load(
+    const std::filesystem::path& directory,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    svs::threads::ThreadPoolHandle pool
+) {
+    return load_vamana_index_dispatcher().invoke(
+        directory, storage, distance_type, std::move(pool)
     );
 }
 
@@ -124,6 +187,20 @@ struct IndexBuilder {
             auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_build(
                 vamana_algorithm->build_parameters(),
                 data,
+                storage.get(),
+                to_distance_type(distance_metric),
+                pool_builder.build()
+            ));
+
+            return index;
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<Index> load(const std::filesystem::path& directory) {
+        if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
+            auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_load(
+                directory,
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build()

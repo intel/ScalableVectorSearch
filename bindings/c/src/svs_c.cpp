@@ -24,6 +24,9 @@
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
+#include <filesystem>
+#include <memory>
+
 #include <svs/core/data.h>
 #include <svs/core/query_result.h>
 #include <svs/orchestrators/vamana.h>
@@ -438,10 +441,34 @@ extern "C" svs_index_h svs_index_build(
 
             auto index = builder->impl->build(src_data);
             if (index == nullptr) {
-                SET_ERROR(out_err, SVS_ERROR_INDEX_BUILD_FAILED, "Index build failed");
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Index build failed");
                 return svs_index_h{nullptr};
             }
 
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_index_h
+svs_index_load(svs_index_builder_h builder, const char* directory, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(directory);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for index loading"
+            );
+            auto index = builder->impl->load(std::filesystem::path{directory});
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Index load failed");
+                return svs_index_h{nullptr};
+            }
             auto result = new svs_index;
             result->impl = index;
             return result;
@@ -460,15 +487,6 @@ extern "C" svs_search_results_t svs_index_search(
     svs_search_params_h search_params,
     svs_error_h out_err
 ) {
-    if (index == nullptr || queries == nullptr || num_queries == 0 || k == 0) {
-        SET_ERROR(out_err, SVS_ERROR_INVALID_ARGUMENT, "Invalid argument");
-        return nullptr;
-    }
-    if (index->impl->algorithm != SVS_ALGORITHM_TYPE_VAMANA) {
-        SET_ERROR(out_err, SVS_ERROR_NOT_IMPLEMENTED, "Not implemented");
-        return nullptr;
-    }
-
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() {
@@ -516,4 +534,18 @@ extern "C" void svs_search_results_free(svs_search_results_t results) {
     delete[] results->indices;
     delete[] results->distances;
     delete results;
+}
+
+extern "C" bool
+svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(directory);
+            index->impl->save(std::filesystem::path{directory});
+            return true;
+        },
+        out_err
+    );
 }
