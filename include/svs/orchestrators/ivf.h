@@ -222,7 +222,7 @@ class IVF : public manager::IndexManager<IVFInterface> {
         typename ThreadpoolProto>
     static IVF assemble_from_clustering(
         Clustering clustering,
-        const DataProto& data_proto,
+        DataProto&& data_proto,
         const Distance& distance,
         ThreadpoolProto threadpool_proto,
         size_t intra_query_threads = 1
@@ -236,7 +236,7 @@ class IVF : public manager::IndexManager<IVFInterface> {
                     manager::as_typelist<QueryTypes>{},
                     index::ivf::assemble_from_clustering(
                         std::move(clustering),
-                        data_proto,
+                        std::forward<DataProto>(data_proto),
                         std::move(distance_function),
                         std::move(threadpool),
                         intra_query_threads
@@ -249,7 +249,7 @@ class IVF : public manager::IndexManager<IVFInterface> {
                 manager::as_typelist<QueryTypes>{},
                 index::ivf::assemble_from_clustering(
                     std::move(clustering),
-                    data_proto,
+                    std::forward<DataProto>(data_proto),
                     distance,
                     std::move(threadpool),
                     intra_query_threads
@@ -266,7 +266,7 @@ class IVF : public manager::IndexManager<IVFInterface> {
         typename ThreadpoolProto>
     static IVF assemble_from_file(
         const std::filesystem::path& clustering_path,
-        const DataProto& data_proto,
+        DataProto&& data_proto,
         const Distance& distance,
         ThreadpoolProto threadpool_proto,
         size_t intra_query_threads = 1
@@ -279,7 +279,7 @@ class IVF : public manager::IndexManager<IVFInterface> {
             );
         return assemble_from_clustering<QueryTypes>(
             std::move(clustering),
-            data_proto,
+            std::forward<DataProto>(data_proto),
             distance,
             std::move(threadpool),
             intra_query_threads
@@ -407,7 +407,7 @@ class IVF : public manager::IndexManager<IVFInterface> {
     template <typename BuildType, typename DataProto, typename Distance>
     static auto build_clustering(
         const index::ivf::IVFBuildParameters& build_parameters,
-        const DataProto& data_proto,
+        DataProto&& data_proto,
         const Distance& distance,
         size_t num_threads
     ) {
@@ -415,12 +415,15 @@ class IVF : public manager::IndexManager<IVFInterface> {
             auto dispatcher = DistanceDispatcher(distance);
             return dispatcher([&](auto distance_function) {
                 return index::ivf::build_clustering<BuildType>(
-                    build_parameters, data_proto, std::move(distance_function), num_threads
+                    build_parameters,
+                    std::forward<DataProto>(data_proto),
+                    std::move(distance_function),
+                    num_threads
                 );
             });
         } else {
             return index::ivf::build_clustering<BuildType>(
-                build_parameters, data_proto, distance, num_threads
+                build_parameters, std::forward<DataProto>(data_proto), distance, num_threads
             );
         }
     }

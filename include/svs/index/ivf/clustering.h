@@ -133,7 +133,8 @@ template <data::ImmutableMemoryDataset Data, std::integral I> class Clustering {
         return clusters_[id];
     }
 
-    Data centroids() { return centroids_; }
+    Data centroids() const& { return centroids_; }
+    Data centroids() && { return std::move(centroids_); }
 
     // Iterators
     iterator begin() { return clusters_.begin(); }
@@ -320,6 +321,9 @@ class DenseClusteredDataset {
     DenseClusteredDataset() = default;
 
     // Constructor from clustering (for building from existing data)
+    // Uses a single parallel pass to both allocate and populate clusters,
+    // eliminating the serial allocation bottleneck and improving data locality
+    // since freshly allocated memory is still cache-warm when the copy begins.
     template <typename Original, threads::ThreadPool Pool, typename Alloc>
     DenseClusteredDataset(
         const Clustering<Centroids, I>& clustering,
@@ -328,6 +332,7 @@ class DenseClusteredDataset {
         const Alloc& allocator
     )
         : clusters_{} {
+        clusters_.reserve(clustering.size());
         clustering.for_each_cluster([&](const auto& cluster) {
             size_t cluster_size = cluster.size();
             clusters_.emplace_back(
