@@ -23,7 +23,7 @@
 #include "svs/python/manager.h"
 
 // pybind11
-#include <pybind11/stl.h> // For std::variant support
+#include <pybind11/stl.h>
 
 // svs
 #include "svs/core/data/simple.h"
@@ -32,7 +32,6 @@
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
-#include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
 #include "svs/lib/saveload.h"
 #include "svs/orchestrators/ivf.h"
@@ -75,18 +74,12 @@ svs::IVF assemble_uncompressed(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Use std::visit to handle the variant clustering type
-    return std::visit(
-        [&](auto&& actual_clustering) {
-            return svs::IVF::assemble_from_clustering<Q>(
-                std::move(actual_clustering),
-                std::move(data),
-                distance_type,
-                num_threads,
-                intra_query_threads
-            );
-        },
-        std::move(clustering)
+    return svs::IVF::assemble_from_clustering<Q>(
+        std::move(clustering),
+        std::move(data),
+        distance_type,
+        num_threads,
+        intra_query_threads
     );
 }
 
@@ -153,21 +146,10 @@ Clustering build_uncompressed(
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
-    // Choose build type for clustering to leverage AMX instructions:
-    // - Float32 data -> BFloat16 (AMX supports BFloat16)
-    // - Float16 data -> Float16 (AMX supports Float16)
-    // - BFloat16 data -> BFloat16 (already optimal)
-    using BuildType = std::conditional_t<std::is_same_v<T, float>, svs::BFloat16, T>;
-    auto clustering = svs::IVF::build_clustering<BuildType>(
+    auto clustering = svs::IVF::build_clustering<svs::BFloat16>(
         parameters, std::move(data), distance_type, num_threads
     );
-
-    // Return as variant - Float16 or BFloat16 based on BuildType
-    if constexpr (std::is_same_v<BuildType, svs::Float16>) {
-        return Clustering(std::in_place_index<1>, std::move(clustering));
-    } else {
-        return Clustering(std::in_place_index<0>, std::move(clustering));
-    }
+    return clustering;
 }
 
 template <typename Dispatcher>
@@ -202,21 +184,10 @@ Clustering uncompressed_build_from_array(
     auto data =
         svs::data::SimpleData<T, N, RebindAllocator<T>>(view.size(), view.dimensions());
     svs::data::copy(view, data);
-    // Choose build type for clustering to leverage AMX instructions:
-    // - Float32 data -> BFloat16 (AMX supports BFloat16)
-    // - Float16 data -> Float16 (AMX supports Float16)
-    // - BFloat16 data -> BFloat16 (already optimal)
-    using BuildType = std::conditional_t<std::is_same_v<T, float>, svs::BFloat16, T>;
-    auto clustering = svs::IVF::build_clustering<BuildType>(
+    auto clustering = svs::IVF::build_clustering<svs::BFloat16>(
         parameters, std::move(data), distance_type, num_threads
     );
-
-    // Return as variant - Float16 or BFloat16 based on BuildType
-    if constexpr (std::is_same_v<BuildType, svs::Float16>) {
-        return Clustering(std::in_place_index<1>, std::move(clustering));
-    } else {
-        return Clustering(std::in_place_index<0>, std::move(clustering));
-    }
+    return clustering;
 }
 
 template <typename Dispatcher> void register_ivf_build_from_array(Dispatcher& dispatcher) {
@@ -512,31 +483,13 @@ void wrap_build_from_file(py::class_<Clustering>& clustering) {
 
 // Save the sparse clustering to a directory
 void save_clustering(Clustering& clustering, const std::string& clustering_path) {
-    std::visit(
-        [&](auto&& actual_clustering) {
-            svs::lib::save_to_disk(actual_clustering, clustering_path);
-        },
-        clustering
-    );
+    svs::lib::save_to_disk(clustering, clustering_path);
 }
 
 // Load the sparse clustering from a directory
-// Try loading as BFloat16 first, then Float16 if that fails
 auto load_clustering(const std::string& clustering_path, size_t num_threads = 1) {
     auto threadpool = threads::as_threadpool(num_threads);
-    try {
-        auto bf16_clustering = svs::lib::load_from_disk<
-            svs::index::ivf::Clustering<svs::data::SimpleData<svs::BFloat16>, uint32_t>>(
-            clustering_path, threadpool
-        );
-        return Clustering(std::in_place_index<0>, std::move(bf16_clustering));
-    } catch (...) {
-        auto f16_clustering = svs::lib::load_from_disk<
-            svs::index::ivf::Clustering<svs::data::SimpleData<svs::Float16>, uint32_t>>(
-            clustering_path, threadpool
-        );
-        return Clustering(std::in_place_index<1>, std::move(f16_clustering));
-    }
+    return svs::lib::load_from_disk<ClusteringBF16>(clustering_path, threadpool);
 }
 
 // Save the IVF index to directories
@@ -693,7 +646,7 @@ overwritten when saving the index to this directory.
         R"(
 Load a saved IVF index from disk.
 
-The data type (uncompressed with float32 or float16) and centroid type (bfloat16 or float16)
+The data type (uncompressed with float32 or float16) and centroid type (bfloat16)
 are automatically detected from the saved configuration file.
 
 Args:
@@ -715,39 +668,24 @@ Note:
     // Reconstruction.
     // add_reconstruct_interface(ivf);
 
-    // Register both clustering types that make up the variant
-    name = "ClusteringBFloat16";
-    py::class_<ClusteringBF16> clustering_bf16(m, name.c_str());
-    clustering_bf16.def(
-        "save",
-        [](ClusteringBF16& clustering, const std::string& clustering_path) {
-            svs::lib::save_to_disk(clustering, clustering_path);
-        },
-        py::arg("clustering_directory"),
-        "Save a constructed IVF clustering to disk."
-    );
-
-    name = "ClusteringFloat16";
-    py::class_<ClusteringF16> clustering_f16(m, name.c_str());
-    clustering_f16.def(
-        "save",
-        [](ClusteringF16& clustering, const std::string& clustering_path) {
-            svs::lib::save_to_disk(clustering, clustering_path);
-        },
-        py::arg("clustering_directory"),
-        "Save a constructed IVF clustering to disk."
-    );
-
-    // Register the variant type as the main Clustering class
+    // Register clustering type
     name = "Clustering";
     py::class_<Clustering> clustering(
         m, name.c_str(), "Top level class for sparse IVF clustering"
     );
 
+    clustering.def(
+        "save",
+        [](Clustering& clustering, const std::string& clustering_path) {
+            svs::lib::save_to_disk(clustering, clustering_path);
+        },
+        py::arg("clustering_directory"),
+        "Save a constructed IVF clustering to disk."
+    );
+
     /// Index building
     // Build from Numpy array.
     detail::add_build_specialization<svs::BFloat16>(clustering);
-    detail::add_build_specialization<svs::Float16>(clustering);
     detail::add_build_specialization<float>(clustering);
 
     // Build from datasets on file.

@@ -24,8 +24,6 @@
 #include <svs/core/data.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 
-#include SVS_LEANVEC_HEADER
-
 #include <cassert>
 #include <optional>
 #include <span>

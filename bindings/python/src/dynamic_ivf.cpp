@@ -73,19 +73,13 @@ svs::DynamicIVF assemble_uncompressed(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Use std::visit to handle the variant clustering type
-    return std::visit(
-        [&](auto&& actual_clustering) {
-            return svs::DynamicIVF::assemble_from_clustering<Q>(
-                std::move(actual_clustering),
-                std::move(data),
-                ids,
-                distance_type,
-                num_threads,
-                intra_query_threads
-            );
-        },
-        std::move(clustering)
+    return svs::DynamicIVF::assemble_from_clustering<Q>(
+        std::move(clustering),
+        std::move(data),
+        ids,
+        distance_type,
+        num_threads,
+        intra_query_threads
     );
 }
 
@@ -564,7 +558,7 @@ overwritten when saving the index to this directory.
         R"(
 Load a saved DynamicIVF index from disk.
 
-The data type (uncompressed with float32 or float16) and centroid type (bfloat16 or float16)
+The data type (uncompressed with float32 or float16) and centroid type (bfloat16)
 are automatically detected from the saved configuration file.
 
 Args:

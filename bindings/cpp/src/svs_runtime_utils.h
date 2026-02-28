@@ -27,16 +27,24 @@
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
+#include <svs/cpuid.h>
 #ifdef SVS_LVQ_HEADER
 #include SVS_LVQ_HEADER
+#else
+#ifdef SVS_RUNTIME_ENABLE_IVF
+#include <svs/extensions/ivf/lvq.h>
 #endif
-
+#include <svs/extensions/vamana/lvq.h>
+#endif
 #ifdef SVS_LEANVEC_HEADER
 #include SVS_LEANVEC_HEADER
+#else
+#ifdef SVS_RUNTIME_ENABLE_IVF
+#include <svs/extensions/ivf/leanvec.h>
 #endif
-
-#if defined(SVS_LEANVEC_HEADER) || defined(SVS_LVQ_HEADER)
-#include <svs/cpuid.h>
+#include <svs/extensions/vamana/leanvec.h>
+#endif
 #else
 namespace svs::detail {
 inline bool lvq_leanvec_enabled() { return false; }
@@ -249,7 +257,7 @@ struct StorageFactory<SQStorageType> {
 };
 
 // LVQ Storage support
-#ifdef SVS_LVQ_HEADER
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 template <size_t Primary, size_t Residual, typename Strategy>
 using LVQDatasetType = svs::quantization::lvq::LVQDataset<
     Primary,
@@ -288,9 +296,8 @@ struct StorageFactory<LVQStorageType> {
         return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
     }
 };
-#endif // SVS_LVQ_HEADER
 
-#ifdef SVS_LEANVEC_HEADER
+// LeanVec Storage support
 template <size_t I1, size_t I2>
 using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::leanvec::UsingLVQ<I1>,
@@ -332,7 +339,7 @@ struct StorageFactory<LeanVecStorageType> {
         return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
     }
 };
-#endif // SVS_LEANVEC_HEADER
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
 template <StorageTag Tag, typename... Args>
 auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {

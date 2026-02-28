@@ -15,8 +15,19 @@
 
 set -e  # Exit on error
 
-# Source environment setup (for compiler and MKL)
+# Source environment setup (for compiler)
 source /etc/bashrc || true
+
+# Source MKL environment if IVF is enabled
+if [ "${ENABLE_IVF:-OFF}" = "ON" ]; then
+    if [ -f /opt/intel/oneapi/setvars.sh ]; then
+        source /opt/intel/oneapi/setvars.sh --include-intel-llvm 2>/dev/null || true
+        echo "MKL sourced: MKLROOT=${MKLROOT}"
+    else
+        echo "ERROR: IVF enabled but MKL setvars.sh not found"
+        exit 1
+    fi
+fi
 
 # Create build+install directories for cpp runtime bindings
 rm -rf /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindings
@@ -31,6 +42,7 @@ CMAKE_ARGS=(
     "-DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings"
     "-DCMAKE_INSTALL_LIBDIR=lib"
     "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
+    "-DSVS_RUNTIME_ENABLE_IVF=${ENABLE_IVF:-OFF}"
 )
 
 if [ -n "$SVS_URL" ]; then
@@ -45,7 +57,14 @@ cmake --install .
 # Build conda package for cpp runtime bindings
 source /opt/conda/etc/profile.d/conda.sh
 cd /workspace
-ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
+# Free disk space by removing large build artifacts not needed for ctest or conda build.
+# Keep the test binary (tests/) so the workflow can run ctest in a subsequent step.
+find /workspace/bindings/cpp/build_cpp_bindings -name '*.o' -delete 2>/dev/null || true
+find /workspace/bindings/cpp/build_cpp_bindings -name '*.a' -delete 2>/dev/null || true
+find /workspace/bindings/cpp/build_cpp_bindings -name '*.so*' -not -path '*/tests/*' -not -name 'libsvs_runtime*' -delete 2>/dev/null || true
+# Use /workspace for temp files to avoid filling up /tmp during LTO compilation
+mkdir -p /workspace/tmp
+TMPDIR=/workspace/tmp ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} ENABLE_IVF=${ENABLE_IVF:-OFF} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
 
 # Create tarball with symlink for compatibility
 cd /workspace/install_cpp_bindings && \

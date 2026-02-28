@@ -81,7 +81,7 @@ class DynamicIVFIndex {
 
     // Thread-related type aliases
     using InterQueryThreadPool = threads::ThreadPoolHandle;
-    using IntraQueryThreadPool = threads::DefaultThreadPool;
+    using IntraQueryThreadPool = threads::ThreadPoolHandle;
 
     // Reuse scratchspace types from static IVF
     using buffer_centroids_type = SortedBuffer<Idx, compare>;
@@ -274,12 +274,10 @@ class DynamicIVFIndex {
 
     /// @brief Set threadpool for inter-query parallelism
     void set_threadpool(InterQueryThreadPool threadpool) {
-        if (threadpool.size() != inter_query_threadpool_.size()) {
-            throw std::runtime_error(
-                "Threadpool change not supported - thread count must remain constant"
-            );
-        }
         inter_query_threadpool_ = std::move(threadpool);
+        // Re-initialize per-thread search buffers for the new thread count
+        matmul_results_.clear();
+        initialize_search_buffers();
     }
 
     /// @brief Get threadpool handle
@@ -774,9 +772,9 @@ class DynamicIVFIndex {
 
     void initialize_thread_pools() {
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
-            intra_query_threadpools_.push_back(
-                threads::as_threadpool(intra_query_thread_count_)
-            );
+            intra_query_threadpools_.push_back(threads::ThreadPoolHandle(
+                threads::DefaultThreadPool(intra_query_thread_count_)
+            ));
         }
     }
 
@@ -1064,7 +1062,7 @@ auto assemble_dynamic_from_clustering(
         decltype(dense_clusters),
         Distance,
         decltype(threadpool)>(
-        std::move(clustering.centroids()),
+        clustering.centroids(),
         std::move(dense_clusters),
         ids,
         std::move(distance),

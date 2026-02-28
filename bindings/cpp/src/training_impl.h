@@ -24,7 +24,11 @@
 #include <svs/core/medioid.h>
 #include <svs/lib/saveload.h>
 #include <svs/lib/threads.h>
-#include SVS_LEANVEC_HEADER
+
+// Include the core LeanVec header for LeanVecMatrices and related types.
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
+#include <svs/leanvec/leanvec.h>
+#endif
 
 #include <cstddef>
 #include <memory>

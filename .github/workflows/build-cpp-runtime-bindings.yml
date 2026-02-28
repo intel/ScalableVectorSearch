@@ -37,10 +37,16 @@ jobs:
         include:
           - name: "with static library"
             enable_lvq_leanvec: "ON"
+            enable_ivf: "OFF"
             suffix: ""
           - name: "public only"
             enable_lvq_leanvec: "OFF"
+            enable_ivf: "OFF"
             suffix: "-public-only"
+          - name: "IVF public only"
+            enable_lvq_leanvec: "OFF"
+            enable_ivf: "ON"
+            suffix: "-ivf"
       fail-fast: false
 
     steps:
@@ -56,6 +62,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
+            -e ENABLE_IVF=${{ matrix.enable_ivf }} \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
@@ -80,8 +87,11 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
+            -e ENABLE_IVF=${{ matrix.enable_ivf }} \
             svs-manylinux228:latest \
-            /bin/bash -c "source /etc/bashrc || true && ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --no-tests=error --verbose"
+            /bin/bash -c "source /etc/bashrc || true && \
+              if [ \"\${ENABLE_IVF}\" = 'ON' ] && [ -f /opt/intel/oneapi/setvars.sh ]; then source /opt/intel/oneapi/setvars.sh 2>/dev/null || true; fi && \
+              ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --no-tests=error --verbose"
 
   # Run full test script using the built artifacts
   test:
@@ -93,8 +103,13 @@ jobs:
         include:
           - name: "with static library"
             suffix: ""
+            enable_ivf: "OFF"
           - name: "public only"
             suffix: "-public-only"
+            enable_ivf: "OFF"
+          - name: "IVF public only"
+            suffix: "-ivf"
+            enable_ivf: "ON"
 
     steps:
       - uses: actions/checkout@v6
@@ -121,5 +136,6 @@ jobs:
             -v ${{ github.workspace }}/runtime_conda:/runtime_conda \
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
+            -e ENABLE_IVF=${{ matrix.enable_ivf }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/test-cpp-runtime-bindings.sh

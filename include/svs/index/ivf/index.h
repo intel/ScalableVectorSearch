@@ -115,8 +115,8 @@ class IVFIndex {
     using search_parameters_type = IVFSearchParameters;
 
     // Thread-related type aliases for clarity
-    using InterQueryThreadPool = threads::ThreadPoolHandle;  // For inter-query parallelism
-    using IntraQueryThreadPool = threads::DefaultThreadPool; // For intra-query parallelism
+    using InterQueryThreadPool = threads::ThreadPoolHandle; // For inter-query parallelism
+    using IntraQueryThreadPool = threads::ThreadPoolHandle; // For intra-query parallelism
 
     // Scratchspace type for external threading
     using buffer_centroids_type = SortedBuffer<Idx, distance::compare_t<Dist>>;
@@ -186,7 +186,7 @@ class IVFIndex {
     ///// Threading Configuration /////
 
     /// @brief Indicates if the number of threads can be changed at runtime
-    static constexpr bool can_change_threads() { return false; }
+    static constexpr bool can_change_threads() { return true; }
 
     /// @brief Get the number of threads used for inter-query parallelism
     size_t get_num_threads() const { return inter_query_threadpool_.size(); }
@@ -195,13 +195,11 @@ class IVFIndex {
     size_t get_num_intra_query_threads() const { return intra_query_thread_count_; }
 
     /// @brief Set a new thread pool for inter-query parallelism
-    /// @throws std::runtime_error if thread count differs from original
     void set_threadpool(InterQueryThreadPool threadpool) {
-        if (threadpool.size() != inter_query_threadpool_.size()) {
-            throw std::runtime_error("Threadpool change not supported for IVFIndex - "
-                                     "thread count must remain constant");
-        }
         inter_query_threadpool_ = std::move(threadpool);
+        // Re-initialize per-thread search buffers for the new thread count
+        matmul_results_.clear();
+        initialize_search_buffers();
     }
 
     /// @brief Get the thread pool handle for inter-query parallelism
@@ -547,9 +545,9 @@ class IVFIndex {
     void initialize_thread_pools() {
         // Create thread pools for intra-query (cluster-level) parallelism
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
-            intra_query_threadpools_.push_back(
-                threads::as_threadpool(intra_query_thread_count_)
-            );
+            intra_query_threadpools_.push_back(threads::ThreadPoolHandle(
+                threads::DefaultThreadPool(intra_query_thread_count_)
+            ));
         }
     }
 
@@ -653,22 +651,20 @@ class IVFIndex {
 ///
 /// @return Clustering object containing centroids and cluster assignments
 ///
+/// Internal implementation: runs kmeans on already-loaded data (by reference, no copy).
 template <
     typename BuildType,
-    typename DataProto,
+    data::ImmutableMemoryDataset Data,
     typename Distance,
-    typename ThreadpoolProto>
-auto build_clustering(
+    threads::ThreadPool Pool>
+auto build_clustering_impl(
     const IVFBuildParameters& parameters,
-    const DataProto& data_proto,
+    Data& data,
     Distance distance,
-    ThreadpoolProto threadpool_proto,
-    bool train_only = false,
-    svs::logging::logger_ptr logger = svs::logging::get()
+    Pool& threadpool,
+    bool train_only,
+    svs::logging::logger_ptr logger
 ) {
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto data = svs::detail::dispatch_load(data_proto, threadpool);
-
     // Start timing the clustering process
     auto tic = svs::lib::now();
     data::SimpleData<BuildType> centroids;
@@ -700,10 +696,41 @@ auto build_clustering(
     return clustering;
 }
 
+template <
+    typename BuildType,
+    typename DataProto,
+    typename Distance,
+    typename ThreadpoolProto>
+auto build_clustering(
+    const IVFBuildParameters& parameters,
+    DataProto&& data_proto,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    bool train_only = false,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // If data_proto is already a loaded dataset, pass it directly by reference
+    // to avoid an unnecessary copy. Otherwise, load it via dispatch_load.
+    using Decayed = std::decay_t<DataProto>;
+    if constexpr (data::ImmutableMemoryDataset<Decayed>) {
+        return build_clustering_impl<BuildType>(
+            parameters, data_proto, distance, threadpool, train_only, std::move(logger)
+        );
+    } else {
+        auto data =
+            svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
+        return build_clustering_impl<BuildType>(
+            parameters, data, distance, threadpool, train_only, std::move(logger)
+        );
+    }
+}
+
 /// @brief Assemble an IVF index from an existing clustering
 ///
 /// This function creates a complete IVF index by:
-/// 1. Loading the dataset
+/// 1. Loading the dataset (if needed)
 /// 2. Creating dense cluster representations
 /// 3. Constructing the final IVF index with parallel search support
 ///
@@ -722,16 +749,14 @@ auto build_clustering(
 ///
 /// @return Fully constructed IVF index ready for searching
 ///
-template <
-    typename Clustering,
-    typename DataProto,
-    typename Distance,
-    typename ThreadpoolProto>
-auto assemble_from_clustering(
+
+/// Implementation that takes data by const reference (no ownership transfer).
+template <typename Clustering, typename Data, typename Distance, threads::ThreadPool Pool>
+auto assemble_from_clustering_impl(
     Clustering clustering,
-    const DataProto& data_proto,
+    const Data& data,
     Distance distance,
-    ThreadpoolProto threadpool_proto,
+    Pool& threadpool,
     const size_t intra_query_thread_count = 1,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
@@ -739,26 +764,20 @@ auto assemble_from_clustering(
     auto timer = lib::Timer();
     auto assemble_timer = timer.push_back("Total Assembling time");
 
-    // Phase 1: Load dataset
-    auto data_load_timer = timer.push_back("Data loading");
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto data = svs::detail::dispatch_load(data_proto, threadpool);
-    data_load_timer.finish();
-
-    // Phase 2: Create dense cluster representation
+    // Create dense cluster representation
     auto dense_cluster_timer = timer.push_back("Dense clustering");
     using centroids_type = data::SimpleData<typename Clustering::T>;
-    using data_type = typename decltype(data)::lib_alloc_data_type;
+    using data_type = typename Data::lib_alloc_data_type;
 
     auto dense_clusters = DenseClusteredDataset<centroids_type, uint32_t, data_type>(
         clustering, data, threadpool, lib::Allocator<std::byte>()
     );
     dense_cluster_timer.finish();
 
-    // Phase 3: Construct IVF index
+    // Construct IVF index
     auto index_build_timer = timer.push_back("IVF index construction");
     auto ivf_index = IVFIndex(
-        std::move(clustering.centroids()),
+        std::move(clustering).centroids(),
         std::move(dense_clusters),
         std::move(distance),
         std::move(threadpool),
@@ -771,6 +790,51 @@ auto assemble_from_clustering(
     assemble_timer.finish();
     svs::logging::debug(logger, "{}", timer);
     return ivf_index;
+}
+
+/// Public entry point: if data_proto is already a loaded dataset, pass it by
+/// reference to avoid taking ownership (and expensive deallocation).
+/// Otherwise, load it via dispatch_load.
+template <
+    typename Clustering,
+    typename DataProto,
+    typename Distance,
+    typename ThreadpoolProto>
+auto assemble_from_clustering(
+    Clustering clustering,
+    DataProto&& data_proto,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // If data_proto is already a loaded dataset, pass it directly by reference
+    // to avoid an unnecessary copy/move and expensive deallocation.
+    // Otherwise, load it via dispatch_load.
+    using Decayed = std::decay_t<DataProto>;
+    if constexpr (data::ImmutableMemoryDataset<Decayed>) {
+        return assemble_from_clustering_impl(
+            std::move(clustering),
+            data_proto,
+            std::move(distance),
+            threadpool,
+            intra_query_thread_count,
+            std::move(logger)
+        );
+    } else {
+        auto data =
+            svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
+        return assemble_from_clustering_impl(
+            std::move(clustering),
+            data,
+            std::move(distance),
+            threadpool,
+            intra_query_thread_count,
+            std::move(logger)
+        );
+    }
 }
 
 /// @brief Assemble an IVF index from a saved clustering file
@@ -802,7 +866,7 @@ template <
     typename ThreadpoolProto>
 auto assemble_from_file(
     const std::filesystem::path& clustering_path,
-    const DataProto& data_proto,
+    DataProto&& data_proto,
     Distance distance,
     ThreadpoolProto threadpool_proto,
     const size_t intra_query_thread_count = 1,
@@ -820,7 +884,7 @@ auto assemble_from_file(
     // Delegate to the main assembly function
     return assemble_from_clustering(
         std::move(clustering),
-        data_proto,
+        std::forward<DataProto>(data_proto),
         std::move(distance),
         std::move(threadpool),
         intra_query_thread_count,
