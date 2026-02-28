@@ -149,7 +149,7 @@ Clustering build_uncompressed(
     auto clustering = svs::IVF::build_clustering<svs::BFloat16>(
         parameters, std::move(data), distance_type, num_threads
     );
-    return std::move(clustering);
+    return clustering;
 }
 
 template <typename Dispatcher>
@@ -187,7 +187,7 @@ Clustering uncompressed_build_from_array(
     auto clustering = svs::IVF::build_clustering<svs::BFloat16>(
         parameters, std::move(data), distance_type, num_threads
     );
-    return std::move(clustering);
+    return clustering;
 }
 
 template <typename Dispatcher> void register_ivf_build_from_array(Dispatcher& dispatcher) {
