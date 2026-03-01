@@ -25,7 +25,7 @@ class InvertedInterface {
   public:
     using search_parameters_type = svs::index::inverted::InvertedSearchParameters;
 
-    ///// Beckend Information Interface
+    ///// Backend Information Interface
     virtual std::string experimental_backend_string() const = 0;
 
     ///// Saving
