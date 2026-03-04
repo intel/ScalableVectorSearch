@@ -377,13 +377,20 @@ template <typename T> void save_to_file(const T& x, const std::filesystem::path&
     detail::save_node_to_file(lib::save(x), path);
 }
 
-template <typename T> void save_to_stream(const T& x, std::ostream& os) {
+inline void begin_serialization(std::ostream& os) {
     lib::StreamArchiver::write_size(os, lib::StreamArchiver::magic_number);
+}
 
-    auto save_table = x.save_table();
-    detail::save_node_to_stream(detail::exit_hook(save_table), os);
-
-    x.save(os);
+template <typename T> void save_to_stream(const T& x, std::ostream& os) {
+    if constexpr (requires { x.save_table(); }) {
+        auto save_table = x.save_table();
+        detail::save_node_to_stream(detail::exit_hook(save_table), os);
+        x.save(os);
+    } else if constexpr (std::is_same_v<T, SaveTable>) {
+        detail::save_node_to_stream(detail::exit_hook(x), os);
+    } else {
+        static_assert(sizeof(T) == 0, "Type not stream-serializable");
+    }
 }
 
 } // namespace svs::lib

@@ -93,8 +93,11 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         std::stringstream ss;
         index.save(ss);
 
+        auto deserializer = svs::lib::detail::Deserializer::build(ss);
         Index_t loaded_index = Index_t(
-            svs::lib::load_from_stream<Data_t>(ss), dist, svs::threads::DefaultThreadPool(1)
+            svs::lib::load_from_stream<Data_t>(deserializer, ss),
+            dist,
+            svs::threads::DefaultThreadPool(1)
         );
 
         CATCH_REQUIRE(loaded_index.size() == index.size());
@@ -122,8 +125,11 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         index.save(tempdir);
         svs::lib::DirectoryArchiver::pack(tempdir, ss);
 
+        auto deserializer = svs::lib::detail::Deserializer::build(ss);
         Index_t loaded_index = Index_t(
-            svs::lib::load_from_stream<Data_t>(ss), dist, svs::threads::DefaultThreadPool(1)
+            svs::lib::load_from_stream<Data_t>(deserializer, ss),
+            dist,
+            svs::threads::DefaultThreadPool(1)
         );
 
         CATCH_REQUIRE(loaded_index.size() == index.size());

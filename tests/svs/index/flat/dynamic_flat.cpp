@@ -214,3 +214,143 @@ CATCH_TEST_CASE("Testing Flat Index", "[dynamic_flat]") {
 
     test_loop(index, reference, queries, div(reference.size(), modify_fraction), 2, 6);
 }
+
+CATCH_TEST_CASE("DynamicFlat Index Save and Load", "[dynamic_flat][index][saveload]") {
+#if defined(NDEBUG)
+    const float initial_fraction = 0.25;
+    const float modify_fraction = 0.05;
+#else
+    const float initial_fraction = 0.05;
+    const float modify_fraction = 0.005;
+#endif
+    const size_t num_threads = 10;
+
+    // Load the base dataset and queries.
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto num_points = data.size();
+    auto queries = test_dataset::queries();
+
+    auto reference = svs::misc::ReferenceDataset<Idx, Eltype, N, Distance>(
+        std::move(data),
+        Distance(),
+        num_threads,
+        div(num_points, 0.5 * modify_fraction),
+        NUM_NEIGHBORS,
+        queries,
+        0x12345678
+    );
+
+    auto num_indices_to_add = div(reference.size(), initial_fraction);
+
+    // Construct a blocked dataset consisting of initial fraction of the base dataset.
+    auto data_mutable = svs::data::BlockedData<Eltype, N>(num_indices_to_add, N);
+    std::vector<Idx> initial_indices{};
+    {
+        auto [vectors, indices] = reference.generate(num_indices_to_add);
+        // Copy assign ``initial_indices``
+        auto num_points_added = indices.size();
+        CATCH_REQUIRE(vectors.size() == num_points_added);
+        CATCH_REQUIRE(num_points_added <= num_indices_to_add);
+        CATCH_REQUIRE(num_points_added > num_indices_to_add - reference.bucket_size());
+
+        initial_indices = indices;
+        if (vectors.size() != num_indices_to_add || indices.size() != num_indices_to_add) {
+            throw ANNEXCEPTION("Something when horribly wrong!");
+        }
+
+        for (size_t i = 0; i < num_indices_to_add; ++i) {
+            data_mutable.set_datum(i, vectors.get_datum(i));
+        }
+    }
+
+    using Data_t = svs::data::BlockedData<Eltype, N>;
+    using Distance_t = svs::distance::DistanceL2;
+    using Index_t = svs::index::flat::DynamicFlatIndex<Data_t, Distance_t>;
+
+    Distance_t dist;
+    auto index = Index_t(std::move(data_mutable), initial_indices, dist, num_threads);
+
+    auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+    index.search(results.view(), queries.cview(), {});
+
+    reference.configure_extra_checks(true);
+    CATCH_REQUIRE(reference.extra_checks_enabled());
+
+    CATCH_SECTION("Load DynamicFlat being serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+        {
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            Index_t loaded_index = svs::index::flat::auto_dynamic_assemble(
+                deserializer,
+                stream,
+                // lazy-loader
+                [&]() -> Data_t {
+                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
+                },
+                dist,
+                svs::threads::as_threadpool(num_threads)
+            );
+
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+            loaded_index.search(loaded_results.view(), queries.cview(), {});
+
+            // Compare results - should be identical
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Load DynamicFlat being serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_dynflat_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            Index_t loaded_index = svs::index::flat::auto_dynamic_assemble(
+                deserializer,
+                stream,
+                // lazy-loader
+                [&]() -> Data_t {
+                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
+                },
+                dist,
+                svs::threads::as_threadpool(num_threads)
+            );
+
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+            loaded_index.search(loaded_results.view(), queries.cview(), {});
+
+            // Compare results - should be identical
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+}
