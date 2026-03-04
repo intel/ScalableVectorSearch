@@ -24,6 +24,7 @@
 #include "svs/core/distance.h"
 #include "svs/core/graph.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/lib/stream.h"
 #include "svs/lib/threads.h"
 
 #include "svs/orchestrators/manager.h"
@@ -87,9 +88,7 @@ class FlatImpl : public manager::ManagerImpl<QueryTypes, Impl, FlatInterface> {
 
     void save(std::ostream& stream) const override {
         if constexpr (Impl::supports_saving) {
-            lib::UniqueTempDirectory tempdir{"svs_flat_save"};
-            save(tempdir);
-            lib::DirectoryArchiver::pack(tempdir, stream);
+            impl().save(stream);
         } else {
             throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
         }
@@ -196,11 +195,8 @@ class Flat : public manager::IndexManager<FlatInterface> {
         ThreadPoolProto threadpool_proto,
         DataLoaderArgs&&... data_args
     ) {
-        namespace fs = std::filesystem;
-        lib::UniqueTempDirectory tempdir{"svs_flat_load"};
-        lib::DirectoryArchiver::unpack(stream, tempdir);
         return assemble<QueryTypes>(
-            lib::load_from_disk<Data>(tempdir, SVS_FWD(data_args)...),
+            lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...),
             distance,
             threads::as_threadpool(std::move(threadpool_proto))
         );
