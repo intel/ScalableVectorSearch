@@ -859,12 +859,15 @@ class Deserializer {
         }
     }
 
-    void read_name(std::istream& stream) const {
+    bool is_native() const { return scheme_ == SerializationScheme::native; }
+
+    std::string read_name(std::istream& stream) const {
+        std::string name;
         if (scheme_ == SerializationScheme::legacy) {
-            std::string name;
             lib::StreamArchiver::read_name(stream, name);
             std::cerr << "name = " << name << std::endl;
         }
+        return name;
     }
 
     void read_size(std::istream& stream) const {
@@ -882,9 +885,7 @@ class Deserializer {
     }
 };
 
-inline ContextFreeSerializedObject
-begin_deserialization(const Deserializer& deserializer, std::istream& stream) {
-    deserializer.read_name(stream);
+inline ContextFreeSerializedObject begin_deserialization(std::istream& stream) {
     if (!stream) {
         throw ANNEXCEPTION("Error reading from stream!");
     }
@@ -953,9 +954,10 @@ T load_from_stream(
 ) {
     // At this point, we will try the saving/loading framework to load the object.
     // Here we go!
+    deserializer.read_name(stream);
     return lib::load(
         loader,
-        detail::begin_deserialization(deserializer, stream),
+        detail::begin_deserialization(stream),
         deserializer,
         stream,
         SVS_FWD(args)...

@@ -788,6 +788,16 @@ auto auto_dynamic_assemble(
     );
 }
 
+auto load_translator(const lib::detail::Deserializer& deserializer, std::istream& is) {
+    auto table = lib::detail::begin_deserialization(is);
+    auto translator = IDTranslator::load(
+        table.template cast<toml::table>().at("translation").template cast<toml::table>(),
+        deserializer,
+        is
+    );
+    return translator;
+}
+
 template <typename LazyDataLoader, typename Distance, typename ThreadPoolProto>
 auto auto_dynamic_assemble(
     const lib::detail::Deserializer& deserializer,
@@ -803,20 +813,25 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    auto table = lib::detail::begin_deserialization(deserializer, is);
-    auto translator = IDTranslator::load(
-        table.template cast<toml::table>().at("translation").template cast<toml::table>(),
-        deserializer,
-        is
-    );
+    IDTranslator translator;
+    // In legacy deserialization the order of directories isn't determined.
+    auto name = deserializer.read_name(is);
 
-    // // Load the dataset
+    // We have to hardcode the file_name for legacy mode, since it was hardcoded when legacy
+    // models were serialized
+    bool translator_first = (name == "config/svs_config.toml") || deserializer.is_native();
+    if (translator_first) {
+        translator = load_translator(deserializer, is);
+    }
+
+    // Load the dataset
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-
     auto data = svs::detail::dispatch_load(data_loader(), threadpool);
-
-    // // Load the ID translator from the config directory
     auto datasize = data.size();
+
+    if (!translator_first) {
+        translator = load_translator(deserializer, is);
+    }
 
     // Validate the translator
     auto translator_size = translator.size();
