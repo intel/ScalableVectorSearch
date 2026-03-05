@@ -861,15 +861,17 @@ class Deserializer {
 
     void read_name(std::istream& stream) const {
         if (scheme_ == SerializationScheme::legacy) {
-            std::string file_name;
-            lib::StreamArchiver::read_name(stream, file_name);
+            std::string name;
+            lib::StreamArchiver::read_name(stream, name);
+            std::cerr << "name = " << name << std::endl;
         }
     }
 
     void read_size(std::istream& stream) const {
         if (scheme_ == SerializationScheme::legacy) {
-            lib::StreamArchiver::size_type file_size = 0;
-            lib::StreamArchiver::read_size(stream, file_size);
+            lib::StreamArchiver::size_type size = 0;
+            lib::StreamArchiver::read_size(stream, size);
+            std::cerr << "size = " << size << std::endl;
         }
     }
 
