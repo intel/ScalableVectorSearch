@@ -136,8 +136,12 @@ class GenericSerializer {
     }
 
     template <typename T, lib::LazyInvocable<size_t, size_t> F>
-    static lib::lazy_result_t<F, size_t, size_t>
-    load(const lib::ContextFreeLoadTable& table, std::istream& is, const F& lazy) {
+    static lib::lazy_result_t<F, size_t, size_t> load(
+        const lib::ContextFreeLoadTable& table,
+        const lib::detail::Deserializer& deserializer,
+        std::istream& is,
+        const F& lazy
+    ) {
         auto datatype = lib::load_at<DataType>(table, "eltype");
         if (datatype != datatype_v<T>) {
             throw ANNEXCEPTION(
@@ -150,6 +154,10 @@ class GenericSerializer {
 
         size_t num_vectors = lib::load_at<size_t>(table, "num_vectors");
         size_t dims = lib::load_at<size_t>(table, "dims");
+
+        deserializer.read_name(is);
+        deserializer.read_size(is);
+        deserializer.read_binary<io::v1::Header>(is);
 
         return io::load_dataset(is, lazy, num_vectors, dims);
     }
@@ -474,13 +482,14 @@ class SimpleData {
 
     static SimpleData load(
         const lib::ContextFreeLoadTable& table,
+        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         const allocator_type& allocator = {}
     )
         requires(!is_view)
     {
         return GenericSerializer::load<T>(
-            table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+            table, deserializer, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
@@ -879,11 +888,15 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
     static SimpleData load(
         const lib::ContextFreeLoadTable& table,
+        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         const Blocked<Alloc>& allocator = {}
     ) {
         return GenericSerializer::load<T>(
-            table, is, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
+            table,
+            deserializer,
+            is,
+            lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );

@@ -195,8 +195,9 @@ class Flat : public manager::IndexManager<FlatInterface> {
         ThreadPoolProto threadpool_proto,
         DataLoaderArgs&&... data_args
     ) {
+        auto deserializer = svs::lib::detail::Deserializer::build(stream);
         return assemble<QueryTypes>(
-            lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...),
+            lib::load_from_stream<Data>(deserializer, stream, SVS_FWD(data_args)...),
             distance,
             threads::as_threadpool(std::move(threadpool_proto))
         );

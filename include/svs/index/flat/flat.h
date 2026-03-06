@@ -523,7 +523,10 @@ class FlatIndex {
         lib::save_to_disk(data_, data_directory);
     }
 
-    void save(std::ostream& os) const { lib::save_to_stream(data_, os); }
+    void save(std::ostream& os) const {
+        lib::begin_serialization(os);
+        lib::save_to_stream(data_, os);
+    }
 };
 
 ///
