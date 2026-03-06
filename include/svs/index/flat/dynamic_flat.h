@@ -789,7 +789,7 @@ auto auto_dynamic_assemble(
 }
 
 auto load_translator(const lib::detail::Deserializer& deserializer, std::istream& is) {
-    auto table = lib::detail::begin_deserialization(is);
+    auto table = lib::detail::begin_deserialization(deserializer, is);
     auto translator = IDTranslator::load(
         table.template cast<toml::table>().at("translation").template cast<toml::table>(),
         deserializer,
@@ -815,12 +815,13 @@ auto auto_dynamic_assemble(
 ) {
     IDTranslator translator;
     // In legacy deserialization the order of directories isn't determined.
-    auto name = deserializer.read_name(is);
+    auto name = deserializer.read_name_in_advance(is);
 
     // We have to hardcode the file_name for legacy mode, since it was hardcoded when legacy
-    // models were serialized
-    bool translator_first = (name == "config/svs_config.toml") || deserializer.is_native();
-    if (translator_first) {
+    // model was serialized
+    bool translator_before_data =
+        (name == "config/svs_config.toml") || deserializer.is_native();
+    if (translator_before_data) {
         translator = load_translator(deserializer, is);
     }
 
@@ -829,7 +830,7 @@ auto auto_dynamic_assemble(
     auto data = svs::detail::dispatch_load(data_loader(), threadpool);
     auto datasize = data.size();
 
-    if (!translator_first) {
+    if (!translator_before_data) {
         translator = load_translator(deserializer, is);
     }
 

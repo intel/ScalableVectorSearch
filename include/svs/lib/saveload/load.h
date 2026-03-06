@@ -837,6 +837,8 @@ class Deserializer {
     enum SerializationScheme { native, legacy };
     SerializationScheme scheme_;
 
+    mutable bool skip_next_name_ = false;
+
     explicit Deserializer(const SerializationScheme& scheme)
         : scheme_(scheme) {}
 
@@ -861,20 +863,29 @@ class Deserializer {
 
     bool is_native() const { return scheme_ == SerializationScheme::native; }
 
-    std::string read_name(std::istream& stream) const {
+    std::string read_name_in_advance(std::istream& stream) const {
         std::string name;
         if (scheme_ == SerializationScheme::legacy) {
             lib::StreamArchiver::read_name(stream, name);
-            std::cerr << "name = " << name << std::endl;
+            skip_next_name_ = true;
         }
         return name;
+    }
+
+    void read_name(std::istream& stream) const {
+        if (scheme_ == SerializationScheme::legacy) {
+            if (!skip_next_name_) {
+                std::string name;
+                lib::StreamArchiver::read_name(stream, name);
+            }
+            skip_next_name_ = false;
+        }
     }
 
     void read_size(std::istream& stream) const {
         if (scheme_ == SerializationScheme::legacy) {
             lib::StreamArchiver::size_type size = 0;
             lib::StreamArchiver::read_size(stream, size);
-            std::cerr << "size = " << size << std::endl;
         }
     }
 
@@ -885,7 +896,9 @@ class Deserializer {
     }
 };
 
-inline ContextFreeSerializedObject begin_deserialization(std::istream& stream) {
+inline ContextFreeSerializedObject
+begin_deserialization(const Deserializer& deserializer, std::istream& stream) {
+    deserializer.read_name(stream);
     if (!stream) {
         throw ANNEXCEPTION("Error reading from stream!");
     }
@@ -954,10 +967,9 @@ T load_from_stream(
 ) {
     // At this point, we will try the saving/loading framework to load the object.
     // Here we go!
-    deserializer.read_name(stream);
     return lib::load(
         loader,
-        detail::begin_deserialization(stream),
+        detail::begin_deserialization(deserializer, stream),
         deserializer,
         stream,
         SVS_FWD(args)...
