@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-foreach(SAMPLE_NAME simple save_load)
+foreach(SAMPLE_NAME simple save_load dynamic)
     set(SAMPLE_TARGET c_api_${SAMPLE_NAME})
+    list(APPEND SAMPLE_TARGETS ${SAMPLE_TARGET})
     add_executable(${SAMPLE_TARGET} ${SAMPLE_NAME}.c)
 
     target_link_libraries(${SAMPLE_TARGET} PRIVATE svs_c_api)
@@ -22,3 +23,5 @@ foreach(SAMPLE_NAME simple save_load)
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
 endforeach(SAMPLE_NAME)
+
+add_custom_target(c_api_samples ALL DEPENDS ${SAMPLE_TARGETS})

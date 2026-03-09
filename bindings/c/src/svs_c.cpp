@@ -26,6 +26,9 @@
 
 #include <filesystem>
 #include <memory>
+#include <numeric>
+#include <span>
+#include <vector>
 
 #include <svs/core/data.h>
 #include <svs/core/query_result.h>
@@ -406,9 +409,7 @@ extern "C" bool svs_index_builder_set_threadpool(
 }
 
 extern "C" bool svs_index_builder_set_threadpool_custom(
-    svs_index_builder_h builder,
-    svs_threadpool_i pool,
-    svs_error_h out_err /*=NULL*/
+    svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
 ) {
     using namespace svs::c_runtime;
     return wrap_exceptions(
@@ -445,6 +446,83 @@ extern "C" svs_index_h svs_index_build(
                 return svs_index_h{nullptr};
             }
 
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_index_h svs_index_build_dynamic(
+    svs_index_builder_h builder,
+    const float* data,
+    const size_t* ids,
+    size_t num_vectors,
+    size_t blocksize_bytes,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_GT_THAN(num_vectors, 0);
+            EXPECT_ARG_NOT_NULL(data);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for dynamic index building"
+            );
+            auto src_data = svs::data::ConstSimpleDataView<float>(
+                data, num_vectors, builder->impl->dimension
+            );
+
+            std::vector<size_t> generated_ids;
+            if (ids == nullptr) {
+                // If IDs are not provided, generate them as a sequence from 0 to
+                // num_vectors-1
+                generated_ids.resize(num_vectors);
+                std::iota(generated_ids.begin(), generated_ids.end(), 0);
+                ids = generated_ids.data();
+            }
+
+            auto index = builder->impl->build_dynamic(
+                src_data, std::span(ids, num_vectors), blocksize_bytes
+            );
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Dynamic index build failed");
+                return svs_index_h{nullptr};
+            }
+
+            auto result = new svs_index;
+            result->impl = index;
+            return result;
+        },
+        out_err
+    );
+}
+
+extern "C" svs_index_h svs_index_load_dynamic(
+    svs_index_builder_h builder,
+    const char* directory,
+    size_t blocksize_bytes,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(directory);
+            NOT_IMPLEMENTED_IF(
+                (builder->impl->algorithm->type != SVS_ALGORITHM_TYPE_VAMANA),
+                "Only Vamana algorithm is currently supported for dynamic index loading"
+            );
+            auto index = builder->impl->load_dynamic(
+                std::filesystem::path{directory}, blocksize_bytes
+            );
+            if (index == nullptr) {
+                SET_ERROR(out_err, SVS_ERROR_RUNTIME, "Dynamic index load failed");
+                return svs_index_h{nullptr};
+            }
             auto result = new svs_index;
             result->impl = index;
             return result;
@@ -494,13 +572,14 @@ extern "C" svs_search_results_t svs_index_search(
             EXPECT_ARG_NOT_NULL(queries);
             EXPECT_ARG_GT_THAN(num_queries, 0);
             EXPECT_ARG_GT_THAN(k, 0);
-            auto& vamana_index = static_cast<IndexVamana&>(*index->impl).index;
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
 
             auto queries_view = svs::data::ConstSimpleDataView<float>(
-                queries, num_queries, vamana_index.dimensions()
+                queries, num_queries, index_ptr->dimensions()
             );
 
-            auto search_results = index->impl->search(
+            auto search_results = index_ptr->search(
                 queries_view, k, search_params == nullptr ? nullptr : search_params->impl
             );
 
@@ -547,5 +626,163 @@ svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err) {
             return true;
         },
         out_err
+    );
+}
+
+extern "C" size_t svs_index_dynamic_add_points(
+    svs_index_h index,
+    const float* new_points,
+    const size_t* ids,
+    size_t num_vectors,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(new_points);
+            EXPECT_ARG_NOT_NULL(ids);
+            EXPECT_ARG_GT_THAN(num_vectors, 0);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            auto src_data = svs::data::ConstSimpleDataView<float>(
+                new_points, num_vectors, dynamic_index_ptr->dimensions()
+            );
+            return dynamic_index_ptr->add_points(src_data, std::span(ids, num_vectors));
+        },
+        out_err,
+        static_cast<size_t>(-1)
+    );
+}
+
+extern "C" size_t svs_index_dynamic_delete_points(
+    svs_index_h index, const size_t* ids, size_t num_ids, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(ids);
+            EXPECT_ARG_GT_THAN(num_ids, 0);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            return dynamic_index_ptr->delete_points(std::span(ids, num_ids));
+        },
+        out_err,
+        static_cast<size_t>(-1)
+    );
+}
+
+extern "C" bool svs_index_dynamic_has_id(
+    svs_index_h index, size_t id, bool* out_has_id, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_has_id);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            *out_has_id = dynamic_index_ptr->has_id(id);
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_get_distance(
+    svs_index_h index,
+    size_t id,
+    const float* query,
+    float* out_distance,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(query);
+            EXPECT_ARG_NOT_NULL(out_distance);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            *out_distance = index_ptr->get_distance(id, std::span{query, index_ptr->dimensions()});
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_reconstruct(
+    svs_index_h index,
+    const size_t* ids,
+    size_t num_ids,
+    float* out_data,
+    size_t data_dim,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(ids);
+            EXPECT_ARG_NOT_NULL(out_data);
+            EXPECT_ARG_GT_THAN(num_ids, 0);
+            auto index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            INVALID_ARGUMENT_IF(
+                data_dim != index_ptr->dimensions(),
+                "Output data dimensionality does not match index dimensionality"
+            );
+            index_ptr->reconstruct_at(
+                svs::data::SimpleDataView<float>(out_data, num_ids, data_dim),
+                std::span(ids, num_ids)
+            );
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_dynamic_consolidate(svs_index_h index, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            dynamic_index_ptr->consolidate();
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool
+svs_index_dynamic_compact(svs_index_h index, size_t batchsize, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            INVALID_ARGUMENT_IF(
+                dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
+            );
+            dynamic_index_ptr->compact(batchsize);
+            return true;
+        },
+        out_err,
+        false
     );
 }

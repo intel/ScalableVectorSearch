@@ -22,10 +22,12 @@
 #include <svs/concepts/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
+#include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/orchestrators/vamana.h>
 
 #include <filesystem>
 #include <memory>
+#include <span>
 
 namespace svs::c_runtime {
 struct Index {
@@ -39,6 +41,24 @@ struct Index {
         const std::shared_ptr<Algorithm::SearchParams>& search_params
     ) = 0;
     virtual void save(const std::filesystem::path& directory) = 0;
+    virtual size_t dimensions() const = 0;
+    virtual float get_distance(size_t id, std::span<const float> query) const = 0;
+    virtual void
+    reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) = 0;
+};
+
+struct DynamicIndex : public Index {
+    DynamicIndex(svs_algorithm_type algorithm)
+        : Index(algorithm) {}
+    ~DynamicIndex() = default;
+
+    virtual size_t add_points(
+        svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
+    ) = 0;
+    virtual size_t delete_points(std::span<const size_t> ids) = 0;
+    virtual bool has_id(size_t id) const = 0;
+    virtual void consolidate() = 0;
+    virtual void compact(size_t batchsize) = 0;
 };
 
 struct IndexVamana : public Index {
@@ -46,12 +66,12 @@ struct IndexVamana : public Index {
     IndexVamana(svs::Vamana&& index)
         : Index{SVS_ALGORITHM_TYPE_VAMANA}
         , index(std::move(index)) {}
-    ~IndexVamana() {}
-    virtual svs::QueryResult<size_t> search(
+    ~IndexVamana() = default;
+    svs::QueryResult<size_t> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params
-    ) {
+    ) override {
         auto vamana_search_params =
             std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
         auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
@@ -67,6 +87,88 @@ struct IndexVamana : public Index {
 
     void save(const std::filesystem::path& directory) override {
         index.save(directory / "config", directory / "graph", directory / "data");
+    }
+
+    size_t dimensions() const override { return index.dimensions(); }
+
+    float get_distance(size_t id, std::span<const float> query) const override {
+        return index.get_distance(id, query);
+    }
+
+    void reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids)
+        override {
+        index.reconstruct_at(dst, ids);
+    }
+};
+
+struct DynamicIndexVamana : public DynamicIndex {
+    svs::DynamicVamana index;
+    DynamicIndexVamana(svs::DynamicVamana&& index)
+        : DynamicIndex(SVS_ALGORITHM_TYPE_VAMANA)
+        , index(std::move(index)) {}
+    ~DynamicIndexVamana() = default;
+
+    svs::QueryResult<size_t> search(
+        svs::data::ConstSimpleDataView<float> queries,
+        size_t num_neighbors,
+        const std::shared_ptr<Algorithm::SearchParams>& search_params
+    ) override {
+        auto vamana_search_params =
+            std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
+        auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+
+        auto params = index.get_search_parameters();
+        if (vamana_search_params) {
+            params = vamana_search_params->get_search_parameters();
+        }
+
+        index.search(results.view(), queries, params);
+        return std::move(results);
+    }
+
+    void save(const std::filesystem::path& directory) override {
+        index.save(directory / "config", directory / "graph", directory / "data");
+    }
+
+    size_t dimensions() const override { return index.dimensions(); }
+
+    size_t add_points(
+        svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
+    ) override {
+        auto old_size = index.size();
+        index.add_points(new_points, ids);
+        // TODO: This is a bit of a hack - we should ideally return the number of points
+        // actually added, but for now we can just return index size change.
+        return index.size() - old_size;
+    }
+
+    size_t delete_points(std::span<const size_t> ids) override {
+        auto old_size = index.size();
+        index.delete_points(ids);
+        // TODO: This is a bit of a hack - we should ideally return the number of points
+        // actually deleted, but for now we can just return index size change.
+        return old_size - index.size();
+    }
+
+    bool has_id(size_t id) const override { return index.has_id(id); }
+
+    float get_distance(size_t id, std::span<const float> query) const override {
+        return index.get_distance(id, query);
+    }
+
+    void reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids)
+        override {
+        index.reconstruct_at(dst, ids);
+    }
+
+    void consolidate() override { index.consolidate(); }
+
+    void compact(size_t batchsize) override {
+        if (batchsize == 0) {
+            index.compact(); // Use default batch size
+        } else {
+            index.compact(batchsize);
+        }
     }
 };
 } // namespace svs::c_runtime

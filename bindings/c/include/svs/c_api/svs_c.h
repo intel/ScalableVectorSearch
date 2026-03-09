@@ -344,6 +344,25 @@ SVS_API svs_index_h svs_index_build(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Build a dynamic index from the provided data and IDs
+/// @param builder The index builder handle
+/// @param data Pointer to the vector data (float array)
+/// @param ids Pointer to the vector IDs (size_t array). Can be NULL if IDs should be
+/// auto-generated from 0 to num_vectors-1.
+/// @param num_vectors The number of vectors in the data
+/// @param blocksize_bytes The block size in bytes for dynamic index building (0 for
+/// default)
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the built dynamic index
+SVS_API svs_index_h svs_index_build_dynamic(
+    svs_index_builder_h builder,
+    const float* data,
+    const size_t* ids /*=NULL*/,
+    size_t num_vectors,
+    size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Load an index from disk
 /// @param builder The index builder handle (used for configuration)
 /// @param directory The directory path to load the index from
@@ -351,6 +370,19 @@ SVS_API svs_index_h svs_index_build(
 /// @return A handle to the loaded index
 SVS_API svs_index_h svs_index_load(
     svs_index_builder_h builder, const char* directory, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Load a dynamic index from disk
+/// @param builder The index builder handle (used for configuration)
+/// @param directory The directory path to load the index from
+/// @param blocksize_bytes The block size in bytes for dynamic index loading (0 for default)
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the loaded dynamic index
+SVS_API svs_index_h svs_index_load_dynamic(
+    svs_index_builder_h builder,
+    const char* directory,
+    size_t blocksize_bytes /*=0*/,
+    svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Free the index handle
@@ -385,6 +417,89 @@ SVS_API void svs_search_results_free(svs_search_results_t results);
 /// @return true on success, false on failure
 SVS_API bool
 svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err /*=NULL*/);
+
+/// @brief Add points to a dynamic index
+/// @param index The dynamic index handle
+/// @param new_points Pointer to the new vector data (float array)
+/// @param ids Pointer to the new vector IDs (size_t array)
+/// @param num_vectors The number of new vectors to add
+/// @param out_err An optional error handle to capture errors
+/// @return number of points successfully added, or (size_t)-1 on failure
+SVS_API size_t svs_index_dynamic_add_points(
+    svs_index_h index,
+    const float* new_points,
+    const size_t* ids,
+    size_t num_vectors,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Delete points from a dynamic index
+/// @param index The dynamic index handle
+/// @param ids Pointer to the vector IDs to delete (size_t array)
+/// @param num_ids The number of vector IDs to delete
+/// @param out_err An optional error handle to capture errors
+/// @return number of points successfully deleted, or (size_t)-1 on failure
+SVS_API size_t svs_index_dynamic_delete_points(
+    svs_index_h index, const size_t* ids, size_t num_ids, svs_error_h out_err /*=NULL*/
+);
+/// @brief Check if a dynamic index has a specific ID
+/// @param index The dynamic index handle
+/// @param id The vector ID to check for
+/// @param out_has_id Pointer to store whether the ID exists in the index
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_dynamic_has_id(
+    svs_index_h index, size_t id, bool* out_has_id, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the distance from a specific ID to a query vector in an index
+/// @param index The index handle
+/// @param id The vector ID to get the distance for
+/// @param query Pointer to the query vector data (float array)
+/// @param out_distance Pointer to store the retrieved distance
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_get_distance(
+    svs_index_h index,
+    size_t id,
+    const float* query,
+    float* out_distance,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Reconstruct the vectors for specific IDs in an index
+/// @param index The index handle
+/// @param ids Pointer to the vector IDs to reconstruct (size_t array)
+/// @param num_ids The number of vector IDs to reconstruct
+/// @param out_data Pointer to store the reconstructed vector data (float array with size
+/// num_ids * data_dim)
+/// @param data_dim The dimensionality of the vectors
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_reconstruct(
+    svs_index_h index,
+    const size_t* ids,
+    size_t num_ids,
+    float* out_data,
+    size_t data_dim,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Consolidate a dynamic index to optimize storage and search performance
+/// @param index The dynamic index handle
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool
+svs_index_dynamic_consolidate(svs_index_h index, svs_error_h out_err /*=NULL*/);
+
+/// @brief Compact a dynamic index to remove deleted entries and optimize storage
+/// @param index The dynamic index handle
+/// @param batchsize The batch size for compaction (0 for default)
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_dynamic_compact(
+    svs_index_h index, size_t batchsize /*=0*/, svs_error_h out_err /*=NULL*/
+);
 
 #ifdef __cplusplus
 }
