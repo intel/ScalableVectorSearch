@@ -71,7 +71,7 @@ struct IndexBuilder {
 
             auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_build(
                 vamana_algorithm->build_parameters(),
-                VamanaSource{data},
+                data,
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build()
@@ -86,9 +86,9 @@ struct IndexBuilder {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
-            auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_build(
+            auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_load(
                 vamana_algorithm->build_parameters(),
-                VamanaSource{directory},
+                directory,
                 storage.get(),
                 to_distance_type(distance_metric),
                 pool_builder.build()
@@ -110,7 +110,8 @@ struct IndexBuilder {
             auto index =
                 std::make_shared<DynamicIndexVamana>(dispatch_dynamic_vamana_index_build(
                     vamana_algorithm->build_parameters(),
-                    DynamicVamanaSource{std::make_pair(data, ids)},
+                    data,
+                    ids,
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
@@ -128,9 +129,9 @@ struct IndexBuilder {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
             auto index =
-                std::make_shared<DynamicIndexVamana>(dispatch_dynamic_vamana_index_build(
+                std::make_shared<DynamicIndexVamana>(dispatch_dynamic_vamana_index_load(
                     vamana_algorithm->build_parameters(),
-                    DynamicVamanaSource{directory},
+                    directory,
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),

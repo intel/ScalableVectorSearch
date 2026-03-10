@@ -32,6 +32,8 @@ set(SVS_C_API_SOURCES
 
     src/error.cpp
     src/svs_c.cpp
+    src/dispatcher_vamana.cpp
+    src/dispatcher_dynamic_vamana.cpp
 )
 
 add_library(${TARGET_NAME} SHARED
@@ -41,6 +43,7 @@ add_library(${TARGET_NAME} SHARED
 
 target_include_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 find_package(OpenMP REQUIRED)
@@ -69,10 +72,75 @@ target_link_libraries(${TARGET_NAME} PRIVATE
 if (SVS_EXPERIMENTAL_LINK_STATIC_MKL)
     link_mkl_static(${TARGET_NAME})
 endif()
-# target_compile_definitions(${TARGET_NAME} PRIVATE
-#     PUBLIC "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
-#     PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
-# )
+
+if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    message(STATUS "Enabling LVQ/LeanVec support in C API")
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    if(SVS_LVQ_HEADER)
+        target_compile_definitions(${TARGET_NAME} PRIVATE
+            SVS_LVQ_HEADER="${SVS_LVQ_HEADER}"
+        )
+        # "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
+    endif()
+    if(SVS_LEANVEC_HEADER)
+        target_compile_definitions(${TARGET_NAME} PRIVATE
+            SVS_LEANVEC_HEADER="${SVS_LEANVEC_HEADER}"
+        )
+        # "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
+    endif()
+
+    if (RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
+        message(STATUS "Building directly from private sources with IVF support")
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            svs::svs
+            svs_compile_options
+        )
+        link_mkl_static(${TARGET_NAME})
+    elseif(TARGET svs::svs)
+        message(FATAL_ERROR
+            "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
+            "Please build SVS Runtime using bindings/cpp directory as CMake source root."
+        )
+    else()
+        # Links to LTO-enabled static library, requires GCC/G++ 11.2
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-02-05-1017.tar.gz"
+                CACHE STRING "URL to download SVS shared library")
+        else()
+            message(WARNING
+                "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
+                "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
+            )
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-2026-02-05-1017.tar.gz"
+                CACHE STRING "URL to download SVS shared library")
+        endif()
+        include(FetchContent)
+        FetchContent_Declare(
+            svs
+            URL ${SVS_URL}
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        )
+        FetchContent_MakeAvailable(svs)
+        list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
+        find_package(svs REQUIRED)
+        target_link_libraries(${TARGET_NAME} PRIVATE
+            svs::svs
+            svs::svs_compile_options
+            svs::svs_static_library
+        )
+    endif()
+else()
+    message(STATUS "LVQ/LeanVec support is disabled in C API")
+    # Include the SVS library directly if needed.
+    if (NOT TARGET svs::svs)
+        add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
+    endif()
+    target_link_libraries(${TARGET_NAME} PRIVATE
+       svs::svs
+       svs_compile_options
+       svs_x86_options_base
+    )
+endif()
 
 # Installing
 include(GNUInstallDirs)

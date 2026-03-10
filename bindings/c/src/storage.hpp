@@ -17,20 +17,16 @@
 
 #include "svs/c_api/svs_c.h"
 
+#include "allocator.hpp"
+#include "error.hpp"
 #include "types_support.hpp"
 
-#include <svs/concepts/data.h>
-#include <svs/core/data/simple.h>
-#include <svs/extensions/vamana/leanvec.h>
-#include <svs/extensions/vamana/lvq.h>
-#include <svs/extensions/vamana/scalar.h>
-#include <svs/leanvec/impl/leanvec_impl.h>
 #include <svs/lib/datatype.h>
-#include <svs/lib/dispatcher.h>
-#include <svs/lib/float16.h>
 #include <svs/lib/type_traits.h>
-#include <svs/quantization/lvq/impl/lvq_impl.h>
-#include <svs/quantization/scalar/scalar.h>
+
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#include <svs/cpuid.h>
+#endif
 
 #include <filesystem>
 #include <stdexcept>
@@ -68,7 +64,19 @@ struct StorageLeanVec : public Storage {
         : Storage{SVS_STORAGE_KIND_LEANVEC}
         , lenavec_dims(lenavec_dims)
         , primary_bits(to_bits_number(primary))
-        , secondary_bits(to_bits_number(secondary)) {}
+        , secondary_bits(to_bits_number(secondary)) {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+        if (!enabled()) {
+            throw svs::c_runtime::unsupported_hw(
+                "LeanVec storage is not supported on this hardware"
+            );
+        }
+#else
+        throw svs::c_runtime::not_implemented(
+            "LeanVec storage is not implemented in this build"
+        );
+#endif
+    }
 
     static size_t to_bits_number(svs_data_type_t data_type) {
         switch (data_type) {
@@ -84,6 +92,14 @@ struct StorageLeanVec : public Storage {
                 throw std::invalid_argument("Unsupported data type for LeanVec storage");
         }
     }
+
+    static bool enabled() {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+        return svs::detail::intel_enabled();
+#else
+        return false;
+#endif
+    }
 };
 
 struct StorageLVQ : public Storage {
@@ -93,7 +109,18 @@ struct StorageLVQ : public Storage {
     StorageLVQ(svs_data_type_t primary, svs_data_type_t residual)
         : Storage{SVS_STORAGE_KIND_LVQ}
         , primary_bits(to_bits_number(primary))
-        , residual_bits(to_bits_number(residual)) {}
+        , residual_bits(to_bits_number(residual)) {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+        if (!enabled()) {
+            throw svs::c_runtime::unsupported_hw(
+                "LVQ storage is not supported on this hardware"
+            );
+        }
+#else
+        throw svs::c_runtime::not_implemented("LVQ storage is not implemented in this build"
+        );
+#endif
+    }
 
     static size_t to_bits_number(svs_data_type_t data_type) {
         switch (data_type) {
@@ -108,6 +135,14 @@ struct StorageLVQ : public Storage {
             default:
                 throw std::invalid_argument("Unsupported data type for LVQ storage");
         }
+    }
+
+    static bool enabled() {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+        return svs::detail::intel_enabled();
+#else
+        return false;
+#endif
     }
 };
 
@@ -125,196 +160,4 @@ struct StorageSQ : public Storage {
 };
 
 } // namespace c_runtime
-
-template <Arithmetic T, typename Allocator = svs::lib::Allocator<T>>
-class SimpleDataBuilder {
-  public:
-    SimpleDataBuilder() {}
-
-    using data_type = svs::data::SimpleData<T, svs::Dynamic, Allocator>;
-    using allocator_type = Allocator;
-
-    template <Arithmetic U>
-    data_type build(
-        svs::data::ConstSimpleDataView<U> view,
-        svs::threads::ThreadPoolHandle& SVS_UNUSED(pool),
-        const allocator_type& allocator = {}
-    ) {
-        auto data = data_type(view.size(), view.dimensions(), allocator);
-        svs::data::copy(view, data);
-        return data;
-    }
-
-    data_type
-    load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
-        return svs::lib::load_from_disk<data_type>(path, allocator);
-    }
-};
-
-template <Arithmetic T, typename Allocator>
-struct lib::DispatchConverter<const c_runtime::Storage*, SimpleDataBuilder<T, Allocator>> {
-    using From = const svs::c_runtime::Storage*;
-    using To = SimpleDataBuilder<T, Allocator>;
-
-    static int64_t match(From from) {
-        if constexpr (svs::is_arithmetic_v<T>) {
-            if (from->kind == SVS_STORAGE_KIND_SIMPLE) {
-                auto simple = static_cast<const c_runtime::StorageSimple*>(from);
-                if (simple->data_type == svs::datatype_v<T>) {
-                    return svs::lib::perfect_match;
-                }
-            }
-        }
-        return svs::lib::invalid_match;
-    }
-
-    static To convert(From from) { return To{}; }
-};
-
-template <size_t I1, size_t I2, typename Allocator = svs::lib::Allocator<std::byte>>
-class LeanVecDataBuilder {
-    size_t leanvec_dims_;
-
-  public:
-    LeanVecDataBuilder(size_t leanvec_dims)
-        : leanvec_dims_(leanvec_dims) {}
-
-    using data_type = svs::leanvec::LeanDataset<
-        svs::leanvec::UsingLVQ<I1>,
-        svs::leanvec::UsingLVQ<I2>,
-        svs::Dynamic,
-        svs::Dynamic,
-        Allocator>;
-    using allocator_type = Allocator;
-
-    template <Arithmetic T>
-    data_type build(
-        svs::data::ConstSimpleDataView<T> view,
-        svs::threads::ThreadPoolHandle& pool,
-        const allocator_type& allocator = {}
-    ) {
-        return data_type::reduce(
-            view, std::nullopt, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}, allocator
-        );
-    }
-
-    data_type
-    load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
-        return svs::lib::load_from_disk<data_type>(path, allocator);
-    }
-};
-
-template <size_t I1, size_t I2, typename Allocator>
-struct lib::
-    DispatchConverter<const c_runtime::Storage*, LeanVecDataBuilder<I1, I2, Allocator>> {
-    using From = const svs::c_runtime::Storage*;
-    using To = LeanVecDataBuilder<I1, I2, Allocator>;
-
-    static int64_t match(From from) {
-        if (from->kind == SVS_STORAGE_KIND_LEANVEC) {
-            auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
-            if (leanvec->primary_bits == I1 && leanvec->secondary_bits == I2) {
-                return svs::lib::perfect_match;
-            }
-        }
-        return svs::lib::invalid_match;
-    }
-
-    static To convert(From from) {
-        auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
-        return To{leanvec->lenavec_dims};
-    }
-};
-
-template <
-    size_t PrimaryBits,
-    size_t ResidualBits,
-    typename Allocator = svs::lib::Allocator<std::byte>>
-class LVQDataBuilder {
-  public:
-    LVQDataBuilder() {}
-
-    using data_type = svs::quantization::lvq::LVQDataset<
-        PrimaryBits,
-        ResidualBits,
-        svs::Dynamic,
-        svs::quantization::lvq::Sequential,
-        Allocator>;
-    using allocator_type = Allocator;
-
-    template <Arithmetic T>
-    data_type build(
-        svs::data::ConstSimpleDataView<T> view,
-        svs::threads::ThreadPoolHandle& pool,
-        const allocator_type& allocator = {}
-    ) {
-        return data_type::compress(view, pool, 0, allocator);
-    }
-
-    data_type
-    load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
-        return svs::lib::load_from_disk<data_type>(path, allocator);
-    }
-};
-
-template <size_t PrimaryBits, size_t ResidualBits, typename Allocator>
-struct lib::DispatchConverter<
-    const c_runtime::Storage*,
-    LVQDataBuilder<PrimaryBits, ResidualBits, Allocator>> {
-    using From = const svs::c_runtime::Storage*;
-    using To = LVQDataBuilder<PrimaryBits, ResidualBits, Allocator>;
-
-    static int64_t match(From from) {
-        if (from->kind == SVS_STORAGE_KIND_LVQ) {
-            auto lvq = static_cast<const c_runtime::StorageLVQ*>(from);
-            if (lvq->primary_bits == PrimaryBits && lvq->residual_bits == ResidualBits) {
-                return svs::lib::perfect_match;
-            }
-        }
-        return svs::lib::invalid_match;
-    }
-
-    static To convert(From from) { return To{}; }
-};
-
-template <Arithmetic T, typename Allocator = svs::lib::Allocator<T>> class SQDataBuilder {
-  public:
-    SQDataBuilder() {}
-
-    using data_type = svs::quantization::scalar::SQDataset<T, svs::Dynamic, Allocator>;
-    using allocator_type = Allocator;
-
-    template <Arithmetic U>
-    data_type build(
-        svs::data::ConstSimpleDataView<U> view,
-        svs::threads::ThreadPoolHandle& pool,
-        const allocator_type& allocator = {}
-    ) {
-        return data_type::compress(view, pool, allocator);
-    }
-
-    data_type
-    load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
-        return svs::lib::load_from_disk<data_type>(path, allocator);
-    }
-};
-
-template <Arithmetic T, typename Allocator>
-struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Allocator>> {
-    using From = const svs::c_runtime::Storage*;
-    using To = SQDataBuilder<T, Allocator>;
-
-    static int64_t match(From from) {
-        if (from->kind == SVS_STORAGE_KIND_SQ) {
-            auto sq = static_cast<const c_runtime::StorageSQ*>(from);
-            if (sq->data_type == svs::datatype_v<T>) {
-                return svs::lib::perfect_match;
-            }
-        }
-        return svs::lib::invalid_match;
-    }
-
-    static To convert(From from) { return To{}; }
-};
-
 } // namespace svs

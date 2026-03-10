@@ -82,7 +82,7 @@ struct IndexVamana : public Index {
         }
 
         index.search(results.view(), queries, params);
-        return std::move(results);
+        return results;
     }
 
     void save(const std::filesystem::path& directory) override {
@@ -123,7 +123,7 @@ struct DynamicIndexVamana : public DynamicIndex {
         }
 
         index.search(results.view(), queries, params);
-        return std::move(results);
+        return results;
     }
 
     void save(const std::filesystem::path& directory) override {

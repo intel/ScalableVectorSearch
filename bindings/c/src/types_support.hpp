@@ -23,7 +23,7 @@
 namespace svs {
 namespace c_runtime {
 
-svs::DistanceType to_distance_type(svs_distance_metric_t distance_metric) {
+inline svs::DistanceType to_distance_type(svs_distance_metric_t distance_metric) {
     switch (distance_metric) {
         case SVS_DISTANCE_METRIC_EUCLIDEAN:
             return svs::DistanceType::L2;
@@ -36,7 +36,7 @@ svs::DistanceType to_distance_type(svs_distance_metric_t distance_metric) {
     }
 }
 
-svs::DataType to_data_type(svs_data_type_t data_type) {
+inline svs::DataType to_data_type(svs_data_type_t data_type) {
     switch (data_type) {
         case SVS_DATA_TYPE_FLOAT32:
             return svs::DataType::float32;
