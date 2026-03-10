@@ -75,7 +75,7 @@ class GenericSerializer {
     }
 
     template <data::ImmutableMemoryDataset Data>
-    static lib::SaveTable save_table(const Data& data) {
+    static lib::SaveTable metadata(const Data& data) {
         using T = typename Data::element_type;
         auto table = lib::SaveTable(
             serialization_schema,
@@ -92,8 +92,8 @@ class GenericSerializer {
 
     template <data::ImmutableMemoryDataset Data, class FileName_t>
     static lib::SaveTable
-    save_table(const Data& data, const FileName_t& filename, const lib::UUID& uuid) {
-        auto table = save_table(data);
+    metadata(const Data& data, const FileName_t& filename, const lib::UUID& uuid) {
+        auto table = metadata(data);
         table.insert("binary_file", filename);
         table.insert("uuid", uuid.str());
         return table;
@@ -105,11 +105,13 @@ class GenericSerializer {
         auto uuid = lib::UUID{};
         auto filename = ctx.generate_name("data");
         io::save(data, io::NativeFile(filename), uuid);
-        return save_table(data, lib::save(filename.filename()), uuid);
+        return metadata(data, lib::save(filename.filename()), uuid);
     }
 
     template <data::ImmutableMemoryDataset Data>
     static void save(const Data& data, std::ostream& os) {
+        lib::detail::save_node_to_stream(metadata(data), os);
+
         io::save(data, os);
     }
 
@@ -452,7 +454,7 @@ class SimpleData {
 
     void save(std::ostream& os) const { return GenericSerializer::save(*this, os); }
 
-    lib::SaveTable save_table() const { return GenericSerializer::save_table(*this); }
+    lib::SaveTable metadata() const { return GenericSerializer::metadata(*this); }
 
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return GenericSerializer::check_compatibility(schema, version);
@@ -871,7 +873,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
     void save(std::ostream& os) const { return GenericSerializer::save(*this, os); }
 
-    lib::SaveTable save_table() const { return GenericSerializer::save_table(*this); }
+    lib::SaveTable metadata() const { return GenericSerializer::metadata(*this); }
 
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return GenericSerializer::check_compatibility(schema, version);

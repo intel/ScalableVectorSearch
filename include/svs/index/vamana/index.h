@@ -814,6 +814,20 @@ class VamanaIndex {
         lib::save_to_disk(graph_, graph_directory);
     }
 
+    void save(std::ostream& os) const {
+        // Construct and save runtime parameters.
+        auto parameters = VamanaIndexParameters{
+            entry_point_.front(), build_parameters_, get_search_parameters()};
+
+        lib::begin_serialization(os);
+        // Config
+        lib::save_to_stream(parameters.save(), os);
+        // Data
+        lib::save_to_stream(data_, os);
+        // // Graph
+        lib::save_to_stream(graph_, os);
+    }
+
     ///// Calibration
 
     // Return the maximum degree of the graph.
@@ -1002,6 +1016,42 @@ auto auto_assemble(
         std::move(threadpool),
         std::move(logger)};
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
+    index.apply(config);
+    return index;
+}
+
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_assemble(
+    const lib::detail::Deserializer& deserializer,
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // In legacy deserialization the order of directories isn't determined.
+    auto name = deserializer.read_name_in_advance(is);
+
+    auto config = lib::load_from_stream<VamanaIndexParameters>(deserializer, is);
+    auto data = svs::detail::dispatch_load(data_loader(), threadpool);
+    auto graph = svs::detail::dispatch_load(graph_loader(), threadpool);
+
+    // Extract the index type of the provided graph.
+    using I = typename decltype(graph)::index_type;
+    auto index = VamanaIndex{
+        std::move(graph),
+        std::move(data),
+        I{},
+        std::move(distance),
+        std::move(threadpool),
+        std::move(logger)};
     index.apply(config);
     return index;
 }

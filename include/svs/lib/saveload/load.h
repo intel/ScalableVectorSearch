@@ -967,13 +967,25 @@ T load_from_stream(
 ) {
     // At this point, we will try the saving/loading framework to load the object.
     // Here we go!
-    return lib::load(
-        loader,
-        detail::begin_deserialization(deserializer, stream),
-        deserializer,
-        stream,
-        SVS_FWD(args)...
-    );
+    if constexpr (requires {
+                      T::load(
+                          std::declval<const ContextFreeLoadTable&>(),
+                          std::declval<Args&&>()...
+                      );
+                  }) {
+        // Object is loadable from it's toml::table
+        return lib::load(
+            loader, detail::begin_deserialization(deserializer, stream), SVS_FWD(args)...
+        );
+    } else {
+        return lib::load(
+            loader,
+            detail::begin_deserialization(deserializer, stream),
+            deserializer,
+            stream,
+            SVS_FWD(args)...
+        );
+    }
 }
 
 template <typename T, typename... Args>

@@ -241,7 +241,10 @@ inline std::unique_ptr<toml::node> exit_hook(SaveNode val) { return std::move(va
 /// If a ``toml::table`` is needed, use ``svs::lib::save_to_table()``.
 ///
 template <typename T> auto save(const T& x, const SaveContext& ctx) {
-    if constexpr (SaveableContextFree<T>) {
+    if constexpr (requires { x.save(ctx); }) {
+        // Prefer contextual saving when available (creates binary files on disk).
+        return detail::exit_hook(Saver<T>::save(x, ctx));
+    } else if constexpr (SaveableContextFree<T>) {
         return detail::exit_hook(Saver<T>::save(x));
     } else {
         return detail::exit_hook(Saver<T>::save(x, ctx));
@@ -326,7 +329,7 @@ void save_node_to_stream(
     Nodelike&& node, std::ostream& os, const lib::Version& version = CURRENT_SAVE_VERSION
 ) {
     auto top_table = toml::table(
-        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(node)}}
+        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(exit_hook(node))}}
     );
 
     StreamArchiver::write_table(os, top_table);
@@ -382,12 +385,10 @@ inline void begin_serialization(std::ostream& os) {
 }
 
 template <typename T> void save_to_stream(const T& x, std::ostream& os) {
-    if constexpr (requires { x.save_table(); }) {
-        auto save_table = x.save_table();
-        detail::save_node_to_stream(detail::exit_hook(save_table), os);
+    if constexpr (requires { x.save(os); }) {
         x.save(os);
     } else if constexpr (std::is_same_v<T, SaveTable>) {
-        detail::save_node_to_stream(detail::exit_hook(x), os);
+        detail::save_node_to_stream(x, os);
     } else {
         static_assert(sizeof(T) == 0, "Type not stream-serializable");
     }
