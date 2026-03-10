@@ -712,7 +712,8 @@ extern "C" bool svs_index_get_distance(
             EXPECT_ARG_NOT_NULL(out_distance);
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
-            *out_distance = index_ptr->get_distance(id, std::span{query, index_ptr->dimensions()});
+            *out_distance =
+                index_ptr->get_distance(id, std::span{query, index_ptr->dimensions()});
             return true;
         },
         out_err,

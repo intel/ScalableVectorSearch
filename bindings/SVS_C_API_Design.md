@@ -551,7 +551,7 @@ void svs_search_results_free(svs_search_results_t results);
 int main() {
     // 1. Create error handle for diagnostics
     svs_error_h err = svs_error_create();
-    
+
     // 2. Create Vamana algorithm configuration
     svs_algorithm_h algo = svs_algorithm_create_vamana(
         64,   // graph_degree
@@ -560,12 +560,12 @@ int main() {
         err
     );
     if (!algo || !svs_error_ok(err)) {
-        fprintf(stderr, "Algorithm creation failed: %s\n", 
+        fprintf(stderr, "Algorithm creation failed: %s\n",
                 svs_error_get_message(err));
         svs_error_free(err);
         return 1;
     }
-    
+
     // 3. Create index builder
     size_t dimensions = 128;
     svs_index_builder_h builder = svs_index_builder_create(
@@ -574,13 +574,13 @@ int main() {
         algo,
         err
     );
-    
+
     // 4. Optional: Configure storage (default is FP32)
     svs_storage_h storage = svs_storage_create_simple(
         SVS_DATA_TYPE_FLOAT32, err
     );
     svs_index_builder_set_storage(builder, storage, err);
-    
+
     // 5. Optional: Configure thread pool
     svs_index_builder_set_threadpool(
         builder,
@@ -588,38 +588,38 @@ int main() {
         8,  // num_threads
         err
     );
-    
+
     // 6. Prepare data
     size_t num_vectors = 10000;
     float* data = (float*)malloc(num_vectors * dimensions * sizeof(float));
     // ... fill data with vectors ...
-    
+
     // 7. Build index
     svs_index_h index = svs_index_build(builder, data, num_vectors, err);
     if (!index || !svs_error_ok(err)) {
-        fprintf(stderr, "Index build failed: %s\n", 
+        fprintf(stderr, "Index build failed: %s\n",
                 svs_error_get_message(err));
         goto cleanup;
     }
-    
+
     // 8. Prepare queries
     size_t num_queries = 10;
     float* queries = (float*)malloc(num_queries * dimensions * sizeof(float));
     // ... fill queries ...
-    
+
     // 9. Perform search with default parameters
     size_t k = 5;
     svs_search_results_t results = svs_index_search(
         index, queries, num_queries, k, NULL, err
     );
-    
+
     // Or with custom search parameters:
     // svs_search_params_h params = svs_search_params_create_vamana(100, err);
     // svs_search_results_t results = svs_index_search(
     //     index, queries, num_queries, k, params, err
     // );
     // svs_search_params_free(params);
-    
+
     // 10. Process results
     if (results && svs_error_ok(err)) {
         for (size_t i = 0; i < results->num_queries; i++) {
@@ -632,7 +632,7 @@ int main() {
         }
         svs_search_results_free(results);
     }
-    
+
     // 11. Cleanup
 cleanup:
     if (index) svs_index_free(index);
@@ -640,10 +640,10 @@ cleanup:
     if (storage) svs_storage_free(storage);
     if (algo) svs_algorithm_free(algo);
     svs_error_free(err);
-    
+
     free(data);
     free(queries);
-    
+
     return 0;
 }
 ```
