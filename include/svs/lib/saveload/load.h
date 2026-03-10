@@ -883,6 +883,10 @@ class Deserializer {
     }
 
     void read_size(std::istream& stream) const {
+        if (skip_next_name_) {
+            throw ANNEXCEPTION("Error in deserialization: read_size() shouldn't follow "
+                               "read_name_in_advance()!");
+        }
         if (scheme_ == SerializationScheme::legacy) {
             lib::StreamArchiver::size_type size = 0;
             lib::StreamArchiver::read_size(stream, size);

@@ -1036,23 +1036,53 @@ auto auto_assemble(
 ) {
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
 
-    // In legacy deserialization the order of directories isn't determined.
-    auto name = deserializer.read_name_in_advance(is);
+    using Data = decltype(svs::detail::dispatch_load(data_loader(), threadpool));
+    using Graph = decltype(svs::detail::dispatch_load(graph_loader(), threadpool));
 
-    auto config = lib::load_from_stream<VamanaIndexParameters>(deserializer, is);
-    auto data = svs::detail::dispatch_load(data_loader(), threadpool);
-    auto graph = svs::detail::dispatch_load(graph_loader(), threadpool);
+    auto load_config = [&] {
+        return lib::load_from_stream<VamanaIndexParameters>(deserializer, is);
+    };
+    auto load_data = [&] { return svs::detail::dispatch_load(data_loader(), threadpool); };
+    auto load_graph = [&] {
+        return svs::detail::dispatch_load(graph_loader(), threadpool);
+    };
+
+    std::optional<VamanaIndexParameters> config;
+    std::optional<Data> data;
+    std::optional<Graph> graph;
+
+    if (deserializer.is_native()) {
+        // Order is always config->data->graph.
+        config.emplace(load_config());
+        data.emplace(load_data());
+        graph.emplace(load_graph());
+    } else {
+        // Directory packing order is filesystem-dependent.
+        // Read 3 data blocks: config, data and graph in a corresponding order
+        for (int data_block_idx = 0; data_block_idx < 3; ++data_block_idx) {
+            auto name = deserializer.read_name_in_advance(is);
+            if (name.starts_with("config/")) {
+                config.emplace(load_config());
+            } else if (name.starts_with("data/")) {
+                data.emplace(load_data());
+            } else if (name.starts_with("graph/")) {
+                graph.emplace(load_graph());
+            } else {
+                throw ANNEXCEPTION("The stream is corrupted!");
+            }
+        }
+    }
 
     // Extract the index type of the provided graph.
-    using I = typename decltype(graph)::index_type;
+    using I = typename Graph::index_type;
     auto index = VamanaIndex{
-        std::move(graph),
-        std::move(data),
+        std::move(*graph),
+        std::move(*data),
         I{},
         std::move(distance),
         std::move(threadpool),
         std::move(logger)};
-    index.apply(config);
+    index.apply(*config);
     return index;
 }
 
