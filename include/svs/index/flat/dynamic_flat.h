@@ -788,16 +788,6 @@ auto auto_dynamic_assemble(
     );
 }
 
-auto load_translator(const lib::detail::Deserializer& deserializer, std::istream& is) {
-    auto table = lib::detail::begin_deserialization(deserializer, is);
-    auto translator = IDTranslator::load(
-        table.template cast<toml::table>().at("translation").template cast<toml::table>(),
-        deserializer,
-        is
-    );
-    return translator;
-}
-
 template <typename LazyDataLoader, typename Distance, typename ThreadPoolProto>
 auto auto_dynamic_assemble(
     const lib::detail::Deserializer& deserializer,
@@ -813,29 +803,25 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-
-    using Data = decltype(svs::detail::dispatch_load(data_loader(), threadpool));
-
-    auto load_config = [&] { return load_translator(deserializer, is); };
-    auto load_data = [&] { return svs::detail::dispatch_load(data_loader(), threadpool); };
+    using Data = decltype(data_loader());
+    auto config_loader = [&] { return IDTranslator::load(deserializer, is); };
 
     std::optional<IDTranslator> config;
     std::optional<Data> data;
 
     if (deserializer.is_native()) {
         // Order is always config->data.
-        config.emplace(load_config());
-        data.emplace(load_data());
+        config.emplace(config_loader());
+        data.emplace(data_loader());
     } else {
         // Directory packing order is filesystem-dependent.
         // Read 2 data blocks: config and data in a corresponding order.
         for (int data_block_idx = 0; data_block_idx < 2; ++data_block_idx) {
             auto name = deserializer.read_name_in_advance(is);
             if (name.starts_with("config/")) {
-                config.emplace(load_config());
+                config.emplace(config_loader());
             } else if (name.starts_with("data/")) {
-                data.emplace(load_data());
+                data.emplace(data_loader());
             } else {
                 throw ANNEXCEPTION("The stream is corrupted!");
             }
@@ -851,6 +837,7 @@ auto auto_dynamic_assemble(
         );
     }
 
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return DynamicFlatIndex(
         std::move(*data),
         std::move(*config),

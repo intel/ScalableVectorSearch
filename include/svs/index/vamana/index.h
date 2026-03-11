@@ -1034,17 +1034,10 @@ auto auto_assemble(
     ThreadPoolProto threadpool_proto,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-
-    using Data = decltype(svs::detail::dispatch_load(data_loader(), threadpool));
-    using Graph = decltype(svs::detail::dispatch_load(graph_loader(), threadpool));
-
-    auto load_config = [&] {
+    using Data = decltype(data_loader());
+    using Graph = decltype(graph_loader());
+    auto config_loader = [&] {
         return lib::load_from_stream<VamanaIndexParameters>(deserializer, is);
-    };
-    auto load_data = [&] { return svs::detail::dispatch_load(data_loader(), threadpool); };
-    auto load_graph = [&] {
-        return svs::detail::dispatch_load(graph_loader(), threadpool);
     };
 
     std::optional<VamanaIndexParameters> config;
@@ -1053,26 +1046,27 @@ auto auto_assemble(
 
     if (deserializer.is_native()) {
         // Order is always config->data->graph.
-        config.emplace(load_config());
-        data.emplace(load_data());
-        graph.emplace(load_graph());
+        config.emplace(config_loader());
+        data.emplace(data_loader());
+        graph.emplace(graph_loader());
     } else {
         // Directory packing order is filesystem-dependent.
         // Read 3 data blocks: config, data and graph in a corresponding order
         for (int data_block_idx = 0; data_block_idx < 3; ++data_block_idx) {
             auto name = deserializer.read_name_in_advance(is);
             if (name.starts_with("config/")) {
-                config.emplace(load_config());
+                config.emplace(config_loader());
             } else if (name.starts_with("data/")) {
-                data.emplace(load_data());
+                data.emplace(data_loader());
             } else if (name.starts_with("graph/")) {
-                graph.emplace(load_graph());
+                graph.emplace(graph_loader());
             } else {
                 throw ANNEXCEPTION("The stream is corrupted!");
             }
         }
     }
 
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     // Extract the index type of the provided graph.
     using I = typename Graph::index_type;
     auto index = VamanaIndex{
