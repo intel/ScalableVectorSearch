@@ -487,7 +487,6 @@ class SQDataset {
     static constexpr lib::Version save_version = scalar_quantization_save_version;
     static constexpr std::string_view serialization_schema =
         scalar_quantization_serialization_schema;
-
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         return lib::SaveTable(
             serialization_schema,

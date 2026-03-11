@@ -241,10 +241,7 @@ inline std::unique_ptr<toml::node> exit_hook(SaveNode val) { return std::move(va
 /// If a ``toml::table`` is needed, use ``svs::lib::save_to_table()``.
 ///
 template <typename T> auto save(const T& x, const SaveContext& ctx) {
-    if constexpr (requires { x.save(ctx); }) {
-        // Prefer contextual saving when available (creates binary files on disk).
-        return detail::exit_hook(Saver<T>::save(x, ctx));
-    } else if constexpr (SaveableContextFree<T>) {
+    if constexpr (SaveableContextFree<T>) {
         return detail::exit_hook(Saver<T>::save(x));
     } else {
         return detail::exit_hook(Saver<T>::save(x, ctx));
