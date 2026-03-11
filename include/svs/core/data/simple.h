@@ -110,8 +110,6 @@ class GenericSerializer {
 
     template <data::ImmutableMemoryDataset Data>
     static void save(const Data& data, std::ostream& os) {
-        lib::detail::save_node_to_stream(metadata(data), os);
-
         io::save(data, os);
     }
 

@@ -382,7 +382,8 @@ inline void begin_serialization(std::ostream& os) {
 }
 
 template <typename T> void save_to_stream(const T& x, std::ostream& os) {
-    if constexpr (requires { x.save(os); }) {
+    if constexpr ((requires { x.metadata(); }) && (requires { x.save(os); })) {
+        detail::save_node_to_stream(x.metadata(), os);
         x.save(os);
     } else if constexpr (std::is_same_v<T, SaveTable>) {
         detail::save_node_to_stream(x, os);

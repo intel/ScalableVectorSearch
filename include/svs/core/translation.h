@@ -382,7 +382,7 @@ class IDTranslator {
 
     static IDTranslator
     load(const lib::detail::Deserializer& deserializer, std::istream& is) {
-        auto table = lib::detail::begin_deserialization(deserializer, is);
+        auto table = lib::detail::read_metadata(deserializer, is);
         auto translation = table.template cast<toml::table>()
                                .at("translation")
                                .template cast<toml::table>();

@@ -304,10 +304,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         return metadata(lib::save(filename.filename()), uuid);
     }
 
-    void save(std::ostream& os) const {
-        lib::detail::save_node_to_stream(metadata(), os);
-        io::save(data_, os);
-    }
+    void save(std::ostream& os) const { io::save(data_, os); }
 
   protected:
     template <lib::LazyInvocable<data_type> F, typename... Args>

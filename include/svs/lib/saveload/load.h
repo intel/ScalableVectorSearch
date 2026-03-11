@@ -901,7 +901,7 @@ class Deserializer {
 };
 
 inline ContextFreeSerializedObject
-begin_deserialization(const Deserializer& deserializer, std::istream& stream) {
+read_metadata(const Deserializer& deserializer, std::istream& stream) {
     deserializer.read_name(stream);
     if (!stream) {
         throw ANNEXCEPTION("Error reading from stream!");
@@ -979,12 +979,12 @@ T load_from_stream(
                   }) {
         // Object is loadable from it's toml::table
         return lib::load(
-            loader, detail::begin_deserialization(deserializer, stream), SVS_FWD(args)...
+            loader, detail::read_metadata(deserializer, stream), SVS_FWD(args)...
         );
     } else {
         return lib::load(
             loader,
-            detail::begin_deserialization(deserializer, stream),
+            detail::read_metadata(deserializer, stream),
             deserializer,
             stream,
             SVS_FWD(args)...

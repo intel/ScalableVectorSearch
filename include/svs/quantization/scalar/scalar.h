@@ -507,10 +507,7 @@ class SQDataset {
         );
     }
 
-    void save(std::ostream& os) const {
-        lib::detail::save_node_to_stream(metadata(), os);
-        data_.save(os);
-    }
+    void save(std::ostream& os) const { data_.save(os); }
 
     /// @brief Load dataset from a file.
     static SQDataset
