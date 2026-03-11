@@ -178,15 +178,6 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     void save(std::ostream& stream) override {
         if constexpr (Impl::supports_saving) {
             impl().save(stream);
-            // lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
-            // const auto config_dir = tempdir.get() / "config";
-            // const auto graph_dir = tempdir.get() / "graph";
-            // const auto data_dir = tempdir.get() / "data";
-            // std::filesystem::create_directories(config_dir);
-            // std::filesystem::create_directories(graph_dir);
-            // std::filesystem::create_directories(data_dir);
-            // save(config_dir, graph_dir, data_dir);
-            // lib::DirectoryArchiver::pack(tempdir, stream);
         } else {
             throw ANNEXCEPTION("The current Vamana backend doesn't support saving!");
         }
