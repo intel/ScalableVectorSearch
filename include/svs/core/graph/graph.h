@@ -289,8 +289,8 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         return table;
     }
 
-    template <class FileName_t>
-    lib::SaveTable metadata(const FileName_t& filename, const lib::UUID& uuid) const {
+    template <class FileName>
+    lib::SaveTable metadata(const FileName& filename, const lib::UUID& uuid) const {
         auto table = metadata();
         table.insert("binary_file", filename);
         table.insert("uuid", uuid.str());
