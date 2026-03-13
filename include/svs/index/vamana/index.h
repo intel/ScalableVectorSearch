@@ -85,8 +85,7 @@ struct VamanaIndexParameters {
     static constexpr lib::Version save_version = lib::Version(0, 0, 3);
     static constexpr std::string_view serialization_schema = "vamana_index_parameters";
 
-    // Save and Reload.
-    lib::SaveTable save() const {
+    lib::SaveTable metadata() const {
         return lib::SaveTable(
             serialization_schema,
             save_version,
@@ -96,6 +95,9 @@ struct VamanaIndexParameters {
              SVS_LIST_SAVE(search_parameters)}
         );
     }
+
+    // Save to Table and Reload.
+    lib::SaveTable save() const { return metadata(); }
 
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return schema == serialization_schema && version <= save_version;
@@ -821,7 +823,7 @@ class VamanaIndex {
 
         lib::begin_serialization(os);
         // Config
-        lib::save_to_stream(parameters.save(), os);
+        lib::save_to_stream(parameters, os);
         // Data
         lib::save_to_stream(data_, os);
         // // Graph

@@ -381,12 +381,16 @@ inline void begin_serialization(std::ostream& os) {
     lib::StreamArchiver::write_size(os, lib::StreamArchiver::magic_number);
 }
 
+inline void save_to_stream(const lib::SaveTable& x, std::ostream& os) {
+    detail::save_node_to_stream(x, os);
+}
+
 template <typename T> void save_to_stream(const T& x, std::ostream& os) {
-    if constexpr ((requires { x.metadata(); }) && (requires { x.save(os); })) {
-        detail::save_node_to_stream(x.metadata(), os);
-        x.save(os);
-    } else if constexpr (std::is_same_v<T, SaveTable>) {
-        detail::save_node_to_stream(x, os);
+    if constexpr (requires { x.metadata(); }) {
+        save_to_stream(x.metadata(), os);
+        if constexpr (requires { x.save(os); }) {
+            x.save(os);
+        }
     } else {
         static_assert(sizeof(T) == 0, "Type not stream-serializable");
     }

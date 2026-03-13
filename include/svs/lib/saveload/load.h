@@ -961,6 +961,10 @@ T load_from_disk(const std::filesystem::path& path, Args&&... args) {
     return lib::load_from_disk(Loader<T>(), path, SVS_FWD(args)...);
 }
 
+template <typename T, typename... Args>
+concept LoadableFromTable = requires(const T& x
+) { T::load(std::declval<const ContextFreeLoadTable&>(), std::declval<Args&&>()...); };
+
 ///// load_from_stream
 template <typename T, typename... Args>
 T load_from_stream(
@@ -968,28 +972,29 @@ T load_from_stream(
     const detail::Deserializer& deserializer,
     std::istream& stream,
     Args&&... args
-) {
-    // At this point, we will try the saving/loading framework to load the object.
-    // Here we go!
-    if constexpr (requires {
-                      T::load(
-                          std::declval<const ContextFreeLoadTable&>(),
-                          std::declval<Args&&>()...
-                      );
-                  }) {
-        // Object is loadable from it's toml::table
-        return lib::load(
-            loader, detail::read_metadata(deserializer, stream), SVS_FWD(args)...
-        );
-    } else {
-        return lib::load(
-            loader,
-            detail::read_metadata(deserializer, stream),
-            deserializer,
-            stream,
-            SVS_FWD(args)...
-        );
-    }
+)
+    requires LoadableFromTable<T, Args...>
+{
+    // Object is loadable from it's toml::table
+    return lib::load(loader, detail::read_metadata(deserializer, stream), SVS_FWD(args)...);
+}
+
+template <typename T, typename... Args>
+T load_from_stream(
+    const Loader<T>& loader,
+    const detail::Deserializer& deserializer,
+    std::istream& stream,
+    Args&&... args
+)
+    requires(!LoadableFromTable<T, Args...>)
+{
+    return lib::load(
+        loader,
+        detail::read_metadata(deserializer, stream),
+        deserializer,
+        stream,
+        SVS_FWD(args)...
+    );
 }
 
 template <typename T, typename... Args>
