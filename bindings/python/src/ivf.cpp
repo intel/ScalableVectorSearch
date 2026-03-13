@@ -147,9 +147,6 @@ svs::IVF uncompressed_assemble_from_clustering_from_array(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Create a mutable SimpleDataView so that lib_alloc_data_type resolves to a
-    // writable type (needed for cluster storage).  The underlying numpy memory IS
-    // writable; constness was introduced by the AnonymousVectorData wrapper.
     auto mutable_view = svs::data::SimpleDataView<T, N>(
         const_cast<T*>(view.data()), view.size(), view.dimensions()
     );
@@ -248,8 +245,6 @@ Clustering uncompressed_build_from_array(
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
-    // Pass the numpy view directly — build_clustering detects
-    // ImmutableMemoryDataset and passes by reference (zero copy).
     return svs::IVF::build_clustering<svs::BFloat16>(
         parameters, view, distance_type, num_threads
     );
