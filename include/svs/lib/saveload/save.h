@@ -326,7 +326,7 @@ void save_node_to_stream(
     Nodelike&& node, std::ostream& os, const lib::Version& version = CURRENT_SAVE_VERSION
 ) {
     auto top_table = toml::table(
-        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(node)}}
+        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(exit_hook(node))}}
     );
 
     StreamArchiver::write_table(os, top_table);
@@ -381,13 +381,16 @@ inline void begin_serialization(std::ostream& os) {
     lib::StreamArchiver::write_size(os, lib::StreamArchiver::magic_number);
 }
 
+inline void save_to_stream(const lib::SaveTable& x, std::ostream& os) {
+    detail::save_node_to_stream(x, os);
+}
+
 template <typename T> void save_to_stream(const T& x, std::ostream& os) {
-    if constexpr (requires { x.save_table(); }) {
-        auto save_table = x.save_table();
-        detail::save_node_to_stream(detail::exit_hook(save_table), os);
-        x.save(os);
-    } else if constexpr (std::is_same_v<T, SaveTable>) {
-        detail::save_node_to_stream(detail::exit_hook(x), os);
+    if constexpr (requires { x.metadata(); }) {
+        save_to_stream(x.metadata(), os);
+        if constexpr (requires { x.save(os); }) {
+            x.save(os);
+        }
     } else {
         static_assert(sizeof(T) == 0, "Type not stream-serializable");
     }

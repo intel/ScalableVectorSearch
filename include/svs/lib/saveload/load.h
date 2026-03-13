@@ -883,6 +883,10 @@ class Deserializer {
     }
 
     void read_size(std::istream& stream) const {
+        if (skip_next_name_) {
+            throw ANNEXCEPTION("Error in deserialization: read_size() shouldn't follow "
+                               "read_name_in_advance()!");
+        }
         if (scheme_ == SerializationScheme::legacy) {
             lib::StreamArchiver::size_type size = 0;
             lib::StreamArchiver::read_size(stream, size);
@@ -897,7 +901,7 @@ class Deserializer {
 };
 
 inline ContextFreeSerializedObject
-begin_deserialization(const Deserializer& deserializer, std::istream& stream) {
+read_metadata(const Deserializer& deserializer, std::istream& stream) {
     deserializer.read_name(stream);
     if (!stream) {
         throw ANNEXCEPTION("Error reading from stream!");
@@ -957,6 +961,10 @@ T load_from_disk(const std::filesystem::path& path, Args&&... args) {
     return lib::load_from_disk(Loader<T>(), path, SVS_FWD(args)...);
 }
 
+template <typename T, typename... Args>
+concept LoadableFromTable = requires(const T& x
+) { T::load(std::declval<const ContextFreeLoadTable&>(), std::declval<Args&&>()...); };
+
 ///// load_from_stream
 template <typename T, typename... Args>
 T load_from_stream(
@@ -964,12 +972,25 @@ T load_from_stream(
     const detail::Deserializer& deserializer,
     std::istream& stream,
     Args&&... args
-) {
-    // At this point, we will try the saving/loading framework to load the object.
-    // Here we go!
+)
+    requires LoadableFromTable<T, Args...>
+{
+    // Object is loadable from it's toml::table
+    return lib::load(loader, detail::read_metadata(deserializer, stream), SVS_FWD(args)...);
+}
+
+template <typename T, typename... Args>
+T load_from_stream(
+    const Loader<T>& loader,
+    const detail::Deserializer& deserializer,
+    std::istream& stream,
+    Args&&... args
+)
+    requires(!LoadableFromTable<T, Args...>)
+{
     return lib::load(
         loader,
-        detail::begin_deserialization(deserializer, stream),
+        detail::read_metadata(deserializer, stream),
         deserializer,
         stream,
         SVS_FWD(args)...

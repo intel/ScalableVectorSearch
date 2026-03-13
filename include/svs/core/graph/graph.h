@@ -276,21 +276,35 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///// Saving
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
     static constexpr std::string_view serialization_schema = "default_graph";
+
+    lib::SaveTable metadata() const {
+        auto table = lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"name", "graph"},
+             {"max_degree", lib::save(max_degree())},
+             {"num_vertices", lib::save(n_nodes())},
+             {"eltype", lib::save(datatype_v<Idx>)}}
+        );
+        return table;
+    }
+
+    template <class FileName>
+    lib::SaveTable metadata(const FileName& filename, const lib::UUID& uuid) const {
+        auto table = metadata();
+        table.insert("binary_file", filename);
+        table.insert("uuid", uuid.str());
+        return table;
+    }
+
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         auto uuid = lib::UUID{};
         auto filename = ctx.generate_name("graph");
         io::save(data_, io::NativeFile(filename), uuid);
-        return lib::SaveTable(
-            serialization_schema,
-            save_version,
-            {{"name", "graph"},
-             {"binary_file", lib::save(filename.filename())},
-             {"max_degree", lib::save(max_degree())},
-             {"num_vertices", lib::save(n_nodes())},
-             {"uuid", lib::save(uuid.str())},
-             {"eltype", lib::save(datatype_v<Idx>)}}
-        );
+        return metadata(lib::save(filename.filename()), uuid);
     }
+
+    void save(std::ostream& os) const { io::save(data_, os); }
 
   protected:
     template <lib::LazyInvocable<data_type> F, typename... Args>
@@ -315,6 +329,39 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
         }
         return lazy(data_type::load(binaryfile.value(), std::forward<Args>(args)...));
+    }
+
+    template <lib::LazyInvocable<data_type> F, typename... AllocArgs>
+    static lib::lazy_result_t<F, data_type> load(
+        const lib::ContextFreeLoadTable& table,
+        const F& lazy,
+        const lib::detail::Deserializer& deserializer,
+        std::istream& is,
+        AllocArgs&&... alloc_args
+    ) {
+        // Perform a sanity check on the element type.
+        // Make sure we're loading the correct kind.
+        auto eltype = lib::load_at<DataType>(table, "eltype");
+        if (eltype != datatype_v<Idx>) {
+            throw ANNEXCEPTION(
+                "Trying to load a graph with adjacency list types {} to a graph with "
+                "adjacency list types {}.",
+                name(eltype),
+                name<datatype_v<Idx>>()
+            );
+        }
+
+        size_t num_vertices = lib::load_at<size_t>(table, "num_vertices");
+        size_t max_degree = lib::load_at<size_t>(table, "max_degree");
+
+        // Skip legacy stream metadata (no-op for native serialization).
+        deserializer.read_name(is);
+        deserializer.read_size(is);
+        deserializer.read_binary<io::v1::Header>(is);
+
+        auto data = data_type(num_vertices, max_degree + 1, alloc_args...);
+        io::populate(is, data);
+        return lazy(std::move(data));
     }
 
   protected:
@@ -366,6 +413,16 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         return parent_type::load(table, lazy, allocator);
     }
 
+    static constexpr SimpleGraph load(
+        const lib::ContextFreeLoadTable& table,
+        const lib::detail::Deserializer& deserializer,
+        std::istream& is,
+        const Alloc& allocator = {}
+    ) {
+        auto lazy = lib::Lazy([](data_type data) { return SimpleGraph(std::move(data)); });
+        return parent_type::load(table, lazy, deserializer, is, allocator);
+    }
+
     static constexpr SimpleGraph
     load(const std::filesystem::path& path, const Alloc& allocator = {}) {
         if (data::detail::is_likely_reload(path)) {
@@ -373,6 +430,14 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         } else {
             return SimpleGraph(data_type::load(path, allocator));
         }
+    }
+
+    static constexpr SimpleGraph load(
+        const lib::detail::Deserializer& deserializer,
+        std::istream& is,
+        const Alloc& allocator = {}
+    ) {
+        return lib::load_from_stream<SimpleGraph>(deserializer, is, allocator);
     }
 };
 

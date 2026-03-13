@@ -788,16 +788,6 @@ auto auto_dynamic_assemble(
     );
 }
 
-auto load_translator(const lib::detail::Deserializer& deserializer, std::istream& is) {
-    auto table = lib::detail::begin_deserialization(deserializer, is);
-    auto translator = IDTranslator::load(
-        table.template cast<toml::table>().at("translation").template cast<toml::table>(),
-        deserializer,
-        is
-    );
-    return translator;
-}
-
 template <typename LazyDataLoader, typename Distance, typename ThreadPoolProto>
 auto auto_dynamic_assemble(
     const lib::detail::Deserializer& deserializer,
@@ -813,38 +803,44 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    IDTranslator translator;
-    // In legacy deserialization the order of directories isn't determined.
-    auto name = deserializer.read_name_in_advance(is);
+    using Data = decltype(data_loader());
+    auto config_loader = [&] { return IDTranslator::load(deserializer, is); };
 
-    // We have to hardcode the file_name for legacy mode, since it was hardcoded when legacy
-    // model was serialized
-    bool translator_before_data =
-        (name == "config/svs_config.toml") || deserializer.is_native();
-    if (translator_before_data) {
-        translator = load_translator(deserializer, is);
-    }
+    std::optional<IDTranslator> config;
+    std::optional<Data> data;
 
-    // Load the dataset
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto data = svs::detail::dispatch_load(data_loader(), threadpool);
-    auto datasize = data.size();
-
-    if (!translator_before_data) {
-        translator = load_translator(deserializer, is);
+    if (deserializer.is_native()) {
+        // Order is always config->data.
+        config.emplace(config_loader());
+        data.emplace(data_loader());
+    } else {
+        // Directory packing order is filesystem-dependent.
+        // Read 2 data blocks: config and data in a corresponding order.
+        for (int data_block_idx = 0; data_block_idx < 2; ++data_block_idx) {
+            auto name = deserializer.read_name_in_advance(is);
+            if (name.starts_with("config/")) {
+                config.emplace(config_loader());
+            } else if (name.starts_with("data/")) {
+                data.emplace(data_loader());
+            } else {
+                throw ANNEXCEPTION("The stream is corrupted!");
+            }
+        }
     }
 
     // Validate the translator
-    auto translator_size = translator.size();
+    auto translator_size = config->size();
+    auto datasize = data->size();
     if (translator_size != datasize) {
         throw ANNEXCEPTION(
             "Translator has {} IDs but should have {}", translator_size, datasize
         );
     }
 
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return DynamicFlatIndex(
-        std::move(data),
-        std::move(translator),
+        std::move(*data),
+        std::move(*config),
         std::move(distance),
         std::move(threadpool),
         std::move(logger)
