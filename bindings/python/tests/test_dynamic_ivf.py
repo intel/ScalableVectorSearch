@@ -172,6 +172,91 @@ class DynamicIVFTester(unittest.TestCase):
                 index, reference, num_neighbors, expected_recall, expected_recall_delta
             )
 
+    def test_assemble_from_numpy(self):
+        """
+        Test that DynamicIVF assemble_from_clustering and assemble_from_file
+        accept numpy arrays directly (in addition to VectorDataLoader).
+        """
+        num_threads = 2
+
+        # Use full dataset (matching the clustering) with sequential IDs
+        data = svs.read_vecs(test_data_vecs)
+        ids = np.arange(test_number_of_vectors, dtype = np.uint64)
+
+        queries = svs.read_vecs(test_queries)
+        groundtruth = svs.read_vecs(test_groundtruth_l2)
+
+        # Build clustering from numpy array directly
+        build_params = svs.IVFBuildParameters(
+            num_centroids = 128,
+            minibatch_size = 128,
+            num_iterations = 10,
+            is_hierarchical = False,
+            training_fraction = 0.8,
+            hierarchical_level1_clusters = 0,
+            seed = 42,
+        )
+
+        clustering = svs.Clustering.build(
+            build_parameters = build_params,
+            py_data = data,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+
+        # Test assemble_from_clustering with numpy array
+        print("Testing DynamicIVF.assemble_from_clustering with numpy array")
+        index = svs.DynamicIVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data,
+            ids = ids,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+
+        self.assertEqual(index.size, test_number_of_vectors)
+        self.assertEqual(index.dimensions, test_data_dims)
+
+        # Verify search works
+        search_params = svs.IVFSearchParameters(n_probes = 30, k_reorder = 200)
+        index.search_parameters = search_params
+        k = 10
+        I, D = index.search(queries, k)
+        recall = svs.k_recall_at(groundtruth, I, k, k)
+        print(f"  assemble_from_clustering numpy recall: {recall}")
+        self.assertTrue(0.5 < recall <= 1.0)
+
+        # Test add/delete still works after numpy-assembled index
+        new_data = data[:100]
+        delete_ids = ids[:100]
+        index.delete(delete_ids)
+        self.assertEqual(index.size, test_number_of_vectors - 100)
+        index.add(new_data, delete_ids)
+        self.assertEqual(index.size, test_number_of_vectors)
+
+        # Test assemble_from_file with numpy array
+        with TemporaryDirectory() as tempdir:
+            clustering_dir = os.path.join(tempdir, "clustering")
+            clustering.save(clustering_dir)
+
+            print("Testing DynamicIVF.assemble_from_file with numpy array")
+            index2 = svs.DynamicIVF.assemble_from_file(
+                clustering_path = clustering_dir,
+                py_data = data,
+                ids = ids,
+                distance = svs.DistanceType.L2,
+                num_threads = num_threads,
+            )
+
+            self.assertEqual(index2.size, test_number_of_vectors)
+            self.assertEqual(index2.dimensions, test_data_dims)
+
+            index2.search_parameters = search_params
+            I2, D2 = index2.search(queries, k)
+            recall2 = svs.k_recall_at(groundtruth, I2, k, k)
+            print(f"  assemble_from_file numpy recall: {recall2}")
+            self.assertTrue(0.5 < recall2 <= 1.0)
+
     def test_build_from_loader(self):
         """Test building DynamicIVF using a VectorDataLoader and explicit IDs."""
         num_threads = 2
