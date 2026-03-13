@@ -1012,25 +1012,23 @@ class DynamicIVFIndex {
 /// @param threadpool_proto Thread pool for parallel operations
 /// @param intra_query_thread_count Number of threads for intra-query parallelism
 ///
-template <
-    typename Clustering,
-    typename DataProto,
-    typename Distance,
-    typename ThreadpoolProto>
-auto assemble_dynamic_from_clustering(
+/// Internal implementation: takes data by const reference (no ownership transfer).
+template <typename Clustering, typename Data, typename Distance, threads::ThreadPool Pool>
+auto assemble_dynamic_from_clustering_impl(
     Clustering clustering,
-    const DataProto& data_proto,
+    const Data& data,
     std::span<const size_t> ids,
     Distance distance,
-    ThreadpoolProto threadpool_proto,
-    const size_t intra_query_thread_count = 1
+    Pool& threadpool,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
 ) {
+    // Initialize timing infrastructure
+    auto timer = lib::Timer();
+    auto assemble_timer = timer.push_back("Total Dynamic Assembling time");
+
     using I = uint32_t;
     using centroids_type = data::SimpleData<typename Clustering::T>;
-
-    // Load the data
-    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-    auto data = svs::detail::dispatch_load(data_proto, threadpool);
 
     // Validate that ids size matches data size
     if (ids.size() != data.size()) {
@@ -1040,7 +1038,7 @@ auto assemble_dynamic_from_clustering(
     }
 
     // Use lib_blocked_alloc_data_type for Dynamic IVF
-    using blocked_data_type = typename decltype(data)::lib_blocked_alloc_data_type;
+    using blocked_data_type = typename Data::lib_blocked_alloc_data_type;
 
     // Use a small block size for IVF clusters (1MB instead of 1GB default)
     auto blocking_params = data::BlockingParameters{
@@ -1050,14 +1048,16 @@ auto assemble_dynamic_from_clustering(
     auto blocked_allocator =
         allocator_type(blocking_params, typename allocator_type::allocator_type());
 
-    // Create clustered dataset - DenseClusteredDataset will use the extension system
-    // to create the appropriate data type with blocked allocator via create_dense_cluster
+    // Create clustered dataset with blocked allocator
+    auto dense_cluster_timer = timer.push_back("Dense clustering (blocked allocator)");
     auto dense_clusters = DenseClusteredDataset<centroids_type, I, blocked_data_type>(
         clustering, data, threadpool, blocked_allocator
     );
+    dense_cluster_timer.finish();
 
     // Create the index
-    return DynamicIVFIndex<
+    auto index_build_timer = timer.push_back("DynamicIVF index construction");
+    auto ivf_index = DynamicIVFIndex<
         centroids_type,
         decltype(dense_clusters),
         Distance,
@@ -1069,6 +1069,59 @@ auto assemble_dynamic_from_clustering(
         std::move(threadpool),
         intra_query_thread_count
     );
+    index_build_timer.finish();
+
+    // Log timing results
+    assemble_timer.finish();
+    svs::logging::debug(logger, "{}", timer);
+    return ivf_index;
+}
+
+/// Public entry point: if data_proto is already a loaded dataset, pass it by
+/// reference to avoid taking ownership. Otherwise, load it via dispatch_load.
+template <
+    typename Clustering,
+    typename DataProto,
+    typename Distance,
+    typename ThreadpoolProto>
+auto assemble_dynamic_from_clustering(
+    Clustering clustering,
+    DataProto&& data_proto,
+    std::span<const size_t> ids,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    // If data_proto is already a loaded dataset, pass it directly by reference
+    // to avoid an unnecessary copy/move and expensive deallocation.
+    // Otherwise, load it via dispatch_load.
+    using Decayed = std::decay_t<DataProto>;
+    if constexpr (data::ImmutableMemoryDataset<Decayed>) {
+        return assemble_dynamic_from_clustering_impl(
+            std::move(clustering),
+            data_proto,
+            ids,
+            std::move(distance),
+            threadpool,
+            intra_query_thread_count,
+            std::move(logger)
+        );
+    } else {
+        auto data =
+            svs::detail::dispatch_load(std::forward<DataProto>(data_proto), threadpool);
+        return assemble_dynamic_from_clustering_impl(
+            std::move(clustering),
+            data,
+            ids,
+            std::move(distance),
+            threadpool,
+            intra_query_thread_count,
+            std::move(logger)
+        );
+    }
 }
 
 /// @brief Load a saved DynamicIVFIndex from disk

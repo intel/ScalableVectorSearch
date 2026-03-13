@@ -23,6 +23,7 @@
 #include "svs/python/manager.h"
 
 // svs
+#include "svs/core/data/simple.h"
 #include "svs/index/ivf/data_traits.h"
 #include "svs/lib/dispatcher.h"
 #include "svs/lib/saveload.h"
@@ -125,6 +126,72 @@ void register_ivf_assembly_from_file(Dispatcher& dispatcher) {
     register_uncompressed_ivf_assemble_from_file(dispatcher);
 }
 
+/////
+///// Assemble from Clustering from Array
+/////
+
+template <typename Q, typename T, size_t N>
+svs::DynamicIVF uncompressed_assemble_from_clustering_from_array(
+    Clustering clustering,
+    svs::data::ConstSimpleDataView<T, N> view,
+    std::span<const size_t> ids,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    // Create a mutable SimpleDataView so that lib_alloc_data_type resolves to a
+    // writable type (needed for cluster storage).  The underlying numpy memory IS
+    // writable; constness was introduced by the AnonymousVectorData wrapper.
+    auto mutable_view = svs::data::SimpleDataView<T, N>(
+        const_cast<T*>(view.data()), view.size(), view.dimensions()
+    );
+    return svs::DynamicIVF::assemble_from_clustering<Q>(
+        std::move(clustering),
+        mutable_view,
+        ids,
+        distance_type,
+        num_threads,
+        intra_query_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_ivf_assemble_from_clustering_from_array(Dispatcher& dispatcher) {
+    for_standard_specializations([&dispatcher]<typename Q, typename T, size_t N>() {
+        auto method = &uncompressed_assemble_from_clustering_from_array<Q, T, N>;
+        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+    });
+}
+
+/////
+///// Assemble from File from Array
+/////
+
+template <typename Q, typename T, size_t N>
+svs::DynamicIVF uncompressed_assemble_from_file_from_array(
+    const std::filesystem::path& cluster_path,
+    svs::data::ConstSimpleDataView<T, N> view,
+    std::span<const size_t> ids,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    auto mutable_view = svs::data::SimpleDataView<T, N>(
+        const_cast<T*>(view.data()), view.size(), view.dimensions()
+    );
+    return svs::DynamicIVF::assemble_from_file<Q, svs::BFloat16>(
+        cluster_path, mutable_view, ids, distance_type, num_threads, intra_query_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_ivf_assemble_from_file_from_array(Dispatcher& dispatcher) {
+    for_standard_specializations([&dispatcher]<typename Q, typename T, size_t N>() {
+        auto method = &uncompressed_assemble_from_file_from_array<Q, T, N>;
+        dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+    });
+}
+
 using IVFAssembleTypes =
     std::variant<UnspecializedVectorDataLoader, svs::lib::SerializedObject>;
 
@@ -207,6 +274,147 @@ svs::DynamicIVF assemble_from_file(
         distance_type,
         num_threads,
         intra_query_threads
+    );
+}
+
+// Assemble from clustering from array.
+using AssembleFromClusteringArrayDispatcher = svs::lib::Dispatcher<
+    svs::DynamicIVF,
+    Clustering,
+    AnonymousVectorData,
+    std::span<const size_t>,
+    svs::DistanceType,
+    size_t,
+    size_t>;
+
+AssembleFromClusteringArrayDispatcher assemble_from_clustering_array_dispatcher() {
+    auto dispatcher = AssembleFromClusteringArrayDispatcher{};
+    register_ivf_assemble_from_clustering_from_array(dispatcher);
+    return dispatcher;
+}
+
+svs::DynamicIVF assemble_from_clustering_from_array(
+    Clustering clustering,
+    AnonymousVectorData py_data,
+    const py_contiguous_array_t<size_t>& py_ids,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
+    return assemble_from_clustering_array_dispatcher().invoke(
+        std::move(clustering), py_data, ids, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Assemble from file from array.
+using AssembleFromFileArrayDispatcher = svs::lib::Dispatcher<
+    svs::DynamicIVF,
+    const std::filesystem::path&,
+    AnonymousVectorData,
+    std::span<const size_t>,
+    svs::DistanceType,
+    size_t,
+    size_t>;
+
+AssembleFromFileArrayDispatcher assemble_from_file_array_dispatcher() {
+    auto dispatcher = AssembleFromFileArrayDispatcher{};
+    register_ivf_assemble_from_file_from_array(dispatcher);
+    return dispatcher;
+}
+
+svs::DynamicIVF assemble_from_file_from_array(
+    const std::string& cluster_path,
+    AnonymousVectorData py_data,
+    const py_contiguous_array_t<size_t>& py_ids,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    auto ids = std::span<const size_t>(py_ids.data(), py_ids.size());
+    return assemble_from_file_array_dispatcher().invoke(
+        cluster_path, py_data, ids, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Templatize at the top level for numpy array assemble specializations.
+template <typename ElementType>
+void add_assemble_from_clustering_array_specialization(
+    py::class_<svs::DynamicIVF>& dynamic_ivf
+) {
+    dynamic_ivf.def_static(
+        "assemble_from_clustering",
+        [](Clustering clustering,
+           py_contiguous_array_t<ElementType> py_data,
+           const py_contiguous_array_t<size_t>& py_ids,
+           svs::DistanceType distance,
+           size_t num_threads,
+           size_t intra_query_threads) {
+            return assemble_from_clustering_from_array(
+                std::move(clustering),
+                AnonymousVectorData(py_data),
+                py_ids,
+                distance,
+                num_threads,
+                intra_query_threads
+            );
+        },
+        py::arg("clustering"),
+        py::arg("py_data"),
+        py::arg("ids"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Assemble a searchable DynamicIVF index from provided clustering and numpy data array.
+
+Args:
+    clustering: The clustering object (from Clustering.build or Clustering.load_clustering).
+    py_data: The dataset as a numpy array. SVS will maintain an internal copy.
+    ids: External IDs for the vectors. Must match dataset length and contain unique values.
+    distance: The distance function to use. Default: L2.
+    num_threads: The number of threads to use for queries. Default: 1.
+    intra_query_threads: Number of threads for intra-query parallelism. Default: 1.
+)"
+    );
+}
+
+template <typename ElementType>
+void add_assemble_from_file_array_specialization(py::class_<svs::DynamicIVF>& dynamic_ivf) {
+    dynamic_ivf.def_static(
+        "assemble_from_file",
+        [](const std::string& clustering_path,
+           py_contiguous_array_t<ElementType> py_data,
+           const py_contiguous_array_t<size_t>& py_ids,
+           svs::DistanceType distance,
+           size_t num_threads,
+           size_t intra_query_threads) {
+            return assemble_from_file_from_array(
+                clustering_path,
+                AnonymousVectorData(py_data),
+                py_ids,
+                distance,
+                num_threads,
+                intra_query_threads
+            );
+        },
+        py::arg("clustering_path"),
+        py::arg("py_data"),
+        py::arg("ids"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Assemble a searchable DynamicIVF index from clustering on disk and numpy data array.
+
+Args:
+    clustering_path: Path to the directory where the clustering was generated.
+    py_data: The dataset as a numpy array. SVS will maintain an internal copy.
+    ids: External IDs for the vectors. Must match dataset length and contain unique values.
+    distance: The distance function to use. Default: L2.
+    num_threads: The number of threads to use for queries. Default: 1.
+    intra_query_threads: Number of threads for intra-query parallelism. Default: 1.
+)"
     );
 }
 
@@ -461,6 +669,10 @@ Method {}:
             fmt::format(ASSEMBLE_DOCSTRING_PROTO, dynamic).c_str()
         );
     }
+
+    // Assemble from numpy array.
+    add_assemble_from_clustering_array_specialization<float>(dynamic_ivf);
+    add_assemble_from_file_array_specialization<float>(dynamic_ivf);
 
     // Index modification.
     add_points_specialization<float>(dynamic_ivf);
