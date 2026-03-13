@@ -355,33 +355,49 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         ThreadPoolProto threadpool_proto,
         DataLoaderArgs&&... data_args
     ) {
-        namespace fs = std::filesystem;
-        lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
-        lib::DirectoryArchiver::unpack(stream, tempdir);
-
-        const auto config_path = tempdir.get() / "config";
-        if (!fs::is_directory(config_path)) {
-            throw ANNEXCEPTION("Invalid Vamana index archive: missing config directory!");
+        auto deserializer = svs::lib::detail::Deserializer::build(stream);
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        using GraphType = svs::GraphLoader<>::return_type;
+        if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+            auto dispatcher = DistanceDispatcher(distance);
+            return dispatcher([&](auto distance_function) {
+                return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                    index::vamana::auto_dynamic_assemble(
+                        deserializer,
+                        stream,
+                        // lazy graph loader
+                        [&]() -> GraphType {
+                            return GraphType::load(deserializer, stream);
+                        },
+                        // lazy data loader
+                        [&]() -> Data {
+                            return lib::load_from_stream<Data>(
+                                deserializer, stream, SVS_FWD(data_args)...
+                            );
+                        },
+                        distance_function,
+                        std::move(threadpool)
+                    )
+                );
+            });
+        } else {
+            return make_dynamic_vamana<manager::as_typelist<QueryTypes>>(
+                index::vamana::auto_dynamic_assemble(
+                    deserializer,
+                    stream,
+                    // lazy graph loader
+                    [&]() -> GraphType { return GraphType::load(deserializer, stream); },
+                    // lazy data loader
+                    [&]() -> Data {
+                        return lib::load_from_stream<Data>(
+                            deserializer, stream, SVS_FWD(data_args)...
+                        );
+                    },
+                    distance,
+                    std::move(threadpool)
+                )
+            );
         }
-
-        const auto graph_path = tempdir.get() / "graph";
-        if (!fs::is_directory(graph_path)) {
-            throw ANNEXCEPTION("Invalid Vamana index archive: missing graph directory!");
-        }
-
-        const auto data_path = tempdir.get() / "data";
-        if (!fs::is_directory(data_path)) {
-            throw ANNEXCEPTION("Invalid Vamana index archive: missing data directory!");
-        }
-
-        return assemble<QueryTypes>(
-            config_path,
-            svs::GraphLoader{graph_path},
-            lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
-            distance,
-            threads::as_threadpool(std::move(threadpool_proto)),
-            false
-        );
     }
 
     /// @copydoc svs::Vamana::batch_iterator
