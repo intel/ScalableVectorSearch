@@ -156,7 +156,7 @@ class MultiMutableVamanaIndex {
   public:
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
-    static constexpr bool supports_saving = false;
+    static constexpr bool supports_saving = false; // temporary disable for now
     static constexpr bool needs_id_translation = true;
 
     using ParentIndex = MutableVamanaIndex<Graph, Data, Dist>;
