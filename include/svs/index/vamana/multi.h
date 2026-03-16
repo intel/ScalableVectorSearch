@@ -156,7 +156,7 @@ class MultiMutableVamanaIndex {
   public:
     static constexpr bool supports_insertions = true;
     static constexpr bool supports_deletions = true;
-    static constexpr bool supports_saving = false; // temporary disable for now
+    static constexpr bool supports_saving = false;
     static constexpr bool needs_id_translation = true;
 
     using ParentIndex = MutableVamanaIndex<Graph, Data, Dist>;
@@ -628,6 +628,57 @@ class MultiMutableVamanaIndex {
         // Graph
         lib::save_to_disk(index_->graph_, graph_directory);
     }
+
+    void save(std::ostream& os) {
+        consolidate();
+        compact();
+
+        // Since data is in order of external ids,
+        // convert a map of external ids to label types into a sorted vector of labels based
+        // on external ids.
+        std::vector<std::pair<external_id_type, label_type>> ext_lab_vec(
+            external_to_label_.begin(), external_to_label_.end()
+        );
+        std::sort(ext_lab_vec.begin(), ext_lab_vec.end(), [](const auto& a, const auto& b) {
+            return a.first < b.first;
+        });
+
+        size_t num_labels = ext_lab_vec.size();
+        std::vector<label_type> labels(num_labels);
+        std::transform(
+            ext_lab_vec.begin(),
+            ext_lab_vec.end(),
+            labels.begin(),
+            [](const auto& ext_lab) { return ext_lab.second; }
+        );
+
+        lib::begin_serialization(os);
+
+        auto parameters = VamanaIndexParameters{
+            index_->entry_point_.front(),
+            {get_alpha(),
+             max_degree(),
+             get_construction_window_size(),
+             get_max_candidates(),
+             get_prune_to(),
+             get_full_search_history()},
+            get_search_parameters()};
+
+        auto save_table = lib::SaveTable(
+            "multi_vamana_dynamic_auxiliary_parameters",
+            save_version,
+            {{"name", lib::save(name())},
+             {"parameters", lib::save(parameters)},
+             {"num_labels", lib::save(num_labels)}}
+        );
+        lib::save_to_stream(save_table, os);
+        lib::write_binary(os, labels);
+
+        // Save the dataset.
+        lib::save_to_stream(index_->data_, os);
+        // Save the graph.
+        lib::save_to_stream(index_->graph_, os);
+    }
 };
 
 ///// Deduction Guides.
@@ -787,6 +838,96 @@ auto auto_multi_dynamic_assemble(
         default:
             throw ANNEXCEPTION("Invalid multi vamana load type");
     }
+}
+
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_multi_dynamic_assemble(
+    const lib::detail::Deserializer& deserializer,
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    using Data = decltype(data_loader());
+    using Graph = decltype(graph_loader());
+    using label_type = size_t;
+
+    // The config loader reads the TOML metadata and the labels binary data.
+    auto config_loader =
+        [&]() -> std::pair<VamanaIndexParameters, std::vector<label_type>> {
+        auto table = lib::detail::read_metadata(deserializer, is);
+
+        auto parameters = lib::load<VamanaIndexParameters>(
+            table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+        );
+
+        auto num_labels =
+            lib::load<size_t>(table.template cast<toml::table>().at("num_labels"));
+
+        deserializer.read_name(is);
+        deserializer.read_size(is);
+
+        // Read labels binary data directly from the stream.
+        std::vector<label_type> labels(num_labels);
+        lib::read_binary(is, labels);
+
+        return {std::move(parameters), std::move(labels)};
+    };
+
+    std::optional<std::pair<VamanaIndexParameters, std::vector<label_type>>> config;
+    std::optional<Data> data;
+    std::optional<Graph> graph;
+
+    if (deserializer.is_native()) {
+        // Order is always config->data->graph.
+        config.emplace(config_loader());
+        data.emplace(data_loader());
+        graph.emplace(graph_loader());
+    } else {
+        // Directory packing order is filesystem-dependent.
+        // Read 3 data blocks: config, data and graph in a corresponding order.
+        for (int data_block_idx = 0; data_block_idx < 3; ++data_block_idx) {
+            auto name = deserializer.read_name_in_advance(is);
+            if (name.starts_with("config/")) {
+                config.emplace(config_loader());
+            } else if (name.starts_with("data/")) {
+                data.emplace(data_loader());
+            } else if (name.starts_with("graph/")) {
+                graph.emplace(graph_loader());
+            } else {
+                throw ANNEXCEPTION("The stream is corrupted!");
+            }
+        }
+    }
+
+    auto datasize = data->size();
+    auto graphsize = graph->n_nodes();
+    if (datasize != graphsize) {
+        throw ANNEXCEPTION(
+            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
+        );
+    }
+
+    auto& [parameters, labels] = *config;
+    if (labels.size() != datasize) {
+        throw ANNEXCEPTION("Labels has {} IDs but should have {}", labels.size(), datasize);
+    }
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    return MultiMutableVamanaIndex{
+        parameters,
+        std::move(*data),
+        std::move(*graph),
+        std::move(distance),
+        labels,
+        std::move(threadpool),
+        std::move(logger)};
 }
 
 } // namespace svs::index::vamana
