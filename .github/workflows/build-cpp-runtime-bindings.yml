@@ -111,6 +111,7 @@ jobs:
           - name: "IVF public only"
             suffix: "-ivf"
             enable_ivf: "ON"
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v6
