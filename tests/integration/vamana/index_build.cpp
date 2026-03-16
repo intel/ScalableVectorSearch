@@ -87,6 +87,40 @@ svs::Vamana build_index(
     CATCH_REQUIRE(index.get_num_threads() == num_threads);
     return index;
 }
+
+template <typename E, size_t D = svs::Dynamic>
+svs::Vamana build_index(
+    const svs::index::vamana::VamanaBuildParameters parameters,
+    const svs::graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>& graph,
+    svs::data::SimpleDataView<E, D>&& data,
+    size_t num_threads,
+    svs::DistanceType dist_type
+) {
+    auto threadpool = svs::threads::as_threadpool(num_threads);
+    uint32_t entry_point =
+        svs::index::vamana::extensions::compute_entry_point(data, threadpool);
+
+    auto tic = svs::lib::now();
+    auto dispatcher = svs::DistanceDispatcher(dist_type);
+    svs::Vamana index = dispatcher([&](auto distance_function) {
+        return svs::make_vamana<svs::manager::as_typelist<E>>(
+            svs::index::vamana::VamanaIndex(
+                parameters,
+                graph,
+                std::forward<svs::data::SimpleDataView<E, D>>(data),
+                entry_point,
+                distance_function,
+                std::move(threadpool)
+            )
+        );
+    });
+
+    fmt::print("Indexing time: {}s\n", svs::lib::time_difference(tic));
+
+    // Make sure the number of threads was propagated correctly.
+    CATCH_REQUIRE(index.get_num_threads() == num_threads);
+    return index;
+}
 } // namespace
 
 CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana][uncompressed]") {
@@ -106,6 +140,95 @@ CATCH_TEST_CASE("Uncompressed Vamana Build", "[integration][build][vamana][uncom
         svs::Vamana index = build_index<float>(
             expected_result.build_parameters_.value(),
             test_dataset::data_svs_file(),
+            num_threads,
+            distance_type
+        );
+        CATCH_REQUIRE(
+            index.query_types() == std::vector<svs::DataType>{svs::DataType::float32}
+        );
+
+        // Test get_distance functionality
+        svs::DistanceDispatcher dispatcher(distance_type);
+        dispatcher([&](auto dist) {
+            svs_test::GetDistanceTester::test(index, dist, dataset);
+        });
+
+        auto groundtruth = test_dataset::load_groundtruth(distance_type);
+        for (const auto& expected : expected_result.config_and_recall_) {
+            auto these_queries = test_dataset::get_test_set(queries, expected.num_queries_);
+            auto these_groundtruth =
+                test_dataset::get_test_set(groundtruth, expected.num_queries_);
+            index.set_search_parameters(expected.search_parameters_);
+            auto results = index.search(these_queries, expected.num_neighbors_);
+            double recall = svs::k_recall_at_n(
+                these_groundtruth, results, expected.num_neighbors_, expected.recall_k_
+            );
+
+            fmt::print(
+                "Window Size: {}, Expected Recall: {}, Actual Recall: {}\n",
+                index.get_search_window_size(),
+                expected.recall_,
+                recall
+            );
+            CATCH_REQUIRE(recall > expected.recall_ - epsilon);
+            CATCH_REQUIRE(recall < expected.recall_ + epsilon);
+        }
+    }
+}
+
+CATCH_TEST_CASE(
+    "Uncompressed Vamana Build user buffers",
+    "[integration][build][vamana][uncompressed][user_buffers]"
+) {
+    auto distances = std::to_array<svs::DistanceType>({svs::L2, svs::MIP, svs::Cosine});
+
+    // How far these results may deviate from previously generated results.
+    const double epsilon = 0.005;
+    const auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+
+    // User-allocated buffers
+    std::vector<float> data_buffer;
+    std::vector<uint32_t> graph_buffer;
+
+    auto dataset = svs::io::auto_load<float>(
+        test_dataset::data_svs_file(),
+        svs::lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+            // Allocate user buffer for dataset.
+            data_buffer.resize(n_elements * n_dimensions);
+            // Use the 'View' pseudo-allocator
+            auto data_buffer_alloc = svs::View(data_buffer.data());
+            return svs::data::SimpleDataView(n_elements, n_dimensions, data_buffer_alloc);
+        })
+    );
+
+    // use expected build parameters from reference implementation to get graph_degree and
+    // allocate graph buffer accordingly
+    size_t graph_degree =
+        test_dataset::vamana::expected_build_results(
+            svs::DistanceType::L2, svsbenchmark::Uncompressed(svs::DataType::float32)
+        )
+            .build_parameters_->graph_max_degree;
+    const size_t graph_dimensions = graph_degree + 1; // +1 for the degree of each node
+    graph_buffer.resize(dataset.size() * graph_dimensions);
+    // Use pointer instead of 'View' pseudo-allocator for graph buffer to test that raw
+    // pointers are accepted as
+    auto graph_data = svs::data::SimpleDataView<uint32_t>(
+        graph_buffer.data(), dataset.size(), graph_dimensions
+    );
+
+    for (auto distance_type : distances) {
+        CATCH_REQUIRE(svs_test::prepare_temp_directory());
+        size_t num_threads = 8;
+        auto expected_result = test_dataset::vamana::expected_build_results(
+            distance_type, svsbenchmark::Uncompressed(svs::DataType::float32)
+        );
+        // fill graph_buffer with zeros, as the build process will write the graph data into
+        // it.
+        std::fill(graph_buffer.begin(), graph_buffer.end(), 0);
+        svs::Vamana index = build_index<float>(
+            expected_result.build_parameters_.value(),
+            svs::graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>(graph_data.view()),
+            dataset.view(),
             num_threads,
             distance_type
         );
