@@ -1003,16 +1003,18 @@ class DynamicIVFIndex {
     }
 };
 
-/// @brief Assemble a DynamicIVFIndex from clustering and data prototype
+/// @brief Internal implementation for assembling a DynamicIVFIndex.
+///
+/// Takes data by const reference (no ownership transfer) so that callers
+/// holding an already-loaded dataset or a view can avoid an extra copy/move.
 ///
 /// @param clustering The clustering result containing centroids and assignments
-/// @param data_proto Data prototype (file path or data object) to load
+/// @param data Data (by const ref) — not owned; copied into blocked cluster storage
 /// @param ids External IDs for the data points (must match data size)
 /// @param distance Distance function to use
-/// @param threadpool_proto Thread pool for parallel operations
+/// @param threadpool Active thread pool (by reference)
 /// @param intra_query_thread_count Number of threads for intra-query parallelism
-///
-/// Internal implementation: takes data by const reference (no ownership transfer).
+/// @param logger Logger for timing/debug output
 template <typename Clustering, typename Data, typename Distance, threads::ThreadPool Pool>
 auto assemble_dynamic_from_clustering_impl(
     Clustering clustering,
@@ -1062,12 +1064,13 @@ auto assemble_dynamic_from_clustering_impl(
         decltype(dense_clusters),
         Distance,
         decltype(threadpool)>(
-        clustering.centroids(),
+        std::move(clustering).centroids(),
         std::move(dense_clusters),
         ids,
         std::move(distance),
         std::move(threadpool),
-        intra_query_thread_count
+        intra_query_thread_count,
+        logger
     );
     index_build_timer.finish();
 
