@@ -96,7 +96,7 @@ class FlatIndexImpl {
 
     static FlatIndexImpl* load(std::istream& in, MetricType metric) {
         auto threadpool = default_threadpool();
-        using storage_type = svs::runtime::storage::StorageType_t<storage::FP32Tag>;
+        using storage_type = svs::runtime::storage::StorageType_t<StorageKind::FP32>;
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
@@ -119,7 +119,7 @@ class FlatIndexImpl {
         auto threadpool = default_threadpool();
 
         auto storage = svs::runtime::storage::make_storage(
-            svs::runtime::storage::FP32Tag{}, data, threadpool
+            storage::StorageKindTag<StorageKind::FP32>{}, data, threadpool
         );
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));

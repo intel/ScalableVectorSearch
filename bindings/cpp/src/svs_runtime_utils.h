@@ -123,35 +123,6 @@ inline bool is_supported_storage_kind(StorageKind kind) {
     return true;
 }
 
-// Storage kind processing
-// Most kinds map to std::byte storage, but some have specific element types.
-// Storage kind tag types for function argument deduction
-template <StorageKind K> struct StorageKindTag {
-    static constexpr StorageKind value = K;
-};
-
-#define SVS_DEFINE_STORAGE_KIND_TAG(Kind) \
-    using Kind##Tag = StorageKindTag<StorageKind::Kind>
-
-SVS_DEFINE_STORAGE_KIND_TAG(FP32);
-SVS_DEFINE_STORAGE_KIND_TAG(FP16);
-SVS_DEFINE_STORAGE_KIND_TAG(SQI8);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x0);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ8x0);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x4);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x8);
-SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x4);
-SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x8);
-SVS_DEFINE_STORAGE_KIND_TAG(LeanVec8x8);
-
-#undef SVS_DEFINE_STORAGE_KIND_TAG
-
-template <typename T> inline constexpr bool is_storage_tag = false;
-template <StorageKind K> inline constexpr bool is_storage_tag<StorageKindTag<K>> = true;
-
-template <typename T>
-concept StorageTag = is_storage_tag<T>;
-
 // Storage types
 template <typename T>
 using SimpleDatasetType =
@@ -167,12 +138,12 @@ using SQDatasetType = svs::quantization::scalar::
 struct UnsupportedStorageType {};
 
 // clang-format off
-template <StorageTag Tag> struct StorageType { using type = UnsupportedStorageType; };
-template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
+template <StorageKind Kind> struct StorageType { using type = UnsupportedStorageType; };
+template <StorageKind Kind> using StorageType_t = typename StorageType<Kind>::type;
 
-template <> struct StorageType<FP32Tag> { using type = SimpleDatasetType<float>; };
-template <> struct StorageType<FP16Tag> { using type = SimpleDatasetType<svs::Float16>; };
-template <> struct StorageType<SQI8Tag> { using type = SQDatasetType<std::int8_t>; };
+template <> struct StorageType<StorageKind::FP32> { using type = SimpleDatasetType<float>; };
+template <> struct StorageType<StorageKind::FP16> { using type = SimpleDatasetType<svs::Float16>; };
+template <> struct StorageType<StorageKind::SQI8> { using type = SQDatasetType<std::int8_t>; };
 // clang-format on
 
 // Storage factory
@@ -270,10 +241,10 @@ using Sequential = svs::quantization::lvq::Sequential;
 using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
 
 // clang-format off
-template <> struct StorageType<LVQ4x0Tag> { using type = LVQDatasetType<4, 0, Turbo16x8>; };
-template <> struct StorageType<LVQ8x0Tag> { using type = LVQDatasetType<8, 0, Sequential>; };
-template <> struct StorageType<LVQ4x4Tag> { using type = LVQDatasetType<4, 4, Turbo16x8>; };
-template <> struct StorageType<LVQ4x8Tag> { using type = LVQDatasetType<4, 8, Turbo16x8>; };
+template <> struct StorageType<StorageKind::LVQ4x0> { using type = LVQDatasetType<4, 0, Turbo16x8>; };
+template <> struct StorageType<StorageKind::LVQ8x0> { using type = LVQDatasetType<8, 0, Sequential>; };
+template <> struct StorageType<StorageKind::LVQ4x4> { using type = LVQDatasetType<4, 4, Turbo16x8>; };
+template <> struct StorageType<StorageKind::LVQ4x8> { using type = LVQDatasetType<4, 8, Turbo16x8>; };
 // clang-format on
 
 template <svs::quantization::lvq::IsLVQDataset LVQStorageType>
@@ -307,9 +278,9 @@ using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
 
 // clang-format off
-template <> struct StorageType<LeanVec4x4Tag> { using type = LeanDatasetType<4, 4>; };
-template <> struct StorageType<LeanVec4x8Tag> { using type = LeanDatasetType<4, 8>; };
-template <> struct StorageType<LeanVec8x8Tag> { using type = LeanDatasetType<8, 8>; };
+template <> struct StorageType<StorageKind::LeanVec4x4> { using type = LeanDatasetType<4, 4>; };
+template <> struct StorageType<StorageKind::LeanVec4x8> { using type = LeanDatasetType<4, 8>; };
+template <> struct StorageType<StorageKind::LeanVec8x8> { using type = LeanDatasetType<8, 8>; };
 // clang-format on
 
 template <svs::leanvec::IsLeanDataset LeanVecStorageType>
@@ -341,14 +312,18 @@ struct StorageFactory<LeanVecStorageType> {
 };
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
-template <StorageTag Tag, typename... Args>
-auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
-    return StorageFactory<StorageType_t<Tag>>::init(std::forward<Args>(args)...);
+template <StorageKind K> struct StorageKindTag {
+    static constexpr StorageKind value = K;
+};
+
+template <StorageKind Kind, typename... Args>
+auto make_storage(StorageKindTag<Kind> SVS_UNUSED(tag), Args&&... args) {
+    return StorageFactory<StorageType_t<Kind>>::init(std::forward<Args>(args)...);
 }
 
-template <StorageTag Tag, typename... Args>
-auto load_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
-    return StorageFactory<StorageType_t<Tag>>::load(std::forward<Args>(args)...);
+template <StorageKind Kind, typename... Args>
+auto load_storage(StorageKindTag<Kind> SVS_UNUSED(tag), Args&&... args) {
+    return StorageFactory<StorageType_t<Kind>>::load(std::forward<Args>(args)...);
 }
 
 template <typename F, typename... Args>
@@ -358,30 +333,24 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported by CPU"
         );
     }
+#define SVS_DISPATCH_STORAGE_KIND(Kind) \
+    case StorageKind::Kind:             \
+        return f(StorageKindTag<StorageKind::Kind>{}, std::forward<Args>(args)...);
     switch (kind) {
-        case StorageKind::FP32:
-            return f(FP32Tag{}, std::forward<Args>(args)...);
-        case StorageKind::FP16:
-            return f(FP16Tag{}, std::forward<Args>(args)...);
-        case StorageKind::SQI8:
-            return f(SQI8Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ4x0:
-            return f(LVQ4x0Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ8x0:
-            return f(LVQ8x0Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ4x4:
-            return f(LVQ4x4Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ4x8:
-            return f(LVQ4x8Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LeanVec4x4:
-            return f(LeanVec4x4Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LeanVec4x8:
-            return f(LeanVec4x8Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LeanVec8x8:
-            return f(LeanVec8x8Tag{}, std::forward<Args>(args)...);
+        SVS_DISPATCH_STORAGE_KIND(FP32);
+        SVS_DISPATCH_STORAGE_KIND(FP16);
+        SVS_DISPATCH_STORAGE_KIND(SQI8);
+        SVS_DISPATCH_STORAGE_KIND(LVQ4x0);
+        SVS_DISPATCH_STORAGE_KIND(LVQ8x0);
+        SVS_DISPATCH_STORAGE_KIND(LVQ4x4);
+        SVS_DISPATCH_STORAGE_KIND(LVQ4x8);
+        SVS_DISPATCH_STORAGE_KIND(LeanVec4x4);
+        SVS_DISPATCH_STORAGE_KIND(LeanVec4x8);
+        SVS_DISPATCH_STORAGE_KIND(LeanVec8x8);
         default:
             throw ANNEXCEPTION("not supported SVS storage kind");
     }
+#undef SVS_DISPATCH_STORAGE_KIND
 }
 } // namespace storage
 
