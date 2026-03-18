@@ -466,7 +466,7 @@ class DynamicVamanaIndexImpl {
             impl_->get_full_search_history()};
     }
 
-    template <storage::StorageTag Tag>
+    template <typename Tag>
     static svs::DynamicVamana*
     load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
         namespace fs = std::filesystem;

@@ -80,11 +80,20 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     static auto dispatch_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) {
         switch (kind) {
             case StorageKind::LeanVec4x4:
-                return f(storage::LeanVec4x4Tag{}, std::forward<Args>(args)...);
+                return f(
+                    storage::StorageKindTag<StorageKind::LeanVec4x4>{},
+                    std::forward<Args>(args)...
+                );
             case StorageKind::LeanVec4x8:
-                return f(storage::LeanVec4x8Tag{}, std::forward<Args>(args)...);
+                return f(
+                    storage::StorageKindTag<StorageKind::LeanVec4x8>{},
+                    std::forward<Args>(args)...
+                );
             case StorageKind::LeanVec8x8:
-                return f(storage::LeanVec8x8Tag{}, std::forward<Args>(args)...);
+                return f(
+                    storage::StorageKindTag<StorageKind::LeanVec8x8>{},
+                    std::forward<Args>(args)...
+                );
             default:
                 throw StatusException{
                     ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"};
