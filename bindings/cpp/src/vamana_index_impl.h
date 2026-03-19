@@ -19,6 +19,7 @@
 #include "svs/runtime/vamana_index.h"
 
 #include "svs_runtime_utils.h"
+#include "training_impl.h"
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
@@ -27,7 +28,8 @@
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/file.h>
 #include <svs/lib/float16.h>
-#include <svs/orchestrators/dynamic_vamana.h>
+#include <svs/lib/memory.h>
+#include <svs/orchestrators/vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
 #include <algorithm>
@@ -38,36 +40,32 @@
 namespace svs {
 namespace runtime {
 
-// Dynamic Vamana index implementation
-class DynamicVamanaIndexImpl {
-    using allocator_type = svs::data::Blocked<svs::lib::Allocator<float>>;
+// Vamana index implementation
+class VamanaIndexImpl {
+    using allocator_type = svs::lib::Allocator<float>;
 
   public:
-    DynamicVamanaIndexImpl(
+    VamanaIndexImpl(
         size_t dim,
         MetricType metric,
         StorageKind storage_kind,
-        const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params,
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params
+        const VamanaIndex::BuildParams& build_params,
+        const VamanaIndex::SearchParams& default_search_params
     )
         : dim_{dim}
         , metric_type_{metric}
         , storage_kind_{storage_kind}
-        , build_params_{params}
-        , default_search_params_{default_search_params}
-        , dynamic_index_params_{dynamic_index_params} {
+        , build_params_{build_params}
+        , default_search_params_{default_search_params} {
         if (!storage::is_supported_storage_kind(storage_kind)) {
             throw StatusException{
                 ErrorCode::INVALID_ARGUMENT,
                 "The specified storage kind is not compatible with the "
-                "DynamicVamanaIndex"};
+                "VamanaIndex"};
         }
     }
 
-    size_t size() const { return impl_ ? impl_->size() : 0; }
-
-    size_t blocksize_bytes() const { return 1u << dynamic_index_params_.blocksize_exp; }
+    size_t size() const { return impl_ ? get_impl()->size() : 0; }
 
     size_t dimensions() const { return dim_; }
 
@@ -75,13 +73,14 @@ class DynamicVamanaIndexImpl {
 
     StorageKind get_storage_kind() const { return storage_kind_; }
 
-    void add(data::ConstSimpleDataView<float> data, std::span<const size_t> labels) {
+    void add(const data::ConstSimpleDataView<float>& data) {
         if (!impl_) {
-            auto blocksize_bytes = lib::PowerOfTwo(dynamic_index_params_.blocksize_exp);
-            return init_impl(data, labels, blocksize_bytes);
+            return init_impl(data);
         }
 
-        impl_->add_points(data, labels);
+        throw StatusException{
+            ErrorCode::INVALID_ARGUMENT,
+            "Vamana index does not support adding points after initialization"};
     }
 
     void search(
@@ -111,19 +110,19 @@ class DynamicVamanaIndexImpl {
 
         // Simple search
         if (filter == nullptr) {
-            impl_->search(result, queries, sp);
+            get_impl()->search(result, queries, sp);
             return;
         }
 
         // Selective search with IDSelector
-        auto old_sp = impl_->get_search_parameters();
-        impl_->set_search_parameters(sp);
+        auto old_sp = get_impl()->get_search_parameters();
+        get_impl()->set_search_parameters(sp);
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
                 // For every query
                 auto query = queries.get_datum(i);
-                auto iterator = impl_->batch_iterator(query);
+                auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
                 do {
                     iterator.next(k);
@@ -154,7 +153,7 @@ class DynamicVamanaIndexImpl {
             threadpool, svs::threads::StaticPartition{queries.size()}, search_closure
         );
 
-        impl_->set_search_parameters(old_sp);
+        get_impl()->set_search_parameters(old_sp);
     }
 
     void range_search(
@@ -164,9 +163,6 @@ class DynamicVamanaIndexImpl {
         const VamanaIndex::SearchParams* params = nullptr,
         IDFilter* filter = nullptr
     ) const {
-        if (!impl_) {
-            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
-        }
         if (radius <= 0) {
             throw StatusException{
                 ErrorCode::INVALID_ARGUMENT, "radius must be greater than 0"};
@@ -178,8 +174,8 @@ class DynamicVamanaIndexImpl {
         }
 
         auto sp = make_search_parameters(params);
-        auto old_sp = impl_->get_search_parameters();
-        impl_->set_search_parameters(sp);
+        auto old_sp = get_impl()->get_search_parameters();
+        get_impl()->set_search_parameters(sp);
 
         // Using ResultHandler makes no sense due to it's complexity, overhead and
         // missed features; e.g. add_result() does not indicate whether result added
@@ -208,13 +204,15 @@ class DynamicVamanaIndexImpl {
 
         // Set iterator batch size to search window size
         auto batch_size = sp.buffer_config_.get_search_window_size();
+        // Ensure batch size is at least 10 to avoid excessive overhead of small batches
+        batch_size = std::max(batch_size, size_t(10));
 
         auto range_search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
                 // For every query
                 auto query = queries.get_datum(i);
 
-                auto iterator = impl_->batch_iterator(query);
+                auto iterator = get_impl()->batch_iterator(query);
                 bool in_range = true;
 
                 do {
@@ -263,60 +261,12 @@ class DynamicVamanaIndexImpl {
             }
         }
 
-        impl_->set_search_parameters(old_sp);
+        get_impl()->set_search_parameters(old_sp);
     }
 
-    size_t remove(std::span<const size_t> labels) {
-        if (!impl_) {
-            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
-        }
-
-        // SVS deletion is a soft deletion, meaning the corresponding vectors are
-        // marked as deleted but still present in both the dataset and the graph,
-        // and will be navigated through during search.
-        // Actual cleanup happens once a large enough number of soft deleted vectors
-        // are collected.
-        impl_->delete_points(labels);
-        ntotal_soft_deleted += labels.size();
-
-        auto ntotal = impl_->size();
-        const float cleanup_threshold = .5f;
-        if (ntotal == 0 || (float)ntotal_soft_deleted / ntotal > cleanup_threshold) {
-            impl_->consolidate();
-            impl_->compact();
-            ntotal_soft_deleted = 0;
-        }
-        return labels.size();
-    }
-
-    size_t remove_selected(const IDFilter& selector) {
-        if (!impl_) {
-            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
-        }
-
-        auto ids = impl_->all_ids();
-        std::vector<size_t> ids_to_delete;
-        std::copy_if(
-            ids.begin(),
-            ids.end(),
-            std::back_inserter(ids_to_delete),
-            [&](size_t id) { return selector(id); }
-        );
-
-        return remove(ids_to_delete);
-    }
-
-    void reset() {
-        impl_.reset();
-        ntotal_soft_deleted = 0;
-    }
+    void reset() { impl_.reset(); }
 
     void save(std::ostream& out) const {
-        if (!impl_) {
-            throw StatusException{
-                ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."};
-        }
-
         lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
         const auto config_dir = tempdir.get() / "config";
         const auto graph_dir = tempdir.get() / "graph";
@@ -324,12 +274,19 @@ class DynamicVamanaIndexImpl {
         std::filesystem::create_directories(config_dir);
         std::filesystem::create_directories(graph_dir);
         std::filesystem::create_directories(data_dir);
-        impl_->save(config_dir, graph_dir, data_dir);
+        get_impl()->save(config_dir, graph_dir, data_dir);
         lib::DirectoryArchiver::pack(tempdir, out);
     }
 
   protected:
     // Utility functions
+    svs::Vamana* get_impl() const {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        return impl_.get();
+    }
+
     svs::index::vamana::VamanaBuildParameters vamana_build_parameters() const {
         svs::index::vamana::VamanaBuildParameters result;
         set_if_specified(result.alpha, build_params_.alpha);
@@ -386,18 +343,16 @@ class DynamicVamanaIndexImpl {
     }
 
     template <typename Tag, typename... StorageArgs>
-    static svs::DynamicVamana* build_impl(
+    static svs::Vamana* build_impl(
         Tag&& tag,
         MetricType metric,
         const index::vamana::VamanaBuildParameters& parameters,
         const svs::data::ConstSimpleDataView<float>& data,
-        std::span<const size_t> labels,
-        svs::lib::PowerOfTwo blocksize_bytes,
         StorageArgs&&... storage_args
     ) {
         auto threadpool = default_threadpool();
         using storage_alloc_t = typename Tag::allocator_type;
-        auto allocator = storage::make_allocator<storage_alloc_t>(blocksize_bytes);
+        auto allocator = storage::make_allocator<storage_alloc_t>(svs::lib::PowerOfTwo{0});
 
         auto storage = make_storage(
             std::forward<Tag>(tag),
@@ -409,70 +364,56 @@ class DynamicVamanaIndexImpl {
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(svs::DynamicVamana::build<float>(
+            return new svs::Vamana(svs::Vamana::build<float>(
                 parameters,
                 std::move(storage),
-                std::move(labels),
                 std::forward<decltype(distance)>(distance),
                 std::move(threadpool)
             ));
         });
     }
 
-    virtual void init_impl(
-        data::ConstSimpleDataView<float> data,
-        std::span<const size_t> labels,
-        lib::PowerOfTwo blocksize_bytes
-    ) {
+    virtual void init_impl(const data::ConstSimpleDataView<float>& data) {
         impl_.reset(storage::dispatch_storage_kind<allocator_type>(
             get_storage_kind(),
-            [this](
-                auto&& tag,
-                data::ConstSimpleDataView<float> data,
-                std::span<const size_t> labels,
-                lib::PowerOfTwo blocksize_bytes
-            ) {
+            [&](auto&& tag, const data::ConstSimpleDataView<float>& data) {
                 using Tag = std::decay_t<decltype(tag)>;
                 return build_impl(
                     std::forward<Tag>(tag),
                     this->metric_type_,
                     this->vamana_build_parameters(),
-                    data,
-                    labels,
-                    blocksize_bytes
+                    data
                 );
             },
-            data,
-            labels,
-            blocksize_bytes
+            data
         ));
+        get_impl()->set_search_parameters(make_search_parameters(&default_search_params_));
     }
 
     // Constructor used during loading
-    DynamicVamanaIndexImpl(
-        std::unique_ptr<svs::DynamicVamana>&& impl,
-        MetricType metric,
-        StorageKind storage_kind
+    VamanaIndexImpl(
+        std::unique_ptr<svs::Vamana>&& impl, MetricType metric, StorageKind storage_kind
     )
-        : impl_{std::move(impl)} {
-        dim_ = impl_->dimensions();
-        const auto& buffer_config = impl_->get_search_parameters().buffer_config_;
-        default_search_params_ = {
-            buffer_config.get_search_window_size(), buffer_config.get_total_capacity()};
-        metric_type_ = metric;
-        storage_kind_ = storage_kind;
-        build_params_ = VamanaIndex::BuildParams{
-            impl_->get_graph_max_degree(),
-            impl_->get_prune_to(),
-            impl_->get_alpha(),
-            impl_->get_construction_window_size(),
-            impl_->get_max_candidates(),
-            impl_->get_full_search_history()};
+        : metric_type_{metric}
+        , storage_kind_{storage_kind}
+        , impl_{std::move(impl)} {
+        if (impl_) {
+            dim_ = impl_->dimensions();
+            const auto& buffer_config = impl_->get_search_parameters().buffer_config_;
+            default_search_params_ = {
+                buffer_config.get_search_window_size(), buffer_config.get_total_capacity()};
+            build_params_ = VamanaIndex::BuildParams{
+                impl_->get_graph_max_degree(),
+                impl_->get_prune_to(),
+                impl_->get_alpha(),
+                impl_->get_construction_window_size(),
+                impl_->get_max_candidates(),
+                impl_->get_full_search_history()};
+        }
     }
 
     template <typename Tag>
-    static svs::DynamicVamana*
-    load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
+    static svs::Vamana* load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
         namespace fs = std::filesystem;
         lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
         lib::DirectoryArchiver::unpack(stream, tempdir);
@@ -504,28 +445,27 @@ class DynamicVamanaIndexImpl {
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
 
         return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(svs::DynamicVamana::assemble<float>(
+            return new svs::Vamana(svs::Vamana::assemble<float>(
                 config_path,
                 svs::GraphLoader{graph_path},
                 std::move(storage),
                 std::forward<decltype(distance)>(distance),
-                std::move(threadpool),
-                false
+                std::move(threadpool)
             ));
         });
     }
 
   public:
-    static DynamicVamanaIndexImpl*
+    static VamanaIndexImpl*
     load(std::istream& stream, MetricType metric, StorageKind storage_kind) {
         return storage::dispatch_storage_kind<allocator_type>(
             storage_kind,
             [&](auto&& tag, std::istream& stream, MetricType metric) {
                 using Tag = std::decay_t<decltype(tag)>;
-                std::unique_ptr<svs::DynamicVamana> impl{
+                std::unique_ptr<svs::Vamana> impl{
                     load_impl_t(std::forward<Tag>(tag), stream, metric)};
 
-                return new DynamicVamanaIndexImpl(std::move(impl), metric, storage_kind);
+                return new VamanaIndexImpl(std::move(impl), metric, storage_kind);
             },
             stream,
             metric
@@ -539,9 +479,112 @@ class DynamicVamanaIndexImpl {
     StorageKind storage_kind_;
     VamanaIndex::BuildParams build_params_;
     VamanaIndex::SearchParams default_search_params_;
-    VamanaIndex::DynamicIndexParams dynamic_index_params_;
-    std::unique_ptr<svs::DynamicVamana> impl_;
-    size_t ntotal_soft_deleted{0};
+    std::unique_ptr<svs::Vamana> impl_;
+};
+
+struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
+    using LeanVecMatricesType = LeanVecTrainingDataImpl::LeanVecMatricesType;
+    using allocator_type = svs::lib::Allocator<std::byte>;
+
+    VamanaIndexLeanVecImpl(
+        std::unique_ptr<svs::Vamana>&& impl, MetricType metric, StorageKind storage_kind
+    )
+        : VamanaIndexImpl{std::move(impl), metric, storage_kind}
+        , leanvec_dims_{0}
+        , leanvec_matrices_{std::nullopt} {
+        check_storage_kind(storage_kind);
+    }
+
+    VamanaIndexLeanVecImpl(
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        const LeanVecTrainingDataImpl& training_data,
+        const VamanaIndex::BuildParams& params,
+        const VamanaIndex::SearchParams& default_search_params
+    )
+        : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+        , leanvec_dims_{training_data.get_leanvec_dims()}
+        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
+        check_storage_kind(storage_kind);
+    }
+
+    VamanaIndexLeanVecImpl(
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        size_t leanvec_dims,
+        const VamanaIndex::BuildParams& params,
+        const VamanaIndex::SearchParams& default_search_params
+    )
+        : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
+        , leanvec_dims_{leanvec_dims}
+        , leanvec_matrices_{std::nullopt} {
+        check_storage_kind(storage_kind);
+    }
+
+    template <typename F, typename... Args>
+    static auto dispatch_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) {
+        switch (kind) {
+            case StorageKind::LeanVec4x4:
+                return f(
+                    storage::StorageType<StorageKind::LeanVec4x4, allocator_type>{},
+                    std::forward<Args>(args)...
+                );
+            case StorageKind::LeanVec4x8:
+                return f(
+                    storage::StorageType<StorageKind::LeanVec4x8, allocator_type>{},
+                    std::forward<Args>(args)...
+                );
+            case StorageKind::LeanVec8x8:
+                return f(
+                    storage::StorageType<StorageKind::LeanVec8x8, allocator_type>{},
+                    std::forward<Args>(args)...
+                );
+            default:
+                throw StatusException{
+                    ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"};
+        }
+    }
+
+    void init_impl(const data::ConstSimpleDataView<float>& data) override {
+        assert(storage::is_leanvec_storage(this->storage_kind_));
+        impl_.reset(dispatch_leanvec_storage_kind(
+            this->storage_kind_,
+            [&](auto&& tag, const data::ConstSimpleDataView<float>& data) {
+                using Tag = std::decay_t<decltype(tag)>;
+                return VamanaIndexImpl::build_impl(
+                    std::forward<Tag>(tag),
+                    this->metric_type_,
+                    this->vamana_build_parameters(),
+                    data,
+                    leanvec_dims_,
+                    leanvec_matrices_
+                );
+            },
+            data
+        ));
+        impl_->set_search_parameters(make_search_parameters(&default_search_params_));
+    }
+
+  protected:
+    size_t leanvec_dims_;
+    std::optional<LeanVecMatricesType> leanvec_matrices_;
+
+    StorageKind check_storage_kind(StorageKind kind) {
+        if (!storage::is_leanvec_storage(kind)) {
+            throw StatusException(
+                ErrorCode::INVALID_ARGUMENT, "SVS LeanVec storage kind required"
+            );
+        }
+        if (!svs::detail::lvq_leanvec_enabled()) {
+            throw StatusException(
+                ErrorCode::NOT_IMPLEMENTED,
+                "LeanVec storage kind requested but not supported by CPU"
+            );
+        }
+        return kind;
+    }
 };
 
 } // namespace runtime

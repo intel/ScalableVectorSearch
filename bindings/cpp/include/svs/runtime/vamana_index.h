@@ -16,37 +16,47 @@
 
 #pragma once
 #include <svs/runtime/api_defs.h>
+#include <svs/runtime/training.h>
 
 #include <cstddef>
+#include <iosfwd>
 
 namespace svs {
 namespace runtime {
 namespace v0 {
+
+namespace detail {
+struct VamanaBuildParameters {
+    size_t graph_max_degree = Unspecify<size_t>();
+    size_t prune_to = Unspecify<size_t>();
+    float alpha = Unspecify<float>();
+    size_t construction_window_size = Unspecify<size_t>();
+    size_t max_candidate_pool_size = Unspecify<size_t>();
+    OptionalBool use_full_search_history = Unspecify<bool>();
+};
+
+struct VamanaSearchParameters {
+    size_t search_window_size = Unspecify<size_t>();
+    size_t search_buffer_capacity = Unspecify<size_t>();
+    size_t prefetch_lookahead = Unspecify<size_t>();
+    size_t prefetch_step = Unspecify<size_t>();
+};
+} // namespace detail
 
 // Abstract interface for Vamana-based indices.
 // NOTE VamanaIndex is not implemented directly, only DynamicVamanaIndex is implemented.
 struct SVS_RUNTIME_API VamanaIndex {
     virtual ~VamanaIndex();
 
-    struct BuildParams {
-        size_t graph_max_degree = Unspecify<size_t>();
-        size_t prune_to = Unspecify<size_t>();
-        float alpha = Unspecify<float>();
-        size_t construction_window_size = Unspecify<size_t>();
-        size_t max_candidate_pool_size = Unspecify<size_t>();
-        OptionalBool use_full_search_history = Unspecify<bool>();
-    };
-
-    struct SearchParams {
-        size_t search_window_size = Unspecify<size_t>();
-        size_t search_buffer_capacity = Unspecify<size_t>();
-        size_t prefetch_lookahead = Unspecify<size_t>();
-        size_t prefetch_step = Unspecify<size_t>();
-    };
+    using BuildParams = detail::VamanaBuildParameters;
+    using SearchParams = detail::VamanaSearchParameters;
 
     struct DynamicIndexParams {
         size_t blocksize_exp = 30;
     };
+
+    virtual Status add(size_t n, const float* x) noexcept = 0;
+    virtual Status reset() noexcept = 0;
 
     virtual Status search(
         size_t n,
@@ -66,6 +76,50 @@ struct SVS_RUNTIME_API VamanaIndex {
         const SearchParams* params = nullptr,
         IDFilter* filter = nullptr
     ) const noexcept = 0;
+
+    // Utility function to check storage kind support
+    static Status check_storage_kind(StorageKind storage_kind) noexcept;
+
+    // Static constructors and destructors
+    static Status build(
+        VamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        const VamanaIndex::BuildParams& params = VamanaIndex::BuildParams{},
+        const VamanaIndex::SearchParams& default_search_params = VamanaIndex::SearchParams{}
+    ) noexcept;
+
+    static Status destroy(VamanaIndex* index) noexcept;
+
+    virtual Status save(std::ostream& out) const noexcept = 0;
+    static Status load(
+        VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+};
+
+struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
+    // Specialization to build LeanVec-based Vamana index with specified leanvec dims
+    static Status build(
+        VamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        size_t leanvec_dims,
+        const VamanaIndex::BuildParams& params = {},
+        const VamanaIndex::SearchParams& default_search_params = {}
+    ) noexcept;
+
+    // Specialization to build LeanVec-based Vamana index with provided training data
+    static Status build(
+        VamanaIndex** index,
+        size_t dim,
+        MetricType metric,
+        StorageKind storage_kind,
+        const LeanVecTrainingData* training_data,
+        const VamanaIndex::BuildParams& params = {},
+        const VamanaIndex::SearchParams& default_search_params = {}
+    ) noexcept;
 };
 
 } // namespace v0
