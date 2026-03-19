@@ -26,6 +26,7 @@
 #include "svs/lib/threads.h"
 #include "svs/lib/timing.h"
 #include "svs/misc/dynamic_helper.h"
+#include "svs/orchestrators/dynamic_flat.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -280,17 +281,8 @@ CATCH_TEST_CASE("DynamicFlat Index Save and Load", "[dynamic_flat][index][savelo
         std::stringstream stream;
         index.save(stream);
         {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-            Index_t loaded_index = svs::index::flat::auto_dynamic_assemble(
-                deserializer,
-                stream,
-                // lazy-loader
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
-                dist,
-                svs::threads::as_threadpool(num_threads)
-            );
+            auto loaded_index =
+                svs::DynamicFlat::assemble<Eltype, Data_t>(stream, dist, num_threads);
 
             CATCH_REQUIRE(loaded_index.size() == index.size());
             CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
@@ -323,17 +315,8 @@ CATCH_TEST_CASE("DynamicFlat Index Save and Load", "[dynamic_flat][index][savelo
             svs::lib::DirectoryArchiver::pack(tempdir, stream);
         }
         {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-            Index_t loaded_index = svs::index::flat::auto_dynamic_assemble(
-                deserializer,
-                stream,
-                // lazy-loader
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
-                dist,
-                svs::threads::as_threadpool(num_threads)
-            );
+            auto loaded_index =
+                svs::DynamicFlat::assemble<Eltype, Data_t>(stream, dist, num_threads);
 
             CATCH_REQUIRE(loaded_index.size() == index.size());
             CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());

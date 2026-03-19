@@ -257,18 +257,16 @@ struct DirectoryArchiver : Archiver<DirectoryArchiver> {
         return total_bytes;
     }
 
-    static size_t unpack(std::istream& stream, const std::filesystem::path& root) {
+    static size_t
+    unpack(std::istream& stream, const std::filesystem::path& root, size_type magic) {
         namespace fs = std::filesystem;
 
-        // Read and verify the magic number.
-        size_type magic = 0;
-        auto total_bytes = read_size(stream, magic);
         if (magic != magic_number) {
             throw ANNEXCEPTION("Invalid magic number in directory unpacking!");
         }
 
         size_type num_files = 0;
-        total_bytes += read_size(stream, num_files);
+        auto total_bytes = read_size(stream, num_files);
         if (!stream) {
             throw ANNEXCEPTION("Error reading from stream!");
         }
@@ -284,6 +282,15 @@ struct DirectoryArchiver : Archiver<DirectoryArchiver> {
             total_bytes += read_file(stream, root);
         }
 
+        return total_bytes;
+    }
+
+    static size_t unpack(std::istream& stream, const std::filesystem::path& root) {
+        // Read and verify the magic number.
+        size_type magic = 0;
+        auto total_bytes = read_size(stream, magic);
+
+        total_bytes += unpack(stream, root, magic);
         return total_bytes;
     }
 };

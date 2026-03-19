@@ -31,6 +31,7 @@
 // svs
 #include "svs/core/recall.h"
 #include "svs/lib/timing.h"
+#include "svs/orchestrators/dynamic_vamana.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -279,22 +280,10 @@ CATCH_TEST_CASE(
         std::stringstream stream;
         index.save(stream);
         {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-
             using Data_t = svs::data::BlockedData<float>;
-            using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
 
-            auto loaded = svs::index::vamana::auto_dynamic_assemble(
-                deserializer,
-                stream,
-                // lazy graph loader
-                [&]() -> GraphType { return GraphType::load(deserializer, stream); },
-                // lazy data loader
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
-                Distance(),
-                num_threads
+            auto loaded = svs::DynamicVamana::assemble<float, Data_t>(
+                stream, Distance(), num_threads
             );
 
             CATCH_REQUIRE(loaded.size() == index.size());
@@ -340,22 +329,10 @@ CATCH_TEST_CASE(
             svs::lib::DirectoryArchiver::pack(tempdir, stream);
         }
         {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-
             using Data_t = svs::data::BlockedData<float>;
-            using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
 
-            auto loaded = svs::index::vamana::auto_dynamic_assemble(
-                deserializer,
-                stream,
-                // lazy graph loader
-                [&]() -> GraphType { return GraphType::load(deserializer, stream); },
-                // lazy data loader
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
-                Distance(),
-                num_threads
+            auto loaded = svs::DynamicVamana::assemble<float, Data_t>(
+                stream, Distance(), num_threads
             );
 
             CATCH_REQUIRE(loaded.size() == index.size());

@@ -196,11 +196,22 @@ class Flat : public manager::IndexManager<FlatInterface> {
         DataLoaderArgs&&... data_args
     ) {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
-        return assemble<QueryTypes>(
-            lib::load_from_stream<Data>(deserializer, stream, SVS_FWD(data_args)...),
-            distance,
-            threads::as_threadpool(std::move(threadpool_proto))
-        );
+        if (deserializer.is_native()) {
+            return assemble<QueryTypes>(
+                lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...),
+                distance,
+                threads::as_threadpool(std::move(threadpool_proto))
+            );
+        } else {
+            namespace fs = std::filesystem;
+            lib::UniqueTempDirectory tempdir{"svs_flat_load"};
+            lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+            return assemble<QueryTypes>(
+                lib::load_from_disk<Data>(tempdir, SVS_FWD(data_args)...),
+                distance,
+                threads::as_threadpool(std::move(threadpool_proto))
+            );
+        }
     }
 
     ///// Distance

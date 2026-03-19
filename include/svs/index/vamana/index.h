@@ -1028,7 +1028,6 @@ template <
     typename Distance,
     typename ThreadPoolProto>
 auto auto_assemble(
-    const lib::detail::Deserializer& deserializer,
     std::istream& is,
     LazyGraphLoader graph_loader,
     LazyDataLoader data_loader,
@@ -1036,49 +1035,21 @@ auto auto_assemble(
     ThreadPoolProto threadpool_proto,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    using Data = decltype(data_loader());
-    using Graph = decltype(graph_loader());
-    auto config_loader = [&] {
-        return lib::load_from_stream<VamanaIndexParameters>(deserializer, is);
-    };
-
-    std::optional<VamanaIndexParameters> config;
-    std::optional<Data> data;
-    std::optional<Graph> graph;
-
-    if (deserializer.is_native()) {
-        // Order is always config->data->graph.
-        config.emplace(config_loader());
-        data.emplace(data_loader());
-        graph.emplace(graph_loader());
-    } else {
-        // Directory packing order is filesystem-dependent.
-        // Read 3 data blocks: config, data and graph in a corresponding order
-        for (int data_block_idx = 0; data_block_idx < 3; ++data_block_idx) {
-            auto name = deserializer.read_name_in_advance(is);
-            if (name.starts_with("config/")) {
-                config.emplace(config_loader());
-            } else if (name.starts_with("data/")) {
-                data.emplace(data_loader());
-            } else if (name.starts_with("graph/")) {
-                graph.emplace(graph_loader());
-            } else {
-                throw ANNEXCEPTION("The stream is corrupted!");
-            }
-        }
-    }
+    VamanaIndexParameters config = lib::load_from_stream<VamanaIndexParameters>(is);
+    auto data = data_loader();
+    auto graph = graph_loader();
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     // Extract the index type of the provided graph.
-    using I = typename Graph::index_type;
+    using I = typename decltype(graph)::index_type;
     auto index = VamanaIndex{
-        std::move(*graph),
-        std::move(*data),
+        std::move(graph),
+        std::move(data),
         I{},
         std::move(distance),
         std::move(threadpool),
         std::move(logger)};
-    index.apply(*config);
+    index.apply(config);
     return index;
 }
 
