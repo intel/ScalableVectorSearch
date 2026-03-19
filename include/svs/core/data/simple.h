@@ -584,6 +584,9 @@ template <typename Alloc> class Blocked {
     Alloc allocator_{};
 };
 
+template <typename Alloc> inline constexpr bool is_blocked_v = false;
+template <typename Alloc> inline constexpr bool is_blocked_v<Blocked<Alloc>> = true;
+
 ///
 /// @brief A specialization of ``SimpleData`` for large-scale dynamic datasets.
 ///

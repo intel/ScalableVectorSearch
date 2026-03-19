@@ -35,6 +35,8 @@ namespace runtime {
 
 // Vamana index implementation
 class FlatIndexImpl {
+    using allocator_type = svs::lib::Allocator<float>;
+
   public:
     FlatIndexImpl(size_t dim, MetricType metric)
         : dim_{dim}
@@ -96,7 +98,8 @@ class FlatIndexImpl {
 
     static FlatIndexImpl* load(std::istream& in, MetricType metric) {
         auto threadpool = default_threadpool();
-        using storage_type = svs::runtime::storage::StorageType_t<StorageKind::FP32>;
+        using storage_type = svs::runtime::storage::
+            StorageType_t<StorageKind::FP32, svs::lib::Allocator<float>>;
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
         return distance_dispatcher([&](auto&& distance) {
@@ -119,7 +122,7 @@ class FlatIndexImpl {
         auto threadpool = default_threadpool();
 
         auto storage = svs::runtime::storage::make_storage(
-            storage::StorageKindTag<StorageKind::FP32>{}, data, threadpool
+            storage::StorageType<StorageKind::FP32, allocator_type>{}, data, threadpool
         );
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric_type_));
