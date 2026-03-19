@@ -804,7 +804,13 @@ auto auto_dynamic_assemble(
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
     using Data = decltype(data_loader());
-    auto config_loader = [&] { return IDTranslator::load(deserializer, is); };
+    auto config_loader = [&] {
+        auto table = lib::detail::read_metadata(deserializer, is);
+        auto translation = table.template cast<toml::table>()
+                               .at("translation")
+                               .template cast<toml::table>();
+        return IDTranslator::load(translation, deserializer, is);
+    };
 
     std::optional<IDTranslator> config;
     std::optional<Data> data;
