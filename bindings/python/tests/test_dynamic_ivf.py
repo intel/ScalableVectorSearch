@@ -257,6 +257,25 @@ class DynamicIVFTester(unittest.TestCase):
             print(f"  assemble_from_file numpy recall: {recall2}")
             self.assertTrue(0.5 < recall2 <= 1.0)
 
+        # Test with float16 numpy array
+        data_f16 = data.astype('float16')
+        print("Testing DynamicIVF.assemble_from_clustering with numpy array (float16)")
+        index_f16 = svs.DynamicIVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data_f16,
+            ids = ids,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        self.assertEqual(index_f16.size, test_number_of_vectors)
+        self.assertEqual(index_f16.dimensions, test_data_dims)
+
+        index_f16.search_parameters = search_params
+        I_f16, D_f16 = index_f16.search(queries, k)
+        recall_f16 = svs.k_recall_at(groundtruth, I_f16, k, k)
+        print(f"  assemble_from_clustering numpy float16 recall: {recall_f16}")
+        self.assertTrue(0.4 < recall_f16 <= 1.0)
+
     def test_build_from_loader(self):
         """Test building DynamicIVF using a VectorDataLoader and explicit IDs."""
         num_threads = 2
