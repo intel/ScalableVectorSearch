@@ -836,8 +836,6 @@ inline SerializedObject begin_deserialization(const std::filesystem::path& fullp
 class Deserializer {
     lib::StreamArchiver::size_type magic_;
 
-    mutable bool skip_next_name_ = false;
-
     explicit Deserializer(lib::StreamArchiver::size_type magic)
         : magic_(magic) {}
 
