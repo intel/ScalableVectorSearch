@@ -18,6 +18,7 @@
 #include "svs/core/logging.h"
 #include "svs/lib/file.h"
 #include "svs/lib/saveload/load.h"
+#include "svs/orchestrators/exhaustive.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -93,11 +94,8 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         std::stringstream ss;
         index.save(ss);
 
-        auto deserializer = svs::lib::detail::Deserializer::build(ss);
-        Index_t loaded_index = Index_t(
-            svs::lib::load_from_stream<Data_t>(deserializer, ss),
-            dist,
-            svs::threads::DefaultThreadPool(1)
+        auto loaded_index = svs::Flat::assemble<float, Data_t>(
+            ss, dist, svs::threads::DefaultThreadPool(1)
         );
 
         CATCH_REQUIRE(loaded_index.size() == index.size());
@@ -125,11 +123,8 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         index.save(tempdir);
         svs::lib::DirectoryArchiver::pack(tempdir, ss);
 
-        auto deserializer = svs::lib::detail::Deserializer::build(ss);
-        Index_t loaded_index = Index_t(
-            svs::lib::load_from_stream<Data_t>(deserializer, ss),
-            dist,
-            svs::threads::DefaultThreadPool(1)
+        auto loaded_index = svs::Flat::assemble<float, Data_t>(
+            ss, dist, svs::threads::DefaultThreadPool(1)
         );
 
         CATCH_REQUIRE(loaded_index.size() == index.size());

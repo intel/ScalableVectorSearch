@@ -790,7 +790,6 @@ auto auto_dynamic_assemble(
 
 template <typename LazyDataLoader, typename Distance, typename ThreadPoolProto>
 auto auto_dynamic_assemble(
-    const lib::detail::Deserializer& deserializer,
     std::istream& is,
     LazyDataLoader&& data_loader,
     Distance distance,
@@ -803,40 +802,16 @@ auto auto_dynamic_assemble(
     bool SVS_UNUSED(debug_load_from_static) = false,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    using Data = decltype(data_loader());
-    auto config_loader = [&] {
-        auto table = lib::detail::read_metadata(deserializer, is);
-        auto translation = table.template cast<toml::table>()
-                               .at("translation")
-                               .template cast<toml::table>();
-        return IDTranslator::load(translation, deserializer, is);
-    };
+    auto table = lib::detail::read_metadata(is);
+    auto translation =
+        table.template cast<toml::table>().at("translation").template cast<toml::table>();
+    IDTranslator translator = IDTranslator::load(translation, is);
 
-    std::optional<IDTranslator> config;
-    std::optional<Data> data;
-
-    if (deserializer.is_native()) {
-        // Order is always config->data.
-        config.emplace(config_loader());
-        data.emplace(data_loader());
-    } else {
-        // Directory packing order is filesystem-dependent.
-        // Read 2 data blocks: config and data in a corresponding order.
-        for (int data_block_idx = 0; data_block_idx < 2; ++data_block_idx) {
-            auto name = deserializer.read_name_in_advance(is);
-            if (name.starts_with("config/")) {
-                config.emplace(config_loader());
-            } else if (name.starts_with("data/")) {
-                data.emplace(data_loader());
-            } else {
-                throw ANNEXCEPTION("The stream is corrupted!");
-            }
-        }
-    }
+    auto data = data_loader();
 
     // Validate the translator
-    auto translator_size = config->size();
-    auto datasize = data->size();
+    auto translator_size = translator.size();
+    auto datasize = data.size();
     if (translator_size != datasize) {
         throw ANNEXCEPTION(
             "Translator has {} IDs but should have {}", translator_size, datasize
@@ -845,8 +820,8 @@ auto auto_dynamic_assemble(
 
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return DynamicFlatIndex(
-        std::move(*data),
-        std::move(*config),
+        std::move(data),
+        std::move(translator),
         std::move(distance),
         std::move(threadpool),
         std::move(logger)

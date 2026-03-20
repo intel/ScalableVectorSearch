@@ -834,75 +834,25 @@ inline SerializedObject begin_deserialization(const std::filesystem::path& fullp
 }
 
 class Deserializer {
-    enum SerializationScheme { native, legacy };
-    SerializationScheme scheme_;
+    lib::StreamArchiver::size_type magic_;
 
-    mutable bool skip_next_name_ = false;
-
-    explicit Deserializer(const SerializationScheme& scheme)
-        : scheme_(scheme) {}
+    explicit Deserializer(lib::StreamArchiver::size_type magic)
+        : magic_(magic) {}
 
   public:
     static Deserializer build(std::istream& stream) {
         lib::StreamArchiver::size_type magic = 0;
         lib::StreamArchiver::read_size(stream, magic);
-        if (magic == lib::StreamArchiver::magic_number) {
-            return Deserializer(SerializationScheme::native);
-        } else if (magic == lib::DirectoryArchiver::magic_number) {
-            // Backward compatibility mode for older versions:
-            // Previously, SVS serialized models using an intermediate file,
-            // so some dummy information was added to the stream.
-            lib::StreamArchiver::size_type num_files = 0;
-            lib::StreamArchiver::read_size(stream, num_files);
 
-            return Deserializer(SerializationScheme::legacy);
-        } else {
-            throw ANNEXCEPTION("Invalid magic number in stream deserialization!");
-        }
+        return Deserializer(magic);
     }
 
-    bool is_native() const { return scheme_ == SerializationScheme::native; }
+    auto magic() const { return magic_; }
 
-    std::string read_name_in_advance(std::istream& stream) const {
-        std::string name;
-        if (scheme_ == SerializationScheme::legacy) {
-            lib::StreamArchiver::read_name(stream, name);
-            skip_next_name_ = true;
-        }
-        return name;
-    }
-
-    void read_name(std::istream& stream) const {
-        if (scheme_ == SerializationScheme::legacy) {
-            if (!skip_next_name_) {
-                std::string name;
-                lib::StreamArchiver::read_name(stream, name);
-            }
-            skip_next_name_ = false;
-        }
-    }
-
-    void read_size(std::istream& stream) const {
-        if (skip_next_name_) {
-            throw ANNEXCEPTION("Error in deserialization: read_size() shouldn't follow "
-                               "read_name_in_advance()!");
-        }
-        if (scheme_ == SerializationScheme::legacy) {
-            lib::StreamArchiver::size_type size = 0;
-            lib::StreamArchiver::read_size(stream, size);
-        }
-    }
-
-    template <typename T> void read_binary(std::istream& stream) const {
-        if (scheme_ == SerializationScheme::legacy) {
-            lib::read_binary<T>(stream);
-        }
-    }
+    bool is_native() const { return magic_ == lib::StreamArchiver::magic_number; }
 };
 
-inline ContextFreeSerializedObject
-read_metadata(const Deserializer& deserializer, std::istream& stream) {
-    deserializer.read_name(stream);
+inline ContextFreeSerializedObject read_metadata(std::istream& stream) {
     if (!stream) {
         throw ANNEXCEPTION("Error reading from stream!");
     }
@@ -967,41 +917,23 @@ concept LoadableFromTable = requires(const T& x
 
 ///// load_from_stream
 template <typename T, typename... Args>
-T load_from_stream(
-    const Loader<T>& loader,
-    const detail::Deserializer& deserializer,
-    std::istream& stream,
-    Args&&... args
-)
+T load_from_stream(const Loader<T>& loader, std::istream& stream, Args&&... args)
     requires LoadableFromTable<T, Args...>
 {
     // Object is loadable from it's toml::table
-    return lib::load(loader, detail::read_metadata(deserializer, stream), SVS_FWD(args)...);
+    return lib::load(loader, detail::read_metadata(stream), SVS_FWD(args)...);
 }
 
 template <typename T, typename... Args>
-T load_from_stream(
-    const Loader<T>& loader,
-    const detail::Deserializer& deserializer,
-    std::istream& stream,
-    Args&&... args
-)
+T load_from_stream(const Loader<T>& loader, std::istream& stream, Args&&... args)
     requires(!LoadableFromTable<T, Args...>)
 {
-    return lib::load(
-        loader,
-        detail::read_metadata(deserializer, stream),
-        deserializer,
-        stream,
-        SVS_FWD(args)...
-    );
+    return lib::load(loader, detail::read_metadata(stream), stream, SVS_FWD(args)...);
 }
 
 template <typename T, typename... Args>
-T load_from_stream(
-    const detail::Deserializer& deserializer, std::istream& stream, Args&&... args
-) {
-    return lib::load_from_stream(Loader<T>(), deserializer, stream, SVS_FWD(args)...);
+T load_from_stream(std::istream& stream, Args&&... args) {
+    return lib::load_from_stream(Loader<T>(), stream, SVS_FWD(args)...);
 }
 
 ///// load_from_file

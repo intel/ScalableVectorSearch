@@ -521,12 +521,11 @@ class SQDataset {
     /// @brief Load dataset from a stream.
     static SQDataset load(
         const lib::ContextFreeLoadTable& table,
-        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         const allocator_type& allocator = {}
     ) {
         return SQDataset<element_type, extent, allocator_type>{
-            SVS_LOAD_MEMBER_AT_(table, data, deserializer, is, allocator),
+            SVS_LOAD_MEMBER_AT_(table, data, is, allocator),
             lib::load_at<float>(table, "scale"),
             lib::load_at<float>(table, "bias")};
     }

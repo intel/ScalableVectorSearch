@@ -335,7 +335,6 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     static lib::lazy_result_t<F, data_type> load(
         const lib::ContextFreeLoadTable& table,
         const F& lazy,
-        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         AllocArgs&&... alloc_args
     ) {
@@ -363,9 +362,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             {"dims", lib::save(max_degree + 1)},
         };
 
-        return lazy(data_type::load(
-            lib::ContextFreeLoadTable(data_table), deserializer, is, alloc_args...
-        ));
+        return lazy(
+            data_type::load(lib::ContextFreeLoadTable(data_table), is, alloc_args...)
+        );
     }
 
   protected:
@@ -419,12 +418,11 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
 
     static constexpr SimpleGraph load(
         const lib::ContextFreeLoadTable& table,
-        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         const Alloc& allocator = {}
     ) {
         auto lazy = lib::Lazy([](data_type data) { return SimpleGraph(std::move(data)); });
-        return parent_type::load(table, lazy, deserializer, is, allocator);
+        return parent_type::load(table, lazy, is, allocator);
     }
 
     static constexpr SimpleGraph
@@ -436,12 +434,8 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         }
     }
 
-    static constexpr SimpleGraph load(
-        const lib::detail::Deserializer& deserializer,
-        std::istream& is,
-        const Alloc& allocator = {}
-    ) {
-        return lib::load_from_stream<SimpleGraph>(deserializer, is, allocator);
+    static constexpr SimpleGraph load(std::istream& is, const Alloc& allocator = {}) {
+        return lib::load_from_stream<SimpleGraph>(is, allocator);
     }
 };
 
@@ -475,14 +469,11 @@ class SimpleBlockedGraph
         return parent_type::load(table, lazy);
     }
 
-    static constexpr SimpleBlockedGraph load(
-        const lib::ContextFreeLoadTable& table,
-        const lib::detail::Deserializer& deserializer,
-        std::istream& is
-    ) {
+    static constexpr SimpleBlockedGraph
+    load(const lib::ContextFreeLoadTable& table, std::istream& is) {
         auto lazy =
             lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
-        return parent_type::load(table, lazy, deserializer, is);
+        return parent_type::load(table, lazy, is);
     }
 
     static constexpr SimpleBlockedGraph load(const std::filesystem::path& path) {
@@ -493,9 +484,8 @@ class SimpleBlockedGraph
         }
     }
 
-    static constexpr SimpleBlockedGraph
-    load(const lib::detail::Deserializer& deserializer, std::istream& is) {
-        return lib::load_from_stream<SimpleBlockedGraph>(deserializer, is);
+    static constexpr SimpleBlockedGraph load(std::istream& is) {
+        return lib::load_from_stream<SimpleBlockedGraph>(is);
     }
 };
 

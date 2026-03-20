@@ -277,22 +277,46 @@ class DynamicFlat : public manager::IndexManager<DynamicFlatInterface> {
         DataLoaderArgs&&... data_args
     ) {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
-        return DynamicFlat(
-            AssembleTag(),
-            manager::as_typelist<QueryTypes>(),
-            index::flat::auto_dynamic_assemble(
-                deserializer,
-                stream,
-                // lazy-loader
-                [&]() -> Data {
-                    return lib::load_from_stream<Data>(
-                        deserializer, stream, SVS_FWD(data_args)...
-                    );
-                },
+        if (deserializer.is_native()) {
+            return DynamicFlat(
+                AssembleTag(),
+                manager::as_typelist<QueryTypes>(),
+                index::flat::auto_dynamic_assemble(
+                    stream,
+                    // lazy-loader
+                    [&]() -> Data {
+                        return lib::load_from_stream<Data>(stream, SVS_FWD(data_args)...);
+                    },
+                    distance,
+                    threads::as_threadpool(std::move(threadpool_proto))
+                )
+            );
+        } else {
+            namespace fs = std::filesystem;
+            lib::UniqueTempDirectory tempdir{"svs_dynflat_load"};
+            lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+
+            const auto config_path = tempdir.get() / "config";
+            if (!fs::is_directory(config_path)) {
+                throw ANNEXCEPTION(
+                    "Invalid Dynamic Flat index archive: missing config directory!"
+                );
+            }
+
+            const auto data_path = tempdir.get() / "data";
+            if (!fs::is_directory(data_path)) {
+                throw ANNEXCEPTION(
+                    "Invalid Dynamic Flat index archive: missing data directory!"
+                );
+            }
+
+            return assemble<QueryTypes>(
+                config_path,
+                lib::load_from_disk<Data>(data_path, SVS_FWD(data_args)...),
                 distance,
                 threads::as_threadpool(std::move(threadpool_proto))
-            )
-        );
+            );
+        }
     }
 
     ///// Distance
