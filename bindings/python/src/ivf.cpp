@@ -784,7 +784,9 @@ void wrap(py::module& m) {
     detail::wrap_assemble(ivf);
 
     // Assemble from numpy array.
+    detail::add_assemble_from_clustering_array_specialization<svs::Float16>(ivf);
     detail::add_assemble_from_clustering_array_specialization<float>(ivf);
+    detail::add_assemble_from_file_array_specialization<svs::Float16>(ivf);
     detail::add_assemble_from_file_array_specialization<float>(ivf);
 
     // Make the IVF type searchable.

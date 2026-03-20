@@ -668,7 +668,9 @@ Method {}:
     }
 
     // Assemble from numpy array.
+    add_assemble_from_clustering_array_specialization<svs::Float16>(dynamic_ivf);
     add_assemble_from_clustering_array_specialization<float>(dynamic_ivf);
+    add_assemble_from_file_array_specialization<svs::Float16>(dynamic_ivf);
     add_assemble_from_file_array_specialization<float>(dynamic_ivf);
 
     // Index modification.

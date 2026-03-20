@@ -404,6 +404,24 @@ class IVFTester(unittest.TestCase):
             print(f"  assemble_from_file numpy recall: {recall2}")
             self.assertTrue(0.5 < recall2 <= 1.0)
 
+        # Test with float16 numpy array
+        data_f16 = data.astype('float16')
+        print("Testing IVF.assemble_from_clustering with numpy array (float16)")
+        ivf_f16 = svs.IVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data_f16,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        self.assertEqual(ivf_f16.size, test_number_of_vectors)
+        self.assertEqual(ivf_f16.dimensions, test_dimensions)
+
+        ivf_f16.search_parameters = search_params
+        I_f16, D_f16 = ivf_f16.search(queries, k)
+        recall_f16 = svs.k_recall_at(groundtruth, I_f16, k, k)
+        print(f"  assemble_from_clustering numpy float16 recall: {recall_f16}")
+        self.assertTrue(0.4 < recall_f16 <= 1.0)
+
     def test_build(self):
         # Build directly from data
         data = svs.read_vecs(test_data_vecs)
