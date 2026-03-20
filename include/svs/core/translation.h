@@ -369,6 +369,7 @@ class IDTranslator {
     }
 
     static IDTranslator load(const lib::ContextFreeLoadTable& table, std::istream& is) {
+        IDTranslator::validate(table);
         auto num_points = lib::load_at<size_t>(table, "num_points");
 
         auto translator = IDTranslator{};
@@ -378,19 +379,6 @@ class IDTranslator {
             translator.insert_translation(external_id, internal_id);
         }
         return translator;
-    }
-
-    static IDTranslator
-    load(const lib::detail::Deserializer& deserializer, std::istream& is) {
-        auto table = lib::detail::read_metadata(deserializer, is);
-        auto translation = table.template cast<toml::table>()
-                               .at("translation")
-                               .template cast<toml::table>();
-        IDTranslator::validate(translation);
-        deserializer.read_name(is);
-        deserializer.read_size(is);
-
-        return IDTranslator::load(translation, is);
     }
 
     static IDTranslator load(const lib::LoadTable& table) {

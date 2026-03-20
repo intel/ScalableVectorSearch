@@ -24,6 +24,7 @@
 // svs
 #include "svs/index/vamana/build_params.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/orchestrators/vamana.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -224,22 +225,10 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
             svs::lib::DirectoryArchiver::pack(tempdir, stream);
         }
         {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-
             using Data_t = svs::data::SimpleData<Eltype, N>;
-            using GraphType = svs::GraphLoader<>::return_type;
 
-            auto loaded_index = svs::index::vamana::auto_assemble(
-                deserializer,
-                stream,
-                // lazy graph loader
-                [&]() -> GraphType { return GraphType::load(deserializer, stream); },
-                // lazy data loader
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
-                distance_function,
-                svs::threads::DefaultThreadPool(1)
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream, distance_function, svs::threads::DefaultThreadPool(1)
             );
 
             CATCH_REQUIRE(loaded_index.size() == index.size());
@@ -265,22 +254,10 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
         index.save(stream);
 
         {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-
             using Data_t = svs::data::SimpleData<Eltype, N>;
-            using GraphType = svs::GraphLoader<>::return_type;
 
-            auto loaded_index = svs::index::vamana::auto_assemble(
-                deserializer,
-                stream,
-                // lazy graph loader
-                [&]() -> GraphType { return GraphType::load(deserializer, stream); },
-                // lazy data loader
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
-                distance_function,
-                svs::threads::DefaultThreadPool(1)
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream, distance_function, svs::threads::DefaultThreadPool(1)
             );
 
             CATCH_REQUIRE(loaded_index.size() == index.size());

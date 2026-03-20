@@ -1456,4 +1456,60 @@ auto auto_dynamic_assemble(
         std::move(logger)};
 }
 
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_dynamic_assemble(
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    bool SVS_UNUSED(debug_load_from_static) = false,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    // Read the combined TOML (parameters + translation)
+    // and the translator binary data.
+    auto table = lib::detail::read_metadata(is);
+
+    auto parameters = lib::load<VamanaIndexParameters>(
+        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    );
+
+    auto translation =
+        table.template cast<toml::table>().at("translation").template cast<toml::table>();
+
+    auto translator = IDTranslator::load(translation, is);
+
+    auto data = data_loader();
+    auto graph = graph_loader();
+
+    auto datasize = data.size();
+    auto graphsize = graph.n_nodes();
+    if (datasize != graphsize) {
+        throw ANNEXCEPTION(
+            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
+        );
+    }
+
+    auto translator_size = translator.size();
+    if (translator_size != datasize) {
+        throw ANNEXCEPTION(
+            "Translator has {} IDs but should have {}", translator_size, datasize
+        );
+    }
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    return MutableVamanaIndex{
+        parameters,
+        std::move(data),
+        std::move(graph),
+        std::move(distance),
+        std::move(translator),
+        std::move(threadpool),
+        std::move(logger)};
+}
+
 } // namespace svs::index::vamana

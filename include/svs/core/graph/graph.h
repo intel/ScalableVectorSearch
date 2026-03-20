@@ -335,7 +335,6 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     static lib::lazy_result_t<F, data_type> load(
         const lib::ContextFreeLoadTable& table,
         const F& lazy,
-        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         AllocArgs&&... alloc_args
     ) {
@@ -354,14 +353,18 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         size_t num_vertices = lib::load_at<size_t>(table, "num_vertices");
         size_t max_degree = lib::load_at<size_t>(table, "max_degree");
 
-        // Skip legacy stream metadata (no-op for native serialization).
-        deserializer.read_name(is);
-        deserializer.read_size(is);
-        deserializer.read_binary<io::v1::Header>(is);
+        // Build a table compatible with GenericSerializer
+        auto data_table = toml::table{
+            {lib::config_schema_key, data::GenericSerializer::serialization_schema},
+            {lib::config_version_key, data::GenericSerializer::save_version.str()},
+            {"eltype", lib::save(datatype_v<Idx>)},
+            {"num_vectors", lib::save(num_vertices)},
+            {"dims", lib::save(max_degree + 1)},
+        };
 
-        auto data = data_type(num_vertices, max_degree + 1, alloc_args...);
-        io::populate(is, data);
-        return lazy(std::move(data));
+        return lazy(
+            data_type::load(lib::ContextFreeLoadTable(data_table), is, alloc_args...)
+        );
     }
 
   protected:
@@ -415,12 +418,11 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
 
     static constexpr SimpleGraph load(
         const lib::ContextFreeLoadTable& table,
-        const lib::detail::Deserializer& deserializer,
         std::istream& is,
         const Alloc& allocator = {}
     ) {
         auto lazy = lib::Lazy([](data_type data) { return SimpleGraph(std::move(data)); });
-        return parent_type::load(table, lazy, deserializer, is, allocator);
+        return parent_type::load(table, lazy, is, allocator);
     }
 
     static constexpr SimpleGraph
@@ -432,12 +434,8 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         }
     }
 
-    static constexpr SimpleGraph load(
-        const lib::detail::Deserializer& deserializer,
-        std::istream& is,
-        const Alloc& allocator = {}
-    ) {
-        return lib::load_from_stream<SimpleGraph>(deserializer, is, allocator);
+    static constexpr SimpleGraph load(std::istream& is, const Alloc& allocator = {}) {
+        return lib::load_from_stream<SimpleGraph>(is, allocator);
     }
 };
 
@@ -471,12 +469,23 @@ class SimpleBlockedGraph
         return parent_type::load(table, lazy);
     }
 
+    static constexpr SimpleBlockedGraph
+    load(const lib::ContextFreeLoadTable& table, std::istream& is) {
+        auto lazy =
+            lib::Lazy([](data_type data) { return SimpleBlockedGraph(std::move(data)); });
+        return parent_type::load(table, lazy, is);
+    }
+
     static constexpr SimpleBlockedGraph load(const std::filesystem::path& path) {
         if (data::detail::is_likely_reload(path)) {
             return lib::load_from_disk<SimpleBlockedGraph>(path);
         } else {
             return SimpleBlockedGraph(data_type::load(path));
         }
+    }
+
+    static constexpr SimpleBlockedGraph load(std::istream& is) {
+        return lib::load_from_stream<SimpleBlockedGraph>(is);
     }
 };
 
