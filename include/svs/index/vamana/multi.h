@@ -846,7 +846,6 @@ template <
     typename Distance,
     typename ThreadPoolProto>
 auto auto_multi_dynamic_assemble(
-    const lib::detail::Deserializer& deserializer,
     std::istream& is,
     LazyGraphLoader graph_loader,
     LazyDataLoader data_loader,
@@ -854,67 +853,32 @@ auto auto_multi_dynamic_assemble(
     ThreadPoolProto threadpool_proto,
     svs::logging::logger_ptr logger = svs::logging::get()
 ) {
-    using Data = decltype(data_loader());
-    using Graph = decltype(graph_loader());
     using label_type = size_t;
 
-    // The config loader reads the TOML metadata and the labels binary data.
-    auto config_loader =
-        [&]() -> std::pair<VamanaIndexParameters, std::vector<label_type>> {
-        auto table = lib::detail::read_metadata(deserializer, is);
+    auto table = lib::detail::read_metadata(is);
 
-        auto parameters = lib::load<VamanaIndexParameters>(
-            table.template cast<toml::table>().at("parameters").template cast<toml::table>()
-        );
+    auto parameters = lib::load<VamanaIndexParameters>(
+        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    );
 
-        auto num_labels =
-            lib::load<size_t>(table.template cast<toml::table>().at("num_labels"));
+    auto num_labels =
+        lib::load<size_t>(table.template cast<toml::table>().at("num_labels"));
 
-        deserializer.read_name(is);
-        deserializer.read_size(is);
+    // Read labels binary data directly from the stream.
+    std::vector<label_type> labels(num_labels);
+    lib::read_binary(is, labels);
 
-        // Read labels binary data directly from the stream.
-        std::vector<label_type> labels(num_labels);
-        lib::read_binary(is, labels);
+    auto data = data_loader();
+    auto graph = graph_loader();
 
-        return {std::move(parameters), std::move(labels)};
-    };
-
-    std::optional<std::pair<VamanaIndexParameters, std::vector<label_type>>> config;
-    std::optional<Data> data;
-    std::optional<Graph> graph;
-
-    if (deserializer.is_native()) {
-        // Order is always config->data->graph.
-        config.emplace(config_loader());
-        data.emplace(data_loader());
-        graph.emplace(graph_loader());
-    } else {
-        // Directory packing order is filesystem-dependent.
-        // Read 3 data blocks: config, data and graph in a corresponding order.
-        for (int data_block_idx = 0; data_block_idx < 3; ++data_block_idx) {
-            auto name = deserializer.read_name_in_advance(is);
-            if (name.starts_with("config/")) {
-                config.emplace(config_loader());
-            } else if (name.starts_with("data/")) {
-                data.emplace(data_loader());
-            } else if (name.starts_with("graph/")) {
-                graph.emplace(graph_loader());
-            } else {
-                throw ANNEXCEPTION("The stream is corrupted!");
-            }
-        }
-    }
-
-    auto datasize = data->size();
-    auto graphsize = graph->n_nodes();
+    auto datasize = data.size();
+    auto graphsize = graph.n_nodes();
     if (datasize != graphsize) {
         throw ANNEXCEPTION(
             "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
         );
     }
 
-    auto& [parameters, labels] = *config;
     if (labels.size() != datasize) {
         throw ANNEXCEPTION("Labels has {} IDs but should have {}", labels.size(), datasize);
     }
@@ -922,8 +886,8 @@ auto auto_multi_dynamic_assemble(
     auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return MultiMutableVamanaIndex{
         parameters,
-        std::move(*data),
-        std::move(*graph),
+        std::move(data),
+        std::move(graph),
         std::move(distance),
         labels,
         std::move(threadpool),

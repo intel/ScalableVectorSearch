@@ -346,17 +346,15 @@ CATCH_TEST_CASE(
         index.save(stream);
         {
             auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            CATCH_REQUIRE(deserializer.is_native());
 
             using Data_t = svs::data::SimpleData<Eltype, N>;
             using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
 
             auto loaded = svs::index::vamana::auto_multi_dynamic_assemble(
-                deserializer,
                 stream,
-                [&]() -> GraphType { return GraphType::load(deserializer, stream); },
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
+                [&]() -> GraphType { return GraphType::load(stream); },
+                [&]() -> Data_t { return svs::lib::load_from_stream<Data_t>(stream); },
                 Distance(),
                 num_threads
             );
@@ -395,30 +393,27 @@ CATCH_TEST_CASE(
     CATCH_SECTION("Load MultiMutableVamana Index being serialized with intermediate files"
     ) {
         std::stringstream stream;
+        svs::lib::UniqueTempDirectory tempdir{"svs_multivamana_save"};
+        const auto config_dir = tempdir.get() / "config";
+        const auto graph_dir = tempdir.get() / "graph";
+        const auto data_dir = tempdir.get() / "data";
+        std::filesystem::create_directories(config_dir);
+        std::filesystem::create_directories(graph_dir);
+        std::filesystem::create_directories(data_dir);
+        index.save(config_dir, graph_dir, data_dir);
+        svs::lib::DirectoryArchiver::pack(tempdir, stream);
         {
-            svs::lib::UniqueTempDirectory tempdir{"svs_multivamana_save"};
-            const auto config_dir = tempdir.get() / "config";
-            const auto graph_dir = tempdir.get() / "graph";
-            const auto data_dir = tempdir.get() / "data";
-            std::filesystem::create_directories(config_dir);
-            std::filesystem::create_directories(graph_dir);
-            std::filesystem::create_directories(data_dir);
-            index.save(config_dir, graph_dir, data_dir);
-            svs::lib::DirectoryArchiver::pack(tempdir, stream);
-        }
-        {
-            auto deserializer = svs::lib::detail::Deserializer::build(stream);
-
             using Data_t = svs::data::SimpleData<Eltype, N>;
             using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
 
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            CATCH_REQUIRE(!deserializer.is_native());
+            svs::lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+
             auto loaded = svs::index::vamana::auto_multi_dynamic_assemble(
-                deserializer,
-                stream,
-                [&]() -> GraphType { return GraphType::load(deserializer, stream); },
-                [&]() -> Data_t {
-                    return svs::lib::load_from_stream<Data_t>(deserializer, stream);
-                },
+                config_dir,
+                GraphType::load(graph_dir),
+                Data_t::load(data_dir),
                 Distance(),
                 num_threads
             );
