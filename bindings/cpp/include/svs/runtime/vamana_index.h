@@ -25,6 +25,7 @@ namespace svs {
 namespace runtime {
 namespace v0 {
 
+namespace detail {
 struct VamanaBuildParameters {
     size_t graph_max_degree = Unspecify<size_t>();
     size_t prune_to = Unspecify<size_t>();
@@ -40,18 +41,22 @@ struct VamanaSearchParameters {
     size_t prefetch_lookahead = Unspecify<size_t>();
     size_t prefetch_step = Unspecify<size_t>();
 };
+} // namespace detail
 
 // Abstract interface for Vamana-based indices.
 // NOTE VamanaIndex is not implemented directly, only DynamicVamanaIndex is implemented.
 struct SVS_RUNTIME_API VamanaIndex {
     virtual ~VamanaIndex();
 
-    using BuildParams = VamanaBuildParameters;
-    using SearchParams = VamanaSearchParameters;
+    using BuildParams = detail::VamanaBuildParameters;
+    using SearchParams = detail::VamanaSearchParameters;
 
     struct DynamicIndexParams {
         size_t blocksize_exp = 30;
     };
+
+    virtual Status add(size_t n, const float* x) noexcept = 0;
+    virtual Status reset() noexcept = 0;
 
     virtual Status search(
         size_t n,
@@ -79,8 +84,6 @@ struct SVS_RUNTIME_API VamanaIndex {
     static Status build(
         VamanaIndex** index,
         size_t dim,
-        size_t n,
-        const float* x,
         MetricType metric,
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& params = VamanaIndex::BuildParams{},
@@ -100,8 +103,6 @@ struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
     static Status build(
         VamanaIndex** index,
         size_t dim,
-        size_t n,
-        const float* x,
         MetricType metric,
         StorageKind storage_kind,
         size_t leanvec_dims,
@@ -113,8 +114,6 @@ struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
     static Status build(
         VamanaIndex** index,
         size_t dim,
-        size_t n,
-        const float* x,
         MetricType metric,
         StorageKind storage_kind,
         const LeanVecTrainingData* training_data,

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
 #include "svs/runtime/vamana_index.h"
@@ -45,23 +46,42 @@ class VamanaIndexImpl {
 
   public:
     VamanaIndexImpl(
-        const svs::data::ConstSimpleDataView<float>& data,
+        size_t dim,
         MetricType metric,
         StorageKind storage_kind,
         const VamanaIndex::BuildParams& build_params,
         const VamanaIndex::SearchParams& default_search_params
     )
-        : VamanaIndexImpl(nullptr, metric, storage_kind) {
-        VamanaIndexImpl::init_impl(data, build_params, default_search_params);
+        : dim_{dim}
+        , metric_type_{metric}
+        , storage_kind_{storage_kind}
+        , build_params_{build_params}
+        , default_search_params_{default_search_params} {
+        if (!storage::is_supported_storage_kind(storage_kind)) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT,
+                "The specified storage kind is not compatible with the "
+                "VamanaIndex"};
+        }
     }
 
-    size_t size() const { return get_impl()->size(); }
+    size_t size() const { return impl_ ? get_impl()->size() : 0; }
 
-    size_t dimensions() const { return get_impl()->dimensions(); }
+    size_t dimensions() const { return dim_; }
 
     MetricType metric_type() const { return metric_type_; }
 
     StorageKind get_storage_kind() const { return storage_kind_; }
+
+    void add(const data::ConstSimpleDataView<float>& data) {
+        if (!impl_) {
+            return init_impl(data);
+        }
+
+        throw StatusException{
+            ErrorCode::INVALID_ARGUMENT,
+            "Vamana index does not support adding points after initialization"};
+    }
 
     void search(
         svs::QueryResultView<size_t> result,
@@ -184,6 +204,8 @@ class VamanaIndexImpl {
 
         // Set iterator batch size to search window size
         auto batch_size = sp.buffer_config_.get_search_window_size();
+        // Ensure batch size is at least 10 to avoid excessive overhead of small batches
+        batch_size = std::max(batch_size, size_t(10));
 
         auto range_search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
@@ -242,6 +264,8 @@ class VamanaIndexImpl {
         get_impl()->set_search_parameters(old_sp);
     }
 
+    void reset() { impl_.reset(); }
+
     void save(std::ostream& out) const {
         lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
         const auto config_dir = tempdir.get() / "config";
@@ -263,45 +287,57 @@ class VamanaIndexImpl {
         return impl_.get();
     }
 
-    static svs::index::vamana::VamanaBuildParameters
-    make_build_parameters(const VamanaIndex::BuildParams& build_params) {
+    svs::index::vamana::VamanaBuildParameters vamana_build_parameters() const {
         svs::index::vamana::VamanaBuildParameters result;
-        set_if_specified(result.alpha, build_params.alpha);
-        set_if_specified(result.graph_max_degree, build_params.graph_max_degree);
-        set_if_specified(result.window_size, build_params.construction_window_size);
+        set_if_specified(result.alpha, build_params_.alpha);
+        set_if_specified(result.graph_max_degree, build_params_.graph_max_degree);
+        set_if_specified(result.window_size, build_params_.construction_window_size);
         set_if_specified(
-            result.max_candidate_pool_size, build_params.max_candidate_pool_size
+            result.max_candidate_pool_size, build_params_.max_candidate_pool_size
         );
-        set_if_specified(result.prune_to, build_params.prune_to);
-        if (is_specified(build_params.use_full_search_history)) {
+        set_if_specified(result.prune_to, build_params_.prune_to);
+        if (is_specified(build_params_.use_full_search_history)) {
             result.use_full_search_history =
-                build_params.use_full_search_history.is_enabled();
+                build_params_.use_full_search_history.is_enabled();
         }
         return result;
     }
 
     svs::index::vamana::VamanaSearchParameters
     make_search_parameters(const VamanaIndex::SearchParams* params) const {
-        // Get current search parameters from the index
-        auto result = get_impl()->get_search_parameters();
-        if (!params) {
-            return result;
-        }
-        // else: update with user-specified parameters
-        if (is_specified(params->search_window_size)) {
-            if (is_specified(params->search_buffer_capacity)) {
-                result.buffer_config(
-                    {params->search_window_size, params->search_buffer_capacity}
-                );
-            } else {
-                result.buffer_config(params->search_window_size);
-            }
-        } else if (is_specified(params->search_buffer_capacity)) {
-            result.buffer_config(params->search_buffer_capacity);
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
 
-        set_if_specified(result.prefetch_lookahead_, params->prefetch_lookahead);
-        set_if_specified(result.prefetch_step_, params->prefetch_step);
+        // Copy default search parameters
+        auto search_params = default_search_params_;
+        // Update with user-specified parameters
+        if (params) {
+            set_if_specified(search_params.search_window_size, params->search_window_size);
+            set_if_specified(
+                search_params.search_buffer_capacity, params->search_buffer_capacity
+            );
+            set_if_specified(search_params.prefetch_lookahead, params->prefetch_lookahead);
+            set_if_specified(search_params.prefetch_step, params->prefetch_step);
+        }
+
+        // Get current search parameters from the index
+        auto result = impl_->get_search_parameters();
+        // Update with specified parameters
+        if (is_specified(search_params.search_window_size)) {
+            if (is_specified(search_params.search_buffer_capacity)) {
+                result.buffer_config(
+                    {search_params.search_window_size, search_params.search_buffer_capacity}
+                );
+            } else {
+                result.buffer_config(search_params.search_window_size);
+            }
+        } else if (is_specified(search_params.search_buffer_capacity)) {
+            result.buffer_config(search_params.search_buffer_capacity);
+        }
+
+        set_if_specified(result.prefetch_lookahead_, search_params.prefetch_lookahead);
+        set_if_specified(result.prefetch_step_, search_params.prefetch_step);
 
         return result;
     }
@@ -337,11 +373,7 @@ class VamanaIndexImpl {
         });
     }
 
-    void init_impl(
-        const data::ConstSimpleDataView<float>& data,
-        const VamanaIndex::BuildParams& build_params,
-        const VamanaIndex::SearchParams& default_search_params
-    ) {
+    virtual void init_impl(const data::ConstSimpleDataView<float>& data) {
         impl_.reset(storage::dispatch_storage_kind<allocator_type>(
             get_storage_kind(),
             [&](auto&& tag, const data::ConstSimpleDataView<float>& data) {
@@ -349,13 +381,13 @@ class VamanaIndexImpl {
                 return build_impl(
                     std::forward<Tag>(tag),
                     this->metric_type_,
-                    make_build_parameters(build_params),
+                    this->vamana_build_parameters(),
                     data
                 );
             },
             data
         ));
-        get_impl()->set_search_parameters(make_search_parameters(&default_search_params));
+        get_impl()->set_search_parameters(make_search_parameters(&default_search_params_));
     }
 
     // Constructor used during loading
@@ -365,11 +397,18 @@ class VamanaIndexImpl {
         : metric_type_{metric}
         , storage_kind_{storage_kind}
         , impl_{std::move(impl)} {
-        if (!storage::is_supported_storage_kind(storage_kind)) {
-            throw StatusException{
-                ErrorCode::INVALID_ARGUMENT,
-                "The specified storage kind is not compatible with the "
-                "DynamicVamanaIndex"};
+        if (impl_) {
+            dim_ = impl_->dimensions();
+            const auto& buffer_config = impl_->get_search_parameters().buffer_config_;
+            default_search_params_ = {
+                buffer_config.get_search_window_size(), buffer_config.get_total_capacity()};
+            build_params_ = VamanaIndex::BuildParams{
+                impl_->get_graph_max_degree(),
+                impl_->get_prune_to(),
+                impl_->get_alpha(),
+                impl_->get_construction_window_size(),
+                impl_->get_max_candidates(),
+                impl_->get_full_search_history()};
         }
     }
 
@@ -435,8 +474,11 @@ class VamanaIndexImpl {
 
     // Data members
   protected:
+    size_t dim_;
     MetricType metric_type_;
     StorageKind storage_kind_;
+    VamanaIndex::BuildParams build_params_;
+    VamanaIndex::SearchParams default_search_params_;
     std::unique_ptr<svs::Vamana> impl_;
 };
 
@@ -454,33 +496,31 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
     }
 
     VamanaIndexLeanVecImpl(
-        const data::ConstSimpleDataView<float>& data,
+        size_t dim,
         MetricType metric,
         StorageKind storage_kind,
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params
     )
-        : VamanaIndexImpl{nullptr, metric, storage_kind}
+        : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{training_data.get_leanvec_dims()}
         , leanvec_matrices_{training_data.get_leanvec_matrices()} {
         check_storage_kind(storage_kind);
-        init_impl(data, params, default_search_params, leanvec_dims_, leanvec_matrices_);
     }
 
     VamanaIndexLeanVecImpl(
-        const data::ConstSimpleDataView<float>& data,
+        size_t dim,
         MetricType metric,
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params
     )
-        : VamanaIndexImpl{nullptr, metric, storage_kind}
+        : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{leanvec_dims}
         , leanvec_matrices_{std::nullopt} {
         check_storage_kind(storage_kind);
-        init_impl(data, params, default_search_params, leanvec_dims_, leanvec_matrices_);
     }
 
     template <typename F, typename... Args>
@@ -507,13 +547,7 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
         }
     }
 
-    void init_impl(
-        const data::ConstSimpleDataView<float>& data,
-        const VamanaIndex::BuildParams& build_params,
-        const VamanaIndex::SearchParams& default_search_params,
-        size_t leanvec_dims,
-        const std::optional<LeanVecMatricesType>& leanvec_matrices
-    ) {
+    void init_impl(const data::ConstSimpleDataView<float>& data) override {
         assert(storage::is_leanvec_storage(this->storage_kind_));
         impl_.reset(dispatch_leanvec_storage_kind(
             this->storage_kind_,
@@ -522,15 +556,15 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
                 return VamanaIndexImpl::build_impl(
                     std::forward<Tag>(tag),
                     this->metric_type_,
-                    make_build_parameters(build_params),
+                    this->vamana_build_parameters(),
                     data,
-                    leanvec_dims,
-                    leanvec_matrices
+                    leanvec_dims_,
+                    leanvec_matrices_
                 );
             },
             data
         ));
-        impl_->set_search_parameters(make_search_parameters(&default_search_params));
+        impl_->set_search_parameters(make_search_parameters(&default_search_params_));
     }
 
   protected:
