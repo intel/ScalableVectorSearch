@@ -761,6 +761,10 @@ class DynamicIVFIndex {
         lib::save_to_disk(clusters_, clusters_dir);
     }
 
+    void save(std::ostream& SVS_UNUSED(os)) const {
+        throw ANNEXCEPTION("Placeholder; not implemented!");
+    }
+
   private:
     ///// Helper Methods /////
 
