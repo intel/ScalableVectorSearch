@@ -410,6 +410,66 @@ class DenseClusteredDataset {
     static constexpr lib::Version save_version{0, 0, 0};
     static constexpr std::string_view serialization_schema = "ivf_dense_clustered_dataset";
 
+    lib::SaveTable metadata() const {
+        auto num_clusters = size();
+        auto dims = dimensions();
+
+        return lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"num_clusters", lib::save(num_clusters)},
+             {"dimensions", lib::save(dims)},
+             {"prefetch_offset", lib::save(prefetch_offset_)},
+             {"index_type", lib::save(datatype_v<I>)}}
+        );
+    }
+
+    void save(std::ostream& os) const {
+        auto num_clusters = size();
+
+        // Compute cluster sizes and ID offsets
+        std::vector<size_t> cluster_sizes, ids_offsets;
+        calculate_cluster_sizes_and_offsets(&cluster_sizes, &ids_offsets);
+
+        lib::write_binary(os, cluster_sizes);
+        for (size_t i = 0; i < num_clusters; ++i) {
+            lib::save_to_stream(clusters_[i].data_, os);
+            if (!clusters_[i].ids_.empty()) {
+                lib::write_binary(os, clusters_[i].ids_);
+            }
+        }
+    }
+
+    template <typename Allocator = typename Data::allocator_type>
+    static DenseClusteredDataset load(
+        const lib::ContextFreeLoadTable& table,
+        std::istream& is,
+        const Allocator& allocator = Allocator{}
+    ) {
+        auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
+        [[maybe_unused]] auto dims = lib::load_at<size_t>(table, "dimensions");
+        auto prefetch_offset = lib::load_at<size_t>(table, "prefetch_offset");
+        check_saved_index_type(table);
+
+        DenseClusteredDataset result;
+        result.prefetch_offset_ = prefetch_offset;
+        result.clusters_.reserve(num_clusters);
+
+        std::vector<size_t> cluster_sizes(num_clusters);
+        lib::read_binary(is, cluster_sizes);
+
+        for (size_t i = 0; i < num_clusters; ++i) {
+            auto cluster_data = lib::load_from_stream<Data>(is, allocator);
+            size_t cluster_size = cluster_sizes[i];
+            std::vector<I> cluster_ids(cluster_size);
+            if (cluster_size > 0) {
+                lib::read_binary(is, cluster_ids);
+            }
+            result.clusters_.emplace_back(std::move(cluster_data), std::move(cluster_ids));
+        }
+        return result;
+    }
+
     /// @brief Save the DenseClusteredDataset to disk.
     ///
     /// Saves all cluster data using the existing save mechanisms for each data type
@@ -427,16 +487,8 @@ class DenseClusteredDataset {
         auto dims = dimensions();
 
         // Compute cluster sizes and ID offsets
-        std::vector<size_t> cluster_sizes(num_clusters);
-        std::vector<size_t> ids_offsets(num_clusters + 1);
-
-        size_t ids_offset = 0;
-        for (size_t i = 0; i < num_clusters; ++i) {
-            cluster_sizes[i] = clusters_[i].size();
-            ids_offsets[i] = ids_offset;
-            ids_offset += cluster_sizes[i] * sizeof(I);
-        }
-        ids_offsets[num_clusters] = ids_offset;
+        std::vector<size_t> cluster_sizes, ids_offsets;
+        calculate_cluster_sizes_and_offsets(&cluster_sizes, &ids_offsets);
 
         // Create a temporary directory for cluster data
         lib::UniqueTempDirectory tempdir{"svs_ivf_clusters_save"};
@@ -495,7 +547,7 @@ class DenseClusteredDataset {
              {"ids_file", lib::save(std::string("ids.bin"))},
              {"cluster_sizes_file", lib::save(std::string("cluster_sizes.bin"))},
              {"ids_offsets_file", lib::save(std::string("ids_offsets.bin"))},
-             {"total_ids_bytes", lib::save(ids_offset)}}
+             {"total_ids_bytes", lib::save(ids_offsets[num_clusters])}}
         );
     }
 
@@ -528,17 +580,7 @@ class DenseClusteredDataset {
         // since each cluster's data type determines its own dimensions
         [[maybe_unused]] auto dims = lib::load_at<size_t>(table, "dimensions");
         auto prefetch_offset = lib::load_at<size_t>(table, "prefetch_offset");
-
-        // Verify index type matches
-        auto saved_index_type = lib::load_at<DataType>(table, "index_type");
-        if (saved_index_type != datatype_v<I>) {
-            throw ANNEXCEPTION(
-                "DenseClusteredDataset was saved using index type {} but we're trying to "
-                "reload it using {}!",
-                saved_index_type,
-                datatype_v<I>
-            );
-        }
+        check_saved_index_type(table);
 
         auto base_dir = table.context().get_directory();
 
@@ -603,6 +645,35 @@ class DenseClusteredDataset {
     }
 
   private:
+    void calculate_cluster_sizes_and_offsets(
+        std::vector<size_t>* cluster_sizes, std::vector<size_t>* ids_offsets
+    ) const {
+        auto num_clusters = size();
+        cluster_sizes->resize(num_clusters);
+        ids_offsets->resize(num_clusters + 1);
+
+        size_t ids_offset = 0;
+        for (size_t i = 0; i < num_clusters; ++i) {
+            (*cluster_sizes)[i] = clusters_[i].size();
+            (*ids_offsets)[i] = ids_offset;
+            ids_offset += clusters_[i].size() * sizeof(I);
+        }
+        (*ids_offsets)[num_clusters] = ids_offset;
+    }
+
+    static void check_saved_index_type(const lib::ContextFreeLoadTable& table) {
+        // Verify index type matches
+        auto saved_index_type = lib::load_at<DataType>(table, "index_type");
+        if (saved_index_type != datatype_v<I>) {
+            throw ANNEXCEPTION(
+                "DenseClusteredDataset was saved using index type {} but we're trying to "
+                "reload it using {}!",
+                saved_index_type,
+                datatype_v<I>
+            );
+        }
+    }
+
     std::vector<DenseCluster<Data, I>> clusters_;
     size_t prefetch_offset_ = 8;
 };
