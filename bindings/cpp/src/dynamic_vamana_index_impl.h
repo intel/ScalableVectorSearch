@@ -140,10 +140,9 @@ class DynamicVamanaIndexImpl {
 
                 // Pad results if not enough neighbors found
                 if (found < k) {
-                    auto& dists = result.distances();
-                    std::fill(dists.begin() + found, dists.end(), Unspecify<float>());
-                    auto& inds = result.indices();
-                    std::fill(inds.begin() + found, inds.end(), Unspecify<size_t>());
+                    for (size_t j = found; j < k; ++j) {
+                        result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+                    }
                 }
             }
         };

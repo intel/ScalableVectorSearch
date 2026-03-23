@@ -29,6 +29,7 @@
 #include <svs/lib/file.h>
 #include <svs/lib/float16.h>
 #include <svs/lib/memory.h>
+#include <svs/lib/scopeguard.h>
 #include <svs/orchestrators/vamana.h>
 #include <svs/quantization/scalar/scalar.h>
 
@@ -116,6 +117,9 @@ class VamanaIndexImpl {
 
         // Selective search with IDSelector
         auto old_sp = get_impl()->get_search_parameters();
+        auto sp_restore = svs::lib::make_scope_guard([&]() noexcept {
+            get_impl()->set_search_parameters(old_sp);
+        });
         get_impl()->set_search_parameters(sp);
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
@@ -139,10 +143,9 @@ class VamanaIndexImpl {
 
                 // Pad results if not enough neighbors found
                 if (found < k) {
-                    auto& dists = result.distances();
-                    std::fill(dists.begin() + found, dists.end(), Unspecify<float>());
-                    auto& inds = result.indices();
-                    std::fill(inds.begin() + found, inds.end(), Unspecify<size_t>());
+                    for (size_t j = found; j < k; ++j) {
+                        result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+                    }
                 }
             }
         };
@@ -152,8 +155,6 @@ class VamanaIndexImpl {
         svs::threads::parallel_for(
             threadpool, svs::threads::StaticPartition{queries.size()}, search_closure
         );
-
-        get_impl()->set_search_parameters(old_sp);
     }
 
     void range_search(
@@ -175,6 +176,9 @@ class VamanaIndexImpl {
 
         auto sp = make_search_parameters(params);
         auto old_sp = get_impl()->get_search_parameters();
+        auto sp_restore = svs::lib::make_scope_guard([&]() noexcept {
+            get_impl()->set_search_parameters(old_sp);
+        });
         get_impl()->set_search_parameters(sp);
 
         // Using ResultHandler makes no sense due to it's complexity, overhead and
@@ -260,8 +264,6 @@ class VamanaIndexImpl {
                 ofs++;
             }
         }
-
-        get_impl()->set_search_parameters(old_sp);
     }
 
     void reset() { impl_.reset(); }
@@ -352,7 +354,7 @@ class VamanaIndexImpl {
     ) {
         auto threadpool = default_threadpool();
         using storage_alloc_t = typename Tag::allocator_type;
-        auto allocator = storage::make_allocator<storage_alloc_t>(svs::lib::PowerOfTwo{0});
+        auto allocator = storage::make_allocator<storage_alloc_t>();
 
         auto storage = make_storage(
             std::forward<Tag>(tag),
@@ -394,8 +396,11 @@ class VamanaIndexImpl {
     VamanaIndexImpl(
         std::unique_ptr<svs::Vamana>&& impl, MetricType metric, StorageKind storage_kind
     )
-        : metric_type_{metric}
+        : dim_{0}
+        , metric_type_{metric}
         , storage_kind_{storage_kind}
+        , build_params_{}
+        , default_search_params_{}
         , impl_{std::move(impl)} {
         if (impl_) {
             dim_ = impl_->dimensions();

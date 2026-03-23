@@ -773,6 +773,7 @@ CATCH_TEST_CASE("StaticIndexLeanVecWithTrainingData", "[runtime][static_vamana]"
     svs::runtime::v0::Status training_status = svs::runtime::v0::LeanVecTrainingData::build(
         &training_data, test_d, test_n, test_data.data(), leanvec_dims
     );
+    CATCH_REQUIRE(training_status.ok());
 
     svs::runtime::v0::Status status = svs::runtime::v0::VamanaIndexLeanVec::build(
         &index,

@@ -102,12 +102,12 @@ Status VamanaIndex::check_storage_kind(StorageKind storage_kind) noexcept {
     if (!status.ok()) {
         return status;
     }
-    return supported ? Status_Ok
-                     : Status(
-                           ErrorCode::INVALID_ARGUMENT,
-                           "The specified storage kind is not compatible with the "
-                           "DynamicVamanaIndex"
-                       );
+    return supported
+               ? Status_Ok
+               : Status(
+                     ErrorCode::INVALID_ARGUMENT,
+                     "The specified storage kind is not compatible with the VamanaIndex"
+                 );
 }
 
 Status VamanaIndex::build(
@@ -180,6 +180,10 @@ Status VamanaIndexLeanVec::build(
     *index = nullptr;
 
     return runtime_error_wrapper([&] {
+        if (training_data == nullptr) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "Training data must not be null"};
+        }
         auto training_data_impl =
             static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
         auto impl = std::make_unique<Impl>(
@@ -192,7 +196,7 @@ Status VamanaIndexLeanVec::build(
 #else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // LeanVec storage kind is not supported in this build configuration
 Status VamanaIndexLeanVec::
-    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, size_t, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&) noexcept {
+    build(VamanaIndex**, size_t, MetricType, StorageKind, size_t, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."
@@ -200,7 +204,7 @@ Status VamanaIndexLeanVec::
 }
 
 Status VamanaIndexLeanVec::
-    build(DynamicVamanaIndex**, size_t, MetricType, StorageKind, size_t, const DynamicVamanaIndex::BuildParams&, const DynamicVamanaIndex::SearchParams&, const DynamicVamanaIndex::DynamicIndexParams&) noexcept {
+    build(VamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "DynamicVamanaIndexLeanVec is not supported in this build configuration."

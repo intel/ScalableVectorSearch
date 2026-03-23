@@ -148,21 +148,22 @@ struct ExtractedAllocatorRebinder<T, svs::data::Blocked<Alloc>> {
 template <typename T, typename Alloc>
 using rebind_extracted_allocator_t = typename ExtractedAllocatorRebinder<T, Alloc>::type;
 
-template <typename Alloc> Alloc make_allocator(svs::lib::PowerOfTwo blocksize_bytes) {
-    if constexpr (svs::data::is_blocked_v<Alloc>) {
-        assert(
-            blocksize_bytes.raw() > 0 &&
-            "Blocked storage types require a non-zero blocksize"
-        );
-        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
-        return Alloc(parameters);
-    } else {
-        assert(
-            blocksize_bytes.raw() == 0 &&
-            "Non-blocked storage types should have blocksize_bytes set to 0"
-        );
-        return Alloc();
-    }
+template <typename Alloc>
+Alloc make_allocator()
+    requires(!svs::data::is_blocked_v<Alloc>)
+{
+    return Alloc{};
+}
+
+template <typename Alloc>
+Alloc make_allocator(svs::lib::PowerOfTwo blocksize_bytes)
+    requires(svs::data::is_blocked_v<Alloc>)
+{
+    assert(
+        blocksize_bytes.raw() > 0 && "Blocked storage types require a non-zero blocksize"
+    );
+    auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+    return Alloc(parameters);
 }
 
 // Storage types
