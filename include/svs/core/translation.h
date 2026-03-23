@@ -324,7 +324,7 @@ class IDTranslator {
         "external_to_internal_translation";
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
-    lib::SaveTable save_table() const {
+    lib::SaveTable metadata() const {
         return lib::SaveTable(
             serialization_schema,
             save_version,
@@ -348,7 +348,7 @@ class IDTranslator {
         // Save the translations to a file.
         auto os = lib::open_write(filename);
         save(os);
-        auto table = save_table();
+        auto table = metadata();
         table.insert("filename", lib::save(filename.filename()));
         return table;
     }

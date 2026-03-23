@@ -1047,7 +1047,7 @@ class MutableVamanaIndex {
             {
                 {"name", lib::save(name())},
                 {"parameters", lib::save(parameters())},
-                {"translation", lib::detail::exit_hook(translator_.save_table())},
+                {"translation", lib::detail::exit_hook(translator_.metadata())},
             }
         );
         lib::save_to_stream(save_table, os);
