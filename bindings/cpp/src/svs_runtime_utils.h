@@ -176,11 +176,13 @@ using SQDatasetType = svs::quantization::scalar::SQDataset<T, svs::Dynamic, Allo
 // Storage type mapping
 
 // Unsupported storage type defined as unique type to cause runtime error if used
-struct UnsupportedStorageType {};
+template <typename Alloc> struct UnsupportedStorageType {
+    using allocator_type = Alloc; // Dummy allocator type to satisfy template requirements
+};
 
 template <StorageKind Kind, typename Alloc> struct StorageType {
-    using type = UnsupportedStorageType;
     using allocator_type = Alloc;
+    using type = UnsupportedStorageType<Alloc>;
 };
 template <StorageKind Kind, typename Alloc>
 using StorageType_t = typename StorageType<Kind, Alloc>::type;
@@ -203,8 +205,9 @@ template <typename T> struct StorageFactory;
 
 // Unsupported storage type factory returning runtime error when attempted to be used.
 // Return type defined to simple to allow substitution in templates.
-template <> struct StorageFactory<UnsupportedStorageType> {
-    using StorageType = SimpleDatasetType<float, svs::lib::Allocator<float>>;
+template <typename Alloc> struct StorageFactory<UnsupportedStorageType<Alloc>> {
+    using StorageType =
+        SimpleDatasetType<float, rebind_extracted_allocator_t<float, Alloc>>;
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(

@@ -199,7 +199,7 @@ Status VamanaIndexLeanVec::
     build(VamanaIndex**, size_t, MetricType, StorageKind, size_t, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
-        "DynamicVamanaIndexLeanVec is not supported in this build configuration."
+        "VamanaIndexLeanVec is not supported in this build configuration."
     );
 }
 
@@ -207,7 +207,7 @@ Status VamanaIndexLeanVec::
     build(VamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
-        "DynamicVamanaIndexLeanVec is not supported in this build configuration."
+        "VamanaIndexLeanVec is not supported in this build configuration."
     );
 }
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC

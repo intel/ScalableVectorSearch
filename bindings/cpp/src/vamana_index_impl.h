@@ -19,7 +19,10 @@
 #include "svs/runtime/vamana_index.h"
 
 #include "svs_runtime_utils.h"
+
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 #include "training_impl.h"
+#endif
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
@@ -487,6 +490,7 @@ class VamanaIndexImpl {
     std::unique_ptr<svs::Vamana> impl_;
 };
 
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
     using LeanVecMatricesType = LeanVecTrainingDataImpl::LeanVecMatricesType;
     using allocator_type = svs::lib::Allocator<std::byte>;
@@ -591,6 +595,7 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
         return kind;
     }
 };
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
 } // namespace runtime
 } // namespace svs

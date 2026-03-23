@@ -86,8 +86,9 @@ inline bool is_supported_storage_kind(StorageKind kind) {
 template <typename DataType> struct IVFStorageFactory;
 
 // Unsupported storage factory
-template <> struct IVFStorageFactory<storage::UnsupportedStorageType> {
-    using DataType = storage::SimpleDatasetType<float, svs::lib::Allocator<float>>;
+template <typename Alloc> struct IVFStorageFactory<storage::UnsupportedStorageType<Alloc>> {
+    using DataType = storage::
+        SimpleDatasetType<float, storage::rebind_extracted_allocator_t<float, Alloc>>;
 
     template <svs::threads::ThreadPool Pool>
     static DataType

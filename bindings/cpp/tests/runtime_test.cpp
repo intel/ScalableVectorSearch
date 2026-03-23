@@ -770,18 +770,8 @@ CATCH_TEST_CASE("StaticIndexLeanVecWithTrainingData", "[runtime][static_vamana]"
 
     // Prepare training data
     svs::runtime::v0::LeanVecTrainingData* training_data = nullptr;
-    svs::runtime::v0::Status training_status = svs::runtime::v0::LeanVecTrainingData::build(
+    svs::runtime::v0::Status status = svs::runtime::v0::LeanVecTrainingData::build(
         &training_data, test_d, test_n, test_data.data(), leanvec_dims
-    );
-    CATCH_REQUIRE(training_status.ok());
-
-    svs::runtime::v0::Status status = svs::runtime::v0::VamanaIndexLeanVec::build(
-        &index,
-        test_d,
-        svs::runtime::v0::MetricType::L2,
-        svs::runtime::v0::StorageKind::LeanVec4x4,
-        training_data,
-        build_params
     );
     if (!svs::runtime::v0::VamanaIndexLeanVec::check_storage_kind(
              svs::runtime::v0::StorageKind::LeanVec4x4
@@ -790,6 +780,15 @@ CATCH_TEST_CASE("StaticIndexLeanVecWithTrainingData", "[runtime][static_vamana]"
         CATCH_REQUIRE(!status.ok());
         CATCH_SKIP("Storage kind is not supported, skipping test.");
     }
+
+    status = svs::runtime::v0::VamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        training_data,
+        build_params
+    );
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(index != nullptr);
 
