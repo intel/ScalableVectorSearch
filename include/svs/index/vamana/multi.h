@@ -563,16 +563,8 @@ class MultiMutableVamanaIndex {
     constexpr std::string_view name() const { return "multi dynamic vamana index"; }
 
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    void save(
-        const std::filesystem::path& config_directory,
-        const std::filesystem::path& graph_directory,
-        const std::filesystem::path& data_directory
-    ) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
 
+    auto get_labels() const {
         // Since data is in order of external ids,
         // convert a map of external ids to label types into a sorted vector of labels based
         // on external ids.
@@ -592,6 +584,34 @@ class MultiMutableVamanaIndex {
             [](const auto& ext_lab) { return ext_lab.second; }
         );
 
+        return labels;
+    }
+
+    VamanaIndexParameters get_parameters() const {
+        return {
+            index_->entry_point_.front(),
+            {get_alpha(),
+             max_degree(),
+             get_construction_window_size(),
+             get_max_candidates(),
+             get_prune_to(),
+             get_full_search_history()},
+            get_search_parameters()};
+    }
+
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& graph_directory,
+        const std::filesystem::path& data_directory
+    ) {
+        // Post-consolidation, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
+        consolidate();
+        compact();
+
+        auto labels = get_labels();
+        size_t num_labels = labels.size();
+
         // Save auxiliary data structures.
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
@@ -601,16 +621,7 @@ class MultiMutableVamanaIndex {
                 lib::write_binary(stream, labels);
 
                 // Save the construction parameters.
-                auto parameters = VamanaIndexParameters{
-                    index_->entry_point_.front(),
-                    {get_alpha(),
-                     max_degree(),
-                     get_construction_window_size(),
-                     get_max_candidates(),
-                     get_prune_to(),
-                     get_full_search_history()},
-                    get_search_parameters()};
-
+                auto parameters = get_parameters();
                 return lib::SaveTable(
                     "multi_vamana_dynamic_auxiliary_parameters",
                     save_version,
@@ -633,37 +644,12 @@ class MultiMutableVamanaIndex {
         consolidate();
         compact();
 
-        // Since data is in order of external ids,
-        // convert a map of external ids to label types into a sorted vector of labels based
-        // on external ids.
-        std::vector<std::pair<external_id_type, label_type>> ext_lab_vec(
-            external_to_label_.begin(), external_to_label_.end()
-        );
-        std::sort(ext_lab_vec.begin(), ext_lab_vec.end(), [](const auto& a, const auto& b) {
-            return a.first < b.first;
-        });
-
-        size_t num_labels = ext_lab_vec.size();
-        std::vector<label_type> labels(num_labels);
-        std::transform(
-            ext_lab_vec.begin(),
-            ext_lab_vec.end(),
-            labels.begin(),
-            [](const auto& ext_lab) { return ext_lab.second; }
-        );
+        auto labels = get_labels();
+        size_t num_labels = labels.size();
 
         lib::begin_serialization(os);
 
-        auto parameters = VamanaIndexParameters{
-            index_->entry_point_.front(),
-            {get_alpha(),
-             max_degree(),
-             get_construction_window_size(),
-             get_max_candidates(),
-             get_prune_to(),
-             get_full_search_history()},
-            get_search_parameters()};
-
+        auto parameters = get_parameters();
         auto save_table = lib::SaveTable(
             "multi_vamana_dynamic_auxiliary_parameters",
             save_version,
