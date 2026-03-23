@@ -415,7 +415,7 @@ template <typename Data, typename Dist> class DynamicFlatIndex {
             save_version,
             {
                 {"name", name()},
-                {"translation", lib::detail::exit_hook(translator_.save_table())},
+                {"translation", lib::detail::exit_hook(translator_.metadata())},
             }
         );
         lib::save_to_stream(save_table, os);
