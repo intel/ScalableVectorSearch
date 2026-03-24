@@ -264,12 +264,12 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename Clustering,
-        typename Data,
+        typename DataProto,
         typename Distance,
         typename ThreadPoolProto>
     static DynamicIVF assemble_from_clustering(
         Clustering clustering,
-        Data data,
+        DataProto&& data_proto,
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
@@ -282,7 +282,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
             return dispatcher([&](auto distance_function) {
                 auto impl = index::ivf::assemble_dynamic_from_clustering(
                     std::move(clustering),
-                    data,
+                    std::forward<DataProto>(data_proto),
                     ids,
                     std::move(distance_function),
                     std::move(threadpool),
@@ -295,7 +295,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         } else {
             auto impl = index::ivf::assemble_dynamic_from_clustering(
                 std::move(clustering),
-                data,
+                std::forward<DataProto>(data_proto),
                 ids,
                 distance,
                 std::move(threadpool),
@@ -311,12 +311,12 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename BuildType,
-        typename Data,
+        typename DataProto,
         typename Distance,
         typename ThreadPoolProto>
     static DynamicIVF assemble_from_file(
         const std::filesystem::path& cluster_path,
-        Data data,
+        DataProto&& data_proto,
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
@@ -330,7 +330,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
             );
         return assemble_from_clustering<QueryTypes>(
             std::move(clustering),
-            data,
+            std::forward<DataProto>(data_proto),
             ids,
             distance,
             std::move(threadpool),
