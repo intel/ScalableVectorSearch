@@ -41,21 +41,26 @@ struct LeanVecTrainingDataImpl {
 
     LeanVecTrainingDataImpl(LeanVecMatricesType&& matrices)
         : leanvec_dims_{matrices.view_data_matrix().dimensions()}
-        , leanvec_matrices_{std::move(matrices)} {}
+        , leanvec_matrices_{std::move(matrices)} {
+        if (!svs::detail::lvq_leanvec_enabled()) {
+            throw StatusException(
+                ErrorCode::NOT_IMPLEMENTED, "LeanVec is not supported by CPU."
+            );
+        }
+    }
 
     LeanVecTrainingDataImpl(
         const svs::data::ConstSimpleDataView<float>& data, size_t leanvec_dims
     )
-        : leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{compute_leanvec_matrices(data, leanvec_dims)} {}
+        : LeanVecTrainingDataImpl(compute_leanvec_matrices(data, leanvec_dims)) {}
 
     LeanVecTrainingDataImpl(
         const svs::data::ConstSimpleDataView<float>& data,
         const svs::data::ConstSimpleDataView<float>& queries,
         size_t leanvec_dims
     )
-        : leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{compute_leanvec_matrices_ood(data, queries, leanvec_dims)} {}
+        : LeanVecTrainingDataImpl(compute_leanvec_matrices_ood(data, queries, leanvec_dims)
+          ) {}
 
     size_t get_leanvec_dims() const { return leanvec_dims_; }
     const LeanVecMatricesType& get_leanvec_matrices() const { return leanvec_matrices_; }

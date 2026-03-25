@@ -159,9 +159,12 @@ template <typename Alloc>
 Alloc make_allocator(svs::lib::PowerOfTwo blocksize_bytes)
     requires(svs::data::is_blocked_v<Alloc>)
 {
-    assert(
-        blocksize_bytes.raw() > 0 && "Blocked storage types require a non-zero blocksize"
-    );
+    if (blocksize_bytes.raw() == 0) {
+        throw StatusException(
+            ErrorCode::INVALID_ARGUMENT,
+            "Blocked storage types require a non-zero blocksize"
+        );
+    }
     auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
     return Alloc(parameters);
 }
@@ -419,7 +422,9 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
         SVS_DISPATCH_STORAGE_KIND(LeanVec4x8);
         SVS_DISPATCH_STORAGE_KIND(LeanVec8x8);
         default:
-            throw ANNEXCEPTION("not supported SVS storage kind");
+            throw StatusException(
+                ErrorCode::INVALID_ARGUMENT, "Unknown or unsupported SVS storage kind"
+            );
     }
 
 #undef SVS_DISPATCH_STORAGE_KIND
