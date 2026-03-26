@@ -51,7 +51,7 @@
 
 #ifndef SVS_RUNTIME_VERSION_STRING
 /// Complete version string
-#define SVS_RUNTIME_VERSION_STRING "0.2.0"
+#define SVS_RUNTIME_VERSION_STRING "0.3.0"
 #endif
 
 #ifndef SVS_RUNTIME_API_VERSION
