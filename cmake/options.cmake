@@ -82,10 +82,18 @@ option(SVS_EXPERIMENTAL_CLANG_TIDY
     OFF # disabled by default
 )
 
-option(SVS_EXPERIMENTAL_CHECK_BOUNDS
-    "Enable bounds checking on many data accesses."
-    OFF # diabled by default
-)
+# If not explicitly set by user, check bounds for non-release builds
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    option(SVS_EXPERIMENTAL_CHECK_BOUNDS
+        "Enable bounds checking on many data accesses."
+        OFF
+    )
+else()
+    option(SVS_EXPERIMENTAL_CHECK_BOUNDS
+        "Enable bounds checking on many data accesses."
+        ON
+    )
+endif()
 
 option(SVS_EXPERIMENTAL_ENABLE_NUMA
     "Enable NUMA aware data structures. (Experimental)"
@@ -126,8 +134,7 @@ if (SVS_NO_AVX512)
     target_compile_options(${SVS_LIB} INTERFACE -mno-avx512f)
 endif()
 
-# Enable bounds-checking by default for non-release builds.
-if (SVS_EXPERIMENTAL_CHECK_BOUNDS OR NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+if (SVS_EXPERIMENTAL_CHECK_BOUNDS)
     target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS=1)
 else()
     target_compile_definitions(${SVS_LIB} INTERFACE -DSVS_CHECK_BOUNDS=0)

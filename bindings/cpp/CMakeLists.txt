@@ -102,7 +102,9 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs::svs
             svs_compile_options
         )
-        link_mkl_static(${TARGET_NAME})
+        if(SVS_EXPERIMENTAL_LINK_STATIC_MKL)
+            link_mkl_static(${TARGET_NAME})
+        endif()
         if(SVS_LVQ_HEADER)
             target_compile_definitions(${TARGET_NAME} PRIVATE
                 SVS_LVQ_HEADER="${SVS_LVQ_HEADER}"
