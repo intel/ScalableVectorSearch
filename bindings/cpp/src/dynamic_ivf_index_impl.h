@@ -23,6 +23,8 @@ namespace runtime {
 
 // Dynamic IVF index implementation (non-LeanVec storage kinds)
 class DynamicIVFIndexImpl {
+    using allocator_type = svs::data::Blocked<svs::lib::Allocator<float>>;
+
   public:
     DynamicIVFIndexImpl(
         size_t dim,
@@ -184,25 +186,32 @@ class DynamicIVFIndexImpl {
         }
 
         // Dispatch on storage kind to load with correct data type
-        return ivf_storage::dispatch_ivf_storage_kind(storage_kind, [&](auto tag) {
-            using Tag = decltype(tag);
-            using DataType = ivf_storage::IVFBlockedStorageType_t<Tag>;
+        return ivf_storage::dispatch_ivf_storage_kind<allocator_type>(
+            storage_kind,
+            [&](auto tag) {
+                using Tag = decltype(tag);
+                using DataType = typename Tag::type;
 
-            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-            return distance_dispatcher([&](auto&& distance) {
-                auto impl = std::make_unique<svs::DynamicIVF>(
-                    svs::DynamicIVF::assemble<float, svs::BFloat16, DataType>(
-                        in,
-                        std::forward<decltype(distance)>(distance),
+                svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+                return distance_dispatcher([&](auto&& distance) {
+                    auto impl = std::make_unique<svs::DynamicIVF>(
+                        svs::DynamicIVF::assemble<float, svs::BFloat16, DataType>(
+                            in,
+                            std::forward<decltype(distance)>(distance),
+                            num_threads,
+                            intra_query_threads
+                        )
+                    );
+                    return new DynamicIVFIndexImpl(
+                        std::move(impl),
+                        metric,
+                        storage_kind,
                         num_threads,
                         intra_query_threads
-                    )
-                );
-                return new DynamicIVFIndexImpl(
-                    std::move(impl), metric, storage_kind, num_threads, intra_query_threads
-                );
-            });
-        });
+                    );
+                });
+            }
+        );
     }
 
   protected:
@@ -297,20 +306,25 @@ class DynamicIVFIndexImpl {
             );
 
             // Dispatch on storage kind to compress and assemble
-            return ivf_storage::dispatch_ivf_storage_kind(storage_kind_, [&](auto tag) {
-                // Compress data to target storage type using the factory
-                auto compressed_data =
-                    ivf_storage::make_ivf_blocked_storage(tag, data, threadpool);
+            return ivf_storage::dispatch_ivf_storage_kind<allocator_type>(
+                storage_kind_,
+                [&](auto tag) {
+                    // Compress data to target storage type using the factory
+                    auto compressed_data =
+                        ivf_storage::make_ivf_blocked_storage(tag, data, threadpool);
 
-                return new svs::DynamicIVF(svs::DynamicIVF::assemble_from_clustering<float>(
-                    std::move(clustering),
-                    std::move(compressed_data),
-                    ids,
-                    std::forward<decltype(distance)>(distance),
-                    num_threads_,
-                    intra_query_threads_
-                ));
-            });
+                    return new svs::DynamicIVF(
+                        svs::DynamicIVF::assemble_from_clustering<float>(
+                            std::move(clustering),
+                            std::move(compressed_data),
+                            ids,
+                            std::forward<decltype(distance)>(distance),
+                            num_threads_,
+                            intra_query_threads_
+                        )
+                    );
+                }
+            );
         }));
     }
 
@@ -328,6 +342,8 @@ class DynamicIVFIndexImpl {
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // Dynamic IVF index implementation for LeanVec storage kinds
 class DynamicIVFIndexLeanVecImpl : public DynamicIVFIndexImpl {
+    using allocator_type = svs::data::Blocked<svs::lib::Allocator<std::byte>>;
+
   public:
     using LeanVecMatricesType = LeanVecTrainingDataImpl::LeanVecMatricesType;
 
@@ -397,25 +413,32 @@ class DynamicIVFIndexLeanVecImpl : public DynamicIVFIndexImpl {
             num_threads = static_cast<size_t>(omp_get_max_threads());
         }
 
-        return ivf_storage::dispatch_ivf_leanvec_storage_kind(storage_kind, [&](auto tag) {
-            using Tag = decltype(tag);
-            using DataType = ivf_storage::IVFBlockedStorageType_t<Tag>;
+        return ivf_storage::dispatch_ivf_leanvec_storage_kind<allocator_type>(
+            storage_kind,
+            [&](auto tag) {
+                using Tag = decltype(tag);
+                using DataType = typename Tag::type;
 
-            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-            return distance_dispatcher([&](auto&& distance) {
-                auto impl = std::make_unique<svs::DynamicIVF>(
-                    svs::DynamicIVF::assemble<float, svs::BFloat16, DataType>(
-                        in,
-                        std::forward<decltype(distance)>(distance),
+                svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+                return distance_dispatcher([&](auto&& distance) {
+                    auto impl = std::make_unique<svs::DynamicIVF>(
+                        svs::DynamicIVF::assemble<float, svs::BFloat16, DataType>(
+                            in,
+                            std::forward<decltype(distance)>(distance),
+                            num_threads,
+                            intra_query_threads
+                        )
+                    );
+                    return new DynamicIVFIndexLeanVecImpl(
+                        std::move(impl),
+                        metric,
+                        storage_kind,
                         num_threads,
                         intra_query_threads
-                    )
-                );
-                return new DynamicIVFIndexLeanVecImpl(
-                    std::move(impl), metric, storage_kind, num_threads, intra_query_threads
-                );
-            });
-        });
+                    );
+                });
+            }
+        );
     }
 
   protected:
@@ -451,7 +474,7 @@ class DynamicIVFIndexLeanVecImpl : public DynamicIVFIndexImpl {
             );
 
             // Dispatch on LeanVec storage kind to compress and assemble
-            return ivf_storage::dispatch_ivf_leanvec_storage_kind(
+            return ivf_storage::dispatch_ivf_leanvec_storage_kind<allocator_type>(
                 storage_kind_,
                 [&](auto tag) {
                     // Compress data to LeanVec storage type using the factory with matrices

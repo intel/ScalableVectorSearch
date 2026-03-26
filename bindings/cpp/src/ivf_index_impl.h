@@ -81,118 +81,14 @@ inline bool is_supported_storage_kind(StorageKind kind) {
     return is_supported_non_leanvec_storage_kind(kind) || is_leanvec_storage_kind(kind);
 }
 
-///// IVF Data Types /////
-
-// Simple uncompressed data types
-template <typename T>
-using IVFSimpleDataType = svs::data::SimpleData<T, svs::Dynamic, svs::lib::Allocator<T>>;
-
-template <typename T>
-using IVFBlockedSimpleDataType =
-    svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
-
-// Scalar Quantization data types
-template <typename T>
-using IVFSQDataType =
-    svs::quantization::scalar::SQDataset<T, svs::Dynamic, svs::lib::Allocator<T>>;
-
-template <typename T>
-using IVFBlockedSQDataType = svs::quantization::scalar::
-    SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
-
-#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
-// LVQ data types
-template <size_t Primary, size_t Residual, typename Strategy>
-using IVFLVQDataType = svs::quantization::lvq::
-    LVQDataset<Primary, Residual, svs::Dynamic, Strategy, svs::lib::Allocator<std::byte>>;
-
-template <size_t Primary, size_t Residual, typename Strategy>
-using IVFBlockedLVQDataType = svs::quantization::lvq::LVQDataset<
-    Primary,
-    Residual,
-    svs::Dynamic,
-    Strategy,
-    svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
-
-using Sequential = svs::quantization::lvq::Sequential;
-using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
-
-// LeanVec data types
-template <size_t I1, size_t I2>
-using IVFLeanVecDataType = svs::leanvec::LeanDataset<
-    svs::leanvec::UsingLVQ<I1>,
-    svs::leanvec::UsingLVQ<I2>,
-    svs::Dynamic,
-    svs::Dynamic,
-    svs::lib::Allocator<std::byte>>;
-
-template <size_t I1, size_t I2>
-using IVFBlockedLeanVecDataType = svs::leanvec::LeanDataset<
-    svs::leanvec::UsingLVQ<I1>,
-    svs::leanvec::UsingLVQ<I2>,
-    svs::Dynamic,
-    svs::Dynamic,
-    svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
-#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
-
-///// Storage Type Mapping /////
-
-// Map StorageKind to data type using storage tags
-template <storage::StorageTag Tag> struct IVFStorageType {
-    using type = storage::UnsupportedStorageType;
-};
-
-template <storage::StorageTag Tag> struct IVFBlockedStorageType {
-    using type = storage::UnsupportedStorageType;
-};
-
-template <storage::StorageTag Tag>
-using IVFStorageType_t = typename IVFStorageType<Tag>::type;
-
-template <storage::StorageTag Tag>
-using IVFBlockedStorageType_t = typename IVFBlockedStorageType<Tag>::type;
-
-// clang-format off
-template <> struct IVFStorageType<storage::FP32Tag> { using type = IVFSimpleDataType<float>; };
-template <> struct IVFStorageType<storage::FP16Tag> { using type = IVFSimpleDataType<svs::Float16>; };
-template <> struct IVFStorageType<storage::SQI8Tag> { using type = IVFSQDataType<std::int8_t>; };
-
-template <> struct IVFBlockedStorageType<storage::FP32Tag> { using type = IVFBlockedSimpleDataType<float>; };
-template <> struct IVFBlockedStorageType<storage::FP16Tag> { using type = IVFBlockedSimpleDataType<svs::Float16>; };
-template <> struct IVFBlockedStorageType<storage::SQI8Tag> { using type = IVFBlockedSQDataType<std::int8_t>; };
-// clang-format on
-
-#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
-// clang-format off
-template <> struct IVFStorageType<storage::LVQ4x0Tag> { using type = IVFLVQDataType<4, 0, Turbo16x8>; };
-template <> struct IVFStorageType<storage::LVQ8x0Tag> { using type = IVFLVQDataType<8, 0, Sequential>; };
-template <> struct IVFStorageType<storage::LVQ4x4Tag> { using type = IVFLVQDataType<4, 4, Turbo16x8>; };
-template <> struct IVFStorageType<storage::LVQ4x8Tag> { using type = IVFLVQDataType<4, 8, Turbo16x8>; };
-
-template <> struct IVFBlockedStorageType<storage::LVQ4x0Tag> { using type = IVFBlockedLVQDataType<4, 0, Turbo16x8>; };
-template <> struct IVFBlockedStorageType<storage::LVQ8x0Tag> { using type = IVFBlockedLVQDataType<8, 0, Sequential>; };
-template <> struct IVFBlockedStorageType<storage::LVQ4x4Tag> { using type = IVFBlockedLVQDataType<4, 4, Turbo16x8>; };
-template <> struct IVFBlockedStorageType<storage::LVQ4x8Tag> { using type = IVFBlockedLVQDataType<4, 8, Turbo16x8>; };
-// clang-format on
-
-// clang-format off
-template <> struct IVFStorageType<storage::LeanVec4x4Tag> { using type = IVFLeanVecDataType<4, 4>; };
-template <> struct IVFStorageType<storage::LeanVec4x8Tag> { using type = IVFLeanVecDataType<4, 8>; };
-template <> struct IVFStorageType<storage::LeanVec8x8Tag> { using type = IVFLeanVecDataType<8, 8>; };
-
-template <> struct IVFBlockedStorageType<storage::LeanVec4x4Tag> { using type = IVFBlockedLeanVecDataType<4, 4>; };
-template <> struct IVFBlockedStorageType<storage::LeanVec4x8Tag> { using type = IVFBlockedLeanVecDataType<4, 8>; };
-template <> struct IVFBlockedStorageType<storage::LeanVec8x8Tag> { using type = IVFBlockedLeanVecDataType<8, 8>; };
-// clang-format on
-#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
-
 ///// Storage Factory /////
 
 template <typename DataType> struct IVFStorageFactory;
 
 // Unsupported storage factory
-template <> struct IVFStorageFactory<storage::UnsupportedStorageType> {
-    using DataType = IVFSimpleDataType<float>;
+template <typename Alloc> struct IVFStorageFactory<storage::UnsupportedStorageType<Alloc>> {
+    using DataType = storage::
+        SimpleDatasetType<float, storage::rebind_extracted_allocator_t<float, Alloc>>;
 
     template <svs::threads::ThreadPool Pool>
     static DataType
@@ -276,52 +172,66 @@ struct IVFStorageFactory<svs::leanvec::LeanDataset<Primary, Secondary, E1, E2, A
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
 // Helper to make compressed data (non-LeanVec)
-template <typename Tag, svs::threads::ThreadPool Pool>
-    requires storage::StorageTag<std::decay_t<Tag>>
+template <StorageKind Kind, typename Alloc, svs::threads::ThreadPool Pool>
 auto make_ivf_storage(
-    Tag&&, const svs::data::ConstSimpleDataView<float>& data, Pool& pool, size_t arg = 0
+    storage::StorageType<Kind, Alloc> SVS_UNUSED(tag),
+    const svs::data::ConstSimpleDataView<float>& data,
+    Pool& pool,
+    size_t arg = 0
 ) {
-    using TagDecay = std::decay_t<Tag>;
-    return IVFStorageFactory<IVFStorageType_t<TagDecay>>::compress(data, pool, arg);
+    static_assert(
+        !svs::data::is_blocked_v<Alloc>, "Allocator must not be blocked for IVF storage"
+    );
+    return IVFStorageFactory<storage::StorageType_t<Kind, Alloc>>::compress(
+        data, pool, arg
+    );
 }
 
-template <typename Tag, svs::threads::ThreadPool Pool>
-    requires storage::StorageTag<std::decay_t<Tag>>
+template <StorageKind Kind, typename Alloc, svs::threads::ThreadPool Pool>
 auto make_ivf_blocked_storage(
-    Tag&&, const svs::data::ConstSimpleDataView<float>& data, Pool& pool, size_t arg = 0
+    storage::StorageType<Kind, Alloc> SVS_UNUSED(tag),
+    const svs::data::ConstSimpleDataView<float>& data,
+    Pool& pool,
+    size_t arg = 0
 ) {
-    using TagDecay = std::decay_t<Tag>;
-    return IVFStorageFactory<IVFBlockedStorageType_t<TagDecay>>::compress(data, pool, arg);
+    static_assert(
+        svs::data::is_blocked_v<Alloc>, "Allocator must be blocked for IVF storage"
+    );
+    return IVFStorageFactory<storage::StorageType_t<Kind, Alloc>>::compress(
+        data, pool, arg
+    );
 }
 
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // LeanVec-specific make functions with matrices parameter
-template <typename Tag, svs::threads::ThreadPool Pool>
-    requires storage::StorageTag<std::decay_t<Tag>>
+template <StorageKind Kind, typename Alloc, svs::threads::ThreadPool Pool>
 auto make_ivf_leanvec_storage(
-    Tag&&,
+    storage::StorageType<Kind, Alloc> SVS_UNUSED(tag),
     const svs::data::ConstSimpleDataView<float>& data,
     Pool& pool,
     size_t leanvec_d,
     std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices
 ) {
-    using TagDecay = std::decay_t<Tag>;
-    return IVFStorageFactory<IVFStorageType_t<TagDecay>>::compress(
+    static_assert(
+        !svs::data::is_blocked_v<Alloc>, "Allocator must not be blocked for IVF storage"
+    );
+    return IVFStorageFactory<storage::StorageType_t<Kind, Alloc>>::compress(
         data, pool, leanvec_d, std::move(matrices)
     );
 }
 
-template <typename Tag, svs::threads::ThreadPool Pool>
-    requires storage::StorageTag<std::decay_t<Tag>>
+template <StorageKind Kind, typename Alloc, svs::threads::ThreadPool Pool>
 auto make_ivf_blocked_leanvec_storage(
-    Tag&&,
+    storage::StorageType<Kind, Alloc> SVS_UNUSED(tag),
     const svs::data::ConstSimpleDataView<float>& data,
     Pool& pool,
     size_t leanvec_d,
     std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices
 ) {
-    using TagDecay = std::decay_t<Tag>;
-    return IVFStorageFactory<IVFBlockedStorageType_t<TagDecay>>::compress(
+    static_assert(
+        svs::data::is_blocked_v<Alloc>, "Allocator must be blocked for IVF storage"
+    );
+    return IVFStorageFactory<storage::StorageType_t<Kind, Alloc>>::compress(
         data, pool, leanvec_d, std::move(matrices)
     );
 }
@@ -330,24 +240,45 @@ auto make_ivf_blocked_leanvec_storage(
 ///// Dispatch Functions /////
 
 // Dispatch on storage kind for IVF operations (excludes LeanVec - handled separately)
-template <typename F, typename... Args>
+template <typename Alloc, typename F, typename... Args>
 auto dispatch_ivf_storage_kind(StorageKind kind, F&& f, Args&&... args) {
     switch (kind) {
         case StorageKind::FP32:
-            return f(storage::FP32Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::FP32, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::FP16:
-            return f(storage::FP16Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::FP16, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::SQI8:
-            return f(storage::SQI8Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::SQI8, Alloc>{},
+                std::forward<Args>(args)...
+            );
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
         case StorageKind::LVQ4x0:
-            return f(storage::LVQ4x0Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LVQ4x0, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::LVQ8x0:
-            return f(storage::LVQ8x0Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LVQ8x0, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::LVQ4x4:
-            return f(storage::LVQ4x4Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LVQ4x4, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::LVQ4x8:
-            return f(storage::LVQ4x8Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LVQ4x8, Alloc>{},
+                std::forward<Args>(args)...
+            );
 #endif
         default:
             throw StatusException{
@@ -358,15 +289,24 @@ auto dispatch_ivf_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // Dispatch on LeanVec storage kinds only
-template <typename F, typename... Args>
+template <typename Alloc, typename F, typename... Args>
 auto dispatch_ivf_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) {
     switch (kind) {
         case StorageKind::LeanVec4x4:
-            return f(storage::LeanVec4x4Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LeanVec4x4, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::LeanVec4x8:
-            return f(storage::LeanVec4x8Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LeanVec4x8, Alloc>{},
+                std::forward<Args>(args)...
+            );
         case StorageKind::LeanVec8x8:
-            return f(storage::LeanVec8x8Tag{}, std::forward<Args>(args)...);
+            return f(
+                storage::StorageType<StorageKind::LeanVec8x8, Alloc>{},
+                std::forward<Args>(args)...
+            );
         default:
             throw StatusException{
                 ErrorCode::INVALID_ARGUMENT, "LeanVec storage kind required"};
@@ -378,6 +318,8 @@ auto dispatch_ivf_leanvec_storage_kind(StorageKind kind, F&& f, Args&&... args) 
 
 // Static IVF index implementation (non-LeanVec storage kinds)
 class IVFIndexImpl {
+    using allocator_type = svs::lib::Allocator<float>;
+
   public:
     IVFIndexImpl(
         size_t dim,
@@ -481,25 +423,32 @@ class IVFIndexImpl {
         }
 
         // Dispatch on storage kind to load with correct data type
-        return ivf_storage::dispatch_ivf_storage_kind(storage_kind, [&](auto tag) {
-            using Tag = decltype(tag);
-            using DataType = ivf_storage::IVFStorageType_t<Tag>;
+        return ivf_storage::dispatch_ivf_storage_kind<allocator_type>(
+            storage_kind,
+            [&](auto tag) {
+                using Tag = decltype(tag);
+                using DataType = typename Tag::type;
 
-            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-            return distance_dispatcher([&](auto&& distance) {
-                auto impl = std::make_unique<svs::IVF>(
-                    svs::IVF::assemble<float, svs::BFloat16, DataType>(
-                        in,
-                        std::forward<decltype(distance)>(distance),
+                svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+                return distance_dispatcher([&](auto&& distance) {
+                    auto impl = std::make_unique<svs::IVF>(
+                        svs::IVF::assemble<float, svs::BFloat16, DataType>(
+                            in,
+                            std::forward<decltype(distance)>(distance),
+                            num_threads,
+                            intra_query_threads
+                        )
+                    );
+                    return new IVFIndexImpl(
+                        std::move(impl),
+                        metric,
+                        storage_kind,
                         num_threads,
                         intra_query_threads
-                    )
-                );
-                return new IVFIndexImpl(
-                    std::move(impl), metric, storage_kind, num_threads, intra_query_threads
-                );
-            });
-        });
+                    );
+                });
+            }
+        );
     }
 
   protected:
@@ -594,18 +543,22 @@ class IVFIndexImpl {
             );
 
             // Dispatch on storage kind to compress and assemble
-            return ivf_storage::dispatch_ivf_storage_kind(storage_kind_, [&](auto tag) {
-                // Compress data to target storage type using the factory
-                auto compressed_data = ivf_storage::make_ivf_storage(tag, data, threadpool);
+            return ivf_storage::dispatch_ivf_storage_kind<allocator_type>(
+                storage_kind_,
+                [&](auto tag) {
+                    // Compress data to target storage type using the factory
+                    auto compressed_data =
+                        ivf_storage::make_ivf_storage(tag, data, threadpool);
 
-                return new svs::IVF(svs::IVF::assemble_from_clustering<float>(
-                    std::move(clustering),
-                    std::move(compressed_data),
-                    std::forward<decltype(distance)>(distance),
-                    num_threads_,
-                    intra_query_threads_
-                ));
-            });
+                    return new svs::IVF(svs::IVF::assemble_from_clustering<float>(
+                        std::move(clustering),
+                        std::move(compressed_data),
+                        std::forward<decltype(distance)>(distance),
+                        num_threads_,
+                        intra_query_threads_
+                    ));
+                }
+            );
         }));
     }
 
@@ -623,6 +576,8 @@ class IVFIndexImpl {
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // Static IVF index implementation for LeanVec storage kinds
 class IVFIndexLeanVecImpl : public IVFIndexImpl {
+    using allocator_type = svs::lib::Allocator<std::byte>;
+
   public:
     using LeanVecMatricesType = LeanVecTrainingDataImpl::LeanVecMatricesType;
 
@@ -692,25 +647,32 @@ class IVFIndexLeanVecImpl : public IVFIndexImpl {
             num_threads = static_cast<size_t>(omp_get_max_threads());
         }
 
-        return ivf_storage::dispatch_ivf_leanvec_storage_kind(storage_kind, [&](auto tag) {
-            using Tag = decltype(tag);
-            using DataType = ivf_storage::IVFStorageType_t<Tag>;
+        return ivf_storage::dispatch_ivf_leanvec_storage_kind<allocator_type>(
+            storage_kind,
+            [&](auto tag) {
+                using Tag = decltype(tag);
+                using DataType = typename Tag::type;
 
-            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-            return distance_dispatcher([&](auto&& distance) {
-                auto impl = std::make_unique<svs::IVF>(
-                    svs::IVF::assemble<float, svs::BFloat16, DataType>(
-                        in,
-                        std::forward<decltype(distance)>(distance),
+                svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+                return distance_dispatcher([&](auto&& distance) {
+                    auto impl = std::make_unique<svs::IVF>(
+                        svs::IVF::assemble<float, svs::BFloat16, DataType>(
+                            in,
+                            std::forward<decltype(distance)>(distance),
+                            num_threads,
+                            intra_query_threads
+                        )
+                    );
+                    return new IVFIndexLeanVecImpl(
+                        std::move(impl),
+                        metric,
+                        storage_kind,
                         num_threads,
                         intra_query_threads
-                    )
-                );
-                return new IVFIndexLeanVecImpl(
-                    std::move(impl), metric, storage_kind, num_threads, intra_query_threads
-                );
-            });
-        });
+                    );
+                });
+            }
+        );
     }
 
   protected:
@@ -745,7 +707,7 @@ class IVFIndexLeanVecImpl : public IVFIndexImpl {
             );
 
             // Dispatch on LeanVec storage kind to compress and assemble
-            return ivf_storage::dispatch_ivf_leanvec_storage_kind(
+            return ivf_storage::dispatch_ivf_leanvec_storage_kind<allocator_type>(
                 storage_kind_,
                 [&](auto tag) {
                     // Compress data to LeanVec storage type using the factory with matrices
