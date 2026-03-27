@@ -335,6 +335,93 @@ class IVFTester(unittest.TestCase):
             if not DEBUG:
                 self.assertTrue(isapprox(recall, expected_recall, epsilon = epsilon))
 
+    def test_assemble_from_numpy(self):
+        """
+        Test that assemble_from_clustering and assemble_from_file accept numpy arrays
+        directly (in addition to VectorDataLoader).
+        """
+        num_threads = 2
+        data = svs.read_vecs(test_data_vecs)
+        queries = svs.read_vecs(test_queries)
+        groundtruth = svs.read_vecs(test_groundtruth_l2)
+        k = 10
+
+        # Build clustering from numpy array directly
+        build_params = svs.IVFBuildParameters(
+            num_centroids = 128,
+            minibatch_size = 128,
+            num_iterations = 10,
+            is_hierarchical = False,
+            training_fraction = 0.5,
+            hierarchical_level1_clusters = 0,
+            seed = 42,
+        )
+
+        clustering = svs.Clustering.build(
+            build_parameters = build_params,
+            py_data = data,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+
+        # Test assemble_from_clustering with numpy array
+        print("Testing IVF.assemble_from_clustering with numpy array (float32)")
+        ivf = svs.IVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        self.assertEqual(ivf.size, test_number_of_vectors)
+        self.assertEqual(ivf.dimensions, test_dimensions)
+
+        search_params = svs.IVFSearchParameters(n_probes = 30, k_reorder = 1.0)
+        ivf.search_parameters = search_params
+
+        I, D = ivf.search(queries, k)
+        recall = svs.k_recall_at(groundtruth, I, k, k)
+        print(f"  assemble_from_clustering numpy recall: {recall}")
+        self.assertTrue(0.5 < recall <= 1.0)
+
+        # Test assemble_from_file with numpy array
+        with TemporaryDirectory() as tempdir:
+            clustering_dir = os.path.join(tempdir, "clustering")
+            clustering.save(clustering_dir)
+
+            print("Testing IVF.assemble_from_file with numpy array (float32)")
+            ivf2 = svs.IVF.assemble_from_file(
+                clustering_path = clustering_dir,
+                py_data = data,
+                distance = svs.DistanceType.L2,
+                num_threads = num_threads,
+            )
+            self.assertEqual(ivf2.size, test_number_of_vectors)
+            self.assertEqual(ivf2.dimensions, test_dimensions)
+
+            ivf2.search_parameters = search_params
+            I2, D2 = ivf2.search(queries, k)
+            recall2 = svs.k_recall_at(groundtruth, I2, k, k)
+            print(f"  assemble_from_file numpy recall: {recall2}")
+            self.assertTrue(0.5 < recall2 <= 1.0)
+
+        # Test with float16 numpy array
+        data_f16 = data.astype('float16')
+        print("Testing IVF.assemble_from_clustering with numpy array (float16)")
+        ivf_f16 = svs.IVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data_f16,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        self.assertEqual(ivf_f16.size, test_number_of_vectors)
+        self.assertEqual(ivf_f16.dimensions, test_dimensions)
+
+        ivf_f16.search_parameters = search_params
+        I_f16, D_f16 = ivf_f16.search(queries, k)
+        recall_f16 = svs.k_recall_at(groundtruth, I_f16, k, k)
+        print(f"  assemble_from_clustering numpy float16 recall: {recall_f16}")
+        self.assertTrue(0.4 < recall_f16 <= 1.0)
+
     def test_build(self):
         # Build directly from data
         data = svs.read_vecs(test_data_vecs)

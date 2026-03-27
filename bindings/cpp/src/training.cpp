@@ -90,6 +90,20 @@ Status LeanVecTrainingData::build(
         "LeanVecTrainingData is not supported in this build configuration."
     );
 }
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** SVS_UNUSED(training_data),
+    size_t SVS_UNUSED(dim),
+    size_t SVS_UNUSED(n),
+    const float* SVS_UNUSED(x),
+    size_t SVS_UNUSED(n_q),
+    const float* SVS_UNUSED(x_q),
+    size_t SVS_UNUSED(leanvec_dims)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
 Status LeanVecTrainingData::destroy(LeanVecTrainingData* SVS_UNUSED(training_data)
 ) noexcept {
     return Status(

@@ -123,71 +123,100 @@ inline bool is_supported_storage_kind(StorageKind kind) {
     return true;
 }
 
-// Storage kind processing
-// Most kinds map to std::byte storage, but some have specific element types.
-// Storage kind tag types for function argument deduction
-template <StorageKind K> struct StorageKindTag {
-    static constexpr StorageKind value = K;
+template <typename A> struct AllocatorTypeExtractor {
+    using type = A;
 };
 
-#define SVS_DEFINE_STORAGE_KIND_TAG(Kind) \
-    using Kind##Tag = StorageKindTag<StorageKind::Kind>
+template <typename A>
+concept AllocatorAwareType = requires { typename A::allocator_type; };
 
-SVS_DEFINE_STORAGE_KIND_TAG(FP32);
-SVS_DEFINE_STORAGE_KIND_TAG(FP16);
-SVS_DEFINE_STORAGE_KIND_TAG(SQI8);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x0);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ8x0);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x4);
-SVS_DEFINE_STORAGE_KIND_TAG(LVQ4x8);
-SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x4);
-SVS_DEFINE_STORAGE_KIND_TAG(LeanVec4x8);
-SVS_DEFINE_STORAGE_KIND_TAG(LeanVec8x8);
+template <AllocatorAwareType A> struct AllocatorTypeExtractor<A> {
+    using type = typename A::allocator_type;
+};
 
-#undef SVS_DEFINE_STORAGE_KIND_TAG
+template <typename A> using extract_allocator_t = typename AllocatorTypeExtractor<A>::type;
 
-template <typename T> inline constexpr bool is_storage_tag = false;
-template <StorageKind K> inline constexpr bool is_storage_tag<StorageKindTag<K>> = true;
+template <typename T, typename Alloc> struct ExtractedAllocatorRebinder {
+    using type = lib::rebind_allocator_t<T, extract_allocator_t<Alloc>>;
+};
 
-template <typename T>
-concept StorageTag = is_storage_tag<T>;
+template <typename T, typename Alloc>
+struct ExtractedAllocatorRebinder<T, svs::data::Blocked<Alloc>> {
+    using type = svs::data::Blocked<lib::rebind_allocator_t<T, extract_allocator_t<Alloc>>>;
+};
+
+template <typename T, typename Alloc>
+using rebind_extracted_allocator_t = typename ExtractedAllocatorRebinder<T, Alloc>::type;
+
+template <typename Alloc>
+Alloc make_allocator()
+    requires(!svs::data::is_blocked_v<Alloc>)
+{
+    return Alloc{};
+}
+
+template <typename Alloc>
+Alloc make_allocator(svs::lib::PowerOfTwo blocksize_bytes)
+    requires(svs::data::is_blocked_v<Alloc>)
+{
+    if (blocksize_bytes.raw() == 0) {
+        throw StatusException(
+            ErrorCode::INVALID_ARGUMENT,
+            "Blocked storage types require a non-zero blocksize"
+        );
+    }
+    auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
+    return Alloc(parameters);
+}
 
 // Storage types
-template <typename T>
-using SimpleDatasetType =
-    svs::data::SimpleData<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
+template <typename T, typename Alloc>
+using SimpleDatasetType = svs::data::SimpleData<T, svs::Dynamic, Alloc>;
 
-template <typename T>
-using SQDatasetType = svs::quantization::scalar::
-    SQDataset<T, svs::Dynamic, svs::data::Blocked<svs::lib::Allocator<T>>>;
+template <typename T, typename Alloc>
+using SQDatasetType = svs::quantization::scalar::SQDataset<T, svs::Dynamic, Alloc>;
 
 // Storage type mapping
 
 // Unsupported storage type defined as unique type to cause runtime error if used
-struct UnsupportedStorageType {};
+template <typename Alloc> struct UnsupportedStorageType {
+    using allocator_type = Alloc; // Dummy allocator type to satisfy template requirements
+};
 
-// clang-format off
-template <StorageTag Tag> struct StorageType { using type = UnsupportedStorageType; };
-template <StorageTag Tag> using StorageType_t = typename StorageType<Tag>::type;
+template <StorageKind Kind, typename Alloc> struct StorageType {
+    using allocator_type = Alloc;
+    using type = UnsupportedStorageType<Alloc>;
+};
+template <StorageKind Kind, typename Alloc>
+using StorageType_t = typename StorageType<Kind, Alloc>::type;
 
-template <> struct StorageType<FP32Tag> { using type = SimpleDatasetType<float>; };
-template <> struct StorageType<FP16Tag> { using type = SimpleDatasetType<svs::Float16>; };
-template <> struct StorageType<SQI8Tag> { using type = SQDatasetType<std::int8_t>; };
-// clang-format on
+template <typename Alloc> struct StorageType<StorageKind::FP32, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<float, Alloc>;
+    using type = SimpleDatasetType<float, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::FP16, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<svs::Float16, Alloc>;
+    using type = SimpleDatasetType<svs::Float16, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::SQI8, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::int8_t, Alloc>;
+    using type = SQDatasetType<std::int8_t, allocator_type>;
+};
 
 // Storage factory
 template <typename T> struct StorageFactory;
 
 // Unsupported storage type factory returning runtime error when attempted to be used.
 // Return type defined to simple to allow substitution in templates.
-template <> struct StorageFactory<UnsupportedStorageType> {
-    using StorageType = SimpleDatasetType<float>;
+template <typename Alloc> struct StorageFactory<UnsupportedStorageType<Alloc>> {
+    using StorageType =
+        SimpleDatasetType<float, rebind_extracted_allocator_t<float, Alloc>>;
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& SVS_UNUSED(data),
         Pool& SVS_UNUSED(pool),
-        svs::lib::PowerOfTwo SVS_UNUSED(blocksize_bytes)
+        const typename StorageType::allocator_type& SVS_UNUSED(alloc) = {}
     ) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
@@ -203,18 +232,16 @@ template <> struct StorageFactory<UnsupportedStorageType> {
     }
 };
 
-template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementType>> {
-    using StorageType = SimpleDatasetType<ElementType>;
+template <typename T, size_t Extent, typename Alloc>
+struct StorageFactory<svs::data::SimpleData<T, Extent, Alloc>> {
+    using StorageType = svs::data::SimpleData<T, Extent, Alloc>;
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo blocksize_bytes =
-            svs::data::BlockingParameters::default_blocksize_bytes
+        const Alloc& alloc = {}
     ) {
-        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
-        typename StorageType::allocator_type alloc(parameters);
         StorageType result(data.size(), data.dimensions(), alloc);
         svs::threads::parallel_for(
             pool,
@@ -235,19 +262,17 @@ template <typename ElementType> struct StorageFactory<SimpleDatasetType<ElementT
 };
 
 // SQ Storage support
-template <svs::quantization::scalar::IsSQData SQStorageType>
-struct StorageFactory<SQStorageType> {
-    using StorageType = SQStorageType;
+template <typename T, size_t Extent, typename Alloc>
+struct StorageFactory<svs::quantization::scalar::SQDataset<T, Extent, Alloc>> {
+    using StorageType = svs::quantization::scalar::SQDataset<T, Extent, Alloc>;
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo blocksize_bytes
+        const Alloc& alloc = {}
     ) {
-        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
-        typename StorageType::allocator_type alloc(parameters);
-        return SQStorageType::compress(data, pool, alloc);
+        return StorageType::compress(data, pool, alloc);
     }
 
     template <typename... Args>
@@ -258,37 +283,49 @@ struct StorageFactory<SQStorageType> {
 
 // LVQ Storage support
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
-template <size_t Primary, size_t Residual, typename Strategy>
-using LVQDatasetType = svs::quantization::lvq::LVQDataset<
-    Primary,
-    Residual,
-    svs::Dynamic,
-    Strategy,
-    svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
-
 using Sequential = svs::quantization::lvq::Sequential;
 using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
+template <size_t Primary, size_t Residual>
+using AutoStrategy = std::conditional_t<(Primary == 4), Turbo16x8, Sequential>;
 
-// clang-format off
-template <> struct StorageType<LVQ4x0Tag> { using type = LVQDatasetType<4, 0, Turbo16x8>; };
-template <> struct StorageType<LVQ8x0Tag> { using type = LVQDatasetType<8, 0, Sequential>; };
-template <> struct StorageType<LVQ4x4Tag> { using type = LVQDatasetType<4, 4, Turbo16x8>; };
-template <> struct StorageType<LVQ4x8Tag> { using type = LVQDatasetType<4, 8, Turbo16x8>; };
-// clang-format on
+template <
+    size_t Primary,
+    size_t Residual,
+    typename Alloc,
+    size_t Extent = svs::Dynamic,
+    svs::quantization::lvq::LVQPackingStrategy Strategy = AutoStrategy<Primary, Residual>>
+using LVQDatasetType =
+    svs::quantization::lvq::LVQDataset<Primary, Residual, Extent, Strategy, Alloc>;
+
+template <typename Alloc> struct StorageType<StorageKind::LVQ4x0, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LVQDatasetType<4, 0, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::LVQ8x0, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LVQDatasetType<8, 0, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::LVQ4x4, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LVQDatasetType<4, 4, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::LVQ4x8, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LVQDatasetType<4, 8, allocator_type>;
+};
 
 template <svs::quantization::lvq::IsLVQDataset LVQStorageType>
 struct StorageFactory<LVQStorageType> {
     using StorageType = LVQStorageType;
+    using Alloc = typename StorageType::allocator_type;
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo blocksize_bytes
+        const Alloc& alloc = {}
     ) {
-        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
-        typename LVQStorageType::allocator_type alloc(parameters);
-        return LVQStorageType::compress(data, pool, 0, alloc);
+        return StorageType::compress(data, pool, 0, alloc);
     }
 
     template <typename... Args>
@@ -298,37 +335,48 @@ struct StorageFactory<LVQStorageType> {
 };
 
 // LeanVec Storage support
-template <size_t I1, size_t I2>
+template <
+    size_t I1,
+    size_t I2,
+    typename Alloc,
+    size_t LeanVecDims = svs::Dynamic,
+    size_t Extent = svs::Dynamic>
 using LeanDatasetType = svs::leanvec::LeanDataset<
     svs::leanvec::UsingLVQ<I1>,
     svs::leanvec::UsingLVQ<I2>,
-    svs::Dynamic,
-    svs::Dynamic,
-    svs::data::Blocked<svs::lib::Allocator<std::byte>>>;
+    LeanVecDims,
+    Extent,
+    Alloc>;
 
-// clang-format off
-template <> struct StorageType<LeanVec4x4Tag> { using type = LeanDatasetType<4, 4>; };
-template <> struct StorageType<LeanVec4x8Tag> { using type = LeanDatasetType<4, 8>; };
-template <> struct StorageType<LeanVec8x8Tag> { using type = LeanDatasetType<8, 8>; };
-// clang-format on
+template <typename Alloc> struct StorageType<StorageKind::LeanVec4x4, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LeanDatasetType<4, 4, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::LeanVec4x8, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LeanDatasetType<4, 8, allocator_type>;
+};
+template <typename Alloc> struct StorageType<StorageKind::LeanVec8x8, Alloc> {
+    using allocator_type = rebind_extracted_allocator_t<std::byte, Alloc>;
+    using type = LeanDatasetType<8, 8, allocator_type>;
+};
 
 template <svs::leanvec::IsLeanDataset LeanVecStorageType>
 struct StorageFactory<LeanVecStorageType> {
     using StorageType = LeanVecStorageType;
+    using Alloc = typename StorageType::allocator_type;
 
     template <svs::threads::ThreadPool Pool>
     static StorageType init(
         const svs::data::ConstSimpleDataView<float>& data,
         Pool& pool,
-        svs::lib::PowerOfTwo blocksize_bytes,
+        const Alloc& alloc = {},
         size_t leanvec_d = 0,
         std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
     ) {
         if (leanvec_d == 0) {
             leanvec_d = (data.dimensions() + 1) / 2;
         }
-        auto parameters = svs::data::BlockingParameters{.blocksize_bytes = blocksize_bytes};
-        typename LeanVecStorageType::allocator_type alloc(parameters);
         return LeanVecStorageType::reduce(
             data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}, alloc
         );
@@ -341,47 +389,45 @@ struct StorageFactory<LeanVecStorageType> {
 };
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
-template <StorageTag Tag, typename... Args>
-auto make_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
-    return StorageFactory<StorageType_t<Tag>>::init(std::forward<Args>(args)...);
+template <StorageKind Kind, typename Alloc, typename... Args>
+auto make_storage(StorageType<Kind, Alloc> SVS_UNUSED(tag), Args&&... args) {
+    return StorageFactory<StorageType_t<Kind, Alloc>>::init(std::forward<Args>(args)...);
 }
 
-template <StorageTag Tag, typename... Args>
-auto load_storage(Tag&& SVS_UNUSED(tag), Args&&... args) {
-    return StorageFactory<StorageType_t<Tag>>::load(std::forward<Args>(args)...);
+template <StorageKind Kind, typename Alloc, typename... Args>
+auto load_storage(StorageType<Kind, Alloc> SVS_UNUSED(tag), Args&&... args) {
+    return StorageFactory<StorageType_t<Kind, Alloc>>::load(std::forward<Args>(args)...);
 }
 
-template <typename F, typename... Args>
+template <typename Alloc, typename F, typename... Args>
 auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
     if (!is_supported_storage_kind(kind)) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported by CPU"
         );
     }
+#define SVS_DISPATCH_STORAGE_KIND(Kind) \
+    case StorageKind::Kind:             \
+        return f(StorageType<StorageKind::Kind, Alloc>{}, std::forward<Args>(args)...)
+
     switch (kind) {
-        case StorageKind::FP32:
-            return f(FP32Tag{}, std::forward<Args>(args)...);
-        case StorageKind::FP16:
-            return f(FP16Tag{}, std::forward<Args>(args)...);
-        case StorageKind::SQI8:
-            return f(SQI8Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ4x0:
-            return f(LVQ4x0Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ8x0:
-            return f(LVQ8x0Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ4x4:
-            return f(LVQ4x4Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LVQ4x8:
-            return f(LVQ4x8Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LeanVec4x4:
-            return f(LeanVec4x4Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LeanVec4x8:
-            return f(LeanVec4x8Tag{}, std::forward<Args>(args)...);
-        case StorageKind::LeanVec8x8:
-            return f(LeanVec8x8Tag{}, std::forward<Args>(args)...);
+        SVS_DISPATCH_STORAGE_KIND(FP32);
+        SVS_DISPATCH_STORAGE_KIND(FP16);
+        SVS_DISPATCH_STORAGE_KIND(SQI8);
+        SVS_DISPATCH_STORAGE_KIND(LVQ4x0);
+        SVS_DISPATCH_STORAGE_KIND(LVQ8x0);
+        SVS_DISPATCH_STORAGE_KIND(LVQ4x4);
+        SVS_DISPATCH_STORAGE_KIND(LVQ4x8);
+        SVS_DISPATCH_STORAGE_KIND(LeanVec4x4);
+        SVS_DISPATCH_STORAGE_KIND(LeanVec4x8);
+        SVS_DISPATCH_STORAGE_KIND(LeanVec8x8);
         default:
-            throw ANNEXCEPTION("not supported SVS storage kind");
+            throw StatusException(
+                ErrorCode::INVALID_ARGUMENT, "Unknown or unsupported SVS storage kind"
+            );
     }
+
+#undef SVS_DISPATCH_STORAGE_KIND
 }
 } // namespace storage
 

@@ -19,6 +19,7 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -110,6 +111,7 @@ jobs:
           - name: "IVF public only"
             suffix: "-ivf"
             enable_ivf: "ON"
+      fail-fast: false
 
     steps:
       - uses: actions/checkout@v6
