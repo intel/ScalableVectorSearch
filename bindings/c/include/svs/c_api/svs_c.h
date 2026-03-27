@@ -32,6 +32,7 @@ enum svs_error_code {
     SVS_ERROR_NOT_IMPLEMENTED = 5,
     SVS_ERROR_UNSUPPORTED_HW = 6,
     SVS_ERROR_RUNTIME = 7,
+    SVS_ERROR_INVALID_OPERATION = 8,
     SVS_ERROR_UNKNOWN = 1000
 };
 
@@ -515,6 +516,14 @@ SVS_API bool svs_index_get_num_threads(
 /// @param num_threads The number of threads to set
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @remarks This function is only supported for indices built with threadpool kinds
+/// SVS_THREADPOOL_KIND_NATIVE or SVS_THREADPOOL_KIND_OMP. Attempting to call this
+/// function on indices built with SVS_THREADPOOL_KIND_CUSTOM or
+/// SVS_THREADPOOL_KIND_SINGLE_THREAD will fail and return false.
+/// @error On failure, if out_err is provided, it will contain:
+/// - SVS_ERROR_INVALID_OPERATION if the index was built with an unsupported threadpool kind
+/// - SVS_ERROR_INVALID_ARGUMENT if num_threads is invalid or zero
+/// - SVS_ERROR_RUNTIME for other runtime failures
 SVS_API bool svs_index_set_num_threads(
     svs_index_h index, size_t num_threads, svs_error_h out_err /*=NULL*/
 );

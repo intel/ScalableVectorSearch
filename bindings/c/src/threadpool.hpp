@@ -17,6 +17,7 @@
 
 #include "svs/c_api/svs_c.h"
 
+#include "error.hpp"
 #include "types_support.hpp"
 
 #include <svs/lib/threads.h>
@@ -103,11 +104,16 @@ class ThreadPoolBuilder {
     }
 
     void resize(size_t new_num_threads) {
+        if (new_num_threads == 0) {
+            throw std::invalid_argument("Number of threads must be greater than zero.");
+        }
         if (kind == SVS_THREADPOOL_KIND_SINGLE_THREAD) {
-            throw std::logic_error("Cannot resize a single-threaded threadpool.");
+            throw svs::c_runtime::invalid_operation(
+                "Cannot resize a single-threaded threadpool."
+            );
         }
         if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
-            throw std::logic_error("Cannot resize a custom threadpool.");
+            throw svs::c_runtime::invalid_operation("Cannot resize a custom threadpool.");
         }
         num_threads = new_num_threads;
     }
