@@ -501,6 +501,24 @@ SVS_API bool svs_index_dynamic_compact(
     svs_index_h index, size_t batchsize /*=0*/, svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Get number of threads used for search in the index's thread pool
+/// @param index The index handle
+/// @param out_num_threads Pointer to store the retrieved number of threads
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_get_num_threads(
+    svs_index_h index, size_t* out_num_threads, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Set number of threads for search in the index's thread pool
+/// @param index The index handle
+/// @param num_threads The number of threads to set
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_set_num_threads(
+    svs_index_h index, size_t num_threads, svs_error_h out_err /*=NULL*/
+);
+
 #ifdef __cplusplus
 }
 #endif
