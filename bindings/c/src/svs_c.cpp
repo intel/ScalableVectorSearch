@@ -661,19 +661,31 @@ extern "C" size_t svs_index_dynamic_delete_points(
     svs_index_h index, const size_t* ids, size_t num_ids, svs_error_h out_err
 ) {
     using namespace svs::c_runtime;
-    return wrap_exceptions(
+    std::shared_ptr<DynamicIndex> dynamic_index_ptr;
+    auto result = wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(index);
             EXPECT_ARG_NOT_NULL(ids);
             EXPECT_ARG_GT_THAN(num_ids, 0);
-            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
             INVALID_ARGUMENT_IF(
                 dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
             );
-            return dynamic_index_ptr->delete_points(std::span(ids, num_ids));
+            return 0; // return 0 for success, actual deletion happens in the next
+                      // wrap_exceptions call
         },
         out_err,
         static_cast<size_t>(-1)
+    );
+    if (result != 0) {
+        return result;
+    }
+    // Call delete_points in a separate wrap_exceptions to return 0 if no entries are
+    // deleted.
+    return wrap_exceptions(
+        [&]() { return dynamic_index_ptr->delete_points(std::span(ids, num_ids)); },
+        out_err,
+        0
     );
 }
 
