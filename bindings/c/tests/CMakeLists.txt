@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set(TARGET_NAME svs_c_api_test)
+
 # Check if Catch2 is available
 find_package(Catch2 3 QUIET)
 
@@ -26,12 +28,15 @@ if(NOT Catch2_FOUND)
     set(CATCH_CONFIG_FAST_COMPILE OFF CACHE BOOL "" FORCE)
     set(CATCH_CONFIG_PREFIX_ALL ON CACHE BOOL "" FORCE)
 
+    set(PRESET_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
+    set(CMAKE_CXX_STANDARD 20)
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
         GIT_TAG v3.11.0
     )
     FetchContent_MakeAvailable(Catch2)
+    set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANDARD})
 endif()
 
 # Define test sources
@@ -46,24 +51,38 @@ set(C_API_TEST_SOURCES
 )
 
 # Create test executable
-add_executable(svs_c_api_tests ${C_API_TEST_SOURCES})
+add_executable(${TARGET_NAME} ${C_API_TEST_SOURCES})
 
 # Link with C API library and Catch2
-target_link_libraries(svs_c_api_tests PRIVATE
+target_link_libraries(${TARGET_NAME} PRIVATE
     svs_c_api
     Catch2::Catch2WithMain
 )
 
 # Set C++ standard
-target_compile_features(svs_c_api_tests PRIVATE cxx_std_17)
+target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
+set_target_properties(${TARGET_NAME} PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
 
 # Include directories
-target_include_directories(svs_c_api_tests PRIVATE
+target_include_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 # Add test to CTest
 include(CTest)
+enable_testing()
+
+# Add the test to CTest
+add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
+
+# Set test properties
+set_tests_properties(${TARGET_NAME} PROPERTIES
+    LABELS "c_api"
+)
 
 # Add Catch2 CMake module path
 if(NOT Catch2_FOUND)
@@ -75,12 +94,12 @@ else()
 endif()
 
 include(Catch)
-catch_discover_tests(svs_c_api_tests)
+catch_discover_tests(${TARGET_NAME})
 
 # Add a custom target to run tests
 add_custom_target(run_c_api_tests
-    COMMAND svs_c_api_tests
-    DEPENDS svs_c_api_tests
+    COMMAND ${TARGET_NAME}
+    DEPENDS ${TARGET_NAME}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running C API tests..."
 )
