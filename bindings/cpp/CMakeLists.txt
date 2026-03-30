@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_runtime VERSION 0.2.0 LANGUAGES CXX)
+project(svs_runtime VERSION 0.3.0 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
 
 # IVF requires MKL, so it's optional
@@ -102,7 +102,9 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs::svs
             svs_compile_options
         )
-        link_mkl_static(${TARGET_NAME})
+        if(SVS_EXPERIMENTAL_LINK_STATIC_MKL)
+            link_mkl_static(${TARGET_NAME})
+        endif()
         if(SVS_LVQ_HEADER)
             target_compile_definitions(${TARGET_NAME} PRIVATE
                 SVS_LVQ_HEADER="${SVS_LVQ_HEADER}"
