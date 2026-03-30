@@ -92,6 +92,26 @@ class MMapAllocationManager {
         return allocations_.size();
     }
 
+    ///
+    /// @brief Evict all mmap'd pages from memory using madvise(MADV_DONTNEED).
+    ///
+    /// This tells the kernel to discard the pages backing all active mmap allocations.
+    /// The pages will be re-faulted from the backing files on next access.
+    /// Useful for benchmarking to simulate truly cold cache access.
+    ///
+    static void evict_pages() {
+#ifdef __linux__
+        std::lock_guard lock{mutex_};
+        for (auto& [ptr, mmap_ptr] : allocations_) {
+            void* base = const_cast<void*>(mmap_ptr.base());
+            size_t size = mmap_ptr.size();
+            if (base != nullptr && size > 0) {
+                (void)madvise(base, size, MADV_DONTNEED);
+            }
+        }
+#endif
+    }
+
   private:
     inline static std::mutex mutex_{};
     inline static tsl::robin_map<void*, MMapPtr<void>> allocations_{};
@@ -224,6 +244,14 @@ template <typename T> class MMapAllocator {
     /// @brief Set the access hint for future allocations
     ///
     void set_access_hint(MMapAccessHint hint) { access_hint_ = hint; }
+
+    ///
+    /// @brief Evict all mmap'd pages from memory.
+    ///
+    /// Calls madvise(MADV_DONTNEED) on all active mmap allocations,
+    /// forcing pages to be re-faulted from disk on next access.
+    ///
+    static void evict_pages() { detail::MMapAllocationManager::evict_pages(); }
 
   private:
     ///
