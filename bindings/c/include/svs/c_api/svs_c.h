@@ -521,7 +521,7 @@ SVS_API bool svs_index_get_num_threads(
 /// function on indices built with SVS_THREADPOOL_KIND_CUSTOM or
 /// SVS_THREADPOOL_KIND_SINGLE_THREAD will fail and return false.
 /// @error On failure, if out_err is provided, it will contain:
-/// - SVS_ERROR_INVALID_OPERATION if the index was built with an unsupported threadpool kind
+/// - SVS_ERROR_INVALID_OPERATION if the index's threadpool kind is unresizable
 /// - SVS_ERROR_INVALID_ARGUMENT if num_threads is invalid or zero
 /// - SVS_ERROR_RUNTIME for other runtime failures
 SVS_API bool svs_index_set_num_threads(
