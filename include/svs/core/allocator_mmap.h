@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <sys/mman.h>
 #include <thread>
@@ -64,6 +65,46 @@ class MMapAllocationManager {
         }
 
         return ptr;
+    }
+
+    ///
+    /// @brief Map an existing file read-only, returning a pointer offset into the mapping.
+    ///
+    /// This is used for zero-copy loading: the returned pointer points to
+    /// `base + offset` within the mmap'd region. The underlying mapping covers
+    /// the entire file so that munmap and madvise operate on the full range.
+    ///
+    /// @param data_bytes Number of bytes of data expected after the offset.
+    /// @param file_path Path to an existing file.
+    /// @param offset Byte offset into the file where data starts (e.g., header size).
+    /// @return Pointer to data at `base + offset`.
+    ///
+    [[nodiscard]] void* map_existing_at_offset(
+        size_t data_bytes, const std::filesystem::path& file_path, size_t offset
+    ) {
+        auto file_size = std::filesystem::file_size(file_path);
+        if (file_size < offset + data_bytes) {
+            throw ANNEXCEPTION(
+                "File {} is {} bytes, need at least {} (offset={} + data={})",
+                file_path,
+                file_size,
+                offset + data_bytes,
+                offset,
+                data_bytes
+            );
+        }
+
+        MemoryMapper mapper{MemoryMapper::ReadOnly, MemoryMapper::MustUseExisting};
+        auto mmap_ptr = mapper.mmap(file_path, lib::Bytes(file_size));
+
+        void* data_ptr = static_cast<std::byte*>(mmap_ptr.data()) + offset;
+
+        {
+            std::lock_guard lock{mutex_};
+            allocations_.insert({data_ptr, std::move(mmap_ptr)});
+        }
+
+        return data_ptr;
     }
 
     ///
@@ -142,6 +183,8 @@ template <typename T> class MMapAllocator {
     std::filesystem::path base_path_;
     size_t allocation_counter_ = 0;
     MMapAccessHint access_hint_ = MMapAccessHint::Normal;
+    std::optional<std::filesystem::path> override_file_{};
+    size_t override_offset_ = 0;
 
   public:
     // C++ allocator type aliases
@@ -177,7 +220,9 @@ template <typename T> class MMapAllocator {
     MMapAllocator(const MMapAllocator<U>& other)
         : base_path_{other.base_path_}
         , allocation_counter_{other.allocation_counter_}
-        , access_hint_{other.access_hint_} {}
+        , access_hint_{other.access_hint_}
+        , override_file_{other.override_file_}
+        , override_offset_{other.override_offset_} {}
 
     ///
     /// @brief Compare allocators
@@ -189,9 +234,26 @@ template <typename T> class MMapAllocator {
     }
 
     ///
+    /// @brief Configure the next allocate() to map an existing file read-only.
+    ///
+    /// Instead of creating a new temp file, the next allocate() call will
+    /// memory-map the given file at the specified byte offset (e.g., to skip
+    /// a file header). This is a one-shot override: consumed by the first
+    /// allocate() call after setting it.
+    ///
+    /// @param path Path to the existing binary file.
+    /// @param offset Byte offset into the file where data begins.
+    ///
+    void use_existing_file(std::filesystem::path path, size_t offset = 0) {
+        override_file_ = std::move(path);
+        override_offset_ = offset;
+    }
+
+    ///
     /// @brief Allocate memory
     ///
     /// Creates a memory-mapped file and returns a pointer to it.
+    /// If use_existing_file() was called, maps that file read-only instead.
     /// Applies madvise hints based on the access hint.
     ///
     /// @param n Number of elements to allocate
@@ -199,11 +261,21 @@ template <typename T> class MMapAllocator {
     ///
     [[nodiscard]] T* allocate(size_t n) {
         size_t bytes = sizeof(T) * n;
+        void* ptr;
 
-        // Generate unique file path
-        auto file_path = generate_file_path(bytes);
-
-        void* ptr = detail::MMapAllocationManager{}.allocate(bytes, file_path);
+        if (override_file_) {
+            // Zero-copy path: map the existing file read-only at the given offset.
+            auto path = std::move(*override_file_);
+            auto offset = override_offset_;
+            override_file_.reset();
+            override_offset_ = 0;
+            ptr =
+                detail::MMapAllocationManager{}.map_existing_at_offset(bytes, path, offset);
+        } else {
+            // Normal path: create a new temp file.
+            auto file_path = generate_file_path(bytes);
+            ptr = detail::MMapAllocationManager{}.allocate(bytes, file_path);
+        }
 
         // Apply madvise hint if on Linux
         apply_access_hint(ptr, bytes);
