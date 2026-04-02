@@ -526,12 +526,10 @@ CATCH_TEST_CASE("SearchWithRestrictiveFilter", "[runtime][filtered_search]") {
     const float* xq = test_data.data();
     const int k = 5;
 
-    // 10% selectivity: accept every 10th ID
-    std::unordered_set<size_t> valid_ids;
-    for (size_t i = 0; i < test_n; i += 10) {
-        valid_ids.insert(i);
-    }
-    test_utils::IDFilterSet filter(valid_ids);
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    size_t min_id = 0;
+    size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
 
     std::vector<float> distances(nq * k);
     std::vector<size_t> result_labels(nq * k);
@@ -540,10 +538,11 @@ CATCH_TEST_CASE("SearchWithRestrictiveFilter", "[runtime][filtered_search]") {
         index->search(nq, xq, k, distances.data(), result_labels.data(), nullptr, &filter);
     CATCH_REQUIRE(status.ok());
 
-    // All returned labels must be in the valid set
+    // All returned labels must fall inside the filter range
     for (int i = 0; i < nq * k; ++i) {
         if (svs::runtime::v0::is_specified(result_labels[i])) {
-            CATCH_REQUIRE(valid_ids.contains(result_labels[i]));
+            CATCH_REQUIRE(result_labels[i] >= min_id);
+            CATCH_REQUIRE(result_labels[i] < max_id);
         }
     }
 
