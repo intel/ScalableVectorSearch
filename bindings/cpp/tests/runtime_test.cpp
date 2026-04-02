@@ -501,6 +501,55 @@ CATCH_TEST_CASE("SearchWithIDFilter", "[runtime]") {
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("SearchWithRestrictiveFilter", "[runtime][filtered_search]") {
+    const auto& test_data = get_test_data();
+    // Build index
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept every 10th ID
+    std::unordered_set<size_t> valid_ids;
+    for (size_t i = 0; i < test_n; i += 10) {
+        valid_ids.insert(i);
+    }
+    test_utils::IDFilterSet filter(valid_ids);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status =
+        index->search(nq, xq, k, distances.data(), result_labels.data(), nullptr, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    // All returned labels must be in the valid set
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels[i])) {
+            CATCH_REQUIRE(valid_ids.contains(result_labels[i]));
+        }
+    }
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
 CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
     const auto& test_data = get_test_data();
     // Build index

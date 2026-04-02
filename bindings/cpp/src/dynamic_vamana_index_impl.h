@@ -38,6 +38,20 @@
 namespace svs {
 namespace runtime {
 
+// Compute the next batch size based on observed filter hit rate.
+// On the first round (found == 0), returns initial_batch_size unchanged.
+// On subsequent rounds, estimates how many candidates are needed to find the
+// remaining results given the observed hit rate.
+inline size_t compute_filtered_batch_size(
+    size_t found, size_t needed, size_t total_checked, size_t initial_batch_size
+) {
+    if (found == 0 || found >= needed) {
+        return initial_batch_size;
+    }
+    double hit_rate = static_cast<double>(found) / total_checked;
+    return static_cast<size_t>((needed - found) / hit_rate);
+}
+
 // Dynamic Vamana index implementation
 class DynamicVamanaIndexImpl {
     using allocator_type = svs::data::Blocked<svs::lib::Allocator<float>>;
@@ -125,9 +139,12 @@ class DynamicVamanaIndexImpl {
                 auto query = queries.get_datum(i);
                 auto iterator = impl_->batch_iterator(query);
                 size_t found = 0;
+                size_t total_checked = 0;
+                auto batch_size = sp.buffer_config_.get_search_window_size();
                 do {
-                    iterator.next(k);
+                    iterator.next(batch_size);
                     for (auto& neighbor : iterator.results()) {
+                        total_checked++;
                         if (filter->is_member(neighbor.id())) {
                             result.set(neighbor, i, found);
                             found++;
@@ -136,6 +153,8 @@ class DynamicVamanaIndexImpl {
                             }
                         }
                     }
+                    batch_size =
+                        compute_filtered_batch_size(found, k, total_checked, batch_size);
                 } while (found < k && !iterator.done());
 
                 // Pad results if not enough neighbors found

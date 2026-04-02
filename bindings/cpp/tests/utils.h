@@ -22,6 +22,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace svs_test {
@@ -71,6 +72,18 @@ class IDFilterRange : public svs::runtime::v0::IDFilter {
         , max_id_(max_id) {}
 
     bool is_member(size_t id) const override { return id >= min_id_ && id < max_id_; }
+};
+
+// ID filter that accepts only IDs in a given set
+class IDFilterSet : public svs::runtime::v0::IDFilter {
+  private:
+    std::unordered_set<size_t> valid_ids_;
+
+  public:
+    IDFilterSet(std::unordered_set<size_t> ids)
+        : valid_ids_(std::move(ids)) {}
+
+    bool is_member(size_t id) const override { return valid_ids_.contains(id); }
 };
 
 // Custom results allocator for testing
