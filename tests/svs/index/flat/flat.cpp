@@ -145,7 +145,7 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         }
     }
 
-    CATCH_SECTION("Load Flat with SimpleDataView pointing to in-memory stream buffer") {
+    CATCH_SECTION("Load with pointing to in-memory stream buffer") {
         // We will load the FlatIndex's data as a SimpleDataView directly from the stream,
         // without copying.
         using ViewData_t = svs::data::SimpleDataView<Data_t::element_type>;
@@ -224,7 +224,7 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
         CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
     }
 
-    CATCH_SECTION("Load Flat with SimpleDataView from memory mapped file") {
+    CATCH_SECTION("Load with SimpleDataView pointing to memory mapped file") {
         using ViewData_t = svs::data::SimpleDataView<float>;
 
         svs::lib::UniqueTempDirectory tempdir{"svs_flat_save"};
