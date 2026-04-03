@@ -114,9 +114,9 @@ void populate(Data& data, WriteAccessor& accessor, const File& file) {
     populate_impl(data, accessor, file, default_populate_tag);
 }
 
-template <typename T> [[nodiscard]] size_t streaming_size(const T& obj) noexcept;
+template <typename T> [[nodiscard]] size_t streaming_size(const T&) noexcept;
 
-template <HasDataType T> [[nodiscard]] size_t streaming_size(const T& obj) noexcept {
+template <HasDataType T> [[nodiscard]] size_t streaming_size(const T&) noexcept {
     return element_size(datatype_v<T>);
 }
 

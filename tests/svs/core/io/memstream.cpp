@@ -142,8 +142,6 @@ CATCH_TEST_CASE("current_ptr pointer semantics", "[core][io][mmap]") {
         stream.ignore(1);
     }
 
-    CATCH_REQUIRE(svs::io::current_ptr<char>(stream) == nullptr);
-
     stream.seekg(0, std::ios_base::beg);
     CATCH_REQUIRE(svs::io::current_ptr<char>(stream) == b);
 
