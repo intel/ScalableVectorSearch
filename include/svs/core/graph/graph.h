@@ -416,13 +416,12 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         return parent_type::load(table, lazy, allocator);
     }
 
+    template <typename... AllocArgs>
     static constexpr SimpleGraph load(
-        const lib::ContextFreeLoadTable& table,
-        std::istream& is,
-        const Alloc& allocator = {}
+        const lib::ContextFreeLoadTable& table, std::istream& is, AllocArgs&&... alloc_args
     ) {
         auto lazy = lib::Lazy([](data_type data) { return SimpleGraph(std::move(data)); });
-        return parent_type::load(table, lazy, is, allocator);
+        return parent_type::load(table, lazy, is, std::forward<AllocArgs>(alloc_args)...);
     }
 
     static constexpr SimpleGraph
@@ -434,8 +433,11 @@ class SimpleGraph : public SimpleGraphBase<Idx, data::SimpleData<Idx, Dynamic, A
         }
     }
 
-    static constexpr SimpleGraph load(std::istream& is, const Alloc& allocator = {}) {
-        return lib::load_from_stream<SimpleGraph>(is, allocator);
+    template <typename... AllocArgs>
+    static constexpr SimpleGraph load(std::istream& is, AllocArgs&&... alloc_args) {
+        return lib::load_from_stream<SimpleGraph>(
+            is, std::forward<AllocArgs>(alloc_args)...
+        );
     }
 };
 
