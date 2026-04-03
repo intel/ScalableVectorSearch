@@ -144,4 +144,162 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
             }
         }
     }
+
+    CATCH_SECTION("Load Flat with SimpleDataView pointing to in-memory stream buffer") {
+        // We will load the FlatIndex's data as a SimpleDataView directly from the stream,
+        // without copying.
+        using ViewData_t = svs::data::SimpleDataView<Data_t::element_type>;
+
+        // Save the full index to a stringstream.
+        auto ss = std::stringstream{};
+        index.save(ss);
+        ss.seekg(0);
+
+        // Load the FlatIndex from the stream.
+        auto loaded_index = svs::Flat::assemble<float, ViewData_t>(
+            ss, dist, svs::threads::DefaultThreadPool(1)
+        );
+
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded_index.search(loaded_results.view(), queries.cview(), {});
+
+        // Compare results - should be identical
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                CATCH_REQUIRE(
+                    loaded_results.distance(q, i) ==
+                    Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                );
+            }
+        }
+
+        // We cannot extract the pointer to the FlatIndex's internal data directly.
+        // To validate if the loaded Flat index is zero-copy,
+        // we will load a separate SimpleDataView, modify the view's data and check if it
+        // reflects in the loaded index's data. Load a SimpleDataView (zero-copy): its data_
+        // must point into ss's buffer. We should follow the stream layout written by
+        // FlatIndex::assemble:
+        ss.seekg(0);
+        // First: load deserializer.
+        auto deserializer = svs::lib::detail::Deserializer::build(ss);
+        CATCH_REQUIRE(deserializer.is_native());
+        // Second: load vectors data
+        auto view = svs::lib::load_from_stream<ViewData_t>(ss);
+
+        CATCH_REQUIRE(view.size() == index.size());
+        CATCH_REQUIRE(view.dimensions() == index.dimensions());
+        // Check if view's data pointer points into the stringstream's internal buffer
+        // (i.e., zero-copy).
+        CATCH_REQUIRE(view.data() > svs::io::begin_ptr<float>(ss));
+        CATCH_REQUIRE(view.data() < svs::io::end_ptr<float>(ss));
+        // Now update the view's data and check if it reflects in the loaded index (since it
+        // should be zero-copy). For that we will copy a vector from queries into the view's
+        // data and check if the get_distance() result changes accordingly.
+        auto data_index =
+            std::rand() % view.size(); // Randomly select a data point to modify.
+        auto query_index =
+            std::rand() % queries.size(); // Randomly select a query to test against.
+        auto original_distance =
+            loaded_index.get_distance(data_index, queries.get_datum(query_index));
+        // Verify that original distance is correct before modification.
+        CATCH_REQUIRE(
+            original_distance == Catch::Approx(svs::distance::compute(
+                                                   dist,
+                                                   view.get_datum(data_index),
+                                                   queries.get_datum(query_index)
+                                               ))
+                                     .epsilon(1e-5)
+        );
+        // Modify the view's data by copying a query vector into it.
+        view.set_datum(data_index, queries.get_datum(query_index));
+        // Now the distance from the modified data point to the query should be zero (or
+        // very close to zero due to floating point precision), since we copied the query
+        // vector into the data point.
+        auto modified_distance =
+            loaded_index.get_distance(data_index, queries.get_datum(query_index));
+        CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
+    }
+
+    CATCH_SECTION("Load Flat with SimpleDataView from memory mapped file") {
+        using ViewData_t = svs::data::SimpleDataView<float>;
+
+        svs::lib::UniqueTempDirectory tempdir{"svs_flat_save"};
+        auto index_path = tempdir.get() / "index.bin";
+        auto os = std::ofstream{index_path, std::ios::binary};
+        index.save(os);
+        os.close();
+
+        auto index_is = svs::io::mmstream(index_path);
+        // Load the FlatIndex from the stream.
+        auto loaded_index = svs::Flat::assemble<float, ViewData_t>(
+            index_is, dist, svs::threads::DefaultThreadPool(1)
+        );
+
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded_index.search(loaded_results.view(), queries.cview(), {});
+
+        // Compare results - should be identical
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                CATCH_REQUIRE(
+                    loaded_results.distance(q, i) ==
+                    Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                );
+            }
+        }
+
+        // We cannot extract the pointer to the FlatIndex's internal data directly.
+        // To validate if the loaded Flat index is zero-copy,
+        // we will load a separate SimpleDataView, modify the view's data and check if it
+        // reflects in the loaded index's data. Load a SimpleDataView (zero-copy): its data_
+        // must point into ss's buffer. We should follow the stream layout written by
+        // FlatIndex::assemble:
+        auto view_is = svs::io::mmstream(index_path);
+        // First: load deserializer.
+        auto deserializer = svs::lib::detail::Deserializer::build(view_is);
+        CATCH_REQUIRE(deserializer.is_native());
+        // Second: load vectors data
+        auto view = svs::lib::load_from_stream<ViewData_t>(view_is);
+
+        CATCH_REQUIRE(view.size() == index.size());
+        CATCH_REQUIRE(view.dimensions() == index.dimensions());
+        // Check if view's data pointer points into the stringstream's internal buffer
+        // (i.e., zero-copy).
+        CATCH_REQUIRE(view.data() > svs::io::begin_ptr<float>(view_is));
+        CATCH_REQUIRE(view.data() < svs::io::end_ptr<float>(view_is));
+        // Now update the view's data and check if it reflects in the loaded index (since it
+        // should be zero-copy). For that we will copy a vector from queries into the view's
+        // data and check if the get_distance() result changes accordingly.
+        auto data_index =
+            std::rand() % view.size(); // Randomly select a data point to modify.
+        auto query_index =
+            std::rand() % queries.size(); // Randomly select a query to test against.
+        auto original_distance =
+            loaded_index.get_distance(data_index, queries.get_datum(query_index));
+        // Verify that original distance is correct before modification.
+        CATCH_REQUIRE(
+            original_distance == Catch::Approx(svs::distance::compute(
+                                                   dist,
+                                                   view.get_datum(data_index),
+                                                   queries.get_datum(query_index)
+                                               ))
+                                     .epsilon(1e-5)
+        );
+        // Modify the view's data by copying a query vector into it.
+        view.set_datum(data_index, queries.get_datum(query_index));
+        // Now the distance from the modified data point to the query should be zero (or
+        // very close to zero due to floating point precision), since we copied the query
+        // vector into the data point.
+        auto modified_distance =
+            loaded_index.get_distance(data_index, queries.get_datum(query_index));
+        CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
+    }
 }

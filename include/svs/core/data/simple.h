@@ -21,6 +21,7 @@
 #include "svs/core/allocator.h"
 #include "svs/core/compact.h"
 #include "svs/core/data/io.h"
+#include "svs/core/io/memstream.h"
 
 #include "svs/lib/array.h"
 #include "svs/lib/boundscheck.h"
@@ -152,6 +153,25 @@ class GenericSerializer {
         size_t dims = lib::load_at<size_t>(table, "dims");
 
         return io::load_dataset(is, lazy, num_vectors, dims);
+    }
+
+    template <typename T, lib::LazyInvocable<size_t, size_t, T*> F>
+    static lib::lazy_result_t<F, size_t, size_t, T*>
+    load(const lib::ContextFreeLoadTable& table, std::istream& is, const F& lazy) {
+        auto datatype = lib::load_at<DataType>(table, "eltype");
+        if (datatype != datatype_v<T>) {
+            throw ANNEXCEPTION(
+                "Trying to load an uncompressed dataset with element types {} to a dataset "
+                "with element types {}.",
+                name(datatype),
+                name<datatype_v<T>>()
+            );
+        }
+
+        size_t num_vectors = lib::load_at<size_t>(table, "num_vectors");
+        size_t dims = lib::load_at<size_t>(table, "dims");
+
+        return io::load_dataset<T>(is, lazy, num_vectors, dims);
     }
 };
 
@@ -486,6 +506,31 @@ class SimpleData {
         );
     }
 
+    static SimpleData load(const lib::LoadTable& SVS_UNUSED(table))
+        requires(is_view)
+    {
+        throw ANNEXCEPTION("Trying to load a SimpleData view without an istream. This is "
+                           "not supported since "
+                           "views are compatible only with memory-mapped streams.");
+    }
+
+    static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
+        requires(is_view)
+    {
+        if (!io::is_memory_stream(is)) {
+            throw ANNEXCEPTION(
+                "Trying to load a SimpleData view from a non-mmstream istream. This is not "
+                "supported since views are compatible only with memory-mapped streams."
+            );
+        }
+
+        return GenericSerializer::load<T>(
+            table, is, lib::Lazy([](size_t n_elements, size_t n_dimensions, T* ptr) {
+                return SimpleData(n_elements, n_dimensions, View<T>{ptr});
+            })
+        );
+    }
+
     ///
     /// @brief Try to automatically load the dataset.
     ///
@@ -596,6 +641,11 @@ bool operator==(const SimpleData<T1, E1, A1>& x, const SimpleData<T2, E2, A2>& y
         }
     }
     return true;
+}
+
+template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T>>
+size_t streaming_size(const svs::data::SimpleData<T, Extent, Alloc>& data) noexcept {
+    return data.capacity() * data.element_size();
 }
 
 /////
