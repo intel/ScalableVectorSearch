@@ -19,6 +19,7 @@
 // svs
 #include "svs/concepts/data.h"
 #include "svs/core/io.h"
+#include "svs/core/io/memstream.h"
 
 #include "svs/lib/array.h"
 #include "svs/lib/exception.h"
@@ -113,6 +114,34 @@ void populate(Data& data, WriteAccessor& accessor, const File& file) {
     populate_impl(data, accessor, file, default_populate_tag);
 }
 
+template <typename T> [[nodiscard]] size_t streaming_size(const T& obj) noexcept;
+
+template <HasDataType T> [[nodiscard]] size_t streaming_size(const T& obj) noexcept {
+    return element_size(datatype_v<T>);
+}
+
+template <typename T, typename Alloc = ::std::allocator<T>>
+[[nodiscard]] size_t streaming_size(const ::std::vector<T, Alloc>& vec) noexcept {
+    return vec.size() * streaming_size(T{});
+}
+
+template <typename T, size_t N>
+[[nodiscard]] size_t streaming_size(const ::std::array<T, N>& arr) noexcept {
+    return arr.size() * streaming_size(T{});
+}
+
+template <typename... Ts>
+[[nodiscard]] size_t streaming_size(const ::std::tuple<Ts...>& tup) noexcept {
+    size_t total = 0;
+    lib::foreach (tup, [&](const auto& x) { total += streaming_size(x); });
+    return total;
+}
+
+template <typename T, typename Dims, typename Alloc = lib::Allocator<T>>
+[[nodiscard]] size_t streaming_size(const svs::DenseArray<T, Dims, Alloc>& arr) noexcept {
+    return arr.size() * streaming_size(T{});
+}
+
 /////
 ///// Saving
 /////
@@ -199,6 +228,25 @@ lib::lazy_result_t<F, size_t, size_t>
 load_dataset(std::istream& is, const F& lazy, size_t num_vectors, size_t dims) {
     auto data = lazy(num_vectors, dims);
     populate(is, data);
+    return data;
+}
+
+template <typename T, lib::LazyInvocable<size_t, size_t, T*> F>
+lib::lazy_result_t<F, size_t, size_t, T*>
+load_dataset(std::istream& is, const F& lazy, size_t num_vectors, size_t dims) {
+    // If the allocator is vew, we should support in_memory_stream only since views are only
+    // compatible with memory-mapped data.
+    if (!is_memory_stream(is)) {
+        throw ANNEXCEPTION(
+            "Trying to load a dataset with a view allocator from a non-memory stream. This "
+            "is not supported since views are compatible only with memory-mapped streams."
+        );
+    }
+    // If the allocator is a view, we need to construct the view with the correct pointer.
+    auto data = lazy(num_vectors, dims, io::current_ptr<T>(is));
+    // Then we stream have to be seeked past the data we just loaded since the view will not
+    // take ownership of the stream's position.
+    is.seekg(streaming_size(data), std::ios_base::cur);
     return data;
 }
 
