@@ -131,8 +131,13 @@ class VamanaIndexImpl {
                 auto query = queries.get_datum(i);
                 auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
+                size_t total_checked = 0;
+                auto batch_size = std::max(k, sp.buffer_config_.get_search_window_size());
                 do {
-                    iterator.next(k);
+                    batch_size =
+                        predict_further_processing(total_checked, found, k, batch_size);
+                    iterator.next(batch_size);
+                    total_checked += iterator.size();
                     for (auto& neighbor : iterator.results()) {
                         if (filter->is_member(neighbor.id())) {
                             result.set(neighbor, i, found);

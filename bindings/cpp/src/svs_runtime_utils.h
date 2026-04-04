@@ -431,6 +431,20 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 }
 } // namespace storage
 
+// Predict how many more items need to be processed to reach the goal,
+// based on the observed hit rate so far.
+// If no hits yet, returns `hint` unchanged.
+// The caller should cap the result to a max batch size if needed.
+inline size_t predict_further_processing(
+    size_t processed, size_t hits, size_t goal, size_t hint
+) {
+    if (hits == 0 || hits >= goal) {
+        return hint;
+    }
+    float batch_size = static_cast<float>(goal - hits) * processed / hits;
+    return std::max(static_cast<size_t>(batch_size), size_t{1});
+}
+
 inline svs::threads::ThreadPoolHandle default_threadpool() {
     return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())
     );
