@@ -132,10 +132,18 @@ class VamanaIndexImpl {
                 auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
                 size_t total_checked = 0;
+                // Use adaptive batch sizing: start with at least k candidates,
+                // then adjust based on observed filter hit rate.
                 auto batch_size = std::max(k, sp.buffer_config_.get_search_window_size());
+                const auto max_batch_size = batch_size;
                 do {
-                    batch_size =
-                        predict_further_processing(total_checked, found, k, batch_size);
+                    // Estimate how many candidates we need to find remaining
+                    // results given the observed hit rate so far.
+                    batch_size = predict_further_processing(
+                        total_checked, found, k, batch_size
+                    );
+                    // Cap to avoid oversized batches in the iterator.
+                    batch_size = std::min(batch_size, max_batch_size);
                     iterator.next(batch_size);
                     total_checked += iterator.size();
                     for (auto& neighbor : iterator.results()) {
