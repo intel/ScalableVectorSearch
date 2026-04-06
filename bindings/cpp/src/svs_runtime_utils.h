@@ -435,9 +435,8 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 // based on the observed hit rate so far.
 // If no hits yet, returns `hint` unchanged.
 // The caller should cap the result to a max batch size if needed.
-inline size_t predict_further_processing(
-    size_t processed, size_t hits, size_t goal, size_t hint
-) {
+inline size_t
+predict_further_processing(size_t processed, size_t hits, size_t goal, size_t hint) {
     if (hits == 0 || hits >= goal) {
         return hint;
     }
