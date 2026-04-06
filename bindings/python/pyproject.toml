@@ -37,6 +37,8 @@ config-settings = {}
 dependency-versions = "pinned"
 environment.CC = "/opt/rh/gcc-toolset-11/root/usr/bin/cc"
 environment.CXX = "/opt/rh/gcc-toolset-11/root/usr/bin/c++"
+environment.MKLROOT = "/opt/intel/oneapi/mkl/2025.3"
+environment.CMAKE_PREFIX_PATH = "/opt/intel/oneapi/mkl/2025.3/lib/cmake"
 # Compile multiple versions for difference microarchitectures
 environment.SVS_MULTIARCH = "YES"
 environment-pass = []
