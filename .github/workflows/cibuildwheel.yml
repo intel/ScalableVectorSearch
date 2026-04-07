@@ -38,8 +38,8 @@ jobs:
 
     - name: Build Container
       run: |
-        cd ${GITHUB_WORKSPACE}/docker/x86_64/manylinux2014
-        ./build.sh
+        cd ${GITHUB_WORKSPACE}/docker/x86_64/manylinux228
+        docker build -t svs-manylinux228 .
 
     - name: Install cibuildwheel
       run: python -m pip install cibuildwheel
