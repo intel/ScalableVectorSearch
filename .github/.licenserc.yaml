@@ -48,6 +48,7 @@ header:
   - cmake/mkl_functions
   - cmake/mkl_functions_ivf
   - cmake/patches/tomlplusplus_v330.patch
+  - docker/x86_64/manylinux228/oneAPI.repo
   - docs/cpp/index/loader-compatibility.csv
   - docs/requirements.txt
   - AGENTS.md
