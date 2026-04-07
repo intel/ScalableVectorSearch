@@ -58,8 +58,10 @@ echo " FAISS C++ tests: "
 echo "-----------------------------------------------"
 echo " FAISS-SVS C++ examples: "
 make 10-SVS-Vamana-LVQ 11-SVS-Vamana-LeanVec
-# Check if running on Intel hardware (LVQ/LeanVec require Intel-specific instructions)
-if grep -q "GenuineIntel" /proc/cpuinfo; then
+# LVQ/LeanVec examples require both Intel hardware and LVQ support in the library
+if [[ "${SUFFIX}" == *"public-only"* ]] || [[ "${SUFFIX}" == *"ivf"* ]]; then
+  echo "Skipping LVQ/LeanVec examples (not available in${SUFFIX} build)"
+elif grep -q "GenuineIntel" /proc/cpuinfo; then
   $RUN_PREFIX ./tutorial/cpp/10-SVS-Vamana-LVQ
   $RUN_PREFIX ./tutorial/cpp/11-SVS-Vamana-LeanVec
 else
@@ -89,7 +91,9 @@ PYTHONPATH=../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 python -m unittest
 echo "-----------------------------------------------"
 echo " FAISS-SVS python examples: "
 cd ../tutorial/python/
-if grep -q "GenuineIntel" /proc/cpuinfo; then
+if [[ "${SUFFIX}" == *"public-only"* ]] || [[ "${SUFFIX}" == *"ivf"* ]]; then
+  echo "Skipping SVS python example (LVQ not available in${SUFFIX} build)"
+elif grep -q "GenuineIntel" /proc/cpuinfo; then
   PYTHONPATH=../../build/faiss/python/build/lib/ OMP_NUM_THREADS=4 $RUN_PREFIX python 11-SVS.py
 else
   echo "Non-Intel CPU detected - SVS python example expected to fail"
