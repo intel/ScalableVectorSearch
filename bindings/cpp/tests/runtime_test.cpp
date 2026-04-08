@@ -881,3 +881,141 @@ CATCH_TEST_CASE("RangeSearchFunctionalStatic", "[runtime][static_vamana]") {
 
     svs::runtime::v0::VamanaIndex::destroy(index);
 }
+
+CATCH_TEST_CASE("GetDistanceDynamic", "[runtime]") {
+    const auto& test_data = get_test_data();
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Self-distance should be approximately 0
+    double dist = -1.0;
+    const float* vec0 = test_data.data();
+    status = index->get_distance(&dist, 0, vec0);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(dist < 1e-6);
+
+    // Distance to a different vector should be positive
+    const float* vec1 = test_data.data() + test_d;
+    status = index->get_distance(&dist, 0, vec1);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(dist > 0.0);
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("GetDistanceStatic", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    auto status = svs::runtime::v0::VamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Self-distance should be approximately 0
+    double dist = -1.0;
+    const float* vec0 = test_data.data();
+    status = index->get_distance(&dist, 0, vec0);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(dist < 1e-6);
+
+    // Distance to a different vector should be positive
+    const float* vec1 = test_data.data() + test_d;
+    status = index->get_distance(&dist, 0, vec1);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(dist > 0.0);
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("ReconstructAtDynamic", "[runtime]") {
+    const auto& test_data = get_test_data();
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Reconstruct first 5 vectors
+    constexpr size_t nrecon = 5;
+    std::vector<size_t> ids(nrecon);
+    std::iota(ids.begin(), ids.end(), 0);
+    std::vector<float> output(nrecon * test_d, 0.0f);
+
+    status = index->reconstruct_at(nrecon, ids.data(), output.data());
+    CATCH_REQUIRE(status.ok());
+
+    // For FP32 storage, reconstructed vectors should match originals exactly
+    for (size_t i = 0; i < nrecon; ++i) {
+        for (size_t j = 0; j < test_d; ++j) {
+            CATCH_REQUIRE(output[i * test_d + j] == test_data[i * test_d + j]);
+        }
+    }
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("ReconstructAtStatic", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    auto status = svs::runtime::v0::VamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Reconstruct first 5 vectors
+    constexpr size_t nrecon = 5;
+    std::vector<size_t> ids(nrecon);
+    std::iota(ids.begin(), ids.end(), 0);
+    std::vector<float> output(nrecon * test_d, 0.0f);
+
+    status = index->reconstruct_at(nrecon, ids.data(), output.data());
+    CATCH_REQUIRE(status.ok());
+
+    // For FP32 storage, reconstructed vectors should match originals exactly
+    for (size_t i = 0; i < nrecon; ++i) {
+        for (size_t j = 0; j < test_d; ++j) {
+            CATCH_REQUIRE(output[i * test_d + j] == test_data[i * test_d + j]);
+        }
+    }
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
+}
