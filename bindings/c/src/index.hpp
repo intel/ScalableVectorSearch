@@ -48,7 +48,7 @@ struct Index {
     virtual float get_distance(size_t id, std::span<const float> query) const = 0;
     virtual void
     reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) = 0;
-    virtual size_t get_num_threads() { return pool_builder.get_threads_num(); };
+    virtual size_t get_num_threads() const = 0;
     virtual void set_num_threads(size_t num_threads) = 0;
 };
 
@@ -104,6 +104,8 @@ struct IndexVamana : public Index {
         override {
         index.reconstruct_at(dst, ids);
     }
+
+    size_t get_num_threads() const override { return index.get_num_threads(); }
 
     void set_num_threads(size_t num_threads) override {
         pool_builder.resize(num_threads);
@@ -180,6 +182,8 @@ struct DynamicIndexVamana : public DynamicIndex {
             index.compact(batchsize);
         }
     }
+
+    size_t get_num_threads() const override { return index.get_num_threads(); }
 
     void set_num_threads(size_t num_threads) override {
         pool_builder.resize(num_threads);
