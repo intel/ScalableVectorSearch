@@ -192,8 +192,9 @@ install(FILES
 )
 
 # Build tests if requested
-# if(SVS_BUILD_C_API_TESTS)
-#     add_subdirectory(tests)
-# endif()
+option(SVS_BUILD_C_API_TESTS "Build C API tests" ON)
+if(SVS_BUILD_C_API_TESTS)
+    add_subdirectory(tests)
+endif()
 
 add_subdirectory(samples)
