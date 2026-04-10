@@ -22,9 +22,11 @@
 #include "svs/core/logging.h"
 
 // svs
+#include "svs/extensions/vamana/scalar.h"
 #include "svs/index/vamana/build_params.h"
 #include "svs/lib/preprocessor.h"
 #include "svs/orchestrators/vamana.h"
+#include "svs/quantization/scalar/scalar.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -538,5 +540,122 @@ CATCH_TEST_CASE("Vamana Index Default Parameters", "[long][parameter][vamana]") 
         CATCH_REQUIRE(
             index.get_full_search_history() == svs::VAMANA_USE_FULL_SEARCH_HISTORY_DEFAULT
         );
+    }
+}
+
+CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scalar]") {
+    using namespace svs::quantization::scalar;
+
+    const size_t N = 128;
+    using Eltype = std::int8_t;
+    using Data_t = SQDataset<Eltype>;
+    using ViewData_t = SQDataset<Eltype, svs::Dynamic, svs::View<Eltype>>;
+    using ViewGraph_t = svs::graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>;
+
+    auto data = Data_t::compress(
+        svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file())
+    );
+    svs::distance::DistanceL2 distance_function;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    // Build the VamanaIndex with the test logger
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    auto index = svs::Vamana::build<float>(
+        buildParams, std::move(data), distance_function, std::move(threadpool)
+    );
+
+    const size_t NUM_NEIGHBORS = 10;
+    auto queries = test_dataset::queries();
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{NUM_NEIGHBORS};
+
+    auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+    index.search(results.view(), queries.cview(), search_params);
+
+    CATCH_SECTION("Load with SQ pointing to in-memory stream buffer") {
+        // We will load the Vamana index's data as a SQDataset 'view' directly from the
+        // stream, without copying.
+        // Save the full index to a stringstream.
+        auto ss = std::stringstream{};
+        index.save(ss);
+
+        // Load the Vamana index from the stream.
+        ss.seekg(0);
+        auto loaded_index = svs::Vamana::assemble<float, ViewData_t>(
+            ss, distance_function, svs::threads::DefaultThreadPool(1)
+        );
+
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+
+        loaded_index.search(loaded_results.view(), queries.cview(), search_params);
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                CATCH_REQUIRE(
+                    loaded_results.distance(q, i) ==
+                    Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                );
+            }
+        }
+
+        // We cannot extract the pointer to the FlatIndex's internal data directly.
+        // To validate if the loaded Flat index is zero-copy,
+        // we will load a separate SimpleDataView, modify the view's data and check if it
+        // reflects in the loaded index's data. Load a SimpleDataView (zero-copy): its data_
+        // must point into ss's buffer. We should follow the stream layout written by
+        // Vamana::assemble:
+        ss.seekg(0);
+        // First: load deserializer.
+        auto deserializer = svs::lib::detail::Deserializer::build(ss);
+        CATCH_REQUIRE(deserializer.is_native());
+        // Following svs::index::vamana::auto_assemble():
+        // Second: load config parameters (not strictly necessary to validate the view
+        // loading, but good to check that we can load the parameters as expected).
+        auto config_parameters =
+            svs::lib::load_from_stream<svs::index::vamana::VamanaIndexParameters>(ss);
+        CATCH_REQUIRE(config_parameters.build_parameters == buildParams);
+        // Third: load vectors data
+        auto view = svs::lib::load_from_stream<ViewData_t>(ss);
+        CATCH_REQUIRE(view.size() == index.size());
+        CATCH_REQUIRE(view.dimensions() == index.dimensions());
+        // Fourth: load graph (also not strictly necessary, but good to check that we can
+        // load the graph as expected).
+        auto graph = svs::lib::load_from_stream<ViewGraph_t>(ss);
+        CATCH_REQUIRE(graph.n_nodes() == index.size());
+
+        // Check if view's data pointer points into the stringstream's internal buffer
+        // (i.e., zero-copy).
+        CATCH_REQUIRE(view.get_datum(0).data() > svs::io::begin_ptr<Eltype>(ss));
+        CATCH_REQUIRE(view.get_datum(0).data() < svs::io::end_ptr<Eltype>(ss));
+        // Now update the view's data and check if it reflects in the loaded index (since it
+        // should be zero-copy). For that we will copy a vector from queries into the view's
+        // data and check if the get_distance() result changes accordingly.
+        auto data_index =
+            std::rand() % view.size(); // Randomly select a data point to modify.
+        auto query_index =
+            std::rand() % queries.size(); // Randomly select a query to test against.
+        auto original_distance =
+            loaded_index.get_distance(data_index, queries.get_datum(query_index));
+        // Verify that original distance is correct before modification.
+        CATCH_REQUIRE(
+            original_distance ==
+            Catch::Approx(
+                svs::index::vamana::extensions::get_distance_ext(
+                    view, distance_function, data_index, queries.get_datum(query_index)
+                )
+            )
+                .epsilon(1e-5)
+        );
+        // Modify the view's data by copying a query vector into it.
+        view.set_datum(data_index, queries.get_datum(query_index));
+        // Now the distance from the modified data point to the query should be zero (or
+        // very close to zero due to floating point precision), since we copied the query
+        // vector into the data point.
+        auto modified_distance =
+            loaded_index.get_distance(data_index, queries.get_datum(query_index));
+        CATCH_REQUIRE(modified_distance == Catch::Approx(0.0).epsilon(1e-5));
     }
 }

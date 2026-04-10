@@ -28,6 +28,9 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// stdlib
+#include <sstream>
+
 namespace scalar = svs::quantization::scalar;
 
 template <typename T, size_t N> void test_sq_top() {
@@ -253,6 +256,42 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
     CATCH_SECTION("SQDataset compression") {
         test_sq_top<std::int8_t, 128>();
         test_sq_top<std::int16_t, 128>();
+    }
+
+    CATCH_SECTION("Load SQDataset view pointed to stringstream") {
+        using sq_dtype = std::int8_t;
+        auto src = scalar::SQDataset<sq_dtype>(5, 4);
+        svs_test::data::set_sequential(src);
+        src.set_scale(0.5F);
+        src.set_bias(-3.0F);
+
+        auto ss = std::stringstream{};
+        src.save(ss);
+        ss.seekg(0);
+
+        auto meta = src.metadata();
+        auto table = svs::lib::ContextFreeLoadTable(meta.get());
+
+        // Capture the pointer to the current read position inside the stream buffer.
+        auto* expected_ptr = svs::io::current_ptr<sq_dtype>(ss);
+        CATCH_REQUIRE(expected_ptr != nullptr);
+
+        auto view =
+            scalar::SQDataset<sq_dtype, svs::Dynamic, svs::View<sq_dtype>>::load(table, ss);
+        CATCH_REQUIRE(view.size() == src.size());
+        CATCH_REQUIRE(view.dimensions() == src.dimensions());
+        CATCH_REQUIRE(view.get_scale() == src.get_scale());
+        CATCH_REQUIRE(view.get_bias() == src.get_bias());
+        CATCH_REQUIRE(view.get_datum(0).data() == expected_ptr);
+
+        for (size_t i = 0; i < src.size(); ++i) {
+            auto a = src.get_datum(i);
+            auto b = view.get_datum(i);
+            CATCH_REQUIRE(a.size() == b.size());
+            for (size_t j = 0; j < a.size(); ++j) {
+                CATCH_REQUIRE(a[j] == b[j]);
+            }
+        }
     }
 }
 
