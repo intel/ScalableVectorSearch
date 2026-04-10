@@ -447,9 +447,8 @@ predict_further_processing(size_t processed, size_t hits, size_t goal, size_t hi
 // Check if the filtered search should stop early based on the observed hit rate.
 // Returns true if the hit rate is below the threshold, meaning the caller should
 // give up and let the caller fall back to exact search.
-inline bool should_stop_filtered_search(
-    size_t total_checked, size_t found, float filter_stop
-) {
+inline bool
+should_stop_filtered_search(size_t total_checked, size_t found, float filter_stop) {
     if (filter_stop <= 0 || total_checked == 0 || found == 0) {
         return false;
     }
