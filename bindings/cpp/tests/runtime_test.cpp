@@ -549,6 +549,74 @@ CATCH_TEST_CASE("SearchWithRestrictiveFilter", "[runtime][filtered_search]") {
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("FilterStopEarlyExit", "[runtime][filtered_search]") {
+    const auto& test_data = get_test_data();
+    // Build index
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    size_t min_id = 0;
+    size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    // Set filter_stop = 0.5 (50%). With ~10% hit rate, search should give up
+    // and return unspecified results.
+    svs::runtime::v0::VamanaIndex::SearchParams search_params;
+    search_params.filter_stop = 0.5f;
+
+    status = index->search(
+        nq, xq, k, distances.data(), result_labels.data(), &search_params, &filter
+    );
+    CATCH_REQUIRE(status.ok());
+
+    // All results should be unspecified (early exit returned empty)
+    for (int i = 0; i < nq * k; ++i) {
+        CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
+    }
+
+    // Now search without filter_stop — should find valid results
+    std::vector<float> distances2(nq * k);
+    std::vector<size_t> result_labels2(nq * k);
+
+    status = index->search(
+        nq, xq, k, distances2.data(), result_labels2.data(), nullptr, &filter
+    );
+    CATCH_REQUIRE(status.ok());
+
+    // Should have valid results in the filter range
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels2[i])) {
+            CATCH_REQUIRE(result_labels2[i] >= min_id);
+            CATCH_REQUIRE(result_labels2[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
 CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
     const auto& test_data = get_test_data();
     // Build index
