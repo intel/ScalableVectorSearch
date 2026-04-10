@@ -118,6 +118,7 @@ class DynamicVamanaIndexImpl {
         // Selective search with IDSelector
         auto old_sp = impl_->get_search_parameters();
         impl_->set_search_parameters(sp);
+        const float filter_stop = params ? params->filter_stop : 0.0f;
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
@@ -126,17 +127,10 @@ class DynamicVamanaIndexImpl {
                 auto iterator = impl_->batch_iterator(query);
                 size_t found = 0;
                 size_t total_checked = 0;
-                // Use adaptive batch sizing: start with at least k candidates,
-                // then adjust based on observed filter hit rate.
                 auto batch_size = std::max(k, sp.buffer_config_.get_search_window_size());
-                const auto max_batch_size = batch_size;
                 do {
-                    // Estimate how many candidates we need to find remaining
-                    // results given the observed hit rate so far.
                     batch_size =
                         predict_further_processing(total_checked, found, k, batch_size);
-                    // Cap to avoid oversized batches in the iterator.
-                    batch_size = std::min(batch_size, max_batch_size);
                     iterator.next(batch_size);
                     total_checked += iterator.size();
                     for (auto& neighbor : iterator.results()) {
@@ -147,6 +141,10 @@ class DynamicVamanaIndexImpl {
                                 break;
                             }
                         }
+                    }
+                    if (should_stop_filtered_search(total_checked, found, filter_stop)) {
+                        found = 0;
+                        break;
                     }
                 } while (found < k && !iterator.done());
 

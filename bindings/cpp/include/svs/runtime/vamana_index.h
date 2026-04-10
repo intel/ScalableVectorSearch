@@ -40,6 +40,11 @@ struct VamanaSearchParameters {
     size_t search_buffer_capacity = Unspecify<size_t>();
     size_t prefetch_lookahead = Unspecify<size_t>();
     size_t prefetch_step = Unspecify<size_t>();
+    // Minimum filter hit rate to continue filtered search.
+    // If the hit rate after the first round falls below this threshold,
+    // stop and return empty results (caller can fall back to exact search).
+    // Default 0 means never give up.
+    float filter_stop = 0.0f;
 };
 } // namespace detail
 
