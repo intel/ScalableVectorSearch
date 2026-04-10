@@ -35,14 +35,7 @@ conda install -y mkl=2025.3 mkl-devel=2025.3
 conda install -y /runtime_conda/libsvs-runtime-*.conda
 
 # Validate python and C++ tests against FAISS CI
-ENABLE_IVF="${ENABLE_IVF:-OFF}"
-if [ "${ENABLE_IVF}" = "ON" ]; then
-  echo "IVF enabled: cloning forked FAISS with IVF support"
-  git clone --branch ib/svs_ivf https://github.com/ibhati/faiss.git
-else
-  echo "IVF disabled: cloning upstream FAISS"
-  git clone https://github.com/facebookresearch/faiss.git
-fi
+git clone https://github.com/facebookresearch/faiss.git
 cd faiss
 
 echo "==============================================="
