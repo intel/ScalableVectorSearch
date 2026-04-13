@@ -44,7 +44,7 @@ struct VamanaSearchParameters {
     // If the hit rate after the first round falls below this threshold,
     // stop and return empty results (caller can fall back to exact search).
     // Default 0 means never give up.
-    float filter_stop = 0.0f;
+    float filter_stop = 0.1f;
 };
 } // namespace detail
 
