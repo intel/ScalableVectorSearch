@@ -128,12 +128,10 @@ class DynamicVamanaIndexImpl {
                 size_t found = 0;
                 size_t total_checked = 0;
                 auto batch_size = std::max(k, sp.buffer_config_.get_search_window_size());
-                // Maximum batch size is the number of vectors in the index.
                 const auto max_batch_size = impl_->size();
                 do {
-                    batch_size = std::min(
-                        predict_further_processing(total_checked, found, k, batch_size),
-                        max_batch_size
+                    batch_size = predict_further_processing(
+                        total_checked, found, k, batch_size, max_batch_size
                     );
                     iterator.next(batch_size);
                     total_checked += iterator.size();
