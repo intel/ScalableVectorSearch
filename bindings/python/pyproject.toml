@@ -35,8 +35,10 @@ archs = ["x86_64"]
 build-frontend = "pip"
 config-settings = {}
 dependency-versions = "pinned"
-environment.CC = "/opt/rh/devtoolset-11/root/usr/bin/cc"
-environment.CXX = "/opt/rh/devtoolset-11/root/usr/bin/c++"
+environment.CC = "/opt/rh/gcc-toolset-11/root/usr/bin/cc"
+environment.CXX = "/opt/rh/gcc-toolset-11/root/usr/bin/c++"
+environment.MKLROOT = "/opt/intel/oneapi/mkl/latest"
+environment.CMAKE_PREFIX_PATH = "/opt/intel/oneapi/mkl/latest/lib/cmake"
 # Compile multiple versions for difference microarchitectures
 environment.SVS_MULTIARCH = "YES"
 environment-pass = []
@@ -45,7 +47,7 @@ build-verbosity = "3"
 # Run inside the container because the version of pip used depends on the python version
 # we're building for.
 before-build = "pip install ninja"
-before-all = "yum --disablerepo=epel install -y devtoolset-11-gcc devtoolset-11-gcc-c++"
+before-all = "yum install -y gcc-toolset-11"
 repair-wheel-command = ""
 
 test-command = ""
@@ -55,10 +57,10 @@ test-extras = []
 
 container-engine = "docker"
 
-# Requires creation of the `svs-manylinux2014` container image.
-# Execute the build script  SVS_ROOT/docker/x86_64/manylinux2014/build.sh
-manylinux-x86_64-image = "svs-manylinux2014"
-manylinux-pypy_x86_64-image = "svs-manylinux2014"
+# Requires creation of the `svs-manylinux228` container image.
+# Execute: docker build -t svs-manylinux228 SVS_ROOT/docker/x86_64/manylinux228/
+manylinux-x86_64-image = "svs-manylinux228"
+manylinux-pypy_x86_64-image = "svs-manylinux228"
 
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
