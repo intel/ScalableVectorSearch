@@ -234,7 +234,10 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         CATCH_REQUIRE(expected_ptr != nullptr);
 
         // Load the view — data_ must point into the stringstream's internal buffer.
-        auto view = svs::data::SimpleDataView<float>::load(table, ss);
+        auto view = svs::data::
+            SimpleData<float, svs::Dynamic, svs::io::MemoryStreamAllocator<float>>::load(
+                table, ss
+            );
         CATCH_REQUIRE(view.data() == expected_ptr);
         CATCH_REQUIRE(view.size() == src.size());
         CATCH_REQUIRE(view.dimensions() == src.dimensions());
@@ -252,7 +255,10 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         NonMemStreamBuf buf;
         std::istream non_mem_stream(&buf);
         CATCH_REQUIRE_THROWS_AS(
-            (svs::data::SimpleDataView<float>::load(table, non_mem_stream)),
+            (svs::data::SimpleData<
+                float,
+                svs::Dynamic,
+                svs::io::MemoryStreamAllocator<float>>::load(table, non_mem_stream)),
             svs::ANNException
         );
     }

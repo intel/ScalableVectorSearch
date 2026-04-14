@@ -156,6 +156,9 @@ template <typename T> struct View {
 template <typename T> inline constexpr bool is_view_type_v = false;
 template <typename T> inline constexpr bool is_view_type_v<View<T>> = true;
 
+template <typename T>
+concept ViewAllocator = is_view_type_v<T>;
+
 namespace array_impl {
 
 // Shared implementations across various DenseArray specializations.
@@ -507,7 +510,7 @@ template <typename T, typename Dims, typename Alloc = lib::Allocator<T>> class D
     [[no_unique_address]] Alloc allocator_;
 };
 
-template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
+template <typename T, typename Dims, ViewAllocator Alloc> class DenseArray<T, Dims, Alloc> {
   private:
     // N.B.: This is an important assumption for many algorithms of this type.
     // Don't remove this requirement without careful consideration.
@@ -517,6 +520,7 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
     static constexpr bool is_const = std::is_const_v<T>;
 
     ///// Allocator Aware
+    using allocator_type = Alloc;
     using pointer = T*;
     using const_pointer = const T*;
 
@@ -650,8 +654,14 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
         : pointer_{ptr}
         , dims_{std::move(dims)} {}
 
-    explicit DenseArray(Dims dims, View<T> view)
-        : DenseArray{std::move(dims), view.ptr} {}
+    explicit DenseArray(Dims dims, Alloc allocator)
+        : DenseArray{std::move(dims), nullptr} {
+        if constexpr (std::is_same_v<Alloc, View<T>>) {
+            pointer_ = allocator.ptr;
+        } else {
+            pointer_ = std::allocator_traits<allocator_type>::allocate(allocator, size());
+        }
+    }
 
     // Iterator
     pointer begin()

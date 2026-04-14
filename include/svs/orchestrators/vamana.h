@@ -472,7 +472,9 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
             using GraphType = std::conditional_t<
                 is_view_type_v<typename Data::allocator_type>,
-                graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>,
+                graphs::SimpleGraph<
+                    uint32_t,
+                    lib::rebind_allocator_t<uint32_t, typename Data::allocator_type>>,
                 GraphLoader<>::return_type>;
 
             if constexpr (std::is_same_v<Distance, DistanceType>) {

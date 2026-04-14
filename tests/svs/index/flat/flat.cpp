@@ -148,7 +148,10 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
     CATCH_SECTION("Load with pointing to in-memory stream buffer") {
         // We will load the FlatIndex's data as a SimpleDataView directly from the stream,
         // without copying.
-        using ViewData_t = svs::data::SimpleDataView<Data_t::element_type>;
+        using ViewData_t = svs::data::SimpleData<
+            Data_t::element_type,
+            svs::Dynamic,
+            svs::io::MemoryStreamAllocator<Data_t::element_type>>;
 
         // Save the full index to a stringstream.
         auto ss = std::stringstream{};
@@ -225,7 +228,10 @@ CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
     }
 
     CATCH_SECTION("Load with SimpleDataView pointing to memory mapped file") {
-        using ViewData_t = svs::data::SimpleDataView<float>;
+        using ViewData_t = svs::data::SimpleData<
+            Data_t::element_type,
+            svs::Dynamic,
+            svs::io::MemoryStreamAllocator<Data_t::element_type>>;
 
         svs::lib::UniqueTempDirectory tempdir{"svs_flat_save"};
         auto index_path = tempdir.get() / "index.bin";

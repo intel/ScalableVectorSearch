@@ -276,8 +276,10 @@ CATCH_TEST_CASE("Testing SQDataset", "[quantization][scalar]") {
         auto* expected_ptr = svs::io::current_ptr<sq_dtype>(ss);
         CATCH_REQUIRE(expected_ptr != nullptr);
 
-        auto view =
-            scalar::SQDataset<sq_dtype, svs::Dynamic, svs::View<sq_dtype>>::load(table, ss);
+        auto view = scalar::SQDataset<
+            sq_dtype,
+            svs::Dynamic,
+            svs::io::MemoryStreamAllocator<sq_dtype>>::load(table, ss);
         CATCH_REQUIRE(view.size() == src.size());
         CATCH_REQUIRE(view.dimensions() == src.dimensions());
         CATCH_REQUIRE(view.get_scale() == src.get_scale());
