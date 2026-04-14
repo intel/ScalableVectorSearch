@@ -434,15 +434,15 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 // Predict how many more items need to be processed to reach the goal,
 // based on the observed hit rate so far.
 // If no hits yet, returns `hint` unchanged.
-// Result is capped at `max_batch_size` (e.g., number of vectors in the index).
+// Result is capped at `max_value` (e.g., number of vectors in the index).
 inline size_t predict_further_processing(
-    size_t processed, size_t hits, size_t goal, size_t hint, size_t max_batch_size
+    size_t processed, size_t hits, size_t goal, size_t hint, size_t max_value
 ) {
     if (hits == 0 || hits >= goal) {
-        return std::min(hint, max_batch_size);
+        return std::min(hint, max_value);
     }
     float batch_size = static_cast<float>(goal - hits) * processed / hits;
-    return std::min(std::max(static_cast<size_t>(batch_size), size_t{1}), max_batch_size);
+    return std::min(std::max(static_cast<size_t>(batch_size), size_t{1}), max_value);
 }
 
 // Check if the filtered search should stop early based on the observed hit rate.

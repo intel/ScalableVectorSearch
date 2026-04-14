@@ -124,7 +124,11 @@ class VamanaIndexImpl {
             get_impl()->set_search_parameters(old_sp);
         });
         get_impl()->set_search_parameters(sp);
-        const float filter_stop = params ? params->filter_stop : 0.0f;
+        float filter_stop = 0.0f;
+        if (params) {
+            set_if_specified(filter_stop, params->filter_stop);
+        }
+        const auto max_batch_size = get_impl()->size();
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
@@ -134,7 +138,6 @@ class VamanaIndexImpl {
                 size_t found = 0;
                 size_t total_checked = 0;
                 auto batch_size = std::max(k, sp.buffer_config_.get_search_window_size());
-                const auto max_batch_size = get_impl()->size();
                 do {
                     batch_size = predict_further_processing(
                         total_checked, found, k, batch_size, max_batch_size
