@@ -283,8 +283,10 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
     CATCH_SECTION("Load with pointing to in-memory stream buffer") {
         // We will load the Vamana index's data as a SimpleDataView directly from the
         // stream, without copying.
-        using ViewData_t = svs::data::SimpleDataView<Eltype, N>;
-        using Graph_t = svs::graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>;
+        using ViewData_t =
+            svs::data::SimpleData<Eltype, N, svs::io::MemoryStreamAllocator<Eltype>>;
+        using Graph_t =
+            svs::graphs::SimpleGraph<uint32_t, svs::io::MemoryStreamAllocator<uint32_t>>;
 
         // Save the full index to a stringstream.
         auto ss = std::stringstream{};
@@ -372,8 +374,10 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
     CATCH_SECTION("Load with SimpleDataView pointing to memory mapped file") {
         // We will load the Vamana index's data as a SimpleDataView directly from the
         // stream, without copying.
-        using ViewData_t = svs::data::SimpleDataView<Eltype, N>;
-        using Graph_t = svs::graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>;
+        using ViewData_t =
+            svs::data::SimpleData<Eltype, N, svs::io::MemoryStreamAllocator<Eltype>>;
+        using Graph_t =
+            svs::graphs::SimpleGraph<uint32_t, svs::io::MemoryStreamAllocator<uint32_t>>;
 
         // Save the full index to a file
         svs::lib::UniqueTempDirectory tempdir{"svs_flat_save"};
@@ -549,8 +553,10 @@ CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scal
     const size_t N = 128;
     using Eltype = std::int8_t;
     using Data_t = SQDataset<Eltype>;
-    using ViewData_t = SQDataset<Eltype, svs::Dynamic, svs::View<Eltype>>;
-    using ViewGraph_t = svs::graphs::SimpleGraph<uint32_t, svs::View<uint32_t>>;
+    using ViewData_t =
+        SQDataset<Eltype, svs::Dynamic, svs::io::MemoryStreamAllocator<Eltype>>;
+    using ViewGraph_t =
+        svs::graphs::SimpleGraph<uint32_t, svs::io::MemoryStreamAllocator<uint32_t>>;
 
     auto data = Data_t::compress(
         svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file())

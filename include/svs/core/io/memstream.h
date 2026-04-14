@@ -15,6 +15,8 @@
  */
 #pragma once
 
+#include "svs/lib/array.h" // just for svs::is_view_type_v specialization
+
 #include <cerrno>
 #include <cstddef>
 #include <filesystem>
@@ -30,7 +32,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-namespace svs::io {
+namespace svs {
+namespace io {
 
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 class basic_mmstreambuf : public std::basic_streambuf<CharT, Traits> {
@@ -337,7 +340,7 @@ struct StreambufAccessor : std::basic_streambuf<CharT, Traits> {
 template <typename T, typename CharT, typename Traits = std::char_traits<CharT>>
 [[nodiscard]] T* current_ptr(std::basic_istream<CharT, Traits>& stream) noexcept {
     static_assert(sizeof(CharT) == 1, "current_ptr requires a 1-byte character type.");
-    if (!is_memory_stream(stream)) {
+    if (!stream.good() || !is_memory_stream(stream)) {
         return nullptr;
     }
 
@@ -415,4 +418,59 @@ template <typename T, typename CharT, typename Traits = std::char_traits<CharT>>
     return reinterpret_cast<T*>(end);
 }
 
-} // namespace svs::io
+/// @brief Memory-stream allocator that allocates memory from in-memory streams.
+///
+/// This is used to construct SVS data structures directly on memory-mapped files or
+/// in-memory buffers, without needing to copy data out of the stream into separately
+/// allocated memory.
+///
+/// The allocator does not take ownership of the memory; the caller is responsible for
+/// ensuring the memory remains valid for the lifetime of any pointers returned by this
+/// allocator.
+template <typename T, typename CharT = char, typename Traits = std::char_traits<CharT>>
+struct MemoryStreamAllocator {
+    using value_type = T;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = T*;
+    using const_pointer = const T*;
+    using reference = T&;
+    using const_reference = const T&;
+
+    MemoryStreamAllocator(std::basic_istream<CharT, Traits>& stream)
+        : stream_(stream) {
+        if (!is_memory_stream(stream_)) {
+            throw std::invalid_argument(
+                "MemoryStreamAllocator requires a memory-backed stream."
+            );
+        }
+    }
+
+    [[nodiscard]] pointer allocate(size_type n) {
+        T* current = current_ptr<T>(stream_);
+        if (current == nullptr) {
+            throw std::runtime_error("Failed to obtain current pointer from memory stream."
+            );
+        }
+        pointer result = current;
+        stream_.seekg(n * sizeof(T), std::ios_base::cur);
+        if (!stream_) {
+            throw std::runtime_error("Failed to advance memory stream after allocation.");
+        }
+        return result;
+    }
+
+    void deallocate(pointer, size_type) noexcept {
+        // No-op since we don't own the memory.
+    }
+
+  private:
+    std::basic_istream<CharT, Traits>& stream_;
+};
+
+} // namespace io
+
+template <typename T>
+inline constexpr bool is_view_type_v<io::MemoryStreamAllocator<T>> = true;
+
+} // namespace svs
