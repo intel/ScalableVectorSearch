@@ -115,5 +115,34 @@ Status FlatIndex::load(FlatIndex** index, std::istream& in, MetricType metric) n
         return Status_Ok;
     });
 }
+
+Status
+FlatIndex::map_to_file(FlatIndex** index, const char* path, MetricType metric) noexcept {
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        std::filesystem::path fs_path(path);
+        auto is = std::make_unique<svs::io::mmstream>(fs_path);
+        std::unique_ptr<FlatIndexImpl> impl{
+            FlatIndexImpl::map_to_stream(std::move(is), metric)};
+        *index = new FlatIndexManager{std::move(impl)};
+        return Status_Ok;
+    });
+}
+
+Status FlatIndex::map_to_memory(
+    FlatIndex** index, const void* data, size_t size, MetricType metric
+) noexcept {
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        auto is = std::make_unique<std::istringstream>(
+            std::string(static_cast<const char*>(data), size)
+        );
+        std::unique_ptr<FlatIndexImpl> impl{
+            FlatIndexImpl::map_to_stream(std::move(is), metric)};
+        *index = new FlatIndexManager{std::move(impl)};
+        return Status_Ok;
+    });
+}
+
 } // namespace runtime
 } // namespace svs

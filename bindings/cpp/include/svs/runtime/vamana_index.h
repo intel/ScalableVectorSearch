@@ -95,6 +95,22 @@ struct SVS_RUNTIME_API VamanaIndex {
     static Status load(
         VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
     ) noexcept;
+
+    // Load from a memory-mapped file.
+    // The file is expected to be in the format produced by save().
+    static Status map_to_file(
+        VamanaIndex** index, const char* path, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+
+    // Load from a memory buffer.
+    // The buffer is expected to be in the format produced by save().
+    static Status map_to_memory(
+        VamanaIndex** index,
+        const void* data,
+        size_t size,
+        MetricType metric,
+        StorageKind storage_kind
+    ) noexcept;
 };
 
 struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
