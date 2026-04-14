@@ -154,25 +154,6 @@ class GenericSerializer {
 
         return io::load_dataset(is, lazy, num_vectors, dims);
     }
-
-    template <typename T, lib::LazyInvocable<size_t, size_t, T*> F>
-    static lib::lazy_result_t<F, size_t, size_t, T*>
-    load(const lib::ContextFreeLoadTable& table, std::istream& is, const F& lazy) {
-        auto datatype = lib::load_at<DataType>(table, "eltype");
-        if (datatype != datatype_v<T>) {
-            throw ANNEXCEPTION(
-                "Trying to load an uncompressed dataset with element types {} to a dataset "
-                "with element types {}.",
-                name(datatype),
-                name<datatype_v<T>>()
-            );
-        }
-
-        size_t num_vectors = lib::load_at<size_t>(table, "num_vectors");
-        size_t dims = lib::load_at<size_t>(table, "dims");
-
-        return io::load_dataset<T>(is, lazy, num_vectors, dims);
-    }
 };
 
 struct Matcher {
@@ -517,6 +498,10 @@ class SimpleData {
     static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
         requires(is_view)
     {
+        static_assert(
+            std::is_same_v<allocator_type, io::MemoryStreamAllocator<T>>,
+            "SimpleData views must use the MemoryStreamAllocator."
+        );
         if (!io::is_memory_stream(is)) {
             throw ANNEXCEPTION(
                 "Trying to load a SimpleData view from a non-mmstream istream. This is not "
@@ -524,9 +509,10 @@ class SimpleData {
             );
         }
 
+        allocator_type allocator(is);
         return GenericSerializer::load<T>(
-            table, is, lib::Lazy([](size_t n_elements, size_t n_dimensions, T* ptr) {
-                return SimpleData(n_elements, n_dimensions, View<T>{ptr});
+            table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
     }
@@ -641,11 +627,6 @@ bool operator==(const SimpleData<T1, E1, A1>& x, const SimpleData<T2, E2, A2>& y
         }
     }
     return true;
-}
-
-template <typename T, size_t Extent = Dynamic, typename Alloc = lib::Allocator<T>>
-size_t streaming_size(const svs::data::SimpleData<T, Extent, Alloc>& data) noexcept {
-    return data.capacity() * data.element_size();
 }
 
 /////
