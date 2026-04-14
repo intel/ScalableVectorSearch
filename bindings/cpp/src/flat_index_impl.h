@@ -22,6 +22,7 @@
 
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
+#include <svs/core/io/memstream.h>
 #include <svs/core/query_result.h>
 #include <svs/orchestrators/exhaustive.h>
 
@@ -111,12 +112,39 @@ class FlatIndexImpl {
         });
     }
 
+    static FlatIndexImpl*
+    map_to_stream(std::unique_ptr<std::istream>&& in, MetricType metric) {
+        if (!svs::io::is_memory_stream(*in)) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "Provided stream is not a memory stream"};
+        }
+        auto threadpool = default_threadpool();
+        using storage_type = svs::runtime::storage::
+            StorageType_t<StorageKind::FP32, svs::io::MemoryStreamAllocator<float>>;
+
+        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+        return distance_dispatcher([&](auto&& distance) {
+            auto impl = new svs::Flat{svs::Flat::assemble<float, storage_type>(
+                *in, std::forward<decltype(distance)>(distance), std::move(threadpool)
+            )};
+
+            return new FlatIndexImpl(
+                std::unique_ptr<svs::Flat>{impl}, metric, std::move(in)
+            );
+        });
+    }
+
   protected:
     // Constructor used during loading
-    FlatIndexImpl(std::unique_ptr<svs::Flat>&& impl, MetricType metric)
+    FlatIndexImpl(
+        std::unique_ptr<svs::Flat>&& impl,
+        MetricType metric,
+        std::unique_ptr<std::istream> mapped_stream = nullptr
+    )
         : dim_{impl->dimensions()}
         , metric_type_{metric}
-        , impl_{std::move(impl)} {}
+        , impl_{std::move(impl)}
+        , mapped_stream_{std::move(mapped_stream)} {}
 
     void init_impl(data::ConstSimpleDataView<float> data) {
         auto threadpool = default_threadpool();
@@ -139,6 +167,8 @@ class FlatIndexImpl {
     size_t dim_;
     MetricType metric_type_;
     std::unique_ptr<svs::Flat> impl_;
+    // For memory-mapping, we need to keep the stream alive as long as the index is alive
+    std::unique_ptr<std::istream> mapped_stream_;
 };
 } // namespace runtime
 } // namespace svs
