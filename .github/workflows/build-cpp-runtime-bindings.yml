@@ -81,10 +81,9 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
+            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             svs-manylinux228:latest \
-            /bin/bash -c "source /etc/bashrc || true && \
-              if [ -f /opt/intel/oneapi/setvars.sh ]; then source /opt/intel/oneapi/setvars.sh 2>/dev/null || true; fi && \
-              ctest --test-dir bindings/cpp/build_cpp_bindings/tests --output-on-failure --no-tests=error --verbose"
+            /bin/bash /workspace/.github/scripts/test-cpp-runtime-unit.sh
 
   # Run full test script using the built artifacts
   test:
