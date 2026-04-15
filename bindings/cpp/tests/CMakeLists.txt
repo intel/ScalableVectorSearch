@@ -85,15 +85,8 @@ endif()
 include(CTest)
 enable_testing()
 
-# Add the test to CTest
-add_test(NAME svs_runtime_test COMMAND svs_runtime_test)
-
-# Set test properties
-set_tests_properties(svs_runtime_test PROPERTIES
-    LABELS "runtime_bindings"
-)
-
-# Optional: Add Catch2's automatic test discovery
+# Use Catch2's automatic test discovery to register individual test cases.
+# This allows ctest -E/-R filters to target specific tests (e.g., LVQ/LeanVec).
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(svs_runtime_test)
