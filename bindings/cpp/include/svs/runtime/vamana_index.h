@@ -45,6 +45,9 @@ struct VamanaSearchParameters {
     // stop and return empty results (caller can fall back to exact search).
     // Default unspecified means never give up (treated as 0).
     float filter_stop = Unspecify<float>();
+    // Enable pre-search filter sampling to estimate hit rate before graph traversal.
+    // Uses a random sample of IDs to set initial batch size and trigger early exit.
+    OptionalBool filter_estimate_batch = Unspecify<bool>();
 };
 } // namespace detail
 

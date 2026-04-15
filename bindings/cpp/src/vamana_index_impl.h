@@ -38,6 +38,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <numeric>
 #include <variant>
 #include <vector>
 
@@ -128,7 +129,31 @@ class VamanaIndexImpl {
         if (params) {
             set_if_specified(filter_stop, params->filter_stop);
         }
+        bool filter_estimate_batch = true;
+        if (params) {
+            set_if_specified(filter_estimate_batch, params->filter_estimate_batch);
+        }
         const auto max_batch_size = get_impl()->size();
+
+        // Pre-search filter sampling: estimate hit rate before graph traversal.
+        float estimated_hit_rate = 1.0f;
+        if (filter_estimate_batch) {
+            // Static Vamana doesn't have all_ids(); generate sequential IDs.
+            std::vector<size_t> id_vec(max_batch_size);
+            std::iota(id_vec.begin(), id_vec.end(), 0);
+            estimated_hit_rate = estimate_filter_hit_rate(*filter, id_vec);
+            // Early exit before any search if estimated hit rate is too low.
+            if (filter_stop > 0 && estimated_hit_rate < filter_stop) {
+                for (size_t i = 0; i < queries.size(); ++i) {
+                    for (size_t j = 0; j < k; ++j) {
+                        result.set(
+                            Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j
+                        );
+                    }
+                }
+                return;
+            }
+        }
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
@@ -137,7 +162,12 @@ class VamanaIndexImpl {
                 auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
                 size_t total_checked = 0;
-                auto batch_size = std::max(k, sp.buffer_config_.get_search_window_size());
+                // Use estimated hit rate for smarter initial batch size.
+                auto batch_size = (estimated_hit_rate > 0)
+                    ? std::min(
+                          static_cast<size_t>(k / estimated_hit_rate), max_batch_size
+                      )
+                    : std::max(k, sp.buffer_config_.get_search_window_size());
                 do {
                     batch_size = predict_further_processing(
                         total_checked, found, k, batch_size, max_batch_size
