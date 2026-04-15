@@ -138,9 +138,7 @@ class DynamicVamanaIndexImpl {
             if (filter_stop > 0 && estimated_hit_rate < filter_stop) {
                 for (size_t i = 0; i < queries.size(); ++i) {
                     for (size_t j = 0; j < k; ++j) {
-                        result.set(
-                            Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j
-                        );
+                        result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
                     }
                 }
                 impl_->set_search_parameters(old_sp);
@@ -156,11 +154,12 @@ class DynamicVamanaIndexImpl {
                 size_t found = 0;
                 size_t total_checked = 0;
                 // Use estimated hit rate for smarter initial batch size.
-                auto batch_size = (estimated_hit_rate > 0)
-                    ? std::min(
-                          static_cast<size_t>(k / estimated_hit_rate), max_batch_size
-                      )
-                    : std::max(k, sp.buffer_config_.get_search_window_size());
+                auto batch_size =
+                    (estimated_hit_rate > 0)
+                        ? std::min(
+                              static_cast<size_t>(k / estimated_hit_rate), max_batch_size
+                          )
+                        : std::max(k, sp.buffer_config_.get_search_window_size());
                 do {
                     batch_size = predict_further_processing(
                         total_checked, found, k, batch_size, max_batch_size
