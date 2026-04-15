@@ -108,6 +108,50 @@ enum class StorageKind {
     LeanVec8x8,
 };
 
+/// Configuration for SSD-backed (memory-mapped) data storage.
+///
+/// When provided to index assembly methods, data is loaded via memory-mapped
+/// files from the specified SSD path instead of being copied into heap memory.
+/// This enables zero-copy loading and dramatically reduces memory usage for
+/// large datasets.
+///
+/// For dual-component storage (LVQ4x4, LVQ4x8, LeanVec), primary and
+/// secondary/residual data placement can be controlled independently.
+/// When either component is on SSD, *both* use the same MMapAllocator
+/// (preserving codegen) but with different eviction policies:
+///   - on_ssd=true:  pages are evicted after mmap, lazily faulted on access.
+///   - on_ssd=false: pages stay resident (pre-populated by kernel).
+struct SSDConfig {
+    /// Path to the SSD mount point (e.g., "/mnt/nvme").
+    /// The runtime uses this as the base directory for memory-mapped files.
+    /// Must be non-null when primary_on_ssd or secondary_on_ssd is true.
+    const char* ssd_path = nullptr;
+
+    /// Place primary (or only) data component on SSD.
+    /// For LeanVec this is the reduced-dimension primary data.
+    /// For dual-level LVQ (LVQ4x4, LVQ4x8) this is the primary quantized data.
+    /// For single-level LVQ (LVQ4x0, LVQ8x0) this is the only data component.
+    bool primary_on_ssd = false;
+
+    /// Place secondary/residual data component on SSD.
+    /// For LeanVec this is the full-dimension secondary data.
+    /// For dual-level LVQ this is the residual correction data.
+    /// Ignored for single-level LVQ and non-quantized types.
+    bool secondary_on_ssd = false;
+
+    /// Enable primary-only mode for LeanVec storage.
+    /// When true, only the reduced-dimension primary data is used for both
+    /// graph traversal and scoring (no reranking with secondary data).
+    /// This reduces memory usage at the cost of recall accuracy.
+    /// Ignored for non-LeanVec storage kinds.
+    bool primary_only = false;
+
+    /// Helper: true when any component should use mmap.
+    bool use_mmap() const {
+        return (primary_on_ssd || secondary_on_ssd) && ssd_path != nullptr;
+    }
+};
+
 enum class ErrorCode {
     SUCCESS = 0,
     UNKNOWN_ERROR = 1,

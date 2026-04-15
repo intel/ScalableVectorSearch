@@ -70,7 +70,19 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
         DynamicVamanaIndex** index,
         std::istream& in,
         MetricType metric,
-        StorageKind storage_kind
+        StorageKind storage_kind,
+        bool primary_only = false
+    ) noexcept;
+
+    /// Assemble a DynamicVamana index from a saved directory on disk.
+    /// @see VamanaIndex::assemble_from_directory for details.
+    static Status assemble_from_directory(
+        DynamicVamanaIndex** index,
+        const char* saved_directory,
+        MetricType metric,
+        StorageKind storage_kind,
+        const SSDConfig& ssd_config = {},
+        const VamanaIndex::SearchParams& default_search_params = {}
     ) noexcept;
 
     virtual size_t blocksize_bytes() const noexcept = 0;
@@ -105,7 +117,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params,
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params,
+        bool primary_only = false
     ) noexcept;
 
     // Specialization to build LeanVec-based Vamana index with provided training data
@@ -128,7 +141,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         const LeanVecTrainingData* training_data,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params,
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params,
+        bool primary_only = false
     ) noexcept;
 };
 

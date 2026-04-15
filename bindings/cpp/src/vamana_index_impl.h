@@ -77,6 +77,13 @@ class VamanaIndexImpl {
 
     StorageKind get_storage_kind() const { return storage_kind_; }
 
+    void set_default_search_params(const VamanaIndex::SearchParams& params) {
+        default_search_params_ = params;
+        if (impl_) {
+            get_impl()->set_search_parameters(make_search_parameters(&params));
+        }
+    }
+
     void add(const data::ConstSimpleDataView<float>& data) {
         if (!impl_) {
             return init_impl(data);
@@ -283,6 +290,21 @@ class VamanaIndexImpl {
         lib::DirectoryArchiver::pack(tempdir, out);
     }
 
+    void save_to_directory(const char* directory) const {
+        auto dir = std::filesystem::path(directory);
+        if (!std::filesystem::is_directory(dir)) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "save_to_directory: directory does not exist"};
+        }
+        const auto config_dir = dir / "config";
+        const auto graph_dir = dir / "graph";
+        const auto data_dir = dir / "data";
+        std::filesystem::create_directories(config_dir);
+        std::filesystem::create_directories(graph_dir);
+        std::filesystem::create_directories(data_dir);
+        get_impl()->save(config_dir, graph_dir, data_dir);
+    }
+
   protected:
     // Utility functions
     svs::Vamana* get_impl() const {
@@ -480,6 +502,172 @@ class VamanaIndexImpl {
         );
     }
 
+    /// Assemble a Vamana index from an on-disk directory.
+    ///
+    /// The directory must contain config/, graph/, and data/ subdirectories.
+    /// When ssd_config specifies SSD or SSD_BOTH mode, data is loaded via
+    /// MMapAllocator for zero-copy memory-mapped access.
+    static VamanaIndexImpl* assemble_from_directory(
+        const std::filesystem::path& saved_directory,
+        MetricType metric,
+        StorageKind storage_kind,
+        const SSDConfig& ssd_config
+    ) {
+        namespace fs = std::filesystem;
+
+        const auto config_path = saved_directory / "config";
+        if (!fs::is_directory(config_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR, "Invalid saved directory: missing config/"};
+        }
+        const auto graph_path = saved_directory / "graph";
+        if (!fs::is_directory(graph_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR, "Invalid saved directory: missing graph/"};
+        }
+        const auto data_path = saved_directory / "data";
+        if (!fs::is_directory(data_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR, "Invalid saved directory: missing data/"};
+        }
+
+        // Helper to assemble a Vamana from loaded storage.
+        auto do_assemble = [&](auto storage) -> VamanaIndexImpl* {
+            auto threadpool = default_threadpool();
+            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+            std::unique_ptr<svs::Vamana> impl{distance_dispatcher([&](auto&& distance) {
+                return new svs::Vamana(svs::Vamana::assemble<float>(
+                    config_path,
+                    svs::GraphLoader{graph_path},
+                    std::move(storage),
+                    std::forward<decltype(distance)>(distance),
+                    std::move(threadpool)
+                ));
+            })};
+            return new VamanaIndexImpl(std::move(impl), metric, storage_kind);
+        };
+
+        bool use_mmap = ssd_config.use_mmap();
+
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
+        // SSD-backed loading for LVQ storage kinds.
+        // Uses MMapAllocator with per-component evict_on_load control.
+        if (use_mmap && storage::is_lvq_storage(storage_kind)) {
+            using MMapAlloc = svs::MMapAllocator<std::byte>;
+            auto ssd_path = fs::path{ssd_config.ssd_path};
+            bool evict_primary = ssd_config.primary_on_ssd;
+            bool evict_secondary = ssd_config.secondary_on_ssd;
+
+            // One-level LVQ (LVQ4x0, LVQ8x0): single allocator.
+#define SVS_LOAD_LVQ_SINGLE(Kind)                                                          \
+    case StorageKind::Kind: {                                                              \
+        using StorageT =                                                                   \
+            typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type;             \
+        auto alloc = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_primary};           \
+        auto storage = svs::lib::load_from_disk<StorageT>(data_path, 0, std::move(alloc)); \
+        return do_assemble(std::move(storage));                                            \
+    }
+            // Two-level LVQ (LVQ4x4, LVQ4x8): dual allocator.
+#define SVS_LOAD_LVQ_DUAL(Kind)                                                       \
+    case StorageKind::Kind: {                                                         \
+        using StorageT =                                                              \
+            typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type;        \
+        auto primary = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_primary};    \
+        auto residual = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_secondary}; \
+        auto storage = svs::lib::load_from_disk<StorageT>(                            \
+            data_path, 0, std::move(primary), std::move(residual)                     \
+        );                                                                            \
+        return do_assemble(std::move(storage));                                       \
+    }
+
+            switch (storage_kind) {
+                SVS_LOAD_LVQ_SINGLE(LVQ4x0)
+                SVS_LOAD_LVQ_SINGLE(LVQ8x0)
+                SVS_LOAD_LVQ_DUAL(LVQ4x4)
+                SVS_LOAD_LVQ_DUAL(LVQ4x8)
+                default:
+                    throw StatusException{
+                        ErrorCode::INVALID_ARGUMENT,
+                        "Unsupported LVQ storage kind for SSD loading"};
+            }
+#undef SVS_LOAD_LVQ_SINGLE
+#undef SVS_LOAD_LVQ_DUAL
+        }
+
+        // SSD-backed loading for LeanVec storage kinds.
+        // Uses MMapAllocator for both primary and secondary (same codegen),
+        // with per-component evict_on_load control.
+        if (use_mmap && storage::is_leanvec_storage(storage_kind)) {
+            using MMapAlloc = svs::MMapAllocator<std::byte>;
+            auto ssd_path = fs::path{ssd_config.ssd_path};
+            bool evict_primary = ssd_config.primary_on_ssd;
+            bool evict_secondary = ssd_config.secondary_on_ssd;
+            bool primary_only = ssd_config.primary_only;
+
+#define SVS_LOAD_LEANVEC_MMAP(Kind)                                                      \
+    case StorageKind::Kind: {                                                            \
+        using StorageT =                                                                 \
+            typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type;           \
+        auto primary = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_primary};       \
+        auto secondary = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_secondary};   \
+        auto storage = svs::lib::load_from_disk<StorageT>(                               \
+            data_path, size_t{0}, std::move(primary), std::move(secondary), primary_only \
+        );                                                                               \
+        return do_assemble(std::move(storage));                                          \
+    }
+            switch (storage_kind) {
+                SVS_LOAD_LEANVEC_MMAP(LeanVec4x4)
+                SVS_LOAD_LEANVEC_MMAP(LeanVec4x8)
+                SVS_LOAD_LEANVEC_MMAP(LeanVec8x8)
+                default:
+                    throw StatusException{
+                        ErrorCode::INVALID_ARGUMENT,
+                        "Unsupported LeanVec storage kind for SSD loading"};
+            }
+#undef SVS_LOAD_LEANVEC_MMAP
+        }
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
+
+        // RAM mode or non-LVQ/LeanVec types: use standard RAM allocator.
+        using RAMAlloc = svs::lib::Allocator<std::byte>;
+
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
+        // RAM loading for LeanVec with primary_only support.
+        if (storage::is_leanvec_storage(storage_kind) && ssd_config.primary_only) {
+            bool primary_only = ssd_config.primary_only;
+
+#define SVS_LOAD_LEANVEC_RAM(Kind)                                                         \
+    case StorageKind::Kind: {                                                              \
+        using StorageT = typename storage::StorageType<StorageKind::Kind, RAMAlloc>::type; \
+        auto storage = svs::lib::load_from_disk<StorageT>(                                 \
+            data_path, size_t{0}, RAMAlloc{}, RAMAlloc{}, primary_only                     \
+        );                                                                                 \
+        return do_assemble(std::move(storage));                                            \
+    }
+            switch (storage_kind) {
+                SVS_LOAD_LEANVEC_RAM(LeanVec4x4)
+                SVS_LOAD_LEANVEC_RAM(LeanVec4x8)
+                SVS_LOAD_LEANVEC_RAM(LeanVec8x8)
+                default:
+                    throw StatusException{
+                        ErrorCode::INVALID_ARGUMENT,
+                        "Unsupported LeanVec storage kind for RAM loading"};
+            }
+#undef SVS_LOAD_LEANVEC_RAM
+        }
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
+
+        auto ram_load_fn =
+            [&](auto&& tag, const fs::path& dp, MetricType /*m*/) -> VamanaIndexImpl* {
+            auto storage = storage::load_storage(std::forward<decltype(tag)>(tag), dp);
+            return do_assemble(std::move(storage));
+        };
+
+        return storage::dispatch_storage_kind<RAMAlloc>(
+            storage_kind, ram_load_fn, data_path, metric
+        );
+    }
+
     // Data members
   protected:
     size_t dim_;
@@ -510,11 +698,13 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
         StorageKind storage_kind,
         const LeanVecTrainingDataImpl& training_data,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params
+        const VamanaIndex::SearchParams& default_search_params,
+        bool primary_only = false
     )
         : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{training_data.get_leanvec_dims()}
-        , leanvec_matrices_{training_data.get_leanvec_matrices()} {
+        , leanvec_matrices_{training_data.get_leanvec_matrices()}
+        , primary_only_{primary_only} {
         check_storage_kind(storage_kind);
     }
 
@@ -524,11 +714,13 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
-        const VamanaIndex::SearchParams& default_search_params
+        const VamanaIndex::SearchParams& default_search_params,
+        bool primary_only = false
     )
         : VamanaIndexImpl{dim, metric, storage_kind, params, default_search_params}
         , leanvec_dims_{leanvec_dims}
-        , leanvec_matrices_{std::nullopt} {
+        , leanvec_matrices_{std::nullopt}
+        , primary_only_{primary_only} {
         check_storage_kind(storage_kind);
     }
 
@@ -568,7 +760,8 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
                     this->vamana_build_parameters(),
                     data,
                     leanvec_dims_,
-                    leanvec_matrices_
+                    leanvec_matrices_,
+                    primary_only_
                 );
             },
             data
@@ -579,6 +772,7 @@ struct VamanaIndexLeanVecImpl : public VamanaIndexImpl {
   protected:
     size_t leanvec_dims_;
     std::optional<LeanVecMatricesType> leanvec_matrices_;
+    bool primary_only_ = false;
 
     StorageKind check_storage_kind(StorageKind kind) {
         if (!storage::is_leanvec_storage(kind)) {

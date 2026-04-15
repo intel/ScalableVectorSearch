@@ -20,8 +20,11 @@
 #include "svs/runtime/training.h"
 #include "svs/runtime/vamana_index.h"
 
+#include "svs/lib/file.h"
+
 #include <catch2/catch_test_macros.hpp>
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <numeric>
@@ -403,6 +406,101 @@ CATCH_TEST_CASE("LeanVecWithTrainingDataCustomBlockSize", "[runtime]") {
     CATCH_REQUIRE(index->blocksize_bytes() == 1u << block_size_exp);
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("LeanVecPrimaryOnlyBuildAndSearch", "[runtime][primary_only]") {
+    const auto& test_data = get_test_data();
+    // Build LeanVec index with primary_only=true
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{17};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        32,
+        build_params,
+        {},
+        dynamic_index_params,
+        /*primary_only=*/true
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Search should succeed on primary_only index
+    const int nq = 5;
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(nq, test_data.data(), k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Each query's top-1 result should be itself (self-recall)
+    for (int q = 0; q < nq; ++q) {
+        CATCH_REQUIRE(result_labels[q * k] == static_cast<size_t>(q));
+    }
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("LeanVecPrimaryOnlyStaticBuild", "[runtime][primary_only]") {
+    const auto& test_data = get_test_data();
+    // Build static Vamana with primary_only
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::VamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x8,
+        32,
+        build_params,
+        {},
+        /*primary_only=*/true
+    );
+    if (!svs::runtime::v0::VamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x8
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data and search
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(nq, test_data.data(), k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Each query's top-1 result should be itself
+    for (int q = 0; q < nq; ++q) {
+        CATCH_REQUIRE(result_labels[q * k] == static_cast<size_t>(q));
+    }
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
 }
 
 CATCH_TEST_CASE("TrainingDataCustomBlockSize", "[runtime]") {
@@ -880,4 +978,244 @@ CATCH_TEST_CASE("RangeSearchFunctionalStatic", "[runtime][static_vamana]") {
     CATCH_REQUIRE(status.ok());
 
     svs::runtime::v0::VamanaIndex::destroy(index);
+}
+
+///
+/// Helper: Build a static VamanaIndex, add data, save to a temp directory,
+/// then destroy the index. Returns the path to the saved directory.
+///
+std::filesystem::path build_and_save_static_index(
+    svs::runtime::v0::StorageKind storage_kind,
+    svs::runtime::v0::MetricType metric = svs::runtime::v0::MetricType::L2
+) {
+    namespace rt = svs::runtime::v0;
+    const auto& test_data = get_test_data();
+
+    // Build static VamanaIndex
+    rt::VamanaIndex* index = nullptr;
+    rt::VamanaIndex::BuildParams build_params{64};
+    rt::Status status =
+        rt::VamanaIndex::build(&index, test_d, metric, storage_kind, build_params);
+
+    if (!status.ok()) {
+        // Storage kind not supported on this platform
+        return {};
+    }
+    CATCH_REQUIRE(index != nullptr);
+
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Save to stream
+    svs_test::prepare_temp_directory();
+    auto temp_dir = svs_test::temp_directory();
+    auto stream_file = temp_dir / "index_stream.bin";
+    {
+        std::ofstream out(stream_file, std::ios::binary);
+        CATCH_REQUIRE(out.is_open());
+        status = index->save(out);
+        CATCH_REQUIRE(status.ok());
+    }
+    rt::VamanaIndex::destroy(index);
+
+    // Unpack the stream into a directory (the runtime save packs config/graph/data).
+    // Load to verify, then re-save by extracting the archive manually.
+    // For assemble_from_directory, we need an unpacked directory with
+    // config/, graph/, data/ subdirectories.
+    // The simplest approach: load the index, then use the internal save
+    // method to write to a directory. But the API only exposes stream-based save.
+    //
+    // Alternative: open the stream and unpack using the archive format.
+    // The DirectoryArchiver packs/unpacks tar-like. Let's just load the
+    // index from stream, which internally unpacks. We need the raw dir.
+    //
+    // Actually, let's directly use the internal lib to unpack:
+    auto saved_dir = temp_dir / "saved_index";
+    std::filesystem::create_directories(saved_dir);
+    {
+        std::ifstream in(stream_file, std::ios::binary);
+        CATCH_REQUIRE(in.is_open());
+        svs::lib::DirectoryArchiver::unpack(in, saved_dir);
+    }
+    // The unpacked directory should contain config/, graph/, data/
+    CATCH_REQUIRE(std::filesystem::is_directory(saved_dir / "config"));
+    CATCH_REQUIRE(std::filesystem::is_directory(saved_dir / "graph"));
+    CATCH_REQUIRE(std::filesystem::is_directory(saved_dir / "data"));
+
+    return saved_dir;
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_FP32_RAM", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+    auto saved_dir = build_and_save_static_index(rt::StorageKind::FP32);
+    CATCH_REQUIRE(!saved_dir.empty());
+
+    // Assemble from directory in RAM mode (default SSDConfig)
+    rt::VamanaIndex* loaded = nullptr;
+    rt::Status status = rt::VamanaIndex::assemble_from_directory(
+        &loaded, saved_dir.c_str(), rt::MetricType::L2, rt::StorageKind::FP32
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+
+    // Search to verify it works
+    const auto& test_data = get_test_data();
+    const int nq = 5;
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+
+    status = loaded->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Each query's nearest neighbor should be itself (distance ~ 0)
+    for (int q = 0; q < nq; ++q) {
+        CATCH_REQUIRE(labels[q * k] == static_cast<size_t>(q));
+    }
+
+    rt::VamanaIndex::destroy(loaded);
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_LVQ4x8_RAM", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+
+    // Skip if LVQ not supported
+    if (!rt::VamanaIndex::check_storage_kind(rt::StorageKind::LVQ4x8).ok()) {
+        CATCH_WARN("LVQ4x8 not supported on this platform — skipping");
+        return;
+    }
+
+    auto saved_dir = build_and_save_static_index(rt::StorageKind::LVQ4x8);
+    CATCH_REQUIRE(!saved_dir.empty());
+
+    // Assemble from directory in RAM mode
+    rt::VamanaIndex* loaded = nullptr;
+    rt::Status status = rt::VamanaIndex::assemble_from_directory(
+        &loaded, saved_dir.c_str(), rt::MetricType::L2, rt::StorageKind::LVQ4x8
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+
+    // Search to verify
+    const auto& test_data = get_test_data();
+    const int nq = 5;
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+    status = loaded->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    rt::VamanaIndex::destroy(loaded);
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_LVQ4x8_SSD", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+
+    if (!rt::VamanaIndex::check_storage_kind(rt::StorageKind::LVQ4x8).ok()) {
+        CATCH_WARN("LVQ4x8 not supported on this platform — skipping");
+        return;
+    }
+
+    auto saved_dir = build_and_save_static_index(rt::StorageKind::LVQ4x8);
+    CATCH_REQUIRE(!saved_dir.empty());
+
+    // Assemble with SSD_BOTH config — data memory-mapped from /tmp
+    rt::SSDConfig ssd_config;
+    ssd_config.ssd_path = "/tmp";
+    ssd_config.primary_on_ssd = true;
+    ssd_config.secondary_on_ssd = true;
+
+    rt::VamanaIndex* loaded = nullptr;
+    rt::Status status = rt::VamanaIndex::assemble_from_directory(
+        &loaded, saved_dir.c_str(), rt::MetricType::L2, rt::StorageKind::LVQ4x8, ssd_config
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+
+    // Search to verify correctness
+    const auto& test_data = get_test_data();
+    const int nq = 5;
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+    status = loaded->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    rt::VamanaIndex::destroy(loaded);
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_DynamicVamana_SSD_Rejected", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+
+    auto saved_dir = build_and_save_static_index(rt::StorageKind::FP32);
+    CATCH_REQUIRE(!saved_dir.empty());
+
+    // DynamicVamana should reject SSD mode since it requires resizable allocators
+    rt::SSDConfig ssd_config;
+    ssd_config.ssd_path = "/tmp";
+    ssd_config.primary_on_ssd = true;
+    ssd_config.secondary_on_ssd = true;
+
+    rt::DynamicVamanaIndex* loaded = nullptr;
+    rt::Status status = rt::DynamicVamanaIndex::assemble_from_directory(
+        &loaded, saved_dir.c_str(), rt::MetricType::L2, rt::StorageKind::FP32, ssd_config
+    );
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(loaded == nullptr);
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_NullPath", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+
+    rt::VamanaIndex* loaded = nullptr;
+    rt::Status status = rt::VamanaIndex::assemble_from_directory(
+        &loaded, nullptr, rt::MetricType::L2, rt::StorageKind::FP32
+    );
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(loaded == nullptr);
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_InvalidPath", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+
+    rt::VamanaIndex* loaded = nullptr;
+    rt::Status status = rt::VamanaIndex::assemble_from_directory(
+        &loaded, "/nonexistent/path/to/index", rt::MetricType::L2, rt::StorageKind::FP32
+    );
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(loaded == nullptr);
+}
+
+CATCH_TEST_CASE("AssembleFromDirectory_WithSearchParams", "[runtime][assemble]") {
+    namespace rt = svs::runtime::v0;
+    auto saved_dir = build_and_save_static_index(rt::StorageKind::FP32);
+    CATCH_REQUIRE(!saved_dir.empty());
+
+    // Assemble with custom search params
+    rt::VamanaIndex::SearchParams sp;
+    sp.search_window_size = 50;
+    sp.search_buffer_capacity = 100;
+
+    rt::VamanaIndex* loaded = nullptr;
+    rt::Status status = rt::VamanaIndex::assemble_from_directory(
+        &loaded,
+        saved_dir.c_str(),
+        rt::MetricType::L2,
+        rt::StorageKind::FP32,
+        {}, // default SSDConfig (RAM)
+        sp
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(loaded != nullptr);
+
+    // Verify it can still search
+    const auto& test_data = get_test_data();
+    const int nq = 5;
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+    status = loaded->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    rt::VamanaIndex::destroy(loaded);
 }

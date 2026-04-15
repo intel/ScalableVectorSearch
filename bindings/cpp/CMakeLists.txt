@@ -101,6 +101,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
             svs_compile_options
+            svs_native_options
         )
         if(SVS_EXPERIMENTAL_LINK_STATIC_MKL)
             link_mkl_static(${TARGET_NAME})

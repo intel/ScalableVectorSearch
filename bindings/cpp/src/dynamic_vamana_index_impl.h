@@ -327,6 +327,25 @@ class DynamicVamanaIndexImpl {
         lib::DirectoryArchiver::pack(tempdir, out);
     }
 
+    void save_to_directory(const char* directory) const {
+        if (!impl_) {
+            throw StatusException{
+                ErrorCode::NOT_INITIALIZED, "Cannot save: SVS index not initialized."};
+        }
+        auto dir = std::filesystem::path(directory);
+        if (!std::filesystem::is_directory(dir)) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "save_to_directory: directory does not exist"};
+        }
+        const auto config_dir = dir / "config";
+        const auto graph_dir = dir / "graph";
+        const auto data_dir = dir / "data";
+        std::filesystem::create_directories(config_dir);
+        std::filesystem::create_directories(graph_dir);
+        std::filesystem::create_directories(data_dir);
+        impl_->save(config_dir, graph_dir, data_dir);
+    }
+
   protected:
     // Utility functions
     svs::index::vamana::VamanaBuildParameters vamana_build_parameters() const {
@@ -470,8 +489,9 @@ class DynamicVamanaIndexImpl {
     }
 
     template <typename Tag>
-    static svs::DynamicVamana*
-    load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
+    static svs::DynamicVamana* load_impl_t(
+        Tag&& tag, std::istream& stream, MetricType metric, bool primary_only = false
+    ) {
         namespace fs = std::filesystem;
         lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
         lib::DirectoryArchiver::unpack(stream, tempdir);
@@ -497,7 +517,17 @@ class DynamicVamanaIndexImpl {
                 "Invalid Vamana index archive: missing data directory!"};
         }
 
-        auto storage = storage::load_storage(std::forward<Tag>(tag), data_path);
+        using StorageT = typename std::decay_t<Tag>::type;
+        auto storage = [&]() {
+            if constexpr (svs::leanvec::IsLeanDataset<StorageT>) {
+                using Alloc = typename StorageT::allocator_type;
+                return svs::lib::load_from_disk<StorageT>(
+                    data_path, size_t{0}, Alloc{}, Alloc{}, primary_only
+                );
+            } else {
+                return storage::load_storage(std::forward<Tag>(tag), data_path);
+            }
+        }();
         auto threadpool = default_threadpool();
 
         svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
@@ -515,20 +545,126 @@ class DynamicVamanaIndexImpl {
     }
 
   public:
-    static DynamicVamanaIndexImpl*
-    load(std::istream& stream, MetricType metric, StorageKind storage_kind) {
+    static DynamicVamanaIndexImpl* load(
+        std::istream& stream,
+        MetricType metric,
+        StorageKind storage_kind,
+        bool primary_only = false
+    ) {
         return storage::dispatch_storage_kind<allocator_type>(
             storage_kind,
             [&](auto&& tag, std::istream& stream, MetricType metric) {
                 using Tag = std::decay_t<decltype(tag)>;
                 std::unique_ptr<svs::DynamicVamana> impl{
-                    load_impl_t(std::forward<Tag>(tag), stream, metric)};
+                    load_impl_t(std::forward<Tag>(tag), stream, metric, primary_only)};
 
                 return new DynamicVamanaIndexImpl(std::move(impl), metric, storage_kind);
             },
             stream,
             metric
         );
+    }
+
+    /// Assemble a DynamicVamana index from an on-disk directory with optional SSD backing.
+    static DynamicVamanaIndexImpl* assemble_from_directory(
+        const std::filesystem::path& saved_directory,
+        MetricType metric,
+        StorageKind storage_kind,
+        const SSDConfig& ssd_config
+    ) {
+        namespace fs = std::filesystem;
+
+        const auto config_path = saved_directory / "config";
+        if (!fs::is_directory(config_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR, "Invalid saved directory: missing config/"};
+        }
+        const auto graph_path = saved_directory / "graph";
+        if (!fs::is_directory(graph_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR, "Invalid saved directory: missing graph/"};
+        }
+        const auto data_path = saved_directory / "data";
+        if (!fs::is_directory(data_path)) {
+            throw StatusException{
+                ErrorCode::RUNTIME_ERROR, "Invalid saved directory: missing data/"};
+        }
+
+        // Helper to assemble a DynamicVamana from loaded storage.
+        auto do_assemble = [&](auto storage) -> DynamicVamanaIndexImpl* {
+            auto threadpool = default_threadpool();
+            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+            std::unique_ptr<svs::DynamicVamana> impl{
+                distance_dispatcher([&](auto&& distance) {
+                    return new svs::DynamicVamana(svs::DynamicVamana::assemble<float>(
+                        config_path,
+                        svs::GraphLoader{graph_path},
+                        std::move(storage),
+                        std::forward<decltype(distance)>(distance),
+                        std::move(threadpool),
+                        false
+                    ));
+                })};
+            return new DynamicVamanaIndexImpl(std::move(impl), metric, storage_kind);
+        };
+
+        bool use_mmap = ssd_config.use_mmap();
+
+        // DynamicVamana requires resizable storage (add/remove/compact),
+        // which is incompatible with MMapAllocator. Always use RAM loading.
+        if (use_mmap) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT,
+                "SSD-backed storage is not supported for DynamicVamana "
+                "(requires resizable allocators). Use VamanaIndex for SSD mode."};
+        }
+
+        // RAM mode: use standard RAM allocator for all types.
+        using RAMAlloc = allocator_type;
+
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
+        // RAM loading for LeanVec with primary_only support.
+        if (storage::is_leanvec_storage(storage_kind) && ssd_config.primary_only) {
+            bool primary_only = ssd_config.primary_only;
+
+#define SVS_LOAD_DYN_LEANVEC_RAM(Kind)                                                     \
+    case StorageKind::Kind: {                                                              \
+        using StorageT = typename storage::StorageType<StorageKind::Kind, RAMAlloc>::type; \
+        auto storage = svs::lib::load_from_disk<StorageT>(                                 \
+            data_path, size_t{0}, RAMAlloc{}, RAMAlloc{}, primary_only                     \
+        );                                                                                 \
+        return do_assemble(std::move(storage));                                            \
+    }
+            switch (storage_kind) {
+                SVS_LOAD_DYN_LEANVEC_RAM(LeanVec4x4)
+                SVS_LOAD_DYN_LEANVEC_RAM(LeanVec4x8)
+                SVS_LOAD_DYN_LEANVEC_RAM(LeanVec8x8)
+                default:
+                    throw StatusException{
+                        ErrorCode::INVALID_ARGUMENT,
+                        "Unsupported LeanVec storage kind for RAM loading"};
+            }
+#undef SVS_LOAD_DYN_LEANVEC_RAM
+        }
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
+
+        auto ram_load_fn = [&](auto&& tag,
+                               const fs::path& dp,
+                               MetricType /*m*/) -> DynamicVamanaIndexImpl* {
+            auto storage = storage::load_storage(std::forward<decltype(tag)>(tag), dp);
+            return do_assemble(std::move(storage));
+        };
+
+        return storage::dispatch_storage_kind<RAMAlloc>(
+            storage_kind, ram_load_fn, data_path, metric
+        );
+    }
+
+    void set_default_search_params(const VamanaIndex::SearchParams& params) {
+        default_search_params_ = params;
+        if (impl_) {
+            impl_->set_search_parameters(make_search_parameters(&params));
+        }
     }
 
     // Data members

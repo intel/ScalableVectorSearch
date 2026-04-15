@@ -185,6 +185,7 @@ template <typename T> class MMapAllocator {
     MMapAccessHint access_hint_ = MMapAccessHint::Normal;
     std::optional<std::filesystem::path> override_file_{};
     size_t override_offset_ = 0;
+    bool evict_on_load_ = true;
 
   public:
     // C++ allocator type aliases
@@ -204,10 +205,12 @@ template <typename T> class MMapAllocator {
     ///
     explicit MMapAllocator(
         std::filesystem::path base_path = {},
-        MMapAccessHint access_hint = MMapAccessHint::Normal
+        MMapAccessHint access_hint = MMapAccessHint::Normal,
+        bool evict_on_load = true
     )
         : base_path_{std::move(base_path)}
-        , access_hint_{access_hint} {
+        , access_hint_{access_hint}
+        , evict_on_load_{evict_on_load} {
         if (!base_path_.empty() && !std::filesystem::exists(base_path_)) {
             std::filesystem::create_directories(base_path_);
         }
@@ -222,7 +225,8 @@ template <typename T> class MMapAllocator {
         , allocation_counter_{other.allocation_counter_}
         , access_hint_{other.access_hint_}
         , override_file_{other.override_file_}
-        , override_offset_{other.override_offset_} {}
+        , override_offset_{other.override_offset_}
+        , evict_on_load_{other.evict_on_load_} {}
 
     ///
     /// @brief Compare allocators
@@ -271,6 +275,19 @@ template <typename T> class MMapAllocator {
             override_offset_ = 0;
             ptr =
                 detail::MMapAllocationManager{}.map_existing_at_offset(bytes, path, offset);
+            // When evict_on_load is true, tell the kernel to discard the
+            // pages that MAP_POPULATE pre-faulted.  They will be lazily
+            // faulted from the backing file on first access (SSD mode).
+            // When false, pages stay resident (primary-in-RAM mode).
+#ifdef __linux__
+            if (evict_on_load_) {
+                // ptr points to base+offset; evict the full file mapping
+                // so pages fault from disk on first access.
+                void* base = static_cast<std::byte*>(ptr) - offset;
+                size_t total = bytes + offset;
+                (void)madvise(base, total, MADV_DONTNEED);
+            }
+#endif
         } else {
             // Normal path: create a new temp file.
             auto file_path = generate_file_path(bytes);
