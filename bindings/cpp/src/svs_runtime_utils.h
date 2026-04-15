@@ -460,6 +460,12 @@ should_stop_filtered_search(size_t total_checked, size_t found, float filter_sto
     return hit_rate < filter_stop;
 }
 
+// Check if the search should stop before starting, based on the estimated hit rate.
+inline bool
+should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_stop) {
+    return filter_stop > 0 && estimated_hit_rate < filter_stop;
+}
+
 // Estimate the filter hit rate by sampling IDs from the index.
 // Uses stride-based sampling (every N-th ID) for efficiency.
 // Returns the fraction of sampled IDs that pass the filter (0.0 to 1.0).
@@ -484,6 +490,21 @@ inline float estimate_filter_hit_rate(
         checked++;
     }
     return static_cast<float>(hits) / checked;
+}
+
+// Compute initial batch size from estimated filter hit rate.
+// If hit rate is known, use k / hit_rate (capped at max_value).
+// Otherwise fall back to max(k, search_window_size).
+inline size_t compute_initial_batch_size(
+    float estimated_hit_rate,
+    size_t k,
+    size_t search_window_size,
+    size_t max_value
+) {
+    if (estimated_hit_rate > 0) {
+        return std::min(static_cast<size_t>(k / estimated_hit_rate), max_value);
+    }
+    return std::max(k, search_window_size);
 }
 
 inline svs::threads::ThreadPoolHandle default_threadpool() {

@@ -142,8 +142,9 @@ class VamanaIndexImpl {
             std::vector<size_t> id_vec(max_batch_size);
             std::iota(id_vec.begin(), id_vec.end(), 0);
             estimated_hit_rate = estimate_filter_hit_rate(*filter, id_vec);
-            // Early exit before any search if estimated hit rate is too low.
-            if (filter_stop > 0 && estimated_hit_rate < filter_stop) {
+            if (should_stop_filtered_search_by_estimate(
+                    estimated_hit_rate, filter_stop
+                )) {
                 for (size_t i = 0; i < queries.size(); ++i) {
                     for (size_t j = 0; j < k; ++j) {
                         result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
@@ -152,21 +153,17 @@ class VamanaIndexImpl {
                 return;
             }
         }
+        const auto sws = sp.buffer_config_.get_search_window_size();
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
-                // For every query
                 auto query = queries.get_datum(i);
                 auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
                 size_t total_checked = 0;
-                // Use estimated hit rate for smarter initial batch size.
-                auto batch_size =
-                    (estimated_hit_rate > 0)
-                        ? std::min(
-                              static_cast<size_t>(k / estimated_hit_rate), max_batch_size
-                          )
-                        : std::max(k, sp.buffer_config_.get_search_window_size());
+                auto batch_size = compute_initial_batch_size(
+                    estimated_hit_rate, k, sws, max_batch_size
+                );
                 do {
                     batch_size = predict_further_processing(
                         total_checked, found, k, batch_size, max_batch_size
