@@ -496,10 +496,7 @@ inline float estimate_filter_hit_rate(
 // If hit rate is known, use k / hit_rate (capped at max_value).
 // Otherwise fall back to max(k, search_window_size).
 inline size_t compute_initial_batch_size(
-    float estimated_hit_rate,
-    size_t k,
-    size_t search_window_size,
-    size_t max_value
+    float estimated_hit_rate, size_t k, size_t search_window_size, size_t max_value
 ) {
     if (estimated_hit_rate > 0) {
         return std::min(static_cast<size_t>(k / estimated_hit_rate), max_value);
