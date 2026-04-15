@@ -102,6 +102,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/concepts/distance.cpp
     # Core
     ${TEST_DIR}/svs/core/allocator.cpp
+    ${TEST_DIR}/svs/core/allocator_mmap.cpp
     ${TEST_DIR}/svs/core/compact.cpp
     ${TEST_DIR}/svs/core/data.cpp
     ${TEST_DIR}/svs/core/data/block.cpp

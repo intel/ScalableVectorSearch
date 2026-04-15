@@ -56,6 +56,12 @@ target_link_libraries(svs_runtime_test PRIVATE
     Catch2::Catch2WithMain
 )
 
+# For assemble_from_directory tests, we need access to SVS internal headers
+# (DirectoryArchiver) in private source builds.
+if(RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD AND TARGET svs::svs)
+    target_link_libraries(svs_runtime_test PRIVATE svs::svs)
+endif()
+
 # Set C++ standard
 target_compile_features(svs_runtime_test PRIVATE cxx_std_20)
 set_target_properties(svs_runtime_test PROPERTIES

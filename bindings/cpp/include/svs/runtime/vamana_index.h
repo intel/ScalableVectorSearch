@@ -92,8 +92,28 @@ struct SVS_RUNTIME_API VamanaIndex {
     static Status destroy(VamanaIndex* index) noexcept;
 
     virtual Status save(std::ostream& out) const noexcept = 0;
+
+    /// Save the index to a directory with config/, graph/, and data/ subdirectories.
+    /// The directory must exist. Creates config/, graph/, data/ subdirectories inside it.
+    virtual Status save_to_directory(const char* directory) const noexcept = 0;
+
     static Status load(
         VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+
+    /// Assemble a Vamana index from a saved directory on disk.
+    ///
+    /// When ssd_config is provided with mode != RAM, data is loaded via
+    /// memory-mapped files (zero-copy) instead of being copied into RAM.
+    /// The saved_directory must contain config/, graph/, and data/ subdirectories
+    /// as produced by VamanaIndex::save() or native-format save utilities.
+    static Status assemble_from_directory(
+        VamanaIndex** index,
+        const char* saved_directory,
+        MetricType metric,
+        StorageKind storage_kind,
+        const SSDConfig& ssd_config = {},
+        const SearchParams& default_search_params = {}
     ) noexcept;
 };
 
@@ -106,7 +126,8 @@ struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
         StorageKind storage_kind,
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {},
+        bool primary_only = false
     ) noexcept;
 
     // Specialization to build LeanVec-based Vamana index with provided training data
@@ -117,7 +138,8 @@ struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
         StorageKind storage_kind,
         const LeanVecTrainingData* training_data,
         const VamanaIndex::BuildParams& params = {},
-        const VamanaIndex::SearchParams& default_search_params = {}
+        const VamanaIndex::SearchParams& default_search_params = {},
+        bool primary_only = false
     ) noexcept;
 };
 

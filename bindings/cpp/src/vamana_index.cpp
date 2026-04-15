@@ -88,6 +88,10 @@ struct VamanaIndexManagerBase : public VamanaIndex {
     Status save(std::ostream& out) const noexcept override {
         return runtime_error_wrapper([&] { impl_->save(out); });
     }
+
+    Status save_to_directory(const char* directory) const noexcept override {
+        return runtime_error_wrapper([&] { impl_->save_to_directory(directory); });
+    }
 };
 } // namespace
 
@@ -144,6 +148,32 @@ Status VamanaIndex::load(
     });
 }
 
+Status VamanaIndex::assemble_from_directory(
+    VamanaIndex** index,
+    const char* saved_directory,
+    MetricType metric,
+    StorageKind storage_kind,
+    const SSDConfig& ssd_config,
+    const SearchParams& default_search_params
+) noexcept {
+    using Impl = VamanaIndexImpl;
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        if (saved_directory == nullptr) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "saved_directory must not be null"};
+        }
+        std::unique_ptr<Impl> impl{Impl::assemble_from_directory(
+            std::filesystem::path{saved_directory}, metric, storage_kind, ssd_config
+        )};
+        if (is_specified(default_search_params.search_window_size) ||
+            is_specified(default_search_params.search_buffer_capacity)) {
+            impl->set_default_search_params(default_search_params);
+        }
+        *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // Specialization to build LeanVec-based Vamana index with specified leanvec dims
 Status VamanaIndexLeanVec::build(
@@ -153,14 +183,21 @@ Status VamanaIndexLeanVec::build(
     StorageKind storage_kind,
     size_t leanvec_dims,
     const VamanaIndex::BuildParams& params,
-    const VamanaIndex::SearchParams& default_search_params
+    const VamanaIndex::SearchParams& default_search_params,
+    bool primary_only
 ) noexcept {
     using Impl = VamanaIndexLeanVecImpl;
     *index = nullptr;
 
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
-            dim, metric, storage_kind, leanvec_dims, params, default_search_params
+            dim,
+            metric,
+            storage_kind,
+            leanvec_dims,
+            params,
+            default_search_params,
+            primary_only
         );
         *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
     });
@@ -174,7 +211,8 @@ Status VamanaIndexLeanVec::build(
     StorageKind storage_kind,
     const LeanVecTrainingData* training_data,
     const VamanaIndex::BuildParams& params,
-    const VamanaIndex::SearchParams& default_search_params
+    const VamanaIndex::SearchParams& default_search_params,
+    bool primary_only
 ) noexcept {
     using Impl = VamanaIndexLeanVecImpl;
     *index = nullptr;
@@ -187,7 +225,13 @@ Status VamanaIndexLeanVec::build(
         auto training_data_impl =
             static_cast<const LeanVecTrainingDataManager*>(training_data)->impl_;
         auto impl = std::make_unique<Impl>(
-            dim, metric, storage_kind, training_data_impl, params, default_search_params
+            dim,
+            metric,
+            storage_kind,
+            training_data_impl,
+            params,
+            default_search_params,
+            primary_only
         );
         *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
     });
@@ -195,16 +239,32 @@ Status VamanaIndexLeanVec::build(
 
 #else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // LeanVec storage kind is not supported in this build configuration
-Status VamanaIndexLeanVec::
-    build(VamanaIndex**, size_t, MetricType, StorageKind, size_t, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
+Status VamanaIndexLeanVec::build(
+    VamanaIndex**,
+    size_t,
+    MetricType,
+    StorageKind,
+    size_t,
+    const VamanaIndex::BuildParams&,
+    const VamanaIndex::SearchParams&,
+    bool
+) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "VamanaIndexLeanVec is not supported in this build configuration."
     );
 }
 
-Status VamanaIndexLeanVec::
-    build(VamanaIndex**, size_t, MetricType, StorageKind, const LeanVecTrainingData*, const VamanaIndex::BuildParams&, const VamanaIndex::SearchParams&) noexcept {
+Status VamanaIndexLeanVec::build(
+    VamanaIndex**,
+    size_t,
+    MetricType,
+    StorageKind,
+    const LeanVecTrainingData*,
+    const VamanaIndex::BuildParams&,
+    const VamanaIndex::SearchParams&,
+    bool
+) noexcept {
     return Status(
         ErrorCode::NOT_IMPLEMENTED,
         "VamanaIndexLeanVec is not supported in this build configuration."
