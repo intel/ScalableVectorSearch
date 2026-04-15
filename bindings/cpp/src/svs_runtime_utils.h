@@ -450,8 +450,11 @@ inline size_t predict_further_processing(
 // give up and let the caller fall back to exact search.
 inline bool
 should_stop_filtered_search(size_t total_checked, size_t found, float filter_stop) {
-    if (filter_stop <= 0 || total_checked == 0 || found == 0) {
+    if (filter_stop <= 0 || total_checked == 0) {
         return false;
+    }
+    if (found == 0) {
+        return true;
     }
     float hit_rate = static_cast<float>(found) / total_checked;
     return hit_rate < filter_stop;
