@@ -466,28 +466,25 @@ should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_s
     return filter_stop > 0 && estimated_hit_rate < filter_stop;
 }
 
-// Estimate the filter hit rate by sampling IDs from the index.
-// Uses stride-based sampling (every N-th ID) for efficiency.
+// Estimate the filter hit rate by checking the first sample_size IDs.
 // Returns the fraction of sampled IDs that pass the filter (0.0 to 1.0).
+template <typename IdRange>
 inline float estimate_filter_hit_rate(
-    const IDFilter& filter, const std::vector<size_t>& all_ids, size_t sample_size = 200
+    const IDFilter& filter, const IdRange& ids, size_t sample_size = 200
 ) {
-    if (all_ids.empty()) {
-        return 0.0f;
-    }
-    size_t n = all_ids.size();
-    size_t actual_sample = std::min(sample_size, n);
-    size_t stride = n / actual_sample;
-    if (stride == 0) {
-        stride = 1;
-    }
     size_t hits = 0;
     size_t checked = 0;
-    for (size_t i = 0; i < n && checked < actual_sample; i += stride) {
-        if (filter.is_member(all_ids[i])) {
+    for (auto id : ids) {
+        if (checked >= sample_size) {
+            break;
+        }
+        if (filter.is_member(id)) {
             hits++;
         }
         checked++;
+    }
+    if (checked == 0) {
+        return 0.0f;
     }
     return static_cast<float>(hits) / checked;
 }

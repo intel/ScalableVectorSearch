@@ -137,7 +137,8 @@ class VamanaIndexImpl {
         float estimated_hit_rate = 1.0f;
         if (filter_estimate_batch) {
             // Static Vamana doesn't have all_ids(); generate sequential IDs.
-            std::vector<size_t> id_vec(max_batch_size);
+            size_t sample = std::min(max_batch_size, size_t{200});
+            std::vector<size_t> id_vec(sample);
             std::iota(id_vec.begin(), id_vec.end(), 0);
             estimated_hit_rate = estimate_filter_hit_rate(*filter, id_vec);
             if (should_stop_filtered_search_by_estimate(estimated_hit_rate, filter_stop)) {

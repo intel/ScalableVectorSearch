@@ -129,9 +129,7 @@ class DynamicVamanaIndexImpl {
         // Pre-search filter sampling: estimate hit rate before graph traversal.
         float estimated_hit_rate = 1.0f;
         if (filter_estimate_batch) {
-            auto ids = impl_->all_ids();
-            std::vector<size_t> id_vec(ids.begin(), ids.end());
-            estimated_hit_rate = estimate_filter_hit_rate(*filter, id_vec);
+            estimated_hit_rate = estimate_filter_hit_rate(*filter, impl_->all_ids());
             if (should_stop_filtered_search_by_estimate(estimated_hit_rate, filter_stop)) {
                 for (size_t i = 0; i < queries.size(); ++i) {
                     for (size_t j = 0; j < k; ++j) {
