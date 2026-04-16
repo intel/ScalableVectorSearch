@@ -469,18 +469,23 @@ should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_s
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
-// Estimate the filter hit rate by checking the first sample_size IDs.
+// Estimate the filter hit rate by sampling IDs evenly across the range.
+// Uses stride-based sampling to avoid bias from ID ordering.
 // Returns the fraction of sampled IDs that pass the filter (0.0 to 1.0).
-template <typename IdRange>
 inline float estimate_filter_hit_rate(
-    const IDFilter& filter, const IdRange& ids, size_t sample_size = kFilterSampleSize
+    const IDFilter& filter, size_t total_ids, size_t sample_size = kFilterSampleSize
 ) {
+    if (total_ids == 0) {
+        return 0.0f;
+    }
+    size_t actual_sample = std::min(sample_size, total_ids);
+    size_t stride = total_ids / actual_sample;
+    if (stride == 0) {
+        stride = 1;
+    }
     size_t hits = 0;
     size_t checked = 0;
-    for (auto id : ids) {
-        if (checked >= sample_size) {
-            break;
-        }
+    for (size_t id = 0; id < total_ids && checked < actual_sample; id += stride) {
         if (filter.is_member(id)) {
             hits++;
         }
