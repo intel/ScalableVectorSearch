@@ -126,11 +126,9 @@ class VamanaIndexImpl {
         });
         get_impl()->set_search_parameters(sp);
         float filter_stop = 0.1f;
-        if (params) {
-            set_if_specified(filter_stop, params->filter_stop);
-        }
         bool filter_estimate_batch = true;
         if (params) {
+            set_if_specified(filter_stop, params->filter_stop);
             set_if_specified(filter_estimate_batch, params->filter_estimate_batch);
         }
         const auto max_batch_size = get_impl()->size();
