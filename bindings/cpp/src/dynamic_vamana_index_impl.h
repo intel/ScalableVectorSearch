@@ -131,11 +131,7 @@ class DynamicVamanaIndexImpl {
         if (filter_estimate_batch) {
             estimated_hit_rate = estimate_filter_hit_rate(*filter, impl_->all_ids());
             if (should_stop_filtered_search_by_estimate(estimated_hit_rate, filter_stop)) {
-                for (size_t i = 0; i < queries.size(); ++i) {
-                    for (size_t j = 0; j < k; ++j) {
-                        result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
-                    }
-                }
+                pad_empty_results(result, queries.size(), k);
                 impl_->set_search_parameters(old_sp);
                 return;
             }

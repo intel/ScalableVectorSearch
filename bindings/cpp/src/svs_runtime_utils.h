@@ -466,11 +466,14 @@ should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_s
     return filter_stop > 0 && estimated_hit_rate < filter_stop;
 }
 
+// Default number of IDs to sample when estimating filter hit rate.
+constexpr size_t kFilterSampleSize = 200;
+
 // Estimate the filter hit rate by checking the first sample_size IDs.
 // Returns the fraction of sampled IDs that pass the filter (0.0 to 1.0).
 template <typename IdRange>
 inline float estimate_filter_hit_rate(
-    const IDFilter& filter, const IdRange& ids, size_t sample_size = 200
+    const IDFilter& filter, const IdRange& ids, size_t sample_size = kFilterSampleSize
 ) {
     size_t hits = 0;
     size_t checked = 0;
@@ -499,6 +502,18 @@ inline size_t compute_initial_batch_size(
         return std::min(static_cast<size_t>(k / estimated_hit_rate), max_value);
     }
     return std::max(k, search_window_size);
+}
+
+// Fill all result slots with unspecified values.
+// Required when early-exiting before search: the caller-allocated result buffer
+// may contain uninitialized data, so we must write valid "no result" markers.
+inline void
+pad_empty_results(svs::QueryResultView<size_t>& result, size_t num_queries, size_t k) {
+    for (size_t i = 0; i < num_queries; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+        }
+    }
 }
 
 inline svs::threads::ThreadPoolHandle default_threadpool() {
