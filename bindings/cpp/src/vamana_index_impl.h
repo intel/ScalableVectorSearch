@@ -271,17 +271,7 @@ class VamanaIndexImpl {
 
     void reset() { impl_.reset(); }
 
-    void save(std::ostream& out) const {
-        lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
-        const auto config_dir = tempdir.get() / "config";
-        const auto graph_dir = tempdir.get() / "graph";
-        const auto data_dir = tempdir.get() / "data";
-        std::filesystem::create_directories(config_dir);
-        std::filesystem::create_directories(graph_dir);
-        std::filesystem::create_directories(data_dir);
-        get_impl()->save(config_dir, graph_dir, data_dir);
-        lib::DirectoryArchiver::pack(tempdir, out);
-    }
+    void save(std::ostream& out) const { get_impl()->save(out); }
 
   protected:
     // Utility functions
@@ -420,47 +410,24 @@ class VamanaIndexImpl {
         }
     }
 
-    template <typename Tag>
-    static svs::Vamana* load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
-        namespace fs = std::filesystem;
-        lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
-        lib::DirectoryArchiver::unpack(stream, tempdir);
+    template <StorageKind Kind, typename Alloc>
+    static svs::Vamana* load_impl_t(
+        storage::StorageType<Kind, Alloc>&& SVS_UNUSED(tag),
+        std::istream& stream,
+        MetricType metric
+    ) {
+        if constexpr (!storage::is_supported_storage_kind_v<Kind>) {
+            throw StatusException(
+                ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
+            );
+        } else {
+            using storage_type = storage::StorageType_t<Kind, Alloc>;
+            auto threadpool = default_threadpool();
 
-        const auto config_path = tempdir.get() / "config";
-        if (!fs::is_directory(config_path)) {
-            throw StatusException{
-                ErrorCode::RUNTIME_ERROR,
-                "Invalid Vamana index archive: missing config directory!"};
-        }
-
-        const auto graph_path = tempdir.get() / "graph";
-        if (!fs::is_directory(graph_path)) {
-            throw StatusException{
-                ErrorCode::RUNTIME_ERROR,
-                "Invalid Vamana index archive: missing graph directory!"};
-        }
-
-        const auto data_path = tempdir.get() / "data";
-        if (!fs::is_directory(data_path)) {
-            throw StatusException{
-                ErrorCode::RUNTIME_ERROR,
-                "Invalid Vamana index archive: missing data directory!"};
-        }
-
-        auto storage = storage::load_storage(std::forward<Tag>(tag), data_path);
-        auto threadpool = default_threadpool();
-
-        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-
-        return distance_dispatcher([&](auto&& distance) {
-            return new svs::Vamana(svs::Vamana::assemble<float>(
-                config_path,
-                svs::GraphLoader{graph_path},
-                std::move(storage),
-                std::forward<decltype(distance)>(distance),
-                std::move(threadpool)
+            return new svs::Vamana(svs::Vamana::assemble<float, storage_type>(
+                stream, to_svs_distance(metric), std::move(threadpool)
             ));
-        });
+        }
     }
 
   public:

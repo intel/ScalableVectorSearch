@@ -465,6 +465,7 @@ class IVFIndex {
     /// Each directory may be created as a side-effect of this method call provided that
     /// the parent directory exists.
     ///
+
     void save(
         const std::filesystem::path& config_directory,
         const std::filesystem::path& data_directory
@@ -502,6 +503,27 @@ class IVFIndex {
 
         // Save clustered dataset
         lib::save_to_disk(cluster_, clusters_dir);
+    }
+
+    void save(std::ostream& os) const {
+        lib::begin_serialization(os);
+
+        // Save config
+        auto data_type_config = DataTypeTraits<Data>::get_config();
+        data_type_config.centroid_type = datatype_v<typename Centroids::element_type>;
+        auto save_table = lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"name", lib::save(name())}, {"num_clusters", lib::save(num_clusters())}}
+        );
+        save_table.insert("data_type_config", lib::save(data_type_config));
+        lib::save_to_stream(save_table, os);
+
+        // Save centroids
+        lib::save_to_stream(centroids_, os);
+
+        // Save clusters
+        lib::save_to_stream(cluster_, os);
     }
 
   private:
@@ -962,6 +984,38 @@ auto load_ivf_index(
     svs::logging::debug(logger, "{}", timer);
 
     return index;
+}
+
+template <
+    typename CentroidType,
+    typename DataType,
+    typename Distance,
+    typename ThreadpoolProto>
+auto load_ivf_index(
+    std::istream& is,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    using centroids_type = data::SimpleData<CentroidType>;
+    using data_type = typename DataType::lib_alloc_data_type;
+    using cluster_type = DenseClusteredDataset<centroids_type, uint32_t, data_type>;
+
+    lib::detail::read_metadata(is);
+    auto centroids = lib::load_from_stream<centroids_type>(is);
+    auto clusters = lib::load_from_stream<cluster_type>(is);
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    return IVFIndex(
+        std::move(centroids),
+        std::move(clusters),
+        std::move(distance),
+        std::move(threadpool),
+        intra_query_thread_count,
+        logger
+    );
 }
 
 } // namespace svs::index::ivf

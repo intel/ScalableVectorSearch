@@ -24,6 +24,7 @@
 // svs
 #include "svs/index/vamana/build_params.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/orchestrators/vamana.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -37,6 +38,7 @@
 // svsbenchmark
 #include "svs-benchmark/benchmark.h"
 // stl
+#include <sstream>
 #include <string_view>
 
 namespace {
@@ -179,6 +181,102 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[1].find("Number of syncs:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
+}
+
+CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
+    const size_t N = 128;
+    using Eltype = float;
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto graph = svs::graphs::SimpleGraph<uint32_t>(data.size(), 64);
+    svs::distance::DistanceL2 distance_function;
+    uint32_t entry_point = 0;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    // Build the VamanaIndex with the test logger
+    svs::index::vamana::VamanaBuildParameters buildParams(1.2, 64, 10, 20, 10, true);
+    svs::index::vamana::VamanaIndex index(
+        buildParams,
+        std::move(graph),
+        std::move(data),
+        entry_point,
+        distance_function,
+        std::move(threadpool)
+    );
+
+    const size_t NUM_NEIGHBORS = 10;
+    auto queries = test_dataset::queries();
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{NUM_NEIGHBORS};
+
+    auto results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+    index.search(results.view(), queries.cview(), search_params);
+
+    CATCH_SECTION("Load Vamana Index being serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto graph_dir = tempdir.get() / "graph";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(graph_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, graph_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            using Data_t = svs::data::SimpleData<Eltype, N>;
+
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream, distance_function, svs::threads::DefaultThreadPool(1)
+            );
+
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+
+            loaded_index.search(loaded_results.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Load Vamana Index being serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+
+        {
+            using Data_t = svs::data::SimpleData<Eltype, N>;
+
+            auto loaded_index = svs::Vamana::assemble<Eltype, Data_t>(
+                stream, distance_function, svs::threads::DefaultThreadPool(1)
+            );
+
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+
+            loaded_index.search(loaded_results.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
 }
 
 CATCH_TEST_CASE("Vamana Index Default Parameters", "[long][parameter][vamana]") {

@@ -344,9 +344,39 @@ struct Header {
 static_assert(sizeof(Header) == header_size, "Mismatch in Native io::v1 header sizes!");
 static_assert(std::is_trivially_copyable_v<Header>, "Header must be trivially copyable!");
 
-template <typename T = void> class Writer {
+// CRTP
+template <typename T, class Derived> class Writer {
   public:
-    Writer(
+    void overwrite_num_vectors(size_t num_vectors) { vectors_written_ = num_vectors; }
+
+    // TODO: Error checking to make sure the length is correct.
+    template <typename U> Writer& append(U&& v) {
+        std::ostream& os = static_cast<Derived*>(this)->stream();
+        for (const auto& i : v) {
+            lib::write_binary(os, lib::io_convert<T>(i));
+        }
+        ++vectors_written_;
+        return *this;
+    }
+
+    template <typename... Ts>
+        requires std::is_same_v<T, void>
+    Writer& append(std::tuple<Ts...>&& v) {
+        std::ostream& os = static_cast<Derived*>(this)->stream();
+        lib::foreach (v, [&](const auto& x) { lib::write_binary(os, x); });
+        ++vectors_written_;
+        return *this;
+    }
+
+    template <typename U> Writer& operator<<(U&& v) { return append(std::forward<U>(v)); }
+
+  protected:
+    size_t vectors_written_ = 0;
+};
+
+template <typename T = void> class FileWriter : public Writer<T, FileWriter<T>> {
+  public:
+    FileWriter(
         const std::string& path,
         size_t dimension,
         lib::UUID uuid = lib::UUID(lib::ZeroInitializer())
@@ -359,27 +389,9 @@ template <typename T = void> class Writer {
         lib::write_binary(stream_, Header());
     }
 
+    std::ostream& stream() { return stream_; }
+
     size_t dimensions() const { return dimension_; }
-    void overwrite_num_vectors(size_t num_vectors) { vectors_written_ = num_vectors; }
-
-    // TODO: Error checking to make sure the length is correct.
-    template <typename U> Writer& append(U&& v) {
-        for (const auto& i : v) {
-            lib::write_binary(stream_, lib::io_convert<T>(i));
-        }
-        ++vectors_written_;
-        return *this;
-    }
-
-    template <typename... Ts>
-        requires std::is_same_v<T, void>
-    Writer& append(std::tuple<Ts...>&& v) {
-        lib::foreach (v, [&](const auto& x) { lib::write_binary(stream_, x); });
-        ++vectors_written_;
-        return *this;
-    }
-
-    template <typename U> Writer& operator<<(U&& v) { return append(std::forward<U>(v)); }
 
     void flush() { stream_.flush(); }
 
@@ -388,7 +400,7 @@ template <typename T = void> class Writer {
         // Write to the header the number of vectors actually written.
         stream_.seekp(0);
         assert(stream_.good());
-        lib::write_binary(stream_, Header(vectors_written_, dimension_, uuid_));
+        lib::write_binary(stream_, Header(this->vectors_written_, dimension_, uuid_));
         if (resume) {
             stream_.seekp(position, std::ofstream::beg);
         }
@@ -402,20 +414,30 @@ template <typename T = void> class Writer {
     //
     // We delete the copy constructor and copy assignment operators because
     // `std::ofstream` isn't copyable anyways.
-    Writer(const Writer&) = delete;
-    Writer& operator=(const Writer&) = delete;
-    Writer(Writer&&) = delete;
-    Writer& operator=(Writer&&) = delete;
+    FileWriter(const FileWriter&) = delete;
+    FileWriter& operator=(const FileWriter&) = delete;
+    FileWriter(FileWriter&&) = delete;
+    FileWriter& operator=(FileWriter&&) = delete;
 
     // Write the header for the file.
-    ~Writer() noexcept { writeheader(); }
+    ~FileWriter() noexcept { writeheader(); }
 
   private:
     size_t dimension_;
     lib::UUID uuid_;
     std::ofstream stream_;
     size_t writes_this_vector_ = 0;
-    size_t vectors_written_ = 0;
+};
+
+template <typename T = void> class StreamWriter : public Writer<T, StreamWriter<T>> {
+  public:
+    StreamWriter(std::ostream& os)
+        : stream_{os} {}
+
+    std::ostream& stream() { return stream_; }
+
+  private:
+    std::ostream& stream_;
 };
 
 ///
@@ -449,13 +471,13 @@ class NativeFile {
     }
 
     template <typename T>
-    Writer<T> writer(
+    FileWriter<T> writer(
         lib::Type<T> SVS_UNUSED(type), size_t dimension, lib::UUID uuid = lib::ZeroUUID
     ) const {
-        return Writer<T>(path_, dimension, uuid);
+        return FileWriter<T>(path_, dimension, uuid);
     }
 
-    Writer<> writer(size_t dimensions, lib::UUID uuid = lib::ZeroUUID) const {
+    FileWriter<> writer(size_t dimensions, lib::UUID uuid = lib::ZeroUUID) const {
         return writer(lib::Type<void>(), dimensions, uuid);
     }
 
@@ -715,7 +737,7 @@ class NativeFile {
   public:
     using compatible_file_types = lib::Types<vtest::NativeFile, v1::NativeFile>;
 
-    template <typename T> using Writer = v1::Writer<T>;
+    template <typename T> using Writer = v1::FileWriter<T>;
 
     explicit NativeFile(std::filesystem::path path)
         : path_{std::move(path)} {}

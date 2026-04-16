@@ -16,6 +16,12 @@
 
 #include "svs/index/flat/flat.h"
 #include "svs/core/logging.h"
+#include "svs/lib/file.h"
+#include "svs/lib/saveload/load.h"
+#include "svs/orchestrators/exhaustive.h"
+
+// tests
+#include "tests/utils/test_dataset.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -65,4 +71,77 @@ CATCH_TEST_CASE("FlatIndex Logging Test", "[logging]") {
     CATCH_REQUIRE(global_captured_logs.empty());
     CATCH_REQUIRE(captured_logs.size() == 1);
     CATCH_REQUIRE(captured_logs[0] == "Test FlatIndex Logging");
+}
+
+CATCH_TEST_CASE("Flat Index Save and Load", "[flat][index][saveload]") {
+    using Data_t = svs::data::SimpleData<float>;
+    using Distance_t = svs::distance::DistanceL2;
+    using Index_t = svs::index::flat::FlatIndex<Data_t, Distance_t>;
+
+    // Load test data
+    auto data = Data_t::load(test_dataset::data_svs_file());
+    auto queries = test_dataset::queries();
+
+    // Build index
+    Distance_t dist;
+    Index_t index = Index_t(std::move(data), dist, svs::threads::DefaultThreadPool(1));
+
+    size_t num_neighbors = 10;
+    auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+    index.search(results.view(), queries.cview(), {});
+
+    CATCH_SECTION("Load Flat being serialized natively to stream") {
+        std::stringstream ss;
+        index.save(ss);
+
+        auto loaded_index = svs::Flat::assemble<float, Data_t>(
+            ss, dist, svs::threads::DefaultThreadPool(1)
+        );
+
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded_index.search(loaded_results.view(), queries.cview(), {});
+
+        // Compare results - should be identical
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                CATCH_REQUIRE(
+                    loaded_results.distance(q, i) ==
+                    Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                );
+            }
+        }
+    }
+
+    CATCH_SECTION("Load Flat being serialized with intermediate files") {
+        std::stringstream ss;
+
+        svs::lib::UniqueTempDirectory tempdir{"svs_flat_save"};
+        index.save(tempdir);
+        svs::lib::DirectoryArchiver::pack(tempdir, ss);
+
+        auto loaded_index = svs::Flat::assemble<float, Data_t>(
+            ss, dist, svs::threads::DefaultThreadPool(1)
+        );
+
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+        loaded_index.search(loaded_results.view(), queries.cview(), {});
+
+        // Compare results - should be identical
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t i = 0; i < num_neighbors; ++i) {
+                CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                CATCH_REQUIRE(
+                    loaded_results.distance(q, i) ==
+                    Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                );
+            }
+        }
+    }
 }

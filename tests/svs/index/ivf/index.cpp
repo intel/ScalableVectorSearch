@@ -16,6 +16,7 @@
 
 // header under test
 #include "svs/index/ivf/index.h"
+#include "svs/orchestrators/ivf.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -33,6 +34,7 @@
 
 // stl
 #include <numeric>
+#include <sstream>
 
 CATCH_TEST_CASE("IVF Index Single Search", "[ivf][index][single_search]") {
     namespace ivf = svs::index::ivf;
@@ -274,6 +276,81 @@ CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
 
         // Cleanup
         svs_test::cleanup_temp_directory();
+    }
+
+    CATCH_SECTION("Load IVF Index serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_ivf_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            using DataType = svs::data::SimpleData<float>;
+
+            auto loaded_ivf = svs::IVF::assemble<float, float, DataType>(
+                stream,
+                distance,
+                svs::threads::as_threadpool(num_threads),
+                num_inner_threads
+            );
+
+            CATCH_REQUIRE(loaded_ivf.size() == index.size());
+            CATCH_REQUIRE(loaded_ivf.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded_ivf.search(loaded_results.view(), batch_queries, search_params);
+
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(
+                        loaded_results.index(q, i) == original_results.index(q, i)
+                    );
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(original_results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Load IVF Index serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+
+        {
+            using DataType = svs::data::SimpleData<float>;
+
+            auto loaded_ivf = svs::IVF::assemble<float, float, DataType>(
+                stream,
+                distance,
+                svs::threads::as_threadpool(num_threads),
+                num_inner_threads
+            );
+
+            CATCH_REQUIRE(loaded_ivf.size() == index.size());
+            CATCH_REQUIRE(loaded_ivf.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded_ivf.search(loaded_results.view(), batch_queries, search_params);
+
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(
+                        loaded_results.index(q, i) == original_results.index(q, i)
+                    );
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(original_results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
     }
 
     CATCH_SECTION("Save and load DenseClusteredDataset") {

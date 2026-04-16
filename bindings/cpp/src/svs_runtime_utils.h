@@ -203,6 +203,11 @@ template <typename Alloc> struct StorageType<StorageKind::SQI8, Alloc> {
     using type = SQDatasetType<std::int8_t, allocator_type>;
 };
 
+template <StorageKind Kind>
+inline constexpr bool is_supported_storage_kind_v = !std::is_same_v<
+    typename StorageType<Kind, svs::lib::Allocator<float>>::type,
+    UnsupportedStorageType<svs::lib::Allocator<float>>>;
+
 // Storage factory
 template <typename T> struct StorageFactory;
 
@@ -218,14 +223,6 @@ template <typename Alloc> struct StorageFactory<UnsupportedStorageType<Alloc>> {
         Pool& SVS_UNUSED(pool),
         const typename StorageType::allocator_type& SVS_UNUSED(alloc) = {}
     ) {
-        throw StatusException(
-            ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
-        );
-    }
-
-    template <typename... Args>
-    static StorageType
-    load(const std::filesystem::path& SVS_UNUSED(path), Args&&... SVS_UNUSED(args)) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
         );
@@ -254,11 +251,6 @@ struct StorageFactory<svs::data::SimpleData<T, Extent, Alloc>> {
         );
         return result;
     }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
-    }
 };
 
 // SQ Storage support
@@ -273,11 +265,6 @@ struct StorageFactory<svs::quantization::scalar::SQDataset<T, Extent, Alloc>> {
         const Alloc& alloc = {}
     ) {
         return StorageType::compress(data, pool, alloc);
-    }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
     }
 };
 
@@ -326,11 +313,6 @@ struct StorageFactory<LVQStorageType> {
         const Alloc& alloc = {}
     ) {
         return StorageType::compress(data, pool, 0, alloc);
-    }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
     }
 };
 
@@ -381,22 +363,12 @@ struct StorageFactory<LeanVecStorageType> {
             data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}, alloc
         );
     }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
-    }
 };
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
 template <StorageKind Kind, typename Alloc, typename... Args>
 auto make_storage(StorageType<Kind, Alloc> SVS_UNUSED(tag), Args&&... args) {
     return StorageFactory<StorageType_t<Kind, Alloc>>::init(std::forward<Args>(args)...);
-}
-
-template <StorageKind Kind, typename Alloc, typename... Args>
-auto load_storage(StorageType<Kind, Alloc> SVS_UNUSED(tag), Args&&... args) {
-    return StorageFactory<StorageType_t<Kind, Alloc>>::load(std::forward<Args>(args)...);
 }
 
 template <typename Alloc, typename F, typename... Args>

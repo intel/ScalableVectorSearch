@@ -563,16 +563,8 @@ class MultiMutableVamanaIndex {
     constexpr std::string_view name() const { return "multi dynamic vamana index"; }
 
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
-    void save(
-        const std::filesystem::path& config_directory,
-        const std::filesystem::path& graph_directory,
-        const std::filesystem::path& data_directory
-    ) {
-        // Post-consolidation, all entries should be "valid".
-        // Therefore, we don't need to save the slot metadata.
-        consolidate();
-        compact();
 
+    auto get_labels() const {
         // Since data is in order of external ids,
         // convert a map of external ids to label types into a sorted vector of labels based
         // on external ids.
@@ -592,6 +584,34 @@ class MultiMutableVamanaIndex {
             [](const auto& ext_lab) { return ext_lab.second; }
         );
 
+        return labels;
+    }
+
+    VamanaIndexParameters get_parameters() const {
+        return {
+            index_->entry_point_.front(),
+            {get_alpha(),
+             max_degree(),
+             get_construction_window_size(),
+             get_max_candidates(),
+             get_prune_to(),
+             get_full_search_history()},
+            get_search_parameters()};
+    }
+
+    void save(
+        const std::filesystem::path& config_directory,
+        const std::filesystem::path& graph_directory,
+        const std::filesystem::path& data_directory
+    ) {
+        // Post-consolidation, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
+        consolidate();
+        compact();
+
+        auto labels = get_labels();
+        size_t num_labels = labels.size();
+
         // Save auxiliary data structures.
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
@@ -601,16 +621,7 @@ class MultiMutableVamanaIndex {
                 lib::write_binary(stream, labels);
 
                 // Save the construction parameters.
-                auto parameters = VamanaIndexParameters{
-                    index_->entry_point_.front(),
-                    {get_alpha(),
-                     max_degree(),
-                     get_construction_window_size(),
-                     get_max_candidates(),
-                     get_prune_to(),
-                     get_full_search_history()},
-                    get_search_parameters()};
-
+                auto parameters = get_parameters();
                 return lib::SaveTable(
                     "multi_vamana_dynamic_auxiliary_parameters",
                     save_version,
@@ -627,6 +638,32 @@ class MultiMutableVamanaIndex {
         lib::save_to_disk(index_->data_, data_directory);
         // Graph
         lib::save_to_disk(index_->graph_, graph_directory);
+    }
+
+    void save(std::ostream& os) {
+        consolidate();
+        compact();
+
+        auto labels = get_labels();
+        size_t num_labels = labels.size();
+
+        lib::begin_serialization(os);
+
+        auto parameters = get_parameters();
+        auto save_table = lib::SaveTable(
+            "multi_vamana_dynamic_auxiliary_parameters",
+            save_version,
+            {{"name", lib::save(name())},
+             {"parameters", lib::save(parameters)},
+             {"num_labels", lib::save(num_labels)}}
+        );
+        lib::save_to_stream(save_table, os);
+        lib::write_binary(os, labels);
+
+        // Save the dataset.
+        lib::save_to_stream(index_->data_, os);
+        // Save the graph.
+        lib::save_to_stream(index_->graph_, os);
     }
 };
 
@@ -787,6 +824,60 @@ auto auto_multi_dynamic_assemble(
         default:
             throw ANNEXCEPTION("Invalid multi vamana load type");
     }
+}
+
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_multi_dynamic_assemble(
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    using label_type = size_t;
+
+    auto table = lib::detail::read_metadata(is);
+
+    auto parameters = lib::load<VamanaIndexParameters>(
+        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    );
+
+    auto num_labels =
+        lib::load<size_t>(table.template cast<toml::table>().at("num_labels"));
+
+    // Read labels binary data directly from the stream.
+    std::vector<label_type> labels(num_labels);
+    lib::read_binary(is, labels);
+
+    auto data = data_loader();
+    auto graph = graph_loader();
+
+    auto datasize = data.size();
+    auto graphsize = graph.n_nodes();
+    if (datasize != graphsize) {
+        throw ANNEXCEPTION(
+            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
+        );
+    }
+
+    if (labels.size() != datasize) {
+        throw ANNEXCEPTION("Labels has {} IDs but should have {}", labels.size(), datasize);
+    }
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    return MultiMutableVamanaIndex{
+        parameters,
+        std::move(data),
+        std::move(graph),
+        std::move(distance),
+        labels,
+        std::move(threadpool),
+        std::move(logger)};
 }
 
 } // namespace svs::index::vamana
