@@ -118,7 +118,6 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
         FetchContent_Declare(
             svs
             URL ${SVS_URL}
-            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
         )
         FetchContent_MakeAvailable(svs)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
