@@ -207,10 +207,15 @@ void heuristic_prune_neighbors(
                     break;
                 }
             }
-            if (!in_result) {
-                result.back() = detail::construct_as(lib::Type<I>(), candidate);
-                break;
+            assert(
+                !in_result &&
+                "Candidate with non-anchor distance should not already be in result"
+            );
+            if (in_result) {
+                continue;
             }
+            result.back() = detail::construct_as(lib::Type<I>(), candidate);
+            break;
         }
     }
 }
@@ -314,10 +319,15 @@ void heuristic_prune_neighbors(
                     break;
                 }
             }
-            if (!in_result) {
-                result.back() = detail::construct_as(lib::Type<I>(), candidate);
-                break;
+            assert(
+                !in_result &&
+                "Candidate with non-anchor distance should not already be in result"
+            );
+            if (in_result) {
+                continue;
             }
+            result.back() = detail::construct_as(lib::Type<I>(), candidate);
+            break;
         }
     }
 }
