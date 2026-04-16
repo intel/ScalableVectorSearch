@@ -55,6 +55,7 @@ inline bool lvq_leanvec_enabled() { return false; }
 #include <concepts>
 #include <functional>
 #include <memory>
+#include <random>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -469,8 +470,7 @@ should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_s
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
-// Estimate the filter hit rate by sampling IDs evenly across the range.
-// Uses stride-based sampling to avoid bias from ID ordering.
+// Estimate the filter hit rate by randomly sampling IDs from the index.
 // Returns the fraction of sampled IDs that pass the filter (0.0 to 1.0).
 inline float estimate_filter_hit_rate(
     const IDFilter& filter, size_t total_ids, size_t sample_size = kFilterSampleSize
@@ -479,22 +479,15 @@ inline float estimate_filter_hit_rate(
         return 0.0f;
     }
     size_t actual_sample = std::min(sample_size, total_ids);
-    size_t stride = total_ids / actual_sample;
-    if (stride == 0) {
-        stride = 1;
-    }
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<size_t> dist(0, total_ids - 1);
     size_t hits = 0;
-    size_t checked = 0;
-    for (size_t id = 0; id < total_ids && checked < actual_sample; id += stride) {
-        if (filter.is_member(id)) {
+    for (size_t i = 0; i < actual_sample; ++i) {
+        if (filter.is_member(dist(rng))) {
             hits++;
         }
-        checked++;
     }
-    if (checked == 0) {
-        return 0.0f;
-    }
-    return static_cast<float>(hits) / checked;
+    return static_cast<float>(hits) / actual_sample;
 }
 
 // Compute initial batch size from estimated filter hit rate.
