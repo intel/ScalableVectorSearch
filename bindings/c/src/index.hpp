@@ -18,6 +18,7 @@
 #include "svs/c_api/svs_c.h"
 
 #include "algorithm.hpp"
+#include "threadpool.hpp"
 
 #include <svs/concepts/data.h>
 #include <svs/core/distance.h>
@@ -32,8 +33,10 @@
 namespace svs::c_runtime {
 struct Index {
     svs_algorithm_type algorithm;
-    Index(svs_algorithm_type algorithm)
-        : algorithm(algorithm) {}
+    ThreadPoolBuilder pool_builder;
+    Index(svs_algorithm_type algorithm, ThreadPoolBuilder pool_builder)
+        : algorithm(algorithm)
+        , pool_builder(pool_builder) {}
     virtual ~Index() = default;
     virtual svs::QueryResult<size_t> search(
         svs::data::ConstSimpleDataView<float> queries,
@@ -45,11 +48,13 @@ struct Index {
     virtual float get_distance(size_t id, std::span<const float> query) const = 0;
     virtual void
     reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) = 0;
+    virtual size_t get_num_threads() const = 0;
+    virtual void set_num_threads(size_t num_threads) = 0;
 };
 
 struct DynamicIndex : public Index {
-    DynamicIndex(svs_algorithm_type algorithm)
-        : Index(algorithm) {}
+    DynamicIndex(svs_algorithm_type algorithm, ThreadPoolBuilder pool_builder)
+        : Index(algorithm, pool_builder) {}
     ~DynamicIndex() = default;
 
     virtual size_t add_points(
@@ -63,8 +68,8 @@ struct DynamicIndex : public Index {
 
 struct IndexVamana : public Index {
     svs::Vamana index;
-    IndexVamana(svs::Vamana&& index)
-        : Index{SVS_ALGORITHM_TYPE_VAMANA}
+    IndexVamana(svs::Vamana&& index, ThreadPoolBuilder pool_builder)
+        : Index{SVS_ALGORITHM_TYPE_VAMANA, pool_builder}
         , index(std::move(index)) {}
     ~IndexVamana() = default;
     svs::QueryResult<size_t> search(
@@ -99,12 +104,19 @@ struct IndexVamana : public Index {
         override {
         index.reconstruct_at(dst, ids);
     }
+
+    size_t get_num_threads() const override { return index.get_num_threads(); }
+
+    void set_num_threads(size_t num_threads) override {
+        pool_builder.resize(num_threads);
+        index.set_threadpool(pool_builder.build());
+    }
 };
 
 struct DynamicIndexVamana : public DynamicIndex {
     svs::DynamicVamana index;
-    DynamicIndexVamana(svs::DynamicVamana&& index)
-        : DynamicIndex(SVS_ALGORITHM_TYPE_VAMANA)
+    DynamicIndexVamana(svs::DynamicVamana&& index, ThreadPoolBuilder pool_builder)
+        : DynamicIndex(SVS_ALGORITHM_TYPE_VAMANA, pool_builder)
         , index(std::move(index)) {}
     ~DynamicIndexVamana() = default;
 
@@ -169,6 +181,13 @@ struct DynamicIndexVamana : public DynamicIndex {
         } else {
             index.compact(batchsize);
         }
+    }
+
+    size_t get_num_threads() const override { return index.get_num_threads(); }
+
+    void set_num_threads(size_t num_threads) override {
+        pool_builder.resize(num_threads);
+        index.set_threadpool(pool_builder.build());
     }
 };
 } // namespace svs::c_runtime

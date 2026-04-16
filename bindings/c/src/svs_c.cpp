@@ -787,3 +787,37 @@ svs_index_dynamic_compact(svs_index_h index, size_t batchsize, svs_error_h out_e
         false
     );
 }
+
+extern "C" bool
+svs_index_get_num_threads(svs_index_h index, size_t* out_num_threads, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_num_threads);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            *out_num_threads = index_ptr->get_num_threads();
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool
+svs_index_set_num_threads(svs_index_h index, size_t num_threads, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_GT_THAN(num_threads, 0);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            index_ptr->set_num_threads(num_threads);
+            return true;
+        },
+        out_err,
+        false
+    );
+}

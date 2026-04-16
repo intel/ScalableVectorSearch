@@ -17,6 +17,7 @@
 
 #include "svs/c_api/svs_c.h"
 
+#include "error.hpp"
 #include "types_support.hpp"
 
 #include <svs/lib/threads.h>
@@ -74,7 +75,8 @@ class ThreadPoolBuilder {
 
     ThreadPoolBuilder(svs_threadpool_kind kind, size_t num_threads)
         : kind(kind)
-        , num_threads(num_threads) {
+        , num_threads(kind == SVS_THREADPOOL_KIND_SINGLE_THREAD ? 1 : num_threads)
+        , user_threadpool(nullptr) {
         if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
             throw std::invalid_argument(
                 "SVS_THREADPOOL_KIND_CUSTOM cannot be built automatically."
@@ -89,6 +91,31 @@ class ThreadPoolBuilder {
 
     static size_t default_threads_num() {
         return std::max(size_t{1}, size_t{std::thread::hardware_concurrency()});
+    }
+
+    svs_threadpool_kind get_kind() const { return kind; }
+    svs_threadpool_i get_user_threadpool() const { return user_threadpool; }
+
+    size_t get_threads_num() const {
+        if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
+            return user_threadpool->ops.size(user_threadpool->self);
+        }
+        return num_threads;
+    }
+
+    void resize(size_t new_num_threads) {
+        if (new_num_threads == 0) {
+            throw std::invalid_argument("Number of threads must be greater than zero.");
+        }
+        if (kind == SVS_THREADPOOL_KIND_SINGLE_THREAD) {
+            throw svs::c_runtime::invalid_operation(
+                "Cannot resize a single-threaded threadpool."
+            );
+        }
+        if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
+            throw svs::c_runtime::invalid_operation("Cannot resize a custom threadpool.");
+        }
+        num_threads = new_num_threads;
     }
 
     svs::threads::ThreadPoolHandle build() const {
