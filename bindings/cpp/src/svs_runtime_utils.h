@@ -470,48 +470,49 @@ should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_s
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
-// Estimate the filter hit rate by randomly sampling from a list of valid IDs.
-// Use this for dynamic indices where IDs may have gaps from deletions.
-template <typename IdContainer>
-inline float estimate_filter_hit_rate(
+// Estimate the filter hit rate by randomly sampling IDs.
+// id_lookup(index) maps a random index to an actual ID to check.
+template <typename IdLookup>
+inline float estimate_filter_hit_rate_impl(
     const IDFilter& filter,
-    const IdContainer& all_ids,
+    size_t pool_size,
+    IdLookup id_lookup,
     size_t sample_size = kFilterSampleSize
 ) {
-    size_t n = all_ids.size();
-    if (n == 0) {
+    if (pool_size == 0) {
         return 0.0f;
     }
-    size_t actual_sample = std::min(sample_size, n);
+    size_t actual_sample = std::min(sample_size, pool_size);
     std::mt19937 rng(42);
-    std::uniform_int_distribution<size_t> dist(0, n - 1);
+    std::uniform_int_distribution<size_t> dist(0, pool_size - 1);
     size_t hits = 0;
     for (size_t i = 0; i < actual_sample; ++i) {
-        if (filter.is_member(all_ids[dist(rng)])) {
+        if (filter.is_member(id_lookup(dist(rng)))) {
             hits++;
         }
     }
     return static_cast<float>(hits) / actual_sample;
 }
 
-// Estimate the filter hit rate assuming sequential IDs [0, total_ids).
-// Use this for static indices where IDs are always 0 to size-1.
+// Estimate filter hit rate from a container of valid IDs (dynamic index).
+template <typename IdContainer>
+inline float estimate_filter_hit_rate(
+    const IDFilter& filter,
+    const IdContainer& all_ids,
+    size_t sample_size = kFilterSampleSize
+) {
+    return estimate_filter_hit_rate_impl(
+        filter, all_ids.size(), [&](size_t i) { return all_ids[i]; }, sample_size
+    );
+}
+
+// Estimate filter hit rate assuming sequential IDs [0, total_ids) (static index).
 inline float estimate_filter_hit_rate_sequential(
     const IDFilter& filter, size_t total_ids, size_t sample_size = kFilterSampleSize
 ) {
-    if (total_ids == 0) {
-        return 0.0f;
-    }
-    size_t actual_sample = std::min(sample_size, total_ids);
-    std::mt19937 rng(42);
-    std::uniform_int_distribution<size_t> dist(0, total_ids - 1);
-    size_t hits = 0;
-    for (size_t i = 0; i < actual_sample; ++i) {
-        if (filter.is_member(dist(rng))) {
-            hits++;
-        }
-    }
-    return static_cast<float>(hits) / actual_sample;
+    return estimate_filter_hit_rate_impl(
+        filter, total_ids, [](size_t i) { return i; }, sample_size
+    );
 }
 
 // Compute initial batch size from estimated filter hit rate.
