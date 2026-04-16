@@ -470,9 +470,33 @@ should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_s
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
-// Estimate the filter hit rate by randomly sampling IDs from the index.
-// Returns the fraction of sampled IDs that pass the filter (0.0 to 1.0).
+// Estimate the filter hit rate by randomly sampling from a list of valid IDs.
+// Use this for dynamic indices where IDs may have gaps from deletions.
+template <typename IdContainer>
 inline float estimate_filter_hit_rate(
+    const IDFilter& filter,
+    const IdContainer& all_ids,
+    size_t sample_size = kFilterSampleSize
+) {
+    size_t n = all_ids.size();
+    if (n == 0) {
+        return 0.0f;
+    }
+    size_t actual_sample = std::min(sample_size, n);
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<size_t> dist(0, n - 1);
+    size_t hits = 0;
+    for (size_t i = 0; i < actual_sample; ++i) {
+        if (filter.is_member(all_ids[dist(rng)])) {
+            hits++;
+        }
+    }
+    return static_cast<float>(hits) / actual_sample;
+}
+
+// Estimate the filter hit rate assuming sequential IDs [0, total_ids).
+// Use this for static indices where IDs are always 0 to size-1.
+inline float estimate_filter_hit_rate_sequential(
     const IDFilter& filter, size_t total_ids, size_t sample_size = kFilterSampleSize
 ) {
     if (total_ids == 0) {

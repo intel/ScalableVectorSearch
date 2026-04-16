@@ -135,7 +135,8 @@ class VamanaIndexImpl {
         // Pre-search filter sampling: estimate hit rate before graph traversal.
         float estimated_hit_rate = 1.0f;
         if (filter_estimate_batch) {
-            estimated_hit_rate = estimate_filter_hit_rate(*filter, max_batch_size);
+            estimated_hit_rate =
+                estimate_filter_hit_rate_sequential(*filter, max_batch_size);
             if (should_stop_filtered_search_by_estimate(estimated_hit_rate, filter_stop)) {
                 pad_empty_results(result, queries.size(), k);
                 return;
