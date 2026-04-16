@@ -87,6 +87,11 @@ class not_implemented : public std::logic_error {
     using std::logic_error::logic_error;
 };
 
+class invalid_operation : public std::logic_error {
+  public:
+    using std::logic_error::logic_error;
+};
+
 class unsupported_hw : public std::runtime_error {
   public:
     using std::runtime_error::runtime_error;
@@ -103,6 +108,9 @@ Result wrap_exceptions(Callable&& func, svs_error_h err, Result err_res = {}) no
         return err_res;
     } catch (const svs::c_runtime::not_implemented& ex) {
         SET_ERROR(err, SVS_ERROR_NOT_IMPLEMENTED, ex.what());
+        return err_res;
+    } catch (const svs::c_runtime::invalid_operation& ex) {
+        SET_ERROR(err, SVS_ERROR_INVALID_OPERATION, ex.what());
         return err_res;
     } catch (const svs::c_runtime::unsupported_hw& ex) {
         SET_ERROR(err, SVS_ERROR_UNSUPPORTED_HW, ex.what());

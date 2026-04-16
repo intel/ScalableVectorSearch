@@ -69,13 +69,16 @@ struct IndexBuilder {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
-            auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_build(
-                vamana_algorithm->build_parameters(),
-                data,
-                storage.get(),
-                to_distance_type(distance_metric),
-                pool_builder.build()
-            ));
+            auto index = std::make_shared<IndexVamana>(
+                dispatch_vamana_index_build(
+                    vamana_algorithm->build_parameters(),
+                    data,
+                    storage.get(),
+                    to_distance_type(distance_metric),
+                    pool_builder.build()
+                ),
+                pool_builder
+            );
 
             return index;
         }
@@ -86,13 +89,16 @@ struct IndexBuilder {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
-            auto index = std::make_shared<IndexVamana>(dispatch_vamana_index_load(
-                vamana_algorithm->build_parameters(),
-                directory,
-                storage.get(),
-                to_distance_type(distance_metric),
-                pool_builder.build()
-            ));
+            auto index = std::make_shared<IndexVamana>(
+                dispatch_vamana_index_load(
+                    vamana_algorithm->build_parameters(),
+                    directory,
+                    storage.get(),
+                    to_distance_type(distance_metric),
+                    pool_builder.build()
+                ),
+                pool_builder
+            );
 
             return index;
         }
@@ -107,8 +113,8 @@ struct IndexBuilder {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
-            auto index =
-                std::make_shared<DynamicIndexVamana>(dispatch_dynamic_vamana_index_build(
+            auto index = std::make_shared<DynamicIndexVamana>(
+                dispatch_dynamic_vamana_index_build(
                     vamana_algorithm->build_parameters(),
                     data,
                     ids,
@@ -116,7 +122,9 @@ struct IndexBuilder {
                     to_distance_type(distance_metric),
                     pool_builder.build(),
                     blocksize_bytes
-                ));
+                ),
+                pool_builder
+            );
 
             return index;
         }
@@ -128,15 +136,17 @@ struct IndexBuilder {
         if (algorithm->type == SVS_ALGORITHM_TYPE_VAMANA) {
             auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
 
-            auto index =
-                std::make_shared<DynamicIndexVamana>(dispatch_dynamic_vamana_index_load(
+            auto index = std::make_shared<DynamicIndexVamana>(
+                dispatch_dynamic_vamana_index_load(
                     vamana_algorithm->build_parameters(),
                     directory,
                     storage.get(),
                     to_distance_type(distance_metric),
                     pool_builder.build(),
                     blocksize_bytes
-                ));
+                ),
+                pool_builder
+            );
 
             return index;
         }
