@@ -88,6 +88,15 @@ struct VamanaIndexManagerBase : public VamanaIndex {
     Status save(std::ostream& out) const noexcept override {
         return runtime_error_wrapper([&] { impl_->save(out); });
     }
+
+    Status
+    get_distance(double* distance, size_t id, const float* query) const noexcept override {
+        return runtime_error_wrapper([&] { *distance = impl_->get_distance(id, query); });
+    }
+
+    Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept override {
+        return runtime_error_wrapper([&] { impl_->reconstruct_at(n, ids, output); });
+    }
 };
 } // namespace
 
