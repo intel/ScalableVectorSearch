@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "svs/core/allocator.h"
 #include "svs/lib/array.h" // just for svs::is_view_type_v specialization
 
 #include <cerrno>
@@ -48,87 +49,53 @@ class basic_mmstreambuf : public std::basic_streambuf<CharT, Traits> {
     using pos_type = typename traits_type::pos_type;
     using off_type = typename traits_type::off_type;
 
-    basic_mmstreambuf() = default;
-
-    explicit basic_mmstreambuf(
-        const std::filesystem::path& path,
-        std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out
-    ) {
-        open(path, mode);
+    explicit basic_mmstreambuf(MMapPtr<CharT> mapping)
+        : ptr_{std::move(mapping)} {
+        if (ptr_) {
+            auto base_ptr = static_cast<char_type*>(ptr_.base());
+            this->setg(base_ptr, ptr_.data(), base_ptr + ptr_.size());
+            this->setp(&empty_, &empty_); // disallow writing
+        } else {
+            this->setg(&empty_, &empty_, &empty_); // empty buffer
+            this->setp(&empty_, &empty_);          // disallow writing
+        }
     }
 
-    ~basic_mmstreambuf() override { close(); }
-
+    basic_mmstreambuf()
+        : basic_mmstreambuf(MMapPtr<CharT>{}) {}
     basic_mmstreambuf(const basic_mmstreambuf&) = delete;
     basic_mmstreambuf& operator=(const basic_mmstreambuf&) = delete;
+    basic_mmstreambuf(basic_mmstreambuf&&) = default;
+    basic_mmstreambuf& operator=(basic_mmstreambuf&&) = default;
 
-    basic_mmstreambuf(basic_mmstreambuf&& other) noexcept { move_from(std::move(other)); }
-
-    basic_mmstreambuf& operator=(basic_mmstreambuf&& other) noexcept {
-        if (this != &other) {
-            close();
-            move_from(std::move(other));
-        }
-        return *this;
-    }
-
-    void open(
+    basic_mmstreambuf* open(
         const std::filesystem::path& path,
         std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out
     ) {
-        close();
-
-        fd_ = ::open(path.c_str(), to_file_mode(mode));
-        if (fd_ < 0) {
-            throw std::system_error(errno, std::generic_category(), "open() failed");
+        auto size = std::filesystem::file_size(path);
+        auto perm =
+            (mode & std::ios_base::out) ? MemoryMapper::ReadWrite : MemoryMapper::ReadOnly;
+        ptr_ =
+            MemoryMapper{perm, MemoryMapper::MustUseExisting}.mmap(path, lib::Bytes{size});
+        if (!ptr_) {
+            throw std::runtime_error("Failed to memory-map file: " + path.string());
         }
-
-        struct stat st {};
-        if (::fstat(fd_, &st) != 0) {
-            const int ec = errno;
-            close_fd_only();
-            throw std::system_error(ec, std::generic_category(), "fstat() failed");
-        }
-
-        if (st.st_size < 0) {
-            close_fd_only();
-            throw std::runtime_error("Invalid file size");
-        }
-
-        mapped_size_ = static_cast<std::size_t>(st.st_size);
-
-        if (mapped_size_ == 0) {
-            this->setg(&empty_, &empty_, &empty_);
-            return;
-        }
-
-        void* mapped =
-            ::mmap(nullptr, mapped_size_, to_mmap_prot(mode), MAP_SHARED, fd_, 0);
-        if (mapped == MAP_FAILED) {
-            const int ec = errno;
-            close_fd_only();
-            throw std::system_error(ec, std::generic_category(), "mmap() failed");
-        }
-
-        data_ = static_cast<char_type*>(mapped);
-        this->setg(data_, data_, data_ + mapped_size_);
+        auto base_ptr = static_cast<char_type*>(ptr_.base());
+        this->setg(base_ptr, base_ptr, base_ptr + ptr_.size());
+        this->setp(&empty_, &empty_); // disallow writing
+        return this;
     }
 
-    void close() noexcept {
-        this->setg(nullptr, nullptr, nullptr);
-
-        if (data_ != nullptr) {
-            ::munmap(static_cast<void*>(data_), mapped_size_);
-            data_ = nullptr;
-        }
-
-        mapped_size_ = 0;
-        close_fd_only();
+    basic_mmstreambuf* close() noexcept {
+        ptr_.unmap();
+        this->setg(&empty_, &empty_, &empty_); // empty buffer
+        this->setp(&empty_, &empty_);          // disallow writing
+        return this;
     }
 
-    [[nodiscard]] bool is_open() const noexcept { return fd_ >= 0; }
+    [[nodiscard]] bool is_open() const noexcept { return static_cast<bool>(ptr_); }
 
-    [[nodiscard]] std::size_t size() const noexcept { return mapped_size_; }
+    [[nodiscard]] std::size_t size() const noexcept { return ptr_.size(); }
 
   protected:
     int_type underflow() override {
@@ -175,67 +142,15 @@ class basic_mmstreambuf : public std::basic_streambuf<CharT, Traits> {
         return seekoff(static_cast<off_type>(sp), std::ios_base::beg, which);
     }
 
-  private:
-    void close_fd_only() noexcept {
-        if (fd_ >= 0) {
-            ::close(fd_);
-            fd_ = -1;
-        }
-    }
-
-    void move_from(basic_mmstreambuf&& other) noexcept {
-        fd_ = other.fd_;
-        other.fd_ = -1;
-
-        data_ = other.data_;
-        other.data_ = nullptr;
-
-        mapped_size_ = other.mapped_size_;
-        other.mapped_size_ = 0;
-
-        empty_ = other.empty_;
-
-        if (data_ != nullptr) {
-            this->setg(
-                data_,
-                data_ + (other.gptr() - other.eback()),
-                data_ + (other.egptr() - other.eback())
-            );
-        } else {
-            this->setg(&empty_, &empty_, &empty_);
-        }
-
-        other.setg(nullptr, nullptr, nullptr);
-    }
-
-    static int to_file_mode(std::ios_base::openmode mode) {
-        constexpr auto in_out = std::ios_base::in | std::ios_base::out;
-        int flags = 0;
-        if ((mode & in_out) == in_out) {
-            flags |= O_RDWR;
-        } else if (mode & std::ios_base::in) {
-            flags |= O_RDONLY;
-        } else if (mode & std::ios_base::out) {
-            flags |= O_WRONLY;
-        }
-        return flags;
-    }
-
-    static int to_mmap_prot(std::ios_base::openmode mode) {
-        int prot = 0;
-        if (mode & std::ios_base::in) {
-            prot |= PROT_READ;
-        }
-        if (mode & std::ios_base::out) {
-            prot |= PROT_WRITE;
-        }
-        return prot;
+    int_type overflow(int_type) override {
+        return Traits::eof(); // disallow writing
     }
 
   private:
-    int fd_ = -1;
-    char_type* data_ = nullptr;
-    std::size_t mapped_size_ = 0;
+    MMapPtr<CharT> ptr_;
+    // A dummy character to use as the put area for the streambuf when the mapping is empty
+    // or closed. This is necessary to ensure that the put area is always valid, even when
+    // the mapping is empty or closed.
     char_type empty_ = char_type{};
 };
 
@@ -249,14 +164,25 @@ class basic_mmstream : public std::basic_istream<CharT, Traits> {
         this->init(&buf_);
     }
 
-    explicit basic_mmstream(const std::filesystem::path& path)
+    explicit basic_mmstream(MMapPtr<CharT> mapping)
         : std::basic_istream<CharT, Traits>(nullptr)
-        , buf_(path) {
+        , buf_(std::move(mapping)) {
         this->init(&buf_);
     }
 
-    void open(const std::filesystem::path& path) {
-        buf_.open(path);
+    explicit basic_mmstream(
+        const std::filesystem::path& path,
+        std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out
+    )
+        : basic_mmstream(MMapPtr<CharT>{}) {
+        open(path, mode);
+    }
+
+    void open(
+        const std::filesystem::path& path,
+        std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out
+    ) {
+        buf_.open(path, mode);
         this->clear();
     }
 
@@ -340,7 +266,7 @@ struct StreambufAccessor : std::basic_streambuf<CharT, Traits> {
 template <typename T, typename CharT, typename Traits = std::char_traits<CharT>>
 [[nodiscard]] T* current_ptr(std::basic_istream<CharT, Traits>& stream) noexcept {
     static_assert(sizeof(CharT) == 1, "current_ptr requires a 1-byte character type.");
-    if (!stream.good() || !is_memory_stream(stream)) {
+    if (!is_memory_stream(stream)) {
         return nullptr;
     }
 

@@ -48,7 +48,8 @@ std::filesystem::path create_empty_file(const std::string& name) {
 CATCH_TEST_CASE("mmstreambuf reads and seeks", "[core][io][mmap]") {
     auto path = write_file("mmstream_data.bin", "0123456789");
 
-    auto buf = svs::io::mmstreambuf(path);
+    auto buf = svs::io::mmstreambuf{};
+    buf.open(path);
     CATCH_REQUIRE(buf.is_open());
     CATCH_REQUIRE(buf.size() == 10);
 
@@ -79,8 +80,9 @@ CATCH_TEST_CASE("mmstreambuf reads and seeks", "[core][io][mmap]") {
 CATCH_TEST_CASE("mmstreambuf handles empty files", "[core][io][mmap]") {
     auto path = create_empty_file("mmstream_empty.bin");
 
-    auto buf = svs::io::mmstreambuf(path);
-    CATCH_REQUIRE(buf.is_open());
+    auto buf = svs::io::mmstreambuf{};
+    CATCH_REQUIRE_THROWS_AS(buf.open(path), svs::lib::ANNException);
+    CATCH_REQUIRE(!buf.is_open());
     CATCH_REQUIRE(buf.size() == 0);
     CATCH_REQUIRE(buf.sgetc() == std::char_traits<char>::eof());
 }
@@ -88,7 +90,8 @@ CATCH_TEST_CASE("mmstreambuf handles empty files", "[core][io][mmap]") {
 CATCH_TEST_CASE("mmstreambuf supports move operations", "[core][io][mmap]") {
     auto path = write_file("mmstream_move.bin", "abcdef");
 
-    auto source = svs::io::mmstreambuf(path);
+    auto source = svs::io::mmstreambuf{};
+    source.open(path);
     CATCH_REQUIRE(source.pubseekpos(2, std::ios_base::in) == 2);
 
     auto moved = svs::io::mmstreambuf(std::move(source));
@@ -150,17 +153,10 @@ CATCH_TEST_CASE("current_ptr pointer semantics", "[core][io][mmap]") {
 
     stream.close();
     CATCH_REQUIRE(svs::io::current_ptr<char>(stream) == nullptr);
-
-    auto empty_path = create_empty_file("mmstream_ptrs_empty.bin");
-    auto empty_stream = svs::io::mmstream(empty_path);
-    CATCH_REQUIRE(svs::io::current_ptr<char>(empty_stream) == nullptr);
 }
 
 CATCH_TEST_CASE("mmstream open throws on missing file", "[core][io][mmap]") {
     auto missing = svs_test::prepare_temp_directory_v2() / "mmstream_missing.bin";
-
-    auto buf = svs::io::mmstreambuf{};
-    CATCH_REQUIRE_THROWS_AS(buf.open(missing), std::system_error);
 
     auto stream = svs::io::mmstream{};
     CATCH_REQUIRE_THROWS_AS(stream.open(missing), std::system_error);
@@ -231,14 +227,6 @@ CATCH_TEST_CASE("current_ptr", "[core][io][mmap]") {
     {
         auto ifs = std::ifstream(path, std::ios::binary);
         CATCH_REQUIRE(svs::io::current_ptr<float>(ifs) == nullptr);
-    }
-
-    // ---- empty mmstream: in-memory but empty, must return nullptr ----
-    {
-        auto empty_path = create_empty_file("memstream_ptr_empty.bin");
-        auto empty_mm = svs::io::mmstream(empty_path);
-        CATCH_REQUIRE(svs::io::is_memory_stream(empty_mm));
-        CATCH_REQUIRE(svs::io::current_ptr<char>(empty_mm) == nullptr);
     }
 
     // ---- empty std::istringstream: in-memory but empty, must return nullptr ----
