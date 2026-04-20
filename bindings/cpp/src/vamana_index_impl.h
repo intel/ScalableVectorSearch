@@ -551,10 +551,11 @@ class VamanaIndexImpl {
 
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
         // SSD-backed loading for LVQ storage kinds.
-        // Uses MMapAllocator with per-component evict_on_load control.
+        // Uses MMapFileViewAllocator for read-only zero-copy mmap of the
+        // saved binary; the actual file path is resolved by UUID inside the
+        // load specialization via with_file().
         if (use_mmap && storage::is_lvq_storage(storage_kind)) {
-            using MMapAlloc = svs::MMapAllocator<std::byte>;
-            auto ssd_path = fs::path{ssd_config.ssd_path};
+            using MMapAlloc = svs::MMapFileViewAllocator<std::byte>;
             bool evict_primary = ssd_config.primary_on_ssd;
             bool evict_secondary = ssd_config.secondary_on_ssd;
 
@@ -563,21 +564,21 @@ class VamanaIndexImpl {
     case StorageKind::Kind: {                                                              \
         using StorageT =                                                                   \
             typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type;             \
-        auto alloc = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_primary};           \
+        auto alloc = MMapAlloc{MMapAccessHint::Random, evict_primary};                     \
         auto storage = svs::lib::load_from_disk<StorageT>(data_path, 0, std::move(alloc)); \
         return do_assemble(std::move(storage));                                            \
     }
             // Two-level LVQ (LVQ4x4, LVQ4x8): dual allocator.
-#define SVS_LOAD_LVQ_DUAL(Kind)                                                       \
-    case StorageKind::Kind: {                                                         \
-        using StorageT =                                                              \
-            typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type;        \
-        auto primary = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_primary};    \
-        auto residual = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_secondary}; \
-        auto storage = svs::lib::load_from_disk<StorageT>(                            \
-            data_path, 0, std::move(primary), std::move(residual)                     \
-        );                                                                            \
-        return do_assemble(std::move(storage));                                       \
+#define SVS_LOAD_LVQ_DUAL(Kind)                                                \
+    case StorageKind::Kind: {                                                  \
+        using StorageT =                                                       \
+            typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type; \
+        auto primary = MMapAlloc{MMapAccessHint::Random, evict_primary};       \
+        auto residual = MMapAlloc{MMapAccessHint::Random, evict_secondary};    \
+        auto storage = svs::lib::load_from_disk<StorageT>(                     \
+            data_path, 0, std::move(primary), std::move(residual)              \
+        );                                                                     \
+        return do_assemble(std::move(storage));                                \
     }
 
             switch (storage_kind) {
@@ -595,11 +596,11 @@ class VamanaIndexImpl {
         }
 
         // SSD-backed loading for LeanVec storage kinds.
-        // Uses MMapAllocator for both primary and secondary (same codegen),
-        // with per-component evict_on_load control.
+        // Uses MMapFileViewAllocator for both primary and secondary (same
+        // codegen); the on-disk file is resolved by UUID inside the load
+        // specialization via with_file().
         if (use_mmap && storage::is_leanvec_storage(storage_kind)) {
-            using MMapAlloc = svs::MMapAllocator<std::byte>;
-            auto ssd_path = fs::path{ssd_config.ssd_path};
+            using MMapAlloc = svs::MMapFileViewAllocator<std::byte>;
             bool evict_primary = ssd_config.primary_on_ssd;
             bool evict_secondary = ssd_config.secondary_on_ssd;
             bool primary_only = ssd_config.primary_only;
@@ -608,8 +609,8 @@ class VamanaIndexImpl {
     case StorageKind::Kind: {                                                            \
         using StorageT =                                                                 \
             typename storage::StorageType<StorageKind::Kind, MMapAlloc>::type;           \
-        auto primary = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_primary};       \
-        auto secondary = MMapAlloc{ssd_path, MMapAccessHint::Random, evict_secondary};   \
+        auto primary = MMapAlloc{MMapAccessHint::Random, evict_primary};                 \
+        auto secondary = MMapAlloc{MMapAccessHint::Random, evict_secondary};             \
         auto storage = svs::lib::load_from_disk<StorageT>(                               \
             data_path, size_t{0}, std::move(primary), std::move(secondary), primary_only \
         );                                                                               \
