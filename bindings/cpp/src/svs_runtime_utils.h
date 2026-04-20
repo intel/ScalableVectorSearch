@@ -461,26 +461,22 @@ should_stop_filtered_search(size_t total_checked, size_t found, float filter_sto
     return hit_rate < filter_stop;
 }
 
-// Check if the search should stop before starting, based on the estimated hit rate.
-inline bool
-should_stop_filtered_search_by_estimate(float estimated_hit_rate, float filter_stop) {
-    return filter_stop > 0 && estimated_hit_rate < filter_stop;
-}
-
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
-// Estimate the filter hit rate by randomly sampling IDs.
+// Sample IDs and count filter hits. Returns (actual_sample, hits).
 // id_lookup(index) maps a random index to an actual ID to check.
+// Returned pair can be fed directly to predict_further_processing() and
+// should_stop_filtered_search() — same math as hit rate comparisons.
 template <typename IdLookup>
-inline float estimate_filter_hit_rate_impl(
+inline std::pair<size_t, size_t> sample_filter_hits_impl(
     const IDFilter& filter,
     size_t pool_size,
     IdLookup id_lookup,
     size_t sample_size = kFilterSampleSize
 ) {
     if (pool_size == 0) {
-        return 0.0f;
+        return {0, 0};
     }
     size_t actual_sample = std::min(sample_size, pool_size);
     std::mt19937 rng(42);
@@ -491,40 +487,28 @@ inline float estimate_filter_hit_rate_impl(
             hits++;
         }
     }
-    return static_cast<float>(hits) / actual_sample;
+    return {actual_sample, hits};
 }
 
-// Estimate filter hit rate from a container of valid IDs (dynamic index).
+// Sample from a container of valid IDs (dynamic index).
 template <typename IdContainer>
-inline float estimate_filter_hit_rate(
+inline std::pair<size_t, size_t> sample_filter_hits(
     const IDFilter& filter,
     const IdContainer& all_ids,
     size_t sample_size = kFilterSampleSize
 ) {
-    return estimate_filter_hit_rate_impl(
+    return sample_filter_hits_impl(
         filter, all_ids.size(), [&](size_t i) { return all_ids[i]; }, sample_size
     );
 }
 
-// Estimate filter hit rate assuming sequential IDs [0, total_ids) (static index).
-inline float estimate_filter_hit_rate_sequential(
+// Sample assuming sequential IDs [0, total_ids) (static index).
+inline std::pair<size_t, size_t> sample_filter_hits_sequential(
     const IDFilter& filter, size_t total_ids, size_t sample_size = kFilterSampleSize
 ) {
-    return estimate_filter_hit_rate_impl(
+    return sample_filter_hits_impl(
         filter, total_ids, [](size_t i) { return i; }, sample_size
     );
-}
-
-// Compute initial batch size from estimated filter hit rate.
-// If hit rate is known, use k / hit_rate (capped at max_value).
-// Otherwise fall back to max(k, search_window_size).
-inline size_t compute_initial_batch_size(
-    float estimated_hit_rate, size_t k, size_t search_window_size, size_t max_value
-) {
-    if (estimated_hit_rate > 0) {
-        return std::min(static_cast<size_t>(k / estimated_hit_rate), max_value);
-    }
-    return std::max(k, search_window_size);
 }
 
 // Fill all result slots with unspecified values.

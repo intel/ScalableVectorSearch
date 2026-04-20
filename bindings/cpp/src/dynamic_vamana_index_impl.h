@@ -127,16 +127,22 @@ class DynamicVamanaIndexImpl {
         const auto max_batch_size = impl_->size();
 
         // Pre-search filter sampling: estimate hit rate before graph traversal.
-        float estimated_hit_rate = 1.0f;
+        size_t sampled = 0;
+        size_t sample_hits = 0;
+        const auto sws = sp.buffer_config_.get_search_window_size();
+        const auto initial_batch_hint = std::max(k, sws);
+        auto initial_batch_size = initial_batch_hint;
         if (filter_estimate_batch) {
-            estimated_hit_rate = estimate_filter_hit_rate(*filter, impl_->all_ids());
-            if (should_stop_filtered_search_by_estimate(estimated_hit_rate, filter_stop)) {
+            std::tie(sampled, sample_hits) = sample_filter_hits(*filter, impl_->all_ids());
+            if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
                 pad_empty_results(result, queries.size(), k);
                 impl_->set_search_parameters(old_sp);
                 return;
             }
+            initial_batch_size = predict_further_processing(
+                sampled, sample_hits, k, initial_batch_hint, max_batch_size
+            );
         }
-        const auto sws = sp.buffer_config_.get_search_window_size();
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
@@ -144,8 +150,7 @@ class DynamicVamanaIndexImpl {
                 auto iterator = impl_->batch_iterator(query);
                 size_t found = 0;
                 size_t total_checked = 0;
-                auto batch_size =
-                    compute_initial_batch_size(estimated_hit_rate, k, sws, max_batch_size);
+                auto batch_size = initial_batch_size;
                 do {
                     batch_size = predict_further_processing(
                         total_checked, found, k, batch_size, max_batch_size
