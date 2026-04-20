@@ -20,8 +20,12 @@
 #include "svs/core/data/simple.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
+#include "svs/lib/concurrency/atomic_span.h"
+#include "svs/lib/concurrency/seqlock.h"
 #include "svs/lib/saveload.h"
+#include "svs/lib/spinlock.h"
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <span>
@@ -57,12 +61,12 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// The integer representation used to represent vertices in this graph.
     using index_type = Idx;
     using value_type = std::span<Idx>;
-    using const_value_type = std::span<const Idx>;
+    using const_value_type = AtomicSpan<const Idx>;
 
     /// Type used to represent mutable adjacency lists externally.
     using reference = std::span<Idx>;
     /// Type used to represent constant adjacency lists externally.
-    using const_reference = std::span<const Idx>;
+    using const_reference = AtomicSpan<const Idx>;
 
     ///
     /// @brief Construct an empty graph of the desired size.
@@ -75,7 +79,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     ///
     explicit SimpleGraphBase(size_t num_nodes, size_t max_degree)
         : data_{num_nodes, max_degree + 1}
-        , max_degree_{lib::narrow<Idx>(max_degree)} {
+        , max_degree_{lib::narrow<Idx>(max_degree)}
+        , seq_counters_(num_nodes)
+        , node_locks_(num_nodes) {
         reset();
     }
 
@@ -85,15 +91,19 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         size_t num_nodes, size_t max_degree, const Allocator& allocator
     )
         : data_{num_nodes, max_degree + 1, allocator}
-        , max_degree_{lib::narrow<Idx>(max_degree)} {
+        , max_degree_{lib::narrow<Idx>(max_degree)}
+        , seq_counters_(num_nodes)
+        , node_locks_(num_nodes) {
         reset();
     }
 
     explicit SimpleGraphBase(data_type data)
         : data_{std::move(data)}
-        , max_degree_{lib::narrow<Idx>(data_.dimensions() - 1)} {}
+        , max_degree_{lib::narrow<Idx>(data_.dimensions() - 1)}
+        , seq_counters_(data_.size())
+        , node_locks_(data_.size()) {}
 
-    const_reference raw_row(Idx i) const { return data_.get_datum(i); }
+    std::span<const Idx> raw_row(Idx i) const { return data_.get_datum(i); }
 
     ///
     /// @brief Return the outward adjacency list for vertex ``i``.
@@ -103,14 +113,17 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     const_reference get_node(Idx i) const {
         // Get the raw data.
         std::span<const Idx> raw_data = data_.get_datum(i);
-        auto num_neighbors = raw_data.front();
+        Idx num_neighbors =
+            std::atomic_ref<const Idx>(raw_data.front()).load(std::memory_order_relaxed);
+        // Clamp to max_degree to safely handle torn reads of the length field.
+        num_neighbors = std::min(num_neighbors, max_degree_);
 
-        // Maybe prefetch the rest of the adjacncy list.
+        // Maybe prefetch the rest of the adjacency list.
         size_t bytes = (1 + num_neighbors) * sizeof(Idx);
         if (bytes > lib::CACHELINE_BYTES) {
             lib::prefetch(std::as_bytes(raw_data).subspan(lib::CACHELINE_BYTES));
         }
-        return raw_data.subspan(1, num_neighbors);
+        return AtomicSpan<const Idx>(raw_data.data() + 1, num_neighbors);
     }
 
     ///
@@ -119,16 +132,28 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// Complexity: Linear in the maximum degree.
     ///
     bool has_edge(Idx src, Idx dst) const {
-        const auto& list = get_node(src);
-        auto begin = list.begin();
-        auto end = list.end();
-        return (std::find(begin, end, dst) != end);
+        for (;;) {
+            auto maybe_seq = seq_counters_[src].read_begin();
+            if (!maybe_seq) {
+                detail::pause();
+                continue;
+            }
+            const auto& list = get_node(src);
+            bool found = (std::find(list.begin(), list.end(), dst) != list.end());
+            if (seq_counters_[src].read_validate(*maybe_seq)) {
+                return found;
+            }
+            detail::pause();
+        }
     }
 
     ///
     /// @brief Return the current out degree of vertex ``i``.
     ///
-    size_t get_node_degree(Idx i) const { return data_.get_datum(i).front(); }
+    size_t get_node_degree(Idx i) const {
+        return std::atomic_ref<const Idx>(data_.get_datum(i).front())
+            .load(std::memory_order_relaxed);
+    }
 
     ///
     /// @brief Prefetch the adjacency list for node ``i`` into the L1 cache.
@@ -144,8 +169,11 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// The complexity of this operation is `O(1)`.
     ///
     void clear_node(Idx i) {
-        Idx& num_neighbors = data_.get_datum(i).front();
-        num_neighbors = 0;
+        std::lock_guard lock{node_locks_[i]};
+        auto seq = seq_counters_[i].begin_write();
+        std::atomic_ref<Idx>(data_.get_datum(i).front())
+            .store(0, std::memory_order_relaxed);
+        seq_counters_[i].end_write(seq);
     }
 
     ///
@@ -177,6 +205,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     /// @copydoc replace_node(Idx,const std::vector<Idx>&)
     void replace_node(Idx i, std::span<const Idx> new_neighbors) {
+        std::lock_guard lock{node_locks_[i]};
         std::span<Idx> raw_data = data_.get_datum(i);
 
         // Clamp the number of elements to copy to the maximum out degree to correctly
@@ -186,13 +215,31 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         Idx elements_to_copy =
             std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
 
-        std::span<const Idx> adjusted_neighbors = new_neighbors.first(elements_to_copy);
-        value_type adjacency_list = raw_data.subspan(1, elements_to_copy);
+        auto seq = seq_counters_[i].begin_write();
+        for (Idx j = 0; j < elements_to_copy; ++j) {
+            std::atomic_ref<Idx>(raw_data[1 + j])
+                .store(new_neighbors[j], std::memory_order_relaxed);
+        }
+        std::atomic_ref<Idx>(raw_data[0])
+            .store(elements_to_copy, std::memory_order_relaxed);
+        seq_counters_[i].end_write(seq);
+    }
 
-        std::copy(
-            adjusted_neighbors.begin(), adjusted_neighbors.end(), adjacency_list.begin()
-        );
-        raw_data.front() = elements_to_copy;
+    /// @copydoc replace_node(Idx,const std::vector<Idx>&)
+    void replace_node(Idx i, AtomicSpan<const Idx> new_neighbors) {
+        std::lock_guard lock{node_locks_[i]};
+        std::span<Idx> raw_data = data_.get_datum(i);
+        Idx elements_to_copy =
+            std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
+
+        auto seq = seq_counters_[i].begin_write();
+        for (Idx j = 0; j < elements_to_copy; ++j) {
+            std::atomic_ref<Idx>(raw_data[1 + j])
+                .store(new_neighbors[j], std::memory_order_relaxed);
+        }
+        std::atomic_ref<Idx>(raw_data[0])
+            .store(elements_to_copy, std::memory_order_relaxed);
+        seq_counters_[i].end_write(seq);
     }
 
     ///
@@ -225,6 +272,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             }
         }
 
+        // Acquire lock — all reads and writes under the lock to prevent
+        // concurrent writers from seeing stale state.
+        std::lock_guard lock{node_locks_[src]};
+
         // Check if there's room for the new node.
         std::span<Idx> raw_data = data_.get_datum(src);
         Idx current_size = raw_data.front();
@@ -251,13 +302,18 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
             return current_size;
         }
 
-        // Insert at the new location.
-        std::copy_backward(it, end - 1, end);
-        (*it) = dst;
+        auto seq = seq_counters_[src].begin_write();
 
-        // // Assign the new edge and update the number of neighbors.
-        // adjacency_list.back() = dst;
-        raw_data.front() = new_size;
+        // Insert at the new location using atomic stores.
+        for (auto dst_it = end - 1, src_it = end - 2; dst_it != it; --dst_it, --src_it) {
+            std::atomic_ref<Idx>(*dst_it).store(*src_it, std::memory_order_relaxed);
+        }
+        std::atomic_ref<Idx>(*it).store(dst, std::memory_order_relaxed);
+
+        // Update the number of neighbors.
+        std::atomic_ref<Idx>(raw_data.front()).store(new_size, std::memory_order_relaxed);
+
+        seq_counters_[src].end_write(seq);
         return new_size;
     }
 
@@ -270,8 +326,15 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     data_type& get_data() { return data_; }
 
     // Resizeable API
-    void unsafe_resize(size_t new_size) { data_.resize(new_size); }
+    void unsafe_resize(size_t new_size) {
+        data_.resize(new_size);
+        seq_counters_.resize(new_size);
+        node_locks_.resize(new_size);
+    }
     void add_node() { unsafe_resize(n_nodes() + 1); }
+
+    /// @brief Access the per-node sequence lock counters for concurrent read validation.
+    const SeqLockArray& seq_counters() const { return seq_counters_; }
 
     ///// Saving
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
@@ -320,6 +383,8 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
   protected:
     data_type data_;
     Idx max_degree_;
+    SeqLockArray seq_counters_;
+    std::vector<SpinLock> node_locks_;
 };
 
 /////

@@ -180,6 +180,16 @@ class IDTranslator {
         return internal_to_external_.at(i);
     }
 
+    /// @brief Return the external ID, or a default if not found.
+    external_id_type
+    get_external_or(internal_id_type i, external_id_type default_val) const {
+        auto it = internal_to_external_.find(i);
+        if (it == internal_to_external_.end()) {
+            return default_val;
+        }
+        return it->second;
+    }
+
     ///
     /// @brief Return a start forward iterator over the external->internal IDs.
     ///

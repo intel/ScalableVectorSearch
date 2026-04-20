@@ -196,8 +196,21 @@ class GraphConsolidator {
         all_candidates.clear();
         for (auto dst : neighbors) {
             if (is_deleted(dst)) {
-                const auto& others = graph_.get_node(dst);
-                all_candidates.insert(others.begin(), others.end());
+                // SeqLock retry: a concurrent consolidate may be writing dst's
+                // neighbors if dst is not deleted in the other consolidate's view.
+                for (;;) {
+                    auto maybe_seq = graph_.seq_counters()[dst].read_begin();
+                    if (!maybe_seq) {
+                        svs::detail::pause();
+                        continue;
+                    }
+                    const auto& others = graph_.get_node(dst);
+                    all_candidates.insert(others.begin(), others.end());
+                    if (graph_.seq_counters()[dst].read_validate(*maybe_seq)) {
+                        break;
+                    }
+                    svs::detail::pause();
+                }
             } else {
                 all_candidates.insert(dst);
             }
@@ -250,40 +263,62 @@ class GraphConsolidator {
                 continue;
             }
 
-            // Determine if any of the neighbors of this node are deleted.
-            const auto& neighbors = graph_.get_node(src);
-            if (std::none_of(neighbors.begin(), neighbors.end(), is_deleted)) {
-                continue;
+            // SeqLock retry: a concurrent consolidate's apply_updates may be
+            // writing src's neighbors while we read them.
+            for (;;) {
+                auto maybe_seq = graph_.seq_counters()[src].read_begin();
+                if (!maybe_seq) {
+                    svs::detail::pause();
+                    continue;
+                }
+
+                // Determine if any of the neighbors of this node are deleted.
+                const auto& neighbors = graph_.get_node(src);
+                if (std::none_of(neighbors.begin(), neighbors.end(), is_deleted)) {
+                    if (graph_.seq_counters()[src].read_validate(*maybe_seq)) {
+                        break;
+                    }
+                    svs::detail::pause();
+                    continue;
+                }
+
+                // Add all neighbors and neighbors-of-deleted-neighbors.
+                populate_candidates(all_candidates, neighbors, is_deleted);
+
+                // Insert non-deleted candidates into the vector to prepare for
+                // pruning.
+                filter_candidates(
+                    valid_candidates,
+                    all_candidates,
+                    accessor(data_, src),
+                    accessor,
+                    general_distance,
+                    is_deleted
+                );
+
+                size_t new_candidate_size =
+                    std::min(valid_candidates.size(), params_.max_candidate_pool_size);
+                valid_candidates.resize(new_candidate_size);
+                heuristic_prune_neighbors(
+                    prune_strategy(distance_),
+                    params_.prune_to,
+                    params_.alpha,
+                    data_,
+                    accessor,
+                    general_distance,
+                    src,
+                    lib::as_const_span(valid_candidates),
+                    final_candidates
+                );
+
+                if (graph_.seq_counters()[src].read_validate(*maybe_seq)) {
+                    // Consistent read — commit the results.
+                    update_buffer.insert(i, final_candidates);
+                    break;
+                }
+                svs::detail::pause();
+                // Retry: discard stale candidates, recompute on next iteration.
             }
-
-            // Add all neighbors and neighbors-of-deleted-neighbors.
-            populate_candidates(all_candidates, neighbors, is_deleted);
-
-            // Insert non-deleted candidates into the vector to prepare for pruning.
-            filter_candidates(
-                valid_candidates,
-                all_candidates,
-                accessor(data_, src),
-                accessor,
-                general_distance,
-                is_deleted
-            );
-
-            size_t new_candidate_size =
-                std::min(valid_candidates.size(), params_.max_candidate_pool_size);
-            valid_candidates.resize(new_candidate_size);
-            heuristic_prune_neighbors(
-                prune_strategy(distance_),
-                params_.prune_to,
-                params_.alpha,
-                data_,
-                accessor,
-                general_distance,
-                src,
-                lib::as_const_span(valid_candidates),
-                final_candidates
-            );
-            update_buffer.insert(i, final_candidates);
         }
     }
 
