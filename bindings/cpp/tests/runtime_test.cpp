@@ -211,7 +211,6 @@ void write_and_map_index(
         CATCH_REQUIRE(storage_kind.has_value());
         status = Index::map_to_file(&loaded, filename.c_str(), metric, *storage_kind);
     }
-    CATCH_REQUIRE(std::string(status.message()) == "");
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(loaded != nullptr);
 

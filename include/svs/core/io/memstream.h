@@ -28,11 +28,6 @@
 #include <system_error>
 #include <type_traits>
 
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 namespace svs {
 namespace io {
 
@@ -72,16 +67,27 @@ class basic_mmstreambuf : public std::basic_streambuf<CharT, Traits> {
         const std::filesystem::path& path,
         std::ios_base::openmode mode = std::ios_base::in | std::ios_base::out
     ) {
-        auto size = std::filesystem::file_size(path);
+        std::error_code ec;
+        auto size = std::filesystem::file_size(path, ec);
+        if (ec) {
+            throw ANNEXCEPTION(
+                "Failed to get file size: {} with system error: {}",
+                path.string(),
+                ec.message()
+            );
+        }
+        if (size == 0) {
+            throw ANNEXCEPTION("Cannot memory-map empty file: {}", path.string());
+        }
         auto perm =
             (mode & std::ios_base::out) ? MemoryMapper::ReadWrite : MemoryMapper::ReadOnly;
         ptr_ =
             MemoryMapper{perm, MemoryMapper::MustUseExisting}.mmap(path, lib::Bytes{size});
         if (!ptr_) {
-            throw std::runtime_error("Failed to memory-map file: " + path.string());
+            throw ANNEXCEPTION("Failed to memory-map file: {}", path.string());
         }
         auto base_ptr = static_cast<char_type*>(ptr_.base());
-        this->setg(base_ptr, base_ptr, base_ptr + ptr_.size());
+        this->setg(base_ptr, ptr_.data(), base_ptr + ptr_.size());
         this->setp(&empty_, &empty_); // disallow writing
         return this;
     }

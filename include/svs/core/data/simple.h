@@ -491,9 +491,10 @@ class SimpleData {
     static SimpleData load(const lib::LoadTable& SVS_UNUSED(table))
         requires(is_view)
     {
-        throw ANNEXCEPTION("Trying to load a SimpleData view without an istream. This is "
-                           "not supported since "
-                           "views are compatible only with memory-mapped streams.");
+        throw ANNEXCEPTION(
+            "Trying to load a SimpleData view without an istream. This is not supported "
+            "since views are compatible only with in-memory streams."
+        );
     }
 
     static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
@@ -505,8 +506,8 @@ class SimpleData {
         );
         if (!io::is_memory_stream(is)) {
             throw ANNEXCEPTION(
-                "Trying to load a SimpleData view from a non-mmstream istream. This is not "
-                "supported since views are compatible only with memory-mapped streams."
+                "Trying to load a SimpleData view from a non-memory stream istream. This "
+                "is not supported since views are compatible only with in-memory streams."
             );
         }
 
