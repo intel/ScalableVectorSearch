@@ -27,6 +27,7 @@
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/memory.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/prefetch.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
@@ -673,6 +674,16 @@ template <typename Alloc> class Blocked {
 template <typename Alloc> inline constexpr bool is_blocked_v = false;
 template <typename Alloc> inline constexpr bool is_blocked_v<Blocked<Alloc>> = true;
 
+} // namespace data
+
+namespace lib::detail {
+// Allow rebinding of allocators through the Blocked wrapper.
+template <typename To, typename Alloc> struct AllocatorRebinder<To, data::Blocked<Alloc>> {
+    using type = data::Blocked<rebind_allocator_t<To, Alloc>>;
+};
+} // namespace lib::detail
+
+namespace data {
 ///
 /// @brief A specialization of ``SimpleData`` for large-scale dynamic datasets.
 ///
