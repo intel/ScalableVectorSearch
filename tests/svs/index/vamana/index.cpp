@@ -33,6 +33,7 @@
 #include <catch2/catch_approx.hpp>
 
 // tests
+#include "tests/utils/generators.h"
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 #include "tests/utils/vamana_reference.h"
@@ -189,6 +190,8 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
     const size_t N = 128;
     using Eltype = float;
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    auto data_id_generator = svs_test::make_generator<size_t>(size_t{0}, data.size() - 1);
+
     auto graph = svs::graphs::SimpleGraph<uint32_t>(data.size(), 64);
     svs::distance::DistanceL2 distance_function;
     uint32_t entry_point = 0;
@@ -207,6 +210,9 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
 
     const size_t NUM_NEIGHBORS = 10;
     auto queries = test_dataset::queries();
+    auto query_id_generator =
+        svs_test::make_generator<size_t>(size_t{0}, queries.size() - 1);
+
     auto search_params = svs::index::vamana::VamanaSearchParameters{};
     search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{NUM_NEIGHBORS};
 
@@ -346,10 +352,11 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
         // Now update the view's data and check if it reflects in the loaded index (since it
         // should be zero-copy). For that we will copy a vector from queries into the view's
         // data and check if the get_distance() result changes accordingly.
-        auto data_index =
-            std::rand() % view.size(); // Randomly select a data point to modify.
-        auto query_index =
-            std::rand() % queries.size(); // Randomly select a query to test against.
+
+        // Randomly select a data point to modify.
+        auto data_index = svs_test::generate(data_id_generator);
+        // Randomly select a query to test against.
+        auto query_index = svs_test::generate(query_id_generator);
         auto original_distance =
             loaded_index.get_distance(data_index, queries.get_datum(query_index));
         // Verify that original distance is correct before modification.
@@ -441,10 +448,11 @@ CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
         // Now update the view's data and check if it reflects in the loaded index (since it
         // should be zero-copy). For that we will copy a vector from queries into the view's
         // data and check if the get_distance() result changes accordingly.
-        auto data_index =
-            std::rand() % view.size(); // Randomly select a data point to modify.
-        auto query_index =
-            std::rand() % queries.size(); // Randomly select a query to test against.
+
+        // Randomly select a data point to modify.
+        auto data_index = svs_test::generate(data_id_generator);
+        // Randomly select a query to test against.
+        auto query_index = svs_test::generate(query_id_generator);
         auto original_distance =
             loaded_index.get_distance(data_index, queries.get_datum(query_index));
         // Verify that original distance is correct before modification.
@@ -561,6 +569,8 @@ CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scal
     auto data = Data_t::compress(
         svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file())
     );
+    auto data_id_generator = svs_test::make_generator<size_t>(size_t{0}, data.size() - 1);
+
     svs::distance::DistanceL2 distance_function;
     auto threadpool = svs::threads::DefaultThreadPool(1);
 
@@ -572,6 +582,9 @@ CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scal
 
     const size_t NUM_NEIGHBORS = 10;
     auto queries = test_dataset::queries();
+    auto query_id_generator =
+        svs_test::make_generator<size_t>(size_t{0}, queries.size() - 1);
+
     auto search_params = svs::index::vamana::VamanaSearchParameters{};
     search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{NUM_NEIGHBORS};
 
@@ -639,10 +652,11 @@ CATCH_TEST_CASE("Vamana Index Save and Load SQ", "[vamana][index][saveload][scal
         // Now update the view's data and check if it reflects in the loaded index (since it
         // should be zero-copy). For that we will copy a vector from queries into the view's
         // data and check if the get_distance() result changes accordingly.
-        auto data_index =
-            std::rand() % view.size(); // Randomly select a data point to modify.
-        auto query_index =
-            std::rand() % queries.size(); // Randomly select a query to test against.
+
+        // Randomly select a data point to modify.
+        auto data_index = svs_test::generate(data_id_generator);
+        // Randomly select a query to test against.
+        auto query_index = svs_test::generate(query_id_generator);
         auto original_distance =
             loaded_index.get_distance(data_index, queries.get_datum(query_index));
         // Verify that original distance is correct before modification.
