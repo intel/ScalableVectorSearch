@@ -118,7 +118,7 @@ class DynamicVamanaIndexImpl {
         // Selective search with IDSelector
         auto old_sp = impl_->get_search_parameters();
         impl_->set_search_parameters(sp);
-        float filter_stop = 0.0f;
+        float filter_stop = 0.1f;
         bool filter_estimate_batch = true;
         if (params) {
             set_if_specified(filter_stop, params->filter_stop);
