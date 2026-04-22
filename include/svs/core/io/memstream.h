@@ -22,11 +22,20 @@
 #include <cstddef>
 #include <filesystem>
 #include <istream>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <streambuf>
 #include <system_error>
 #include <type_traits>
+#include <version>
+
+#if defined(__cpp_lib_spanstream) && __cpp_lib_spanstream >= 202106L
+#include <spanstream>
+#define SVS_HAS_STD_SPANSTREAM 1
+#else
+#define SVS_HAS_STD_SPANSTREAM 0
+#endif
 
 namespace svs {
 namespace io {
@@ -210,10 +219,144 @@ class basic_mmstream : public std::basic_istream<CharT, Traits> {
 using mmstreambuf = basic_mmstreambuf<char>;
 using mmstream = basic_mmstream<char>;
 
+#if SVS_HAS_STD_SPANSTREAM
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+using basic_spanbuf = std::basic_spanbuf<CharT, Traits>;
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+using basic_ispanstream = std::basic_ispanstream<CharT, Traits>;
+
+#else
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+class basic_spanbuf : public std::basic_streambuf<CharT, Traits> {
+    static_assert(sizeof(CharT) == 1, "basic_spanbuf requires a 1-byte character type.");
+
+  public:
+    using char_type = CharT;
+    using traits_type = Traits;
+    using int_type = typename traits_type::int_type;
+    using pos_type = typename traits_type::pos_type;
+    using off_type = typename traits_type::off_type;
+    using span_type = std::span<CharT>;
+
+    basic_spanbuf()
+        : basic_spanbuf(span_type{}) {}
+
+    explicit basic_spanbuf(span_type s) { span(s); }
+
+    /// Returns the underlying span.
+    [[nodiscard]] span_type span() const noexcept { return data_; }
+
+    /// Updates the underlying span and resets the read position to the beginning.
+    void span(span_type s) noexcept {
+        data_ = s;
+        if (data_.empty()) {
+            this->setg(&empty_, &empty_, &empty_);
+        } else {
+            auto* begin = data_.data();
+            this->setg(begin, begin, begin + data_.size());
+        }
+        this->setp(&empty_, &empty_); // disallow writing
+    }
+
+  protected:
+    int_type overflow(int_type) override {
+        return traits_type::eof(); // disallow writing
+    }
+
+    std::basic_streambuf<CharT, Traits>* setbuf(char_type* s, std::streamsize n) override {
+        span(span_type{s, static_cast<std::size_t>(n)});
+        return this;
+    }
+
+    pos_type seekoff(
+        off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which
+    ) override {
+        if (!(which & std::ios_base::in)) {
+            return pos_type(off_type(-1));
+        }
+
+        const off_type current = static_cast<off_type>(this->gptr() - this->eback());
+        const off_type end = static_cast<off_type>(this->egptr() - this->eback());
+
+        off_type target = 0;
+        switch (dir) {
+            case std::ios_base::beg:
+                target = off;
+                break;
+            case std::ios_base::cur:
+                target = current + off;
+                break;
+            case std::ios_base::end:
+                target = end + off;
+                break;
+            default:
+                return pos_type(off_type(-1));
+        }
+
+        if (target < 0 || target > end) {
+            return pos_type(off_type(-1));
+        }
+
+        this->setg(this->eback(), this->eback() + target, this->egptr());
+        return pos_type(target);
+    }
+
+    pos_type seekpos(pos_type sp, std::ios_base::openmode which) override {
+        return seekoff(static_cast<off_type>(sp), std::ios_base::beg, which);
+    }
+
+  private:
+    span_type data_;
+    char_type empty_ = char_type{};
+};
+
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+class basic_ispanstream : public std::basic_istream<CharT, Traits> {
+  public:
+    using char_type = CharT;
+    using traits_type = Traits;
+    using int_type = typename traits_type::int_type;
+    using pos_type = typename traits_type::pos_type;
+    using off_type = typename traits_type::off_type;
+    using streambuf_type = basic_spanbuf<CharT, Traits>;
+    using span_type = typename streambuf_type::span_type;
+
+    basic_ispanstream()
+        : std::basic_istream<CharT, Traits>(nullptr) {
+        this->init(&buf_);
+    }
+
+    explicit basic_ispanstream(span_type span)
+        : std::basic_istream<CharT, Traits>(nullptr)
+        , buf_(span) {
+        this->init(&buf_);
+    }
+
+    span_type span() const noexcept { return buf_.span(); }
+    void span(span_type s) noexcept {
+        buf_.span(s);
+        this->clear();
+    }
+
+    [[nodiscard]] streambuf_type* rdbuf() noexcept { return &buf_; }
+
+  private:
+    streambuf_type buf_;
+};
+
+#endif
+
+using spanbuf = basic_spanbuf<char>;
+using ispanstream = basic_ispanstream<char>;
+
 /// Returns true if @p stream is backed entirely by an in-memory buffer.
 ///
 /// Specifically, returns true when the stream's streambuf is either:
 ///   - a @c basic_mmstreambuf (memory-mapped file), or
+///   - a @c basic_spanbuf (non-owning in-memory span), or
 ///   - a @c std::basic_stringbuf (std::istringstream / std::stringstream).
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 [[nodiscard]] bool is_memory_stream(std::basic_istream<CharT, Traits>& stream) noexcept {
@@ -222,6 +365,9 @@ template <typename CharT, typename Traits = std::char_traits<CharT>>
         return false;
     }
     if (dynamic_cast<basic_mmstreambuf<CharT, Traits>*>(buf) != nullptr) {
+        return true;
+    }
+    if (dynamic_cast<basic_spanbuf<CharT, Traits>*>(buf) != nullptr) {
         return true;
     }
     if (dynamic_cast<std::basic_stringbuf<CharT, Traits>*>(buf) != nullptr) {

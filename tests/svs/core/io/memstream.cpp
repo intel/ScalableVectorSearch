@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
+#include <span>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -159,7 +160,7 @@ CATCH_TEST_CASE("mmstream open throws on missing file", "[core][io][mmap]") {
     auto missing = svs_test::prepare_temp_directory_v2() / "mmstream_missing.bin";
 
     auto stream = svs::io::mmstream{};
-    CATCH_REQUIRE_THROWS_AS(stream.open(missing), std::system_error);
+    CATCH_REQUIRE_THROWS_AS(stream.open(missing), svs::lib::ANNException);
 }
 
 CATCH_TEST_CASE("is_memory_stream", "[core][io][mmap]") {
@@ -175,6 +176,11 @@ CATCH_TEST_CASE("is_memory_stream", "[core][io][mmap]") {
     // std::stringstream is an in-memory stream.
     auto ss = std::stringstream("test");
     CATCH_REQUIRE(svs::io::is_memory_stream(ss));
+
+    // svs::io::spanstream is an in-memory stream.
+    char buffer[] = "span";
+    auto span = svs::io::ispanstream(std::span<char>{buffer});
+    CATCH_REQUIRE(svs::io::is_memory_stream(span));
 
     // std::ifstream is NOT an in-memory stream.
     auto ifs = std::ifstream(path);
@@ -234,5 +240,114 @@ CATCH_TEST_CASE("current_ptr", "[core][io][mmap]") {
         auto empty_iss = std::istringstream("");
         CATCH_REQUIRE(svs::io::is_memory_stream(empty_iss));
         CATCH_REQUIRE(svs::io::current_ptr<char>(empty_iss) == nullptr);
+    }
+}
+
+CATCH_TEST_CASE("spanstream current_ptr", "[core][io][mmap]") {
+    char text[] =
+        "Hello, world!"; // Note: not a string literal, so we can take its address.
+    auto iss = svs::io::ispanstream(std::span<char>{text});
+    auto* base_ptr = svs::io::current_ptr<char>(iss);
+    CATCH_REQUIRE(base_ptr != nullptr);
+    CATCH_REQUIRE(*base_ptr == 'H');
+
+    for (std::size_t i = 0; i < std::strlen(text); ++i) {
+        auto* current = svs::io::current_ptr<char>(iss);
+        auto* expected = text + i;
+        auto match = (current == expected) && (*current == text[i]);
+        CATCH_REQUIRE(match);
+        // CATCH_REQUIRE(svs::io::current_ptr<char>(iss) == text + i);
+        iss.ignore(1);
+    }
+
+    // After reading all characters, current_ptr should point to the null terminator.
+    CATCH_REQUIRE(svs::io::current_ptr<char>(iss) == text + std::strlen(text));
+    CATCH_REQUIRE(*svs::io::current_ptr<char>(iss) == '\0');
+}
+
+CATCH_TEST_CASE("ispanstream span() getter and setter", "[core][io][mmap]") {
+    char text1[] = "First";
+    char text2[] = "Second";
+
+    auto stream = svs::io::ispanstream(std::span<char>{text1});
+
+    // Test getter
+    auto s1 = stream.rdbuf()->span();
+    CATCH_REQUIRE(s1.data() == text1);
+    CATCH_REQUIRE(s1.size() == 6);
+
+    // Test setter with new span
+    stream.rdbuf()->span(std::span<char>{text2});
+    auto s2 = stream.rdbuf()->span();
+    CATCH_REQUIRE(s2.data() == text2);
+    CATCH_REQUIRE(s2.size() == 7);
+
+    // Verify position resets to beginning
+    CATCH_REQUIRE(svs::io::current_ptr<char>(stream) == text2);
+    CATCH_REQUIRE(*svs::io::current_ptr<char>(stream) == 'S');
+}
+
+CATCH_TEST_CASE("ispanstream with empty span", "[core][io][mmap]") {
+    std::span<char> empty;
+    auto stream = svs::io::ispanstream(empty);
+
+    CATCH_REQUIRE(stream.rdbuf()->span().empty());
+    CATCH_REQUIRE(svs::io::is_memory_stream(stream));
+    CATCH_REQUIRE(svs::io::current_ptr<char>(stream) == nullptr);
+    CATCH_REQUIRE(stream.rdbuf()->span().size() == 0);
+
+    // Setting non-empty span should work
+    char text[] = "data";
+    stream.rdbuf()->span(std::span<char>{text});
+    CATCH_REQUIRE(!stream.rdbuf()->span().empty());
+    CATCH_REQUIRE(svs::io::current_ptr<char>(stream) == text);
+}
+
+CATCH_TEST_CASE("MemoryStreamAllocator", "[core][io][mmap]") {
+    // Create a buffer with float data
+    float data[] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+
+    auto run_allocator_checks = [&](std::istream& stream) {
+        auto allocator = svs::io::MemoryStreamAllocator<float>(stream);
+
+        // Allocate 3 times, each time 2 floats
+        auto* p0 = allocator.allocate(2);
+        auto* p1 = allocator.allocate(2);
+        auto* p2 = allocator.allocate(2);
+
+        // Verify pointers are contiguous
+        CATCH_REQUIRE(p1 == p0 + 2);
+        CATCH_REQUIRE(p2 == p1 + 2);
+        CATCH_REQUIRE(p2 == p0 + 4);
+
+        // Verify data integrity
+        CATCH_REQUIRE(p0[0] == data[0]);
+        CATCH_REQUIRE(p0[1] == data[1]);
+        CATCH_REQUIRE(p1[0] == data[2]);
+        CATCH_REQUIRE(p1[1] == data[3]);
+        CATCH_REQUIRE(p2[0] == data[4]);
+        CATCH_REQUIRE(p2[1] == data[5]);
+    };
+
+    CATCH_SECTION("mmstream") {
+        auto path = svs_test::prepare_temp_directory_v2() / "allocator_contiguous.bin";
+        {
+            auto out = std::ofstream(path, std::ios::binary);
+            out.write(reinterpret_cast<const char*>(data), sizeof(data));
+        }
+        auto stream = svs::io::mmstream(path);
+        run_allocator_checks(stream);
+    }
+
+    CATCH_SECTION("ispanstream") {
+        auto bytes = std::span<char>{reinterpret_cast<char*>(data), sizeof(data)};
+        auto stream = svs::io::ispanstream(bytes);
+        run_allocator_checks(stream);
+    }
+
+    CATCH_SECTION("std::stringstream") {
+        auto stream = std::stringstream(std::ios::in | std::ios::out | std::ios::binary);
+        stream.write(reinterpret_cast<const char*>(data), sizeof(data));
+        run_allocator_checks(stream);
     }
 }
