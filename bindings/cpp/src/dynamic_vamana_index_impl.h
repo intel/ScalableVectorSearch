@@ -133,10 +133,12 @@ class DynamicVamanaIndexImpl {
         const auto initial_batch_hint = std::max(k, sws);
         auto initial_batch_size = initial_batch_hint;
         if (filter_estimate_batch) {
-            std::tie(sampled, sample_hits) =
-                sample_filter_hits(*filter, max_batch_size, [this](size_t id) {
-                    return impl_->has_id(id);
-                });
+            std::tie(sampled, sample_hits) = sample_filter_hits(
+                *filter,
+                max_batch_size,
+                [this](size_t id) { return impl_->has_id(id); },
+                sample_size_for_filter_stop(filter_stop)
+            );
             if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
                 pad_empty_results(result, queries.size(), k);
                 impl_->set_search_parameters(old_sp);

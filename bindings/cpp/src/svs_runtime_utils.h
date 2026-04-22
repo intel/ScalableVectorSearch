@@ -470,6 +470,17 @@ inline std::pair<size_t, size_t> sample_filter_hits(
     return {checked, hits};
 }
 
+// Compute sample size for filter hit rate estimation based on filter_stop.
+// Need at least 1/filter_stop samples to reliably distinguish hit rates around
+// the threshold (below that, noise dominates — e.g., 0.1% vs 0.2% both look
+// like 0 hits at sample_size=200).
+inline size_t sample_size_for_filter_stop(float filter_stop) {
+    if (filter_stop <= 0) {
+        return kFilterSampleSize;
+    }
+    return std::max(kFilterSampleSize, static_cast<size_t>(1.0f / filter_stop));
+}
+
 // Fill all result slots with unspecified values.
 // Required when early-exiting before search: the caller-allocated result buffer
 // may contain uninitialized data, so we must write valid "no result" markers.
