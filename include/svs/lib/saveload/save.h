@@ -22,6 +22,7 @@
 // svs
 #include "svs/lib/file.h"
 #include "svs/lib/readwrite.h"
+#include "svs/lib/stream.h"
 #include "svs/lib/version.h"
 
 // stl
@@ -319,6 +320,17 @@ void save_node_to_file(
     auto file = svs::lib::open_write(path, std::ios_base::out);
     file << top_table << "\n";
 }
+
+template <typename Nodelike>
+void save_node_to_stream(
+    Nodelike&& node, std::ostream& os, const lib::Version& version = CURRENT_SAVE_VERSION
+) {
+    auto top_table = toml::table(
+        {{config_version_key, version.str()}, {config_object_key, SVS_FWD(exit_hook(node))}}
+    );
+
+    StreamArchiver::write_table(os, top_table);
+}
 } // namespace detail
 
 ///
@@ -363,6 +375,25 @@ template <typename T> void save_to_disk(const T& x, const std::filesystem::path&
 template <typename T> void save_to_file(const T& x, const std::filesystem::path& path) {
     static_assert(SaveableContextFree<T>, "save_to_file requires context-free saving!");
     detail::save_node_to_file(lib::save(x), path);
+}
+
+inline void begin_serialization(std::ostream& os) {
+    lib::StreamArchiver::write_size(os, lib::StreamArchiver::magic_number);
+}
+
+inline void save_to_stream(const lib::SaveTable& x, std::ostream& os) {
+    detail::save_node_to_stream(x, os);
+}
+
+template <typename T> void save_to_stream(const T& x, std::ostream& os) {
+    if constexpr (requires { x.metadata(); }) {
+        save_to_stream(x.metadata(), os);
+        if constexpr (requires { x.save(os); }) {
+            x.save(os);
+        }
+    } else {
+        static_assert(sizeof(T) == 0, "Type not stream-serializable");
+    }
 }
 
 } // namespace svs::lib

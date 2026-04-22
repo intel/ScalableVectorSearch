@@ -34,6 +34,9 @@ class InvertedInterface {
         const std::filesystem::path& primary_data,
         const std::filesystem::path& primary_graph
     ) = 0;
+
+    ///// Saving
+    virtual void save_primary_index(std::ostream& os) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = InvertedInterface>
@@ -72,6 +75,8 @@ class InvertedImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     ) override {
         impl().save_primary_index(primary_config, primary_data, primary_graph);
     }
+
+    void save_primary_index(std::ostream& os) override { impl().save_primary_index(os); }
 };
 
 /////
@@ -105,6 +110,8 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
     ) {
         impl_->save_primary_index(primary_config, primary_data, primary_graph);
     }
+
+    void save_primary_index(std::ostream& os) { impl_->save_primary_index(os); }
 
     ///// Building
     template <
@@ -165,6 +172,30 @@ class Inverted : public manager::IndexManager<InvertedInterface> {
                 std::move(strategy),
                 index_config,
                 graph,
+                std::move(threadpool_proto)
+            )};
+    }
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename DataProto,
+        typename Distance,
+        typename ThreadPoolProto,
+        typename StorageStrategy = index::inverted::SparseStrategy>
+    static Inverted assemble_from_clustering(
+        std::istream& is,
+        DataProto data_proto,
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        StorageStrategy strategy = {}
+    ) {
+        return Inverted{
+            std::in_place,
+            manager::as_typelist<QueryTypes>{},
+            index::inverted::assemble_from_clustering(
+                is,
+                std::move(data_proto),
+                std::move(distance),
+                std::move(strategy),
                 std::move(threadpool_proto)
             )};
     }

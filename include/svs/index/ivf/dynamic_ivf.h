@@ -761,6 +761,34 @@ class DynamicIVFIndex {
         lib::save_to_disk(clusters_, clusters_dir);
     }
 
+    void save(std::ostream& os) {
+        // Compact before saving to remove empty slots
+        compact();
+
+        // Get data type configuration for automatic loader construction during load
+        auto data_type_config = DataTypeTraits<Data>::get_config();
+        data_type_config.centroid_type = datatype_v<typename centroids_type::element_type>;
+
+        lib::begin_serialization(os);
+
+        auto save_table = lib::SaveTable(
+            "dynamic_ivf_config",
+            save_version,
+            {{"name", lib::save(name())},
+             {"translation", lib::detail::exit_hook(translator_.metadata())},
+             {"num_clusters", lib::save(clusters_.size())}}
+        );
+        save_table.insert("data_type_config", lib::save(data_type_config));
+        lib::save_to_stream(save_table, os);
+        translator_.save(os);
+
+        // Save centroids
+        lib::save_to_stream(centroids_, os);
+
+        // Save clusters
+        lib::save_to_stream(clusters_, os);
+    }
+
   private:
     ///// Helper Methods /////
 
@@ -1221,6 +1249,56 @@ auto load_dynamic_ivf_index(
     svs::logging::debug(logger, "{}", timer);
 
     return index;
+}
+
+template <
+    typename CentroidType,
+    typename DataType,
+    typename Distance,
+    typename ThreadpoolProto>
+auto load_dynamic_ivf_index(
+    std::istream& is,
+    Distance distance,
+    ThreadpoolProto threadpool_proto,
+    const size_t intra_query_thread_count = 1,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    using centroids_type = data::SimpleData<CentroidType>;
+    using I = uint32_t;
+    using blocked_data_type = typename DataType::lib_blocked_alloc_data_type;
+    using cluster_type = DenseClusteredDataset<centroids_type, I, blocked_data_type>;
+
+    // Read config table and translator
+    auto table = lib::detail::read_metadata(is);
+
+    auto translation =
+        table.template cast<toml::table>().at("translation").template cast<toml::table>();
+    auto translator = IDTranslator::load(translation, is);
+
+    // Load centroids
+    auto centroids = lib::load_from_stream<centroids_type>(is);
+
+    // Load clusters with small block size allocator for IVF
+    auto blocking_params = data::BlockingParameters{
+        .blocksize_bytes = lib::PowerOfTwo(20) // 2^20 = 1MB
+    };
+    using allocator_type = typename blocked_data_type::allocator_type;
+    auto blocked_allocator =
+        allocator_type(blocking_params, typename allocator_type::allocator_type());
+
+    auto dense_clusters = lib::load_from_stream<cluster_type>(is, blocked_allocator);
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+
+    return DynamicIVFIndex<centroids_type, cluster_type, Distance, decltype(threadpool)>(
+        std::move(centroids),
+        std::move(dense_clusters),
+        std::move(translator),
+        std::move(distance),
+        std::move(threadpool),
+        intra_query_thread_count,
+        logger
+    );
 }
 
 } // namespace svs::index::ivf
