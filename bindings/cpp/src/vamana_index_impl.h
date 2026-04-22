@@ -124,15 +124,49 @@ class VamanaIndexImpl {
             get_impl()->set_search_parameters(old_sp);
         });
         get_impl()->set_search_parameters(sp);
+        float filter_stop = 0.1f;
+        bool filter_estimate_batch = true;
+        if (params) {
+            set_if_specified(filter_stop, params->filter_stop);
+            set_if_specified(filter_estimate_batch, params->filter_estimate_batch);
+        }
+        const auto max_batch_size = get_impl()->size();
+
+        // Pre-search filter sampling: estimate hit rate before graph traversal.
+        size_t sampled = 0;
+        size_t sample_hits = 0;
+        const auto sws = sp.buffer_config_.get_search_window_size();
+        const auto initial_batch_hint = std::max(k, sws);
+        auto initial_batch_size = initial_batch_hint;
+        if (filter_estimate_batch) {
+            std::tie(sampled, sample_hits) = sample_filter_hits(
+                *filter,
+                max_batch_size,
+                [](size_t) { return true; },
+                sample_size_for_filter_stop(filter_stop)
+            );
+            if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
+                pad_empty_results(result, queries.size(), k);
+                return;
+            }
+            initial_batch_size = predict_further_processing(
+                sampled, sample_hits, k, initial_batch_hint, max_batch_size
+            );
+        }
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
-                // For every query
                 auto query = queries.get_datum(i);
                 auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
+                size_t total_checked = 0;
+                auto batch_size = initial_batch_size;
                 do {
-                    iterator.next(k);
+                    batch_size = predict_further_processing(
+                        total_checked, found, k, batch_size, max_batch_size
+                    );
+                    iterator.next(batch_size);
+                    total_checked += iterator.size();
                     for (auto& neighbor : iterator.results()) {
                         if (filter->is_member(neighbor.id())) {
                             result.set(neighbor, i, found);
@@ -141,6 +175,10 @@ class VamanaIndexImpl {
                                 break;
                             }
                         }
+                    }
+                    if (should_stop_filtered_search(total_checked, found, filter_stop)) {
+                        found = 0;
+                        break;
                     }
                 } while (found < k && !iterator.done());
 
