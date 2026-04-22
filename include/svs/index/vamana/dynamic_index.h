@@ -20,6 +20,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -156,9 +157,10 @@ class MutableVamanaIndex {
     std::vector<SlotMetadata> status_;
     size_t first_empty_ = 0;
     IDTranslator translator_;
-    // Protects bookkeeping in add/delete/consolidate.
-    // Wrapped in unique_ptr because std::mutex is not movable.
-    std::unique_ptr<std::mutex> mutation_mutex_{std::make_unique<std::mutex>()};
+    // Protects translator access: exclusive for writes (add/consolidate/compact),
+    // shared for reads (delete/search). Wrapped in unique_ptr for movability.
+    std::unique_ptr<std::shared_mutex> translator_mutex_{
+        std::make_unique<std::shared_mutex>()};
 
     // Thread local data structures.
     distance_type distance_;
@@ -431,7 +433,7 @@ class MutableVamanaIndex {
     template <class Dims, class Base>
         requires(std::tuple_size_v<Dims> == 2)
     void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
-        // N.B.: lib::narrow_cast should be valid because the origin of the IDs is internal.
+        std::shared_lock lock{*translator_mutex_};
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{getsize<0>(ids)},
@@ -656,7 +658,7 @@ class MutableVamanaIndex {
         // bookkeeping phase (~5-50μs).
         std::vector<size_t> slots{};
         {
-            std::lock_guard lock{*mutation_mutex_};
+            std::lock_guard lock{*translator_mutex_};
 
             // Gather all empty slots.
             slots.reserve(num_points);
@@ -759,7 +761,7 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
-        std::lock_guard lock{*mutation_mutex_};
+        std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
         for (auto i : ids) {
             if (!translator_.has_external(i)) {
@@ -886,7 +888,7 @@ class MutableVamanaIndex {
 
         ///// Finishing steps.
         {
-            std::lock_guard lock{*mutation_mutex_};
+            std::lock_guard lock{*translator_mutex_};
             // Resize the graph and data.
             graph_.unsafe_resize(max_index);
             data_.resize(max_index);
@@ -1005,7 +1007,7 @@ class MutableVamanaIndex {
 
         // After consolidation - clean up deleted slots under lock.
         {
-            std::lock_guard lock{*mutation_mutex_};
+            std::lock_guard lock{*translator_mutex_};
             // Erase translator entries for deleted slots (deferred from delete_entries).
             std::vector<size_t> deleted_internal_ids;
             for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
