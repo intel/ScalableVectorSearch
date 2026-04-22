@@ -106,7 +106,7 @@ struct SVS_RUNTIME_API VamanaIndex {
     // The buffer is expected to be in the format produced by save().
     static Status map_to_memory(
         VamanaIndex** index,
-        const void* data,
+        void* data,
         size_t size,
         MetricType metric,
         StorageKind storage_kind

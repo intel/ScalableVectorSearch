@@ -160,7 +160,7 @@ Status VamanaIndex::map_to_file(
 
 Status VamanaIndex::map_to_memory(
     VamanaIndex** index,
-    const void* data,
+    void* data,
     size_t size,
     MetricType metric,
     StorageKind storage_kind
@@ -168,9 +168,8 @@ Status VamanaIndex::map_to_memory(
     using Impl = VamanaIndexImpl;
     *index = nullptr;
     return runtime_error_wrapper([&] {
-        auto is = std::make_unique<std::istringstream>(
-            std::string(static_cast<const char*>(data), size)
-        );
+        auto sp = std::span(reinterpret_cast<char*>(data), size);
+        auto is = std::make_unique<svs::io::ispanstream>(sp);
         std::unique_ptr<Impl> impl{
             Impl::map_to_stream(std::move(is), metric, storage_kind)};
         *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
