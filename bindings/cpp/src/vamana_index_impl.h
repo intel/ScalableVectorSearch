@@ -140,7 +140,7 @@ class VamanaIndexImpl {
         auto initial_batch_size = initial_batch_hint;
         if (filter_estimate_batch) {
             std::tie(sampled, sample_hits) =
-                sample_filter_hits_sequential(*filter, max_batch_size);
+                sample_filter_hits(*filter, max_batch_size, [](size_t) { return true; });
             if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
                 pad_empty_results(result, queries.size(), k);
                 return;

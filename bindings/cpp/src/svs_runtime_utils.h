@@ -436,51 +436,38 @@ should_stop_filtered_search(size_t total_checked, size_t found, float filter_sto
 // Default number of IDs to sample when estimating filter hit rate.
 constexpr size_t kFilterSampleSize = 200;
 
-// Sample IDs and count filter hits. Returns (actual_sample, hits).
-// id_lookup(index) maps a random index to an actual ID to check.
-// Returned pair can be fed directly to predict_further_processing() and
-// should_stop_filtered_search() — same math as hit rate comparisons.
-template <typename IdLookup>
-inline std::pair<size_t, size_t> sample_filter_hits_impl(
-    const IDFilter& filter,
-    size_t pool_size,
-    IdLookup id_lookup,
-    size_t sample_size = kFilterSampleSize
-) {
-    if (pool_size == 0) {
-        return {0, 0};
-    }
-    size_t actual_sample = std::min(sample_size, pool_size);
-    std::mt19937 rng(42);
-    std::uniform_int_distribution<size_t> dist(0, pool_size - 1);
-    size_t hits = 0;
-    for (size_t i = 0; i < actual_sample; ++i) {
-        if (filter.is_member(id_lookup(dist(rng)))) {
-            hits++;
-        }
-    }
-    return {actual_sample, hits};
-}
-
-// Sample from a container of valid IDs (dynamic index).
-template <typename IdContainer>
+// Sample random IDs from [0, total_ids) and count filter hits.
+// is_valid(id) is checked first; invalid IDs are skipped (for dynamic indices
+// where IDs may be deleted). Keeps sampling until sample_size valid IDs checked
+// or max_tries exhausted. Returns (checked, hits) — fed directly to
+// predict_further_processing() and should_stop_filtered_search().
+template <typename IsValid>
 inline std::pair<size_t, size_t> sample_filter_hits(
     const IDFilter& filter,
-    const IdContainer& all_ids,
+    size_t total_ids,
+    IsValid is_valid,
     size_t sample_size = kFilterSampleSize
 ) {
-    return sample_filter_hits_impl(
-        filter, all_ids.size(), [&](size_t i) { return all_ids[i]; }, sample_size
-    );
-}
-
-// Sample assuming sequential IDs [0, total_ids) (static index).
-inline std::pair<size_t, size_t> sample_filter_hits_sequential(
-    const IDFilter& filter, size_t total_ids, size_t sample_size = kFilterSampleSize
-) {
-    return sample_filter_hits_impl(
-        filter, total_ids, [](size_t i) { return i; }, sample_size
-    );
+    if (total_ids == 0) {
+        return {0, 0};
+    }
+    size_t target = std::min(sample_size, total_ids);
+    size_t max_tries = target * 4;
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<size_t> dist(0, total_ids - 1);
+    size_t hits = 0;
+    size_t checked = 0;
+    for (size_t tries = 0; checked < target && tries < max_tries; ++tries) {
+        size_t id = dist(rng);
+        if (!is_valid(id)) {
+            continue;
+        }
+        if (filter.is_member(id)) {
+            hits++;
+        }
+        checked++;
+    }
+    return {checked, hits};
 }
 
 // Fill all result slots with unspecified values.
