@@ -474,20 +474,6 @@ class SimpleData {
         );
     }
 
-    static SimpleData load(
-        const lib::ContextFreeLoadTable& table,
-        std::istream& is,
-        const allocator_type& allocator = {}
-    )
-        requires(!is_view)
-    {
-        return GenericSerializer::load<T>(
-            table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
-                return SimpleData(n_elements, n_dimensions, allocator);
-            })
-        );
-    }
-
     static SimpleData load(const lib::LoadTable& SVS_UNUSED(table))
         requires(is_view)
     {
@@ -495,6 +481,24 @@ class SimpleData {
             "Trying to load a SimpleData view without an istream. This is not supported "
             "since views are compatible only with in-memory streams."
         );
+    }
+
+    static SimpleData load(
+        const lib::ContextFreeLoadTable& table,
+        std::istream& is,
+        const allocator_type& allocator
+    ) {
+        return GenericSerializer::load<T>(
+            table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
+    }
+
+    static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
+        requires(!is_view)
+    {
+        return load(table, is, allocator_type{});
     }
 
     static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
@@ -510,13 +514,7 @@ class SimpleData {
                 "is not supported since views are compatible only with in-memory streams."
             );
         }
-
-        allocator_type allocator(is);
-        return GenericSerializer::load<T>(
-            table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
-                return SimpleData(n_elements, n_dimensions, allocator);
-            })
-        );
+        return load(table, is, allocator_type{is});
     }
 
     ///
