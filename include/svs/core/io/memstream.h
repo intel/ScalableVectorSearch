@@ -524,6 +524,10 @@ struct MemoryStreamAllocator {
         }
     }
 
+    template <typename U>
+    MemoryStreamAllocator(const MemoryStreamAllocator<U, CharT, Traits>& other)
+        : stream_(other.stream()) {}
+
     [[nodiscard]] pointer allocate(size_type n) {
         T* current = current_ptr<T>(stream_);
         if (current == nullptr) {
@@ -541,6 +545,8 @@ struct MemoryStreamAllocator {
     void deallocate(pointer, size_type) noexcept {
         // No-op since we don't own the memory.
     }
+
+    std::basic_istream<CharT, Traits>& stream() const noexcept { return stream_; }
 
   private:
     std::basic_istream<CharT, Traits>& stream_;
