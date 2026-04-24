@@ -415,11 +415,12 @@ class VamanaIndexImpl {
         }
     }
 
-    template <StorageKind Kind, typename Alloc>
+    template <StorageKind Kind, typename Alloc, typename... Args>
     static svs::Vamana* load_impl_t(
         storage::StorageType<Kind, Alloc>&& SVS_UNUSED(tag),
         std::istream& stream,
-        MetricType metric
+        MetricType metric,
+        Args&&... args
     ) {
         if constexpr (!storage::is_supported_storage_kind_v<Kind>) {
             throw StatusException(
@@ -430,7 +431,10 @@ class VamanaIndexImpl {
             auto threadpool = default_threadpool();
 
             return new svs::Vamana(svs::Vamana::assemble<float, storage_type>(
-                stream, to_svs_distance(metric), std::move(threadpool)
+                stream,
+                to_svs_distance(metric),
+                std::move(threadpool),
+                std::forward<Args>(args)...
             ));
         }
     }
@@ -464,7 +468,9 @@ class VamanaIndexImpl {
             storage_kind,
             [&](auto&& tag, std::unique_ptr<std::istream>&& in, MetricType metric) {
                 using Tag = std::decay_t<decltype(tag)>;
-                auto impl = load_impl_t(std::forward<Tag>(tag), *in, metric);
+                auto impl = load_impl_t(
+                    std::forward<Tag>(tag), *in, metric, map_allocator_type{*in}
+                );
                 return new VamanaIndexImpl(
                     std::unique_ptr<svs::Vamana>{impl}, metric, storage_kind, std::move(in)
                 );

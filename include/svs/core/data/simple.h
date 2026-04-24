@@ -463,15 +463,18 @@ class SimpleData {
     /// svs::lib::load_from_disk<svs::data::SimpleData<T, Extent>>("directory");
     /// @endcode
     ///
-    static SimpleData
-    load(const lib::LoadTable& table, const allocator_type& allocator = {})
-        requires(!is_view)
-    {
+    static SimpleData load(const lib::LoadTable& table, const allocator_type& allocator) {
         return GenericSerializer::load<T>(
             table, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
+    }
+
+    static SimpleData load(const lib::LoadTable& table)
+        requires(!is_view)
+    {
+        return load(table, allocator_type{});
     }
 
     static SimpleData load(const lib::LoadTable& SVS_UNUSED(table))
