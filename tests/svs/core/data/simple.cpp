@@ -23,6 +23,7 @@
 
 // stdlib
 #include <span>
+#include <sstream>
 #include <type_traits>
 
 // catch2
@@ -212,6 +213,53 @@ CATCH_TEST_CASE("Testing Simple Data", "[core][data]") {
         // Incorrect type.
         CATCH_REQUIRE_THROWS_AS(
             svs::data::ConstSimpleDataView<double>(y), svs::ANNException
+        );
+    }
+
+    CATCH_SECTION("Load SimpleDataView from stringstream") {
+        auto src = svs::data::SimpleData<float>(5, 4);
+        svs_test::data::set_sequential(src);
+
+        // Save binary data to a stringstream and seek to the beginning for reading.
+        auto ss = std::stringstream{};
+        src.save(ss);
+        ss.seekg(0);
+
+        // Build a ContextFreeLoadTable from the separately obtained metadata.
+        auto meta = src.metadata();
+        auto table = svs::lib::ContextFreeLoadTable(meta.get());
+
+        // Capture the pointer to the current read position inside the stream buffer.
+        auto* expected_ptr = svs::io::current_ptr<float>(ss);
+        CATCH_REQUIRE(expected_ptr != nullptr);
+
+        // Load the view — data_ must point into the stringstream's internal buffer.
+        auto view = svs::data::
+            SimpleData<float, svs::Dynamic, svs::io::MemoryStreamAllocator<float>>::load(
+                table, ss
+            );
+        CATCH_REQUIRE(view.data() == expected_ptr);
+        CATCH_REQUIRE(view.size() == src.size());
+        CATCH_REQUIRE(view.dimensions() == src.dimensions());
+        CATCH_REQUIRE(svs_test::data::is_sequential(view));
+    }
+
+    CATCH_SECTION("Load SimpleDataView throws on non-memory stream") {
+        auto src = svs::data::SimpleData<float>(3, 2);
+        auto meta = src.metadata();
+        auto table = svs::lib::ContextFreeLoadTable(meta.get());
+
+        // A std::istringstream backed by a pre-built string is a memory stream;
+        // use a custom non-memory streambuf to trigger the exception path.
+        struct NonMemStreamBuf : std::streambuf {};
+        NonMemStreamBuf buf;
+        std::istream non_mem_stream(&buf);
+        CATCH_REQUIRE_THROWS_AS(
+            (svs::data::SimpleData<
+                float,
+                svs::Dynamic,
+                svs::io::MemoryStreamAllocator<float>>::load(table, non_mem_stream)),
+            svs::ANNException
         );
     }
 }

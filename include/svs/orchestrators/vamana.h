@@ -469,7 +469,14 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
         auto deserializer = svs::lib::detail::Deserializer::build(stream);
         if (deserializer.is_native()) {
             auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
-            using GraphType = svs::GraphLoader<>::return_type;
+
+            using GraphType = std::conditional_t<
+                is_view_type_v<typename Data::allocator_type>,
+                graphs::SimpleGraph<
+                    uint32_t,
+                    lib::rebind_allocator_t<uint32_t, typename Data::allocator_type>>,
+                GraphLoader<>::return_type>;
+
             if constexpr (std::is_same_v<Distance, DistanceType>) {
                 auto dispatcher = DistanceDispatcher(distance);
                 return dispatcher([&](auto distance_function) {

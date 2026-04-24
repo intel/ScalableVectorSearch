@@ -19,6 +19,7 @@
 // svs
 #include "svs/concepts/data.h"
 #include "svs/core/io.h"
+#include "svs/core/io/memstream.h"
 
 #include "svs/lib/array.h"
 #include "svs/lib/exception.h"
@@ -44,6 +45,11 @@ struct DefaultWriteAccessor {
     reader(const Data& SVS_UNUSED(data), const File& file) const {
         using T = typename Data::element_type;
         return file.reader(lib::Type<T>());
+    }
+
+    template <data::MemoryDataset Data>
+    lib::VectorReader<typename Data::element_type> vector_reader(const Data& data) const {
+        return lib::VectorReader<typename Data::element_type>(data.dimensions());
     }
 
     template <data::MemoryDataset Data, lib::AnySpanLike Span>
@@ -79,16 +85,13 @@ void populate_impl(
     }
 }
 
-template <data::MemoryDataset Data> void populate(std::istream& is, Data& data) {
-    auto accessor = DefaultWriteAccessor();
-
+template <data::MemoryDataset Data, typename WriteAccessor>
+void populate(Data& data, WriteAccessor&& accessor, std::istream& is) {
     size_t num_vectors = data.size();
-    size_t dims = data.dimensions();
-
     auto max_lines = Dynamic;
     auto nvectors = std::min(num_vectors, max_lines);
 
-    auto reader = lib::VectorReader<typename Data::element_type>(dims);
+    auto reader = accessor.vector_reader(data);
     for (size_t i = 0; i < nvectors; ++i) {
         reader.read(is);
         accessor.set(data, i, reader.data());
@@ -194,12 +197,33 @@ lib::lazy_result_t<F, size_t, size_t> load_dataset(const File& file, const F& la
     return load_impl(detail::to_native(file), default_accessor, lazy);
 }
 
+template <typename WriteAccessor, lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t> load_dataset(
+    std::istream& is,
+    WriteAccessor&& accessor,
+    const F& lazy,
+    size_t num_vectors,
+    size_t dims
+) {
+    auto data = lazy(num_vectors, dims);
+    if constexpr (!is_view_type_v<typename std::decay_t<decltype(data)>::allocator_type>) {
+        populate(data, std::forward<WriteAccessor>(accessor), is);
+    } else {
+        if (!is_memory_stream(is)) {
+            throw ANNEXCEPTION("Trying to load a dataset with a view allocator from a "
+                               "non-memory stream. This "
+                               "is not supported since views are compatible only with "
+                               "memory-mapped streams.");
+        }
+    }
+    return data;
+}
+
 template <lib::LazyInvocable<size_t, size_t> F>
 lib::lazy_result_t<F, size_t, size_t>
 load_dataset(std::istream& is, const F& lazy, size_t num_vectors, size_t dims) {
-    auto data = lazy(num_vectors, dims);
-    populate(is, data);
-    return data;
+    auto accessor = DefaultWriteAccessor();
+    return load_dataset(is, accessor, lazy, num_vectors, dims);
 }
 
 // Return whether or not a file is directly loadable via file-extension.
