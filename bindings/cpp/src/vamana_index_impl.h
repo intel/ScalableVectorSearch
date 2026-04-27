@@ -124,7 +124,7 @@ class VamanaIndexImpl {
             get_impl()->set_search_parameters(old_sp);
         });
         get_impl()->set_search_parameters(sp);
-        float filter_stop = 0.1f;
+        float filter_stop = 0.0f;
         bool filter_estimate_batch = true;
         if (params) {
             set_if_specified(filter_stop, params->filter_stop);
