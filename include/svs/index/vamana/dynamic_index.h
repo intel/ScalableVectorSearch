@@ -157,6 +157,10 @@ class MutableVamanaIndex {
     std::vector<SlotMetadata> status_;
     size_t first_empty_ = 0;
     IDTranslator translator_;
+    // Count of Valid slots. Maintained atomically in add_points/delete_entry.
+    // Wrapped in unique_ptr because std::atomic is not movable.
+    std::unique_ptr<std::atomic<size_t>> num_valid_{
+        std::make_unique<std::atomic<size_t>>(0)};
     // Protects translator access: exclusive for writes (add/consolidate/compact),
     // shared for reads (delete/search). Wrapped in unique_ptr for movability.
     std::unique_ptr<std::shared_mutex> translator_mutex_{
@@ -200,6 +204,7 @@ class MutableVamanaIndex {
         , status_(data_.size(), SlotMetadata::Valid)
         , first_empty_{data_.size()}
         , translator_()
+        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
@@ -227,6 +232,7 @@ class MutableVamanaIndex {
         , status_(data_.size(), SlotMetadata::Valid)
         , first_empty_{data_.size()}
         , translator_()
+        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
         , search_parameters_(vamana::construct_default_search_parameters(data_))
@@ -293,6 +299,7 @@ class MutableVamanaIndex {
         , status_{data_.size(), SlotMetadata::Valid}
         , first_empty_{data_.size()}
         , translator_{std::move(translator)}
+        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
         , search_parameters_{config.search_parameters}
@@ -368,7 +375,15 @@ class MutableVamanaIndex {
     ///
     /// @brief Check whether the external ID `e` exists in the index.
     ///
-    bool has_id(size_t e) const { return translator_.has_external(e); }
+    bool has_id(size_t e) const {
+        if (!translator_.has_external(e)) {
+            return false;
+        }
+        // Check slot is not Deleted (deferred translator cleanup).
+        auto internal = translator_.get_internal(e);
+        return std::atomic_ref<const SlotMetadata>(status_[internal])
+                   .load(std::memory_order_acquire) == SlotMetadata::Valid;
+    }
 
     ///
     /// @brief Get the external ID mapped to be `i`.
@@ -390,8 +405,13 @@ class MutableVamanaIndex {
     ///     each external ID in the index.
     ///
     template <typename F> void on_ids(F&& f) const {
+        // Skip entries whose slot is Deleted (deferred translator cleanup).
         for (auto pair : translator_) {
-            f(pair.first);
+            auto internal = pair.second;
+            if (std::atomic_ref<const SlotMetadata>(status_[internal])
+                    .load(std::memory_order_acquire) == SlotMetadata::Valid) {
+                f(pair.first);
+            }
         }
     }
 
@@ -405,11 +425,7 @@ class MutableVamanaIndex {
     }
 
     /// @brief Return the number of **valid** (non-deleted) entries in the index.
-    size_t size() const {
-        // NB: Index translation should always be kept in-sync with the number of valid
-        // elements.
-        return translator_.size();
-    }
+    size_t size() const { return num_valid_->load(std::memory_order_acquire); }
 
     ///
     /// @brief Translate in-place a collection of internal IDs to external IDs.
@@ -734,6 +750,7 @@ class MutableVamanaIndex {
             std::atomic_ref<SlotMetadata>(status_[i])
                 .store(SlotMetadata::Valid, std::memory_order_release);
         }
+        num_valid_->fetch_add(slots.size(), std::memory_order_acq_rel);
 
         return slots;
     }
@@ -778,10 +795,17 @@ class MutableVamanaIndex {
 
     void delete_entry(size_t i) {
         auto& meta = getindex(status_, i);
-        // allow silent double-deletions, requred for concurent deletions
-        std::atomic_ref<SlotMetadata>(meta).store(
-            SlotMetadata::Deleted, std::memory_order_release
-        );
+        // CAS Valid → Deleted. Only the thread that successfully transitions
+        // decrements num_valid_; double-deletes silently no-op.
+        SlotMetadata expected = SlotMetadata::Valid;
+        if (std::atomic_ref<SlotMetadata>(meta).compare_exchange_strong(
+                expected,
+                SlotMetadata::Deleted,
+                std::memory_order_acq_rel,
+                std::memory_order_relaxed
+            )) {
+            num_valid_->fetch_sub(1, std::memory_order_acq_rel);
+        }
     }
 
     bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
