@@ -537,6 +537,9 @@ template <typename T, typename Dims, ViewAllocator Alloc> class DenseArray<T, Di
     using const_span = std::span<const T, detail::getextent<Dims>>;
     using span = std::span<T, detail::getextent<Dims>>;
 
+    // Get the underlying allocator.
+    const allocator_type& get_allocator() const { return allocator_; }
+
     /// @brief Return the extent of the span returned for `slice`.
     static constexpr size_t extent() { return array_impl::extent<Dims>(); }
 
@@ -651,15 +654,19 @@ template <typename T, typename Dims, ViewAllocator Alloc> class DenseArray<T, Di
     /////
 
     explicit DenseArray(Dims dims, pointer ptr)
+        requires(std::is_same_v<Alloc, View<T>>)
         : pointer_{ptr}
-        , dims_{std::move(dims)} {}
+        , dims_{std::move(dims)}
+        , allocator_{ptr} {}
 
     explicit DenseArray(Dims dims, Alloc allocator)
-        : DenseArray{std::move(dims), nullptr} {
+        : pointer_{nullptr}
+        , dims_{std::move(dims)}
+        , allocator_{allocator} {
         if constexpr (std::is_same_v<Alloc, View<T>>) {
-            pointer_ = allocator.ptr;
+            pointer_ = allocator_.ptr;
         } else {
-            pointer_ = std::allocator_traits<allocator_type>::allocate(allocator, size());
+            pointer_ = std::allocator_traits<allocator_type>::allocate(allocator_, size());
         }
     }
 
@@ -692,6 +699,7 @@ template <typename T, typename Dims, ViewAllocator Alloc> class DenseArray<T, Di
   private:
     pointer pointer_{nullptr};
     [[no_unique_address]] Dims dims_{};
+    [[no_unique_address]] Alloc allocator_;
 };
 
 template <size_t I, typename T, typename Dims, typename Alloc>

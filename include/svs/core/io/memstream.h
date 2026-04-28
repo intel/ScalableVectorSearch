@@ -515,9 +515,13 @@ struct MemoryStreamAllocator {
     using reference = T&;
     using const_reference = const T&;
 
-    MemoryStreamAllocator(std::basic_istream<CharT, Traits>& stream)
-        : stream_(stream) {
-        if (!is_memory_stream(stream_)) {
+    using stream_type = std::basic_istream<CharT, Traits>;
+
+    MemoryStreamAllocator() = default;
+
+    MemoryStreamAllocator(stream_type& stream)
+        : stream_(&stream) {
+        if (!is_memory_stream(*stream_)) {
             throw std::invalid_argument(
                 "MemoryStreamAllocator requires a memory-backed stream."
             );
@@ -526,17 +530,20 @@ struct MemoryStreamAllocator {
 
     template <typename U>
     MemoryStreamAllocator(const MemoryStreamAllocator<U, CharT, Traits>& other)
-        : stream_(other.stream()) {}
+        : stream_(&other.stream()) {}
 
     [[nodiscard]] pointer allocate(size_type n) {
-        T* current = current_ptr<T>(stream_);
+        if (stream_ == nullptr) {
+            throw std::runtime_error("MemoryStreamAllocator is not properly initialized.");
+        }
+        T* current = current_ptr<T>(*stream_);
         if (current == nullptr) {
             throw std::runtime_error("Failed to obtain current pointer from memory stream."
             );
         }
         pointer result = current;
-        stream_.seekg(n * sizeof(T), std::ios_base::cur);
-        if (!stream_) {
+        stream_->seekg(n * sizeof(T), std::ios_base::cur);
+        if (!*stream_) {
             throw std::runtime_error("Failed to advance memory stream after allocation.");
         }
         return result;
@@ -546,10 +553,10 @@ struct MemoryStreamAllocator {
         // No-op since we don't own the memory.
     }
 
-    std::basic_istream<CharT, Traits>& stream() const noexcept { return stream_; }
+    stream_type& stream() const noexcept { return *stream_; }
 
   private:
-    std::basic_istream<CharT, Traits>& stream_;
+    stream_type* stream_ = nullptr;
 };
 
 } // namespace io
