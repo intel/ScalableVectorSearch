@@ -255,10 +255,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// * ``get_node_degree(src) == max_degree()`` (adjacency list is already full)
     /// * ``dst`` is already an out-neighbor of ``src``.
     ///
-    size_t add_edge(Idx src, Idx dst) {
+    AddEdgeResult add_edge(Idx src, Idx dst) {
         // Don't assign a node as its own neighbor.
         if (src == dst) {
-            return get_node_degree(src);
+            return AddEdgeResult::AlreadyExists;
         }
 
         if constexpr (checkbounds_v) {
@@ -280,7 +280,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         std::span<Idx> raw_data = data_.get_datum(src);
         Idx current_size = raw_data.front();
         if (current_size == max_degree_) {
-            return current_size;
+            return AddEdgeResult::Full;
         }
 
         // At this point, we know there is room.
@@ -299,7 +299,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         auto it = std::find(begin, end - 1, dst);
         // auto it = std::lower_bound(begin, end - 1, dst);
         if (it != end - 1 && (*it == dst)) {
-            return current_size;
+            return AddEdgeResult::AlreadyExists;
         }
 
         auto seq = seq_counters_[src].begin_write();
@@ -314,7 +314,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         std::atomic_ref<Idx>(raw_data.front()).store(new_size, std::memory_order_relaxed);
 
         seq_counters_[src].end_write(seq);
-        return new_size;
+        return AddEdgeResult::Added;
     }
 
     /// Return the maximum out-degree this graph is capable of containing.

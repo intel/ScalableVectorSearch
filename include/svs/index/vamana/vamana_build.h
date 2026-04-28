@@ -491,11 +491,11 @@ class VamanaBuilder {
             [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
                 for (auto node_id : is) {
                     for (auto other_id : graph_.get_node(node_id)) {
-                        // graph_.add_edge: per-node SpinLock inside graph.
-                        // backedge_buffer_.add_edge: per-bucket mutex inside buffer.
-                        if (graph_.get_node_degree(other_id) < params_.graph_max_degree) {
-                            graph_.add_edge(other_id, node_id);
-                        } else {
+                        // graph_.add_edge is atomic under node_locks_[other_id].
+                        // If it reports Full, route to the overflow buffer —
+                        // no TOCTOU race between a pre-check and the insert.
+                        if (graph_.add_edge(other_id, node_id) ==
+                            graphs::AddEdgeResult::Full) {
                             backedge_buffer_.add_edge(other_id, node_id);
                         }
                     }
