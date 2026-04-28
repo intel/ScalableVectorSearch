@@ -363,7 +363,8 @@ class IVFIndexImpl {
     void search(
         svs::QueryResultView<size_t> result,
         svs::data::ConstSimpleDataView<float> queries,
-        const IVFIndex::SearchParams* params = nullptr
+        const IVFIndex::SearchParams* params = nullptr,
+        IDFilter* filter = nullptr
     ) const {
         if (!impl_) {
             auto& dists = result.distances();
@@ -383,7 +384,85 @@ class IVFIndexImpl {
         }
 
         auto sp = make_search_parameters(params);
-        impl_->search(result, queries, sp);
+
+        // Simple search
+        if (filter == nullptr) {
+            impl_->search(result, queries, sp);
+            return;
+        }
+
+        // Selective search with IDFilter: use batch iterator to over-fetch and
+        // filter per-neighbor, mirroring the Vamana approach.
+        auto old_sp = impl_->get_search_parameters();
+        auto sp_restore = svs::lib::make_scope_guard([&]() noexcept {
+            impl_->set_search_parameters(old_sp);
+        });
+        impl_->set_search_parameters(sp);
+
+        float filter_stop = 0.0f;
+        bool filter_estimate_batch = true;
+        if (params) {
+            set_if_specified(filter_stop, params->filter_stop);
+            set_if_specified(filter_estimate_batch, params->filter_estimate_batch);
+        }
+        const auto max_batch_size = impl_->size();
+
+        // Pre-search filter sampling: estimate hit rate before cluster traversal.
+        size_t sampled = 0;
+        size_t sample_hits = 0;
+        const auto initial_batch_hint = std::max(k, size_t{1});
+        auto initial_batch_size = initial_batch_hint;
+        if (filter_estimate_batch) {
+            std::tie(sampled, sample_hits) = sample_filter_hits(
+                *filter,
+                max_batch_size,
+                [](size_t) { return true; },
+                sample_size_for_filter_stop(filter_stop)
+            );
+            if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
+                pad_empty_results(result, queries.size(), k);
+                return;
+            }
+            initial_batch_size = predict_further_processing(
+                sampled, sample_hits, k, initial_batch_hint, max_batch_size
+            );
+        }
+
+        for (size_t i = 0; i < queries.size(); ++i) {
+            auto query = queries.get_datum(i);
+            auto iterator =
+                impl_->batch_iterator(std::span<const float>(query.data(), query.size()));
+            size_t found = 0;
+            size_t total_checked = 0;
+            auto batch_size = initial_batch_size;
+            do {
+                batch_size = predict_further_processing(
+                    total_checked, found, k, batch_size, max_batch_size
+                );
+                iterator.next(batch_size);
+                total_checked += iterator.size();
+                for (const auto& neighbor : iterator.results()) {
+                    if (filter->is_member(neighbor.id())) {
+                        result.set(neighbor, i, found);
+                        ++found;
+                        if (found == k) {
+                            break;
+                        }
+                    }
+                }
+                if (should_stop_filtered_search(total_checked, found, filter_stop)) {
+                    found = 0;
+                    break;
+                }
+            } while (found < k && !iterator.done());
+
+            // Pad results if not enough neighbors found
+            for (size_t j = found; j < k; ++j) {
+                result.set(
+                    svs::Neighbor<size_t>{Unspecify<size_t>(), Unspecify<float>()}, i, j
+                );
+            }
+        }
     }
 
     void save(std::ostream& out) const {
@@ -409,6 +488,24 @@ class IVFIndexImpl {
             return impl_->get_num_threads();
         }
         return num_threads_;
+    }
+
+    void set_intra_query_threads(size_t intra_query_threads) {
+        if (intra_query_threads == 0) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "intra_query_threads must be at least 1"};
+        }
+        intra_query_threads_ = intra_query_threads;
+        if (impl_) {
+            impl_->set_num_intra_query_threads(intra_query_threads);
+        }
+    }
+
+    size_t get_intra_query_threads() const {
+        if (impl_) {
+            return impl_->get_num_intra_query_threads();
+        }
+        return intra_query_threads_;
     }
 
     static IVFIndexImpl* load(
