@@ -19,9 +19,11 @@
 #include "spdlog/sinks/callback_sink.h"
 #include "svs-benchmark/datasets.h"
 #include "svs/lib/timing.h"
+#include "svs/orchestrators/inverted.h"
 #include "tests/utils/inverted_reference.h"
 #include "tests/utils/test_dataset.h"
 #include <filesystem>
+#include <sstream>
 
 CATCH_TEST_CASE("InvertedIndex Logging Test", "[long][logging]") {
     // Vector to store captured log messages
@@ -72,4 +74,77 @@ CATCH_TEST_CASE("InvertedIndex Logging Test", "[long][logging]") {
     CATCH_REQUIRE(global_captured_logs.empty());
     CATCH_REQUIRE(captured_logs[0].find("Vamana Build Parameters:") != std::string::npos);
     CATCH_REQUIRE(captured_logs[1].find("Number of syncs") != std::string::npos);
+}
+
+namespace {
+constexpr size_t NUM_NEIGHBORS = 10;
+
+template <typename Strategy> void test_stream_save_load(Strategy strategy) {
+    auto distance = svs::DistanceL2();
+    constexpr auto distance_type = svs::distance_type_v<svs::DistanceL2>;
+    auto expected_results = test_dataset::inverted::expected_build_results(
+        distance_type, svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+    auto build_parameters = expected_results.build_parameters_.value();
+
+    // Capture the clustering during build.
+    svs::index::inverted::Clustering<uint32_t> clustering;
+    auto clustering_op = [&](const auto& c) { clustering = c; };
+
+    svs::Inverted index = svs::Inverted::build<float>(
+        build_parameters,
+        svs::data::SimpleData<float>::load(test_dataset::data_svs_file()),
+        distance,
+        2,
+        strategy,
+        svs::index::inverted::PickRandomly{},
+        clustering_op
+    );
+
+    auto queries = svs::data::SimpleData<float>::load(test_dataset::query_file());
+    auto parameters = index.get_search_parameters();
+    auto results = index.search(queries, NUM_NEIGHBORS);
+
+    // Serialize to stream.
+    std::stringstream ss;
+    svs::lib::save_to_stream(clustering, ss);
+    index.save_primary_index(ss);
+
+    // Load from stream.
+    svs::Inverted loaded = svs::Inverted::assemble_from_clustering<svs::lib::Types<float>>(
+        ss,
+        svs::data::SimpleData<float>::load(test_dataset::data_svs_file()),
+        distance,
+        2,
+        strategy
+    );
+    loaded.set_search_parameters(parameters);
+
+    // Compare basic properties.
+    CATCH_REQUIRE(loaded.size() == index.size());
+    CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+
+    // Compare search results element-wise.
+    auto loaded_results = loaded.search(queries, NUM_NEIGHBORS);
+    CATCH_REQUIRE(loaded_results.n_queries() == results.n_queries());
+    CATCH_REQUIRE(loaded_results.n_neighbors() == results.n_neighbors());
+    for (size_t q = 0; q < results.n_queries(); ++q) {
+        for (size_t i = 0; i < NUM_NEIGHBORS; ++i) {
+            CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+            CATCH_REQUIRE(
+                loaded_results.distance(q, i) ==
+                Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+            );
+        }
+    }
+}
+} // namespace
+
+CATCH_TEST_CASE("InvertedIndex Save and Load", "[saveload][inverted][index]") {
+    CATCH_SECTION("SparseStrategy") {
+        test_stream_save_load(svs::index::inverted::SparseStrategy());
+    }
+    CATCH_SECTION("DenseStrategy") {
+        test_stream_save_load(svs::index::inverted::DenseStrategy());
+    }
 }

@@ -334,27 +334,36 @@ class IDTranslator {
         "external_to_internal_translation";
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
 
-    lib::SaveTable save(const lib::SaveContext& ctx) const {
-        auto filename = ctx.generate_name("id_translation", "binary");
-        // Save the translations to a file.
-        auto stream = lib::open_write(filename);
-        for (auto i = begin(), iend = end(); i != iend; ++i) {
-            // N.B.: Apparently `std::pair` of integers is not trivially copyable ...
-            lib::write_binary(stream, i->first);
-            lib::write_binary(stream, i->second);
-        }
+    lib::SaveTable metadata() const {
         return lib::SaveTable(
             serialization_schema,
             save_version,
             {{"kind", kind},
              {"num_points", lib::save(size())},
              {"external_id_type", lib::save(datatype_v<external_id_type>)},
-             {"internal_id_type", lib::save(datatype_v<internal_id_type>)},
-             {"filename", lib::save(filename.filename())}}
+             {"internal_id_type", lib::save(datatype_v<internal_id_type>)}}
         );
     }
 
-    static IDTranslator load(const lib::LoadTable& table) {
+    void save(std::ostream& os) const {
+        for (auto i = begin(), iend = end(); i != iend; ++i) {
+            // N.B.: Apparently `std::pair` of integers is not trivially copyable ...
+            lib::write_binary(os, i->first);
+            lib::write_binary(os, i->second);
+        }
+    }
+
+    lib::SaveTable save(const lib::SaveContext& ctx) const {
+        auto filename = ctx.generate_name("id_translation", "binary");
+        // Save the translations to a file.
+        auto os = lib::open_write(filename);
+        save(os);
+        auto table = metadata();
+        table.insert("filename", lib::save(filename.filename()));
+        return table;
+    }
+
+    static void validate(const lib::ContextFreeLoadTable& table) {
         if (kind != lib::load_at<std::string>(table, "kind")) {
             throw ANNEXCEPTION("Mismatched kind!");
         }
@@ -367,19 +376,29 @@ class IDTranslator {
         if (internal_id_name != lib::load_at<std::string>(table, "internal_id_type")) {
             throw ANNEXCEPTION("Mismatched internal id types!");
         }
+    }
 
-        // Now that we've more-or-less validated the metadata, time to start loading
-        // the points.
+    static IDTranslator load(const lib::ContextFreeLoadTable& table, std::istream& is) {
+        IDTranslator::validate(table);
         auto num_points = lib::load_at<size_t>(table, "num_points");
+
         auto translator = IDTranslator{};
-        auto resolved = table.resolve_at("filename");
-        auto stream = lib::open_read(resolved);
         for (size_t i = 0; i < num_points; ++i) {
-            auto external_id = lib::read_binary<external_id_type>(stream);
-            auto internal_id = lib::read_binary<internal_id_type>(stream);
+            auto external_id = lib::read_binary<external_id_type>(is);
+            auto internal_id = lib::read_binary<internal_id_type>(is);
             translator.insert_translation(external_id, internal_id);
         }
         return translator;
+    }
+
+    static IDTranslator load(const lib::LoadTable& table) {
+        IDTranslator::validate(table);
+
+        // Now that we've more-or-less validated the metadata, time to start loading
+        // the points.
+        auto resolved = table.resolve_at("filename");
+        auto is = lib::open_read(resolved);
+        return IDTranslator::load(table, is);
     }
 
   private:

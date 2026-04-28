@@ -92,10 +92,9 @@ void write_and_read_index(
     svs::runtime::v0::Status status = build_func(&index);
 
     // Stop here if storage kind is not supported on this platform
-    if constexpr (std::is_same_v<Index, svs::runtime::v0::DynamicVamanaIndex>) {
+    if constexpr (std::is_base_of_v<svs::runtime::v0::VamanaIndex, Index>) {
         if (storage_kind.has_value()) {
-            if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(*storage_kind)
-                     .ok()) {
+            if (!Index::check_storage_kind(*storage_kind).ok()) {
                 CATCH_REQUIRE(!status.ok());
                 return;
             }
@@ -105,7 +104,7 @@ void write_and_read_index(
     CATCH_REQUIRE(index != nullptr);
 
     // Add data to index
-    if constexpr (std::is_same_v<Index, svs::runtime::v0::FlatIndex>) {
+    if constexpr (std::is_same_v<Index, svs::runtime::v0::FlatIndex> || std::is_same_v<Index, svs::runtime::v0::VamanaIndex>) {
         status = index->add(n, xb.data());
     } else {
         std::vector<size_t> labels(n);
@@ -502,6 +501,122 @@ CATCH_TEST_CASE("SearchWithIDFilter", "[runtime]") {
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
+CATCH_TEST_CASE("SearchWithRestrictiveFilter", "[runtime][filtered_search]") {
+    const auto& test_data = get_test_data();
+    // Build index
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    size_t min_id = 0;
+    size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status =
+        index->search(nq, xq, k, distances.data(), result_labels.data(), nullptr, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    // All returned labels must fall inside the filter range
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels[i])) {
+            CATCH_REQUIRE(result_labels[i] >= min_id);
+            CATCH_REQUIRE(result_labels[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("FilterStopEarlyExit", "[runtime][filtered_search]") {
+    const auto& test_data = get_test_data();
+    // Build index
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    size_t min_id = 0;
+    size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    // Set filter_stop = 0.5 (50%). With ~10% hit rate, search should give up
+    // and return unspecified results.
+    svs::runtime::v0::VamanaIndex::SearchParams search_params;
+    search_params.filter_stop = 0.5f;
+
+    status = index->search(
+        nq, xq, k, distances.data(), result_labels.data(), &search_params, &filter
+    );
+    CATCH_REQUIRE(status.ok());
+
+    // All results should be unspecified (early exit returned empty)
+    for (int i = 0; i < nq * k; ++i) {
+        CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
+    }
+
+    // Now search without filter_stop — should find valid results
+    std::vector<float> distances2(nq * k);
+    std::vector<size_t> result_labels2(nq * k);
+
+    status = index->search(
+        nq, xq, k, distances2.data(), result_labels2.data(), nullptr, &filter
+    );
+    CATCH_REQUIRE(status.ok());
+
+    // Should have valid results in the filter range
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels2[i])) {
+            CATCH_REQUIRE(result_labels2[i] >= min_id);
+            CATCH_REQUIRE(result_labels2[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
 CATCH_TEST_CASE("RangeSearchFunctional", "[runtime]") {
     const auto& test_data = get_test_data();
     // Build index
@@ -674,4 +789,211 @@ CATCH_TEST_CASE("SetIfSpecifiedUtility", "[runtime]") {
         set_if_specified(target, false);
         CATCH_REQUIRE(target == false);
     }
+}
+
+CATCH_TEST_CASE("WriteAndReadStaticIndexSVS", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::VamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        return svs::runtime::v0::VamanaIndex::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::FP32,
+            build_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::VamanaIndex>(
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP32
+    );
+}
+
+CATCH_TEST_CASE("WriteAndReadStaticIndexSVSFP16", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::VamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        return svs::runtime::v0::VamanaIndex::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::FP16,
+            build_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::VamanaIndex>(
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::FP16
+    );
+}
+
+CATCH_TEST_CASE("WriteAndReadStaticIndexSVSSQI8", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::VamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        return svs::runtime::v0::VamanaIndex::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::SQI8,
+            build_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::VamanaIndex>(
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::SQI8
+    );
+}
+
+CATCH_TEST_CASE("WriteAndReadStaticIndexSVSLVQ4x4", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::VamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        return svs::runtime::v0::VamanaIndex::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::LVQ4x4,
+            build_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::VamanaIndex>(
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LVQ4x4
+    );
+}
+
+CATCH_TEST_CASE("WriteAndReadStaticIndexSVSVamanaLeanVec4x4", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::VamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        return svs::runtime::v0::VamanaIndexLeanVec::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::LeanVec4x4,
+            32,
+            build_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::VamanaIndex>(
+        build_func, test_data, test_n, test_d, svs::runtime::v0::StorageKind::LeanVec4x4
+    );
+}
+
+CATCH_TEST_CASE("StaticIndexLeanVecWithTrainingData", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    const size_t leanvec_dims = 32;
+    // Build LeanVec index with explicit training
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+
+    // Prepare training data
+    svs::runtime::v0::LeanVecTrainingData* training_data = nullptr;
+    svs::runtime::v0::Status status = svs::runtime::v0::LeanVecTrainingData::build(
+        &training_data, test_d, test_n, test_data.data(), leanvec_dims
+    );
+    if (!svs::runtime::v0::VamanaIndexLeanVec::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x4
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+
+    status = svs::runtime::v0::VamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x4,
+        training_data,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
+    svs::runtime::v0::LeanVecTrainingData::destroy(training_data);
+}
+
+CATCH_TEST_CASE("SearchWithIDFilterStatic", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    // Build index
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::VamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Second attempt to add data should fail on static index
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(!status.ok());
+
+    const int nq = 8;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    size_t min_id = test_n / 5;
+    size_t max_id = test_n * 4 / 5;
+    test_utils::IDFilterRange selector(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    status = index->search(
+        nq, xq, k, distances.data(), result_labels.data(), nullptr, &selector
+    );
+    CATCH_REQUIRE(status.ok());
+
+    // All returned labels must fall inside the selected range
+    for (int i = 0; i < nq * k; ++i) {
+        CATCH_REQUIRE(result_labels[i] >= min_id);
+        CATCH_REQUIRE(result_labels[i] < max_id);
+    }
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("RangeSearchFunctionalStatic", "[runtime][static_vamana]") {
+    const auto& test_data = get_test_data();
+    // Build index
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::VamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Add data
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+
+    // Small radius search
+    test_utils::TestResultsAllocator allocator_small;
+    status = index->range_search(nq, xq, 0.05f, allocator_small);
+    CATCH_REQUIRE(status.ok());
+
+    // Larger radius to exercise loop continuation
+    test_utils::TestResultsAllocator allocator_big;
+    status = index->range_search(nq, xq, 5.0f, allocator_big);
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
 }

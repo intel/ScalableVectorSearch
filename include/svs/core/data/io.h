@@ -79,6 +79,22 @@ void populate_impl(
     }
 }
 
+template <data::MemoryDataset Data> void populate(std::istream& is, Data& data) {
+    auto accessor = DefaultWriteAccessor();
+
+    size_t num_vectors = data.size();
+    size_t dims = data.dimensions();
+
+    auto max_lines = Dynamic;
+    auto nvectors = std::min(num_vectors, max_lines);
+
+    auto reader = lib::VectorReader<typename Data::element_type>(dims);
+    for (size_t i = 0; i < nvectors; ++i) {
+        reader.read(is);
+        accessor.set(data, i, reader.data());
+    }
+}
+
 // Intercept the native file to perform dispatch on the actual file type.
 template <data::MemoryDataset Data, typename WriteAccessor>
 void populate_impl(
@@ -118,6 +134,15 @@ template <data::ImmutableMemoryDataset Dataset, typename File>
 void save(const Dataset& data, const File& file, const lib::UUID& uuid = lib::ZeroUUID) {
     auto accessor = DefaultReadAccessor();
     return save(data, accessor, file, uuid);
+}
+
+template <data::ImmutableMemoryDataset Dataset>
+void save(const Dataset& data, std::ostream& os) {
+    auto accessor = DefaultReadAccessor();
+    auto writer = svs::io::v1::StreamWriter<void>(os);
+    for (size_t i = 0; i < data.size(); ++i) {
+        writer << accessor.get(data, i);
+    }
 }
 
 ///
@@ -167,6 +192,14 @@ template <typename File, lib::LazyInvocable<size_t, size_t> F>
 lib::lazy_result_t<F, size_t, size_t> load_dataset(const File& file, const F& lazy) {
     auto default_accessor = DefaultWriteAccessor();
     return load_impl(detail::to_native(file), default_accessor, lazy);
+}
+
+template <lib::LazyInvocable<size_t, size_t> F>
+lib::lazy_result_t<F, size_t, size_t>
+load_dataset(std::istream& is, const F& lazy, size_t num_vectors, size_t dims) {
+    auto data = lazy(num_vectors, dims);
+    populate(is, data);
+    return data;
 }
 
 // Return whether or not a file is directly loadable via file-extension.
