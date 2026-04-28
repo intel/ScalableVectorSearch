@@ -430,6 +430,15 @@ template <typename T, typename CharT, typename Traits = std::char_traits<CharT>>
     }
     auto raw = detail::StreambufAccessor<CharT, Traits>::get(buf);
 
+    // Return nullptr if the current position is misaligned for the requested type T, to
+    // avoid undefined behavior on dereference.
+    if (reinterpret_cast<std::uintptr_t>(raw) % alignof(T) != 0) {
+        assert(
+            false && "current_ptr: current position is misaligned for the requested type T"
+        );
+        return nullptr;
+    }
+
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<T*>(raw);
 }
@@ -542,7 +551,11 @@ struct MemoryStreamAllocator {
             );
         }
         pointer result = current;
-        stream_->seekg(n * sizeof(T), std::ios_base::cur);
+
+        // check for overflow:
+        auto off = lib::narrow<typename stream_type::off_type>(n * sizeof(T));
+
+        stream_->seekg(off, std::ios_base::cur);
         if (!*stream_) {
             throw std::runtime_error("Failed to advance memory stream after allocation.");
         }

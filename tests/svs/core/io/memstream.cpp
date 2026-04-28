@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <span>
@@ -256,7 +257,6 @@ CATCH_TEST_CASE("spanstream current_ptr", "[core][io][mmap]") {
         auto* expected = text + i;
         auto match = (current == expected) && (*current == text[i]);
         CATCH_REQUIRE(match);
-        // CATCH_REQUIRE(svs::io::current_ptr<char>(iss) == text + i);
         iss.ignore(1);
     }
 
