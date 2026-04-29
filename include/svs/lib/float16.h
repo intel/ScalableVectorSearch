@@ -56,10 +56,14 @@ inline uint16_t float_to_float16_untyped_slow(const float x) {
     const uint32_t b = bitcast_float_to_uint32(x) + 0x00001000;
     const uint32_t e = (b & 0x7F800000) >> 23; // exponent
     const uint32_t m = b & 0x007FFFFF;         // mantissa
+    // Compute denormalized shift safely: only valid when 101 < e < 113,
+    // which means shift amount (125 - e) is in range [13, 23].
+    // Clamp e to avoid undefined behavior when e > 125 or e < 102.
+    const uint32_t safe_e = (e > 101 && e < 113) ? e : 112;
     return (b & 0x80000000) >> 16 |
            static_cast<uint32_t>(e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) |
            static_cast<uint32_t>((e < 113) && (e > 101)) *
-               ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1) |
+               ((((0x007FF000 + m) >> (125 - safe_e)) + 1) >> 1) |
            static_cast<uint32_t>(e > 143) *
                0x7FFF; // sign : normalized : denormalized : saturate
 }

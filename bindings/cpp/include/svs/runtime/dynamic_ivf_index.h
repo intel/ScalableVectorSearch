@@ -24,7 +24,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 /// @brief Abstract interface for dynamic IVF indices (supports add/delete).
 struct SVS_RUNTIME_API DynamicIVFIndex : public IVFIndex {
@@ -69,8 +69,8 @@ struct SVS_RUNTIME_API DynamicIVFIndex : public IVFIndex {
     /// @param x Pointer to vector data (row-major, n x dimensions).
     /// @param reuse_empty Whether to reuse empty slots from deleted vectors.
     /// @return Status indicating success or error.
-    virtual Status
-    add(size_t n, const size_t* labels, const float* x, bool reuse_empty = false
+    virtual Status add(
+        size_t n, const size_t* labels, const float* x, bool reuse_empty = false
     ) noexcept = 0;
 
     /// @brief Remove vectors from the index by ID.
