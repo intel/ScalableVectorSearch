@@ -23,7 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 // Abstract interface for Flat indices.
 struct SVS_RUNTIME_API FlatIndex {

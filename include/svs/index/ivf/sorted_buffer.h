@@ -139,7 +139,7 @@ template <typename Idx, typename Cmp = std::less<>> class SortedBuffer {
     /// @brief Return ``true`` if a neighbor with the given distance can be skipped.
     ///
     bool can_skip(float distance) const {
-        return compare_(back().distance(), distance) && full();
+        return full() && compare_(back().distance(), distance);
     }
 
     ///

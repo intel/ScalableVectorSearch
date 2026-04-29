@@ -32,7 +32,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 class OptionalBool {
     enum class Value : int8_t { Undef = -1, True = 1, False = 0 };

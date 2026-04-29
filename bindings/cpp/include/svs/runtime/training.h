@@ -23,7 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 struct SVS_RUNTIME_API LeanVecTrainingData {
     virtual ~LeanVecTrainingData();
