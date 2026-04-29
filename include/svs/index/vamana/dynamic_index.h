@@ -707,8 +707,14 @@ class MutableVamanaIndex {
             }
             assert(slots.size() == num_points);
 
-            // Update the id translation.
-            translator_.insert(external_ids, slots);
+            // Update the id translation. Overwrite any stale mappings where
+            // the old internal slot is no longer Valid (delete_entries defers
+            // translator cleanup; consolidate or this path eventually does it).
+            translator_
+                .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
+                    return std::atomic_ref<const SlotMetadata>(status_[internal])
+                               .load(std::memory_order_acquire) != SlotMetadata::Valid;
+                });
 
             // Copy data and clear adjacency lists.
             copy_points(points, slots);
@@ -1033,9 +1039,11 @@ class MutableVamanaIndex {
         {
             std::lock_guard lock{*translator_mutex_};
             // Erase translator entries for deleted slots (deferred from delete_entries).
+            // Skip entries already absent — add_points with replace_stale_and_insert
+            // may have reassigned the external ID and erased the stale reverse entry.
             std::vector<size_t> deleted_internal_ids;
             for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-                if (status_[i] == SlotMetadata::Deleted) {
+                if (status_[i] == SlotMetadata::Deleted && translator_.has_internal(i)) {
                     deleted_internal_ids.push_back(i);
                 }
             }
