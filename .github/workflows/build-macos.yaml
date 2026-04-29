@@ -36,10 +36,10 @@ jobs:
     strategy:
       matrix:
         build_type: [RelWithDebugInfo]
-        cxx: [clang++-19]
+        cxx: [clang++-20]
         include:
-        - cxx: clang++-19
-          package: llvm@19
+        - cxx: clang++-20
+          package: llvm@20
           cc_name: clang
           cxx_name: clang++
           needs_prefix: true
