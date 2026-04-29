@@ -355,13 +355,20 @@ struct StorageFactory<LeanVecStorageType> {
         Pool& pool,
         const Alloc& alloc = {},
         size_t leanvec_d = 0,
-        std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
+        std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt,
+        bool leanvec_primary_only = false
     ) {
         if (leanvec_d == 0) {
             leanvec_d = (data.dimensions() + 1) / 2;
         }
         return LeanVecStorageType::reduce(
-            data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}, alloc
+            data,
+            std::move(matrices),
+            pool,
+            0,
+            svs::lib::MaybeStatic{leanvec_d},
+            alloc,
+            leanvec_primary_only
         );
     }
 };
