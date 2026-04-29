@@ -113,8 +113,8 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     const_reference get_node(Idx i) const {
         // Get the raw data.
         std::span<const Idx> raw_data = data_.get_datum(i);
-        Idx num_neighbors =
-            std::atomic_ref<const Idx>(raw_data.front()).load(std::memory_order_relaxed);
+        Idx num_neighbors = std::atomic_ref<Idx>(const_cast<Idx&>(raw_data.front()))
+                                .load(std::memory_order_relaxed);
         // Clamp to max_degree to safely handle torn reads of the length field.
         num_neighbors = std::min(num_neighbors, max_degree_);
 
@@ -151,7 +151,7 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     /// @brief Return the current out degree of vertex ``i``.
     ///
     size_t get_node_degree(Idx i) const {
-        return std::atomic_ref<const Idx>(data_.get_datum(i).front())
+        return std::atomic_ref<Idx>(const_cast<Idx&>(data_.get_datum(i).front()))
             .load(std::memory_order_relaxed);
     }
 

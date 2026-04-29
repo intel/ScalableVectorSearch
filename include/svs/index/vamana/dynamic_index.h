@@ -100,8 +100,9 @@ class ValidBuilder {
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool invalid = std::atomic_ref<const SlotMetadata>(getindex(status_, i))
-                           .load(std::memory_order_acquire) == SlotMetadata::Deleted;
+        bool invalid =
+            std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(getindex(status_, i)))
+                .load(std::memory_order_acquire) == SlotMetadata::Deleted;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
@@ -381,7 +382,7 @@ class MutableVamanaIndex {
         }
         // Check slot is not Deleted (deferred translator cleanup).
         auto internal = translator_.get_internal(e);
-        return std::atomic_ref<const SlotMetadata>(status_[internal])
+        return std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal]))
                    .load(std::memory_order_acquire) == SlotMetadata::Valid;
     }
 
@@ -408,7 +409,7 @@ class MutableVamanaIndex {
         // Skip entries whose slot is Deleted (deferred translator cleanup).
         for (auto pair : translator_) {
             auto internal = pair.second;
-            if (std::atomic_ref<const SlotMetadata>(status_[internal])
+            if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal]))
                     .load(std::memory_order_acquire) == SlotMetadata::Valid) {
                 f(pair.first);
             }
@@ -712,7 +713,9 @@ class MutableVamanaIndex {
             // translator cleanup; consolidate or this path eventually does it).
             translator_
                 .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
-                    return std::atomic_ref<const SlotMetadata>(status_[internal])
+                    return std::atomic_ref<SlotMetadata>(
+                               const_cast<SlotMetadata&>(status_[internal])
+                           )
                                .load(std::memory_order_acquire) != SlotMetadata::Valid;
                 });
 

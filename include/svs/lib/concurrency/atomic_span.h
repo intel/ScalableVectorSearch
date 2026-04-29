@@ -26,7 +26,7 @@ namespace svs {
 /// @brief A non-owning, zero-copy view over a contiguous range of ``T`` that performs
 /// atomic loads on every element access.
 ///
-/// Each dereference uses ``std::atomic_ref<const T>::load(std::memory_order_relaxed)``.
+/// Each dereference uses ``std::atomic_ref<T>::load(std::memory_order_relaxed)``.
 /// On x86, this compiles to a plain MOV instruction — identical to non-atomic access.
 ///
 /// This type is designed to be used as a drop-in replacement for ``std::span<const T>``
@@ -47,7 +47,8 @@ template <typename T> class AtomicSpan {
             : ptr_(p) {}
 
         value_type operator*() const {
-            return std::atomic_ref<const value_type>(*ptr_).load(std::memory_order_relaxed);
+            return std::atomic_ref<value_type>(const_cast<value_type&>(*ptr_))
+                .load(std::memory_order_relaxed);
         }
 
         iterator& operator++() {
@@ -77,7 +78,8 @@ template <typename T> class AtomicSpan {
     const T* data() const { return data_; }
 
     value_type operator[](size_t i) const {
-        return std::atomic_ref<const value_type>(data_[i]).load(std::memory_order_relaxed);
+        return std::atomic_ref<value_type>(const_cast<value_type&>(data_[i]))
+            .load(std::memory_order_relaxed);
     }
 
     iterator begin() const { return iterator{data_}; }
