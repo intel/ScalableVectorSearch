@@ -117,6 +117,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/svs/core/io/vecs.cpp
     ${TEST_DIR}/svs/core/io/binary.cpp
     ${TEST_DIR}/svs/core/io/native.cpp
+    ${TEST_DIR}/svs/core/io/memstream.cpp
     ${TEST_DIR}/svs/core/io.cpp
     ${TEST_DIR}/svs/core/loading.cpp
     ${TEST_DIR}/svs/core/logging.cpp
