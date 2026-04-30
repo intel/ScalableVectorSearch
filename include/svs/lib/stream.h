@@ -62,6 +62,22 @@ struct StreamArchiver : Archiver<StreamArchiver> {
         // but Apple's Clang 15 doesn't support std::stringbuf::view()
         lib::StreamArchiver::size_type tablesize = detail::get_buffer_size(ss);
 
+        // Get the current position in the stream and compute the padding characters needed
+        // to align the (table + tablesize values) to a cache line boundary.
+        auto pos = os.tellp();
+        // check if position is valid before using it. If it's not valid, we can assume that
+        // the stream is at the beginning and thus doesn't need padding.
+        pos = std::max(pos, decltype(pos)(0));
+
+        auto padding = (lib::StreamArchiver::CACHELINE_BYTES -
+                        (static_cast<size_t>(pos) + sizeof(tablesize) + tablesize) %
+                            lib::StreamArchiver::CACHELINE_BYTES) %
+                       lib::StreamArchiver::CACHELINE_BYTES;
+
+        ss << std::string(padding, ' ');
+        // recompute tablesize after adding padding.
+        tablesize = detail::get_buffer_size(ss);
+
         lib::StreamArchiver::write_size(os, tablesize);
         os << ss.rdbuf();
         if (!os) {
