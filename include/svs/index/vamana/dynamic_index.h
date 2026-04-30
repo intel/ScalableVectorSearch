@@ -67,7 +67,15 @@ class MultiMutableVamanaIndex;
 ///
 /// Only used for `MutableVamanaIndex`.
 ///
-enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 };
+enum class SlotMetadata : uint8_t {
+    Empty = 0x00,
+    Valid = 0x01,
+    Deleted = 0x02,
+    // Reserved by an in-flight add_points: slot owned by the adder, vector
+    // copied, adjacency list being built. Invisible to search, consolidate,
+    // and subsequent add_points until promoted to Valid.
+    Pending = 0x04,
+};
 
 template <SlotMetadata Metadata> inline constexpr std::string_view name();
 template <> inline constexpr std::string_view name<SlotMetadata::Empty>() {
@@ -79,6 +87,9 @@ template <> inline constexpr std::string_view name<SlotMetadata::Valid>() {
 template <> inline constexpr std::string_view name<SlotMetadata::Deleted>() {
     return "Deleted";
 }
+template <> inline constexpr std::string_view name<SlotMetadata::Pending>() {
+    return "Pending";
+}
 
 // clang-format off
 inline constexpr std::string_view name(SlotMetadata metadata) {
@@ -87,6 +98,7 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
         SVS_SWITCH_RETURN(SlotMetadata::Empty)
         SVS_SWITCH_RETURN(SlotMetadata::Valid)
         SVS_SWITCH_RETURN(SlotMetadata::Deleted)
+        SVS_SWITCH_RETURN(SlotMetadata::Pending)
     }
     #undef SVS_SWITCH_RETURN
     throw ANNEXCEPTION("Unreachable!");
@@ -100,9 +112,13 @@ class ValidBuilder {
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
+        // A neighbor is returnable only if its slot is Valid. Deleted slots
+        // must be skipped; Pending slots are reserved by an in-flight add and
+        // their vectors/edges are not yet fully published. Empty slots should
+        // never be reached via a valid edge, but we defend anyway.
         bool invalid =
             std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(getindex(status_, i)))
-                .load(std::memory_order_acquire) == SlotMetadata::Deleted;
+                .load(std::memory_order_acquire) != SlotMetadata::Valid;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
@@ -708,20 +724,31 @@ class MutableVamanaIndex {
             }
             assert(slots.size() == num_points);
 
-            // Update the id translation. Overwrite any stale mappings where
-            // the old internal slot is no longer Valid (delete_entries defers
-            // translator cleanup; consolidate or this path eventually does it).
+            // Update the id translation. An existing mapping is stale only if
+            // the old slot is Deleted (delete_entries defers translator
+            // cleanup; consolidate normally drains those entries). A Pending
+            // slot belongs to an in-flight adder and MUST NOT be treated as
+            // stale — that would clobber the other adder's mapping.
             translator_
                 .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
                     return std::atomic_ref<SlotMetadata>(
                                const_cast<SlotMetadata&>(status_[internal])
                            )
-                               .load(std::memory_order_acquire) != SlotMetadata::Valid;
+                               .load(std::memory_order_acquire) == SlotMetadata::Deleted;
                 });
 
             // Copy data and clear adjacency lists.
             copy_points(points, slots);
             clear_lists(slots);
+
+            // Stamp the reserved slots as Pending before releasing the lock.
+            // Pending signals "reserved by an in-flight add; do not touch"
+            // to concurrent consolidate, delete, and add. Promoted to Valid
+            // after VamanaBuilder::construct finishes below.
+            for (auto s : slots) {
+                std::atomic_ref<SlotMetadata>(status_[s])
+                    .store(SlotMetadata::Pending, std::memory_order_release);
+            }
 
             if (!slots.empty()) {
                 first_empty_ = std::max(first_empty_, slots.back() + 1);
@@ -804,20 +831,40 @@ class MutableVamanaIndex {
 
     void delete_entry(size_t i) {
         auto& meta = getindex(status_, i);
-        // CAS Valid → Deleted. Only the thread that successfully transitions
-        // decrements num_valid_; double-deletes silently no-op.
-        SlotMetadata expected = SlotMetadata::Valid;
-        if (std::atomic_ref<SlotMetadata>(meta).compare_exchange_strong(
-                expected,
-                SlotMetadata::Deleted,
-                std::memory_order_acq_rel,
-                std::memory_order_relaxed
-            )) {
-            num_valid_->fetch_sub(1, std::memory_order_acq_rel);
+        auto ref = std::atomic_ref<SlotMetadata>(meta);
+        // CAS Valid → Deleted. If the slot is Pending (concurrent adder still
+        // in phase 2), wait for the adder to promote it to Valid before we
+        // can soft-delete; otherwise the delete would be silently lost. Only
+        // the thread that successfully transitions decrements num_valid_;
+        // double-deletes silently no-op.
+        for (;;) {
+            SlotMetadata expected = SlotMetadata::Valid;
+            if (ref.compare_exchange_strong(
+                    expected,
+                    SlotMetadata::Deleted,
+                    std::memory_order_acq_rel,
+                    std::memory_order_relaxed
+                )) {
+                num_valid_->fetch_sub(1, std::memory_order_acq_rel);
+                return;
+            }
+            if (expected != SlotMetadata::Pending) {
+                // Already Deleted or Empty — no-op.
+                return;
+            }
+            // Pending: adder's Pending → Valid store is imminent; spin.
+            svs::detail::pause();
         }
     }
 
-    bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
+    bool is_deleted(size_t i) const {
+        // True only for slots that have been soft-deleted. Pending (in-flight
+        // add) and Empty are NOT deleted: consolidate must not prune them out
+        // of other nodes' adjacency lists, and search already filters
+        // non-Valid slots via ValidBuilder.
+        return std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
+                   .load(std::memory_order_acquire) == SlotMetadata::Deleted;
+    }
 
     Idx entry_point() const {
         assert(entry_point_.size() == 1);
@@ -825,15 +872,21 @@ class MutableVamanaIndex {
     }
 
     ///
-    /// @brief Return all the non-missing internal IDs.
+    /// @brief Return all internal IDs whose slot is Valid (live).
     ///
-    /// This includes both valid and soft-deleted entries.
-    ///
+    /// Used by compact() to pick the surviving set. Pending slots (in-flight
+    /// adds) are excluded — compact is only safe to run when the caller has
+    /// ensured no Pending slots exist (compact holds translator_mutex_
+    /// exclusive, which prevents a new add from entering phase 1, but an add
+    /// that reached phase 2 before compact grabbed the lock may still be
+    /// publishing status Pending → Valid; the compact caller must quiesce
+    /// these adds first).
     std::vector<Idx> nonmissing_indices() const {
         auto indices = std::vector<Idx>();
         indices.reserve(size());
         for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (!is_deleted(i)) {
+            if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
+                    .load(std::memory_order_acquire) == SlotMetadata::Valid) {
                 indices.push_back(i);
             }
         }
@@ -1313,6 +1366,11 @@ class MutableVamanaIndex {
                     return allow_deleted;
                 }
                 case SlotMetadata::Empty: {
+                    return false;
+                }
+                case SlotMetadata::Pending: {
+                    // In-flight add: edges may be only partially published.
+                    // Treat as not-yet-live for consistency checking.
                     return false;
                 }
             }
