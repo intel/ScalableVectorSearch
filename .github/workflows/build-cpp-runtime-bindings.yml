@@ -125,4 +125,4 @@ jobs:
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash .github/scripts/test-faiss.sh
+            /bin/bash .github/scripts/test-cpp-runtime-bindings.sh
