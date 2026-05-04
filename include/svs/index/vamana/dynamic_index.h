@@ -389,6 +389,15 @@ class MutableVamanaIndex {
     ///
     Idx translate_external_id(size_t e) const { return translator_.get_internal(e); }
 
+    /// @brief Translate external ID, returning `default_val` if not mapped.
+    ///
+    /// Unlike `translate_external_id`, this does not throw on a missing key.
+    /// Intended for best-effort readers (e.g. search buffer top-up) that may
+    /// race with `consolidate()` erasing translator entries.
+    Idx translate_external_id_or(size_t e, Idx default_val) const {
+        return translator_.get_internal_or(e, default_val);
+    }
+
     ///
     /// @brief Check whether the external ID `e` exists in the index.
     ///
@@ -484,7 +493,13 @@ class MutableVamanaIndex {
     ///
     /// @brief Get the raw data for external id `e`.
     ///
-    auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
+    auto get_datum(size_t e) const {
+        std::shared_lock lock{*translator_mutex_};
+        if (!translator_.has_external(e)) {
+            throw ANNEXCEPTION("External ID {} not found in index!", e);
+        }
+        return data_.get_datum(translator_.get_internal(e));
+    }
 
     ///
     /// @brief Return the dimensionality of the stored dataset.
@@ -1269,6 +1284,11 @@ class MutableVamanaIndex {
             );
         }
 
+        // Hold the shared lock across bounds-check and parallel_for so a
+        // concurrent `consolidate()` cannot erase a translator entry between
+        // the presence check and the `translate_external_id` lookup below.
+        std::shared_lock lock{*translator_mutex_};
+
         // Bounds checking.
         for (size_t i = 0; i < ids_size; ++i) {
             I id = ids[i]; // inbounds by loop bounds.
@@ -1405,6 +1425,11 @@ class MutableVamanaIndex {
     /// @brief Compute the distance between an external vector and a vector in the index.
     template <typename ExternalId, typename Query>
     double get_distance(const ExternalId& external_id, const Query& query) const {
+        // Hold the shared lock across presence check and translation — prevents
+        // a concurrent `consolidate()` from erasing the translator entry
+        // between the two map lookups.
+        std::shared_lock lock{*translator_mutex_};
+
         // Check if the external ID exists
         if (!has_id(external_id)) {
             throw ANNEXCEPTION(

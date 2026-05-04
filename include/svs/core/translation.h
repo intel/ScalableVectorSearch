@@ -243,6 +243,16 @@ class IDTranslator {
         return it->second;
     }
 
+    /// @brief Return the internal ID, or a default if not found.
+    internal_id_type
+    get_internal_or(external_id_type e, internal_id_type default_val) const {
+        auto it = external_to_internal_.find(e);
+        if (it == external_to_internal_.end()) {
+            return default_val;
+        }
+        return it->second;
+    }
+
     ///
     /// @brief Return a start forward iterator over the external->internal IDs.
     ///
