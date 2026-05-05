@@ -295,6 +295,79 @@ class MutableVamanaIndex {
         , use_full_search_history_{config.build_parameters.use_full_search_history}
         , logger_{std::move(logger)} {}
 
+    /// @brief Tag type used to disambiguate the "transplant" constructor.
+    ///
+    /// See `MutableVamanaIndex(TransplantTag, ...)` for the rationale.
+    struct TransplantTag {};
+
+    /// @brief Transplant constructor: build a `MutableVamanaIndex` over a freshly
+    /// constructed `Data` while reusing graph/translator/status/entry_point from a prior
+    /// instance.
+    ///
+    /// This is the building block for "deferred compression": once enough vectors have
+    /// been accumulated in an uncompressed dynamic index, the caller can train a
+    /// compressed dataset from the accumulated vectors, then transplant the existing
+    /// graph (and bookkeeping structures) onto a new index whose `Data` template
+    /// parameter is the compressed type, avoiding a graph rebuild.
+    ///
+    /// Preconditions
+    /// * ``data.size() == graph.n_nodes() == status.size()``
+    /// * ``translator`` covers exactly the slots marked ``SlotMetadata::Valid`` (or
+    ///   ``Deleted``) in ``status``.
+    /// * The graph type and distance type are compatible with the new ``data``.
+    ///
+    /// The new instance recomputes ``first_empty_`` from ``status``.
+    template <typename Pool>
+    MutableVamanaIndex(
+        TransplantTag SVS_UNUSED(tag),
+        Data data,
+        Graph graph,
+        std::vector<SlotMetadata> status,
+        entry_point_type entry_point,
+        IDTranslator translator,
+        Dist distance_function,
+        Pool threadpool,
+        const VamanaBuildParameters& build_parameters,
+        const VamanaSearchParameters& search_parameters,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : graph_{std::move(graph)}
+        , data_{std::move(data)}
+        , entry_point_{std::move(entry_point)}
+        , status_{std::move(status)}
+        , first_empty_{0}
+        , translator_{std::move(translator)}
+        , distance_{std::move(distance_function)}
+        , threadpool_{threads::as_threadpool(std::move(threadpool))}
+        , search_parameters_{search_parameters}
+        , construction_window_size_{build_parameters.window_size}
+        , max_candidates_{build_parameters.max_candidate_pool_size}
+        , prune_to_{build_parameters.prune_to}
+        , alpha_{build_parameters.alpha}
+        , use_full_search_history_{build_parameters.use_full_search_history}
+        , build_parameters_{build_parameters}
+        , logger_{std::move(logger)} {
+        // Validate size invariants up front so a bad transplant fails loudly rather
+        // than silently corrupting later operations.
+        if (data_.size() != graph_.n_nodes() || data_.size() != status_.size()) {
+            throw ANNEXCEPTION(
+                "Transplant size mismatch: data={}, graph={}, status={}",
+                data_.size(),
+                graph_.n_nodes(),
+                status_.size()
+            );
+        }
+        // Recompute ``first_empty_`` from ``status_`` so subsequent ``add_points`` calls
+        // correctly find slots to reuse.
+        first_empty_ = status_.size();
+        for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+            if (status_[i] == SlotMetadata::Empty) {
+                first_empty_ = i;
+                break;
+            }
+        }
+    }
+
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
         return scratchspace_type{
@@ -1178,6 +1251,36 @@ class MutableVamanaIndex {
 
     const Data& view_data() const { return data_; }
     const Graph& view_graph() const { return graph_; }
+
+    /////
+    ///// Release / move-out accessors (for the "transplant" / deferred-compression path).
+    /////
+    ///
+    /// These are rvalue-qualified to make the "this object is being consumed" contract
+    /// explicit. The matching `MutableVamanaIndex(TransplantTag, ...)` constructor
+    /// accepts each piece by value, so callers can hand the released members in cheaply
+    /// without copying multi-gigabyte graphs/translators.
+    ///
+    /// Typical use:
+    /// ```
+    /// auto data       = std::move(old).release_data();   // training input
+    /// auto graph      = std::move(old).release_graph();
+    /// auto status     = std::move(old).release_status();
+    /// auto entry      = std::move(old).release_entry_point();
+    /// auto translator = std::move(old).release_translator();
+    /// // ... train new compressed dataset from `data` ...
+    /// // ... old is destroyed; build new index via TransplantTag ...
+    /// ```
+    Graph release_graph() && { return std::move(graph_); }
+    Data release_data() && { return std::move(data_); }
+    entry_point_type release_entry_point() && { return std::move(entry_point_); }
+    std::vector<SlotMetadata> release_status() && { return std::move(status_); }
+    IDTranslator release_translator() && { return std::move(translator_); }
+    Dist release_distance() && { return std::move(distance_); }
+    threads::ThreadPoolHandle release_threadpool() && { return std::move(threadpool_); }
+
+    /// @brief View the build parameters captured at construction.
+    const VamanaBuildParameters& view_build_parameters() const { return build_parameters_; }
 
     ///
     /// @brief Verify the invariants of this data structure.

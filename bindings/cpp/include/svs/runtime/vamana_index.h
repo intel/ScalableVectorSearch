@@ -52,6 +52,29 @@ struct SVS_RUNTIME_API VamanaIndex {
 
     struct DynamicIndexParams {
         size_t blocksize_exp = 30;
+
+        /// @brief Threshold (in number of valid vectors) at which to train and switch
+        /// from ``initial_storage_kind`` to the dynamic index's target storage kind.
+        ///
+        /// When ``0`` (the default) deferred compression is **disabled** and the index is
+        /// built directly with the requested compressed storage kind (current eager
+        /// behavior, fully backward compatible).
+        ///
+        /// When ``> 0`` and the requested target storage kind is a *trained* compressed
+        /// type (LVQ / LeanVec / SQ), the index is initially built using
+        /// ``initial_storage_kind`` (uncompressed). Once the live valid-vector count
+        /// reaches this threshold, statistics are trained from the accumulated data,
+        /// the dataset is replaced with the trained compressed form, and the existing
+        /// graph + ID translation are reused (no graph rebuild).
+        size_t deferred_compression_threshold = 0;
+
+        /// @brief Storage kind used while accumulating vectors below the delayed
+        /// compression threshold. Must be an *untrained* type (FP32 or FP16).
+        ///
+        /// Defaults to FP32. Ignored when
+        /// ``deferred_compression_threshold == 0`` or the target storage kind itself is
+        /// already untrained.
+        StorageKind initial_storage_kind = StorageKind::FP32;
     };
 
     virtual Status add(size_t n, const float* x) noexcept = 0;

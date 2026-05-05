@@ -68,6 +68,15 @@ class DynamicVamanaImpl : public VamanaImpl<QueryTypes, Impl, DynamicVamanaInter
     explicit DynamicVamanaImpl(Args&&... args)
         : base_type{std::forward<Args>(args)...} {}
 
+    /// @brief Public accessor for the contained concrete index.
+    ///
+    /// Re-exposes `base_type::impl` (which is `protected` in `ManagerImpl`) so that
+    /// `svs::DynamicVamana::get_typed_impl<QueryTypes, Impl>()` can return a usable
+    /// pointer to the underlying `MutableVamanaIndex<...>` for the deferred-compression
+    /// swap path.
+    Impl& impl() { return base_type::impl(); }
+    const Impl& impl() const { return base_type::impl(); }
+
     // Implement the interface.
     void add_points(
         const float* data,
@@ -138,6 +147,36 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     )
         : base_type{
               std::make_unique<DynamicVamanaImpl<QueryTypes, Impl>>(std::move(impl))} {}
+
+    /// @brief Try to access the contained concrete index.
+    ///
+    /// Returns a non-owning pointer to the contained `Impl` (a `MutableVamanaIndex<...>`)
+    /// if the underlying type-erased storage was constructed with the matching
+    /// ``QueryTypes`` and ``Impl``, otherwise `nullptr`.
+    ///
+    /// This is intended for advanced runtime-API code (e.g. the deferred-compression
+    /// path in `DynamicVamanaIndexImpl`) that wishes to reach through the type-erasure
+    /// barrier in a controlled way. Callers are responsible for not invalidating the
+    /// returned pointer (e.g. by destroying the `DynamicVamana` while the pointer is
+    /// in use).
+    template <lib::TypeList QueryTypes, typename Impl> Impl* get_typed_impl() {
+        auto* concrete =
+            dynamic_cast<DynamicVamanaImpl<QueryTypes, Impl>*>(impl_.get());
+        if (concrete == nullptr) {
+            return nullptr;
+        }
+        return &concrete->impl();
+    }
+
+    template <lib::TypeList QueryTypes, typename Impl>
+    const Impl* get_typed_impl() const {
+        const auto* concrete =
+            dynamic_cast<const DynamicVamanaImpl<QueryTypes, Impl>*>(impl_.get());
+        if (concrete == nullptr) {
+            return nullptr;
+        }
+        return &concrete->impl();
+    }
 
     ///// Vamana Interface
     void experimental_reset_performance_parameters() {
