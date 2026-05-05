@@ -30,29 +30,51 @@ namespace svs_test {
 ///// File System
 /////
 
-inline std::filesystem::path temp_directory() {
+namespace detail {
+struct TempDirectory {
+    std::filesystem::path path;
+
+    explicit TempDirectory(const std::string& prefix)
+        : path{create_unique_temp_directory(prefix)} {}
+
+    ~TempDirectory() noexcept {
+        std::error_code ec;
+        std::filesystem::remove_all(path, ec);
+        // Ignore errors in cleanup.
+    }
+
+    std::filesystem::path get() const { return path; }
+    operator const std::filesystem::path&() const { return path; }
+
+    std::filesystem::path operator/(const std::string& subpath) const {
+        return path / subpath;
+    }
+
+    static std::filesystem::path create_unique_temp_directory(const std::string& prefix) {
+        namespace fs = std::filesystem;
+        auto temp_dir = fs::temp_directory_path();
+        constexpr int hex_mask = 0xFFFFFF; // 6 hex digits is enough.
+        // Try up to 10 times to create a unique directory.
+        for (int i = 0; i < 10; ++i) {
+            auto random_hex = std::to_string(std::rand() & hex_mask);
+            auto dir = temp_dir / (prefix + "-" + random_hex);
+            if (std::filesystem::create_directories(dir)) {
+                return dir;
+            }
+        }
+        throw std::runtime_error("Could not create a unique temporary directory!");
+    }
+};
+} // namespace detail
+
+inline detail::TempDirectory temp_directory() {
     // Use /tmp for runtime binding tests
-    return std::filesystem::path("/tmp/svs_runtime_test");
+    return detail::TempDirectory("svs_runtime_test");
 }
 
-inline bool cleanup_temp_directory() {
-    return std::filesystem::remove_all(temp_directory());
-}
+inline bool prepare_temp_directory() { return true; }
 
-inline bool make_temp_directory() {
-    return std::filesystem::create_directories(temp_directory());
-}
-
-inline bool prepare_temp_directory() {
-    cleanup_temp_directory();
-    return make_temp_directory();
-}
-
-inline std::filesystem::path prepare_temp_directory_v2() {
-    cleanup_temp_directory();
-    make_temp_directory();
-    return temp_directory();
-}
+inline detail::TempDirectory prepare_temp_directory_v2() { return temp_directory(); }
 
 } // namespace svs_test
 
