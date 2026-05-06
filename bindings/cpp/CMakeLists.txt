@@ -121,18 +121,9 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             "Please build SVS Runtime using bindings/cpp directory as CMake source root."
         )
     else()
-        # Links to LTO-enabled static library, requires GCC/G++ 11.2
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.3.0/svs-shared-library-0.3.0-lto-ivf.tar.gz"
-                CACHE STRING "URL to download SVS shared library")
-        else()
-            message(WARNING
-                "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
-                "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
-            )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.3.0/svs-shared-library-0.3.0-ivf.tar.gz"
-                CACHE STRING "URL to download SVS shared library")
-        endif()
+        # Use nightly build with latest IVF features (set_num_intra_query_threads, IDFilter, etc.)
+        set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-05-06-1253.tar.gz"
+            CACHE STRING "URL to download SVS shared library")
         include(FetchContent)
         FetchContent_Declare(
             svs
