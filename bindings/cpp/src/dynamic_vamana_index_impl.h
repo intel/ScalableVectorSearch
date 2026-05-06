@@ -757,18 +757,14 @@ class DynamicVamanaIndexImpl {
                     "Deferred compression swap: unable to recover concrete index type"};
             }
 
-            // Snapshot params/logger before any release_*() consumes the source.
-            auto build_params = concrete->view_build_parameters();
-            auto search_params = concrete->get_search_parameters();
-            auto logger = concrete->get_logger();
-
             // Train the new compressed dataset from the source. Uses a freshly owned
             // threadpool because `concrete`'s pool is about to be released.
             auto train_pool = default_threadpool();
 
             // Dispatch to the target storage tag so we have the static target type.
-            // Then build the compressed dataset, move-out the source's reusable
-            // internals, transplant, and reseat `impl_`.
+            // Then build the compressed dataset and transplant onto a new
+            // MutableVamanaIndex via the friendly transplant ctor (which moves out
+            // of `*concrete` internally).
             storage::dispatch_storage_kind<allocator_type>(
                 target_kind,
                 [&](auto&& target_tag) {
@@ -789,50 +785,44 @@ class DynamicVamanaIndexImpl {
                         using TargetData = typename TargetTag::type;
                         using TargetAlloc = typename TargetTag::allocator_type;
 
-                    auto allocator =
-                        storage::make_allocator<TargetAlloc>(blocksize_bytes);
+                        auto allocator =
+                            storage::make_allocator<TargetAlloc>(blocksize_bytes);
 
-                    // Train the compressed dataset directly from the source dataset
-                    // using the caller-supplied trainer. The default trainer dispatches
-                    // to each backend's native factory; the LeanVec subclass uses a
-                    // trainer that injects pre-trained matrices and ``leanvec_dims``.
-                    TargetData new_data = trainer(
-                        TargetTag{}, concrete->view_data(), train_pool, allocator
-                    );
+                        // Train the compressed dataset directly from the source
+                        // dataset using the caller-supplied trainer. The default
+                        // trainer dispatches to each backend's native factory; the
+                        // LeanVec subclass uses a trainer that injects pre-trained
+                        // matrices and ``leanvec_dims``.
+                        TargetData new_data = trainer(
+                            TargetTag{},
+                            concrete->view_data(),
+                            train_pool,
+                            allocator
+                        );
 
-                    // Move-out the reusable internals from the soon-to-be-destroyed
-                    // source MutableVamanaIndex.
-                    auto graph = std::move(*concrete).release_graph();
-                    auto status = std::move(*concrete).release_status();
-                    auto entry_point = std::move(*concrete).release_entry_point();
-                    auto translator = std::move(*concrete).release_translator();
+                        // Construct the new MutableVamanaIndex via the transplant
+                        // constructor. The ctor moves out of `*concrete` internally
+                        // (graph / status / entry-point / translator / distance /
+                        // build & search params), so this single call replaces the
+                        // explicit release_*() shuffle.
+                        using TargetIndex = svs::index::vamana::
+                            MutableVamanaIndex<Graph, TargetData, Dist>;
+                        auto new_index = TargetIndex{
+                            typename TargetIndex::TransplantTag{},
+                            std::move(*concrete),
+                            std::move(new_data),
+                            default_threadpool()
+                        };
 
-                    // Construct the new MutableVamanaIndex via the transplant
-                    // constructor. Use a freshly owned pool for the new index.
-                    using TargetIndex =
-                        svs::index::vamana::MutableVamanaIndex<Graph, TargetData, Dist>;
-                    auto new_index = TargetIndex{
-                        typename TargetIndex::TransplantTag{},
-                        std::move(new_data),
-                        std::move(graph),
-                        std::move(status),
-                        std::move(entry_point),
-                        std::move(translator),
-                        Dist{distance_function},
-                        default_threadpool(),
-                        build_params,
-                        search_params,
-                        logger
-                    };
-
-                    // Reseat `impl_` with a freshly type-erased DynamicVamana around
-                    // the new compressed-backend index. Destroying the old `impl_`
-                    // also destroys the (now moved-from) source MutableVamanaIndex.
-                    impl_ = std::make_unique<svs::DynamicVamana>(
-                        svs::DynamicVamana::AssembleTag{},
-                        QueryTypes{},
-                        std::move(new_index)
-                    );
+                        // Reseat `impl_` with a freshly type-erased DynamicVamana
+                        // around the new compressed-backend index. Destroying the
+                        // old `impl_` also destroys the (now moved-from) source
+                        // MutableVamanaIndex.
+                        impl_ = std::make_unique<svs::DynamicVamana>(
+                            svs::DynamicVamana::AssembleTag{},
+                            QueryTypes{},
+                            std::move(new_index)
+                        );
                     } // end of `if constexpr (is_trainable_target_tag_v<TargetTag>)`
                 }
             );

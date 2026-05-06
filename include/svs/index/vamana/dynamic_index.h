@@ -300,52 +300,69 @@ class MutableVamanaIndex {
     /// See `MutableVamanaIndex(TransplantTag, ...)` for the rationale.
     struct TransplantTag {};
 
-    /// @brief Transplant constructor: build a `MutableVamanaIndex` over a freshly
-    /// constructed `Data` while reusing graph/translator/status/entry_point from a prior
-    /// instance.
-    ///
-    /// This is the building block for "deferred compression": once enough vectors have
-    /// been accumulated in an uncompressed dynamic index, the caller can train a
-    /// compressed dataset from the accumulated vectors, then transplant the existing
-    /// graph (and bookkeeping structures) onto a new index whose `Data` template
-    /// parameter is the compressed type, avoiding a graph rebuild.
-    ///
-    /// Preconditions
-    /// * ``data.size() == graph.n_nodes() == status.size()``
-    /// * ``translator`` covers exactly the slots marked ``SlotMetadata::Valid`` (or
-    ///   ``Deleted``) in ``status``.
-    /// * The graph type and distance type are compatible with the new ``data``.
-    ///
-    /// The new instance recomputes ``first_empty_`` from ``status``.
-    template <typename Pool>
+  private:
+    /// @brief Internal aggregate of the per-instance state moved out of the source
+    /// index during a transplant. Constructed by `_take_transplant_inputs` and
+    /// consumed by the private delegating constructor below. Not part of the
+    /// public API.
+    struct TransplantInputs {
+        Data data;
+        Graph graph;
+        std::vector<SlotMetadata> status;
+        entry_point_type entry_point;
+        IDTranslator translator;
+        Dist distance;
+        VamanaBuildParameters build_parameters;
+        VamanaSearchParameters search_parameters;
+    };
+
+    /// @brief Snapshot value-typed members of `source` and then move-out the
+    /// owning members in a well-defined sequence (the brace-init list of the
+    /// returned aggregate enforces left-to-right evaluation in C++17).
+    template <typename SourceData>
+    static TransplantInputs _take_transplant_inputs(
+        MutableVamanaIndex<Graph, SourceData, Dist>&& source, Data new_data
+    ) {
+        // Snapshot value-typed members BEFORE any release_*() invalidates other
+        // owning members.
+        VamanaBuildParameters bp = source.view_build_parameters();
+        VamanaSearchParameters sp = source.get_search_parameters();
+        return TransplantInputs{
+            std::move(new_data),
+            std::move(source).release_graph(),
+            std::move(source).release_status(),
+            std::move(source).release_entry_point(),
+            std::move(source).release_translator(),
+            std::move(source).release_distance(),
+            std::move(bp),
+            std::move(sp),
+        };
+    }
+
+    /// @brief Private delegating constructor that consumes a `TransplantInputs`.
+    /// Used by the public `(TransplantTag, source&&, new_data, pool, logger)`
+    /// constructor below.
     MutableVamanaIndex(
         TransplantTag SVS_UNUSED(tag),
-        Data data,
-        Graph graph,
-        std::vector<SlotMetadata> status,
-        entry_point_type entry_point,
-        IDTranslator translator,
-        Dist distance_function,
-        Pool threadpool,
-        const VamanaBuildParameters& build_parameters,
-        const VamanaSearchParameters& search_parameters,
-        svs::logging::logger_ptr logger = svs::logging::get()
+        TransplantInputs args,
+        threads::ThreadPoolHandle threadpool,
+        svs::logging::logger_ptr logger
     )
-        : graph_{std::move(graph)}
-        , data_{std::move(data)}
-        , entry_point_{std::move(entry_point)}
-        , status_{std::move(status)}
+        : graph_{std::move(args.graph)}
+        , data_{std::move(args.data)}
+        , entry_point_{std::move(args.entry_point)}
+        , status_{std::move(args.status)}
         , first_empty_{0}
-        , translator_{std::move(translator)}
-        , distance_{std::move(distance_function)}
-        , threadpool_{threads::as_threadpool(std::move(threadpool))}
-        , search_parameters_{search_parameters}
-        , construction_window_size_{build_parameters.window_size}
-        , max_candidates_{build_parameters.max_candidate_pool_size}
-        , prune_to_{build_parameters.prune_to}
-        , alpha_{build_parameters.alpha}
-        , use_full_search_history_{build_parameters.use_full_search_history}
-        , build_parameters_{build_parameters}
+        , translator_{std::move(args.translator)}
+        , distance_{std::move(args.distance)}
+        , threadpool_{std::move(threadpool)}
+        , search_parameters_{args.search_parameters}
+        , construction_window_size_{args.build_parameters.window_size}
+        , max_candidates_{args.build_parameters.max_candidate_pool_size}
+        , prune_to_{args.build_parameters.prune_to}
+        , alpha_{args.build_parameters.alpha}
+        , use_full_search_history_{args.build_parameters.use_full_search_history}
+        , build_parameters_{args.build_parameters}
         , logger_{std::move(logger)} {
         // Validate size invariants up front so a bad transplant fails loudly rather
         // than silently corrupting later operations.
@@ -357,8 +374,8 @@ class MutableVamanaIndex {
                 status_.size()
             );
         }
-        // Recompute ``first_empty_`` from ``status_`` so subsequent ``add_points`` calls
-        // correctly find slots to reuse.
+        // Recompute ``first_empty_`` from ``status_`` so subsequent ``add_points``
+        // calls correctly find slots to reuse.
         first_empty_ = status_.size();
         for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
             if (status_[i] == SlotMetadata::Empty) {
@@ -367,6 +384,47 @@ class MutableVamanaIndex {
             }
         }
     }
+
+  public:
+    /// @brief Transplant constructor: build a `MutableVamanaIndex` over a newly
+    /// supplied `Data` while reusing the graph / translator / status / entry-point
+    /// / distance / build & search parameters from a prior instance.
+    ///
+    /// This is the building block for "deferred compression": once enough vectors
+    /// have been accumulated in an uncompressed dynamic index, the caller trains a
+    /// compressed dataset from the accumulated vectors and then transplants the
+    /// existing graph (and bookkeeping structures) onto a new index whose `Data`
+    /// template parameter is the compressed type, avoiding a graph rebuild.
+    ///
+    /// Callers do not need to know the internal layout of `MutableVamanaIndex`:
+    /// they hand in the source index by rvalue reference, the new `Data`, and a
+    /// thread pool. The constructor moves out of `source` internally.
+    ///
+    /// Preconditions
+    /// * ``new_data.size() == source.size()`` (i.e. the trained dataset must
+    ///   contain exactly the same number of slots as the source).
+    /// * The graph type (template parameter `Graph`) and distance type
+    ///   (template parameter `Dist`) match between `source` and the new index;
+    ///   only `Data` differs.
+    ///
+    /// The new instance recomputes ``first_empty_`` from the transplanted status.
+    template <typename SourceData, typename Pool>
+    MutableVamanaIndex(
+        TransplantTag tag,
+        MutableVamanaIndex<Graph, SourceData, Dist>&& source,
+        Data new_data,
+        Pool threadpool,
+        svs::logging::logger_ptr logger = svs::logging::get()
+    )
+        : MutableVamanaIndex(
+              tag,
+              _take_transplant_inputs<SourceData>(
+                  std::move(source), std::move(new_data)
+              ),
+              threads::ThreadPoolHandle{
+                  threads::as_threadpool(std::move(threadpool))},
+              std::move(logger)
+          ) {}
 
     ///// Scratchspace
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
