@@ -193,7 +193,7 @@ class DynamicIVFIndexImpl {
         for (size_t i = 0; i < queries.size(); ++i) {
             auto query = queries.get_datum(i);
             auto iterator =
-                impl_->batch_iterator(std::span<const float>(query.data(), query.size()));
+                impl_->batch_iterator(svs::AnonymousArray<1>(query.data(), query.size()));
             size_t found = 0;
             size_t total_checked = 0;
             auto batch_size = initial_batch_size;
