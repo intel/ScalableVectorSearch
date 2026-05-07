@@ -258,17 +258,11 @@ class DynamicIVFIndexImpl {
                 ErrorCode::INVALID_ARGUMENT, "intra_query_threads must be at least 1"};
         }
         intra_query_threads_ = intra_query_threads;
-        if (impl_) {
-            impl_->set_num_intra_query_threads(intra_query_threads);
-        }
+        // Note: impl_ uses the value set at construction time,
+        // changing it here requires rebuilding/reloading the index
     }
 
-    size_t get_intra_query_threads() const {
-        if (impl_) {
-            return impl_->get_num_intra_query_threads();
-        }
-        return intra_query_threads_;
-    }
+    size_t get_intra_query_threads() const { return intra_query_threads_; }
 
     static DynamicIVFIndexImpl* load(
         std::istream& in,
