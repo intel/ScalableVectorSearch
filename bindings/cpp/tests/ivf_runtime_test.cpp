@@ -922,3 +922,556 @@ CATCH_TEST_CASE("IVFIndexInnerProduct", "[runtime][ivf]") {
 
     svs::runtime::v0::IVFIndex::destroy(index);
 }
+
+CATCH_TEST_CASE("IVFIndexSetIntraQueryThreads", "[runtime][ivf]") {
+    std::cout << "[IVF] Running IVFIndexSetIntraQueryThreads..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::IVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::IVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params,
+        /*num_threads=*/2,
+        /*intra_query_threads=*/1
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    size_t got = 0;
+    status = index->get_intra_query_threads(&got);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(got == 1);
+
+    status = index->set_intra_query_threads(3);
+    CATCH_REQUIRE(status.ok());
+
+    status = index->get_intra_query_threads(&got);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(got == 3);
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+    status = index->search(nq, xq, k, distances.data(), result_labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    status = index->set_intra_query_threads(0);
+    CATCH_REQUIRE(!status.ok());
+
+    svs::runtime::v0::IVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexFilteredSearchWithoutBatchEstimate", "[runtime][ivf]") {
+    std::cout << "[IVF] Running IVFIndexFilteredSearchWithoutBatchEstimate..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::IVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::IVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const size_t min_id = 10;
+    const size_t max_id = 50;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    // Test with filter_estimate_batch=false
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    sp.filter_estimate_batch = false;
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    // Verify all returned IDs are within filter range
+    for (int q = 0; q < nq; ++q) {
+        for (int j = 0; j < k; ++j) {
+            size_t id = result_labels[q * k + j];
+            if (id < test_n) {
+                CATCH_REQUIRE(id >= min_id);
+                CATCH_REQUIRE(id < max_id);
+            }
+        }
+    }
+
+    svs::runtime::v0::IVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexIntraQueryThreadsConsistency", "[runtime][ivf]") {
+    std::cout << "[IVF] Running IVFIndexIntraQueryThreadsConsistency..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::IVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::IVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params,
+        /*num_threads=*/2,
+        /*intra_query_threads=*/1
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 10;
+
+    // Run search with intra_query_threads=1
+    std::vector<float> distances1(nq * k);
+    std::vector<size_t> labels1(nq * k);
+    status = index->search(nq, xq, k, distances1.data(), labels1.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Change to intra_query_threads=2 and search again
+    status = index->set_intra_query_threads(2);
+    CATCH_REQUIRE(status.ok());
+    size_t got = 0;
+    status = index->get_intra_query_threads(&got);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(got == 2);
+
+    std::vector<float> distances2(nq * k);
+    std::vector<size_t> labels2(nq * k);
+    status = index->search(nq, xq, k, distances2.data(), labels2.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Change to intra_query_threads=4 and search again
+    status = index->set_intra_query_threads(4);
+    CATCH_REQUIRE(status.ok());
+    status = index->get_intra_query_threads(&got);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(got == 4);
+
+    std::vector<float> distances4(nq * k);
+    std::vector<size_t> labels4(nq * k);
+    status = index->search(nq, xq, k, distances4.data(), labels4.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Results should be identical regardless of thread count
+    // (same neighbors found, possibly different distance rounding)
+    for (int q = 0; q < nq; ++q) {
+        for (int j = 0; j < k; ++j) {
+            size_t idx = q * k + j;
+            CATCH_REQUIRE(labels1[idx] == labels2[idx]);
+            CATCH_REQUIRE(labels1[idx] == labels4[idx]);
+            // Distances might have slight floating-point differences
+            CATCH_REQUIRE(std::abs(distances1[idx] - distances2[idx]) < 1e-4);
+            CATCH_REQUIRE(std::abs(distances1[idx] - distances4[idx]) < 1e-4);
+        }
+    }
+
+    svs::runtime::v0::IVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexSetIntraQueryThreads", "[runtime][ivf]") {
+    std::cout << "[IVF] Running DynamicIVFIndexSetIntraQueryThreads..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params,
+        /*default_search_params=*/{},
+        /*num_threads=*/2,
+        /*intra_query_threads=*/1
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    size_t got = 0;
+    status = index->get_intra_query_threads(&got);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(got == 1);
+
+    status = index->set_intra_query_threads(2);
+    CATCH_REQUIRE(status.ok());
+
+    status = index->get_intra_query_threads(&got);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(got == 2);
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexSearchWithIDFilter", "[runtime][ivf]") {
+    std::cout << "[IVF] Running IVFIndexSearchWithIDFilter..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::IVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::IVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const size_t min_id = 10;
+    const size_t max_id = 50;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    for (int q = 0; q < nq; ++q) {
+        for (int j = 0; j < k; ++j) {
+            size_t id = result_labels[q * k + j];
+            if (id < test_n) {
+                CATCH_REQUIRE(id >= min_id);
+                CATCH_REQUIRE(id < max_id);
+            }
+        }
+    }
+
+    svs::runtime::v0::IVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexSearchWithIDFilter", "[runtime][ivf]") {
+    std::cout << "[IVF] Running DynamicIVFIndexSearchWithIDFilter..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const size_t min_id = 20;
+    const size_t max_id = 60;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    for (int q = 0; q < nq; ++q) {
+        for (int j = 0; j < k; ++j) {
+            size_t id = result_labels[q * k + j];
+            if (id < test_n) {
+                CATCH_REQUIRE(id >= min_id);
+                CATCH_REQUIRE(id < max_id);
+            }
+        }
+    }
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexSearchWithRestrictiveFilter", "[runtime][ivf][filtered_search]") {
+    std::cout << "[IVF] Running IVFIndexSearchWithRestrictiveFilter..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::IVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::IVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    const size_t min_id = 0;
+    const size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels[i])) {
+            CATCH_REQUIRE(result_labels[i] >= min_id);
+            CATCH_REQUIRE(result_labels[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::IVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("IVFIndexFilterStopEarlyExit", "[runtime][ivf][filtered_search]") {
+    std::cout << "[IVF] Running IVFIndexFilterStopEarlyExit..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::IVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    svs::runtime::v0::Status status = svs::runtime::v0::IVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    const size_t min_id = 0;
+    const size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    // Set filter_stop = 0.5 (50%). With ~10% hit rate, search should give up
+    // and return unspecified results.
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    sp.filter_stop = 0.5f;
+
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    for (int i = 0; i < nq * k; ++i) {
+        CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
+    }
+
+    // Now search without filter_stop — should find valid results in the filter range.
+    std::vector<float> distances2(nq * k);
+    std::vector<size_t> result_labels2(nq * k);
+
+    svs::runtime::v0::IVFIndex::SearchParams sp_no_stop;
+    sp_no_stop.n_probes = 10;
+    status = index->search(
+        nq, xq, k, distances2.data(), result_labels2.data(), &sp_no_stop, &filter
+    );
+    CATCH_REQUIRE(status.ok());
+
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels2[i])) {
+            CATCH_REQUIRE(result_labels2[i] >= min_id);
+            CATCH_REQUIRE(result_labels2[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::IVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE(
+    "DynamicIVFIndexSearchWithRestrictiveFilter", "[runtime][ivf][filtered_search]"
+) {
+    std::cout << "[IVF] Running DynamicIVFIndexSearchWithRestrictiveFilter..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    const size_t min_id = 0;
+    const size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels[i])) {
+            CATCH_REQUIRE(result_labels[i] >= min_id);
+            CATCH_REQUIRE(result_labels[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
+
+CATCH_TEST_CASE("DynamicIVFIndexFilterStopEarlyExit", "[runtime][ivf][filtered_search]") {
+    std::cout << "[IVF] Running DynamicIVFIndexFilterStopEarlyExit..." << std::endl;
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::DynamicIVFIndex* index = nullptr;
+    svs::runtime::v0::IVFIndex::BuildParams build_params;
+    build_params.num_centroids = 10;
+    build_params.num_iterations = 5;
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicIVFIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        test_n,
+        test_data.data(),
+        labels.data(),
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+
+    const int nq = 5;
+    const float* xq = test_data.data();
+    const int k = 5;
+
+    // 10% selectivity: accept only IDs 0-9 out of 100
+    const size_t min_id = 0;
+    const size_t max_id = test_n / 10;
+    test_utils::IDFilterRange filter(min_id, max_id);
+
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> result_labels(nq * k);
+
+    // Set filter_stop = 0.5 (50%). With ~10% hit rate, search should give up
+    // and return unspecified results.
+    svs::runtime::v0::IVFIndex::SearchParams sp;
+    sp.n_probes = 10;
+    sp.filter_stop = 0.5f;
+
+    status = index->search(nq, xq, k, distances.data(), result_labels.data(), &sp, &filter);
+    CATCH_REQUIRE(status.ok());
+
+    for (int i = 0; i < nq * k; ++i) {
+        CATCH_REQUIRE(!svs::runtime::v0::is_specified(result_labels[i]));
+    }
+
+    // Now search without filter_stop — should find valid results in the filter range.
+    std::vector<float> distances2(nq * k);
+    std::vector<size_t> result_labels2(nq * k);
+
+    svs::runtime::v0::IVFIndex::SearchParams sp_no_stop;
+    sp_no_stop.n_probes = 10;
+    status = index->search(
+        nq, xq, k, distances2.data(), result_labels2.data(), &sp_no_stop, &filter
+    );
+    CATCH_REQUIRE(status.ok());
+
+    for (int i = 0; i < nq * k; ++i) {
+        if (svs::runtime::v0::is_specified(result_labels2[i])) {
+            CATCH_REQUIRE(result_labels2[i] >= min_id);
+            CATCH_REQUIRE(result_labels2[i] < max_id);
+        }
+    }
+
+    svs::runtime::v0::DynamicIVFIndex::destroy(index);
+}
