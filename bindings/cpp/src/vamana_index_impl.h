@@ -69,6 +69,8 @@ class VamanaIndexImpl {
         }
     }
 
+    virtual ~VamanaIndexImpl() = default;
+
     size_t size() const { return impl_ ? get_impl()->size() : 0; }
 
     size_t dimensions() const { return dim_; }
