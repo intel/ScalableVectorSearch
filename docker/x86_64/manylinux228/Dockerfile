@@ -20,8 +20,8 @@ RUN yum install -y cmake-3.26.5 \
     && (if [ -x /usr/local/bin/cmake ]; then rm /usr/local/bin/cmake; fi) \
     && ln -sf /usr/bin/cmake3 /usr/local/bin/cmake
 
-# Install gcc-11
-RUN yum install -y gcc-toolset-11-11.1-1.el8 wget-1.19.5 \
+# Install gcc-11 and clang
+RUN yum install -y gcc-toolset-11-11.1-1.el8 wget-1.19.5 clang \
     && yum clean all
 
 # Configure environment setup properly without recursion
