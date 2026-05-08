@@ -59,21 +59,20 @@
 #define SVS_RUNTIME_API_VERSION SVS_RUNTIME_VERSION_MAJOR
 #endif
 
+#define SVS_API_VERSION_NS(version) v##version
+#define SVS_RUNTIME_API_VERSION_NAMESPACE SVS_API_VERSION_NS(SVS_RUNTIME_API_VERSION)
+
 #if (SVS_RUNTIME_API_VERSION == 0)
-/// Use v0 API
-/// Current API version namespace
-#define SVS_RUNTIME_CURRENT_API_NAMESPACE v0
-namespace svs {
-namespace runtime {
 /// Current API version namespace (v0)
 /// All public runtime APIs live here and are accessible as svs::runtime::FunctionName
 /// due to inline namespace
-inline namespace v0 {
-// Public runtime APIs will be defined in their respective headers
-// IMPORTANT: include this header before other runtime headers to ensure proper versioning
-}
-} // namespace runtime
-} // namespace svs
+#define SVS_DECLARE_NAMESPACE_VERSION_0 inline namespace SVS_API_VERSION_NS(0)
+
+// Forward declaration for the current version namespace as inline namespace
+// This enforces compilation warnings/errors if the v0 namespace is not inlined below
+namespace svs::runtime {
+inline namespace v0 {}
+} // namespace svs::runtime
 #else
 #error "Unsupported SVS Runtime major version"
 #endif
@@ -86,11 +85,14 @@ inline namespace v0 {
 #define SVS_RUNTIME_CREATE_API_ALIAS(alias_name, version_ns) \
     namespace alias_name = svs::runtime::version_ns
 
+/// Helper macro to declare versioned namespaces for API definitions
+#define SVS_DECLARE_NAMESPACE_VERSION(version) SVS_DECLARE_NAMESPACE_VERSION_##version
+
 ///
 /// @brief Version information structure for runtime queries
 ///
-namespace svs::runtime::v0 {
-
+namespace svs::runtime {
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 struct VersionInfo {
     static constexpr int major = SVS_RUNTIME_VERSION_MAJOR;
     static constexpr int minor = SVS_RUNTIME_VERSION_MINOR;
@@ -109,5 +111,5 @@ struct VersionInfo {
         return major == requested_major;
     }
 };
-
-} // namespace svs::runtime::v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
+} // namespace svs::runtime
