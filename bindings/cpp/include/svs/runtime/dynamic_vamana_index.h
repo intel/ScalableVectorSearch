@@ -25,8 +25,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 // Abstract interface for Dynamic Vamana-based indexes.
 struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
@@ -131,7 +130,6 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         const VamanaIndex::DynamicIndexParams& dynamic_index_params
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

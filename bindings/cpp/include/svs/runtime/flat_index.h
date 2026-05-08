@@ -23,8 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 // Abstract interface for Flat indices.
 struct SVS_RUNTIME_API FlatIndex {
     // Utility function to check storage kind support
@@ -55,7 +54,6 @@ struct SVS_RUNTIME_API FlatIndex {
     static Status
     map_to_memory(FlatIndex** index, void* data, size_t size, MetricType metric) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs
