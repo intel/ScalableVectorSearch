@@ -31,11 +31,26 @@ conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0"
 conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
 conda install -y mkl=2025.3 mkl-devel=2025.3
 
-# Install libsvs-runtime from local conda package
-conda install -y /runtime_conda/libsvs-runtime-*.conda
+# Install libsvs-runtime from the public release tarball (includes the
+# leanvec_primary_only API). Once a conda-forge package with this API is
+# published, this can revert to:
+#   conda install -y /runtime_conda/libsvs-runtime-*.conda
+SVS_RUNTIME_URL="${SVS_RUNTIME_URL:-https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs_runtime-0.3.0-linux-x86_64-leanvec-primary-only.tar.gz}"
+SVS_RUNTIME_PREFIX="${SVS_RUNTIME_PREFIX:-$HOME/svs_runtime}"
+mkdir -p "$SVS_RUNTIME_PREFIX"
+curl -fsSL "$SVS_RUNTIME_URL" | tar -xz -C "$SVS_RUNTIME_PREFIX"
+export CMAKE_PREFIX_PATH="$SVS_RUNTIME_PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+export LD_LIBRARY_PATH="$SVS_RUNTIME_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # Validate python and C++ tests against FAISS CI
-git clone https://github.com/facebookresearch/faiss.git
+# NOTE: temporarily clone the ibhati/faiss fork's leanvec_primary_only
+# branch instead of upstream facebookresearch/faiss, since the new
+# leanvec_primary_only API is not yet merged upstream. Revert to
+# `git clone https://github.com/facebookresearch/faiss.git` once the
+# corresponding FAISS PR lands.
+FAISS_REPO="${FAISS_REPO:-https://github.com/ibhati/faiss.git}"
+FAISS_BRANCH="${FAISS_BRANCH:-ib/leanvec-primary-only}"
+git clone --depth 1 --branch "$FAISS_BRANCH" "$FAISS_REPO" faiss
 cd faiss
 
 echo "==============================================="
