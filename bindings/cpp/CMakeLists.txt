@@ -83,7 +83,10 @@ target_compile_options(${TARGET_NAME} PRIVATE
 )
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(${TARGET_NAME} PRIVATE -Winline-namespace-reopened-noninline)
+    target_compile_options(${TARGET_NAME} PRIVATE
+        -Winline-namespace-reopened-noninline
+        -Wunused-exception-parameter
+    )
 endif()
 
 if(UNIX AND NOT APPLE)
