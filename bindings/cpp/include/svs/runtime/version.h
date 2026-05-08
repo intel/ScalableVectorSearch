@@ -21,7 +21,7 @@
 ///
 /// This header defines the SVS Runtime API versioning scheme:
 /// 1. Versioned namespaces (e.g., v0, v1) for API stability
-/// 2. Using declarations to bring current version to parent namespace
+/// 2. Inline namespace to expose the current API version at svs::runtime::*
 /// 3. Clean integration points for external libraries
 ///
 /// Usage:
@@ -59,7 +59,8 @@
 #define SVS_RUNTIME_API_VERSION SVS_RUNTIME_VERSION_MAJOR
 #endif
 
-#define SVS_API_VERSION_NS(version) v##version
+#define SVS_API_VERSION_NS_IMPL(version) v##version
+#define SVS_API_VERSION_NS(version) SVS_API_VERSION_NS_IMPL(version)
 #define SVS_RUNTIME_API_VERSION_NAMESPACE SVS_API_VERSION_NS(SVS_RUNTIME_API_VERSION)
 
 #if (SVS_RUNTIME_API_VERSION == 0)
@@ -86,7 +87,8 @@ inline namespace v0 {}
     namespace alias_name = svs::runtime::version_ns
 
 /// Helper macro to declare versioned namespaces for API definitions
-#define SVS_DECLARE_NAMESPACE_VERSION(version) SVS_DECLARE_NAMESPACE_VERSION_##version
+#define SVS_DECLARE_NAMESPACE_VERSION_IMPL(version) SVS_DECLARE_NAMESPACE_VERSION_##version
+#define SVS_DECLARE_NAMESPACE_VERSION(version) SVS_DECLARE_NAMESPACE_VERSION_IMPL(version)
 
 ///
 /// @brief Version information structure for runtime queries
