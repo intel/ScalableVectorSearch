@@ -82,6 +82,10 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -fvisibility=hidden
 )
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${TARGET_NAME} PRIVATE -Winline-namespace-reopened-noninline)
+endif()
+
 if(UNIX AND NOT APPLE)
     # Don't export 3rd-party symbols from the lib
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
