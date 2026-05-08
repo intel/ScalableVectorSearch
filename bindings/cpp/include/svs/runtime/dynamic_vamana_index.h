@@ -33,8 +33,6 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
     virtual Status remove(size_t n, const size_t* labels) noexcept = 0;
 
-    virtual Status reset() noexcept = 0;
-
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
@@ -64,7 +62,6 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
 
     static Status destroy(DynamicVamanaIndex* index) noexcept;
 
-    virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(
         DynamicVamanaIndex** index,
         std::istream& in,
