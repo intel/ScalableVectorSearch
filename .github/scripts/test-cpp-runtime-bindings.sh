@@ -35,7 +35,7 @@ conda install -y mkl=2025.3 mkl-devel=2025.3
 # leanvec_primary_only API). Once a conda-forge package with this API is
 # published, this can revert to:
 #   conda install -y /runtime_conda/libsvs-runtime-*.conda
-SVS_RUNTIME_URL="${SVS_RUNTIME_URL:-https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs_runtime-0.3.0-linux-x86_64-leanvec-primary-only.tar.gz}"
+SVS_RUNTIME_URL="${SVS_RUNTIME_URL:-https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs_runtime-0.3.0-linux-x86_64-leanvec-primary-only-glibc228.tar.gz}"
 SVS_RUNTIME_PREFIX="${SVS_RUNTIME_PREFIX:-$HOME/svs_runtime}"
 mkdir -p "$SVS_RUNTIME_PREFIX"
 curl -fsSL "$SVS_RUNTIME_URL" | tar -xz -C "$SVS_RUNTIME_PREFIX"
