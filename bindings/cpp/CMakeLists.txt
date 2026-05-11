@@ -123,18 +123,14 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            # NOTE: temporary leanvec-primary-only build; revert to the upstream nightly
-            # LTO tarball once it ships the new LeanDataset::reduce(...) overload.
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-leanvec-primary-only-2026-05-11.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-leanvec-primary-only-glibc228-2026-05-11.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             message(WARNING
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            # NOTE: temporary leanvec-primary-only build; revert to the upstream nightly
-            # tarball once it ships the new LeanDataset::reduce(...) overload.
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-leanvec-primary-only-2026-05-11.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-leanvec-primary-only-glibc228-2026-05-11.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)
