@@ -27,20 +27,12 @@ conda create -y -n svsenv python=3.11
 source /opt/conda/etc/profile.d/conda.sh
 conda activate svsenv
 conda config --set solver libmamba
-conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0" scipy=1.16 pytest=7.4 gflags=2.2 setuptools curl
+conda install -y -c conda-forge cmake=3.30.4 make=4.2 swig=4.0 "numpy>=2.0,<3.0" scipy=1.16 pytest=7.4 gflags=2.2 setuptools
 conda install -y -c conda-forge gxx_linux-64=14.2 sysroot_linux-64=2.17
 conda install -y mkl=2025.3 mkl-devel=2025.3
 
-# Install libsvs-runtime from the public release tarball (includes the
-# leanvec_primary_only API). Once a conda-forge package with this API is
-# published, this can revert to:
-#   conda install -y /runtime_conda/libsvs-runtime-*.conda
-SVS_RUNTIME_URL="${SVS_RUNTIME_URL:-https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs_runtime-0.3.0-linux-x86_64-leanvec-primary-only-glibc228.tar.gz}"
-SVS_RUNTIME_PREFIX="${SVS_RUNTIME_PREFIX:-$HOME/svs_runtime}"
-mkdir -p "$SVS_RUNTIME_PREFIX"
-curl -fsSL "$SVS_RUNTIME_URL" | tar -xz -C "$SVS_RUNTIME_PREFIX"
-export CMAKE_PREFIX_PATH="$SVS_RUNTIME_PREFIX${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
-export LD_LIBRARY_PATH="$SVS_RUNTIME_PREFIX/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# Install libsvs-runtime from local conda package
+conda install -y /runtime_conda/libsvs-runtime-*.conda
 
 # Validate python and C++ tests against FAISS CI
 # NOTE: temporarily clone the ibhati/faiss fork's leanvec_primary_only
