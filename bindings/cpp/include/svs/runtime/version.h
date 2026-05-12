@@ -89,7 +89,7 @@ inline namespace v0 {
 ///
 /// @brief Version information structure for runtime queries
 ///
-namespace svs::runtime::v0 {
+namespace svs::runtime::inline v0 {
 
 struct VersionInfo {
     static constexpr int major = SVS_RUNTIME_VERSION_MAJOR;
@@ -110,4 +110,4 @@ struct VersionInfo {
     }
 };
 
-} // namespace svs::runtime::v0
+} // namespace svs::runtime::inline v0

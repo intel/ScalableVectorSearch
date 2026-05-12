@@ -24,7 +24,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 // Abstract interface for IVF (Inverted File) indices.
 struct SVS_RUNTIME_API IVFIndex {

@@ -855,8 +855,10 @@ template <typename T = telemetry::NoTelemetry> class ThreadImpl {
         // Wait for the future to become available and rethrow the exception.
         wait_for_result();
         get_result();
-        throw ANNEXCEPTION("Expected to get an exception from a crashed thread but no "
-                           "exception was thrown!");
+        throw ANNEXCEPTION(
+            "Expected to get an exception from a crashed thread but no "
+            "exception was thrown!"
+        );
     }
 
     // Assign Work
@@ -888,7 +890,7 @@ template <typename T = telemetry::NoTelemetry> class ThreadImpl {
         // * Catch this exception and wrap its message inside a `ThreadError`.
         try {
             unsafe_assign(fn);
-        } catch (const ThreadCrashedError& err) {
+        } catch (const ThreadCrashedError&) {
             try {
                 unsafe_get_exception();
             } catch (const std::exception& inner_error) { throw ThreadError{inner_error}; }

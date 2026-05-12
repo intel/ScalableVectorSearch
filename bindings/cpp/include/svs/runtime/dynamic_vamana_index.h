@@ -25,7 +25,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 // Abstract interface for Dynamic Vamana-based indexes.
 struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
@@ -39,8 +39,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
-    static Status check_params(const VamanaIndex::DynamicIndexParams& dynamic_index_params
-    ) noexcept;
+    static Status
+    check_params(const VamanaIndex::DynamicIndexParams& dynamic_index_params) noexcept;
 
     // Static constructors and destructors
     // ABI backward compatibility

@@ -153,6 +153,12 @@ class IVFIndex {
           )}
         , intra_query_thread_count_{intra_query_thread_count}
         , logger_{std::move(logger)} {
+        // Clamp thread pool: more threads than centroids causes OOB in
+        // compute_centroid_distances and wastes resources.
+        if (inter_query_threadpool_.size() > centroids_.size()) {
+            inter_query_threadpool_ =
+                InterQueryThreadPool(threads::DefaultThreadPool(centroids_.size()));
+        }
         validate_thread_configuration();
         initialize_thread_pools();
         initialize_search_buffers();
@@ -285,7 +291,8 @@ class IVFIndex {
         return scratchspace_type{
             create_centroid_buffer(sp.n_probes_),
             create_leaf_buffers(buffer_leaves_size),
-            extensions::per_thread_batch_search_setup(cluster0_, distance_)};
+            extensions::per_thread_batch_search_setup(cluster0_, distance_)
+        };
     }
 
     /// @brief Return scratch space resources for external threading with default parameters
@@ -556,7 +563,8 @@ class IVFIndex {
     mutable std::vector<size_t> id_in_cluster_{};
     // Thread-safe initialization flag for ID mapping (wrapped in unique_ptr for movability)
     mutable std::unique_ptr<std::once_flag> id_mapping_init_flag_{
-        std::make_unique<std::once_flag>()};
+        std::make_unique<std::once_flag>()
+    };
 
     ///// Threading Infrastructure /////
     InterQueryThreadPool inter_query_threadpool_; // Handles parallelism across queries
@@ -630,9 +638,11 @@ class IVFIndex {
     void initialize_thread_pools() {
         // Create thread pools for intra-query (cluster-level) parallelism
         for (size_t i = 0; i < inter_query_threadpool_.size(); i++) {
-            intra_query_threadpools_.push_back(threads::ThreadPoolHandle(
-                threads::DefaultThreadPool(intra_query_thread_count_)
-            ));
+            intra_query_threadpools_.push_back(
+                threads::ThreadPoolHandle(
+                    threads::DefaultThreadPool(intra_query_thread_count_)
+                )
+            );
         }
     }
 
@@ -690,11 +700,13 @@ class IVFIndex {
 
     void validate_query_batch_size(size_t query_size) const {
         if (query_size > MAX_QUERY_BATCH_SIZE) {
-            throw std::runtime_error(fmt::format(
-                "Query batch size {} exceeds maximum allowed {}",
-                query_size,
-                MAX_QUERY_BATCH_SIZE
-            ));
+            throw std::runtime_error(
+                fmt::format(
+                    "Query batch size {} exceeds maximum allowed {}",
+                    query_size,
+                    MAX_QUERY_BATCH_SIZE
+                )
+            );
         }
     }
 
@@ -708,9 +720,11 @@ class IVFIndex {
         std::vector<SortedBuffer<Idx, distance::compare_t<Dist>>> buffers;
         buffers.reserve(intra_query_thread_count_);
         for (size_t j = 0; j < intra_query_thread_count_; j++) {
-            buffers.push_back(SortedBuffer<Idx, distance::compare_t<Dist>>(
-                buffer_size, distance::comparator(distance_)
-            ));
+            buffers.push_back(
+                SortedBuffer<Idx, distance::compare_t<Dist>>(
+                    buffer_size, distance::comparator(distance_)
+                )
+            );
         }
         return buffers;
     }

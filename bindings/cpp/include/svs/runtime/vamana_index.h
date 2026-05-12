@@ -23,7 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
+inline namespace v0 {
 
 namespace detail {
 struct VamanaBuildParameters {
