@@ -75,6 +75,15 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
 
     virtual size_t blocksize_bytes() const noexcept = 0;
 
+    /// @brief Storage kind currently backing the index.
+    ///
+    /// When deferred compression is enabled and the threshold has not yet been crossed,
+    /// this returns the *initial* (uncompressed) storage kind (FP32 / FP16). After the
+    /// swap, this returns the same value as ``get_storage_kind()`` (the trained target
+    /// kind). When deferred compression is disabled, this is always equal to
+    /// ``get_storage_kind()``.
+    virtual StorageKind get_current_storage_kind() const noexcept = 0;
+
     // Override for VamanaIndex interface
     Status add(size_t, const float*) noexcept override {
         return Status(

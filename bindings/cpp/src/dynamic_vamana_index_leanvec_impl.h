@@ -107,6 +107,21 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         lib::PowerOfTwo blocksize_bytes
     ) override {
         assert(storage::is_leanvec_storage(this->storage_kind_));
+        if (this->deferred_compression_enabled() &&
+            data.size() <
+                this->dynamic_index_params_.deferred_compression_threshold) {
+            // Delegate the build to the base class (which builds with the
+            // uncompressed `initial_storage_kind`) and let our overridden
+            // `setup_deferred_compression_swap` install a LeanVec-aware swap closure.
+            DynamicVamanaIndexImpl::init_impl(data, labels, blocksize_bytes);
+            return;
+        }
+        // Eager path (also taken when the very first add already meets the deferred
+        // threshold): build the LeanVec backend directly with the configured
+        // training data (matrices / leanvec_dims).
+        if (this->deferred_compression_enabled()) {
+            this->current_storage_kind_ = this->storage_kind_;
+        }
         impl_.reset(dispatch_leanvec_storage_kind(
             this->storage_kind_,
             [this](
@@ -133,9 +148,66 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         ));
     }
 
+    void setup_deferred_compression_swap(
+        StorageKind initial_kind, lib::PowerOfTwo blocksize_bytes
+    ) override {
+        // Capture LeanVec training data by value so the closure does not depend on
+        // the lifetime of `*this` for those parameters.
+        LeanVecTrainer trainer{leanvec_dims_, leanvec_matrices_};
+        storage::dispatch_storage_kind<allocator_type>(
+            initial_kind,
+            [&](auto&& tag) {
+                using Tag = std::decay_t<decltype(tag)>;
+                this->install_swap_closure_with_trainer<Tag>(
+                    blocksize_bytes, trainer
+                );
+            }
+        );
+    }
+
   protected:
     size_t leanvec_dims_;
     std::optional<LeanVecMatricesType> leanvec_matrices_;
+
+    /// @brief Trainer used by the deferred-compression swap when the target is a
+    /// LeanVec storage kind. Reuses pre-trained matrices when supplied; otherwise
+    /// trains PCA matrices from the accumulated source dataset (the same path the
+    /// eager builder uses when `leanvec_matrices_ == std::nullopt`).
+    struct LeanVecTrainer {
+        size_t leanvec_dims;
+        std::optional<LeanVecMatricesType> leanvec_matrices;
+
+        // Only LeanVec target storage kinds are supported.
+        template <typename TargetTag>
+        static constexpr bool supports =
+            svs::leanvec::IsLeanDataset<typename TargetTag::type>;
+
+        template <typename TargetTag, typename Source, typename Pool, typename Alloc>
+        auto operator()(
+            TargetTag, const Source& source, Pool& pool, const Alloc& allocator
+        ) const {
+            using TargetData = typename TargetTag::type;
+            if constexpr (svs::leanvec::IsLeanDataset<TargetData>) {
+                size_t d = leanvec_dims;
+                if (d == 0) {
+                    d = (source.dimensions() + 1) / 2;
+                }
+                return TargetData::reduce(
+                    source,
+                    leanvec_matrices,
+                    pool,
+                    0,
+                    svs::lib::MaybeStatic{d},
+                    allocator
+                );
+            } else {
+                static_assert(
+                    !sizeof(TargetData*),
+                    "LeanVecTrainer instantiated for a non-LeanVec target type"
+                );
+            }
+        }
+    };
 
     StorageKind check_storage_kind(StorageKind kind) {
         if (!storage::is_leanvec_storage(kind)) {

@@ -997,3 +997,282 @@ CATCH_TEST_CASE("RangeSearchFunctionalStatic", "[runtime][static_vamana]") {
 
     svs::runtime::v0::VamanaIndex::destroy(index);
 }
+
+// =====================================================================
+// Deferred-compression tests
+//
+// These exercise the runtime orchestrator that watches the live insert count
+// and triggers the swap from the initial uncompressed storage backend
+// (FP32 / FP16) to the configured trained target (LVQ / LeanVec / SQ) once
+// the threshold is reached, while reusing the existing graph.
+// =====================================================================
+namespace {
+
+// Add `flat_data` in two chunks straddling `threshold`. Returns the storage
+// kind reported between the two `add()` calls and after the second.
+struct DelayedSwapObservation {
+    svs::runtime::v0::StorageKind kind_before_swap;
+    svs::runtime::v0::StorageKind kind_after_swap;
+};
+
+DelayedSwapObservation add_in_two_halves(
+    svs::runtime::v0::DynamicVamanaIndex& index,
+    const std::vector<float>& flat_data,
+    size_t n_total,
+    size_t d,
+    size_t first_chunk
+) {
+    CATCH_REQUIRE(first_chunk < n_total);
+    std::vector<size_t> ids(n_total);
+    std::iota(ids.begin(), ids.end(), 0);
+
+    auto status = index.add(first_chunk, ids.data(), flat_data.data());
+    CATCH_REQUIRE(status.ok());
+    auto kind_before = index.get_current_storage_kind();
+
+    status = index.add(
+        n_total - first_chunk,
+        ids.data() + first_chunk,
+        flat_data.data() + first_chunk * d
+    );
+    CATCH_REQUIRE(status.ok());
+    auto kind_after = index.get_current_storage_kind();
+
+    return {kind_before, kind_after};
+}
+
+} // namespace
+
+CATCH_TEST_CASE(
+    "Deferred compression FP32 -> LVQ4x8 via runtime",
+    "[runtime][deferred_compression]"
+) {
+    const auto& test_data = get_test_data();
+    const size_t threshold = test_n / 2;
+    const size_t first_chunk = threshold / 2; // stays under threshold
+
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{/*graph_max_degree=*/64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dyn_params{};
+    dyn_params.deferred_compression_threshold = threshold;
+    dyn_params.initial_storage_kind = svs::runtime::v0::StorageKind::FP32;
+
+    auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LVQ4x8,
+        build_params,
+        {},
+        dyn_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LVQ4x8)
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        return;
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    // Before any add: nothing built yet, current kind is the initial kind.
+    CATCH_REQUIRE(
+        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32
+    );
+
+    auto obs = add_in_two_halves(*index, test_data, test_n, test_d, first_chunk);
+    CATCH_REQUIRE(obs.kind_before_swap == svs::runtime::v0::StorageKind::FP32);
+    CATCH_REQUIRE(obs.kind_after_swap == svs::runtime::v0::StorageKind::LVQ4x8);
+
+    // Sanity-check search after the swap (the graph should survive).
+    const int nq = 5;
+    const int k = 5;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+    status =
+        index->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE(
+    "Deferred compression FP32 -> LeanVec4x8 via runtime",
+    "[runtime][deferred_compression]"
+) {
+    const auto& test_data = get_test_data();
+    const size_t threshold = test_n / 2;
+    const size_t first_chunk = threshold / 2;
+
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{/*graph_max_degree=*/64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dyn_params{};
+    dyn_params.deferred_compression_threshold = threshold;
+    dyn_params.initial_storage_kind = svs::runtime::v0::StorageKind::FP32;
+
+    auto status = svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LeanVec4x8,
+        /*leanvec_dims=*/test_d / 2,
+        build_params,
+        {},
+        dyn_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LeanVec4x8)
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        return;
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    CATCH_REQUIRE(
+        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32
+    );
+
+    auto obs = add_in_two_halves(*index, test_data, test_n, test_d, first_chunk);
+    CATCH_REQUIRE(obs.kind_before_swap == svs::runtime::v0::StorageKind::FP32);
+    CATCH_REQUIRE(obs.kind_after_swap == svs::runtime::v0::StorageKind::LeanVec4x8);
+
+    const int nq = 5;
+    const int k = 5;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+    status =
+        index->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE(
+    "Deferred compression disabled by default keeps eager behavior via runtime",
+    "[runtime][deferred_compression]"
+) {
+    const auto& test_data = get_test_data();
+
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{/*graph_max_degree=*/64};
+    // Default ctor: threshold == 0 -> eager.
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dyn_params{};
+
+    auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LVQ4x8,
+        build_params,
+        {},
+        dyn_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LVQ4x8)
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        return;
+    }
+    CATCH_REQUIRE(status.ok());
+
+    // Eager mode: target kind is in effect from the start, before and after add.
+    CATCH_REQUIRE(
+        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::LVQ4x8
+    );
+
+    std::vector<size_t> ids(test_n);
+    std::iota(ids.begin(), ids.end(), 0);
+    status = index->add(test_n, ids.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(
+        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::LVQ4x8
+    );
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}
+
+CATCH_TEST_CASE(
+    "Deferred compression rejects non-FP initial storage kinds via runtime",
+    "[runtime][deferred_compression]"
+) {
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{/*graph_max_degree=*/64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dyn_params{};
+    dyn_params.deferred_compression_threshold = 1024;
+    dyn_params.initial_storage_kind = svs::runtime::v0::StorageKind::LVQ4x4;
+
+    auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LVQ4x8,
+        build_params,
+        {},
+        dyn_params
+    );
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(index == nullptr);
+}
+
+CATCH_TEST_CASE(
+    "Deferred compression first-add at-threshold builds target directly via runtime",
+    "[runtime][deferred_compression]"
+) {
+    // When the very first add already meets the deferred-compression threshold,
+    // the runtime should skip the uncompressed staging build and construct the
+    // target compressed backend directly. Externally this is observable as the
+    // `current_storage_kind` jumping straight from the initial kind (pre-build)
+    // to the target kind after the first add, without ever materializing the
+    // uncompressed backend.
+    const auto& test_data = get_test_data();
+    const size_t threshold = test_n / 2; // first add will be `test_n` >= threshold
+
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{/*graph_max_degree=*/64};
+    svs::runtime::v0::VamanaIndex::DynamicIndexParams dyn_params{};
+    dyn_params.deferred_compression_threshold = threshold;
+    dyn_params.initial_storage_kind = svs::runtime::v0::StorageKind::FP32;
+
+    auto status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::LVQ4x8,
+        build_params,
+        {},
+        dyn_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::LVQ4x8)
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        return;
+    }
+    CATCH_REQUIRE(status.ok());
+
+    // Pre-add: index reports initial kind.
+    CATCH_REQUIRE(
+        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32
+    );
+
+    std::vector<size_t> ids(test_n);
+    std::iota(ids.begin(), ids.end(), 0);
+    status = index->add(test_n, ids.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // Post-first-add: target kind is already in effect.
+    CATCH_REQUIRE(
+        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::LVQ4x8
+    );
+
+    const int nq = 5;
+    const int k = 5;
+    std::vector<float> distances(nq * k);
+    std::vector<size_t> labels(nq * k);
+    status =
+        index->search(nq, test_data.data(), k, distances.data(), labels.data());
+    CATCH_REQUIRE(status.ok());
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+}

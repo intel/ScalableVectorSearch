@@ -65,6 +65,10 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 
     size_t blocksize_bytes() const noexcept { return impl_->blocksize_bytes(); }
 
+    StorageKind get_current_storage_kind() const noexcept override {
+        return impl_->get_current_storage_kind();
+    }
+
     Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
         return runtime_error_wrapper([&] {
