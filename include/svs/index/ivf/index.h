@@ -148,7 +148,9 @@ class IVFIndex {
         , cluster_{std::move(cluster)}
         , cluster0_{cluster_.view_cluster(0)}
         , distance_{std::move(distance_function)}
-        , inter_query_threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
+        , inter_query_threadpool_{make_inter_query_threadpool(
+              std::move(threadpool_proto), centroids_.size(), logger
+          )}
         , intra_query_thread_count_{intra_query_thread_count}
         , logger_{std::move(logger)} {
         validate_thread_configuration();
@@ -571,6 +573,53 @@ class IVFIndex {
     svs::logging::logger_ptr logger_;
 
     ///// Initialization Methods /////
+
+    static auto make_inter_query_threadpool(
+        ThreadPoolProto proto, size_t num_centroids, svs::logging::logger_ptr& logger
+    ) -> decltype(threads::as_threadpool(std::move(proto))) {
+        if constexpr (std::is_same_v<ThreadPoolProto, size_t>) {
+            // Specialization for size_t thread pool prototype to allow automatic resizing
+            // and logging of adjustments.
+            if (proto > num_centroids) {
+                svs::logging::warn(
+                    logger,
+                    "Provided thread pool has {} threads, but there are only {} centroids. "
+                    "Reducing thread pool size to match number of centroids.",
+                    proto,
+                    num_centroids
+                );
+                proto = num_centroids;
+            }
+        } else if constexpr (requires { proto.resize(num_centroids); }) {
+            // Specialization for thread pool prototypes that support resizing.
+            if (proto.size() > num_centroids) {
+                svs::logging::warn(
+                    logger,
+                    "Provided thread pool has {} threads, but there are only {} centroids. "
+                    "Reducing thread pool size to match number of centroids.",
+                    proto.size(),
+                    num_centroids
+                );
+                proto.resize(num_centroids);
+            }
+        } else {
+            // Generic inter-query thread pool adjustment which just validates the thread
+            // count against the number of centroids.
+            if (proto.size() > num_centroids) {
+                svs::logging::error(
+                    logger,
+                    "Provided thread pool has {} threads, but there are only {} centroids. "
+                    "This configuration is not supported.",
+                    proto.size(),
+                    num_centroids
+                );
+                throw std::invalid_argument(
+                    "Number of inter-query threads cannot exceed number of centroids"
+                );
+            }
+        }
+        return threads::as_threadpool(std::move(proto));
+    }
 
     void validate_thread_configuration() {
         if (intra_query_thread_count_ < 1) {
