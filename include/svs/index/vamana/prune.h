@@ -185,12 +185,13 @@ void heuristic_prune_neighbors(
         current_alpha *= alpha;
     }
 
-    // Add a diversity edge if a duplicate cluster is detected.
-    // A "cluster" requires at least 2 kept candidates sharing the same
-    // distance; a single retained neighbor is not a cluster and must not
-    // be replaced (doing so would discard the only true nearest-neighbor
-    // edge for that node).
-    if (all_duplicates && anchor_set && result.size() >= 2) {
+    // Append a diversity edge if a duplicate cluster is detected.
+    // When every retained neighbor shares the same distance, each kept entry
+    // is a genuine nearest-neighbor edge; replacing one with a farther
+    // candidate would degrade the graph. Only append when there is still
+    // capacity in `result`.
+    if (all_duplicates && anchor_set && result.size() >= 2 &&
+        result.size() < max_result_size) {
         auto result_id = [](const I& r) -> size_t {
             if constexpr (std::integral<I>) {
                 return static_cast<size_t>(r);
@@ -218,7 +219,7 @@ void heuristic_prune_neighbors(
             if (in_result) {
                 continue;
             }
-            result.back() = detail::construct_as(lib::Type<I>(), candidate);
+            result.push_back(detail::construct_as(lib::Type<I>(), candidate));
             break;
         }
     }
@@ -301,12 +302,13 @@ void heuristic_prune_neighbors(
         current_alpha *= alpha;
     }
 
-    // Add a diversity edge if a duplicate cluster is detected.
-    // A "cluster" requires at least 2 kept candidates sharing the same
-    // distance; a single retained neighbor is not a cluster and must not
-    // be replaced (doing so would discard the only true nearest-neighbor
-    // edge for that node).
-    if (all_duplicates && anchor_set && result.size() >= 2) {
+    // Append a diversity edge if a duplicate cluster is detected.
+    // When every retained neighbor shares the same distance, each kept entry
+    // is a genuine nearest-neighbor edge; replacing one with a farther
+    // candidate would degrade the graph. Only append when there is still
+    // capacity in `result`.
+    if (all_duplicates && anchor_set && result.size() >= 2 &&
+        result.size() < max_result_size) {
         auto result_id = [](const I& r) -> size_t {
             if constexpr (std::integral<I>) {
                 return static_cast<size_t>(r);
@@ -334,7 +336,7 @@ void heuristic_prune_neighbors(
             if (in_result) {
                 continue;
             }
-            result.back() = detail::construct_as(lib::Type<I>(), candidate);
+            result.push_back(detail::construct_as(lib::Type<I>(), candidate));
             break;
         }
     }
