@@ -185,12 +185,8 @@ void heuristic_prune_neighbors(
         current_alpha *= alpha;
     }
 
-    // Add a diversity edge if a duplicate cluster is detected.
-    // A "cluster" requires at least 2 kept candidates sharing the same
-    // distance; a single retained neighbor is not a cluster and must not
-    // be replaced (doing so would discard the only true nearest-neighbor
-    // edge for that node).
-    if (all_duplicates && anchor_set && result.size() >= 2) {
+    // Add a diversity edge if a duplicate cluster is detected
+    if (all_duplicates && anchor_set && !result.empty()) {
         auto result_id = [](const I& r) -> size_t {
             if constexpr (std::integral<I>) {
                 return static_cast<size_t>(r);
@@ -301,12 +297,8 @@ void heuristic_prune_neighbors(
         current_alpha *= alpha;
     }
 
-    // Add a diversity edge if a duplicate cluster is detected.
-    // A "cluster" requires at least 2 kept candidates sharing the same
-    // distance; a single retained neighbor is not a cluster and must not
-    // be replaced (doing so would discard the only true nearest-neighbor
-    // edge for that node).
-    if (all_duplicates && anchor_set && result.size() >= 2) {
+    // Add a diversity edge if a duplicate cluster is detected
+    if (all_duplicates && anchor_set && !result.empty()) {
         auto result_id = [](const I& r) -> size_t {
             if constexpr (std::integral<I>) {
                 return static_cast<size_t>(r);
