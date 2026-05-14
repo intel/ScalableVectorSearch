@@ -105,7 +105,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         size_t leanvec_dims,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params,
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params,
+        bool leanvec_primary_only = false
     ) noexcept;
 
     // Specialization to build LeanVec-based Vamana index with provided training data
@@ -128,7 +129,8 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         const LeanVecTrainingData* training_data,
         const VamanaIndex::BuildParams& params,
         const VamanaIndex::SearchParams& default_search_params,
-        const VamanaIndex::DynamicIndexParams& dynamic_index_params
+        const VamanaIndex::DynamicIndexParams& dynamic_index_params,
+        bool leanvec_primary_only = false
     ) noexcept;
 };
 

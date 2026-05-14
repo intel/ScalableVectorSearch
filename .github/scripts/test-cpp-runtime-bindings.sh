@@ -35,7 +35,14 @@ conda install -y mkl=2025.3 mkl-devel=2025.3
 conda install -y /runtime_conda/libsvs-runtime-*.conda
 
 # Validate python and C++ tests against FAISS CI
-git clone https://github.com/facebookresearch/faiss.git
+# NOTE: temporarily clone the ibhati/faiss fork's leanvec_primary_only
+# branch instead of upstream facebookresearch/faiss, since the new
+# leanvec_primary_only API is not yet merged upstream. Revert to
+# `git clone https://github.com/facebookresearch/faiss.git` once the
+# corresponding FAISS PR lands.
+FAISS_REPO="${FAISS_REPO:-https://github.com/ibhati/faiss.git}"
+FAISS_BRANCH="${FAISS_BRANCH:-ib/leanvec-primary-only}"
+git clone --depth 1 --branch "$FAISS_BRANCH" "$FAISS_REPO" faiss
 cd faiss
 
 echo "==============================================="
