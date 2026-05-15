@@ -84,6 +84,13 @@ struct SVS_RUNTIME_API VamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept = 0;
 
+    // Compute distance between stored vector `id` and `query` (dim floats).
+    virtual Status
+    get_distance(double* distance, size_t id, const float* query) const noexcept = 0;
+
+    // Reconstruct `n` vectors by ID into `output` buffer (n * dim floats).
+    virtual Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept = 0;
+
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
