@@ -23,8 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 struct SVS_RUNTIME_API LeanVecTrainingData {
     virtual ~LeanVecTrainingData();
 
@@ -70,7 +69,6 @@ struct SVS_RUNTIME_API LeanVecTrainingData {
     virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(LeanVecTrainingData** training_data, std::istream& in) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

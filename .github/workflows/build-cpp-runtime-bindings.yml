@@ -39,9 +39,18 @@ jobs:
           - name: "with static library"
             enable_lvq_leanvec: "ON"
             suffix: ""
+            cc: "gcc"
+            cxx: "g++"
           - name: "public only"
             enable_lvq_leanvec: "OFF"
             suffix: "-public-only"
+            cc: "gcc"
+            cxx: "g++"
+          - name: public only with Clang
+            enable_lvq_leanvec: "OFF"
+            suffix: "-public-only-clang"
+            cc: "clang"
+            cxx: "clang++"
       fail-fast: false
 
     steps:
@@ -58,6 +67,8 @@ jobs:
             -w /workspace \
             -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             -e SUFFIX=${{ matrix.suffix }} \
+            -e CC=${{ matrix.cc }} \
+            -e CXX=${{ matrix.cxx }} \
             svs-manylinux228:latest \
             /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
 

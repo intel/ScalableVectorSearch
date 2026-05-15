@@ -24,8 +24,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 /// @brief Abstract interface for dynamic IVF indices (supports add/delete).
 struct SVS_RUNTIME_API DynamicIVFIndex : public IVFIndex {
     /// @brief Utility function to check storage kind support.
@@ -160,7 +159,6 @@ struct SVS_RUNTIME_API DynamicIVFIndexLeanVec : public DynamicIVFIndex {
         size_t intra_query_threads = 1
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

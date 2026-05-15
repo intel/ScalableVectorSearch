@@ -82,6 +82,25 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -fvisibility=hidden
 )
 
+# Add extra warnings for GCC/Clang if supported
+include(CheckCXXCompilerFlag)
+
+check_cxx_compiler_flag(
+    "-Winline-namespace-reopened-noninline"
+    SVS_RUNTIME_HAS_WINLINE_NAMESPACE_REOPENED_NONINLINE
+)
+if(SVS_RUNTIME_HAS_WINLINE_NAMESPACE_REOPENED_NONINLINE)
+    target_compile_options(${TARGET_NAME} PRIVATE -Winline-namespace-reopened-noninline)
+endif()
+
+check_cxx_compiler_flag(
+    "-Wunused-exception-parameter"
+    SVS_RUNTIME_HAS_WUNUSED_EXCEPTION_PARAMETER
+)
+if(SVS_RUNTIME_HAS_WUNUSED_EXCEPTION_PARAMETER)
+    target_compile_options(${TARGET_NAME} PRIVATE -Wunused-exception-parameter)
+endif()
+
 if(UNIX AND NOT APPLE)
     # Don't export 3rd-party symbols from the lib
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
