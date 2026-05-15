@@ -194,7 +194,6 @@ class VamanaBuilder {
         , params_{params}
         , prefetch_hint_{prefetch_hint}
         , threadpool_{threadpool}
-        , vertex_locks_(data.size())
         , backedge_buffer_{data.size(), 1000} {
         // Print all parameters
         svs::logging::log(
@@ -210,12 +209,10 @@ class VamanaBuilder {
             params.window_size,
             params.use_full_search_history
         );
-        // Check class invariants.
-        if (graph_.n_nodes() != data_.size()) {
-            throw ANNEXCEPTION(
-                "Expected graph to be pre-allocated with {} vertices!", data_.size()
-            );
-        }
+        // Note: graph/data size invariant (graph_.n_nodes() == data_.size()) is
+        // maintained under mutation_mutex_ in add_points(). During concurrent
+        // add_points() calls, sizes may temporarily differ between lock release
+        // and this point, but both are always >= the slots we will operate on.
     }
 
     void construct(
@@ -494,10 +491,11 @@ class VamanaBuilder {
             [&](const auto& is, uint64_t SVS_UNUSED(tid)) {
                 for (auto node_id : is) {
                     for (auto other_id : graph_.get_node(node_id)) {
-                        std::lock_guard lock{vertex_locks_[other_id]};
-                        if (graph_.get_node_degree(other_id) < params_.graph_max_degree) {
-                            graph_.add_edge(other_id, node_id);
-                        } else {
+                        // graph_.add_edge is atomic under node_locks_[other_id].
+                        // If it reports Full, route to the overflow buffer —
+                        // no TOCTOU race between a pre-check and the insert.
+                        if (graph_.add_edge(other_id, node_id) ==
+                            graphs::AddEdgeResult::Full) {
                             backedge_buffer_.add_edge(other_id, node_id);
                         }
                     }
@@ -591,8 +589,6 @@ class VamanaBuilder {
     GreedySearchPrefetchParameters prefetch_hint_;
     /// Worker threadpool.
     Pool& threadpool_;
-    /// Per-vertex locks.
-    std::vector<SpinLock> vertex_locks_;
     /// Overflow backedge buffer.
     BackedgeBuffer<Idx> backedge_buffer_;
 };

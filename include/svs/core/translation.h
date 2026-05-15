@@ -145,6 +145,59 @@ class IDTranslator {
     }
 
     ///
+    /// @brief Insert mappings, replacing any existing mapping whose current internal
+    ///     ID is considered stale by the caller (e.g. the associated slot has been
+    ///     marked for deletion but the translator entry was not yet cleaned up).
+    ///
+    /// Throws if an external ID already maps to a non-stale internal ID (i.e. the
+    /// user is trying to re-insert a live mapping). In this case, the translator is
+    /// left partially modified — prior successful replacements are not rolled back.
+    ///
+    /// @param external Container of external IDs to insert.
+    /// @param internal Container of internal IDs to insert (same length as external).
+    /// @param is_stale Callable ``bool(internal_id_type)``. Returns true if the given
+    ///     internal ID is stale and its existing mapping may be overwritten.
+    ///
+    template <class External, class Internal, class IsStale>
+    void replace_stale_and_insert(
+        const External& external, const Internal& internal, IsStale&& is_stale
+    ) {
+        auto ext_begin = external.begin();
+        auto ext_end = external.end();
+        auto int_begin = internal.begin();
+        auto int_end = internal.end();
+
+        if (std::distance(ext_begin, ext_end) != std::distance(int_begin, int_end)) {
+            throw ANNEXCEPTION(
+                "Length of external IDs is {} while the length of internal IDs is {}!",
+                std::distance(ext_begin, ext_end),
+                std::distance(int_begin, int_end)
+            );
+        }
+        if (!lib::all_unique(ext_begin, ext_end)) {
+            throw ANNEXCEPTION("External IDs contain repeat elements!");
+        }
+        if (!lib::all_unique(int_begin, int_end)) {
+            throw ANNEXCEPTION("Internal IDs contain repeat elements!");
+        }
+
+        auto e = ext_begin;
+        auto i = int_begin;
+        for (; e != ext_end; ++e, ++i) {
+            auto found = external_to_internal_.find(*e);
+            if (found != external_to_internal_.end()) {
+                auto old_internal = found->second;
+                if (!is_stale(old_internal)) {
+                    throw ANNEXCEPTION("Index already contains external ID {}!", *e);
+                }
+                // Stale — erase reverse mapping; forward will be overwritten below.
+                internal_to_external_.erase(old_internal);
+            }
+            insert_translation(*e, *i);
+        }
+    }
+
+    ///
     /// @brief Return whether the external ID exists.
     ///
     /// @param e The external ID to check.
@@ -178,6 +231,26 @@ class IDTranslator {
     ///
     external_id_type get_external(internal_id_type i) const {
         return internal_to_external_.at(i);
+    }
+
+    /// @brief Return the external ID, or a default if not found.
+    external_id_type
+    get_external_or(internal_id_type i, external_id_type default_val) const {
+        auto it = internal_to_external_.find(i);
+        if (it == internal_to_external_.end()) {
+            return default_val;
+        }
+        return it->second;
+    }
+
+    /// @brief Return the internal ID, or a default if not found.
+    internal_id_type
+    get_internal_or(external_id_type e, internal_id_type default_val) const {
+        auto it = external_to_internal_.find(e);
+        if (it == external_to_internal_.end()) {
+            return default_val;
+        }
+        return it->second;
     }
 
     ///

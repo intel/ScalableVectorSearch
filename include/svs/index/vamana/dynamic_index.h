@@ -17,7 +17,10 @@
 #pragma once
 
 // stdlib
+#include <atomic>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
 
 // Include the flat index to spin-up exhaustive searches on demand.
 #include "svs/index/flat/flat.h"
@@ -64,7 +67,15 @@ class MultiMutableVamanaIndex;
 ///
 /// Only used for `MutableVamanaIndex`.
 ///
-enum class SlotMetadata : uint8_t { Empty = 0x00, Valid = 0x01, Deleted = 0x02 };
+enum class SlotMetadata : uint8_t {
+    Empty = 0x00,
+    Valid = 0x01,
+    Deleted = 0x02,
+    // Reserved by an in-flight add_points: slot owned by the adder, vector
+    // copied, adjacency list being built. Invisible to search, consolidate,
+    // and subsequent add_points until promoted to Valid.
+    Pending = 0x04,
+};
 
 template <SlotMetadata Metadata> inline constexpr std::string_view name();
 template <> inline constexpr std::string_view name<SlotMetadata::Empty>() {
@@ -76,6 +87,9 @@ template <> inline constexpr std::string_view name<SlotMetadata::Valid>() {
 template <> inline constexpr std::string_view name<SlotMetadata::Deleted>() {
     return "Deleted";
 }
+template <> inline constexpr std::string_view name<SlotMetadata::Pending>() {
+    return "Pending";
+}
 
 // clang-format off
 inline constexpr std::string_view name(SlotMetadata metadata) {
@@ -84,6 +98,7 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
         SVS_SWITCH_RETURN(SlotMetadata::Empty)
         SVS_SWITCH_RETURN(SlotMetadata::Valid)
         SVS_SWITCH_RETURN(SlotMetadata::Deleted)
+        SVS_SWITCH_RETURN(SlotMetadata::Pending)
     }
     #undef SVS_SWITCH_RETURN
     throw ANNEXCEPTION("Unreachable!");
@@ -97,7 +112,13 @@ class ValidBuilder {
 
     template <typename I>
     constexpr PredicatedSearchNeighbor<I> operator()(I i, float distance) const {
-        bool invalid = getindex(status_, i) == SlotMetadata::Deleted;
+        // A neighbor is returnable only if its slot is Valid. Deleted slots
+        // must be skipped; Pending slots are reserved by an in-flight add and
+        // their vectors/edges are not yet fully published. Empty slots should
+        // never be reached via a valid edge, but we defend anyway.
+        bool invalid =
+            std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(getindex(status_, i)))
+                .load(std::memory_order_acquire) != SlotMetadata::Valid;
         // This neighbor should be skipped if the metadata corresponding to the given index
         // marks this slot as deleted.
         return PredicatedSearchNeighbor<I>(i, distance, !invalid);
@@ -153,6 +174,14 @@ class MutableVamanaIndex {
     std::vector<SlotMetadata> status_;
     size_t first_empty_ = 0;
     IDTranslator translator_;
+    // Count of Valid slots. Maintained atomically in add_points/delete_entry.
+    // Wrapped in unique_ptr because std::atomic is not movable.
+    std::unique_ptr<std::atomic<size_t>> num_valid_{
+        std::make_unique<std::atomic<size_t>>(0)};
+    // Protects translator access: exclusive for writes (add/consolidate/compact),
+    // shared for reads (delete/search). Wrapped in unique_ptr for movability.
+    std::unique_ptr<std::shared_mutex> translator_mutex_{
+        std::make_unique<std::shared_mutex>()};
 
     // Thread local data structures.
     distance_type distance_;
@@ -192,6 +221,7 @@ class MutableVamanaIndex {
         , status_(data_.size(), SlotMetadata::Valid)
         , first_empty_{data_.size()}
         , translator_()
+        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , distance_{std::move(distance_function)}
         , threadpool_{threads::as_threadpool(std::move(threadpool_proto))}
         , search_parameters_{vamana::construct_default_search_parameters(data_)}
@@ -219,6 +249,7 @@ class MutableVamanaIndex {
         , status_(data_.size(), SlotMetadata::Valid)
         , first_empty_{data_.size()}
         , translator_()
+        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , distance_(std::move(distance_function))
         , threadpool_(threads::as_threadpool(std::move(threadpool_proto)))
         , search_parameters_(vamana::construct_default_search_parameters(data_))
@@ -285,6 +316,7 @@ class MutableVamanaIndex {
         , status_{data_.size(), SlotMetadata::Valid}
         , first_empty_{data_.size()}
         , translator_{std::move(translator)}
+        , num_valid_{std::make_unique<std::atomic<size_t>>(data_.size())}
         , distance_{distance_function}
         , threadpool_{std::move(threadpool)}
         , search_parameters_{config.search_parameters}
@@ -357,10 +389,27 @@ class MutableVamanaIndex {
     ///
     Idx translate_external_id(size_t e) const { return translator_.get_internal(e); }
 
+    /// @brief Translate external ID, returning `default_val` if not mapped.
+    ///
+    /// Unlike `translate_external_id`, this does not throw on a missing key.
+    /// Intended for best-effort readers (e.g. search buffer top-up) that may
+    /// race with `consolidate()` erasing translator entries.
+    Idx translate_external_id_or(size_t e, Idx default_val) const {
+        return translator_.get_internal_or(e, default_val);
+    }
+
     ///
     /// @brief Check whether the external ID `e` exists in the index.
     ///
-    bool has_id(size_t e) const { return translator_.has_external(e); }
+    bool has_id(size_t e) const {
+        if (!translator_.has_external(e)) {
+            return false;
+        }
+        // Check slot is not Deleted (deferred translator cleanup).
+        auto internal = translator_.get_internal(e);
+        return std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal]))
+                   .load(std::memory_order_acquire) == SlotMetadata::Valid;
+    }
 
     ///
     /// @brief Get the external ID mapped to be `i`.
@@ -369,7 +418,11 @@ class MutableVamanaIndex {
     ///
     /// Requires that mapping for `i` exists. Otherwise, all bets are off.
     ///
-    size_t translate_internal_id(Idx i) const { return translator_.get_external(i); }
+    size_t translate_internal_id(Idx i) const {
+        // Use get_external_or to handle concurrent consolidate erasing entries.
+        // If the entry was erased, return the internal ID as-is (stale result).
+        return translator_.get_external_or(i, static_cast<size_t>(i));
+    }
 
     ///
     /// @brief Call the functor with all external IDs in the index.
@@ -378,8 +431,13 @@ class MutableVamanaIndex {
     ///     each external ID in the index.
     ///
     template <typename F> void on_ids(F&& f) const {
+        // Skip entries whose slot is Deleted (deferred translator cleanup).
         for (auto pair : translator_) {
-            f(pair.first);
+            auto internal = pair.second;
+            if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[internal]))
+                    .load(std::memory_order_acquire) == SlotMetadata::Valid) {
+                f(pair.first);
+            }
         }
     }
 
@@ -393,11 +451,7 @@ class MutableVamanaIndex {
     }
 
     /// @brief Return the number of **valid** (non-deleted) entries in the index.
-    size_t size() const {
-        // NB: Index translation should always be kept in-sync with the number of valid
-        // elements.
-        return translator_.size();
-    }
+    size_t size() const { return num_valid_->load(std::memory_order_acquire); }
 
     ///
     /// @brief Translate in-place a collection of internal IDs to external IDs.
@@ -421,7 +475,7 @@ class MutableVamanaIndex {
     template <class Dims, class Base>
         requires(std::tuple_size_v<Dims> == 2)
     void translate_to_external(DenseArray<size_t, Dims, Base>& ids) {
-        // N.B.: lib::narrow_cast should be valid because the origin of the IDs is internal.
+        std::shared_lock lock{*translator_mutex_};
         threads::parallel_for(
             threadpool_,
             threads::StaticPartition{getsize<0>(ids)},
@@ -439,7 +493,13 @@ class MutableVamanaIndex {
     ///
     /// @brief Get the raw data for external id `e`.
     ///
-    auto get_datum(size_t e) const { return data_.get_datum(translate_external_id(e)); }
+    auto get_datum(size_t e) const {
+        std::shared_lock lock{*translator_mutex_};
+        if (!translator_.has_external(e)) {
+            throw ANNEXCEPTION("External ID {} not found in index!", e);
+        }
+        return data_.get_datum(translator_.get_internal(e));
+    }
 
     ///
     /// @brief Return the dimensionality of the stored dataset.
@@ -641,55 +701,79 @@ class MutableVamanaIndex {
             );
         }
 
-        // Gather all empty slots.
+        // Phase 1: Bookkeeping under lock — slot allocation, resize, translator,
+        // data copy. This serializes concurrent add_points() calls for the brief
+        // bookkeeping phase (~5-50μs).
         std::vector<size_t> slots{};
-        slots.reserve(num_points);
-        bool have_room = false;
+        {
+            std::lock_guard lock{*translator_mutex_};
 
-        size_t s = reuse_empty ? 0 : first_empty_;
-        size_t smax = status_.size();
-        for (; s < smax; ++s) {
-            if (status_[s] == SlotMetadata::Empty) {
-                slots.push_back(s);
+            // Gather all empty slots.
+            slots.reserve(num_points);
+            bool have_room = false;
+
+            size_t s = reuse_empty ? 0 : first_empty_;
+            size_t smax = status_.size();
+            for (; s < smax; ++s) {
+                if (status_[s] == SlotMetadata::Empty) {
+                    slots.push_back(s);
+                }
+                if (slots.size() == num_points) {
+                    have_room = true;
+                    break;
+                }
             }
-            if (slots.size() == num_points) {
-                have_room = true;
-                break;
+
+            // Check if we have enough indices. If we don't, we need to resize.
+            if (!have_room) {
+                size_t needed = num_points - slots.size();
+                size_t current_size = data_.size();
+                size_t new_size = current_size + needed;
+                data_.resize(new_size);
+                graph_.unsafe_resize(new_size);
+                status_.resize(new_size, SlotMetadata::Empty);
+
+                threads::UnitRange<size_t> extra_points{
+                    current_size, current_size + needed};
+                slots.insert(slots.end(), extra_points.begin(), extra_points.end());
+            }
+            assert(slots.size() == num_points);
+
+            // Update the id translation. An existing mapping is stale only if
+            // the old slot is Deleted (delete_entries defers translator
+            // cleanup; consolidate normally drains those entries). A Pending
+            // slot belongs to an in-flight adder and MUST NOT be treated as
+            // stale — that would clobber the other adder's mapping.
+            translator_
+                .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
+                    return std::atomic_ref<SlotMetadata>(
+                               const_cast<SlotMetadata&>(status_[internal])
+                           )
+                               .load(std::memory_order_acquire) == SlotMetadata::Deleted;
+                });
+
+            // Copy data and clear adjacency lists.
+            copy_points(points, slots);
+            clear_lists(slots);
+
+            // Stamp the reserved slots as Pending before releasing the lock.
+            // Pending signals "reserved by an in-flight add; do not touch"
+            // to concurrent consolidate, delete, and add. Promoted to Valid
+            // after VamanaBuilder::construct finishes below.
+            for (auto s : slots) {
+                std::atomic_ref<SlotMetadata>(status_[s])
+                    .store(SlotMetadata::Pending, std::memory_order_release);
+            }
+
+            if (!slots.empty()) {
+                first_empty_ = std::max(first_empty_, slots.back() + 1);
             }
         }
 
-        // Check if we have enough indices. If we don't, we need to resize the data and
-        // the graph.
-        if (!have_room) {
-            size_t needed = num_points - slots.size();
-            size_t current_size = data_.size();
-            size_t new_size = current_size + needed;
-            data_.resize(new_size);
-
-            // Graph resizing marked as un-safe because graph contain internal references
-            // and thus it's not a good idea to go around shrinking the graph without care.
-            //
-            // However, we are only growing here, so resizing will not change any
-            // invariants.
-            graph_.unsafe_resize(new_size);
-            status_.resize(new_size, SlotMetadata::Empty);
-
-            // Append the correct number of extra slots.
-            threads::UnitRange<size_t> extra_points{current_size, current_size + needed};
-            slots.insert(slots.end(), extra_points.begin(), extra_points.end());
-        }
-        assert(slots.size() == num_points);
-
-        // Try to update the id translation now that we have internal ids.
-        // If this fails, we still haven't mutated the index data structure so we're safe
-        // to throw an exception.
-        translator_.insert(external_ids, slots);
-
-        // Copy the given points into the data and clear the adjacency lists for the graph.
-        copy_points(points, slots);
-        clear_lists(slots);
-
-        // Patch in the new neighbors.
+        // Phase 2: Graph construction — runs WITHOUT lock.
+        // VamanaBuilder::construct() is thread-safe via per-node spinlock+seqlock.
+        // NOTE: VamanaBuilder constructor asserts graph_.n_nodes() == data_.size().
+        // Both are grown together under the lock above, so this is always consistent.
         auto parameters = VamanaBuildParameters{
             alpha_,
             graph_.max_degree(),
@@ -711,14 +795,14 @@ class MutableVamanaIndex {
             logger_,
             logging::Level::Trace};
         builder.construct(alpha_, entry_point(), slots, logging::Level::Trace, logger_);
-        // Mark all added entries as valid.
-        for (const auto& i : slots) {
-            status_[i] = SlotMetadata::Valid;
-        }
 
-        if (!slots.empty()) {
-            first_empty_ = std::max(first_empty_, slots.back() + 1);
+        // Mark added entries as valid (unique slots per thread, no lock needed).
+        for (const auto& i : slots) {
+            std::atomic_ref<SlotMetadata>(status_[i])
+                .store(SlotMetadata::Valid, std::memory_order_release);
         }
+        num_valid_->fetch_add(slots.size(), std::memory_order_acq_rel);
+
         return slots;
     }
 
@@ -745,21 +829,57 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
-        translator_.check_external_exist(ids.begin(), ids.end());
+        std::shared_lock lock{*translator_mutex_};
+        size_t deleted = 0;
         for (auto i : ids) {
+            if (!translator_.has_external(i)) {
+                continue; // Already deleted + consolidated, or never existed.
+            }
             delete_entry(translator_.get_internal(i));
+            ++deleted;
         }
-        translator_.delete_external(ids);
-        return ids.size();
+        // Don't erase translator entries here — concurrent search may still
+        // need them for translate_to_external(). Cleanup happens in
+        // consolidate()/compact() when deleted slots become empty.
+        return deleted;
     }
 
     void delete_entry(size_t i) {
-        SlotMetadata& meta = getindex(status_, i);
-        assert(meta == SlotMetadata::Valid);
-        meta = SlotMetadata::Deleted;
+        auto& meta = getindex(status_, i);
+        auto ref = std::atomic_ref<SlotMetadata>(meta);
+        // CAS Valid → Deleted. If the slot is Pending (concurrent adder still
+        // in phase 2), wait for the adder to promote it to Valid before we
+        // can soft-delete; otherwise the delete would be silently lost. Only
+        // the thread that successfully transitions decrements num_valid_;
+        // double-deletes silently no-op.
+        for (;;) {
+            SlotMetadata expected = SlotMetadata::Valid;
+            if (ref.compare_exchange_strong(
+                    expected,
+                    SlotMetadata::Deleted,
+                    std::memory_order_acq_rel,
+                    std::memory_order_relaxed
+                )) {
+                num_valid_->fetch_sub(1, std::memory_order_acq_rel);
+                return;
+            }
+            if (expected != SlotMetadata::Pending) {
+                // Already Deleted or Empty — no-op.
+                return;
+            }
+            // Pending: adder's Pending → Valid store is imminent; spin.
+            svs::detail::pause();
+        }
     }
 
-    bool is_deleted(size_t i) const { return status_[i] != SlotMetadata::Valid; }
+    bool is_deleted(size_t i) const {
+        // True only for slots that have been soft-deleted. Pending (in-flight
+        // add) and Empty are NOT deleted: consolidate must not prune them out
+        // of other nodes' adjacency lists, and search already filters
+        // non-Valid slots via ValidBuilder.
+        return std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
+                   .load(std::memory_order_acquire) == SlotMetadata::Deleted;
+    }
 
     Idx entry_point() const {
         assert(entry_point_.size() == 1);
@@ -767,15 +887,21 @@ class MutableVamanaIndex {
     }
 
     ///
-    /// @brief Return all the non-missing internal IDs.
+    /// @brief Return all internal IDs whose slot is Valid (live).
     ///
-    /// This includes both valid and soft-deleted entries.
-    ///
+    /// Used by compact() to pick the surviving set. Pending slots (in-flight
+    /// adds) are excluded — compact is only safe to run when the caller has
+    /// ensured no Pending slots exist (compact holds translator_mutex_
+    /// exclusive, which prevents a new add from entering phase 1, but an add
+    /// that reached phase 2 before compact grabbed the lock may still be
+    /// publishing status Pending → Valid; the compact caller must quiesce
+    /// these adds first).
     std::vector<Idx> nonmissing_indices() const {
         auto indices = std::vector<Idx>();
         indices.reserve(size());
         for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-            if (!is_deleted(i)) {
+            if (std::atomic_ref<SlotMetadata>(const_cast<SlotMetadata&>(status_[i]))
+                    .load(std::memory_order_acquire) == SlotMetadata::Valid) {
                 indices.push_back(i);
             }
         }
@@ -862,30 +988,32 @@ class MutableVamanaIndex {
         }
 
         ///// Finishing steps.
-        // Resize the graph and data.
-        graph_.unsafe_resize(max_index);
-        data_.resize(max_index);
-        first_empty_ = max_index;
+        {
+            std::lock_guard lock{*translator_mutex_};
+            // Resize the graph and data.
+            graph_.unsafe_resize(max_index);
+            data_.resize(max_index);
+            first_empty_ = max_index;
 
-        // Compact metadata and ID remapping.
-        for (size_t new_id = 0; new_id < max_index; ++new_id) {
-            auto old_id = getindex(new_to_old_id_map, new_id);
-            // No work to be done if there was no remapping.
-            if (new_id == old_id) {
-                continue;
+            // Compact metadata and ID remapping.
+            for (size_t new_id = 0; new_id < max_index; ++new_id) {
+                auto old_id = getindex(new_to_old_id_map, new_id);
+                if (new_id == old_id) {
+                    continue;
+                }
+
+                auto status = getindex(status_, old_id);
+                status_[new_id] = status;
+                if (status == SlotMetadata::Valid) {
+                    translator_.remap_internal_id(old_id, new_id);
+                }
             }
+            status_.resize(max_index);
 
-            auto status = getindex(status_, old_id);
-            status_[new_id] = status;
-            if (status == SlotMetadata::Valid) {
-                translator_.remap_internal_id(old_id, new_id);
+            // Update entry points.
+            for (auto& ep : entry_point_) {
+                ep = old_to_new_id_map.at(ep);
             }
-        }
-        status_.resize(max_index);
-
-        // Update entry points.
-        for (auto& ep : entry_point_) {
-            ep = old_to_new_id_map.at(ep);
         }
     }
 
@@ -978,10 +1106,26 @@ class MutableVamanaIndex {
             check_is_deleted
         );
 
-        // After consolidation - set all `Deleted` slots to `Empty`.
-        for (auto& status : status_) {
-            if (status == SlotMetadata::Deleted) {
-                status = SlotMetadata::Empty;
+        // After consolidation - clean up deleted slots under lock.
+        {
+            std::lock_guard lock{*translator_mutex_};
+            // Erase translator entries for deleted slots (deferred from delete_entries).
+            // Skip entries already absent — add_points with replace_stale_and_insert
+            // may have reassigned the external ID and erased the stale reverse entry.
+            std::vector<size_t> deleted_internal_ids;
+            for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+                if (status_[i] == SlotMetadata::Deleted && translator_.has_internal(i)) {
+                    deleted_internal_ids.push_back(i);
+                }
+            }
+            if (!deleted_internal_ids.empty()) {
+                translator_.delete_internal(deleted_internal_ids, false);
+            }
+            // Set all `Deleted` slots to `Empty`.
+            for (auto& status : status_) {
+                if (status == SlotMetadata::Deleted) {
+                    status = SlotMetadata::Empty;
+                }
             }
         }
     }
@@ -1140,6 +1284,11 @@ class MutableVamanaIndex {
             );
         }
 
+        // Hold the shared lock across bounds-check and parallel_for so a
+        // concurrent `consolidate()` cannot erase a translator entry between
+        // the presence check and the `translate_external_id` lookup below.
+        std::shared_lock lock{*translator_mutex_};
+
         // Bounds checking.
         for (size_t i = 0; i < ids_size; ++i) {
             I id = ids[i]; // inbounds by loop bounds.
@@ -1239,6 +1388,11 @@ class MutableVamanaIndex {
                 case SlotMetadata::Empty: {
                     return false;
                 }
+                case SlotMetadata::Pending: {
+                    // In-flight add: edges may be only partially published.
+                    // Treat as not-yet-live for consistency checking.
+                    return false;
+                }
             }
             // Make GCC happy.
             return false;
@@ -1271,6 +1425,11 @@ class MutableVamanaIndex {
     /// @brief Compute the distance between an external vector and a vector in the index.
     template <typename ExternalId, typename Query>
     double get_distance(const ExternalId& external_id, const Query& query) const {
+        // Hold the shared lock across presence check and translation — prevents
+        // a concurrent `consolidate()` from erasing the translator entry
+        // between the two map lookups.
+        std::shared_lock lock{*translator_mutex_};
+
         // Check if the external ID exists
         if (!has_id(external_id)) {
             throw ANNEXCEPTION(
