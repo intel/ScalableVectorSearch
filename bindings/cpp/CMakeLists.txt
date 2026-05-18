@@ -82,23 +82,21 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -fvisibility=hidden
 )
 
-# Add extra warnings for GCC/Clang if supported
-include(CheckCXXCompilerFlag)
-
-check_cxx_compiler_flag(
-    "-Winline-namespace-reopened-noninline"
-    SVS_RUNTIME_HAS_WINLINE_NAMESPACE_REOPENED_NONINLINE
+# Optional clang-tidy integration. Reuses the top-level repo's
+# cmake/clang-tidy.cmake module so the runtime build runs the same
+# .clang-tidy config as the rest of the library.
+option(SVS_EXPERIMENTAL_CLANG_TIDY
+    "Run the clang-tidy static analyzer on the cpp runtime bindings."
+    OFF
 )
-if(SVS_RUNTIME_HAS_WINLINE_NAMESPACE_REOPENED_NONINLINE)
-    target_compile_options(${TARGET_NAME} PRIVATE -Winline-namespace-reopened-noninline)
-endif()
-
-check_cxx_compiler_flag(
-    "-Wunused-exception-parameter"
-    SVS_RUNTIME_HAS_WUNUSED_EXCEPTION_PARAMETER
-)
-if(SVS_RUNTIME_HAS_WUNUSED_EXCEPTION_PARAMETER)
-    target_compile_options(${TARGET_NAME} PRIVATE -Wunused-exception-parameter)
+if(SVS_EXPERIMENTAL_CLANG_TIDY)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../cmake")
+    include(clang-tidy)
+    if(CLANG_TIDY_COMMAND)
+        set_target_properties(${TARGET_NAME}
+            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}"
+        )
+    endif()
 endif()
 
 if(UNIX AND NOT APPLE)

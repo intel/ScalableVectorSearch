@@ -41,6 +41,7 @@ CMAKE_ARGS=(
     "-DCMAKE_INSTALL_LIBDIR=lib"
     "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
     "-DSVS_RUNTIME_ENABLE_IVF=ON"
+    "-DSVS_EXPERIMENTAL_CLANG_TIDY=ON"
 )
 
 if [ -n "$SVS_URL" ]; then
@@ -48,12 +49,7 @@ if [ -n "$SVS_URL" ]; then
 fi
 
 # Build and install runtime bindings library (from bindings/cpp)
-if [ -n "$CC" ]; then
-    echo "Using CC=${CC} and CXX=${CXX} for building cpp runtime bindings"
-else
-    echo "Using default compiler for building cpp runtime bindings"
-fi
-CC=${CC:-gcc} CXX=${CXX:-g++} cmake .. "${CMAKE_ARGS[@]}"
+CC=gcc CXX=g++ cmake .. "${CMAKE_ARGS[@]}"
 cmake --build . -j
 cmake --install .
 

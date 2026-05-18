@@ -17,18 +17,36 @@
 #####
 
 if(SVS_EXPERIMENTAL_CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE NAMES clang-tidy-14 clang-tidy-13 clang-tidy-12 clang-tidy)
+    find_program(CLANG_TIDY_EXE
+        NAMES
+            clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16
+            clang-tidy-15 clang-tidy-14 clang-tidy-13 clang-tidy-12 clang-tidy
+    )
 
     if(NOT CLANG_TIDY_EXE)
         message(WARNING "SVS_EXPERIMENTAL_CLANG_TIDY is ON but clang-tidy is not found!")
         set(CLANG_TIDY_COMMAND "" CACHE STRING "" FORCE)
     else()
+        # Resolve the .clang-tidy config from the top-level repo root. When the
+        # runtime bindings are built standalone (bindings/cpp as source root),
+        # CMAKE_SOURCE_DIR points at bindings/cpp, so walk up two directories.
+        if(EXISTS "${CMAKE_SOURCE_DIR}/.clang-tidy")
+            set(SVS_CLANG_TIDY_CONFIG "${CMAKE_SOURCE_DIR}/.clang-tidy")
+            set(SVS_CLANG_TIDY_HEADER_FILTER "${CMAKE_SOURCE_DIR}/include/svs/.*")
+        elseif(EXISTS "${CMAKE_SOURCE_DIR}/../../.clang-tidy")
+            set(SVS_CLANG_TIDY_CONFIG "${CMAKE_SOURCE_DIR}/../../.clang-tidy")
+            set(SVS_CLANG_TIDY_HEADER_FILTER "${CMAKE_SOURCE_DIR}/include/svs/.*")
+        else()
+            message(FATAL_ERROR "SVS_EXPERIMENTAL_CLANG_TIDY is ON but no .clang-tidy was found")
+        endif()
+
         set(CLANG_TIDY_COMMAND
             "${CLANG_TIDY_EXE}"
             "--format-style=file"
-            "--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
-            "--header-filter=${CMAKE_SOURCE_DIR}/include/svs/*"
+            "--config-file=${SVS_CLANG_TIDY_CONFIG}"
+            "--header-filter=${SVS_CLANG_TIDY_HEADER_FILTER}"
+            "--warnings-as-errors=*"
         )
-        message("Clang tidy command: ${CLANG_TIDY_COMMAND}")
+        message(STATUS "Clang tidy command: ${CLANG_TIDY_COMMAND}")
     endif()
 endif()
