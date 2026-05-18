@@ -27,9 +27,7 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
         message(WARNING "SVS_EXPERIMENTAL_CLANG_TIDY is ON but clang-tidy is not found!")
         set(CLANG_TIDY_COMMAND "" CACHE STRING "" FORCE)
     else()
-        # Resolve the .clang-tidy config from the top-level repo root. When the
-        # runtime bindings are built standalone (bindings/cpp as source root),
-        # CMAKE_SOURCE_DIR points at bindings/cpp, so walk up two directories.
+        # Walk up to find .clang-tidy when built standalone from bindings/cpp.
         if(EXISTS "${CMAKE_SOURCE_DIR}/.clang-tidy")
             set(SVS_CLANG_TIDY_CONFIG "${CMAKE_SOURCE_DIR}/.clang-tidy")
             set(SVS_CLANG_TIDY_HEADER_FILTER "${CMAKE_SOURCE_DIR}/include/svs/.*")
@@ -47,6 +45,16 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             "--header-filter=${SVS_CLANG_TIDY_HEADER_FILTER}"
             "--warnings-as-errors=*"
         )
+
+        # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+            get_filename_component(_svs_gcc_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+            get_filename_component(_svs_gcc_toolchain "${_svs_gcc_bin_dir}" DIRECTORY)
+            list(APPEND CLANG_TIDY_COMMAND
+                "--extra-arg=--gcc-toolchain=${_svs_gcc_toolchain}"
+            )
+        endif()
+
         message(STATUS "Clang tidy command: ${CLANG_TIDY_COMMAND}")
     endif()
 endif()
