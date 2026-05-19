@@ -1,9 +1,8 @@
 Checks: '
 -*,
-bugprone-*,
--bugprone-easily-swappable-parameters,
--bugprone-macro-parentheses,
-clang-analyzer-*,
+bugprone-argument-comment,
+bugprone-sizeof-*,
+bugprone-use-after-move,
 clang-diagnostic-*,
 -clang-diagnostic-nrvo,
 -clang-diagnostic-missing-designated-field-initializers,
@@ -28,9 +27,9 @@ performance-trivially-destructible,
 performance-type-promotion-in-math-fn,
 performance-unnecessary-copy-initialization,
 performance-unnecessary-value-param,
-readability-*,
--readability-magic-numbers,
--readability-identifier-length,
+readability-operators-representation,
+readability-redundant-string-init,
+readability-braces-around-statements,
 '
 
 WarningsAsErrors: '
@@ -58,6 +57,4 @@ CheckOptions:
   value: '::std::basic_string'
 - key: readability-named-parameter.InsertPlainNamesInForwardDecls
   value: true
-- key: readability-implicit-bool-conversion.AllowIntegerConditions
-  value: '1'
 ...

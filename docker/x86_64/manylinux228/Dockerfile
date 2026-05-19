@@ -20,8 +20,13 @@ RUN yum install -y cmake-3.26.5 \
     && (if [ -x /usr/local/bin/cmake ]; then rm /usr/local/bin/cmake; fi) \
     && ln -sf /usr/bin/cmake3 /usr/local/bin/cmake
 
-# Install gcc-11 and clang-tools (for clang-tidy)
-RUN yum install -y gcc-toolset-11-11.1-1.el8 wget-1.19.5 clang-tools-extra \
+# Install gcc-11
+RUN yum install -y gcc-toolset-11-11.1-1.el8 wget-1.19.5 \
+    && yum clean all
+
+# Install clang-tidy via the LLVM 17 module; newer versions crash on our templates.
+RUN dnf module install -y llvm-toolset \
+    && yum install -y clang-tools-extra \
     && yum clean all
 
 # Configure environment setup properly without recursion
