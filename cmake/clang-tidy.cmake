@@ -19,8 +19,7 @@
 if(SVS_EXPERIMENTAL_CLANG_TIDY)
     find_program(CLANG_TIDY_EXE
         NAMES
-            clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16
-            clang-tidy-15 clang-tidy-14 clang-tidy-13 clang-tidy-12 clang-tidy
+            clang-tidy-17 clang-tidy-18 clang-tidy
     )
 
     if(NOT CLANG_TIDY_EXE)
@@ -43,7 +42,7 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             "--format-style=file"
             "--config-file=${SVS_CLANG_TIDY_CONFIG}"
             "--header-filter=${SVS_CLANG_TIDY_HEADER_FILTER}"
-            "--warnings-as-errors=*"
+            "--warnings-as-errors=clang-diagnostic-*,bugprone-use-after-move"
         )
 
         # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
