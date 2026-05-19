@@ -701,9 +701,12 @@ class MutableVamanaIndex {
             );
         }
 
-        // Phase 1: Bookkeeping under lock — slot allocation, resize, translator,
-        // data copy. This serializes concurrent add_points() calls for the brief
-        // bookkeeping phase (~5-50μs).
+        // Phase 1: Metadata bookkeeping under lock — slot allocation, resize,
+        // translator update, Pending stamp, first_empty_ update. The data
+        // copy and adjacency clearing are deferred to Phase 2 below and
+        // run lock-free against the reserved Pending slots, which are
+        // invisible to search (status_ != Valid) and reserved against other
+        // writers (Empty-slot scan skips Pending).
         std::vector<size_t> slots{};
         {
             std::lock_guard lock{*translator_mutex_};
@@ -742,7 +745,7 @@ class MutableVamanaIndex {
             // Update the id translation. An existing mapping is stale only if
             // the old slot is Deleted (delete_entries defers translator
             // cleanup; consolidate normally drains those entries). A Pending
-            // slot belongs to an in-flight adder and MUST NOT be treated as
+            // slot belongs to an in-flight adder and must not be treated as
             // stale — that would clobber the other adder's mapping.
             translator_
                 .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
@@ -752,14 +755,13 @@ class MutableVamanaIndex {
                                .load(std::memory_order_acquire) == SlotMetadata::Deleted;
                 });
 
-            // Copy data and clear adjacency lists.
-            copy_points(points, slots);
-            clear_lists(slots);
-
             // Stamp the reserved slots as Pending before releasing the lock.
             // Pending signals "reserved by an in-flight add; do not touch"
-            // to concurrent consolidate, delete, and add. Promoted to Valid
-            // after VamanaBuilder::construct finishes below.
+            // to concurrent consolidate, delete, and add. Once stamped, the
+            // copy_points/clear_lists below can run without the lock because
+            // (a) other writers' Empty-slot scans skip Pending, and (b)
+            // searches' ValidBuilder filters non-Valid slots from results.
+            // Promoted to Valid after VamanaBuilder::construct finishes below.
             for (auto s : slots) {
                 std::atomic_ref<SlotMetadata>(status_[s])
                     .store(SlotMetadata::Pending, std::memory_order_release);
@@ -770,9 +772,17 @@ class MutableVamanaIndex {
             }
         }
 
-        // Phase 2: Graph construction — runs WITHOUT lock.
+        // Phase 2: Lock-free data copy and adjacency clearing.
+        // Slots are Pending: invisible to search (ValidBuilder filters),
+        // reserved against other writers (Empty-slot scan skips Pending).
+        // Must complete before Phase 3 — VamanaBuilder reads data_ for
+        // distance computations against the new slots.
+        copy_points(points, slots);
+        clear_lists(slots);
+
+        // Phase 3: Graph construction — runs without lock.
         // VamanaBuilder::construct() is thread-safe via per-node spinlock+seqlock.
-        // NOTE: VamanaBuilder constructor asserts graph_.n_nodes() == data_.size().
+        // note: VamanaBuilder constructor asserts graph_.n_nodes() == data_.size().
         // Both are grown together under the lock above, so this is always consistent.
         auto parameters = VamanaBuildParameters{
             alpha_,
