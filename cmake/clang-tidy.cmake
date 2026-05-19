@@ -43,6 +43,9 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             "--config-file=${SVS_CLANG_TIDY_CONFIG}"
             "--header-filter=${SVS_CLANG_TIDY_HEADER_FILTER}"
             "--warnings-as-errors=clang-diagnostic-*,bugprone-use-after-move"
+            # Suppress noise from args (e.g. --gcc-toolchain) that affect link-time
+            # paths but are unused during clang-tidy's parse-only invocation.
+            "--extra-arg=-Wno-unused-command-line-argument"
         )
 
         # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
