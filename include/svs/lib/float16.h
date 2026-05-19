@@ -56,12 +56,26 @@ inline uint16_t float_to_float16_untyped_slow(const float x) {
     const uint32_t b = bitcast_float_to_uint32(x) + 0x00001000;
     const uint32_t e = (b & 0x7F800000) >> 23; // exponent
     const uint32_t m = b & 0x007FFFFF;         // mantissa
-    return (b & 0x80000000) >> 16 |
-           static_cast<uint32_t>(e > 112) * ((((e - 112) << 10) & 0x7C00) | m >> 13) |
-           static_cast<uint32_t>((e < 113) && (e > 101)) *
-               ((((0x007FF000 + m) >> (125 - e)) + 1) >> 1) |
-           static_cast<uint32_t>(e > 143) *
-               0x7FFF; // sign : normalized : denormalized : saturate
+
+    // Code below is clear and simple, so modern C++ compilers will optimize it pretty well.
+    const uint32_t sign = static_cast<uint32_t>((b & 0x80000000) >> 16);
+    if (e > 143) {
+        return static_cast<uint16_t>(sign | 0x7FFF); // saturate
+    }
+
+    if (e > 112) {
+        const uint32_t normalized = (((e - 112) << 10) & 0x7C00) | (m >> 13);
+        return static_cast<uint16_t>(sign | normalized);
+    }
+
+    if (e > 101) {
+        // Safe: for e in [102, 112], shift is in [13, 23].
+        const uint32_t shift = 125 - e;
+        const uint32_t denormalized = ((((0x007FF000 + m) >> shift) + 1) >> 1);
+        return static_cast<uint16_t>(sign | denormalized);
+    }
+
+    return static_cast<uint16_t>(sign);
 }
 
 inline float float16_to_float_untyped(const uint16_t x) {

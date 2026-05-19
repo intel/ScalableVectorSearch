@@ -109,7 +109,7 @@ class DynamicIVFIndex {
 
     // Threading infrastructure (same as static IVF)
     InterQueryThreadPool inter_query_threadpool_;
-    const size_t intra_query_thread_count_;
+    size_t intra_query_thread_count_;
     mutable std::vector<IntraQueryThreadPool> intra_query_threadpools_;
 
     // Search infrastructure (same as static IVF)
@@ -278,6 +278,20 @@ class DynamicIVFIndex {
         // Re-initialize per-thread search buffers for the new thread count
         matmul_results_.clear();
         initialize_search_buffers();
+        // Re-initialize intra-query thread pools to match new inter-query pool size
+        intra_query_threadpools_.clear();
+        initialize_thread_pools();
+    }
+
+    /// @brief Set the number of threads used for intra-query (cluster-level)
+    /// parallelism. Re-creates the per-query intra-query thread pools.
+    void set_num_intra_query_threads(size_t count) {
+        if (count < 1) {
+            throw std::invalid_argument("Intra-query thread count must be at least 1");
+        }
+        intra_query_thread_count_ = count;
+        intra_query_threadpools_.clear();
+        initialize_thread_pools();
     }
 
     /// @brief Get threadpool handle

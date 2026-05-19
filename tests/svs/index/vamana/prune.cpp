@@ -17,10 +17,6 @@
 // header under test
 #include "svs/index/vamana/prune.h"
 
-// core
-#include "svs/core/data/simple.h"
-#include "svs/core/distance/euclidean.h"
-
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
@@ -48,67 +44,6 @@ CATCH_TEST_CASE("Pruning", "[index][vamana]") {
             CATCH_REQUIRE(v::excluded(v::PruneState::Available) == false);
             CATCH_REQUIRE(v::excluded(v::PruneState::Added) == true);
             CATCH_REQUIRE(v::excluded(v::PruneState::Pruned) == true);
-        }
-    }
-
-    CATCH_SECTION("Duplicate Cluster Trap") {
-        auto data = svs::data::SimpleData<float>(6, 4);
-        auto d0 = std::vector<float>{1.0f, 1.0f, 1.0f, 1.0f};
-        auto d4 = std::vector<float>{2.0f, 1.0f, 1.0f, 1.0f};
-        auto d5 = std::vector<float>{1.5f, 1.0f, 1.0f, 1.0f};
-
-        for (size_t i = 0; i < 4; ++i) {
-            data.set_datum(i, d0);
-        }
-        data.set_datum(4, d4);
-        data.set_datum(5, d5);
-
-        auto dist = svs::distance::DistanceL2();
-        auto accessor = svs::data::GetDatumAccessor{};
-
-        std::vector<svs::Neighbor<size_t>> pool = {
-            {size_t{0}, 0.0f},
-            {size_t{1}, 0.0f},
-            {size_t{2}, 0.0f},
-            {size_t{3}, 0.0f},
-            {size_t{4}, 1.0f}};
-
-        CATCH_SECTION("Iterative Strategy Fix") {
-            std::vector<svs::Neighbor<size_t>> result;
-            v::heuristic_prune_neighbors(
-                v::IterativePruneStrategy{},
-                2,
-                1.3f,
-                data,
-                accessor,
-                dist,
-                size_t{5},
-                std::span<const svs::Neighbor<size_t>>(pool),
-                result
-            );
-
-            CATCH_REQUIRE(result.size() == 2);
-            CATCH_REQUIRE(result[0].id() == 0);
-            CATCH_REQUIRE(result[1].id() == 4);
-        }
-
-        CATCH_SECTION("Progressive Strategy Fix") {
-            std::vector<svs::Neighbor<size_t>> result;
-            v::heuristic_prune_neighbors(
-                v::ProgressivePruneStrategy{},
-                2,
-                1.3f,
-                data,
-                accessor,
-                dist,
-                size_t{5},
-                std::span<const svs::Neighbor<size_t>>(pool),
-                result
-            );
-
-            CATCH_REQUIRE(result.size() == 2);
-            CATCH_REQUIRE(result[0].id() == 0);
-            CATCH_REQUIRE(result[1].id() == 4);
         }
     }
 }

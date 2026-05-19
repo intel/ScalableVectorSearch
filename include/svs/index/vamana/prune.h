@@ -130,9 +130,6 @@ void heuristic_prune_neighbors(
 
     auto pruned = std::vector<PruneState>(poolsize, PruneState::Available);
     float current_alpha = 1.0f;
-    float anchor_dist = 0.0f;
-    bool anchor_set = false;
-    bool all_duplicates = true;
     while (result.size() < max_result_size && !cmp(alpha, current_alpha)) {
         size_t start = 0;
         while (result.size() < max_result_size && start < poolsize) {
@@ -148,16 +145,6 @@ void heuristic_prune_neighbors(
             const auto& query = accessor(dataset, id);
             distance::maybe_fix_argument(distance_function, query);
             result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
-
-            if (all_duplicates) {
-                if (!anchor_set) {
-                    anchor_dist = pool[start].distance();
-                    anchor_set = true;
-                } else if (pool[start].distance() != anchor_dist) {
-                    all_duplicates = false;
-                }
-            }
-
             for (size_t t = start + 1; t < poolsize; ++t) {
                 if (excluded(pruned[t])) {
                     continue;
@@ -183,40 +170,6 @@ void heuristic_prune_neighbors(
             state = reenable(state);
         }
         current_alpha *= alpha;
-    }
-
-    // Add a diversity edge if a duplicate cluster is detected
-    if (all_duplicates && anchor_set && !result.empty()) {
-        auto result_id = [](const I& r) -> size_t {
-            if constexpr (std::integral<I>) {
-                return static_cast<size_t>(r);
-            } else {
-                return static_cast<size_t>(r.id());
-            }
-        };
-        for (size_t t = 0; t < poolsize; ++t) {
-            const auto& candidate = pool[t];
-            auto cid = candidate.id();
-            if (cid == current_node_id || candidate.distance() == anchor_dist) {
-                continue;
-            }
-            bool in_result = false;
-            for (const auto& r : result) {
-                if (result_id(r) == static_cast<size_t>(cid)) {
-                    in_result = true;
-                    break;
-                }
-            }
-            assert(
-                !in_result &&
-                "Candidate with non-anchor distance should not already be in result"
-            );
-            if (in_result) {
-                continue;
-            }
-            result.back() = detail::construct_as(lib::Type<I>(), candidate);
-            break;
-        }
     }
 }
 
@@ -250,9 +203,6 @@ void heuristic_prune_neighbors(
     std::vector<float> pruned(poolsize, type_traits::tombstone_v<float, decltype(cmp)>);
 
     float current_alpha = 1.0f;
-    float anchor_dist = 0.0f;
-    bool anchor_set = false;
-    bool all_duplicates = true;
     while (result.size() < max_result_size && !cmp(alpha, current_alpha)) {
         size_t start = 0;
         while (result.size() < max_result_size && start < poolsize) {
@@ -268,16 +218,6 @@ void heuristic_prune_neighbors(
             const auto& query = accessor(dataset, id);
             distance::maybe_fix_argument(distance_function, query);
             result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
-
-            if (all_duplicates) {
-                if (!anchor_set) {
-                    anchor_dist = pool[start].distance();
-                    anchor_set = true;
-                } else if (pool[start].distance() != anchor_dist) {
-                    all_duplicates = false;
-                }
-            }
-
             for (size_t t = start + 1; t < poolsize; ++t) {
                 if (cmp(current_alpha, pruned[t])) {
                     continue;
@@ -295,40 +235,6 @@ void heuristic_prune_neighbors(
             break;
         }
         current_alpha *= alpha;
-    }
-
-    // Add a diversity edge if a duplicate cluster is detected
-    if (all_duplicates && anchor_set && !result.empty()) {
-        auto result_id = [](const I& r) -> size_t {
-            if constexpr (std::integral<I>) {
-                return static_cast<size_t>(r);
-            } else {
-                return static_cast<size_t>(r.id());
-            }
-        };
-        for (size_t t = 0; t < poolsize; ++t) {
-            const auto& candidate = pool[t];
-            auto cid = candidate.id();
-            if (cid == current_node_id || candidate.distance() == anchor_dist) {
-                continue;
-            }
-            bool in_result = false;
-            for (const auto& r : result) {
-                if (result_id(r) == static_cast<size_t>(cid)) {
-                    in_result = true;
-                    break;
-                }
-            }
-            assert(
-                !in_result &&
-                "Candidate with non-anchor distance should not already be in result"
-            );
-            if (in_result) {
-                continue;
-            }
-            result.back() = detail::construct_as(lib::Type<I>(), candidate);
-            break;
-        }
     }
 }
 
