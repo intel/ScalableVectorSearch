@@ -497,11 +497,35 @@ class SQDataset {
         );
     }
 
+    lib::SaveTable metadata() const {
+        return lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"data", lib::detail::exit_hook(data_.metadata())},
+             {"scale", lib::save(scale_)},
+             {"bias", lib::save(bias_)}}
+        );
+    }
+
+    void save(std::ostream& os) const { data_.save(os); }
+
     /// @brief Load dataset from a file.
     static SQDataset
     load(const lib::LoadTable& table, const allocator_type& allocator = {}) {
         return SQDataset<element_type, extent, allocator_type>{
             SVS_LOAD_MEMBER_AT_(table, data, allocator),
+            lib::load_at<float>(table, "scale"),
+            lib::load_at<float>(table, "bias")};
+    }
+
+    /// @brief Load dataset from a stream.
+    static SQDataset load(
+        const lib::ContextFreeLoadTable& table,
+        std::istream& is,
+        const allocator_type& allocator = {}
+    ) {
+        return SQDataset<element_type, extent, allocator_type>{
+            SVS_LOAD_MEMBER_AT_(table, data, is, allocator),
             lib::load_at<float>(table, "scale"),
             lib::load_at<float>(table, "bias")};
     }

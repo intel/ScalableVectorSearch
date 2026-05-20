@@ -17,6 +17,7 @@
 #pragma once
 
 // svs
+#include "svs/lib/archiver.h"
 #include "svs/lib/exception.h"
 #include "svs/lib/uuid.h"
 
@@ -151,49 +152,8 @@ struct UniqueTempDirectory {
 // Uses a simple custom binary format.
 // Not meant to be super efficient, just a simple way to serialize a directory
 // structure to a stream.
-struct DirectoryArchiver {
-    using size_type = uint64_t;
-
-    // TODO: Define CACHELINE_BYTES in a common place
-    // rather than duplicating it here and in prefetch.h
-    static constexpr auto CACHELINE_BYTES = 64;
+struct DirectoryArchiver : Archiver<DirectoryArchiver> {
     static constexpr size_type magic_number = 0x5e2d58d9f3b4a6c1;
-
-    static size_type write_size(std::ostream& os, size_type size) {
-        os.write(reinterpret_cast<const char*>(&size), sizeof(size));
-        if (!os) {
-            throw ANNEXCEPTION("Error writing to stream!");
-        }
-        return sizeof(size);
-    }
-
-    static size_type read_size(std::istream& is, size_type& size) {
-        is.read(reinterpret_cast<char*>(&size), sizeof(size));
-        if (!is) {
-            throw ANNEXCEPTION("Error reading from stream!");
-        }
-        return sizeof(size);
-    }
-
-    static size_type write_name(std::ostream& os, const std::string& name) {
-        auto bytes = write_size(os, name.size());
-        os.write(name.data(), name.size());
-        if (!os) {
-            throw ANNEXCEPTION("Error writing to stream!");
-        }
-        return bytes + name.size();
-    }
-
-    static size_type read_name(std::istream& is, std::string& name) {
-        size_type size = 0;
-        auto bytes = read_size(is, size);
-        name.resize(size);
-        is.read(name.data(), size);
-        if (!is) {
-            throw ANNEXCEPTION("Error reading from stream!");
-        }
-        return bytes + size;
-    }
 
     static size_type write_file(
         std::ostream& stream,
@@ -262,22 +222,9 @@ struct DirectoryArchiver {
             throw ANNEXCEPTION("Error opening file {} for writing!", path);
         }
 
-        // Copy the data in chunks.
-        constexpr size_t buffer_size = 1 << 13; // 8KB buffer
-        alignas(CACHELINE_BYTES) char buffer[buffer_size];
-
-        size_t bytes_remaining = filesize;
-        while (bytes_remaining > 0) {
-            size_t to_read = std::min(buffer_size, bytes_remaining);
-            stream.read(buffer, to_read);
-            if (!stream) {
-                throw ANNEXCEPTION("Error reading from stream!");
-            }
-            out.write(buffer, to_read);
-            if (!out) {
-                throw ANNEXCEPTION("Error writing to file {}!", path);
-            }
-            bytes_remaining -= to_read;
+        read_from_istream(stream, out, filesize);
+        if (!out) {
+            throw ANNEXCEPTION("Error writing to file {}!", path);
         }
 
         return header_bytes + filesize;
@@ -310,18 +257,16 @@ struct DirectoryArchiver {
         return total_bytes;
     }
 
-    static size_t unpack(std::istream& stream, const std::filesystem::path& root) {
+    static size_t
+    unpack(std::istream& stream, const std::filesystem::path& root, size_type magic) {
         namespace fs = std::filesystem;
 
-        // Read and verify the magic number.
-        size_type magic = 0;
-        auto total_bytes = read_size(stream, magic);
         if (magic != magic_number) {
             throw ANNEXCEPTION("Invalid magic number in directory unpacking!");
         }
 
         size_type num_files = 0;
-        total_bytes += read_size(stream, num_files);
+        auto total_bytes = read_size(stream, num_files);
         if (!stream) {
             throw ANNEXCEPTION("Error reading from stream!");
         }
@@ -337,6 +282,15 @@ struct DirectoryArchiver {
             total_bytes += read_file(stream, root);
         }
 
+        return total_bytes;
+    }
+
+    static size_t unpack(std::istream& stream, const std::filesystem::path& root) {
+        // Read and verify the magic number.
+        size_type magic = 0;
+        auto total_bytes = read_size(stream, magic);
+
+        total_bytes += unpack(stream, root, magic);
         return total_bytes;
     }
 };

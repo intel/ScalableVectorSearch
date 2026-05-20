@@ -148,7 +148,7 @@ set(TEST_SOURCES
     # Global scalar quantization
     ${TEST_DIR}/svs/quantization/scalar/scalar.cpp
 
-    # # ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
+    ${TEST_DIR}/svs/index/vamana/dynamic_index.cpp
 )
 
 #####

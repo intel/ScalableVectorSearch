@@ -16,6 +16,7 @@
 
 // header under test
 #include "svs/index/ivf/index.h"
+#include "svs/orchestrators/ivf.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -27,12 +28,17 @@
 // svs
 #include "svs/core/data.h"
 #include "svs/core/distance.h"
+#include "svs/core/logging.h"
 #include "svs/index/ivf/clustering.h"
 #include "svs/index/ivf/hierarchical_kmeans.h"
 #include "svs/lib/saveload.h"
 
 // stl
 #include <numeric>
+#include <sstream>
+
+// third-party
+#include <spdlog/sinks/callback_sink.h>
 
 CATCH_TEST_CASE("IVF Index Single Search", "[ivf][index][single_search]") {
     namespace ivf = svs::index::ivf;
@@ -276,6 +282,81 @@ CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
         svs_test::cleanup_temp_directory();
     }
 
+    CATCH_SECTION("Load IVF Index serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_ivf_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            using DataType = svs::data::SimpleData<float>;
+
+            auto loaded_ivf = svs::IVF::assemble<float, float, DataType>(
+                stream,
+                distance,
+                svs::threads::as_threadpool(num_threads),
+                num_inner_threads
+            );
+
+            CATCH_REQUIRE(loaded_ivf.size() == index.size());
+            CATCH_REQUIRE(loaded_ivf.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded_ivf.search(loaded_results.view(), batch_queries, search_params);
+
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(
+                        loaded_results.index(q, i) == original_results.index(q, i)
+                    );
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(original_results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Load IVF Index serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+
+        {
+            using DataType = svs::data::SimpleData<float>;
+
+            auto loaded_ivf = svs::IVF::assemble<float, float, DataType>(
+                stream,
+                distance,
+                svs::threads::as_threadpool(num_threads),
+                num_inner_threads
+            );
+
+            CATCH_REQUIRE(loaded_ivf.size() == index.size());
+            CATCH_REQUIRE(loaded_ivf.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded_ivf.search(loaded_results.view(), batch_queries, search_params);
+
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(
+                        loaded_results.index(q, i) == original_results.index(q, i)
+                    );
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(original_results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
     CATCH_SECTION("Save and load DenseClusteredDataset") {
         // Prepare temp directory
         auto tempdir = svs_test::prepare_temp_directory_v2();
@@ -338,5 +419,126 @@ CATCH_TEST_CASE("IVF Index Save and Load", "[ivf][index][saveload]") {
 
         // Cleanup
         svs_test::cleanup_temp_directory();
+    }
+}
+
+CATCH_TEST_CASE("IVF Index Inter-Query Thread Count Boundaries", "[ivf][index][threads]") {
+    namespace ivf = svs::index::ivf;
+
+    auto make_test_logger = [](std::vector<std::string>& captured_logs,
+                               std::vector<svs::logging::Level>& captured_levels) {
+        auto callback_sink = std::make_shared<spdlog::sinks::callback_sink_mt>(
+            [&captured_logs, &captured_levels](const spdlog::details::log_msg& msg) {
+                captured_logs.emplace_back(msg.payload.data(), msg.payload.size());
+                captured_levels.push_back(svs::logging::detail::from_spdlog(msg.level));
+            }
+        );
+        callback_sink->set_level(spdlog::level::trace);
+        auto logger =
+            std::make_shared<spdlog::logger>("ivf_threads_test_logger", callback_sink);
+        logger->set_level(spdlog::level::trace);
+        return logger;
+    };
+
+    auto build_components = []() {
+        auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+        auto distance = svs::distance::DistanceL2();
+        auto build_params = ivf::IVFBuildParameters(2, 5, false);
+        auto build_threadpool = svs::threads::SequentialThreadPool();
+
+        auto clustering = ivf::build_clustering<float>(
+            build_params, data, distance, build_threadpool, false
+        );
+
+        auto centroids = clustering.centroids();
+        using Idx = uint32_t;
+        auto cluster = ivf::DenseClusteredDataset<decltype(centroids), Idx, decltype(data)>(
+            clustering, data, build_threadpool, svs::lib::Allocator<std::byte>()
+        );
+
+        return std::make_tuple(
+            std::move(centroids), std::move(cluster), std::move(distance)
+        );
+    };
+
+    CATCH_SECTION("size_t thread prototype is clamped and warns") {
+        auto [centroids, cluster, distance] = build_components();
+        CATCH_REQUIRE(centroids.size() == 2);
+
+        std::vector<std::string> logs;
+        std::vector<svs::logging::Level> levels;
+        auto logger = make_test_logger(logs, levels);
+
+        using IndexType = ivf::
+            IVFIndex<decltype(centroids), decltype(cluster), decltype(distance), size_t>;
+
+        IndexType index(
+            std::move(centroids), std::move(cluster), distance, size_t{4}, 1, logger
+        );
+
+        CATCH_REQUIRE(index.get_num_threads() == 2);
+        CATCH_REQUIRE(
+            std::find(levels.begin(), levels.end(), svs::logging::Level::Warn) !=
+            levels.end()
+        );
+    }
+
+    CATCH_SECTION("resizable thread prototype is clamped and warns") {
+        auto [centroids, cluster, distance] = build_components();
+        CATCH_REQUIRE(centroids.size() == 2);
+
+        std::vector<std::string> logs;
+        std::vector<svs::logging::Level> levels;
+        auto logger = make_test_logger(logs, levels);
+
+        auto threadpool_proto = svs::threads::NativeThreadPool(4);
+        using IndexType = ivf::IVFIndex<
+            decltype(centroids),
+            decltype(cluster),
+            decltype(distance),
+            decltype(threadpool_proto)>;
+
+        IndexType index(
+            std::move(centroids),
+            std::move(cluster),
+            distance,
+            std::move(threadpool_proto),
+            1,
+            logger
+        );
+
+        CATCH_REQUIRE(index.get_num_threads() == 2);
+        CATCH_REQUIRE(
+            std::find(levels.begin(), levels.end(), svs::logging::Level::Warn) !=
+            levels.end()
+        );
+    }
+
+    CATCH_SECTION("non-resizable thread prototype throws") {
+        auto [centroids, cluster, distance] = build_components();
+        CATCH_REQUIRE(centroids.size() == 2);
+
+        std::vector<std::string> logs;
+        std::vector<svs::logging::Level> levels;
+        auto logger = make_test_logger(logs, levels);
+
+        auto threadpool_proto = svs::threads::QueueThreadPoolWrapper(4);
+        using IndexType = ivf::IVFIndex<
+            decltype(centroids),
+            decltype(cluster),
+            decltype(distance),
+            decltype(threadpool_proto)>;
+
+        CATCH_REQUIRE_THROWS_AS(
+            IndexType(
+                std::move(centroids),
+                std::move(cluster),
+                distance,
+                std::move(threadpool_proto),
+                1,
+                logger
+            ),
+            std::invalid_argument
+        );
     }
 }

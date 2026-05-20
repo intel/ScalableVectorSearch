@@ -29,6 +29,10 @@ class IVFInterface {
     ///// Backend information interface
     virtual std::string experimental_backend_string() const = 0;
 
+    ///// Intra-query (cluster-level) parallelism
+    virtual size_t get_num_intra_query_threads() const = 0;
+    virtual void set_num_intra_query_threads(size_t count) = 0;
+
     ///// Distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 
@@ -71,6 +75,14 @@ class IVFImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     ///// Backend Information Interface
     [[nodiscard]] std::string experimental_backend_string() const override {
         return std::string{typename_impl.begin(), typename_impl.end() - 1};
+    }
+
+    ///// Intra-query (cluster-level) parallelism
+    [[nodiscard]] size_t get_num_intra_query_threads() const override {
+        return impl().get_num_intra_query_threads();
+    }
+    void set_num_intra_query_threads(size_t count) override {
+        impl().set_num_intra_query_threads(count);
     }
 
     ///// Distance Calculation
@@ -116,13 +128,7 @@ class IVFImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
 
     void save(std::ostream& stream) override {
         if constexpr (Impl::supports_saving) {
-            lib::UniqueTempDirectory tempdir{"svs_ivf_save"};
-            const auto config_dir = tempdir.get() / "config";
-            const auto data_dir = tempdir.get() / "data";
-            std::filesystem::create_directories(config_dir);
-            std::filesystem::create_directories(data_dir);
-            save(config_dir, data_dir);
-            lib::DirectoryArchiver::pack(tempdir, stream);
+            impl().save(stream);
         } else {
             throw ANNEXCEPTION("The current IVF backend doesn't support saving!");
         }
@@ -150,6 +156,14 @@ class IVF : public manager::IndexManager<IVFInterface> {
     ///// Backend String
     std::string experimental_backend_string() const {
         return impl_->experimental_backend_string();
+    }
+
+    ///// Intra-query (cluster-level) threading
+    size_t get_num_intra_query_threads() const {
+        return impl_->get_num_intra_query_threads();
+    }
+    void set_num_intra_query_threads(size_t count) {
+        impl_->set_num_intra_query_threads(count);
     }
 
     ///// Distance Calculation
@@ -380,27 +394,54 @@ class IVF : public manager::IndexManager<IVFInterface> {
         ThreadpoolProto threadpool_proto,
         size_t intra_query_threads = 1
     ) {
-        namespace fs = std::filesystem;
-        lib::UniqueTempDirectory tempdir{"svs_ivf_load"};
-        lib::DirectoryArchiver::unpack(stream, tempdir);
+        auto deserializer = svs::lib::detail::Deserializer::build(stream);
+        if (deserializer.is_native()) {
+            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+                auto dispatcher = DistanceDispatcher(distance);
+                return dispatcher([&](auto distance_function) {
+                    return IVF(
+                        std::in_place,
+                        manager::as_typelist<QueryTypes>{},
+                        index::ivf::load_ivf_index<CentroidType, DataType>(
+                            stream,
+                            std::move(distance_function),
+                            std::move(threadpool_proto),
+                            intra_query_threads
+                        )
+                    );
+                });
+            } else {
+                return IVF(
+                    std::in_place,
+                    manager::as_typelist<QueryTypes>{},
+                    index::ivf::load_ivf_index<CentroidType, DataType>(
+                        stream, distance, std::move(threadpool_proto), intra_query_threads
+                    )
+                );
+            }
+        } else {
+            namespace fs = std::filesystem;
+            lib::UniqueTempDirectory tempdir{"svs_ivf_load"};
+            lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
 
-        const auto config_path = tempdir.get() / "config";
-        if (!fs::is_directory(config_path)) {
-            throw ANNEXCEPTION("Invalid IVF index archive: missing config directory!");
+            const auto config_path = tempdir.get() / "config";
+            if (!fs::is_directory(config_path)) {
+                throw ANNEXCEPTION("Invalid IVF index archive: missing config directory!");
+            }
+
+            const auto data_path = tempdir.get() / "data";
+            if (!fs::is_directory(data_path)) {
+                throw ANNEXCEPTION("Invalid IVF index archive: missing data directory!");
+            }
+
+            return assemble<QueryTypes, CentroidType, DataType>(
+                config_path,
+                data_path,
+                distance,
+                std::move(threadpool_proto),
+                intra_query_threads
+            );
         }
-
-        const auto data_path = tempdir.get() / "data";
-        if (!fs::is_directory(data_path)) {
-            throw ANNEXCEPTION("Invalid IVF index archive: missing data directory!");
-        }
-
-        return assemble<QueryTypes, CentroidType, DataType>(
-            config_path,
-            data_path,
-            distance,
-            std::move(threadpool_proto),
-            intra_query_threads
-        );
     }
 
     ///// Building

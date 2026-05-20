@@ -85,8 +85,7 @@ struct VamanaIndexParameters {
     static constexpr lib::Version save_version = lib::Version(0, 0, 3);
     static constexpr std::string_view serialization_schema = "vamana_index_parameters";
 
-    // Save and Reload.
-    lib::SaveTable save() const {
+    lib::SaveTable metadata() const {
         return lib::SaveTable(
             serialization_schema,
             save_version,
@@ -96,6 +95,9 @@ struct VamanaIndexParameters {
              SVS_LIST_SAVE(search_parameters)}
         );
     }
+
+    // Save to Table and Reload.
+    lib::SaveTable save() const { return metadata(); }
 
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return schema == serialization_schema && version <= save_version;
@@ -814,6 +816,20 @@ class VamanaIndex {
         lib::save_to_disk(graph_, graph_directory);
     }
 
+    void save(std::ostream& os) const {
+        // Construct and save runtime parameters.
+        auto parameters = VamanaIndexParameters{
+            entry_point_.front(), build_parameters_, get_search_parameters()};
+
+        lib::begin_serialization(os);
+        // Config
+        lib::save_to_stream(parameters, os);
+        // Data
+        lib::save_to_stream(data_, os);
+        // // Graph
+        lib::save_to_stream(graph_, os);
+    }
+
     ///// Calibration
 
     // Return the maximum degree of the graph.
@@ -1002,6 +1018,37 @@ auto auto_assemble(
         std::move(threadpool),
         std::move(logger)};
     auto config = lib::load_from_disk<VamanaIndexParameters>(config_path);
+    index.apply(config);
+    return index;
+}
+
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_assemble(
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    VamanaIndexParameters config = lib::load_from_stream<VamanaIndexParameters>(is);
+    auto data = data_loader();
+    auto graph = graph_loader();
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    // Extract the index type of the provided graph.
+    using I = typename decltype(graph)::index_type;
+    auto index = VamanaIndex{
+        std::move(graph),
+        std::move(data),
+        I{},
+        std::move(distance),
+        std::move(threadpool),
+        std::move(logger)};
     index.apply(config);
     return index;
 }

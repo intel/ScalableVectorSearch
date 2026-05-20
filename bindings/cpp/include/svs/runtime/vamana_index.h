@@ -40,6 +40,14 @@ struct VamanaSearchParameters {
     size_t search_buffer_capacity = Unspecify<size_t>();
     size_t prefetch_lookahead = Unspecify<size_t>();
     size_t prefetch_step = Unspecify<size_t>();
+    // Minimum filter hit rate to continue filtered search.
+    // If the hit rate after the first round falls below this threshold,
+    // stop and return empty results (caller can fall back to exact search).
+    // Default unspecified means never give up (treated as 0).
+    float filter_stop = Unspecify<float>();
+    // Enable pre-search filter sampling to estimate hit rate before graph traversal.
+    // Uses a random sample of IDs to set initial batch size and trigger early exit.
+    OptionalBool filter_estimate_batch = Unspecify<bool>();
 };
 } // namespace detail
 

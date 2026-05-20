@@ -30,7 +30,6 @@ build:
   skip: true  # [not linux]
   include_recipe: False
   script_env:
-    - ENABLE_IVF
     - ENABLE_LVQ_LEANVEC
     - SUFFIX
     - SVS_URL

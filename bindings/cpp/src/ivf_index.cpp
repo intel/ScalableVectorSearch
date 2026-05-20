@@ -54,14 +54,15 @@ struct IVFIndexManager : public IVFIndex {
         size_t k,
         float* distances,
         size_t* labels,
-        const SearchParams* params = nullptr
+        const SearchParams* params = nullptr,
+        IDFilter* filter = nullptr
     ) const noexcept override {
         return runtime_error_wrapper([&] {
             auto result = svs::QueryResultView<size_t>{
                 svs::MatrixView<size_t>{svs::make_dims(n, k), labels},
                 svs::MatrixView<float>{svs::make_dims(n, k), distances}};
             auto queries = svs::data::ConstSimpleDataView<float>(x, n, impl_->dimensions());
-            impl_->search(result, queries, params);
+            impl_->search(result, queries, params, filter);
         });
     }
 
@@ -75,6 +76,18 @@ struct IVFIndexManager : public IVFIndex {
 
     Status get_num_threads(size_t* num_threads) const noexcept override {
         return runtime_error_wrapper([&] { *num_threads = impl_->get_num_threads(); });
+    }
+
+    Status set_intra_query_threads(size_t intra_query_threads) noexcept override {
+        return runtime_error_wrapper([&] {
+            impl_->set_intra_query_threads(intra_query_threads);
+        });
+    }
+
+    Status get_intra_query_threads(size_t* intra_query_threads) const noexcept override {
+        return runtime_error_wrapper([&] {
+            *intra_query_threads = impl_->get_intra_query_threads();
+        });
     }
 };
 

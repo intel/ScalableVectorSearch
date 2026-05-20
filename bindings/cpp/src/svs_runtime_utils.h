@@ -55,6 +55,7 @@ inline bool lvq_leanvec_enabled() { return false; }
 #include <concepts>
 #include <functional>
 #include <memory>
+#include <random>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -203,6 +204,11 @@ template <typename Alloc> struct StorageType<StorageKind::SQI8, Alloc> {
     using type = SQDatasetType<std::int8_t, allocator_type>;
 };
 
+template <StorageKind Kind>
+inline constexpr bool is_supported_storage_kind_v = !std::is_same_v<
+    typename StorageType<Kind, svs::lib::Allocator<float>>::type,
+    UnsupportedStorageType<svs::lib::Allocator<float>>>;
+
 // Storage factory
 template <typename T> struct StorageFactory;
 
@@ -218,14 +224,6 @@ template <typename Alloc> struct StorageFactory<UnsupportedStorageType<Alloc>> {
         Pool& SVS_UNUSED(pool),
         const typename StorageType::allocator_type& SVS_UNUSED(alloc) = {}
     ) {
-        throw StatusException(
-            ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
-        );
-    }
-
-    template <typename... Args>
-    static StorageType
-    load(const std::filesystem::path& SVS_UNUSED(path), Args&&... SVS_UNUSED(args)) {
         throw StatusException(
             ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
         );
@@ -254,11 +252,6 @@ struct StorageFactory<svs::data::SimpleData<T, Extent, Alloc>> {
         );
         return result;
     }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
-    }
 };
 
 // SQ Storage support
@@ -273,11 +266,6 @@ struct StorageFactory<svs::quantization::scalar::SQDataset<T, Extent, Alloc>> {
         const Alloc& alloc = {}
     ) {
         return StorageType::compress(data, pool, alloc);
-    }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
     }
 };
 
@@ -326,11 +314,6 @@ struct StorageFactory<LVQStorageType> {
         const Alloc& alloc = {}
     ) {
         return StorageType::compress(data, pool, 0, alloc);
-    }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
     }
 };
 
@@ -381,22 +364,12 @@ struct StorageFactory<LeanVecStorageType> {
             data, std::move(matrices), pool, 0, svs::lib::MaybeStatic{leanvec_d}, alloc
         );
     }
-
-    template <typename... Args>
-    static StorageType load(const std::filesystem::path& path, Args&&... args) {
-        return svs::lib::load_from_disk<StorageType>(path, SVS_FWD(args)...);
-    }
 };
 #endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 
 template <StorageKind Kind, typename Alloc, typename... Args>
 auto make_storage(StorageType<Kind, Alloc> SVS_UNUSED(tag), Args&&... args) {
     return StorageFactory<StorageType_t<Kind, Alloc>>::init(std::forward<Args>(args)...);
-}
-
-template <StorageKind Kind, typename Alloc, typename... Args>
-auto load_storage(StorageType<Kind, Alloc> SVS_UNUSED(tag), Args&&... args) {
-    return StorageFactory<StorageType_t<Kind, Alloc>>::load(std::forward<Args>(args)...);
 }
 
 template <typename Alloc, typename F, typename... Args>
@@ -430,6 +403,95 @@ auto dispatch_storage_kind(StorageKind kind, F&& f, Args&&... args) {
 #undef SVS_DISPATCH_STORAGE_KIND
 }
 } // namespace storage
+
+// Predict how many more items need to be processed to reach the goal,
+// based on the observed hit rate so far.
+// If no hits yet, returns `hint` unchanged.
+// Result is capped at `max_value` (e.g., number of vectors in the index).
+inline size_t predict_further_processing(
+    size_t processed, size_t hits, size_t goal, size_t hint, size_t max_value
+) {
+    if (hits == 0 || hits >= goal) {
+        return std::min(hint, max_value);
+    }
+    float batch_size = static_cast<float>(goal - hits) * processed / hits;
+    return std::min(std::max(static_cast<size_t>(batch_size), size_t{1}), max_value);
+}
+
+// Check if the filtered search should stop early based on the observed hit rate.
+// Returns true if the hit rate is below the threshold, meaning the caller should
+// give up and let the caller fall back to exact search.
+inline bool
+should_stop_filtered_search(size_t total_checked, size_t found, float filter_stop) {
+    if (filter_stop <= 0 || total_checked == 0) {
+        return false;
+    }
+    if (found == 0) {
+        return true;
+    }
+    float hit_rate = static_cast<float>(found) / total_checked;
+    return hit_rate < filter_stop;
+}
+
+// Default number of IDs to sample when estimating filter hit rate.
+constexpr size_t kFilterSampleSize = 200;
+
+// Sample random IDs from [0, total_ids) and count filter hits.
+// is_valid(id) is checked first; invalid IDs are skipped (for dynamic indices
+// where IDs may be deleted). Keeps sampling until sample_size valid IDs checked
+// or max_tries exhausted. Returns (checked, hits) — fed directly to
+// predict_further_processing() and should_stop_filtered_search().
+template <typename IsValid>
+inline std::pair<size_t, size_t> sample_filter_hits(
+    const IDFilter& filter,
+    size_t total_ids,
+    IsValid is_valid,
+    size_t sample_size = kFilterSampleSize
+) {
+    if (total_ids == 0) {
+        return {0, 0};
+    }
+    size_t target = std::min(sample_size, total_ids);
+    size_t max_tries = target * 4;
+    std::mt19937 rng(42);
+    std::uniform_int_distribution<size_t> dist(0, total_ids - 1);
+    size_t hits = 0;
+    size_t checked = 0;
+    for (size_t tries = 0; checked < target && tries < max_tries; ++tries) {
+        size_t id = dist(rng);
+        if (!is_valid(id)) {
+            continue;
+        }
+        if (filter.is_member(id)) {
+            hits++;
+        }
+        checked++;
+    }
+    return {checked, hits};
+}
+
+// Compute sample size for filter hit rate estimation based on filter_stop.
+// Need at least 1/filter_stop samples to reliably distinguish hit rates around
+// the threshold (below that, noise dominates — e.g., 0.1% vs 0.2% both look
+// like 0 hits at sample_size=200).
+inline size_t sample_size_for_filter_stop(float filter_stop) {
+    if (filter_stop <= 0) {
+        return kFilterSampleSize;
+    }
+    return std::max(kFilterSampleSize, static_cast<size_t>(1.0f / filter_stop));
+}
+
+// Fill all result slots with unspecified values.
+// Required when early-exiting before search: the caller-allocated result buffer
+// may contain uninitialized data, so we must write valid "no result" markers.
+inline void
+pad_empty_results(svs::QueryResultView<size_t>& result, size_t num_queries, size_t k) {
+    for (size_t i = 0; i < num_queries; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+        }
+    }
+}
 
 inline svs::threads::ThreadPoolHandle default_threadpool() {
     return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())
