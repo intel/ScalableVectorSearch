@@ -276,9 +276,7 @@ class VamanaIndexImpl {
         return get_impl()->get_distance(id, query);
     }
 
-    void reconstruct_at(
-        svs::data::SimpleDataView<float> dst, std::span<const size_t> ids
-    ) {
+    void reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) {
         if (!impl_) {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
