@@ -82,6 +82,23 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -fvisibility=hidden
 )
 
+# Optional clang-tidy integration. Reuses the top-level repo's
+# cmake/clang-tidy.cmake module so the runtime build runs the same
+# .clang-tidy config as the rest of the library.
+option(SVS_EXPERIMENTAL_CLANG_TIDY
+    "Run the clang-tidy static analyzer on the cpp runtime bindings."
+    OFF
+)
+if(SVS_EXPERIMENTAL_CLANG_TIDY)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../cmake")
+    include(clang-tidy)
+    if(CLANG_TIDY_COMMAND)
+        set_target_properties(${TARGET_NAME}
+            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}"
+        )
+    endif()
+endif()
+
 if(UNIX AND NOT APPLE)
     # Don't export 3rd-party symbols from the lib
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
