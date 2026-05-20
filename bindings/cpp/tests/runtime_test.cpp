@@ -901,7 +901,7 @@ CATCH_TEST_CASE("GetDistanceDynamic", "[runtime]") {
     CATCH_REQUIRE(status.ok());
 
     // Self-distance should be approximately 0
-    double dist = -1.0;
+    float dist = -1.0f;
     const float* vec0 = test_data.data();
     status = index->get_distance(&dist, 0, vec0);
     CATCH_REQUIRE(status.ok());
@@ -933,7 +933,7 @@ CATCH_TEST_CASE("GetDistanceStatic", "[runtime][static_vamana]") {
     CATCH_REQUIRE(status.ok());
 
     // Self-distance should be approximately 0
-    double dist = -1.0;
+    float dist = -1.0f;
     const float* vec0 = test_data.data();
     status = index->get_distance(&dist, 0, vec0);
     CATCH_REQUIRE(status.ok());

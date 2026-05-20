@@ -78,7 +78,7 @@ struct SVS_RUNTIME_API VamanaIndex {
 
     // Compute distance between stored vector `id` and `query` (dim floats).
     virtual Status
-    get_distance(double* distance, size_t id, const float* query) const noexcept = 0;
+    get_distance(float* distance, size_t id, const float* query) const noexcept = 0;
 
     // Reconstruct `n` vectors by ID into `output` buffer (n * dim floats).
     virtual Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept = 0;

@@ -269,21 +269,21 @@ class VamanaIndexImpl {
         }
     }
 
-    double get_distance(size_t id, const float* query) const {
+    double get_distance(size_t id, std::span<const float> query) const {
         if (!impl_) {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
-        auto query_span = std::span<const float>(query, dim_);
-        return get_impl()->get_distance(id, query_span);
+        return get_impl()->get_distance(id, query);
     }
 
-    void reconstruct_at(size_t n, const size_t* ids, float* output) {
+    void reconstruct_at(
+        svs::data::SimpleDataView<float> dst, std::span<const size_t> ids
+    ) {
         if (!impl_) {
             throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
         }
-        svs::data::SimpleDataView<float> dst{output, n, dim_};
-        std::span<const uint64_t> id_span{reinterpret_cast<const uint64_t*>(ids), n};
-        get_impl()->reconstruct_at(dst, id_span);
+        std::vector<uint64_t> id_vec(ids.begin(), ids.end());
+        get_impl()->reconstruct_at(dst, std::span<const uint64_t>{id_vec});
     }
 
     void reset() { impl_.reset(); }

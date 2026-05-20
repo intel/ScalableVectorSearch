@@ -90,12 +90,19 @@ struct VamanaIndexManagerBase : public VamanaIndex {
     }
 
     Status
-    get_distance(double* distance, size_t id, const float* query) const noexcept override {
-        return runtime_error_wrapper([&] { *distance = impl_->get_distance(id, query); });
+    get_distance(float* distance, size_t id, const float* query) const noexcept override {
+        return runtime_error_wrapper([&] {
+            std::span<const float> q{query, impl_->dimensions()};
+            *distance = static_cast<float>(impl_->get_distance(id, q));
+        });
     }
 
     Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept override {
-        return runtime_error_wrapper([&] { impl_->reconstruct_at(n, ids, output); });
+        return runtime_error_wrapper([&] {
+            svs::data::SimpleDataView<float> dst{output, n, impl_->dimensions()};
+            std::span<const size_t> id_span{ids, n};
+            impl_->reconstruct_at(dst, id_span);
+        });
     }
 };
 } // namespace
