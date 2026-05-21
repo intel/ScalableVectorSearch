@@ -333,6 +333,56 @@ CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVec4x4", "[runtime]") {
     );
 }
 
+CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVecLVQ4PrimaryOnly", "[runtime]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{19};
+        return svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::LeanVecLVQ4PrimaryOnly,
+            32,
+            build_params,
+            {},
+            dynamic_index_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
+        build_func,
+        test_data,
+        test_n,
+        test_d,
+        svs::runtime::v0::StorageKind::LeanVecLVQ4PrimaryOnly
+    );
+}
+
+CATCH_TEST_CASE("WriteAndReadIndexSVSVamanaLeanVecLVQ8PrimaryOnly", "[runtime]") {
+    const auto& test_data = get_test_data();
+    auto build_func = [](svs::runtime::v0::DynamicVamanaIndex** index) {
+        svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+        svs::runtime::v0::VamanaIndex::DynamicIndexParams dynamic_index_params{19};
+        return svs::runtime::v0::DynamicVamanaIndexLeanVec::build(
+            index,
+            test_d,
+            svs::runtime::v0::MetricType::L2,
+            svs::runtime::v0::StorageKind::LeanVecLVQ8PrimaryOnly,
+            32,
+            build_params,
+            {},
+            dynamic_index_params
+        );
+    };
+    write_and_read_index<svs::runtime::v0::DynamicVamanaIndex>(
+        build_func,
+        test_data,
+        test_n,
+        test_d,
+        svs::runtime::v0::StorageKind::LeanVecLVQ8PrimaryOnly
+    );
+}
+
 CATCH_TEST_CASE("LeanVecWithTrainingData", "[runtime]") {
     const auto& test_data = get_test_data();
     // Build LeanVec index with explicit training

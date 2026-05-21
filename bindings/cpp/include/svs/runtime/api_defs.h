@@ -106,6 +106,10 @@ enum class StorageKind {
     LeanVec4x4,
     LeanVec4x8,
     LeanVec8x8,
+    // Primary-only LeanVec variants: only the lossy primary tier is stored, no
+    // secondary (reranking) tier. Trades reranking accuracy for ~50% less memory.
+    LeanVecLVQ4PrimaryOnly,
+    LeanVecLVQ8PrimaryOnly,
 };
 
 enum class ErrorCode {
