@@ -696,9 +696,9 @@ namespace detail {
 /// @brief Manager for file-backed memory mapped allocations.
 ///
 /// Tracks active memory-mapped allocations by keeping MMapPtr objects alive
-/// in a process-wide registry. All members are static; the class is non-
-/// instantiable and acts as a namespaced collection of helper functions over
-/// the shared registry. Thread-safe for concurrent allocations.
+/// in a process-wide registry. The registry is implemented as a singleton with
+/// static access through `instance()`, and stores the shared allocation state in
+/// that singleton object. Thread-safe for concurrent allocations.
 ///
 class MMapAllocationRegistry {
     /// The registry is the singleton instance that tracks all active memory-mapped
