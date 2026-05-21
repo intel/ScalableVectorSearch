@@ -24,15 +24,6 @@ RUN yum install -y cmake-3.26.5 \
 RUN yum install -y gcc-toolset-11-11.1-1.el8 wget-1.19.5 \
     && yum clean all
 
-# Install clang-tidy via the LLVM 17 module; newer versions crash on our templates.
-# The base image ships LLVM 21.x by default, so remove it first to ensure the
-# module's older binary wins on PATH.
-RUN yum remove -y clang-tools-extra clang || true \
-    && dnf module reset -y llvm-toolset \
-    && dnf module install -y llvm-toolset:rhel8 \
-    && yum install -y clang-tools-extra \
-    && yum clean all
-
 # Configure environment setup properly without recursion
 RUN echo '# Configure gcc-11' > /etc/profile.d/01-gcc.sh && \
     echo 'source scl_source enable gcc-toolset-11' >> /etc/profile.d/01-gcc.sh && \
