@@ -18,9 +18,11 @@ set -e  # Exit on error
 # Source environment setup (for compiler)
 source /etc/bashrc || true
 
-# Temporary: install clang-tidy 17 from conda-forge to test whether the system
-# clang-tidy version is the cause of the template crash. Remove once resolved.
-conda install -y -c conda-forge clang-tools=17
+# Temporary: pip-install clang-tidy 17 to test whether the system clang-tidy
+# version is the cause of the template crash. setuptools is needed because the
+# wheel's wrapper script imports pkg_resources (gone from Python 3.13 stdlib).
+# Remove once resolved.
+pip install setuptools clang-tidy==17.0.1
 
 # Source MKL environment (required for IVF)
 if [ -f /opt/intel/oneapi/setvars.sh ]; then
