@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2023-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -195,11 +195,11 @@ concept MemoryGraph = requires(T& g, const T& const_g) {
 ///
 template <ImmutableMemoryGraph Graph1, ImmutableMemoryGraph Graph2>
 bool graphs_equal(const Graph1& x, const Graph2& y) {
-    if (x.num_nodes() != y.num_nodes()) {
+    if (x.n_nodes() != y.n_nodes()) {
         return false;
     }
 
-    for (size_t i = 0, imax = x.num_nodes(); i < imax; ++i) {
+    for (size_t i = 0, imax = x.n_nodes(); i < imax; ++i) {
         const auto& xa = x.get_node(i);
         const auto& ya = y.get_node(i);
         if (!std::equal(xa.begin(), xa.end(), ya.begin())) {

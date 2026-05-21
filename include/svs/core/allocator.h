@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Intel Corporation
+ * Copyright 2023-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -690,5 +690,326 @@ template <detail::Allocator Alloc>
 AllocatorHandle<typename Alloc::value_type> make_allocator_handle(Alloc alloc) {
     return AllocatorHandle<typename Alloc::value_type>{std::move(alloc)};
 }
+
+namespace detail {
+///
+/// @brief Manager for file-backed memory mapped allocations.
+///
+/// Tracks active memory-mapped allocations by keeping MMapPtr objects alive
+/// in a process-wide registry. All members are static; the class is non-
+/// instantiable and acts as a namespaced collection of helper functions over
+/// the shared registry. Thread-safe for concurrent allocations.
+///
+class MMapAllocationRegistry {
+    /// The registry is the singleton instance that tracks all active memory-mapped
+    /// allocations.
+  private:
+    MMapAllocationRegistry() = default;
+    ~MMapAllocationRegistry() = default;
+    MMapAllocationRegistry(const MMapAllocationRegistry&) = delete;
+    MMapAllocationRegistry& operator=(const MMapAllocationRegistry&) = delete;
+
+  public:
+    static MMapAllocationRegistry& instance() {
+        static MMapAllocationRegistry registry;
+        return registry;
+    }
+
+  public:
+    ///
+    /// @brief Allocate memory mapped to a freshly created (or extended) file.
+    ///
+    /// @param bytes Number of bytes to allocate
+    /// @param file_path Path to the file for backing storage
+    /// @return Pointer to the allocated memory
+    ///
+    [[nodiscard]] void* allocate(size_t bytes, const std::filesystem::path& file_path) {
+        MemoryMapper mapper{MemoryMapper::ReadWrite, MemoryMapper::MayCreate};
+        auto mmap_ptr = mapper.mmap(file_path, lib::Bytes(bytes));
+
+        void* ptr = mmap_ptr.data();
+
+        // Store the MMapPtr to keep the mapping alive
+        {
+            std::lock_guard lock{mutex_};
+            allocations_.insert({ptr, std::move(mmap_ptr)});
+        }
+
+        return ptr;
+    }
+
+    ///
+    /// @brief Map an existing file read-only, returning a pointer offset into the mapping.
+    ///
+    /// This is used for zero-copy loading: the returned pointer points to
+    /// `base + offset` within the mmap'd region. The underlying mapping covers
+    /// the entire file so that munmap and madvise operate on the full range.
+    ///
+    /// @param data_bytes Number of bytes of data expected after the offset.
+    /// @param file_path Path to an existing file.
+    /// @param offset Byte offset into the file where data starts (e.g., header size).
+    /// @return Pointer to data at `base + offset`.
+    ///
+    [[nodiscard]] void* map_existing_at_offset(
+        size_t data_bytes, const std::filesystem::path& file_path, size_t offset
+    ) {
+        auto file_size = std::filesystem::file_size(file_path);
+        if (file_size < offset + data_bytes) {
+            throw ANNEXCEPTION(
+                "File {} is {} bytes, need at least {} (offset={} + data={})",
+                file_path,
+                file_size,
+                offset + data_bytes,
+                offset,
+                data_bytes
+            );
+        }
+
+        MemoryMapper mapper{MemoryMapper::ReadOnly, MemoryMapper::MustUseExisting};
+        auto mmap_ptr = mapper.mmap(file_path, lib::Bytes(file_size));
+
+        void* data_ptr = static_cast<std::byte*>(mmap_ptr.data()) + offset;
+
+        {
+            std::lock_guard lock{mutex_};
+            allocations_.insert({data_ptr, std::move(mmap_ptr)});
+        }
+
+        return data_ptr;
+    }
+
+    ///
+    /// @brief Deallocate a memory-mapped allocation.
+    ///
+    /// Removes the MMapPtr, which triggers munmap in its destructor.
+    ///
+    /// @param ptr Pointer previously returned by allocate() or
+    ///        map_existing_at_offset().
+    ///
+    void deallocate(void* ptr) {
+        std::lock_guard lock{mutex_};
+        auto itr = allocations_.find(ptr);
+        if (itr == allocations_.end()) {
+            throw ANNEXCEPTION("Could not find memory-mapped allocation to deallocate!");
+        }
+
+        // Erasing will destroy the MMapPtr, which calls munmap
+        allocations_.erase(itr);
+    }
+
+    ///
+    /// @brief Get count of current allocations (for debugging/testing)
+    ///
+    size_t allocation_count() {
+        std::lock_guard lock{mutex_};
+        return allocations_.size();
+    }
+
+    ///
+    /// @brief Evict all mmap'd pages from memory using madvise(MADV_DONTNEED).
+    ///
+    /// This tells the kernel to discard the pages backing all active mmap allocations.
+    /// The pages will be re-faulted from the backing files on next access.
+    /// Useful for benchmarking to simulate truly cold cache access.
+    ///
+    void evict_pages() {
+#ifdef __linux__
+        std::lock_guard lock{mutex_};
+        for (auto& [ptr, mmap_ptr] : allocations_) {
+            void* base = const_cast<void*>(mmap_ptr.base());
+            size_t size = mmap_ptr.size();
+            if (base != nullptr && size > 0) {
+                (void)madvise(base, size, MADV_DONTNEED);
+            }
+        }
+#endif
+    }
+
+    ///
+    /// @brief Evict the pages backing a single allocation.
+    ///
+    /// Calls madvise(MADV_DONTNEED) on the full underlying mapping for the
+    /// allocation registered at `ptr`. Useful for selectively dropping just-
+    /// faulted pages after a one-shot read of an existing file.
+    ///
+    void evict_pages_for(void* ptr) {
+#ifdef __linux__
+        std::lock_guard lock{mutex_};
+        auto itr = allocations_.find(ptr);
+        if (itr == allocations_.end()) {
+            return;
+        }
+        void* base = const_cast<void*>(itr->second.base());
+        size_t size = itr->second.size();
+        if (base != nullptr && size > 0) {
+            (void)madvise(base, size, MADV_DONTNEED);
+        }
+#else
+        (void)ptr;
+#endif
+    }
+
+  private:
+    std::mutex mutex_{};
+    tsl::robin_map<void*, MMapPtr<void>> allocations_{};
+};
+
+} // namespace detail
+
+///
+/// @brief Access pattern hint for memory-mapped allocations
+///
+enum class MMapAccessHint : int {
+    Normal = MADV_NORMAL,         ///< Default access pattern
+    Sequential = MADV_SEQUENTIAL, ///< Data will be accessed sequentially
+    Random = MADV_RANDOM          ///< Data will be accessed randomly
+};
+
+namespace detail {
+
+///
+/// @brief Apply a madvise() access-pattern hint to an mmap'd region.
+///
+/// No-op on non-Linux platforms or for null/empty regions. madvise() is a
+/// hint, so any error is ignored.
+///
+inline void apply_mmap_access_hint(void* ptr, size_t bytes, MMapAccessHint hint) {
+#ifdef __linux__
+    if (ptr == nullptr || bytes == 0) {
+        return;
+    }
+    (void)madvise(ptr, bytes, static_cast<int>(hint));
+#else
+    (void)ptr;
+    (void)bytes;
+    (void)hint;
+#endif
+}
+
+} // namespace detail
+
+///
+/// @brief File-backed, writable memory-mapped allocator.
+///
+/// Each allocate() call creates a fresh temp file under @c base_path_ and
+/// returns a writable mmap of that file. Intended for storing data that is
+/// produced at runtime (e.g. an index's secondary, full-dimension dataset)
+/// in file-backed pages instead of anonymous RAM.
+///
+/// For zero-copy loading from a pre-existing file, use
+/// @ref MMapFileViewAllocator instead.
+///
+/// @tparam T The value type for the allocator. Must be trivially default-
+///         constructible: construction is a no-op (storage is either kernel-
+///         zeroed for new files, or already-valid bytes for existing files
+///         via the read-only sibling allocator).
+///
+template <typename T> class MMapAllocator {
+  private:
+    std::filesystem::path base_path_;
+    MMapAccessHint access_hint_ = MMapAccessHint::Normal;
+    detail::MMapAllocationRegistry& allocation_resource_;
+
+  public:
+    // C++ allocator type aliases
+    using value_type = T;
+    using propagate_on_container_copy_assignment = std::true_type;
+    using propagate_on_container_move_assignment = std::true_type;
+    using propagate_on_container_swap = std::true_type;
+    using is_always_equal =
+        std::false_type; // Allocators with different paths are different
+
+    ///
+    /// @brief Construct a new MMapAllocator
+    ///
+    /// @param base_path Directory path for storing memory-mapped files.
+    ///        If empty, will use /tmp with generated names.
+    /// @param access_hint Hint about how the data will be accessed
+    ///
+    explicit MMapAllocator(
+        std::filesystem::path base_path = std::filesystem::temp_directory_path(),
+        MMapAccessHint access_hint = MMapAccessHint::Normal,
+        detail::MMapAllocationRegistry& allocation_resource =
+            detail::MMapAllocationRegistry::instance()
+    )
+        : base_path_{!base_path.empty() ? std::move(base_path) : std::filesystem::temp_directory_path()}
+        , access_hint_{access_hint}
+        , allocation_resource_{allocation_resource} {
+        std::filesystem::create_directories(base_path_);
+    }
+
+    // Enable rebinding of allocators
+    template <typename U> friend class MMapAllocator;
+
+    template <typename U>
+    MMapAllocator(const MMapAllocator<U>& other)
+        : base_path_{other.base_path_}
+        , access_hint_{other.access_hint_}
+        , allocation_resource_{other.allocation_resource_} {}
+
+    ///
+    /// @brief Compare allocators
+    ///
+    /// Two allocators are equal if they use the same base path and access hint
+    ///
+    template <typename U> bool operator==(const MMapAllocator<U>& other) const {
+        return base_path_ == other.base_path_ && access_hint_ == other.access_hint_;
+    }
+
+    ///
+    /// @brief Allocate a writable file-backed mmap of @c n elements.
+    ///
+    /// Creates a fresh temp file under base_path_ sized to @c sizeof(T) * n,
+    /// maps it ReadWrite, and applies the configured madvise() hint.
+    ///
+    /// @param n Number of elements to allocate
+    /// @return Pointer to allocated memory
+    ///
+    [[nodiscard]] T* allocate(size_t n) {
+        size_t bytes = sizeof(T) * n;
+        auto file_path = generate_file_path(bytes);
+        void* ptr = allocation_resource_.allocate(bytes, file_path);
+        detail::apply_mmap_access_hint(ptr, bytes, access_hint_);
+        return static_cast<T*>(ptr);
+    }
+
+    ///
+    /// @brief Deallocate memory previously returned by allocate().
+    ///
+    void deallocate(void* ptr, size_t SVS_UNUSED(n)) {
+        allocation_resource_.deallocate(ptr);
+    }
+
+    /// @brief Get the base path for allocations.
+    const std::filesystem::path& get_base_path() const { return base_path_; }
+
+    /// @brief Get the access hint.
+    MMapAccessHint get_access_hint() const { return access_hint_; }
+
+    /// @brief Set the access hint for future allocations.
+    void set_access_hint(MMapAccessHint hint) { access_hint_ = hint; }
+
+    ///
+    /// @brief Evict all mmap'd pages from memory.
+    ///
+    /// Calls madvise(MADV_DONTNEED) on all active mmap allocations
+    /// (including those from MMapFileViewAllocator), forcing pages to be
+    /// re-faulted from disk on next access.
+    ///
+    static void evict_pages() { detail::MMapAllocationRegistry::instance().evict_pages(); }
+
+  private:
+    /// @brief Generate a unique file path for an allocation.
+    std::filesystem::path generate_file_path(size_t bytes) {
+        auto filename = fmt::format(
+            "mmap_alloc_{}_{}_{}.dat",
+            std::this_thread::get_id(),
+            allocation_resource_.allocation_count(),
+            bytes
+        );
+
+        return base_path_ / filename;
+    }
+};
 
 } // namespace svs
