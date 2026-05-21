@@ -144,6 +144,38 @@ Status VamanaIndex::load(
     });
 }
 
+Status VamanaIndex::map_to_file(
+    VamanaIndex** index, const char* path, MetricType metric, StorageKind storage_kind
+) noexcept {
+    using Impl = VamanaIndexImpl;
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        std::filesystem::path fs_path(path);
+        auto is = std::make_unique<svs::io::mmstream>(fs_path);
+        std::unique_ptr<Impl> impl{
+            Impl::map_to_stream(std::move(is), metric, storage_kind)};
+        *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
+Status VamanaIndex::map_to_memory(
+    VamanaIndex** index,
+    void* data,
+    size_t size,
+    MetricType metric,
+    StorageKind storage_kind
+) noexcept {
+    using Impl = VamanaIndexImpl;
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        auto sp = std::span(reinterpret_cast<char*>(data), size);
+        auto is = std::make_unique<svs::io::ispanstream>(sp);
+        std::unique_ptr<Impl> impl{
+            Impl::map_to_stream(std::move(is), metric, storage_kind)};
+        *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 // Specialization to build LeanVec-based Vamana index with specified leanvec dims
 Status VamanaIndexLeanVec::build(
