@@ -18,11 +18,16 @@ set -e  # Exit on error
 # Source environment setup (for compiler)
 source /etc/bashrc || true
 
-# Temporary: pip-install clang-tidy 17 to test whether the system clang-tidy
-# version is the cause of the template crash. setuptools is needed because the
-# wheel's wrapper script imports pkg_resources (gone from Python 3.13 stdlib).
-# Remove once resolved.
-pip install setuptools clang-tidy==17.0.1
+# Temporary: download official LLVM 17.0.6 tarball to test whether the system
+# clang-tidy version is the cause of the template crash. Remove once resolved.
+LLVM_DIR=/opt/llvm17
+if [ ! -x "$LLVM_DIR/bin/clang-tidy" ]; then
+    mkdir -p "$LLVM_DIR"
+    wget -nv https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz -O /tmp/llvm17.tar.xz
+    tar -xJf /tmp/llvm17.tar.xz -C "$LLVM_DIR" --strip-components=1
+    rm /tmp/llvm17.tar.xz
+fi
+export PATH="$LLVM_DIR/bin:$PATH"
 
 # Source MKL environment (required for IVF)
 if [ -f /opt/intel/oneapi/setvars.sh ]; then
