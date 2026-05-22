@@ -29,6 +29,7 @@
 #include "catch2/matchers/catch_matchers_string.hpp"
 
 // stl
+#include <fstream>
 #include <iostream>
 #include <numeric>
 #include <vector>
@@ -131,6 +132,33 @@ CATCH_TEST_CASE("Testing Binary Reader Iterator", "[core][io]") {
                 Catch::Matchers::ContainsSubstring(binary_file) &&
                 Catch::Matchers::ContainsSubstring(fmt::format("{}", sizeof(svs::Float16)))
             )
+        );
+    }
+
+    CATCH_SECTION("Malformed Header (zero dimensions)") {
+        // Crafted file with num_vectors == 0 and vector_dim == 0 must not trigger
+        // a divide-by-zero — the parser should reject it cleanly.
+        auto write_zero_header = [](const std::string& path) {
+            std::ofstream f(path, std::ios::binary | std::ios::trunc);
+            const uint32_t zero = 0;
+            f.write(reinterpret_cast<const char*>(&zero), sizeof(zero));
+            f.write(reinterpret_cast<const char*>(&zero), sizeof(zero));
+        };
+
+        std::string bad_file =
+            svs_test::prepare_temp_directory_v2() / "malformed_header.fbin";
+        write_zero_header(bad_file);
+
+        CATCH_REQUIRE_THROWS_MATCHES(
+            svs::io::binary::BinaryFile(bad_file).get_dims(),
+            svs::ANNException,
+            svs_test::ExceptionMatcher(Catch::Matchers::ContainsSubstring(bad_file))
+        );
+
+        CATCH_REQUIRE_THROWS_MATCHES(
+            svs::io::binary::BinaryReader<float>(bad_file),
+            svs::ANNException,
+            svs_test::ExceptionMatcher(Catch::Matchers::ContainsSubstring(bad_file))
         );
     }
 }
