@@ -18,14 +18,15 @@
  * I/O functions for fvecs, ivecs and xVecs
  *****************************************************/
 
+#include <cstdint>
 #include <random>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-int fvec_fwrite(FILE* fo, const float* v, int d) {
+int fvec_fwrite(FILE* fo, const float* v, uint32_t d) {
     int ret;
-    ret = fwrite(&d, sizeof(int), 1, fo);
+    ret = fwrite(&d, sizeof(uint32_t), 1, fo);
     if (ret != 1) {
         perror("fvec_fwrite: write error 1");
         return -1;
@@ -38,7 +39,7 @@ int fvec_fwrite(FILE* fo, const float* v, int d) {
     return 0;
 }
 
-int fvecs_write(const char* fname, int d, int n, const float* vf) {
+int fvecs_write(const char* fname, uint32_t d, int n, const float* vf) {
     FILE* fo = fopen(fname, "w");
     if (!fo) {
         perror("fvecs_write: cannot open file");
@@ -55,22 +56,22 @@ int fvecs_write(const char* fname, int d, int n, const float* vf) {
     return n;
 }
 
-int ivec_iwrite(FILE* fo, const int* v, int d) {
+int ivec_iwrite(FILE* fo, const uint32_t* v, uint32_t d) {
     int ret;
-    ret = fwrite(&d, sizeof(int), 1, fo);
+    ret = fwrite(&d, sizeof(uint32_t), 1, fo);
     if (ret != 1) {
-        perror("fvec_fwrite: write error 1");
+        perror("ivec_iwrite: write error 1");
         return -1;
     }
-    ret = fwrite(v, sizeof(float), d, fo);
+    ret = fwrite(v, sizeof(uint32_t), d, fo);
     if (ret != d) {
-        perror("fvec_fwrite: write error 2");
+        perror("ivec_iwrite: write error 2");
         return -1;
     }
     return 0;
 }
 
-int ivecs_write(const char* fname, int d, int n, const int* vf) {
+int ivecs_write(const char* fname, uint32_t d, int n, const uint32_t* vf) {
     FILE* fo = fopen(fname, "w");
     if (!fo) {
         perror("fvecs_write: cannot open file");
@@ -93,7 +94,7 @@ void generate_random_data(size_t data_dim, size_t dataset_size, size_t query_siz
     std::default_random_engine generator;
     std::normal_distribution<float> dataset_dist(0.0f, dataset_std);
     std::normal_distribution<float> query_dist(0.0f, query_std);
-    std::uniform_int_distribution<> uni_dist(0, dataset_size - 1);
+    std::uniform_int_distribution<uint32_t> uni_dist(0, dataset_size - 1);
 
     generator.seed(100);
     std::vector<float> dataset(dataset_size * data_dim);
@@ -102,9 +103,9 @@ void generate_random_data(size_t data_dim, size_t dataset_size, size_t query_siz
     }
 
     std::vector<float> queries(query_size * data_dim);
-    std::vector<int> gt(query_size);
+    std::vector<uint32_t> gt(query_size);
     for (size_t i = 0; i < query_size; ++i) {
-        int e = uni_dist(generator);
+        uint32_t e = uni_dist(generator);
         for (size_t j = 0; j < data_dim; ++j) {
             queries[i * data_dim + j] = dataset[e * data_dim + j] + query_dist(generator);
         }
