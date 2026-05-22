@@ -14,6 +14,7 @@ tags
 compile_commands.json
 .python-version
 .vscode
+.cache
 
 # Python related files
 __pycache__/

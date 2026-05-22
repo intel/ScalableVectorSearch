@@ -149,7 +149,6 @@ class IVFTester(unittest.TestCase):
             matcher,
             num_threads: int,
             skip_thread_test: bool = False,
-            first_iter: bool = False,
             test_single_query: bool = False,
         ):
         # Make sure that the number of threads is propagated correctly.
@@ -192,9 +191,9 @@ class IVFTester(unittest.TestCase):
         if test_single_query:
             self._test_single_query(ivf, queries)
 
-    def _test_basic(self, loader, matcher, first_iter: bool = False):
+    def _test_basic(self, loader, matcher, test_single_query: bool = False):
         num_threads = 2
-        print("Assemble from file")
+        print(f"Assemble from file. Data loader type: {matcher.kind}")
         ivf = svs.IVF.assemble_from_file(
             clustering_path = test_ivf_clustering,
             data_loader = loader,
@@ -205,8 +204,7 @@ class IVFTester(unittest.TestCase):
         print(f"Testing: {ivf.experimental_backend_string}")
         self._test_basic_inner(ivf, matcher, num_threads,
             skip_thread_test = False,
-            first_iter = first_iter,
-            test_single_query = first_iter,
+            test_single_query = test_single_query,
         )
 
         print("Load and Assemble from clustering")
@@ -220,9 +218,31 @@ class IVFTester(unittest.TestCase):
         print(f"Testing: {ivf.experimental_backend_string}")
         self._test_basic_inner(ivf, matcher, num_threads,
             skip_thread_test = False,
-            first_iter = first_iter,
-            test_single_query = first_iter,
+            test_single_query = test_single_query,
         )
+
+        # Test saving and reloading for all data types
+        print(f"Testing save and load for {matcher.kind}")
+        with TemporaryDirectory() as tempdir:
+            configdir = os.path.join(tempdir, "config")
+            datadir = os.path.join(tempdir, "data")
+            ivf.save(configdir, datadir)
+
+            # Reload from saved directories - data type auto-detected from config
+            reloaded = svs.IVF.load(
+                config_directory = configdir,
+                data_directory = datadir,
+                distance = svs.DistanceType.L2,
+                num_threads = num_threads
+            )
+
+            print(f"Testing reloaded: {reloaded.experimental_backend_string}")
+            self._test_basic_inner(
+                reloaded,
+                matcher,
+                num_threads,
+                skip_thread_test = True,
+            )
 
     def test_basic(self):
         # Load the index from files.
@@ -231,9 +251,21 @@ class IVFTester(unittest.TestCase):
         )
         self._setup(default_loader)
 
-        # Standard tests
+        # Standard tests - all data types now support save/load
+        is_first = True
         for loader, matcher in self.loader_and_matcher:
-            self._test_basic(loader, matcher)
+            self._test_basic(loader, matcher, test_single_query=is_first)
+            is_first = False
+
+        # Test with float16 data loader
+        data = svs.read_vecs(test_data_vecs)
+        data_f16 = data.astype('float16')
+        with TemporaryDirectory() as tempdir:
+            hvecs_path = os.path.join(tempdir, "data_f16.hvecs")
+            svs.write_vecs(data_f16, hvecs_path)
+            loader_f16 = svs.VectorDataLoader(hvecs_path, svs.DataType.float16)
+            matcher_f16 = UncompressedMatcher("float32")
+            self._test_basic(loader_f16, matcher_f16)
 
     def _groundtruth_map(self):
         return {
@@ -246,7 +278,8 @@ class IVFTester(unittest.TestCase):
         self,
         loader,
         distance: svs.DistanceType,
-        matcher
+        matcher,
+        epsilon: float = 0.005
     ):
         num_threads = 2
         distance_map = self._distance_map()
@@ -300,14 +333,114 @@ class IVFTester(unittest.TestCase):
             recall = svs.k_recall_at(get_test_set(groundtruth, nq), results[0], k, k)
             print(f"Recall = {recall}, Expected = {expected_recall}")
             if not DEBUG:
-                self.assertTrue(isapprox(recall, expected_recall, epsilon = 0.005))
+                self.assertTrue(isapprox(recall, expected_recall, epsilon = epsilon))
+
+    def test_assemble_from_numpy(self):
+        """
+        Test that assemble_from_clustering and assemble_from_file accept numpy arrays
+        directly (in addition to VectorDataLoader).
+        """
+        num_threads = 2
+        data = svs.read_vecs(test_data_vecs)
+        queries = svs.read_vecs(test_queries)
+        groundtruth = svs.read_vecs(test_groundtruth_l2)
+        k = 10
+
+        # Build clustering from numpy array directly
+        build_params = svs.IVFBuildParameters(
+            num_centroids = 128,
+            minibatch_size = 128,
+            num_iterations = 10,
+            is_hierarchical = False,
+            training_fraction = 0.5,
+            hierarchical_level1_clusters = 0,
+            seed = 42,
+        )
+
+        clustering = svs.Clustering.build(
+            build_parameters = build_params,
+            py_data = data,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+
+        # Test assemble_from_clustering with numpy array
+        print("Testing IVF.assemble_from_clustering with numpy array (float32)")
+        ivf = svs.IVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        self.assertEqual(ivf.size, test_number_of_vectors)
+        self.assertEqual(ivf.dimensions, test_dimensions)
+
+        search_params = svs.IVFSearchParameters(n_probes = 30, k_reorder = 1.0)
+        ivf.search_parameters = search_params
+
+        I, D = ivf.search(queries, k)
+        recall = svs.k_recall_at(groundtruth, I, k, k)
+        print(f"  assemble_from_clustering numpy recall: {recall}")
+        self.assertTrue(0.5 < recall <= 1.0)
+
+        # Test assemble_from_file with numpy array
+        with TemporaryDirectory() as tempdir:
+            clustering_dir = os.path.join(tempdir, "clustering")
+            clustering.save(clustering_dir)
+
+            print("Testing IVF.assemble_from_file with numpy array (float32)")
+            ivf2 = svs.IVF.assemble_from_file(
+                clustering_path = clustering_dir,
+                py_data = data,
+                distance = svs.DistanceType.L2,
+                num_threads = num_threads,
+            )
+            self.assertEqual(ivf2.size, test_number_of_vectors)
+            self.assertEqual(ivf2.dimensions, test_dimensions)
+
+            ivf2.search_parameters = search_params
+            I2, D2 = ivf2.search(queries, k)
+            recall2 = svs.k_recall_at(groundtruth, I2, k, k)
+            print(f"  assemble_from_file numpy recall: {recall2}")
+            self.assertTrue(0.5 < recall2 <= 1.0)
+
+        # Test with float16 numpy array
+        data_f16 = data.astype('float16')
+        print("Testing IVF.assemble_from_clustering with numpy array (float16)")
+        ivf_f16 = svs.IVF.assemble_from_clustering(
+            clustering = clustering,
+            py_data = data_f16,
+            distance = svs.DistanceType.L2,
+            num_threads = num_threads,
+        )
+        self.assertEqual(ivf_f16.size, test_number_of_vectors)
+        self.assertEqual(ivf_f16.dimensions, test_dimensions)
+
+        ivf_f16.search_parameters = search_params
+        I_f16, D_f16 = ivf_f16.search(queries, k)
+        recall_f16 = svs.k_recall_at(groundtruth, I_f16, k, k)
+        print(f"  assemble_from_clustering numpy float16 recall: {recall_f16}")
+        self.assertTrue(0.4 < recall_f16 <= 1.0)
 
     def test_build(self):
         # Build directly from data
-        queries = svs.read_vecs(test_queries)
+        data = svs.read_vecs(test_data_vecs)
 
-        # Build from file loader
+        # Build from file loader with float32
         loader = svs.VectorDataLoader(test_data_svs, svs.DataType.float32)
         matcher = UncompressedMatcher("bfloat16")
         self._test_build(loader, svs.DistanceType.L2, matcher)
         self._test_build(loader, svs.DistanceType.MIP, matcher)
+
+        # Build using float16
+        data_f16 = data.astype('float16')
+        with TemporaryDirectory() as tempdir:
+            # Save float16 data to hvecs format
+            hvecs_path = os.path.join(tempdir, "data_f16.hvecs")
+            svs.write_vecs(data_f16, hvecs_path)
+
+            # Build from file loader with float16
+            # Use larger epsilon since float16 has different precision than bfloat16
+            loader_f16 = svs.VectorDataLoader(hvecs_path, svs.DataType.float16)
+            self._test_build(loader_f16, svs.DistanceType.L2, matcher, epsilon = 0.015)
+            self._test_build(loader_f16, svs.DistanceType.MIP, matcher, epsilon = 0.015)

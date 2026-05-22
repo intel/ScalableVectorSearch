@@ -18,7 +18,7 @@
 
 #include "svs_runtime_utils.h"
 
-#ifdef SVS_LEANVEC_HEADER
+#ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
 #include "training_impl.h"
 
 namespace svs {
@@ -40,6 +40,27 @@ Status LeanVecTrainingData::build(
     });
 }
 
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** training_data,
+    size_t dim,
+    size_t n,
+    const float* x,
+    size_t n_q,
+    const float* x_q,
+    size_t leanvec_dims
+) noexcept {
+    if (n_q == 0 || !x_q) {
+        return build(training_data, dim, n, x, leanvec_dims);
+    }
+
+    return runtime_error_wrapper([&] {
+        const auto data = svs::data::ConstSimpleDataView<float>(x, n, dim);
+        const auto queries = svs::data::ConstSimpleDataView<float>(x_q, n_q, dim);
+        *training_data = new LeanVecTrainingDataManager{
+            LeanVecTrainingDataImpl{data, queries, leanvec_dims}};
+    });
+}
+
 Status LeanVecTrainingData::destroy(LeanVecTrainingData* training_data) noexcept {
     return runtime_error_wrapper([&] { delete training_data; });
 }
@@ -53,7 +74,7 @@ LeanVecTrainingData::load(LeanVecTrainingData** training_data, std::istream& in)
 } // namespace runtime
 } // namespace svs
 
-#else  // SVS_LEANVEC_HEADER
+#else  // SVS_RUNTIME_HAVE_LVQ_LEANVEC
 namespace svs {
 namespace runtime {
 LeanVecTrainingData::~LeanVecTrainingData() = default;
@@ -62,6 +83,20 @@ Status LeanVecTrainingData::build(
     size_t SVS_UNUSED(dim),
     size_t SVS_UNUSED(n),
     const float* SVS_UNUSED(x),
+    size_t SVS_UNUSED(leanvec_dims)
+) noexcept {
+    return Status(
+        ErrorCode::NOT_IMPLEMENTED,
+        "LeanVecTrainingData is not supported in this build configuration."
+    );
+}
+Status LeanVecTrainingData::build(
+    LeanVecTrainingData** SVS_UNUSED(training_data),
+    size_t SVS_UNUSED(dim),
+    size_t SVS_UNUSED(n),
+    const float* SVS_UNUSED(x),
+    size_t SVS_UNUSED(n_q),
+    const float* SVS_UNUSED(x_q),
     size_t SVS_UNUSED(leanvec_dims)
 ) noexcept {
     return Status(
@@ -86,4 +121,4 @@ Status LeanVecTrainingData::load(
 }
 } // namespace runtime
 } // namespace svs
-#endif // SVS_LEANVEC_HEADER
+#endif // SVS_RUNTIME_HAVE_LVQ_LEANVEC

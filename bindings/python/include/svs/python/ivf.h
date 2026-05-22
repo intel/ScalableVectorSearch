@@ -25,14 +25,11 @@
 #include "svs/index/ivf/clustering.h"
 #include "svs/lib/bfloat16.h"
 #include "svs/lib/datatype.h"
-#include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
 #include "svs/lib/misc.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl/filesystem.h>
-
-#include <variant>
 
 namespace svs::python {
 namespace ivf_specializations {
@@ -66,16 +63,10 @@ template <typename F> void for_standard_specializations(F&& f) {
 
 namespace ivf {
 
-// The build process in IVF uses Kmeans to get centroids and assignments of data.
-// This sparse clustering can be saved with centroids stored as float datatype.
-// While assembling, the sparse clustering is used to create DenseClusters and
-// centroids datatype can be changed as per the search specializations.
-// Support both BFloat16 and Float16 centroids to match data types and leverage AMX.
+// Always use BFloat16 centroids to leverage AMX instructions on Xeon.
 using ClusteringBF16 =
     svs::index::ivf::Clustering<svs::data::SimpleData<svs::BFloat16>, uint32_t>;
-using ClusteringF16 =
-    svs::index::ivf::Clustering<svs::data::SimpleData<svs::Float16>, uint32_t>;
-using Clustering = std::variant<ClusteringBF16, ClusteringF16>;
+using Clustering = ClusteringBF16;
 
 template <typename Manager> void add_interface(pybind11::class_<Manager>& manager) {
     manager.def_property_readonly(

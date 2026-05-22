@@ -571,6 +571,36 @@ template <std::integral I> class Clustering {
     // Saving and Loading.
     static constexpr lib::Version save_version{0, 0, 0};
     static constexpr std::string_view serialization_schema = "clustering";
+
+    lib::SaveTable metadata() const {
+        return lib::SaveTable(
+            serialization_schema,
+            save_version,
+            {{"integer_type", lib::save(datatype_v<I>)},
+             {"num_clusters", lib::save(size())}}
+        );
+    }
+
+    void save(std::ostream& os) const {
+        for (const auto& [id, cluster] : *this) {
+            cluster.serialize(os);
+        }
+    }
+
+    static Clustering<I>
+    load(const lib::ContextFreeLoadTable& table, std::istream& stream) {
+        auto saved_integer_type = lib::load_at<DataType>(table, "integer_type");
+        if (saved_integer_type != datatype_v<I>) {
+            throw ANNEXCEPTION("Clustering was saved using {} but we're trying to reload it using {}!", saved_integer_type, datatype_v<I>);
+        }
+        auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
+        auto clustering = Clustering<I>();
+        for (size_t i = 0; i < num_clusters; ++i) {
+            clustering.insert(Cluster<I>::deserialize(stream));
+        }
+        return clustering;
+    }
+
     lib::SaveTable save(const lib::SaveContext& ctx) const {
         // Serialize all clusters into an auxiliary file.
         auto fullpath = ctx.generate_name("clustering", "bin");
@@ -582,48 +612,28 @@ template <std::integral I> class Clustering {
             }
         }
 
-        return lib::SaveTable(
-            serialization_schema,
-            save_version,
-            {{"filepath", lib::save(fullpath.filename())},
-             SVS_LIST_SAVE(filesize),
-             {"integer_type", lib::save(datatype_v<I>)},
-             {"num_clusters", lib::save(size())}}
-        );
+        auto table = metadata();
+        table.insert("filepath", lib::save(fullpath.filename()));
+        table.insert("filesize", lib::save(filesize));
+        return table;
+
+        return table;
     }
 
     static Clustering<I> load(const lib::LoadTable& table) {
-        // Ensure we have the correct integer type when decoding.
-        auto saved_integer_type = lib::load_at<DataType>(table, "integer_type");
-        if (saved_integer_type != datatype_v<I>) {
-            auto type = datatype_v<I>;
+        auto expected_filesize = lib::load_at<size_t>(table, "filesize");
+        auto file = table.resolve_at("filepath");
+        size_t actual_filesize = std::filesystem::file_size(file);
+        if (actual_filesize != expected_filesize) {
             throw ANNEXCEPTION(
-                "Clustering was saved using {} but we're trying to reload it using {}!",
-                saved_integer_type,
-                type
+                "Expected cluster file size to be {}. Instead, it is {}!",
+                actual_filesize,
+                expected_filesize
             );
         }
 
-        auto num_clusters = lib::load_at<size_t>(table, "num_clusters");
-        auto expected_filesize = lib::load_at<size_t>(table, "filesize");
-        auto clustering = Clustering<I>();
-        {
-            auto file = table.resolve_at("filepath");
-            size_t actual_filesize = std::filesystem::file_size(file);
-            if (actual_filesize != expected_filesize) {
-                throw ANNEXCEPTION(
-                    "Expected cluster file size to be {}. Instead, it is {}!",
-                    actual_filesize,
-                    expected_filesize
-                );
-            }
-
-            auto io = lib::open_read(file);
-            for (size_t i = 0; i < num_clusters; ++i) {
-                clustering.insert(Cluster<I>::deserialize(io));
-            }
-        }
-        return clustering;
+        auto io = lib::open_read(file);
+        return load(table, io);
     }
 
   private:

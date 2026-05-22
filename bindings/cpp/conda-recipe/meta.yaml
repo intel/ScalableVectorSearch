@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-{% set version = '0.1.0' %}
+{% set version = '0.3.0' %}
 {% set buildnumber = 0 %}
 {% set variant_suffix = environ.get('SUFFIX', '').replace('-', '_') %}
 
@@ -29,6 +29,10 @@ build:
   string: {{ GIT_DESCRIBE_HASH }}_{{ buildnumber }}{{ variant_suffix }}
   skip: true  # [not linux]
   include_recipe: False
+  script_env:
+    - ENABLE_LVQ_LEANVEC
+    - SUFFIX
+    - SVS_URL
 
 requirements:
   build:

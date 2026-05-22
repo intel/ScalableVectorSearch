@@ -29,6 +29,15 @@
 
 // stdlib
 #include <cassert>
+
+// Cross-type lossy conversions between Float16 and BFloat16.
+// Both are reduced-precision floating-point types and converting between them is
+// inherently lossy (different mantissa/exponent trade-offs), but acceptable in the same
+// way that float → Float16 and float → BFloat16 are already allowed.
+namespace svs {
+template <> inline constexpr bool allow_lossy_conversion<Float16, BFloat16> = true;
+template <> inline constexpr bool allow_lossy_conversion<BFloat16, Float16> = true;
+} // namespace svs
 #include <cstdint>
 #include <functional>
 #include <span>

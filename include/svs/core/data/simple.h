@@ -21,11 +21,13 @@
 #include "svs/core/allocator.h"
 #include "svs/core/compact.h"
 #include "svs/core/data/io.h"
+#include "svs/core/io/memstream.h"
 
 #include "svs/lib/array.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/memory.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/prefetch.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
@@ -75,24 +77,42 @@ class GenericSerializer {
     }
 
     template <data::ImmutableMemoryDataset Data>
-    static lib::SaveTable save(const Data& data, const lib::SaveContext& ctx) {
+    static lib::SaveTable metadata(const Data& data) {
         using T = typename Data::element_type;
-        // UUID used to identify the file.
-        auto uuid = lib::UUID{};
-        auto filename = ctx.generate_name("data");
-        io::save(data, io::NativeFile(filename), uuid);
-        return lib::SaveTable(
+        auto table = lib::SaveTable(
             serialization_schema,
             save_version,
             {
                 {"name", "uncompressed"},
-                {"binary_file", lib::save(filename.filename())},
                 {"dims", lib::save(data.dimensions())},
                 {"num_vectors", lib::save(data.size())},
-                {"uuid", uuid.str()},
                 {"eltype", lib::save(datatype_v<T>)},
             }
         );
+        return table;
+    }
+
+    template <data::ImmutableMemoryDataset Data, class FileName_t>
+    static lib::SaveTable
+    metadata(const Data& data, const FileName_t& filename, const lib::UUID& uuid) {
+        auto table = metadata(data);
+        table.insert("binary_file", filename);
+        table.insert("uuid", uuid.str());
+        return table;
+    }
+
+    template <data::ImmutableMemoryDataset Data>
+    static lib::SaveTable save(const Data& data, const lib::SaveContext& ctx) {
+        // UUID used to identify the file.
+        auto uuid = lib::UUID{};
+        auto filename = ctx.generate_name("data");
+        io::save(data, io::NativeFile(filename), uuid);
+        return metadata(data, lib::save(filename.filename()), uuid);
+    }
+
+    template <data::ImmutableMemoryDataset Data>
+    static void save(const Data& data, std::ostream& os) {
+        io::save(data, os);
     }
 
     template <typename T, lib::LazyInvocable<size_t, size_t> F>
@@ -115,6 +135,25 @@ class GenericSerializer {
             throw ANNEXCEPTION("Could not open file with uuid {}!", uuid.str());
         }
         return io::load_dataset(binaryfile.value(), lazy);
+    }
+
+    template <typename T, lib::LazyInvocable<size_t, size_t> F>
+    static lib::lazy_result_t<F, size_t, size_t>
+    load(const lib::ContextFreeLoadTable& table, std::istream& is, const F& lazy) {
+        auto datatype = lib::load_at<DataType>(table, "eltype");
+        if (datatype != datatype_v<T>) {
+            throw ANNEXCEPTION(
+                "Trying to load an uncompressed dataset with element types {} to a dataset "
+                "with element types {}.",
+                name(datatype),
+                name<datatype_v<T>>()
+            );
+        }
+
+        size_t num_vectors = lib::load_at<size_t>(table, "num_vectors");
+        size_t dims = lib::load_at<size_t>(table, "dims");
+
+        return io::load_dataset(is, lazy, num_vectors, dims);
     }
 };
 
@@ -405,6 +444,10 @@ class SimpleData {
         return GenericSerializer::save(*this, ctx);
     }
 
+    void save(std::ostream& os) const { return GenericSerializer::save(*this, os); }
+
+    lib::SaveTable metadata() const { return GenericSerializer::metadata(*this); }
+
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return GenericSerializer::check_compatibility(schema, version);
     }
@@ -420,15 +463,61 @@ class SimpleData {
     /// svs::lib::load_from_disk<svs::data::SimpleData<T, Extent>>("directory");
     /// @endcode
     ///
-    static SimpleData
-    load(const lib::LoadTable& table, const allocator_type& allocator = {})
-        requires(!is_view)
-    {
+    static SimpleData load(const lib::LoadTable& table, const allocator_type& allocator) {
         return GenericSerializer::load<T>(
             table, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
+    }
+
+    static SimpleData load(const lib::LoadTable& table)
+        requires(!is_view)
+    {
+        return load(table, allocator_type{});
+    }
+
+    static SimpleData load(const lib::LoadTable& SVS_UNUSED(table))
+        requires(is_view)
+    {
+        throw ANNEXCEPTION(
+            "Trying to load a SimpleData view without an istream. This is not supported "
+            "since views are compatible only with in-memory streams."
+        );
+    }
+
+    static SimpleData load(
+        const lib::ContextFreeLoadTable& table,
+        std::istream& is,
+        const allocator_type& allocator
+    ) {
+        return GenericSerializer::load<T>(
+            table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
+    }
+
+    static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
+        requires(!is_view)
+    {
+        return load(table, is, allocator_type{});
+    }
+
+    static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
+        requires(is_view)
+    {
+        static_assert(
+            std::is_same_v<allocator_type, io::MemoryStreamAllocator<T>>,
+            "SimpleData views must use the MemoryStreamAllocator."
+        );
+        if (!io::is_memory_stream(is)) {
+            throw ANNEXCEPTION(
+                "Trying to load a SimpleData view from a non-memory stream istream. This "
+                "is not supported since views are compatible only with in-memory streams."
+            );
+        }
+        return load(table, is, allocator_type{is});
     }
 
     ///
@@ -584,6 +673,19 @@ template <typename Alloc> class Blocked {
     Alloc allocator_{};
 };
 
+template <typename Alloc> inline constexpr bool is_blocked_v = false;
+template <typename Alloc> inline constexpr bool is_blocked_v<Blocked<Alloc>> = true;
+
+} // namespace data
+
+namespace lib::detail {
+// Allow rebinding of allocators through the Blocked wrapper.
+template <typename To, typename Alloc> struct AllocatorRebinder<To, data::Blocked<Alloc>> {
+    using type = data::Blocked<rebind_allocator_t<To, Alloc>>;
+};
+} // namespace lib::detail
+
+namespace data {
 ///
 /// @brief A specialization of ``SimpleData`` for large-scale dynamic datasets.
 ///
@@ -805,6 +907,10 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
         return GenericSerializer::save(*this, ctx);
     }
 
+    void save(std::ostream& os) const { return GenericSerializer::save(*this, os); }
+
+    lib::SaveTable metadata() const { return GenericSerializer::metadata(*this); }
+
     static bool check_load_compatibility(std::string_view schema, lib::Version version) {
         return GenericSerializer::check_compatibility(schema, version);
     }
@@ -813,6 +919,18 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     load(const lib::LoadTable& table, const Blocked<Alloc>& allocator = {}) {
         return GenericSerializer::load<T>(
             table, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
+                return SimpleData(n_elements, n_dimensions, allocator);
+            })
+        );
+    }
+
+    static SimpleData load(
+        const lib::ContextFreeLoadTable& table,
+        std::istream& is,
+        const Blocked<Alloc>& allocator = {}
+    ) {
+        return GenericSerializer::load<T>(
+            table, is, lib::Lazy([&allocator](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );

@@ -19,20 +19,25 @@
 #include "svs/python/common.h"
 #include "svs/python/core.h"
 #include "svs/python/dispatch.h"
+#include "svs/python/ivf_loader.h"
 #include "svs/python/manager.h"
 
 // pybind11
-#include <pybind11/stl.h> // For std::variant support
+#include <pybind11/stl.h>
 
 // svs
 #include "svs/core/data/simple.h"
 #include "svs/core/distance.h"
+#include "svs/index/ivf/data_traits.h"
 #include "svs/lib/array.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/dispatcher.h"
-#include "svs/lib/float16.h"
 #include "svs/lib/meta.h"
+#include "svs/lib/saveload.h"
 #include "svs/orchestrators/ivf.h"
+
+// toml
+#include <toml++/toml.h>
 
 // pybind
 #include <pybind11/numpy.h>
@@ -41,6 +46,7 @@
 
 // stl
 #include <algorithm>
+#include <filesystem>
 #include <iostream>
 #include <map>
 #include <span>
@@ -68,18 +74,12 @@ svs::IVF assemble_uncompressed(
     size_t num_threads,
     size_t intra_query_threads = 1
 ) {
-    // Use std::visit to handle the variant clustering type
-    return std::visit(
-        [&](auto&& actual_clustering) {
-            return svs::IVF::assemble_from_clustering<Q>(
-                std::move(actual_clustering),
-                std::move(data),
-                distance_type,
-                num_threads,
-                intra_query_threads
-            );
-        },
-        std::move(clustering)
+    return svs::IVF::assemble_from_clustering<Q>(
+        std::move(clustering),
+        std::move(data),
+        distance_type,
+        num_threads,
+        intra_query_threads
     );
 }
 
@@ -136,6 +136,70 @@ using IVFAssembleTypes =
     std::variant<UnspecializedVectorDataLoader, svs::lib::SerializedObject>;
 
 /////
+///// Assemble from Clustering from Array
+/////
+
+template <typename Q, typename T, size_t N>
+svs::IVF uncompressed_assemble_from_clustering_from_array(
+    Clustering clustering,
+    svs::data::ConstSimpleDataView<T, N> view,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    auto mutable_view = svs::data::SimpleDataView<T, N>(
+        const_cast<T*>(view.data()), view.size(), view.dimensions()
+    );
+    return svs::IVF::assemble_from_clustering<Q>(
+        std::move(clustering), mutable_view, distance_type, num_threads, intra_query_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_ivf_assemble_from_clustering_from_array(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N, EnableBuild B>() {
+            if constexpr (enable_build_from_array<B>) {
+                auto method = &uncompressed_assemble_from_clustering_from_array<Q, T, N>;
+                dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+            }
+        }
+    );
+}
+
+/////
+///// Assemble from File from Array
+/////
+
+template <typename Q, typename T, size_t N>
+svs::IVF uncompressed_assemble_from_file_from_array(
+    const std::filesystem::path& cluster_path,
+    svs::data::ConstSimpleDataView<T, N> view,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    auto mutable_view = svs::data::SimpleDataView<T, N>(
+        const_cast<T*>(view.data()), view.size(), view.dimensions()
+    );
+    return svs::IVF::assemble_from_file<Q, svs::BFloat16>(
+        cluster_path, mutable_view, distance_type, num_threads, intra_query_threads
+    );
+}
+
+template <typename Dispatcher>
+void register_ivf_assemble_from_file_from_array(Dispatcher& dispatcher) {
+    for_standard_specializations(
+        [&dispatcher]<typename Q, typename T, size_t N, EnableBuild B>() {
+            if constexpr (enable_build_from_array<B>) {
+                auto method = &uncompressed_assemble_from_file_from_array<Q, T, N>;
+                dispatcher.register_target(svs::lib::dispatcher_build_docs, method);
+            }
+        }
+    );
+}
+
+/////
 ///// Build From File
 /////
 
@@ -146,21 +210,10 @@ Clustering build_uncompressed(
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
-    // Choose build type for clustering to leverage AMX instructions:
-    // - Float32 data -> BFloat16 (AMX supports BFloat16)
-    // - Float16 data -> Float16 (AMX supports Float16)
-    // - BFloat16 data -> BFloat16 (already optimal)
-    using BuildType = std::conditional_t<std::is_same_v<T, float>, svs::BFloat16, T>;
-    auto clustering = svs::IVF::build_clustering<BuildType>(
+    auto clustering = svs::IVF::build_clustering<svs::BFloat16>(
         parameters, std::move(data), distance_type, num_threads
     );
-
-    // Return as variant - Float16 or BFloat16 based on BuildType
-    if constexpr (std::is_same_v<BuildType, svs::Float16>) {
-        return Clustering(std::in_place_index<1>, std::move(clustering));
-    } else {
-        return Clustering(std::in_place_index<0>, std::move(clustering));
-    }
+    return clustering;
 }
 
 template <typename Dispatcher>
@@ -192,24 +245,9 @@ Clustering uncompressed_build_from_array(
     svs::DistanceType distance_type,
     size_t num_threads
 ) {
-    auto data =
-        svs::data::SimpleData<T, N, RebindAllocator<T>>(view.size(), view.dimensions());
-    svs::data::copy(view, data);
-    // Choose build type for clustering to leverage AMX instructions:
-    // - Float32 data -> BFloat16 (AMX supports BFloat16)
-    // - Float16 data -> Float16 (AMX supports Float16)
-    // - BFloat16 data -> BFloat16 (already optimal)
-    using BuildType = std::conditional_t<std::is_same_v<T, float>, svs::BFloat16, T>;
-    auto clustering = svs::IVF::build_clustering<BuildType>(
-        parameters, std::move(data), distance_type, num_threads
+    return svs::IVF::build_clustering<svs::BFloat16>(
+        parameters, view, distance_type, num_threads
     );
-
-    // Return as variant - Float16 or BFloat16 based on BuildType
-    if constexpr (std::is_same_v<BuildType, svs::Float16>) {
-        return Clustering(std::in_place_index<1>, std::move(clustering));
-    } else {
-        return Clustering(std::in_place_index<0>, std::move(clustering));
-    }
 }
 
 template <typename Dispatcher> void register_ivf_build_from_array(Dispatcher& dispatcher) {
@@ -285,6 +323,131 @@ svs::IVF assemble_from_file(
 ) {
     return assembly_from_file_dispatcher().invoke(
         cluster_path, std::move(data_kind), distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Assemble from clustering from array.
+using AssembleFromClusteringArrayDispatcher = svs::lib::Dispatcher<
+    svs::IVF,
+    Clustering,
+    AnonymousVectorData,
+    svs::DistanceType,
+    size_t,
+    size_t>;
+
+AssembleFromClusteringArrayDispatcher assemble_from_clustering_array_dispatcher() {
+    auto dispatcher = AssembleFromClusteringArrayDispatcher{};
+    register_ivf_assemble_from_clustering_from_array(dispatcher);
+    return dispatcher;
+}
+
+svs::IVF assemble_from_clustering_from_array(
+    Clustering clustering,
+    AnonymousVectorData py_data,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return assemble_from_clustering_array_dispatcher().invoke(
+        std::move(clustering), py_data, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Assemble from file from array.
+using AssembleFromFileArrayDispatcher = svs::lib::Dispatcher<
+    svs::IVF,
+    const std::filesystem::path&,
+    AnonymousVectorData,
+    svs::DistanceType,
+    size_t,
+    size_t>;
+
+AssembleFromFileArrayDispatcher assemble_from_file_array_dispatcher() {
+    auto dispatcher = AssembleFromFileArrayDispatcher{};
+    register_ivf_assemble_from_file_from_array(dispatcher);
+    return dispatcher;
+}
+
+svs::IVF assemble_from_file_from_array(
+    const std::string& cluster_path,
+    AnonymousVectorData py_data,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return assemble_from_file_array_dispatcher().invoke(
+        cluster_path, py_data, distance_type, num_threads, intra_query_threads
+    );
+}
+
+// Templatize at the top level for numpy array assemble specializations.
+template <typename ElementType>
+void add_assemble_from_clustering_array_specialization(py::class_<svs::IVF>& ivf) {
+    ivf.def_static(
+        "assemble_from_clustering",
+        [](Clustering clustering,
+           py_contiguous_array_t<ElementType> py_data,
+           svs::DistanceType distance,
+           size_t num_threads,
+           size_t intra_query_threads) {
+            return assemble_from_clustering_from_array(
+                std::move(clustering),
+                AnonymousVectorData(py_data),
+                distance,
+                num_threads,
+                intra_query_threads
+            );
+        },
+        py::arg("clustering"),
+        py::arg("py_data"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Assemble a searchable IVF index from provided clustering and numpy data array.
+
+Args:
+    clustering: The clustering object (from Clustering.build or Clustering.load_clustering).
+    py_data: The dataset as a numpy array. SVS will maintain an internal copy.
+    distance: The distance function to use. Default: L2.
+    num_threads: The number of threads to use for queries. Default: 1.
+    intra_query_threads: Number of threads for intra-query parallelism. Default: 1.
+)"
+    );
+}
+
+template <typename ElementType>
+void add_assemble_from_file_array_specialization(py::class_<svs::IVF>& ivf) {
+    ivf.def_static(
+        "assemble_from_file",
+        [](const std::string& clustering_path,
+           py_contiguous_array_t<ElementType> py_data,
+           svs::DistanceType distance,
+           size_t num_threads,
+           size_t intra_query_threads) {
+            return assemble_from_file_from_array(
+                clustering_path,
+                AnonymousVectorData(py_data),
+                distance,
+                num_threads,
+                intra_query_threads
+            );
+        },
+        py::arg("clustering_path"),
+        py::arg("py_data"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Assemble a searchable IVF index from clustering on disk and numpy data array.
+
+Args:
+    clustering_path: Path to the directory where the clustering was generated.
+    py_data: The dataset as a numpy array. SVS will maintain an internal copy.
+    distance: The distance function to use. Default: L2.
+    num_threads: The number of threads to use for queries. Default: 1.
+    intra_query_threads: Number of threads for intra-query parallelism. Default: 1.
+)"
     );
 }
 
@@ -505,31 +668,34 @@ void wrap_build_from_file(py::class_<Clustering>& clustering) {
 
 // Save the sparse clustering to a directory
 void save_clustering(Clustering& clustering, const std::string& clustering_path) {
-    std::visit(
-        [&](auto&& actual_clustering) {
-            svs::lib::save_to_disk(actual_clustering, clustering_path);
-        },
-        clustering
-    );
+    svs::lib::save_to_disk(clustering, clustering_path);
 }
 
 // Load the sparse clustering from a directory
-// Try loading as BFloat16 first, then Float16 if that fails
 auto load_clustering(const std::string& clustering_path, size_t num_threads = 1) {
     auto threadpool = threads::as_threadpool(num_threads);
-    try {
-        auto bf16_clustering = svs::lib::load_from_disk<
-            svs::index::ivf::Clustering<svs::data::SimpleData<svs::BFloat16>, uint32_t>>(
-            clustering_path, threadpool
+    return svs::lib::load_from_disk<ClusteringBF16>(clustering_path, threadpool);
+}
+
+// Save the IVF index to directories
+void save_index(
+    svs::IVF& index, const std::string& config_path, const std::string& data_dir
+) {
+    index.save(config_path, data_dir);
+}
+
+// Load with auto-detection from saved config using common template dispatcher
+svs::IVF load_index(
+    const std::string& config_path,
+    const std::string& data_path,
+    svs::DistanceType distance_type,
+    size_t num_threads,
+    size_t intra_query_threads = 1
+) {
+    return svs::python::ivf_loader::
+        load_index_auto<svs::IVF, svs::data::SimpleData, Allocator>(
+            config_path, data_path, distance_type, num_threads, intra_query_threads
         );
-        return Clustering(std::in_place_index<0>, std::move(bf16_clustering));
-    } catch (...) {
-        auto f16_clustering = svs::lib::load_from_disk<
-            svs::index::ivf::Clustering<svs::data::SimpleData<svs::Float16>, uint32_t>>(
-            clustering_path, threadpool
-        );
-        return Clustering(std::in_place_index<1>, std::move(f16_clustering));
-    }
 }
 
 } // namespace detail
@@ -617,6 +783,12 @@ void wrap(py::module& m) {
 
     detail::wrap_assemble(ivf);
 
+    // Assemble from numpy array.
+    detail::add_assemble_from_clustering_array_specialization<svs::Float16>(ivf);
+    detail::add_assemble_from_clustering_array_specialization<float>(ivf);
+    detail::add_assemble_from_file_array_specialization<svs::Float16>(ivf);
+    detail::add_assemble_from_file_array_specialization<float>(ivf);
+
     // Make the IVF type searchable.
     add_search_specialization<svs::Float16>(ivf);
     add_search_specialization<float>(ivf);
@@ -630,42 +802,80 @@ void wrap(py::module& m) {
     // IVF Specific Extensions.
     add_interface(ivf);
 
+    // Index Saving.
+    ivf.def(
+        "save",
+        &detail::save_index,
+        py::arg("config_directory"),
+        py::arg("data_directory"),
+        R"(
+Save a constructed index to disk (useful following index construction).
+
+Args:
+    config_directory: Directory where index configuration information will be saved.
+    data_directory: Directory where the dataset will be saved.
+
+Note: All directories should be separate to avoid accidental name collision with any
+auxiliary files that are needed when saving the various components of the index.
+
+If the directory does not exist, it will be created if its parent exists.
+
+It is the caller's responsibility to ensure that no existing data will be
+overwritten when saving the index to this directory.
+    )"
+    );
+
+    // Index Loading.
+    ivf.def_static(
+        "load",
+        &detail::load_index,
+        py::arg("config_directory"),
+        py::arg("data_directory"),
+        py::arg("distance") = svs::L2,
+        py::arg("num_threads") = 1,
+        py::arg("intra_query_threads") = 1,
+        R"(
+Load a saved IVF index from disk.
+
+The data type (uncompressed with float32 or float16) and centroid type (bfloat16)
+are automatically detected from the saved configuration file.
+
+Args:
+    config_directory: Directory where index configuration was saved.
+    data_directory: Directory where the dataset was saved.
+    distance: The distance function to use.
+    num_threads: The number of threads to use for queries.
+    intra_query_threads: Number of threads for intra-query parallelism (default: 1).
+
+Returns:
+    A loaded IVF index ready for searching.
+
+Note:
+    This method auto-detects the data type from the saved configuration.
+    The index must have been saved with a version that includes data type information.
+    )"
+    );
+
     // Reconstruction.
     // add_reconstruct_interface(ivf);
 
-    // Register both clustering types that make up the variant
-    name = "ClusteringBFloat16";
-    py::class_<ClusteringBF16> clustering_bf16(m, name.c_str());
-    clustering_bf16.def(
-        "save",
-        [](ClusteringBF16& clustering, const std::string& clustering_path) {
-            svs::lib::save_to_disk(clustering, clustering_path);
-        },
-        py::arg("clustering_directory"),
-        "Save a constructed IVF clustering to disk."
-    );
-
-    name = "ClusteringFloat16";
-    py::class_<ClusteringF16> clustering_f16(m, name.c_str());
-    clustering_f16.def(
-        "save",
-        [](ClusteringF16& clustering, const std::string& clustering_path) {
-            svs::lib::save_to_disk(clustering, clustering_path);
-        },
-        py::arg("clustering_directory"),
-        "Save a constructed IVF clustering to disk."
-    );
-
-    // Register the variant type as the main Clustering class
+    // Register clustering type
     name = "Clustering";
     py::class_<Clustering> clustering(
         m, name.c_str(), "Top level class for sparse IVF clustering"
     );
 
+    clustering.def(
+        "save",
+        [](Clustering& clustering, const std::string& clustering_path) {
+            svs::lib::save_to_disk(clustering, clustering_path);
+        },
+        py::arg("clustering_directory"),
+        "Save a constructed IVF clustering to disk."
+    );
+
     /// Index building
     // Build from Numpy array.
-    detail::add_build_specialization<svs::BFloat16>(clustering);
-    detail::add_build_specialization<svs::Float16>(clustering);
     detail::add_build_specialization<float>(clustering);
 
     // Build from datasets on file.

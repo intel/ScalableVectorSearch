@@ -57,6 +57,8 @@ class DynamicIVFInterface : public IVFInterface {
         const std::filesystem::path& config_directory,
         const std::filesystem::path& data_directory
     ) = 0;
+
+    virtual void save(std::ostream& stream) = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl>
@@ -119,6 +121,14 @@ class DynamicIVFImpl : public IVFImpl<QueryTypes, Impl, DynamicIVFInterface> {
     ) override {
         impl().save(config_directory, data_directory);
     }
+
+    void save(std::ostream& stream) override {
+        if constexpr (Impl::supports_saving) {
+            impl().save(stream);
+        } else {
+            throw ANNEXCEPTION("The current DynamicIVF backend doesn't support saving!");
+        }
+    }
 };
 
 // Forward Declarations.
@@ -180,6 +190,14 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         return impl_->experimental_backend_string();
     }
 
+    // Intra-query (cluster-level) threading
+    size_t get_num_intra_query_threads() const {
+        return impl_->get_num_intra_query_threads();
+    }
+    void set_num_intra_query_threads(size_t count) {
+        impl_->set_num_intra_query_threads(count);
+    }
+
     // ID Inspection
 
     ///
@@ -208,6 +226,18 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
     ) {
         impl_->save(config_directory, data_directory);
     }
+
+    ///
+    /// @brief Save the DynamicIVF index to a stream.
+    ///
+    /// @param stream Output stream to save the index to.
+    ///
+    /// The index is saved in a binary format that can be loaded using the
+    /// stream-based ``assemble`` method.
+    ///
+    /// @sa assemble
+    ///
+    void save(std::ostream& stream) const { impl_->save(stream); }
 
     ///// Distance
     template <typename Query> double get_distance(size_t id, const Query& query) const {
@@ -242,12 +272,12 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename Clustering,
-        typename Data,
+        typename DataProto,
         typename Distance,
         typename ThreadPoolProto>
     static DynamicIVF assemble_from_clustering(
         Clustering clustering,
-        Data data,
+        DataProto&& data_proto,
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
@@ -260,7 +290,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
             return dispatcher([&](auto distance_function) {
                 auto impl = index::ivf::assemble_dynamic_from_clustering(
                     std::move(clustering),
-                    data,
+                    std::forward<DataProto>(data_proto),
                     ids,
                     std::move(distance_function),
                     std::move(threadpool),
@@ -273,7 +303,7 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         } else {
             auto impl = index::ivf::assemble_dynamic_from_clustering(
                 std::move(clustering),
-                data,
+                std::forward<DataProto>(data_proto),
                 ids,
                 distance,
                 std::move(threadpool),
@@ -289,12 +319,12 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
     template <
         manager::QueryTypeDefinition QueryTypes,
         typename BuildType,
-        typename Data,
+        typename DataProto,
         typename Distance,
         typename ThreadPoolProto>
     static DynamicIVF assemble_from_file(
         const std::filesystem::path& cluster_path,
-        Data data,
+        DataProto&& data_proto,
         std::span<const size_t> ids,
         Distance distance,
         ThreadPoolProto threadpool_proto,
@@ -308,12 +338,157 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
             );
         return assemble_from_clustering<QueryTypes>(
             std::move(clustering),
-            data,
+            std::forward<DataProto>(data_proto),
             ids,
             distance,
             std::move(threadpool),
             intra_query_threads
         );
+    }
+
+    ///
+    /// @brief Load a saved DynamicIVF index from disk.
+    ///
+    /// This method restores a DynamicIVF index that was previously saved using `save()`.
+    ///
+    /// @tparam QueryTypes The query types supported by the returned index.
+    /// @tparam CentroidType Element type of centroids (e.g., float, BFloat16).
+    /// @tparam DataType Full cluster data type (e.g., BlockedData<float>).
+    ///
+    /// @param config_path Path to the saved configuration directory.
+    /// @param data_path Path to the saved data directory (centroids and clusters).
+    /// @param distance Distance metric for searching.
+    /// @param threadpool_proto Thread pool prototype for parallel processing.
+    /// @param intra_query_threads Number of threads for intra-query parallelism.
+    ///
+    /// @return A fully constructed DynamicIVF ready for searching and modifications.
+    ///
+    /// @sa save, assemble_from_file
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename CentroidType,
+        typename DataType,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicIVF assemble(
+        const std::filesystem::path& config_path,
+        const std::filesystem::path& data_path,
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        size_t intra_query_threads = 1
+    ) {
+        auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+        if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+            auto dispatcher = DistanceDispatcher(distance);
+            return dispatcher([&](auto distance_function) {
+                return DynamicIVF(
+                    AssembleTag(),
+                    manager::as_typelist<QueryTypes>{},
+                    index::ivf::load_dynamic_ivf_index<CentroidType, DataType>(
+                        config_path,
+                        data_path,
+                        std::move(distance_function),
+                        std::move(threadpool),
+                        intra_query_threads
+                    )
+                );
+            });
+        } else {
+            return DynamicIVF(
+                AssembleTag(),
+                manager::as_typelist<QueryTypes>{},
+                index::ivf::load_dynamic_ivf_index<CentroidType, DataType>(
+                    config_path,
+                    data_path,
+                    distance,
+                    std::move(threadpool),
+                    intra_query_threads
+                )
+            );
+        }
+    }
+
+    ///
+    /// @brief Load a DynamicIVF index from a stream.
+    ///
+    /// @tparam QueryTypes The query types supported by the returned index.
+    /// @tparam CentroidType Element type of centroids (e.g., float, BFloat16).
+    /// @tparam DataType Full cluster data type (e.g., SimpleData<float>).
+    ///
+    /// @param stream Input stream to load the index from.
+    /// @param distance Distance metric for searching.
+    /// @param threadpool_proto Thread pool prototype for parallel processing.
+    /// @param intra_query_threads Number of threads for intra-query parallelism.
+    ///
+    /// @return A fully constructed DynamicIVF ready for searching and modifications.
+    ///
+    /// @sa save
+    ///
+    template <
+        manager::QueryTypeDefinition QueryTypes,
+        typename CentroidType,
+        typename DataType,
+        typename Distance,
+        typename ThreadPoolProto>
+    static DynamicIVF assemble(
+        std::istream& stream,
+        Distance distance,
+        ThreadPoolProto threadpool_proto,
+        size_t intra_query_threads = 1
+    ) {
+        auto deserializer = svs::lib::detail::Deserializer::build(stream);
+        if (deserializer.is_native()) {
+            if constexpr (std::is_same_v<std::decay_t<Distance>, DistanceType>) {
+                auto dispatcher = DistanceDispatcher(distance);
+                return dispatcher([&](auto distance_function) {
+                    return DynamicIVF(
+                        AssembleTag(),
+                        manager::as_typelist<QueryTypes>{},
+                        index::ivf::load_dynamic_ivf_index<CentroidType, DataType>(
+                            stream,
+                            std::move(distance_function),
+                            std::move(threadpool_proto),
+                            intra_query_threads
+                        )
+                    );
+                });
+            } else {
+                return DynamicIVF(
+                    AssembleTag(),
+                    manager::as_typelist<QueryTypes>{},
+                    index::ivf::load_dynamic_ivf_index<CentroidType, DataType>(
+                        stream, distance, std::move(threadpool_proto), intra_query_threads
+                    )
+                );
+            }
+        } else {
+            namespace fs = std::filesystem;
+            lib::UniqueTempDirectory tempdir{"svs_dynamic_ivf_load"};
+            lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+
+            const auto config_path = tempdir.get() / "config";
+            if (!fs::is_directory(config_path)) {
+                throw ANNEXCEPTION(
+                    "Invalid DynamicIVF index archive: missing config directory!"
+                );
+            }
+
+            const auto data_path = tempdir.get() / "data";
+            if (!fs::is_directory(data_path)) {
+                throw ANNEXCEPTION(
+                    "Invalid DynamicIVF index archive: missing data directory!"
+                );
+            }
+
+            return assemble<QueryTypes, CentroidType, DataType>(
+                config_path,
+                data_path,
+                distance,
+                std::move(threadpool_proto),
+                intra_query_threads
+            );
+        }
     }
 };
 

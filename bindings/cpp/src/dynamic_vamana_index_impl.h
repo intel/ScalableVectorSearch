@@ -38,8 +38,10 @@
 namespace svs {
 namespace runtime {
 
-// Vamana index implementation
+// Dynamic Vamana index implementation
 class DynamicVamanaIndexImpl {
+    using allocator_type = svs::data::Blocked<svs::lib::Allocator<float>>;
+
   public:
     DynamicVamanaIndexImpl(
         size_t dim,
@@ -116,15 +118,50 @@ class DynamicVamanaIndexImpl {
         // Selective search with IDSelector
         auto old_sp = impl_->get_search_parameters();
         impl_->set_search_parameters(sp);
+        float filter_stop = 0.0f;
+        bool filter_estimate_batch = true;
+        if (params) {
+            set_if_specified(filter_stop, params->filter_stop);
+            set_if_specified(filter_estimate_batch, params->filter_estimate_batch);
+        }
+        const auto max_batch_size = impl_->size();
+
+        // Pre-search filter sampling: estimate hit rate before graph traversal.
+        size_t sampled = 0;
+        size_t sample_hits = 0;
+        const auto sws = sp.buffer_config_.get_search_window_size();
+        const auto initial_batch_hint = std::max(k, sws);
+        auto initial_batch_size = initial_batch_hint;
+        if (filter_estimate_batch) {
+            std::tie(sampled, sample_hits) = sample_filter_hits(
+                *filter,
+                max_batch_size,
+                [this](size_t id) { return impl_->has_id(id); },
+                sample_size_for_filter_stop(filter_stop)
+            );
+            if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
+                pad_empty_results(result, queries.size(), k);
+                impl_->set_search_parameters(old_sp);
+                return;
+            }
+            initial_batch_size = predict_further_processing(
+                sampled, sample_hits, k, initial_batch_hint, max_batch_size
+            );
+        }
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
-                // For every query
                 auto query = queries.get_datum(i);
                 auto iterator = impl_->batch_iterator(query);
                 size_t found = 0;
+                size_t total_checked = 0;
+                auto batch_size = initial_batch_size;
                 do {
-                    iterator.next(k);
+                    batch_size = predict_further_processing(
+                        total_checked, found, k, batch_size, max_batch_size
+                    );
+                    iterator.next(batch_size);
+                    total_checked += iterator.size();
                     for (auto& neighbor : iterator.results()) {
                         if (filter->is_member(neighbor.id())) {
                             result.set(neighbor, i, found);
@@ -134,14 +171,17 @@ class DynamicVamanaIndexImpl {
                             }
                         }
                     }
+                    if (should_stop_filtered_search(total_checked, found, filter_stop)) {
+                        found = 0;
+                        break;
+                    }
                 } while (found < k && !iterator.done());
 
                 // Pad results if not enough neighbors found
                 if (found < k) {
-                    auto& dists = result.distances();
-                    std::fill(dists.begin() + found, dists.end(), Unspecify<float>());
-                    auto& inds = result.indices();
-                    std::fill(inds.begin() + found, inds.end(), Unspecify<size_t>());
+                    for (size_t j = found; j < k; ++j) {
+                        result.set(Neighbor{Unspecify<size_t>(), Unspecify<float>()}, i, j);
+                    }
                 }
             }
         };
@@ -315,15 +355,7 @@ class DynamicVamanaIndexImpl {
                 ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."};
         }
 
-        lib::UniqueTempDirectory tempdir{"svs_vamana_save"};
-        const auto config_dir = tempdir.get() / "config";
-        const auto graph_dir = tempdir.get() / "graph";
-        const auto data_dir = tempdir.get() / "data";
-        std::filesystem::create_directories(config_dir);
-        std::filesystem::create_directories(graph_dir);
-        std::filesystem::create_directories(data_dir);
-        impl_->save(config_dir, graph_dir, data_dir);
-        lib::DirectoryArchiver::pack(tempdir, out);
+        impl_->save(out);
     }
 
   protected:
@@ -394,12 +426,14 @@ class DynamicVamanaIndexImpl {
         StorageArgs&&... storage_args
     ) {
         auto threadpool = default_threadpool();
+        using storage_alloc_t = typename Tag::allocator_type;
+        auto allocator = storage::make_allocator<storage_alloc_t>(blocksize_bytes);
 
         auto storage = make_storage(
             std::forward<Tag>(tag),
             data,
             threadpool,
-            blocksize_bytes,
+            allocator,
             std::forward<StorageArgs>(storage_args)...
         );
 
@@ -420,7 +454,7 @@ class DynamicVamanaIndexImpl {
         std::span<const size_t> labels,
         lib::PowerOfTwo blocksize_bytes
     ) {
-        impl_.reset(storage::dispatch_storage_kind(
+        impl_.reset(storage::dispatch_storage_kind<allocator_type>(
             get_storage_kind(),
             [this](
                 auto&& tag,
@@ -466,55 +500,38 @@ class DynamicVamanaIndexImpl {
             impl_->get_full_search_history()};
     }
 
-    template <storage::StorageTag Tag>
-    static svs::DynamicVamana*
-    load_impl_t(Tag&& tag, std::istream& stream, MetricType metric) {
-        namespace fs = std::filesystem;
-        lib::UniqueTempDirectory tempdir{"svs_vamana_load"};
-        lib::DirectoryArchiver::unpack(stream, tempdir);
+    template <StorageKind Kind, typename Alloc>
+    static svs::DynamicVamana* load_impl_t(
+        storage::StorageType<Kind, Alloc>&& SVS_UNUSED(tag),
+        std::istream& stream,
+        MetricType metric
+    ) {
+        if constexpr (!storage::is_supported_storage_kind_v<Kind>) {
+            throw StatusException(
+                ErrorCode::NOT_IMPLEMENTED, "Requested storage kind is not supported"
+            );
+        } else {
+            using storage_type = storage::StorageType_t<Kind, Alloc>;
+            auto threadpool = default_threadpool();
 
-        const auto config_path = tempdir.get() / "config";
-        if (!fs::is_directory(config_path)) {
-            throw StatusException{
-                ErrorCode::RUNTIME_ERROR,
-                "Invalid Vamana index archive: missing config directory!"};
+            svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
+
+            return distance_dispatcher([&](auto&& distance) {
+                return new svs::DynamicVamana(
+                    svs::DynamicVamana::assemble<float, storage_type>(
+                        stream,
+                        std::forward<decltype(distance)>(distance),
+                        std::move(threadpool)
+                    )
+                );
+            });
         }
-
-        const auto graph_path = tempdir.get() / "graph";
-        if (!fs::is_directory(graph_path)) {
-            throw StatusException{
-                ErrorCode::RUNTIME_ERROR,
-                "Invalid Vamana index archive: missing graph directory!"};
-        }
-
-        const auto data_path = tempdir.get() / "data";
-        if (!fs::is_directory(data_path)) {
-            throw StatusException{
-                ErrorCode::RUNTIME_ERROR,
-                "Invalid Vamana index archive: missing data directory!"};
-        }
-
-        auto storage = storage::load_storage(std::forward<Tag>(tag), data_path);
-        auto threadpool = default_threadpool();
-
-        svs::DistanceDispatcher distance_dispatcher(to_svs_distance(metric));
-
-        return distance_dispatcher([&](auto&& distance) {
-            return new svs::DynamicVamana(svs::DynamicVamana::assemble<float>(
-                config_path,
-                svs::GraphLoader{graph_path},
-                std::move(storage),
-                std::forward<decltype(distance)>(distance),
-                std::move(threadpool),
-                false
-            ));
-        });
     }
 
   public:
     static DynamicVamanaIndexImpl*
     load(std::istream& stream, MetricType metric, StorageKind storage_kind) {
-        return storage::dispatch_storage_kind(
+        return storage::dispatch_storage_kind<allocator_type>(
             storage_kind,
             [&](auto&& tag, std::istream& stream, MetricType metric) {
                 using Tag = std::decay_t<decltype(tag)>;

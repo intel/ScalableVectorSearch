@@ -13,8 +13,11 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_runtime VERSION 0.1.0 LANGUAGES CXX)
+project(svs_runtime VERSION 0.3.0 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
+
+# IVF requires MKL, so it's optional
+option(SVS_RUNTIME_ENABLE_IVF "Enable compilation of SVS runtime with IVF support (requires MKL)" OFF)
 
 set(SVS_RUNTIME_HEADERS
     include/svs/runtime/version.h
@@ -37,6 +40,23 @@ set(SVS_RUNTIME_SOURCES
     src/dynamic_vamana_index.cpp
     src/flat_index.cpp
 )
+
+# Add IVF files if enabled
+if (SVS_RUNTIME_ENABLE_IVF)
+    message(STATUS "SVS runtime will be built with IVF support (requires MKL)")
+    list(APPEND SVS_RUNTIME_HEADERS
+        include/svs/runtime/ivf_index.h
+        include/svs/runtime/dynamic_ivf_index.h
+    )
+    list(APPEND SVS_RUNTIME_SOURCES
+        src/ivf_index_impl.h
+        src/dynamic_ivf_index_impl.h
+        src/ivf_index.cpp
+        src/dynamic_ivf_index.cpp
+    )
+else()
+    message(STATUS "SVS runtime will be built without IVF support")
+endif()
 
 option(SVS_RUNTIME_ENABLE_LVQ_LEANVEC "Enable compilation of SVS runtime with LVQ and LeanVec support" ON)
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
@@ -75,21 +95,26 @@ set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
 
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
-    if(DEFINED SVS_LVQ_HEADER AND DEFINED SVS_LEANVEC_HEADER)
-        # expected that pre-defined headers are implementation headers
-        message(STATUS "Using pre-defined LVQ header: ${SVS_LVQ_HEADER}")
-        message(STATUS "Using pre-defined LeanVec header: ${SVS_LEANVEC_HEADER}")
-    else()
-        set(SVS_LVQ_HEADER "svs/extensions/vamana/lvq.h")
-        set(SVS_LEANVEC_HEADER "svs/extensions/vamana/leanvec.h")
-    endif()
 
     if(RUNTIME_BINDINGS_PRIVATE_SOURCE_BUILD)
         message(STATUS "Building directly from private sources")
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
+            svs_compile_options
         )
-        link_mkl_static(${TARGET_NAME})
+        if(SVS_EXPERIMENTAL_LINK_STATIC_MKL)
+            link_mkl_static(${TARGET_NAME})
+        endif()
+        if(SVS_LVQ_HEADER)
+            target_compile_definitions(${TARGET_NAME} PRIVATE
+                SVS_LVQ_HEADER="${SVS_LVQ_HEADER}"
+            )
+        endif()
+        if(SVS_LEANVEC_HEADER)
+            target_compile_definitions(${TARGET_NAME} PRIVATE
+                SVS_LEANVEC_HEADER="${SVS_LEANVEC_HEADER}"
+            )
+        endif()
     elseif(TARGET svs::svs)
         message(FATAL_ERROR
             "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
@@ -98,14 +123,14 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v1.0.0-dev/svs-shared-library-1.0.0-NIGHTLY-20251119-807-lto.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-05-21-1429.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             message(WARNING
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.0.11/svs-shared-library-0.0.11.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-2026-05-06-1253.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)
@@ -123,13 +148,14 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs::svs_static_library
         )
     endif()
-    target_compile_definitions(${TARGET_NAME} PRIVATE
-        PUBLIC "SVS_LVQ_HEADER=\"${SVS_LVQ_HEADER}\""
-        PUBLIC "SVS_LEANVEC_HEADER=\"${SVS_LEANVEC_HEADER}\""
-    )
+    target_compile_definitions(${TARGET_NAME} PUBLIC SVS_RUNTIME_HAVE_LVQ_LEANVEC)
 else()
     # Include the SVS library directly if needed.
     if (NOT TARGET svs::svs)
+        # Pass IVF flag to parent build if IVF is enabled
+        if (SVS_RUNTIME_ENABLE_IVF)
+            set(SVS_EXPERIMENTAL_ENABLE_IVF ON CACHE BOOL "" FORCE)
+        endif()
         add_subdirectory("../.." "${CMAKE_CURRENT_BINARY_DIR}/svs")
     endif()
     target_link_libraries(${TARGET_NAME} PRIVATE
@@ -137,6 +163,11 @@ else()
        svs_compile_options
        svs_x86_options_base
     )
+endif()
+
+# IVF requires Intel(R) MKL support
+if (SVS_RUNTIME_ENABLE_IVF)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_RUNTIME_ENABLE_IVF SVS_HAVE_MKL=1)
 endif()
 
 # installing

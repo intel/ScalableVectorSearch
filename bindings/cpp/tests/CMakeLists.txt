@@ -44,6 +44,10 @@ set(TEST_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/runtime_test.cpp
 )
 
+if (SVS_RUNTIME_ENABLE_IVF)
+    list(APPEND TEST_SOURCES ${CMAKE_CURRENT_LIST_DIR}/ivf_runtime_test.cpp)
+endif()
+
 add_executable(svs_runtime_test ${TEST_SOURCES})
 
 # Link with the runtime library
@@ -66,19 +70,17 @@ target_include_directories(svs_runtime_test PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
+# Pass IVF enable flag to tests
+if (SVS_RUNTIME_ENABLE_IVF)
+    target_compile_definitions(svs_runtime_test PRIVATE SVS_RUNTIME_ENABLE_IVF)
+endif()
+
 # Enable testing with CTest
 include(CTest)
 enable_testing()
 
-# Add the test to CTest
-add_test(NAME svs_runtime_test COMMAND svs_runtime_test)
-
-# Set test properties
-set_tests_properties(svs_runtime_test PROPERTIES
-    LABELS "runtime_bindings"
-)
-
-# Optional: Add Catch2's automatic test discovery
+# Use Catch2's automatic test discovery to register individual test cases.
+# This allows ctest -E/-R filters to target specific tests (e.g., LVQ/LeanVec).
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(Catch)
 catch_discover_tests(svs_runtime_test)

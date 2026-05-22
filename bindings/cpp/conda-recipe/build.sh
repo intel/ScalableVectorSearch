@@ -25,11 +25,21 @@ else
     echo "WARNING: gcc-toolset-11 not found, proceeding without sourcing it"
 fi
 
+# Source MKL environment (required for IVF)
+if [ -f /opt/intel/oneapi/setvars.sh ]; then
+    source /opt/intel/oneapi/setvars.sh --include-intel-llvm 2>/dev/null || true
+    echo "MKL sourced: MKLROOT=${MKLROOT}"
+else
+    echo "ERROR: MKL setvars.sh not found"
+    exit 1
+fi
+
 # build runtime tests flag?
 CMAKE_ARGS=(
     "-DCMAKE_INSTALL_PREFIX=${PREFIX}"
     "-DSVS_BUILD_RUNTIME_TESTS=OFF"
     "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
+    "-DSVS_RUNTIME_ENABLE_IVF=ON"
 )
 
 # Add SVS_URL if specified (for fetching static library)

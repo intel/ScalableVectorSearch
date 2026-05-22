@@ -74,6 +74,14 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     ) noexcept;
 
     virtual size_t blocksize_bytes() const noexcept = 0;
+
+    // Override for VamanaIndex interface
+    Status add(size_t, const float*) noexcept override {
+        return Status(
+            ErrorCode::NOT_IMPLEMENTED,
+            "Use add(size_t n, const size_t* labels, const float* x) for DynamicVamanaIndex"
+        );
+    }
 };
 
 struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
