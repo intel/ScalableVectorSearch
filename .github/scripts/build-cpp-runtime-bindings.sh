@@ -23,7 +23,7 @@ source /etc/bashrc || true
 LLVM_DIR=/opt/llvm17
 if [ ! -x "$LLVM_DIR/bin/clang-tidy" ]; then
     mkdir -p "$LLVM_DIR"
-    wget -nv https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-ubuntu-22.04.tar.xz -O /tmp/llvm17.tar.xz
+    wget -nv https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.6/clang+llvm-17.0.6-x86_64-linux-gnu-rhel-8.4.tar.xz -O /tmp/llvm17.tar.xz
     tar -xJf /tmp/llvm17.tar.xz -C "$LLVM_DIR" --strip-components=1
     rm /tmp/llvm17.tar.xz
 fi
