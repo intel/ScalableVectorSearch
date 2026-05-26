@@ -197,10 +197,18 @@ CATCH_TEST_CASE("Testing Blocked Data", "[core][data][blocked]") {
     }
 
     CATCH_SECTION("Blocked Allocator") {
-        // Use an integer for the "allocator" to test value propagation.
+        // Use a simple integer-valued struct for the "allocator" to test value propagation.
         // Since the `Blocked` class doesn't actually use the allocator, this is okay
         // for functionality testing.
-        using T = svs::data::Blocked<int>;
+        struct I {
+            using value_type = int;
+            int value;
+            I(int v = 0)
+                : value(v) {}
+            operator int() const { return value; }
+        };
+
+        using T = svs::data::Blocked<I>;
         using P = svs::data::BlockingParameters;
         auto x = T();
         CATCH_REQUIRE(x.get_allocator() == 0); // Default constructed integer.
