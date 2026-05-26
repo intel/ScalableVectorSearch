@@ -198,7 +198,7 @@ namespace detail {
 
 struct MinMaxAccumulator {
     float min = std::numeric_limits<float>::max();
-    float max = std::numeric_limits<float>::min();
+    float max = std::numeric_limits<float>::lowest();
 
     void accumulate(float val) {
         min = std::min(min, val);
@@ -369,8 +369,8 @@ class SQDataset {
     using allocator_type = Alloc;
     using element_type = T;
     using data_type = data::SimpleData<element_type, Extent, allocator_type>;
-    using const_value_type = std::span<const element_type, Extent>;
-    using value_type = const_value_type;
+    using const_value_type = typename data_type::const_value_type;
+    using value_type = typename data_type::value_type;
 
     // Data wrapped in the library allocator.
     using lib_alloc_data_type = SQDataset<T, Extent, lib::Allocator<T>>;
@@ -399,6 +399,7 @@ class SQDataset {
     float get_bias() const { return bias_; }
 
     const_value_type get_datum(size_t i) const { return data_.get_datum(i); }
+    value_type get_datum(size_t i) { return data_.get_datum(i); }
 
     std::vector<float> decompress_datum(size_t i) const {
         auto datum = get_datum(i);
@@ -510,22 +511,20 @@ class SQDataset {
     void save(std::ostream& os) const { data_.save(os); }
 
     /// @brief Load dataset from a file.
-    static SQDataset
-    load(const lib::LoadTable& table, const allocator_type& allocator = {}) {
+    template <typename... Args>
+    static SQDataset load(const lib::LoadTable& table, Args&&... args) {
         return SQDataset<element_type, extent, allocator_type>{
-            SVS_LOAD_MEMBER_AT_(table, data, allocator),
+            SVS_LOAD_MEMBER_AT_(table, data, std::forward<Args>(args)...),
             lib::load_at<float>(table, "scale"),
             lib::load_at<float>(table, "bias")};
     }
 
     /// @brief Load dataset from a stream.
-    static SQDataset load(
-        const lib::ContextFreeLoadTable& table,
-        std::istream& is,
-        const allocator_type& allocator = {}
-    ) {
+    template <typename... Args>
+    static SQDataset
+    load(const lib::ContextFreeLoadTable& table, std::istream& is, Args&&... args) {
         return SQDataset<element_type, extent, allocator_type>{
-            SVS_LOAD_MEMBER_AT_(table, data, is, allocator),
+            SVS_LOAD_MEMBER_AT_(table, data, is, std::forward<Args>(args)...),
             lib::load_at<float>(table, "scale"),
             lib::load_at<float>(table, "bias")};
     }

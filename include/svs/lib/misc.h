@@ -40,8 +40,13 @@ namespace svs::lib {
 struct ZeroInitializer {};
 
 /// @brief Get the full type of the allocator `Alloc` rebound to a value to `To`.
+namespace detail {
+template <typename To, typename Alloc> struct AllocatorRebinder {
+    using type = typename std::allocator_traits<Alloc>::template rebind_alloc<To>;
+};
+} // namespace detail
 template <typename To, typename Alloc>
-using rebind_allocator_t = typename std::allocator_traits<Alloc>::template rebind_alloc<To>;
+using rebind_allocator_t = typename detail::AllocatorRebinder<To, Alloc>::type;
 
 /// @brief Rebind an allocator to a new value type.
 template <typename To, typename Alloc>
