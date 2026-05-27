@@ -84,6 +84,13 @@ struct SVS_RUNTIME_API VamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept = 0;
 
+    // Compute distance between stored vector `id` and `query` (dim floats).
+    virtual Status
+    get_distance(size_t id, const float* query, float* distance) const noexcept = 0;
+
+    // Reconstruct `n` vectors by ID into `output` buffer (n * dim floats).
+    virtual Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept = 0;
+
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
@@ -102,6 +109,22 @@ struct SVS_RUNTIME_API VamanaIndex {
     virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(
         VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+
+    // Load from a memory-mapped file.
+    // The file is expected to be in the format produced by save().
+    static Status map_to_file(
+        VamanaIndex** index, const char* path, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+
+    // Load from a memory buffer.
+    // The buffer is expected to be in the format produced by save().
+    static Status map_to_memory(
+        VamanaIndex** index,
+        void* data,
+        size_t size,
+        MetricType metric,
+        StorageKind storage_kind
     ) noexcept;
 };
 

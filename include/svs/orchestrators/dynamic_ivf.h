@@ -190,6 +190,14 @@ class DynamicIVF : public manager::IndexManager<DynamicIVFInterface> {
         return impl_->experimental_backend_string();
     }
 
+    // Intra-query (cluster-level) threading
+    size_t get_num_intra_query_threads() const {
+        return impl_->get_num_intra_query_threads();
+    }
+    void set_num_intra_query_threads(size_t count) {
+        impl_->set_num_intra_query_threads(count);
+    }
+
     // ID Inspection
 
     ///
