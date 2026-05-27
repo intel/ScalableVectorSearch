@@ -52,12 +52,19 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             "--extra-arg=-USVS_ENABLE_OMP"
         )
 
-        # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
+        # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers,
+        # plus gcc's internal include dir for omp.h in unconditional includes.
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             get_filename_component(_svs_gcc_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
             get_filename_component(_svs_gcc_toolchain "${_svs_gcc_bin_dir}" DIRECTORY)
+            execute_process(
+                COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=include
+                OUTPUT_VARIABLE _svs_gcc_internal_include
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+            )
             list(APPEND CLANG_TIDY_COMMAND
                 "--extra-arg=--gcc-toolchain=${_svs_gcc_toolchain}"
+                "--extra-arg=-isystem${_svs_gcc_internal_include}"
             )
         endif()
 
