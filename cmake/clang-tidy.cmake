@@ -46,8 +46,10 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             # Suppress noise from args (e.g. --gcc-toolchain) that affect link-time
             # paths but are unused during clang-tidy's parse-only invocation.
             "--extra-arg=-Wno-unused-command-line-argument"
-            # Resolve <omp.h> via the gcc toolchain set below.
-            "--extra-arg=-fopenmp"
+            # Skip OMP for the parse-only analysis. Gates out <omp.h>, which
+            # the clang frontend can't resolve without clang's own libomp.
+            # The actual gcc compile still defines SVS_ENABLE_OMP normally.
+            "--extra-arg=-USVS_ENABLE_OMP"
         )
 
         # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
