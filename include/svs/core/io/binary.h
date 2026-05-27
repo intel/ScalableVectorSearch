@@ -53,6 +53,15 @@ get_dims(std::ifstream& stream, std::string_view source = {}, size_t elsize_hint
     size_t filesize = stream.tellg();
     stream.seekg(0, std::ifstream::beg);
 
+    if (header.num_vectors == 0 || header.vector_dim == 0) {
+        throw ANNEXCEPTION(
+            "Binary file {} has an invalid header (num_vectors={}, vector_dim={}).",
+            source.empty() ? "(unknown)"sv : source,
+            header.num_vectors,
+            header.vector_dim
+        );
+    }
+
     size_t filesize_minus_header = filesize - sizeof(header);
     size_t n_vec_elements =
         lib::narrow<size_t>(header.num_vectors) * lib::narrow<size_t>(header.vector_dim);
