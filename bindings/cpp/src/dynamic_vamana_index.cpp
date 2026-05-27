@@ -120,7 +120,7 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
     }
 
     Status
-    get_distance(float* distance, size_t id, const float* query) const noexcept override {
+    get_distance(size_t id, const float* query, float* distance) const noexcept override {
         return runtime_error_wrapper([&] {
             std::span<const float> q{query, impl_->dimensions()};
             *distance = static_cast<float>(impl_->get_distance(id, q));

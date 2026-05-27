@@ -1190,13 +1190,13 @@ CATCH_TEST_CASE("GetDistanceDynamic", "[runtime]") {
     // Self-distance should be approximately 0
     float dist = -1.0f;
     const float* vec0 = test_data.data();
-    status = index->get_distance(&dist, 0, vec0);
+    status = index->get_distance(0, vec0, &dist);
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(dist < 1e-6);
 
     // Distance to a different vector should be positive
     const float* vec1 = test_data.data() + test_d;
-    status = index->get_distance(&dist, 0, vec1);
+    status = index->get_distance(0, vec1, &dist);
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(dist > 0.0);
 
@@ -1222,13 +1222,13 @@ CATCH_TEST_CASE("GetDistanceStatic", "[runtime][static_vamana]") {
     // Self-distance should be approximately 0
     float dist = -1.0f;
     const float* vec0 = test_data.data();
-    status = index->get_distance(&dist, 0, vec0);
+    status = index->get_distance(0, vec0, &dist);
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(dist < 1e-6);
 
     // Distance to a different vector should be positive
     const float* vec1 = test_data.data() + test_d;
-    status = index->get_distance(&dist, 0, vec1);
+    status = index->get_distance(0, vec1, &dist);
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(dist > 0.0);
 
