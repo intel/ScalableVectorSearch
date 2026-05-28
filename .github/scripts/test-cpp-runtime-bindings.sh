@@ -35,7 +35,7 @@ conda install -y mkl=2025.3 mkl-devel=2025.3
 conda install -y /runtime_conda/libsvs-runtime-*.conda
 
 # Validate python and C++ tests against FAISS CI
-git clone https://github.com/facebookresearch/faiss.git
+git clone -b eglaser/svs-static-vamana https://github.com/ethanglaser/faiss.git
 cd faiss
 
 echo "==============================================="
