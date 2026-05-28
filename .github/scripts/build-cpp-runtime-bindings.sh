@@ -18,10 +18,11 @@ set -e  # Exit on error
 # Source environment setup (for compiler)
 source /etc/bashrc || true
 
-# Temporary: pip-install clang-tidy 18 to match the version we want to run.
-# Pin setuptools <81 because the wheel's wrapper imports pkg_resources, which
-# setuptools 81 removed. Remove once resolved.
-pip install 'setuptools<81' clang-tidy==18.1.8
+# Temporary: pip-install clang-tidy 17 to test whether the system clang-tidy
+# version is the cause of the template crash. Pin setuptools <81 because the
+# wheel's wrapper imports pkg_resources, which setuptools 81 removed.
+# Remove once resolved.
+pip install 'setuptools<81' clang-tidy==17.0.1
 
 # Source MKL environment (required for IVF)
 if [ -f /opt/intel/oneapi/setvars.sh ]; then
