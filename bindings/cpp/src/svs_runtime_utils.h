@@ -60,7 +60,9 @@ inline bool lvq_leanvec_enabled() { return false; }
 #include <variant>
 #include <vector>
 
+#if SVS_OMP
 #include <omp.h>
+#endif
 
 namespace svs::runtime {
 
@@ -494,7 +496,11 @@ pad_empty_results(svs::QueryResultView<size_t>& result, size_t num_queries, size
 }
 
 inline svs::threads::ThreadPoolHandle default_threadpool() {
+#if SVS_OMP
     return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(omp_get_max_threads())
     );
+#else
+    return svs::threads::ThreadPoolHandle(svs::threads::OMPThreadPool(1));
+#endif
 }
 } // namespace svs::runtime

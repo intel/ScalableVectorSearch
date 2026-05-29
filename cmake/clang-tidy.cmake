@@ -50,21 +50,17 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             # the clang frontend can't resolve without clang's own libomp.
             # The actual gcc compile still defines SVS_ENABLE_OMP normally.
             "--extra-arg=-USVS_ENABLE_OMP"
+            # Match the codebase's sized/aligned delete usage; clang frontend
+            # disables this by default while gcc enables it.
+            "--extra-arg=-fsized-deallocation"
         )
 
-        # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers,
-        # plus gcc's internal include dir for omp.h in unconditional includes.
+        # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
             get_filename_component(_svs_gcc_bin_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
             get_filename_component(_svs_gcc_toolchain "${_svs_gcc_bin_dir}" DIRECTORY)
-            execute_process(
-                COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=include
-                OUTPUT_VARIABLE _svs_gcc_internal_include
-                OUTPUT_STRIP_TRAILING_WHITESPACE
-            )
             list(APPEND CLANG_TIDY_COMMAND
                 "--extra-arg=--gcc-toolchain=${_svs_gcc_toolchain}"
-                "--extra-arg=-isystem${_svs_gcc_internal_include}"
             )
         endif()
 
