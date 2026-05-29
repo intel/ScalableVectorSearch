@@ -23,6 +23,7 @@
 #include "svs/orchestrators/dynamic_vamana.h"
 #include "svs/orchestrators/exhaustive.h"
 #include "svs/orchestrators/vamana.h"
+#include <cstdint>
 
 #include "utils.h"
 
@@ -96,7 +97,7 @@ void vamana_search(Data& data, Distance distance) {
 
     index.set_search_window_size(search_window_size);
     const auto query_data = svs::load_data<float>(qfname);
-    const auto groundtruth = svs::load_data<int>(gtfname);
+    const auto groundtruth = svs::load_data<uint32_t>(gtfname);
 
     auto tic = svs::lib::now();
     auto query_result = index.search(query_data, n_neighbors);
