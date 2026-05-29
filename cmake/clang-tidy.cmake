@@ -49,6 +49,8 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             # Match the codebase's sized/aligned delete usage; clang frontend
             # disables this by default while gcc enables it.
             "--extra-arg=-fsized-deallocation"
+            # Recognize #pragma omp directives instead of warning about them.
+            "--extra-arg=-fopenmp"
         )
 
         # Point clang-tidy at gcc's toolchain so it can find libstdc++ headers.
