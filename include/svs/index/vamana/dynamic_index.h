@@ -182,6 +182,11 @@ class MutableVamanaIndex {
     // shared for reads (delete/search). Wrapped in unique_ptr for movability.
     std::unique_ptr<std::shared_mutex> translator_mutex_{
         std::make_unique<std::shared_mutex>()};
+    // Reserves slot ownership against compact(). Writers (add_points,
+    // delete_entries, consolidate) hold this shared for the duration of
+    // their call; compact() holds it exclusive.
+    std::unique_ptr<std::shared_mutex> compact_mutex_{
+        std::make_unique<std::shared_mutex>()};
 
     // Thread local data structures.
     distance_type distance_;
@@ -701,6 +706,11 @@ class MutableVamanaIndex {
             );
         }
 
+        // Reserve slot ownership against compact(). Held for the entire call,
+        // including the lock-free Phase 2-4 below; compact() takes this
+        // exclusive and so will block until every in-flight add finishes.
+        std::shared_lock compact_lock{*compact_mutex_};
+
         // Phase 1: Metadata bookkeeping under lock — slot allocation, resize,
         // translator update, Pending stamp, first_empty_ update. The data
         // copy and adjacency clearing are deferred to Phase 2 below and
@@ -839,6 +849,7 @@ class MutableVamanaIndex {
     ///   graph.
     ///
     template <typename T> size_t delete_entries(const T& ids) {
+        std::shared_lock compact_lock{*compact_mutex_};
         std::shared_lock lock{*translator_mutex_};
         size_t deleted = 0;
         for (auto i : ids) {
@@ -925,6 +936,14 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
+        // Exclusive against all writers (add_points/delete_entries/consolidate).
+        // shared_mutex semantics ensure that by the time we acquire the lock,
+        // every prior writer has released its shared lock — including
+        // add_points's lock-free Phase 2-4. After acquisition, no new writer
+        // can start until we release. Search does not take this mutex and
+        // continues to run.
+        std::lock_guard compact_lock{*compact_mutex_};
+
         // Step 1: Compute a prefix-sum matching each valid internal index to its new
         // internal index.
         //
@@ -956,6 +975,8 @@ class MutableVamanaIndex {
             auto this_batch = batch_to_new_id_map.eachindex();
 
             // Copy the graph into the temporary buffer and remap the IDs.
+            // Edges to non-Valid (Deleted) slots are dropped — those slots
+            // do not survive compaction, so the edge would dangle.
             threads::parallel_for(
                 threadpool_,
                 threads::StaticPartition(this_batch),
@@ -966,17 +987,15 @@ class MutableVamanaIndex {
                         auto old_id = new_to_old_id_map[new_id];
 
                         const auto& list = graph_.get_node(old_id);
-                        buffer.resize(list.size());
+                        buffer.clear();
+                        buffer.reserve(list.size());
 
-                        // Transform the adjacency list from old to new.
-                        std::transform(
-                            list.begin(),
-                            list.end(),
-                            buffer.begin(),
-                            [&old_to_new_id_map](Idx old_id) {
-                                return old_to_new_id_map.at(old_id);
+                        for (auto neighbor_old : list) {
+                            auto it = old_to_new_id_map.find(neighbor_old);
+                            if (it != old_to_new_id_map.end()) {
+                                buffer.push_back(it->second);
                             }
-                        );
+                        }
 
                         temp_graph.replace_node(batch_id, buffer);
                     }
@@ -1020,9 +1039,17 @@ class MutableVamanaIndex {
             }
             status_.resize(max_index);
 
-            // Update entry points.
+            // Update entry points. If an entry point is no longer present
+            // (e.g. it was Deleted prior to compact), fall back to internal
+            // ID 0 — by construction max_index > 0 implies a survivor.
             for (auto& ep : entry_point_) {
-                ep = old_to_new_id_map.at(ep);
+                auto it = old_to_new_id_map.find(ep);
+                if (it != old_to_new_id_map.end()) {
+                    ep = it->second;
+                } else {
+                    assert(max_index > 0);
+                    ep = 0;
+                }
             }
         }
     }
@@ -1086,6 +1113,7 @@ class MutableVamanaIndex {
 
     ///// Mutation
     void consolidate() {
+        std::shared_lock compact_lock{*compact_mutex_};
         auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
         std::function<bool(size_t)> valid = [&](size_t i) {
             return !(this->is_deleted(i));
