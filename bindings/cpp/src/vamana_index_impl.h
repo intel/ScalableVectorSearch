@@ -308,6 +308,21 @@ class VamanaIndexImpl {
         }
     }
 
+    double get_distance(size_t id, std::span<const float> query) const {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        return get_impl()->get_distance(id, query);
+    }
+
+    void reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        std::vector<uint64_t> id_vec(ids.begin(), ids.end());
+        get_impl()->reconstruct_at(dst, std::span<const uint64_t>{id_vec});
+    }
+
     void reset() { impl_.reset(); }
 
     void save(std::ostream& out) const { get_impl()->save(out); }

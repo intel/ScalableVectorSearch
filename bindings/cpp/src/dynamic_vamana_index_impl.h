@@ -344,6 +344,21 @@ class DynamicVamanaIndexImpl {
         return remove(ids_to_delete);
     }
 
+    double get_distance(size_t id, std::span<const float> query) const {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        return impl_->get_distance(id, query);
+    }
+
+    void reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        std::vector<uint64_t> id_vec(ids.begin(), ids.end());
+        impl_->reconstruct_at(dst, std::span<const uint64_t>{id_vec});
+    }
+
     void reset() {
         impl_.reset();
         ntotal_soft_deleted = 0;
