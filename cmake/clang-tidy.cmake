@@ -64,6 +64,14 @@ if(SVS_EXPERIMENTAL_CLANG_TIDY)
             )
         endif()
 
+        # Optional dir staged with just gcc's omp.h, so clang-tidy can resolve
+        # <omp.h> without pulling in gcc's intrinsic headers.
+        if(DEFINED ENV{SVS_CLANG_TIDY_INCLUDE})
+            list(APPEND CLANG_TIDY_COMMAND
+                "--extra-arg=-isystem$ENV{SVS_CLANG_TIDY_INCLUDE}"
+            )
+        endif()
+
         message(STATUS "Clang tidy command: ${CLANG_TIDY_COMMAND}")
     endif()
 endif()
