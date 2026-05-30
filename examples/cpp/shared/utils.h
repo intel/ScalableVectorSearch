@@ -25,7 +25,7 @@
 #include <unistd.h>
 
 int fvec_fwrite(FILE* fo, const float* v, uint32_t d) {
-    int ret;
+    size_t ret;
     ret = fwrite(&d, sizeof(uint32_t), 1, fo);
     if (ret != 1) {
         perror("fvec_fwrite: write error 1");
@@ -57,7 +57,7 @@ int fvecs_write(const char* fname, uint32_t d, int n, const float* vf) {
 }
 
 int ivec_iwrite(FILE* fo, const uint32_t* v, uint32_t d) {
-    int ret;
+    size_t ret;
     ret = fwrite(&d, sizeof(uint32_t), 1, fo);
     if (ret != 1) {
         perror("ivec_iwrite: write error 1");
