@@ -51,8 +51,13 @@ struct SVS_RUNTIME_API FlatIndex {
 
     // Load from a memory buffer.
     // The buffer is expected to be in the format produced by save().
-    static Status
-    map_to_memory(FlatIndex** index, void* data, size_t size, MetricType metric) noexcept;
+    static Status map_to_memory(
+        FlatIndex** index,
+        void* data,
+        size_t size,
+        MetricType metric,
+        size_t* read_bytes = nullptr
+    ) noexcept;
 };
 } // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime

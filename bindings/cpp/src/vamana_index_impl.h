@@ -535,6 +535,8 @@ class VamanaIndexImpl {
         );
     }
 
+    std::istream* get_mapped_stream() const { return mapped_stream_.get(); }
+
     // Data members
   protected:
     size_t dim_;

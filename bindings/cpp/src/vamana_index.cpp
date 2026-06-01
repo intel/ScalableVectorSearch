@@ -179,7 +179,8 @@ Status VamanaIndex::map_to_memory(
     void* data,
     size_t size,
     MetricType metric,
-    StorageKind storage_kind
+    StorageKind storage_kind,
+    size_t* read_bytes
 ) noexcept {
     using Impl = VamanaIndexImpl;
     *index = nullptr;
@@ -188,6 +189,10 @@ Status VamanaIndex::map_to_memory(
         auto is = std::make_unique<svs::io::ispanstream>(sp);
         std::unique_ptr<Impl> impl{
             Impl::map_to_stream(std::move(is), metric, storage_kind)};
+        if (read_bytes) {
+            auto pos = impl->get_mapped_stream()->tellg();
+            *read_bytes = static_cast<size_t>(pos);
+        }
         *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
     });
 }

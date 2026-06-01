@@ -123,7 +123,8 @@ struct SVS_RUNTIME_API VamanaIndex {
         void* data,
         size_t size,
         MetricType metric,
-        StorageKind storage_kind
+        StorageKind storage_kind,
+        size_t* read_bytes = nullptr
     ) noexcept;
 };
 
