@@ -19,7 +19,7 @@
 if(SVS_EXPERIMENTAL_CLANG_TIDY)
     find_program(CLANG_TIDY_EXE
         NAMES
-            clang-tidy-17 clang-tidy-18 clang-tidy
+            clang-tidy-17 clang-tidy
     )
 
     if(NOT CLANG_TIDY_EXE)

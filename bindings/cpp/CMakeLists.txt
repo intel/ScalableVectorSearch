@@ -82,9 +82,7 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -fvisibility=hidden
 )
 
-# Optional clang-tidy integration. Reuses the top-level repo's
-# cmake/clang-tidy.cmake module so the runtime build runs the same
-# .clang-tidy config as the rest of the library.
+# Use cmake/clang-tidy for configuration. Should be ON for releases.
 option(SVS_EXPERIMENTAL_CLANG_TIDY
     "Run the clang-tidy static analyzer on the cpp runtime bindings."
     OFF
@@ -160,7 +158,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
         find_package(svs REQUIRED)
 
-	# Strip svs::svs_compile_options gcc-only flags for clang-tidy
+	    # Strip svs::svs_compile_options gcc-only flags for clang-tidy
         if(SVS_EXPERIMENTAL_CLANG_TIDY AND TARGET svs::svs_compile_options)
             get_target_property(_svs_co_opts svs::svs_compile_options INTERFACE_COMPILE_OPTIONS)
             if(_svs_co_opts)
