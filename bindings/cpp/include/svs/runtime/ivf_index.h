@@ -24,8 +24,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 // Abstract interface for IVF (Inverted File) indices.
 struct SVS_RUNTIME_API IVFIndex {
     virtual ~IVFIndex();
@@ -170,7 +169,6 @@ struct SVS_RUNTIME_API IVFIndexLeanVec : public IVFIndex {
         size_t intra_query_threads = 1
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

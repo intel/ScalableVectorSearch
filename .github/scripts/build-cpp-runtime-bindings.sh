@@ -18,6 +18,16 @@ set -e  # Exit on error
 # Source environment setup (for compiler)
 source /etc/bashrc || true
 
+# Install clang-tidy in alignment with FAISS, with setuptools specified for pkg_resources
+pip install 'setuptools<81' clang-tidy==17.0.1
+
+# Stage gcc's omp.h in an isolated dir so clang-tidy can resolve the include
+# without picking up gcc's intrinsic headers (which use builtins clang lacks).
+SVS_CLANG_TIDY_INCLUDE=/tmp/svs-clang-tidy-include
+mkdir -p "$SVS_CLANG_TIDY_INCLUDE"
+cp /opt/rh/gcc-toolset-11/root/usr/lib/gcc/x86_64-redhat-linux/11/include/omp.h "$SVS_CLANG_TIDY_INCLUDE/"
+export SVS_CLANG_TIDY_INCLUDE
+
 # Source MKL environment (required for IVF)
 if [ -f /opt/intel/oneapi/setvars.sh ]; then
     source /opt/intel/oneapi/setvars.sh --include-intel-llvm 2>/dev/null || true
@@ -41,6 +51,7 @@ CMAKE_ARGS=(
     "-DCMAKE_INSTALL_LIBDIR=lib"
     "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
     "-DSVS_RUNTIME_ENABLE_IVF=ON"
+    "-DSVS_EXPERIMENTAL_CLANG_TIDY=ON"
 )
 
 if [ -n "$SVS_URL" ]; then

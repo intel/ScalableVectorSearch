@@ -23,8 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 namespace detail {
 struct VamanaBuildParameters {
     size_t graph_max_degree = Unspecify<size_t>();
@@ -152,7 +151,6 @@ struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
         const VamanaIndex::SearchParams& default_search_params = {}
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs
