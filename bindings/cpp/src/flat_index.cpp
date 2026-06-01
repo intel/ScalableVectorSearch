@@ -130,7 +130,7 @@ FlatIndex::map_to_file(FlatIndex** index, const char* path, MetricType metric) n
 }
 
 Status FlatIndex::map_to_memory(
-    FlatIndex** index, void* data, size_t size, MetricType metric
+    FlatIndex** index, void* data, size_t size, MetricType metric, size_t* read_bytes
 ) noexcept {
     *index = nullptr;
     return runtime_error_wrapper([&] {
@@ -138,6 +138,10 @@ Status FlatIndex::map_to_memory(
         auto is = std::make_unique<svs::io::ispanstream>(sp);
         std::unique_ptr<FlatIndexImpl> impl{
             FlatIndexImpl::map_to_stream(std::move(is), metric)};
+        if (read_bytes) {
+            auto pos = impl->get_mapped_stream()->tellg();
+            *read_bytes = static_cast<size_t>(pos);
+        }
         *index = new FlatIndexManager{std::move(impl)};
         return Status_Ok;
     });

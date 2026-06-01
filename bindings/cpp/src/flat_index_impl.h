@@ -134,6 +134,8 @@ class FlatIndexImpl {
         });
     }
 
+    std::istream* get_mapped_stream() const { return mapped_stream_.get(); }
+
   protected:
     // Constructor used during loading
     FlatIndexImpl(
