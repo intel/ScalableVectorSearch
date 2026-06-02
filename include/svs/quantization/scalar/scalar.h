@@ -392,6 +392,7 @@ class SQDataset {
         , data_{std::move(data)} {}
 
     size_t size() const { return data_.size(); }
+    size_t capacity() const { return data_.capacity(); }
     size_t dimensions() const { return data_.dimensions(); }
     size_t element_size() const { return sizeof(element_type) * dimensions(); }
 

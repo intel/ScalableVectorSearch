@@ -187,6 +187,11 @@ class MutableVamanaIndex {
     // their call; compact() holds it exclusive.
     std::unique_ptr<std::shared_mutex> compact_mutex_{
         std::make_unique<std::shared_mutex>()};
+    // Protects the size of data_/graph_/seq_counters_/node_locks_/status_
+    // underlying std::vector storage.
+    // Lock acquisition order across the codebase:
+    //   compact_mutex_ -> translator_mutex_ -> resize_mutex_   (never reversed)
+    std::unique_ptr<std::shared_mutex> resize_mutex_{std::make_unique<std::shared_mutex>()};
 
     // Thread local data structures.
     distance_type distance_;
@@ -551,6 +556,7 @@ class MutableVamanaIndex {
         scratchspace_type& scratch,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
+        std::shared_lock resize_lock{*resize_mutex_};
         extensions::single_search(
             data_,
             scratch.buffer,
@@ -568,36 +574,40 @@ class MutableVamanaIndex {
         const search_parameters_type& sp,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        threads::parallel_for(
-            threadpool_,
-            threads::StaticPartition{queries.size()},
-            [&](const auto is, uint64_t SVS_UNUSED(tid)) {
-                size_t num_neighbors = results.n_neighbors();
-                auto buffer =
-                    search_buffer_type{sp.buffer_config_, distance::comparator(distance_)};
+        {
+            std::shared_lock resize_lock{*resize_mutex_};
+            threads::parallel_for(
+                threadpool_,
+                threads::StaticPartition{queries.size()},
+                [&](const auto is, uint64_t SVS_UNUSED(tid)) {
+                    size_t num_neighbors = results.n_neighbors();
+                    auto buffer = search_buffer_type{
+                        sp.buffer_config_, distance::comparator(distance_)};
 
-                auto prefetch_parameters = GreedySearchPrefetchParameters{
-                    sp.prefetch_lookahead_, sp.prefetch_step_};
+                    auto prefetch_parameters = GreedySearchPrefetchParameters{
+                        sp.prefetch_lookahead_, sp.prefetch_step_};
 
-                // Legalize search buffer for this search.
-                if (buffer.target_capacity() < num_neighbors) {
-                    buffer.change_maxsize(num_neighbors);
+                    // Legalize search buffer for this search.
+                    if (buffer.target_capacity() < num_neighbors) {
+                        buffer.change_maxsize(num_neighbors);
+                    }
+                    auto scratch =
+                        extensions::per_thread_batch_search_setup(data_, distance_);
+
+                    extensions::per_thread_batch_search(
+                        data_,
+                        buffer,
+                        scratch,
+                        queries,
+                        results,
+                        threads::UnitRange{is},
+                        greedy_search_closure(prefetch_parameters, cancel),
+                        *this,
+                        cancel
+                    );
                 }
-                auto scratch = extensions::per_thread_batch_search_setup(data_, distance_);
-
-                extensions::per_thread_batch_search(
-                    data_,
-                    buffer,
-                    scratch,
-                    queries,
-                    results,
-                    threads::UnitRange{is},
-                    greedy_search_closure(prefetch_parameters, cancel),
-                    *this,
-                    cancel
-                );
-            }
-        );
+            );
+        }
 
         // Check if request to cancel the search
         if (cancel()) {
@@ -742,9 +752,22 @@ class MutableVamanaIndex {
                 size_t needed = num_points - slots.size();
                 size_t current_size = data_.size();
                 size_t new_size = current_size + needed;
-                data_.resize(new_size);
-                graph_.unsafe_resize(new_size);
-                status_.resize(new_size, SlotMetadata::Empty);
+                // Take resize_mutex_ exclusive only if at least one container
+                // would need to grow its outer storage.
+                const bool needs_realloc = new_size > data_.capacity() ||
+                                           new_size > graph_.capacity() ||
+                                           new_size > status_.capacity();
+
+                if (needs_realloc) {
+                    std::lock_guard resize_lock{*resize_mutex_};
+                    data_.resize(new_size);
+                    graph_.unsafe_resize(new_size);
+                    status_.resize(new_size, SlotMetadata::Empty);
+                } else {
+                    data_.resize(new_size);
+                    graph_.unsafe_resize(new_size);
+                    status_.resize(new_size, SlotMetadata::Empty);
+                }
 
                 threads::UnitRange<size_t> extra_points{
                     current_size, current_size + needed};
@@ -1020,8 +1043,11 @@ class MutableVamanaIndex {
         {
             std::lock_guard lock{*translator_mutex_};
             // Resize the graph and data.
-            graph_.unsafe_resize(max_index);
-            data_.resize(max_index);
+            {
+                std::lock_guard resize_lock{*resize_mutex_};
+                graph_.unsafe_resize(max_index);
+                data_.resize(max_index);
+            }
             first_empty_ = max_index;
 
             // Compact metadata and ID remapping.
@@ -1037,7 +1063,10 @@ class MutableVamanaIndex {
                     translator_.remap_internal_id(old_id, new_id);
                 }
             }
-            status_.resize(max_index);
+            {
+                std::lock_guard resize_lock{*resize_mutex_};
+                status_.resize(max_index);
+            }
 
             // Update entry points. If an entry point is no longer present
             // (e.g. it was Deleted prior to compact), fall back to internal
@@ -1322,10 +1351,8 @@ class MutableVamanaIndex {
             );
         }
 
-        // Hold the shared lock across bounds-check and parallel_for so a
-        // concurrent `consolidate()` cannot erase a translator entry between
-        // the presence check and the `translate_external_id` lookup below.
         std::shared_lock lock{*translator_mutex_};
+        std::shared_lock resize_lock{*resize_mutex_};
 
         // Bounds checking.
         for (size_t i = 0; i < ids_size; ++i) {
@@ -1463,10 +1490,8 @@ class MutableVamanaIndex {
     /// @brief Compute the distance between an external vector and a vector in the index.
     template <typename ExternalId, typename Query>
     double get_distance(const ExternalId& external_id, const Query& query) const {
-        // Hold the shared lock across presence check and translation — prevents
-        // a concurrent `consolidate()` from erasing the translator entry
-        // between the two map lookups.
         std::shared_lock lock{*translator_mutex_};
+        std::shared_lock resize_lock{*resize_mutex_};
 
         // Check if the external ID exists
         if (!has_id(external_id)) {
@@ -1492,6 +1517,14 @@ class MutableVamanaIndex {
         return extensions::get_distance_ext(data_, distance_, internal_id, query);
     }
 
+    /// Construct a batch iterator for incremental top-k retrieval.
+    ///
+    /// Thread-safety note: BatchIterator doesn't take resize_mutex_ across
+    /// its calls to next(). If the caller invokes add_points() concurrently
+    /// with iterator.next() and the add triggers a resize of the underlying
+    /// data_/graph_ buffers, the iterator's traversal may read invalidated
+    /// memory. Callers that expect to interleave iteration with resizing
+    /// add_points() calls must serialize them externally.
     template <typename QueryType>
     auto make_batch_iterator(
         std::span<const QueryType> query,

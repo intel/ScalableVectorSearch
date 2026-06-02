@@ -127,6 +127,7 @@ class SeqLockArray {
 
     void resize(size_t n) { counters_.resize(n); }
     size_t size() const { return counters_.size(); }
+    size_t capacity() const { return counters_.capacity(); }
 
   private:
     std::vector<SeqLockCounter> counters_;

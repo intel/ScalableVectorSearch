@@ -25,6 +25,7 @@
 #include "svs/lib/saveload.h"
 #include "svs/lib/spinlock.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cassert>
 #include <cstdint>
@@ -321,6 +322,13 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     size_t max_degree() const { return max_degree_; }
     /// Return the number of vertices currently in the graph.
     size_t n_nodes() const { return data_.size(); }
+
+    /// Return the maximum number of vertices this graph can hold without
+    /// reallocating any of its underlying storage.
+    size_t capacity() const {
+        return std::min({data_.capacity(), seq_counters_.capacity(), node_locks_.capacity()}
+        );
+    }
 
     const data_type& get_data() const { return data_; }
     data_type& get_data() { return data_; }
