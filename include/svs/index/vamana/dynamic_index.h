@@ -523,6 +523,25 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
+    /// @brief RAII reader lock guarding data_/graph_ against reallocation by
+    /// add_points/compact. Used by BatchIterator::next() to protect the greedy
+    /// traversal — mirrors the shared lock taken by search().
+    ///
+    /// Acquire this only around graph traversal, and release it before
+    /// acquiring lock_for_translation(): the two must never be held nested in
+    /// the resize->translator order, which would invert the global lock order
+    /// (compact -> translator -> resize) and deadlock against add_points.
+    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_for_search() const {
+        return std::shared_lock<std::shared_mutex>(*resize_mutex_);
+    }
+
+    /// @brief RAII reader lock guarding translator_ against erase/remap by
+    /// consolidate/compact. Used by BatchIterator::next() to protect
+    /// internal->external ID translation.
+    [[nodiscard]] std::shared_lock<std::shared_mutex> lock_for_translation() const {
+        return std::shared_lock<std::shared_mutex>(*translator_mutex_);
+    }
+
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
@@ -1517,14 +1536,6 @@ class MutableVamanaIndex {
         return extensions::get_distance_ext(data_, distance_, internal_id, query);
     }
 
-    /// Construct a batch iterator for incremental top-k retrieval.
-    ///
-    /// Thread-safety note: BatchIterator doesn't take resize_mutex_ across
-    /// its calls to next(). If the caller invokes add_points() concurrently
-    /// with iterator.next() and the add triggers a resize of the underlying
-    /// data_/graph_ buffers, the iterator's traversal may read invalidated
-    /// memory. Callers that expect to interleave iteration with resizing
-    /// add_points() calls must serialize them externally.
     template <typename QueryType>
     auto make_batch_iterator(
         std::span<const QueryType> query,
