@@ -25,6 +25,7 @@
 #include "svs/lib/threads.h"
 #include "svs/lib/timing.h"
 #include "svs/misc/dynamic_helper.h"
+#include "svs/orchestrators/dynamic_ivf.h"
 
 // tests
 #include "tests/utils/test_dataset.h"
@@ -1193,95 +1194,193 @@ CATCH_TEST_CASE("Dynamic IVF Save and Load", "[dynamic_ivf][saveload]") {
     index.set_search_parameters(search_params);
 
     // Perform initial search to get baseline results
+    auto batch_queries = svs::data::ConstSimpleDataView<QueryEltype>{
+        queries.data(), queries.size(), queries.dimensions()};
     auto original_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
-    index.search(
-        original_results.view(),
-        svs::data::ConstSimpleDataView<QueryEltype>{
-            queries.data(), queries.size(), queries.dimensions()},
-        search_params
-    );
+    index.search(original_results.view(), batch_queries, search_params);
 
-    // Create temporary directories for saving
-    auto temp_dir = svs_test::temp_directory();
-    svs_test::prepare_temp_directory();
-    auto config_dir = temp_dir / "config";
-    auto data_dir = temp_dir / "data";
+    CATCH_SECTION("Save and load from disk") {
+        // Create temporary directories for saving
+        auto temp_dir = svs_test::temp_directory();
+        svs_test::prepare_temp_directory();
+        auto config_dir = temp_dir / "config";
+        auto data_dir = temp_dir / "data";
 
-    // Save the index
-    index.save(config_dir, data_dir);
+        // Save the index
+        index.save(config_dir, data_dir);
 
-    // Verify saved files exist
-    CATCH_REQUIRE(std::filesystem::exists(config_dir));
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "centroids"));
-    // Verify format files exist in clusters/ subdirectory
-    // DenseClusteredDataset saves: clusters_archive.bin, ids.bin, cluster_sizes.bin,
-    // ids_offsets.bin
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "clusters_archive.bin"));
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids.bin"));
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "cluster_sizes.bin"));
-    CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids_offsets.bin"));
+        // Verify saved files exist
+        CATCH_REQUIRE(std::filesystem::exists(config_dir));
+        CATCH_REQUIRE(std::filesystem::exists(data_dir / "centroids"));
+        // Verify format files exist in clusters/ subdirectory
+        // DenseClusteredDataset saves: clusters_archive.bin, ids.bin, cluster_sizes.bin,
+        // ids_offsets.bin
+        CATCH_REQUIRE(
+            std::filesystem::exists(data_dir / "clusters" / "clusters_archive.bin")
+        );
+        CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "cluster_sizes.bin"));
+        CATCH_REQUIRE(std::filesystem::exists(data_dir / "clusters" / "ids_offsets.bin"));
 
-    // Load the index back using the load function
-    auto loaded_index = svs::index::ivf::load_dynamic_ivf_index<Eltype, DataType>(
-        config_dir,
-        data_dir,
-        Distance(),
-        svs::threads::as_threadpool(num_threads),
-        1 // intra_query_threads
-    );
+        // Load the index back using the load function
+        auto loaded_index = svs::index::ivf::load_dynamic_ivf_index<Eltype, DataType>(
+            config_dir,
+            data_dir,
+            Distance(),
+            svs::threads::as_threadpool(num_threads),
+            1 // intra_query_threads
+        );
 
-    // Set search parameters on loaded index
-    loaded_index.set_search_parameters(search_params);
+        // Set search parameters on loaded index
+        loaded_index.set_search_parameters(search_params);
 
-    // Perform search on loaded index
-    auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
-    loaded_index.search(
-        loaded_results.view(),
-        svs::data::ConstSimpleDataView<QueryEltype>{
-            queries.data(), queries.size(), queries.dimensions()},
-        search_params
-    );
+        auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+        loaded_index.search(loaded_results.view(), batch_queries, search_params);
 
-    // Verify results match
-    for (size_t q = 0; q < queries.size(); ++q) {
-        for (size_t k = 0; k < NUM_NEIGHBORS; ++k) {
-            CATCH_REQUIRE(original_results.index(q, k) == loaded_results.index(q, k));
-            CATCH_REQUIRE(original_results.distance(q, k) == loaded_results.distance(q, k));
+        // Verify results match
+        for (size_t q = 0; q < queries.size(); ++q) {
+            for (size_t k = 0; k < NUM_NEIGHBORS; ++k) {
+                CATCH_REQUIRE(original_results.index(q, k) == loaded_results.index(q, k));
+                CATCH_REQUIRE(
+                    original_results.distance(q, k) == loaded_results.distance(q, k)
+                );
+            }
+        }
+
+        // Verify index properties are preserved
+        CATCH_REQUIRE(loaded_index.size() == index.size());
+        CATCH_REQUIRE(loaded_index.num_clusters() == index.num_clusters());
+        CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+        // Test that dynamic operations still work after loading
+        // Delete some points
+        std::vector<Idx> ids_to_delete;
+        for (size_t i = 0; i < 10 && i < initial_indices.size(); ++i) {
+            ids_to_delete.push_back(initial_indices[i]);
+        }
+        size_t deleted = loaded_index.delete_entries(ids_to_delete);
+        CATCH_REQUIRE(deleted == ids_to_delete.size());
+        CATCH_REQUIRE(loaded_index.size() == index.size() - deleted);
+
+        // Compact and verify
+        loaded_index.compact(1000);
+
+        // Search should still work after modifications
+        loaded_index.search(
+            loaded_results.view(),
+            svs::data::ConstSimpleDataView<QueryEltype>{
+                queries.data(), queries.size(), queries.dimensions()},
+            search_params
+        );
+
+        // Verify we still get valid results
+        size_t valid_results = 0;
+        for (size_t i = 0; i < loaded_results.n_queries(); ++i) {
+            if (loaded_results.index(i, 0) != std::numeric_limits<size_t>::max()) {
+                valid_results++;
+            }
+        }
+        CATCH_REQUIRE(valid_results > 0);
+        svs_test::cleanup_temp_directory();
+    }
+
+    CATCH_SECTION("Load DynamicIVF serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+        {
+            using LoadDataType = svs::data::SimpleData<Eltype>;
+
+            auto loaded_index = svs::DynamicIVF::assemble<float, Eltype, LoadDataType>(
+                stream, Distance(), svs::threads::as_threadpool(num_threads), 1
+            );
+
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+            loaded_index.search(loaded_results.view(), batch_queries, search_params);
+
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t k = 0; k < NUM_NEIGHBORS; ++k) {
+                    CATCH_REQUIRE(
+                        original_results.index(q, k) == loaded_results.index(q, k)
+                    );
+                    CATCH_REQUIRE(
+                        original_results.distance(q, k) == loaded_results.distance(q, k)
+                    );
+                }
+            }
+
+            // Verify index properties are preserved
+            CATCH_REQUIRE(loaded_index.size() == index.size());
+            CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+
+            // Test that dynamic operations still work after loading
+            // Delete some points
+            std::vector<size_t> ids_to_delete;
+            for (size_t i = 0; i < 10 && i < initial_indices.size(); ++i) {
+                ids_to_delete.push_back(initial_indices[i]);
+            }
+            size_t deleted = loaded_index.delete_points(ids_to_delete);
+            CATCH_REQUIRE(deleted == ids_to_delete.size());
+            CATCH_REQUIRE(loaded_index.size() == index.size() - deleted);
+
+            // Compact and verify
+            loaded_index.compact(1000);
+
+            // Search should still work after modifications
+            loaded_index.search(
+                loaded_results.view(),
+                svs::data::ConstSimpleDataView<QueryEltype>{
+                    queries.data(), queries.size(), queries.dimensions()},
+                search_params
+            );
+
+            // Verify we still get valid results
+            size_t valid_results = 0;
+            for (size_t i = 0; i < loaded_results.n_queries(); ++i) {
+                if (loaded_results.index(i, 0) != std::numeric_limits<size_t>::max()) {
+                    valid_results++;
+                }
+            }
+            CATCH_REQUIRE(valid_results > 0);
         }
     }
 
-    // Verify index properties are preserved
-    CATCH_REQUIRE(loaded_index.size() == index.size());
-    CATCH_REQUIRE(loaded_index.num_clusters() == index.num_clusters());
-    CATCH_REQUIRE(loaded_index.dimensions() == index.dimensions());
+    CATCH_SECTION("Load DynamicIVF serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_dynamic_ivf_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            using LoadDataType = svs::data::SimpleData<Eltype>;
 
-    // Test that dynamic operations still work after loading
-    // Delete some points
-    std::vector<Idx> ids_to_delete;
-    for (size_t i = 0; i < 10 && i < initial_indices.size(); ++i) {
-        ids_to_delete.push_back(initial_indices[i]);
-    }
-    size_t deleted = loaded_index.delete_entries(ids_to_delete);
-    CATCH_REQUIRE(deleted == ids_to_delete.size());
-    CATCH_REQUIRE(loaded_index.size() == index.size() - deleted);
+            auto loaded_ivf = svs::DynamicIVF::assemble<float, Eltype, LoadDataType>(
+                stream, Distance(), svs::threads::as_threadpool(num_threads), 1
+            );
 
-    // Compact and verify
-    loaded_index.compact(1000);
+            CATCH_REQUIRE(loaded_ivf.size() == index.size());
+            CATCH_REQUIRE(loaded_ivf.dimensions() == index.dimensions());
 
-    // Search should still work after modifications
-    loaded_index.search(
-        loaded_results.view(),
-        svs::data::ConstSimpleDataView<QueryEltype>{
-            queries.data(), queries.size(), queries.dimensions()},
-        search_params
-    );
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), NUM_NEIGHBORS);
+            loaded_ivf.search(loaded_results.view(), batch_queries, search_params);
 
-    // Verify we still get valid results
-    size_t valid_results = 0;
-    for (size_t i = 0; i < loaded_results.n_queries(); ++i) {
-        if (loaded_results.index(i, 0) != std::numeric_limits<size_t>::max()) {
-            valid_results++;
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t k = 0; k < NUM_NEIGHBORS; ++k) {
+                    CATCH_REQUIRE(
+                        original_results.index(q, k) == loaded_results.index(q, k)
+                    );
+                    CATCH_REQUIRE(
+                        original_results.distance(q, k) == loaded_results.distance(q, k)
+                    );
+                }
+            }
         }
     }
-    CATCH_REQUIRE(valid_results > 0);
 }

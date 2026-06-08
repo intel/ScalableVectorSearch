@@ -23,6 +23,7 @@
 #include "svs/orchestrators/dynamic_vamana.h"
 #include "svs/orchestrators/exhaustive.h"
 #include "svs/orchestrators/vamana.h"
+#include <cstdint>
 
 // Alias for blocked Lean dataset that supports resize/compact
 using BlockedLean = svs::leanvec::LeanDataset<
@@ -113,7 +114,7 @@ int main() {
     //! [Perform Queries]
 
     //! [Recall]
-    auto groundtruth = svs::load_data<int>(
+    auto groundtruth = svs::load_data<uint32_t>(
         std::filesystem::path(SVS_DATA_DIR) / "groundtruth_euclidean.ivecs"
     );
     double recall = svs::k_recall_at_n(groundtruth, results, n_neighbors, n_neighbors);

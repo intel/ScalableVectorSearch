@@ -23,20 +23,26 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <numeric>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
 // svs
 #include "svs/core/recall.h"
 #include "svs/lib/timing.h"
+#include "svs/orchestrators/dynamic_vamana.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
+#include <catch2/catch_approx.hpp>
 
 // tests
 #include "tests/utils/test_dataset.h"
 #include "tests/utils/utils.h"
 
+// The MutableVamanaIndex "Soft Deletion" test uses outdated API.
+#if 0
 namespace {
 template <typename T> auto copy_dataset(const T& data) {
     auto copy = svs::data::SimplePolymorphicData<typename T::element_type, T::extent>{
@@ -244,5 +250,117 @@ CATCH_TEST_CASE("MutableVamanaIndex", "[graph_index]") {
         auto post_reinsertion_recall = svs::k_recall_at_n(groundtruth, results);
         std::cout << "Post reinsertion recall: " << post_reinsertion_recall << " in "
                   << post_add_time << " seconds." << std::endl;
+    }
+}
+#endif
+
+CATCH_TEST_CASE(
+    "MutableVamana Index Save and Load", "[graph_index][dynamic_index][saveload]"
+) {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = test_dataset::data_blocked_f32();
+    std::vector<size_t> indices(data.size());
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    const size_t num_neighbors = 10;
+    auto queries = test_dataset::queries();
+    auto search_params = svs::index::vamana::VamanaSearchParameters{};
+    search_params.buffer_config_ = svs::index::vamana::SearchBufferConfig{num_neighbors};
+    auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+    index.search(results.view(), queries.cview(), search_params);
+
+    CATCH_SECTION("Load MutableVamana Index being serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+        {
+            using Data_t = svs::data::BlockedData<float>;
+
+            auto loaded = svs::DynamicVamana::assemble<float, Data_t>(
+                stream, Distance(), num_threads
+            );
+
+            CATCH_REQUIRE(loaded.size() == index.size());
+            CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+            CATCH_REQUIRE(loaded.get_alpha() == index.get_alpha());
+            CATCH_REQUIRE(loaded.get_graph_max_degree() == index.get_graph_max_degree());
+            CATCH_REQUIRE(loaded.get_max_candidates() == index.get_max_candidates());
+            CATCH_REQUIRE(
+                loaded.get_construction_window_size() ==
+                index.get_construction_window_size()
+            );
+            CATCH_REQUIRE(loaded.get_prune_to() == index.get_prune_to());
+            CATCH_REQUIRE(
+                loaded.get_full_search_history() == index.get_full_search_history()
+            );
+            index.on_ids([&](size_t e) { CATCH_REQUIRE(loaded.has_id(e)); });
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded.search(loaded_results.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
+    }
+
+    CATCH_SECTION("Load MutableVamana Index being serialized with intermediate files") {
+        std::stringstream stream;
+        {
+            svs::lib::UniqueTempDirectory tempdir{"svs_dynvamana_save"};
+            const auto config_dir = tempdir.get() / "config";
+            const auto graph_dir = tempdir.get() / "graph";
+            const auto data_dir = tempdir.get() / "data";
+            std::filesystem::create_directories(config_dir);
+            std::filesystem::create_directories(graph_dir);
+            std::filesystem::create_directories(data_dir);
+            index.save(config_dir, graph_dir, data_dir);
+            svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        }
+        {
+            using Data_t = svs::data::BlockedData<float>;
+
+            auto loaded = svs::DynamicVamana::assemble<float, Data_t>(
+                stream, Distance(), num_threads
+            );
+
+            CATCH_REQUIRE(loaded.size() == index.size());
+            CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+            CATCH_REQUIRE(loaded.get_alpha() == index.get_alpha());
+            CATCH_REQUIRE(loaded.get_graph_max_degree() == index.get_graph_max_degree());
+            CATCH_REQUIRE(loaded.get_max_candidates() == index.get_max_candidates());
+            CATCH_REQUIRE(
+                loaded.get_construction_window_size() ==
+                index.get_construction_window_size()
+            );
+            CATCH_REQUIRE(loaded.get_prune_to() == index.get_prune_to());
+            CATCH_REQUIRE(
+                loaded.get_full_search_history() == index.get_full_search_history()
+            );
+            index.on_ids([&](size_t e) { CATCH_REQUIRE(loaded.has_id(e)); });
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded.search(loaded_results.view(), queries.cview(), search_params);
+            for (size_t q = 0; q < queries.size(); ++q) {
+                for (size_t i = 0; i < num_neighbors; ++i) {
+                    CATCH_REQUIRE(loaded_results.index(q, i) == results.index(q, i));
+                    CATCH_REQUIRE(
+                        loaded_results.distance(q, i) ==
+                        Catch::Approx(results.distance(q, i)).epsilon(1e-5)
+                    );
+                }
+            }
+        }
     }
 }

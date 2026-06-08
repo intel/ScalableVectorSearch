@@ -497,6 +497,8 @@ template <typename Index, typename Cluster> class InvertedIndex {
         index_.save(index_config, graph, data);
     }
 
+    void save_primary_index(std::ostream& os) const { index_.save(os); }
+
     ///// Accessors
     /// @brief Getter method for logger
     svs::logging::logger_ptr get_logger() const { return logger_; }
@@ -646,6 +648,48 @@ auto assemble_from_clustering(
     );
 
     // Create the clustering and return the final results.
+    return InvertedIndex(
+        std::move(index),
+        strategy(original, clustering, HugepageAllocator<std::byte>()),
+        std::move(ids),
+        std::move(threadpool),
+        std::move(logger)
+    );
+}
+
+template <
+    typename DataProto,
+    typename Distance,
+    StorageStrategy Strategy,
+    typename ThreadPoolProto>
+auto assemble_from_clustering(
+    std::istream& is,
+    DataProto data_proto,
+    Distance distance,
+    Strategy strategy,
+    ThreadPoolProto threadpool_proto,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
+    auto original = svs::detail::dispatch_load(std::move(data_proto), threadpool);
+    auto clustering = lib::load_from_stream<Clustering<uint32_t>>(is);
+    auto ids = clustering.sorted_centroids();
+
+    // skip magic
+    svs::lib::detail::Deserializer::build(is);
+    auto index = index::vamana::auto_assemble(
+        is,
+        lib::Lazy([&]() { return GraphLoader<uint32_t>::return_type::load(is); }),
+        lib::Lazy([&]() {
+            using T = typename std::decay_t<decltype(original)>::element_type;
+            constexpr size_t Ext = std::decay_t<decltype(original)>::extent;
+            return lib::load_from_stream<data::SimpleData<T, Ext>>(is);
+        }),
+        distance,
+        1,
+        logger
+    );
+
     return InvertedIndex(
         std::move(index),
         strategy(original, clustering, HugepageAllocator<std::byte>()),

@@ -156,6 +156,9 @@ template <typename T> struct View {
 template <typename T> inline constexpr bool is_view_type_v = false;
 template <typename T> inline constexpr bool is_view_type_v<View<T>> = true;
 
+template <typename T>
+concept ViewAllocator = is_view_type_v<T>;
+
 namespace array_impl {
 
 // Shared implementations across various DenseArray specializations.
@@ -507,7 +510,7 @@ template <typename T, typename Dims, typename Alloc = lib::Allocator<T>> class D
     [[no_unique_address]] Alloc allocator_;
 };
 
-template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
+template <typename T, typename Dims, ViewAllocator Alloc> class DenseArray<T, Dims, Alloc> {
   private:
     // N.B.: This is an important assumption for many algorithms of this type.
     // Don't remove this requirement without careful consideration.
@@ -517,6 +520,7 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
     static constexpr bool is_const = std::is_const_v<T>;
 
     ///// Allocator Aware
+    using allocator_type = Alloc;
     using pointer = T*;
     using const_pointer = const T*;
 
@@ -532,6 +536,9 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
     ///// Misc Type Defs
     using const_span = std::span<const T, detail::getextent<Dims>>;
     using span = std::span<T, detail::getextent<Dims>>;
+
+    // Get the underlying allocator.
+    const allocator_type& get_allocator() const { return allocator_; }
 
     /// @brief Return the extent of the span returned for `slice`.
     static constexpr size_t extent() { return array_impl::extent<Dims>(); }
@@ -647,11 +654,21 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
     /////
 
     explicit DenseArray(Dims dims, pointer ptr)
+        requires(std::is_same_v<Alloc, View<T>>)
         : pointer_{ptr}
-        , dims_{std::move(dims)} {}
+        , dims_{std::move(dims)}
+        , allocator_{ptr} {}
 
-    explicit DenseArray(Dims dims, View<T> view)
-        : DenseArray{std::move(dims), view.ptr} {}
+    explicit DenseArray(Dims dims, Alloc allocator)
+        : pointer_{nullptr}
+        , dims_{std::move(dims)}
+        , allocator_{allocator} {
+        if constexpr (std::is_same_v<Alloc, View<T>>) {
+            pointer_ = allocator_.ptr;
+        } else {
+            pointer_ = std::allocator_traits<allocator_type>::allocate(allocator_, size());
+        }
+    }
 
     // Iterator
     pointer begin()
@@ -682,6 +699,7 @@ template <typename T, typename Dims> class DenseArray<T, Dims, View<T>> {
   private:
     pointer pointer_{nullptr};
     [[no_unique_address]] Dims dims_{};
+    [[no_unique_address]] Alloc allocator_;
 };
 
 template <size_t I, typename T, typename Dims, typename Alloc>

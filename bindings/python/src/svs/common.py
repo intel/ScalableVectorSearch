@@ -81,7 +81,10 @@ def read_vecs(filename: str):
 
     * `bvecs`: 8-bit unsigned integers.
     * `fvecs`: 32-bit floating point numbers.
-    * `ivecs`: 32-bit signed integers.
+    * `ivecs`: 32-bit unsigned integers.
+
+    *Note*: The format differs from the IRISA format.
+    Both vector dimensionality and `ivecs` values are unsigned.
 
     Args:
         filename: The file to read.
@@ -93,24 +96,21 @@ def read_vecs(filename: str):
     file_type = filename[-5:]
     if file_type == 'bvecs':
         dtype = np.uint8
-        struct_format = 'B'
         n_bytes = 1
         padding = 4
     elif file_type == 'fvecs':
         dtype = np.float32
-        struct_format = 'f'
         n_bytes = 4
         padding = 1
     elif file_type == 'ivecs':
         dtype = np.uint32
-        struct_format = 'i'
         n_bytes = 4
         padding = 1
     else:
         raise ValueError('Can only open bvecs, fvecs, and ivecs.')
 
     with open(filename, 'rb') as fin:
-        vec_size = struct.unpack('i', fin.read(4))[0]
+        vec_size = struct.unpack('I', fin.read(4))[0]
 
     X = np.fromfile(filename, dtype=dtype)
     X = X.reshape((-1, vec_size + padding))

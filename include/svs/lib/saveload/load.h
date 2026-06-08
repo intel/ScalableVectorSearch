@@ -22,6 +22,11 @@
 // stl
 #include <filesystem>
 
+#include "svs/core/io/native.h"
+#include "svs/lib/file.h"
+#include "svs/lib/readwrite.h"
+#include "svs/lib/stream.h"
+
 namespace svs::lib {
 
 ///
@@ -828,6 +833,35 @@ inline SerializedObject begin_deserialization(const std::filesystem::path& fullp
         std::move(table), lib::LoadContext{fullpath.parent_path(), version}};
 }
 
+class Deserializer {
+    lib::StreamArchiver::size_type magic_;
+
+    explicit Deserializer(lib::StreamArchiver::size_type magic)
+        : magic_(magic) {}
+
+  public:
+    static Deserializer build(std::istream& stream) {
+        lib::StreamArchiver::size_type magic = 0;
+        lib::StreamArchiver::read_size(stream, magic);
+
+        return Deserializer(magic);
+    }
+
+    auto magic() const { return magic_; }
+
+    bool is_native() const { return magic_ == lib::StreamArchiver::magic_number; }
+};
+
+inline ContextFreeSerializedObject read_metadata(std::istream& stream) {
+    if (!stream) {
+        throw ANNEXCEPTION("Error reading from stream!");
+    }
+
+    auto table = lib::StreamArchiver::read_table(stream);
+
+    return ContextFreeSerializedObject{std::move(table)};
+}
+
 } // namespace detail
 
 inline SerializedObject begin_deserialization(const std::filesystem::path& path) {
@@ -875,6 +909,31 @@ T load_from_disk(const Loader<T>& loader, std::filesystem::path path, Args&&... 
 template <typename T, typename... Args>
 T load_from_disk(const std::filesystem::path& path, Args&&... args) {
     return lib::load_from_disk(Loader<T>(), path, SVS_FWD(args)...);
+}
+
+template <typename T, typename... Args>
+concept LoadableFromTable = requires(const T& x
+) { T::load(std::declval<const ContextFreeLoadTable&>(), std::declval<Args&&>()...); };
+
+///// load_from_stream
+template <typename T, typename... Args>
+T load_from_stream(const Loader<T>& loader, std::istream& stream, Args&&... args)
+    requires LoadableFromTable<T, Args...>
+{
+    // Object is loadable from it's toml::table
+    return lib::load(loader, detail::read_metadata(stream), SVS_FWD(args)...);
+}
+
+template <typename T, typename... Args>
+T load_from_stream(const Loader<T>& loader, std::istream& stream, Args&&... args)
+    requires(!LoadableFromTable<T, Args...>)
+{
+    return lib::load(loader, detail::read_metadata(stream), stream, SVS_FWD(args)...);
+}
+
+template <typename T, typename... Args>
+T load_from_stream(std::istream& stream, Args&&... args) {
+    return lib::load_from_stream(Loader<T>(), stream, SVS_FWD(args)...);
 }
 
 ///// load_from_file

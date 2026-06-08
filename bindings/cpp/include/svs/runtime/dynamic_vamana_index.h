@@ -25,16 +25,13 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 // Abstract interface for Dynamic Vamana-based indexes.
 struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
     virtual Status add(size_t n, const size_t* labels, const float* x) noexcept = 0;
     virtual Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept = 0;
     virtual Status remove(size_t n, const size_t* labels) noexcept = 0;
-
-    virtual Status reset() noexcept = 0;
 
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
@@ -65,7 +62,6 @@ struct SVS_RUNTIME_API DynamicVamanaIndex : public VamanaIndex {
 
     static Status destroy(DynamicVamanaIndex* index) noexcept;
 
-    virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(
         DynamicVamanaIndex** index,
         std::istream& in,
@@ -131,7 +127,6 @@ struct SVS_RUNTIME_API DynamicVamanaIndexLeanVec : public DynamicVamanaIndex {
         const VamanaIndex::DynamicIndexParams& dynamic_index_params
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

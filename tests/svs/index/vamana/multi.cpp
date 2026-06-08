@@ -26,6 +26,7 @@
 #include "catch2/catch_test_macros.hpp"
 
 // stl
+#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -302,5 +303,149 @@ CATCH_TEMPLATE_TEST_CASE(
         CATCH_REQUIRE(test_index.view_data() == test_index_2.view_data());
 
         CATCH_REQUIRE(test_recall_2 > test_recall - epsilon);
+    }
+}
+
+CATCH_TEST_CASE(
+    "MultiMutableVamana Index Save and Load", "[index][vamana][multi][saveload]"
+) {
+    using Eltype = float;
+    using Distance = svs::DistanceL2;
+    const size_t N = 128;
+    const size_t num_threads = 4;
+    const size_t num_neighbors = 10;
+    const size_t max_degree = 64;
+
+    const auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    const auto num_points = data.size();
+    const auto queries = test_dataset::queries();
+    const auto groundtruth = test_dataset::load_groundtruth(svs::distance_type_v<Distance>);
+
+    const svs::index::vamana::VamanaBuildParameters build_parameters{
+        1.2, max_degree, 10, 20, 10, true};
+
+    const auto search_parameters = svs::index::vamana::VamanaSearchParameters();
+
+    const float epsilon = 0.05f;
+
+    std::vector<size_t> test_indices(num_points);
+    const size_t per_label = 2;
+    const auto num_labels = num_points / per_label;
+    for (auto& i : test_indices) {
+        i = std::rand() % num_labels;
+    }
+
+    auto index = svs::index::vamana::MultiMutableVamanaIndex(
+        build_parameters, data, test_indices, Distance(), num_threads
+    );
+    auto results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+    index.search(results.view(), queries.view(), search_parameters);
+
+    CATCH_SECTION("Load MultiMutableVamana Index being serialized natively to stream") {
+        std::stringstream stream;
+        index.save(stream);
+        {
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            CATCH_REQUIRE(deserializer.is_native());
+
+            using Data_t = svs::data::SimpleData<Eltype, N>;
+            using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
+
+            auto loaded = svs::index::vamana::auto_multi_dynamic_assemble(
+                stream,
+                [&]() -> GraphType { return GraphType::load(stream); },
+                [&]() -> Data_t { return svs::lib::load_from_stream<Data_t>(stream); },
+                Distance(),
+                num_threads
+            );
+
+            CATCH_REQUIRE(loaded.size() == index.size());
+            CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+            CATCH_REQUIRE(loaded.get_alpha() == index.get_alpha());
+            CATCH_REQUIRE(
+                loaded.get_construction_window_size() ==
+                index.get_construction_window_size()
+            );
+            CATCH_REQUIRE(loaded.get_max_candidates() == index.get_max_candidates());
+            CATCH_REQUIRE(loaded.max_degree() == index.max_degree());
+            CATCH_REQUIRE(loaded.get_prune_to() == index.get_prune_to());
+            CATCH_REQUIRE(
+                loaded.get_full_search_history() == index.get_full_search_history()
+            );
+            CATCH_REQUIRE(loaded.view_data() == index.view_data());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded.search(loaded_results.view(), queries.view(), search_parameters);
+            for (size_t i = 0; i < results.n_queries(); ++i) {
+                for (size_t j = 0; j < results.n_neighbors(); ++j) {
+                    CATCH_REQUIRE(
+                        results.indices().at(i, j) == loaded_results.indices().at(i, j)
+                    );
+                }
+            }
+
+            auto loaded_recall = svs::k_recall_at_n(groundtruth, loaded_results);
+            auto test_recall = svs::k_recall_at_n(groundtruth, results);
+            CATCH_REQUIRE(loaded_recall > test_recall - epsilon);
+        }
+    }
+
+    CATCH_SECTION("Load MultiMutableVamana Index being serialized with intermediate files"
+    ) {
+        std::stringstream stream;
+        svs::lib::UniqueTempDirectory tempdir{"svs_multivamana_save"};
+        const auto config_dir = tempdir.get() / "config";
+        const auto graph_dir = tempdir.get() / "graph";
+        const auto data_dir = tempdir.get() / "data";
+        std::filesystem::create_directories(config_dir);
+        std::filesystem::create_directories(graph_dir);
+        std::filesystem::create_directories(data_dir);
+        index.save(config_dir, graph_dir, data_dir);
+        svs::lib::DirectoryArchiver::pack(tempdir, stream);
+        {
+            using Data_t = svs::data::SimpleData<Eltype, N>;
+            using GraphType = svs::graphs::SimpleBlockedGraph<uint32_t>;
+
+            auto deserializer = svs::lib::detail::Deserializer::build(stream);
+            CATCH_REQUIRE(!deserializer.is_native());
+            svs::lib::DirectoryArchiver::unpack(stream, tempdir, deserializer.magic());
+
+            auto loaded = svs::index::vamana::auto_multi_dynamic_assemble(
+                config_dir,
+                GraphType::load(graph_dir),
+                Data_t::load(data_dir),
+                Distance(),
+                num_threads
+            );
+
+            CATCH_REQUIRE(loaded.size() == index.size());
+            CATCH_REQUIRE(loaded.dimensions() == index.dimensions());
+            CATCH_REQUIRE(loaded.get_alpha() == index.get_alpha());
+            CATCH_REQUIRE(
+                loaded.get_construction_window_size() ==
+                index.get_construction_window_size()
+            );
+            CATCH_REQUIRE(loaded.get_max_candidates() == index.get_max_candidates());
+            CATCH_REQUIRE(loaded.max_degree() == index.max_degree());
+            CATCH_REQUIRE(loaded.get_prune_to() == index.get_prune_to());
+            CATCH_REQUIRE(
+                loaded.get_full_search_history() == index.get_full_search_history()
+            );
+            CATCH_REQUIRE(loaded.view_data() == index.view_data());
+
+            auto loaded_results = svs::QueryResult<size_t>(queries.size(), num_neighbors);
+            loaded.search(loaded_results.view(), queries.view(), search_parameters);
+            for (size_t i = 0; i < results.n_queries(); ++i) {
+                for (size_t j = 0; j < results.n_neighbors(); ++j) {
+                    CATCH_REQUIRE(
+                        results.indices().at(i, j) == loaded_results.indices().at(i, j)
+                    );
+                }
+            }
+
+            auto loaded_recall = svs::k_recall_at_n(groundtruth, loaded_results);
+            auto test_recall = svs::k_recall_at_n(groundtruth, results);
+            CATCH_REQUIRE(loaded_recall > test_recall - epsilon);
+        }
     }
 }

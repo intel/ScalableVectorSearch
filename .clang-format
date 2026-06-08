@@ -29,4 +29,5 @@ KeepEmptyLinesAtTheStartOfBlocks: false
 PointerAlignment: Left
 ReferenceAlignment: Left
 ReflowComments: true
+NamespaceMacros: ['SVS_DECLARE_NAMESPACE_VERSION']
 ---

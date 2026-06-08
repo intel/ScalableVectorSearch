@@ -988,6 +988,18 @@ class MutableVamanaIndex {
 
     ///// Saving
 
+    VamanaIndexParameters parameters() const {
+        return {
+            entry_point_.front(),
+            {alpha_,
+             graph_.max_degree(),
+             get_construction_window_size(),
+             get_max_candidates(),
+             prune_to_,
+             get_full_search_history()},
+            get_search_parameters()};
+    }
+
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
     void save(
         const std::filesystem::path& config_directory,
@@ -1003,22 +1015,12 @@ class MutableVamanaIndex {
         lib::save_to_disk(
             lib::SaveOverride([&](const lib::SaveContext& ctx) {
                 // Save the construction parameters.
-                auto parameters = VamanaIndexParameters{
-                    entry_point_.front(),
-                    {alpha_,
-                     graph_.max_degree(),
-                     get_construction_window_size(),
-                     get_max_candidates(),
-                     prune_to_,
-                     get_full_search_history()},
-                    get_search_parameters()};
-
                 return lib::SaveTable(
                     "vamana_dynamic_auxiliary_parameters",
                     save_version,
                     {
                         {"name", lib::save(name())},
-                        {"parameters", lib::save(parameters, ctx)},
+                        {"parameters", lib::save(parameters(), ctx)},
                         {"translation", lib::save(translator_, ctx)},
                     }
                 );
@@ -1030,6 +1032,31 @@ class MutableVamanaIndex {
         lib::save_to_disk(data_, data_directory);
         // Save the graph.
         lib::save_to_disk(graph_, graph_directory);
+    }
+
+    void save(std::ostream& os) {
+        // Post-consolidation, all entries should be "valid".
+        // Therefore, we don't need to save the slot metadata.
+        consolidate();
+        compact();
+
+        lib::begin_serialization(os);
+        auto save_table = lib::SaveTable(
+            "vamana_dynamic_auxiliary_parameters",
+            save_version,
+            {
+                {"name", lib::save(name())},
+                {"parameters", lib::save(parameters())},
+                {"translation", lib::detail::exit_hook(translator_.metadata())},
+            }
+        );
+        lib::save_to_stream(save_table, os);
+        translator_.save(os);
+
+        // Save the dataset.
+        lib::save_to_stream(data_, os);
+        // Save the graph.
+        lib::save_to_stream(graph_, os);
     }
 
     /////
@@ -1419,6 +1446,62 @@ auto auto_dynamic_assemble(
 
     // At this point, we should be completely validated.
     // Construct the index!
+    return MutableVamanaIndex{
+        parameters,
+        std::move(data),
+        std::move(graph),
+        std::move(distance),
+        std::move(translator),
+        std::move(threadpool),
+        std::move(logger)};
+}
+
+template <
+    typename LazyGraphLoader,
+    typename LazyDataLoader,
+    typename Distance,
+    typename ThreadPoolProto>
+auto auto_dynamic_assemble(
+    std::istream& is,
+    LazyGraphLoader graph_loader,
+    LazyDataLoader data_loader,
+    Distance distance,
+    ThreadPoolProto threadpool_proto,
+    bool SVS_UNUSED(debug_load_from_static) = false,
+    svs::logging::logger_ptr logger = svs::logging::get()
+) {
+    // Read the combined TOML (parameters + translation)
+    // and the translator binary data.
+    auto table = lib::detail::read_metadata(is);
+
+    auto parameters = lib::load<VamanaIndexParameters>(
+        table.template cast<toml::table>().at("parameters").template cast<toml::table>()
+    );
+
+    auto translation =
+        table.template cast<toml::table>().at("translation").template cast<toml::table>();
+
+    auto translator = IDTranslator::load(translation, is);
+
+    auto data = data_loader();
+    auto graph = graph_loader();
+
+    auto datasize = data.size();
+    auto graphsize = graph.n_nodes();
+    if (datasize != graphsize) {
+        throw ANNEXCEPTION(
+            "Reloaded data has {} nodes while the graph has {} nodes!", datasize, graphsize
+        );
+    }
+
+    auto translator_size = translator.size();
+    if (translator_size != datasize) {
+        throw ANNEXCEPTION(
+            "Translator has {} IDs but should have {}", translator_size, datasize
+        );
+    }
+
+    auto threadpool = threads::as_threadpool(std::move(threadpool_proto));
     return MutableVamanaIndex{
         parameters,
         std::move(data),

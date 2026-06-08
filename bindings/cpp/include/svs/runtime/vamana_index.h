@@ -23,8 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 namespace detail {
 struct VamanaBuildParameters {
     size_t graph_max_degree = Unspecify<size_t>();
@@ -40,6 +39,14 @@ struct VamanaSearchParameters {
     size_t search_buffer_capacity = Unspecify<size_t>();
     size_t prefetch_lookahead = Unspecify<size_t>();
     size_t prefetch_step = Unspecify<size_t>();
+    // Minimum filter hit rate to continue filtered search.
+    // If the hit rate after the first round falls below this threshold,
+    // stop and return empty results (caller can fall back to exact search).
+    // Default unspecified means never give up (treated as 0).
+    float filter_stop = Unspecify<float>();
+    // Enable pre-search filter sampling to estimate hit rate before graph traversal.
+    // Uses a random sample of IDs to set initial batch size and trigger early exit.
+    OptionalBool filter_estimate_batch = Unspecify<bool>();
 };
 } // namespace detail
 
@@ -76,6 +83,13 @@ struct SVS_RUNTIME_API VamanaIndex {
         IDFilter* filter = nullptr
     ) const noexcept = 0;
 
+    // Compute distance between stored vector `id` and `query` (dim floats).
+    virtual Status
+    get_distance(size_t id, const float* query, float* distance) const noexcept = 0;
+
+    // Reconstruct `n` vectors by ID into `output` buffer (n * dim floats).
+    virtual Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept = 0;
+
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;
 
@@ -94,6 +108,23 @@ struct SVS_RUNTIME_API VamanaIndex {
     virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(
         VamanaIndex** index, std::istream& in, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+
+    // Load from a memory-mapped file.
+    // The file is expected to be in the format produced by save().
+    static Status map_to_file(
+        VamanaIndex** index, const char* path, MetricType metric, StorageKind storage_kind
+    ) noexcept;
+
+    // Load from a memory buffer.
+    // The buffer is expected to be in the format produced by save().
+    static Status map_to_memory(
+        VamanaIndex** index,
+        void* data,
+        size_t size,
+        MetricType metric,
+        StorageKind storage_kind,
+        size_t* read_bytes = nullptr
     ) noexcept;
 };
 
@@ -120,7 +151,6 @@ struct SVS_RUNTIME_API VamanaIndexLeanVec : public VamanaIndex {
         const VamanaIndex::SearchParams& default_search_params = {}
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

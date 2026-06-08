@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_runtime VERSION 0.3.0 LANGUAGES CXX)
+project(svs_runtime VERSION 0.4.0 LANGUAGES CXX)
 set(TARGET_NAME svs_runtime)
 
 # IVF requires MKL, so it's optional
@@ -82,6 +82,21 @@ target_compile_options(${TARGET_NAME} PRIVATE
     -fvisibility=hidden
 )
 
+# Use cmake/clang-tidy for configuration. Should be ON for releases.
+option(SVS_EXPERIMENTAL_CLANG_TIDY
+    "Run the clang-tidy static analyzer on the cpp runtime bindings."
+    OFF
+)
+if(SVS_EXPERIMENTAL_CLANG_TIDY)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../cmake")
+    include(clang-tidy)
+    if(CLANG_TIDY_COMMAND)
+        set_target_properties(${TARGET_NAME}
+            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_COMMAND}"
+        )
+    endif()
+endif()
+
 if(UNIX AND NOT APPLE)
     # Don't export 3rd-party symbols from the lib
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
@@ -123,14 +138,14 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.2.0/svs-shared-library-0.2.0-lto-ivf.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-05-21-1429.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
             message(WARNING
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.2.0/svs-shared-library-0.2.0-ivf.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-2026-05-06-1253.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)
@@ -142,6 +157,19 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
         FetchContent_MakeAvailable(svs)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
         find_package(svs REQUIRED)
+
+	    # Strip svs::svs_compile_options gcc-only flags for clang-tidy
+        if(SVS_EXPERIMENTAL_CLANG_TIDY AND TARGET svs::svs_compile_options)
+            get_target_property(_svs_co_opts svs::svs_compile_options INTERFACE_COMPILE_OPTIONS)
+            if(_svs_co_opts)
+                list(FILTER _svs_co_opts EXCLUDE REGEX "^-fconcepts-diagnostics-depth")
+                list(FILTER _svs_co_opts EXCLUDE REGEX "^-ftemplate-backtrace-limit")
+                set_property(TARGET svs::svs_compile_options
+                    PROPERTY INTERFACE_COMPILE_OPTIONS "${_svs_co_opts}"
+                )
+            endif()
+        endif()
+
         target_link_libraries(${TARGET_NAME} PRIVATE
             svs::svs
             svs::svs_compile_options
