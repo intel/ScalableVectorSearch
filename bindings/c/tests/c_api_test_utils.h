@@ -14,6 +14,10 @@
 
 #pragma once
 
+// C API
+#include "svs/c_api/svs_c.h"
+
+// Standard library
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -38,8 +42,9 @@ class TempDir {
     }
 
     ~TempDir() {
-        if (!path_.empty() && std::filesystem::exists(path_)) {
-            std::filesystem::remove_all(path_);
+        if (!path_.empty()) {
+            std::error_code ec;
+            std::filesystem::remove_all(path_, ec);
         }
     }
 
@@ -54,8 +59,9 @@ class TempDir {
     }
     TempDir& operator=(TempDir&& other) noexcept {
         if (this != &other) {
-            if (!path_.empty() && std::filesystem::exists(path_)) {
-                std::filesystem::remove_all(path_);
+            if (!path_.empty()) {
+                std::error_code ec;
+                std::filesystem::remove_all(path_, ec);
             }
             path_ = std::move(other.path_);
             other.path_.clear();

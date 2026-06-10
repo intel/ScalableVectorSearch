@@ -303,8 +303,16 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         size_t non_existing_id = NUM_VECTORS + 1000;
         size_t deleted_count =
             svs_index_dynamic_delete_points(index, &non_existing_id, 1, error);
-        // Should return 0 for non-existing ID
+        // Should return 0 for non-existing ID and no error
+        CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(deleted_count == 0);
+
+        // Try to delete mix of existing and non-existing IDs
+        size_t ids_to_delete[] = {0, non_existing_id};
+        deleted_count = svs_index_dynamic_delete_points(index, ids_to_delete, 2, error);
+        // Should return 1 for the existing ID and no error
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(deleted_count == 1);
 
         svs_index_free(index);
     }

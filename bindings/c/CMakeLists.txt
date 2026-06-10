@@ -13,7 +13,7 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.21)
-project(svs_c_api VERSION 0.1.0 LANGUAGES CXX C)
+project(svs_c_api VERSION 0.4.0 LANGUAGES CXX C)
 set(TARGET_NAME svs_c_api)
 
 set(SVS_C_API_HEADERS
@@ -60,8 +60,11 @@ if(UNIX AND NOT APPLE)
 endif()
 
 target_compile_features(${TARGET_NAME} INTERFACE cxx_std_20)
+if (NOT DEFINED SVS_CXX_STANDARD OR SVS_CXX_STANDARD STREQUAL "")
+    set(SVS_CXX_STANDARD 20)
+endif()
 set_target_properties(${TARGET_NAME} PROPERTIES PUBLIC_HEADER "${SVS_C_API_HEADERS}")
-set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD 20)
+set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD ${SVS_CXX_STANDARD})
 set_target_properties(${TARGET_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON)
 set_target_properties(${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR} )
@@ -200,7 +203,7 @@ endif()
 if(SVS_BUILD_C_API_TESTS)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_options(${TARGET_NAME} PRIVATE --coverage)
-        target_link_libraries(${TARGET_NAME} PRIVATE --coverage)
+        target_link_options(${TARGET_NAME} PRIVATE --coverage)
         # add coverage target
         add_custom_target(clean_coverage
             COMMAND ${CMAKE_COMMAND} -E echo "Cleaning coverage data..."
