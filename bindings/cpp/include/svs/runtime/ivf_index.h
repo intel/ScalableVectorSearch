@@ -24,8 +24,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 // Abstract interface for IVF (Inverted File) indices.
 struct SVS_RUNTIME_API IVFIndex {
     virtual ~IVFIndex();
@@ -54,16 +53,28 @@ struct SVS_RUNTIME_API IVFIndex {
         size_t n_probes = Unspecify<size_t>();
         /// Level of reordering/reranking done when using compressed datasets (multiplier)
         float k_reorder = Unspecify<float>();
+        /// Minimum filter hit rate to continue filtered search.
+        /// If the hit rate after the first round falls below this threshold,
+        /// stop and return empty results (caller can fall back to exact search).
+        /// Default unspecified means never give up (treated as 0).
+        float filter_stop = Unspecify<float>();
+        /// Enable pre-search filter sampling to estimate hit rate before
+        /// cluster traversal. Uses a random sample of IDs to set the initial
+        /// batch size and trigger early exit.
+        OptionalBool filter_estimate_batch = Unspecify<bool>();
     };
 
     /// @brief Perform k-NN search on the index.
+    /// @param filter Optional ID filter; when non-null, only IDs satisfying
+    ///        ``filter->is_member(id)`` are returned.
     virtual Status search(
         size_t n,
         const float* x,
         size_t k,
         float* distances,
         size_t* labels,
-        const SearchParams* params = nullptr
+        const SearchParams* params = nullptr,
+        IDFilter* filter = nullptr
     ) const noexcept = 0;
 
     /// @brief Utility function to check storage kind support.
@@ -108,6 +119,13 @@ struct SVS_RUNTIME_API IVFIndex {
     /// @brief Get the number of threads used for index operations.
     virtual Status get_num_threads(size_t* num_threads) const noexcept = 0;
 
+    /// @brief Set the number of intra-query (cluster-level) threads.
+    /// Recreates the per-query intra-query thread pools.
+    virtual Status set_intra_query_threads(size_t intra_query_threads) noexcept = 0;
+
+    /// @brief Get the current number of intra-query (cluster-level) threads.
+    virtual Status get_intra_query_threads(size_t* intra_query_threads) const noexcept = 0;
+
     /// @brief Load an IVF index from a stream.
     static Status load(
         IVFIndex** index,
@@ -151,7 +169,6 @@ struct SVS_RUNTIME_API IVFIndexLeanVec : public IVFIndex {
         size_t intra_query_threads = 1
     ) noexcept;
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

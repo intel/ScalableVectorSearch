@@ -88,6 +88,22 @@ struct VamanaIndexManagerBase : public VamanaIndex {
     Status save(std::ostream& out) const noexcept override {
         return runtime_error_wrapper([&] { impl_->save(out); });
     }
+
+    Status
+    get_distance(size_t id, const float* query, float* distance) const noexcept override {
+        return runtime_error_wrapper([&] {
+            std::span<const float> q{query, impl_->dimensions()};
+            *distance = static_cast<float>(impl_->get_distance(id, q));
+        });
+    }
+
+    Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept override {
+        return runtime_error_wrapper([&] {
+            svs::data::SimpleDataView<float> dst{output, n, impl_->dimensions()};
+            std::span<const size_t> id_span{ids, n};
+            impl_->reconstruct_at(dst, id_span);
+        });
+    }
 };
 } // namespace
 
@@ -140,6 +156,43 @@ Status VamanaIndex::load(
     *index = nullptr;
     return runtime_error_wrapper([&] {
         std::unique_ptr<Impl> impl{Impl::load(in, metric, storage_kind)};
+        *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
+Status VamanaIndex::map_to_file(
+    VamanaIndex** index, const char* path, MetricType metric, StorageKind storage_kind
+) noexcept {
+    using Impl = VamanaIndexImpl;
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        std::filesystem::path fs_path(path);
+        auto is = std::make_unique<svs::io::mmstream>(fs_path);
+        std::unique_ptr<Impl> impl{
+            Impl::map_to_stream(std::move(is), metric, storage_kind)};
+        *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
+    });
+}
+
+Status VamanaIndex::map_to_memory(
+    VamanaIndex** index,
+    void* data,
+    size_t size,
+    MetricType metric,
+    StorageKind storage_kind,
+    size_t* read_bytes
+) noexcept {
+    using Impl = VamanaIndexImpl;
+    *index = nullptr;
+    return runtime_error_wrapper([&] {
+        auto sp = std::span(reinterpret_cast<char*>(data), size);
+        auto is = std::make_unique<svs::io::ispanstream>(sp);
+        std::unique_ptr<Impl> impl{
+            Impl::map_to_stream(std::move(is), metric, storage_kind)};
+        if (read_bytes) {
+            auto pos = impl->get_mapped_stream()->tellg();
+            *read_bytes = static_cast<size_t>(pos);
+        }
         *index = new VamanaIndexManagerBase<Impl>{std::move(impl)};
     });
 }

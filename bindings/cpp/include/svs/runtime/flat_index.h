@@ -23,8 +23,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 // Abstract interface for Flat indices.
 struct SVS_RUNTIME_API FlatIndex {
     // Utility function to check storage kind support
@@ -44,8 +43,22 @@ struct SVS_RUNTIME_API FlatIndex {
 
     virtual Status save(std::ostream& out) const noexcept = 0;
     static Status load(FlatIndex** index, std::istream& in, MetricType metric) noexcept;
-};
 
-} // namespace v0
+    // Load from a memory-mapped file.
+    // The file is expected to be in the format produced by save().
+    static Status
+    map_to_file(FlatIndex** index, const char* path, MetricType metric) noexcept;
+
+    // Load from a memory buffer.
+    // The buffer is expected to be in the format produced by save().
+    static Status map_to_memory(
+        FlatIndex** index,
+        void* data,
+        size_t size,
+        MetricType metric,
+        size_t* read_bytes = nullptr
+    ) noexcept;
+};
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs

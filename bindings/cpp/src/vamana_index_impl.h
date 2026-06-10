@@ -27,6 +27,7 @@
 #include <svs/core/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/graph.h>
+#include <svs/core/io/memstream.h>
 #include <svs/core/query_result.h>
 #include <svs/extensions/vamana/scalar.h>
 #include <svs/lib/file.h>
@@ -68,6 +69,8 @@ class VamanaIndexImpl {
                 "VamanaIndex"};
         }
     }
+
+    virtual ~VamanaIndexImpl() = default;
 
     size_t size() const { return impl_ ? get_impl()->size() : 0; }
 
@@ -124,15 +127,49 @@ class VamanaIndexImpl {
             get_impl()->set_search_parameters(old_sp);
         });
         get_impl()->set_search_parameters(sp);
+        float filter_stop = 0.0f;
+        bool filter_estimate_batch = true;
+        if (params) {
+            set_if_specified(filter_stop, params->filter_stop);
+            set_if_specified(filter_estimate_batch, params->filter_estimate_batch);
+        }
+        const auto max_batch_size = get_impl()->size();
+
+        // Pre-search filter sampling: estimate hit rate before graph traversal.
+        size_t sampled = 0;
+        size_t sample_hits = 0;
+        const auto sws = sp.buffer_config_.get_search_window_size();
+        const auto initial_batch_hint = std::max(k, sws);
+        auto initial_batch_size = initial_batch_hint;
+        if (filter_estimate_batch) {
+            std::tie(sampled, sample_hits) = sample_filter_hits(
+                *filter,
+                max_batch_size,
+                [](size_t) { return true; },
+                sample_size_for_filter_stop(filter_stop)
+            );
+            if (should_stop_filtered_search(sampled, sample_hits, filter_stop)) {
+                pad_empty_results(result, queries.size(), k);
+                return;
+            }
+            initial_batch_size = predict_further_processing(
+                sampled, sample_hits, k, initial_batch_hint, max_batch_size
+            );
+        }
 
         auto search_closure = [&](const auto& range, uint64_t SVS_UNUSED(tid)) {
             for (auto i : range) {
-                // For every query
                 auto query = queries.get_datum(i);
                 auto iterator = get_impl()->batch_iterator(query);
                 size_t found = 0;
+                size_t total_checked = 0;
+                auto batch_size = initial_batch_size;
                 do {
-                    iterator.next(k);
+                    batch_size = predict_further_processing(
+                        total_checked, found, k, batch_size, max_batch_size
+                    );
+                    iterator.next(batch_size);
+                    total_checked += iterator.size();
                     for (auto& neighbor : iterator.results()) {
                         if (filter->is_member(neighbor.id())) {
                             result.set(neighbor, i, found);
@@ -141,6 +178,10 @@ class VamanaIndexImpl {
                                 break;
                             }
                         }
+                    }
+                    if (should_stop_filtered_search(total_checked, found, filter_stop)) {
+                        found = 0;
+                        break;
                     }
                 } while (found < k && !iterator.done());
 
@@ -269,6 +310,21 @@ class VamanaIndexImpl {
         }
     }
 
+    double get_distance(size_t id, std::span<const float> query) const {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        return get_impl()->get_distance(id, query);
+    }
+
+    void reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) {
+        if (!impl_) {
+            throw StatusException{ErrorCode::NOT_INITIALIZED, "Index not initialized"};
+        }
+        std::vector<uint64_t> id_vec(ids.begin(), ids.end());
+        get_impl()->reconstruct_at(dst, std::span<const uint64_t>{id_vec});
+    }
+
     void reset() { impl_.reset(); }
 
     void save(std::ostream& out) const { get_impl()->save(out); }
@@ -387,14 +443,18 @@ class VamanaIndexImpl {
 
     // Constructor used during loading
     VamanaIndexImpl(
-        std::unique_ptr<svs::Vamana>&& impl, MetricType metric, StorageKind storage_kind
+        std::unique_ptr<svs::Vamana>&& impl,
+        MetricType metric,
+        StorageKind storage_kind,
+        std::unique_ptr<std::istream> mapped_stream = nullptr
     )
         : dim_{0}
         , metric_type_{metric}
         , storage_kind_{storage_kind}
         , build_params_{}
         , default_search_params_{}
-        , impl_{std::move(impl)} {
+        , impl_{std::move(impl)}
+        , mapped_stream_{std::move(mapped_stream)} {
         if (impl_) {
             dim_ = impl_->dimensions();
             const auto& buffer_config = impl_->get_search_parameters().buffer_config_;
@@ -410,11 +470,12 @@ class VamanaIndexImpl {
         }
     }
 
-    template <StorageKind Kind, typename Alloc>
+    template <StorageKind Kind, typename Alloc, typename... Args>
     static svs::Vamana* load_impl_t(
         storage::StorageType<Kind, Alloc>&& SVS_UNUSED(tag),
         std::istream& stream,
-        MetricType metric
+        MetricType metric,
+        Args&&... args
     ) {
         if constexpr (!storage::is_supported_storage_kind_v<Kind>) {
             throw StatusException(
@@ -425,7 +486,10 @@ class VamanaIndexImpl {
             auto threadpool = default_threadpool();
 
             return new svs::Vamana(svs::Vamana::assemble<float, storage_type>(
-                stream, to_svs_distance(metric), std::move(threadpool)
+                stream,
+                to_svs_distance(metric),
+                std::move(threadpool),
+                std::forward<Args>(args)...
             ));
         }
     }
@@ -447,6 +511,32 @@ class VamanaIndexImpl {
         );
     }
 
+    static VamanaIndexImpl* map_to_stream(
+        std::unique_ptr<std::istream>&& in, MetricType metric, StorageKind storage_kind
+    ) {
+        using map_allocator_type = svs::io::MemoryStreamAllocator<float>;
+        if (!svs::io::is_memory_stream(*in)) {
+            throw StatusException{
+                ErrorCode::INVALID_ARGUMENT, "Provided stream is not a memory stream"};
+        }
+        return storage::dispatch_storage_kind<map_allocator_type>(
+            storage_kind,
+            [&](auto&& tag, std::unique_ptr<std::istream>&& in, MetricType metric) {
+                using Tag = std::decay_t<decltype(tag)>;
+                auto impl = load_impl_t(
+                    std::forward<Tag>(tag), *in, metric, map_allocator_type{*in}
+                );
+                return new VamanaIndexImpl(
+                    std::unique_ptr<svs::Vamana>{impl}, metric, storage_kind, std::move(in)
+                );
+            },
+            std::move(in),
+            metric
+        );
+    }
+
+    std::istream* get_mapped_stream() const { return mapped_stream_.get(); }
+
     // Data members
   protected:
     size_t dim_;
@@ -455,6 +545,7 @@ class VamanaIndexImpl {
     VamanaIndex::BuildParams build_params_;
     VamanaIndex::SearchParams default_search_params_;
     std::unique_ptr<svs::Vamana> impl_;
+    std::unique_ptr<std::istream> mapped_stream_;
 };
 
 #ifdef SVS_RUNTIME_HAVE_LVQ_LEANVEC
