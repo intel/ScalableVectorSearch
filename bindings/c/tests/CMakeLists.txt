@@ -29,7 +29,9 @@ if(NOT Catch2_FOUND)
     set(CATCH_CONFIG_PREFIX_ALL ON CACHE BOOL "" FORCE)
 
     set(PRESET_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-    set(CMAKE_CXX_STANDARD ${SVS_CXX_STANDARD})
+    if(DEFINED SVS_CXX_STANDARD)
+        set(CMAKE_CXX_STANDARD ${SVS_CXX_STANDARD})
+    endif()
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
@@ -76,14 +78,6 @@ target_include_directories(${TARGET_NAME} PRIVATE
 include(CTest)
 enable_testing()
 
-# Add the test to CTest
-add_test(NAME ${TARGET_NAME} COMMAND ${TARGET_NAME})
-
-# Set test properties
-set_tests_properties(${TARGET_NAME} PROPERTIES
-    LABELS "c_api"
-)
-
 # Add Catch2 CMake module path
 if(NOT Catch2_FOUND)
     # Catch2 was fetched, use its source directory
@@ -94,7 +88,7 @@ else()
 endif()
 
 include(Catch)
-catch_discover_tests(${TARGET_NAME})
+catch_discover_tests(${TARGET_NAME} PROPERTIES LABELS "c_api")
 
 # Add a custom target to run tests
 add_custom_target(run_c_api_test
