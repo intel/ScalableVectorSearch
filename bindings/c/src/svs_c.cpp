@@ -661,13 +661,12 @@ extern "C" size_t svs_index_dynamic_delete_points(
     svs_index_h index, const size_t* ids, size_t num_ids, svs_error_h out_err
 ) {
     using namespace svs::c_runtime;
-    std::shared_ptr<DynamicIndex> dynamic_index_ptr;
     return wrap_exceptions(
         [&]() {
             EXPECT_ARG_NOT_NULL(index);
             EXPECT_ARG_NOT_NULL(ids);
             EXPECT_ARG_GT_THAN(num_ids, 0);
-            dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
+            auto dynamic_index_ptr = std::dynamic_pointer_cast<DynamicIndex>(index->impl);
             INVALID_ARGUMENT_IF(
                 dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
             );
