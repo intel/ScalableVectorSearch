@@ -24,31 +24,7 @@
 #include "c_api_test_utils.h"
 
 // Standard library
-#include <algorithm>
 #include <vector>
-
-namespace {
-
-// Helper function to generate test data
-void generate_test_data(std::vector<float>& data, size_t num_vectors, size_t dimension) {
-    data.resize(num_vectors * dimension);
-    for (size_t i = 0; i < data.size(); ++i) {
-        data[i] = static_cast<float>((i * 13) % 100) / 100.0f;
-    }
-}
-
-// Sequential threadpool for testing
-size_t sequential_tp_size(void* /*self*/) { return 1; }
-
-void sequential_tp_parallel_for(
-    void* /*self*/, void (*func)(void*, size_t), void* svs_param, size_t n
-) {
-    for (size_t i = 0; i < n; ++i) {
-        func(svs_param, i);
-    }
-}
-
-} // namespace
 
 CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
     const size_t NUM_VECTORS = 50;

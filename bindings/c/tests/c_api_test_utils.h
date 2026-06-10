@@ -14,9 +14,14 @@
 
 #pragma once
 
+#include <cmath>
+#include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 
 /// RAII wrapper that creates a unique temporary directory on construction
 /// and removes it (recursively) on destruction.
@@ -66,3 +71,67 @@ class TempDir {
   private:
     std::filesystem::path path_;
 };
+
+// Helper function to generate test data
+inline void
+generate_test_data(std::vector<float>& data, size_t num_vectors, size_t dimension) {
+    data.resize(num_vectors * dimension);
+    for (size_t i = 0; i < data.size(); ++i) {
+        data[i] = static_cast<float>((i * 7) % 100) / 100.0f;
+    }
+}
+
+// Sequential threadpool for testing
+inline size_t sequential_tp_size(void* /*self*/) { return 1; }
+
+inline void sequential_tp_parallel_for(
+    void* /*self*/, void (*func)(void*, size_t), void* svs_param, size_t n
+) {
+    for (size_t i = 0; i < n; ++i) {
+        func(svs_param, i);
+    }
+}
+
+// Helper to calculate Euclidean distance
+inline float euclidean_distance(const float* a, const float* b, size_t dim) {
+    float sum = 0.0f;
+    for (size_t i = 0; i < dim; ++i) {
+        float diff = a[i] - b[i];
+        sum += diff * diff;
+    }
+    return sum;
+}
+
+// Helper to calculate Inner Product distance
+inline float inner_product_distance(const float* a, const float* b, size_t dim) {
+    float sum = 0.0f;
+    for (size_t i = 0; i < dim; ++i) {
+        sum += a[i] * b[i];
+    }
+    return sum;
+}
+
+// Helper to calculate Cosine distance
+inline float cosine_distance(const float* a, const float* b, size_t dim) {
+    float dot_product = 0.0f;
+    float norm_a = 0.0f;
+    float norm_b = 0.0f;
+    for (size_t i = 0; i < dim; ++i) {
+        dot_product += a[i] * b[i];
+        norm_a += a[i] * a[i];
+        norm_b += b[i] * b[i];
+    }
+    if (norm_a == 0.0f || norm_b == 0.0f) {
+        return 1.0f; // Define cosine distance as 1 if either vector is zero
+    }
+    return dot_product / (std::sqrt(norm_a) * std::sqrt(norm_b));
+}
+
+inline bool check_storage_support(svs_storage_h storage, svs_error_h error) {
+    if (storage == nullptr) {
+        auto code = svs_error_get_code(error);
+        return code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW;
+    } else {
+        return svs_error_ok(error) == true;
+    }
+}

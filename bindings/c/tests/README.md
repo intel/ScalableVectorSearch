@@ -155,7 +155,7 @@ When adding new tests:
 
 - Catch2 v3.x (automatically fetched if not found)
 - SVS C API library
-- C++17 or later compiler
+- C++20 or later compiler
 
 ## Notes
 

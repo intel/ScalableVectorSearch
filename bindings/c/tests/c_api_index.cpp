@@ -25,41 +25,7 @@
 
 // Standard library
 #include <algorithm>
-#include <cmath>
 #include <vector>
-
-namespace {
-
-// Helper function to generate test data
-void generate_test_data(std::vector<float>& data, size_t num_vectors, size_t dimension) {
-    data.resize(num_vectors * dimension);
-    for (size_t i = 0; i < data.size(); ++i) {
-        data[i] = static_cast<float>((i * 7) % 100) / 100.0f;
-    }
-}
-
-// Helper to calculate Euclidean distance
-float euclidean_distance(const float* a, const float* b, size_t dim) {
-    float sum = 0.0f;
-    for (size_t i = 0; i < dim; ++i) {
-        float diff = a[i] - b[i];
-        sum += diff * diff;
-    }
-    return std::sqrt(sum);
-}
-
-// Sequential threadpool for testing
-size_t sequential_tp_size(void* /*self*/) { return 1; }
-
-void sequential_tp_parallel_for(
-    void* /*self*/, void (*func)(void*, size_t), void* svs_param, size_t n
-) {
-    for (size_t i = 0; i < n; ++i) {
-        func(svs_param, i);
-    }
-}
-
-} // namespace
 
 CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]") {
     const size_t NUM_VECTORS = 100;
@@ -261,17 +227,21 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         };
 
         // LeanVec: leanvec_dims = DIMENSION / 2, primary = int4, secondary = int8
-        run_build_and_search(svs_storage_create_leanvec(
+        svs_storage_h storage = svs_storage_create_leanvec(
             DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
-        ));
+        );
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
+        run_build_and_search(storage);
 
         // LVQ: primary = int4, residual = int8
-        run_build_and_search(
-            svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error)
-        );
+        storage = svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
+        run_build_and_search(storage);
 
         // Scalar Quantization: int8
-        run_build_and_search(svs_storage_create_sq(SVS_DATA_TYPE_INT8, error));
+        storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
+        run_build_and_search(storage);
 
         svs_error_free(error);
     }

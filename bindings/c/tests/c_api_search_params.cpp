@@ -78,10 +78,13 @@ CATCH_TEST_CASE("C API Search Parameters", "[c_api][search_params]") {
 
         // Try to create with size 0
         svs_search_params_h params = svs_search_params_create_vamana(0, error);
-        // Behavior depends on implementation - either nullptr or valid handle
-        if (params != nullptr) {
-            svs_search_params_free(params);
-        }
+        CATCH_REQUIRE(params == nullptr);
+        CATCH_REQUIRE(svs_error_ok(error) == false);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        const char* msg = svs_error_get_message(error);
+        CATCH_REQUIRE(msg != nullptr);
+        CATCH_REQUIRE(msg[0] != '\0');
 
         svs_error_free(error);
     }

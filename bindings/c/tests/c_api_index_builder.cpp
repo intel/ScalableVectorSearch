@@ -20,31 +20,11 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// Test utilities
+#include "c_api_test_utils.h"
+
 // Standard library
 #include <vector>
-
-namespace {
-
-// Helper function to generate random test data
-void generate_test_data(std::vector<float>& data, size_t num_vectors, size_t dimension) {
-    data.resize(num_vectors * dimension);
-    for (size_t i = 0; i < data.size(); ++i) {
-        data[i] = static_cast<float>(i % 100) / 100.0f;
-    }
-}
-
-// Sequential threadpool implementation for testing
-size_t sequential_tp_size(void* /*self*/) { return 1; }
-
-void sequential_tp_parallel_for(
-    void* /*self*/, void (*func)(void*, size_t), void* svs_param, size_t n
-) {
-    for (size_t i = 0; i < n; ++i) {
-        func(svs_param, i);
-    }
-}
-
-} // namespace
 
 CATCH_TEST_CASE("C API Index Builder", "[c_api][index_builder]") {
     CATCH_SECTION("Index Builder Creation") {
@@ -212,13 +192,18 @@ CATCH_TEST_CASE("C API Index Builder", "[c_api][index_builder]") {
         svs_algorithm_h algorithm = svs_algorithm_create_vamana(64, 128, 100, error);
         CATCH_REQUIRE(algorithm != nullptr);
 
-        // Try to create with 0 dimension
+        // Try to create with 0 dimension: this must fail with INVALID_ARGUMENT
         svs_index_builder_h builder =
             svs_index_builder_create(SVS_DISTANCE_METRIC_EUCLIDEAN, 0, algorithm, error);
-        // Behavior depends on implementation
-        if (builder != nullptr) {
-            svs_index_builder_free(builder);
-        }
+        CATCH_REQUIRE(builder == nullptr);
+        CATCH_REQUIRE(svs_error_ok(error) == false);
+
+        auto code = svs_error_get_code(error);
+        CATCH_REQUIRE(code == SVS_ERROR_INVALID_ARGUMENT);
+
+        const char* msg = svs_error_get_message(error);
+        CATCH_REQUIRE(msg != nullptr);
+        CATCH_REQUIRE(msg[0] != '\0');
 
         svs_algorithm_free(algorithm);
         svs_error_free(error);

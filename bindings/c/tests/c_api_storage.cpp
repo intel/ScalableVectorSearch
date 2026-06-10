@@ -20,6 +20,9 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// Test utilities
+#include "c_api_test_utils.h"
+
 CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
     CATCH_SECTION("Simple Storage Float32") {
         svs_error_h error = svs_error_create();
@@ -74,8 +77,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
         svs_storage_h storage = svs_storage_create_leanvec(
             leanvec_dims, SVS_DATA_TYPE_UINT8, SVS_DATA_TYPE_UINT8, error
         );
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -88,8 +90,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
         svs_storage_h storage = svs_storage_create_leanvec(
             leanvec_dims, SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_UINT4, error
         );
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -100,8 +101,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
 
         svs_storage_h storage =
             svs_storage_create_lvq(SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_VOID, error);
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -112,8 +112,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
 
         svs_storage_h storage =
             svs_storage_create_lvq(SVS_DATA_TYPE_UINT8, SVS_DATA_TYPE_VOID, error);
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -124,8 +123,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
 
         svs_storage_h storage =
             svs_storage_create_lvq(SVS_DATA_TYPE_UINT4, SVS_DATA_TYPE_UINT8, error);
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -135,8 +133,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
         svs_error_h error = svs_error_create();
 
         svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_UINT8, error);
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -146,8 +143,7 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
         svs_error_h error = svs_error_create();
 
         svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
-        CATCH_REQUIRE(storage != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage, error) == true);
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -164,14 +160,17 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
         svs_error_h error = svs_error_create();
 
         svs_storage_h storage1 = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
+        CATCH_REQUIRE(svs_error_ok(error) == true);
+
         svs_storage_h storage2 = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+        CATCH_REQUIRE(svs_error_ok(error) == true);
+
         svs_storage_h storage3 =
             svs_storage_create_leanvec(64, SVS_DATA_TYPE_UINT8, SVS_DATA_TYPE_UINT8, error);
 
         CATCH_REQUIRE(storage1 != nullptr);
         CATCH_REQUIRE(storage2 != nullptr);
-        CATCH_REQUIRE(storage3 != nullptr);
-        CATCH_REQUIRE(svs_error_ok(error) == true);
+        CATCH_REQUIRE(check_storage_support(storage3, error) == true);
 
         svs_storage_free(storage1);
         svs_storage_free(storage2);
