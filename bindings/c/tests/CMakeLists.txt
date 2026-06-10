@@ -29,11 +29,11 @@ if(NOT Catch2_FOUND)
     set(CATCH_CONFIG_PREFIX_ALL ON CACHE BOOL "" FORCE)
 
     set(PRESET_CMAKE_CXX_STANDARD ${CMAKE_CXX_STANDARD})
-    set(CMAKE_CXX_STANDARD 20)
+    set(CMAKE_CXX_STANDARD ${SVS_CXX_STANDARD})
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.11.0
+        GIT_TAG v3.4.0
     )
     FetchContent_MakeAvailable(Catch2)
     set(CMAKE_CXX_STANDARD ${PRESET_CMAKE_CXX_STANDARD})
@@ -97,7 +97,7 @@ include(Catch)
 catch_discover_tests(${TARGET_NAME})
 
 # Add a custom target to run tests
-add_custom_target(run_c_api_tests
+add_custom_target(run_c_api_test
     COMMAND ${TARGET_NAME}
     DEPENDS ${TARGET_NAME}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

@@ -20,6 +20,9 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// Test utilities
+#include "c_api_test_utils.h"
+
 // Standard library
 #include <algorithm>
 #include <cmath>
@@ -63,6 +66,7 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
     const size_t NUM_QUERIES = 5;
     const size_t DIMENSION = 32;
     const size_t K = 10;
+    const size_t NUM_THREADS = 4;
 
     std::vector<float> data;
     std::vector<float> queries;
@@ -82,6 +86,12 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
         );
         CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
         CATCH_REQUIRE(svs_error_ok(error));
 
         // Build index with default threadpool
@@ -141,6 +151,11 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         );
         CATCH_REQUIRE(builder != nullptr);
 
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
         CATCH_REQUIRE(index != nullptr);
 
@@ -170,10 +185,15 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         );
         CATCH_REQUIRE(builder != nullptr);
 
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
         svs_storage_h storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
         CATCH_REQUIRE(storage != nullptr);
 
-        bool success = svs_index_builder_set_storage(builder, storage, error);
+        success = svs_index_builder_set_storage(builder, storage, error);
         CATCH_REQUIRE(success);
 
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
@@ -189,6 +209,70 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         svs_storage_free(storage);
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Index Basic Build and Search with Quantized Storages") {
+        svs_error_h error = svs_error_create();
+
+        auto run_build_and_search = [&](svs_storage_h storage) {
+            CATCH_REQUIRE(storage != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(algorithm != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            bool success = svs_index_builder_set_threadpool(
+                builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+            );
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            success = svs_index_builder_set_storage(builder, storage, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_search_results_t results =
+                svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+            CATCH_REQUIRE(results != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
+
+            for (size_t i = 0; i < NUM_QUERIES; ++i) {
+                CATCH_REQUIRE(results->results_per_query[i] == K);
+            }
+
+            svs_search_results_free(results);
+            svs_index_free(index);
+            svs_index_builder_free(builder);
+            svs_algorithm_free(algorithm);
+            svs_storage_free(storage);
+        };
+
+        // LeanVec: leanvec_dims = DIMENSION / 2, primary = int4, secondary = int8
+        run_build_and_search(svs_storage_create_leanvec(
+            DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
+        ));
+
+        // LVQ: primary = int4, residual = int8
+        run_build_and_search(
+            svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error)
+        );
+
+        // Scalar Quantization: int8
+        run_build_and_search(svs_storage_create_sq(SVS_DATA_TYPE_INT8, error));
+
         svs_error_free(error);
     }
 
@@ -233,12 +317,17 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
         );
 
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
         CATCH_REQUIRE(index != nullptr);
 
         // Get distance from first vector to first query
         float distance = -1.0f;
-        bool success = svs_index_get_distance(index, 0, queries.data(), &distance, error);
+        success = svs_index_get_distance(index, 0, queries.data(), &distance, error);
         CATCH_REQUIRE(success);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(distance >= 0.0f);
@@ -262,6 +351,11 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
         );
 
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
         CATCH_REQUIRE(index != nullptr);
 
@@ -270,7 +364,7 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         size_t num_ids = 3;
         std::vector<float> reconstructed(num_ids * DIMENSION);
 
-        bool success = svs_index_reconstruct(
+        success = svs_index_reconstruct(
             index, ids, num_ids, reconstructed.data(), DIMENSION, error
         );
         CATCH_REQUIRE(success);
@@ -299,6 +393,11 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         svs_index_builder_h builder = svs_index_builder_create(
             SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
         );
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
 
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
         CATCH_REQUIRE(index != nullptr);
@@ -333,6 +432,11 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
         );
 
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
         CATCH_REQUIRE(index != nullptr);
 
@@ -346,6 +450,66 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             svs_search_results_free(results);
         }
 
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Index Save and Load") {
+        svs_error_h error = svs_error_create();
+
+        // Create algorithm
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Create builder
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Build index with default threadpool
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Create temporary directory for saving index
+        TempDir temp_dir;
+        auto temp_path = temp_dir.path();
+
+        // Save the index to disk
+        const char* directory = temp_path.c_str();
+        success = svs_index_save(index, directory, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Load the index back
+        svs_index_h loaded_index = svs_index_load(builder, directory, error);
+        CATCH_REQUIRE(loaded_index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Perform search on loaded index
+        std::vector<float> queries;
+        generate_test_data(queries, 2, DIMENSION);
+
+        svs_search_results_t results =
+            svs_index_search(loaded_index, queries.data(), 2, K, nullptr, error);
+        CATCH_REQUIRE(results != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results->num_queries == 2);
+
+        // Cleanup
+        svs_search_results_free(results);
+        svs_index_free(loaded_index);
         svs_index_free(index);
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);

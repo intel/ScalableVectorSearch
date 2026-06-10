@@ -20,6 +20,9 @@
 // catch2
 #include "catch2/catch_test_macros.hpp"
 
+// Test utilities
+#include "c_api_test_utils.h"
+
 // Standard library
 #include <algorithm>
 #include <vector>
@@ -51,6 +54,7 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
     const size_t NUM_VECTORS = 50;
     const size_t DIMENSION = 32;
     const size_t K = 5;
+    const size_t BLOCK_SIZE = 1024 * 1024; // 1 MB block size for testing
 
     std::vector<float> data;
     std::vector<size_t> ids(NUM_VECTORS);
@@ -61,63 +65,48 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         ids[i] = i;
     }
 
+    svs_error_h error = svs_error_create();
+
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+    CATCH_REQUIRE(algorithm != nullptr);
+
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    CATCH_REQUIRE(builder != nullptr);
+
+    // Set single thread threadpool for testing
+    bool success = svs_index_builder_set_threadpool(
+        builder, SVS_THREADPOOL_KIND_SINGLE_THREAD, 1, error
+    );
+    CATCH_REQUIRE(success);
+    CATCH_REQUIRE(svs_error_ok(error));
+
     CATCH_SECTION("Dynamic Index Build with IDs") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        CATCH_REQUIRE(algorithm != nullptr);
-
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-        CATCH_REQUIRE(builder != nullptr);
-
         // Build dynamic index with explicit IDs
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Build without IDs") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        CATCH_REQUIRE(algorithm != nullptr);
-
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-        CATCH_REQUIRE(builder != nullptr);
-
         // Build dynamic index without explicit IDs (auto-generated)
-        svs_index_h index =
-            svs_index_build_dynamic(builder, data.data(), nullptr, NUM_VECTORS, 0, error);
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), nullptr, NUM_VECTORS, BLOCK_SIZE, error
+        );
         CATCH_REQUIRE(index != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Has ID") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -138,21 +127,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(has_id == false);
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Add Points") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -181,21 +160,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         }
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Delete Points") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -224,21 +193,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(has_id == true);
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Add and Delete") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -266,21 +225,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         }
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Consolidate") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -300,21 +249,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(svs_error_ok(error));
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Compact") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -339,21 +278,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(svs_error_ok(error));
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Search After Modifications") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -386,21 +315,11 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
 
         svs_search_results_free(results);
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
 
     CATCH_SECTION("Dynamic Index Delete Non-existing ID") {
-        svs_error_h error = svs_error_create();
-
-        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
-        svs_index_builder_h builder = svs_index_builder_create(
-            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
-        );
-
         svs_index_h index = svs_index_build_dynamic(
-            builder, data.data(), ids.data(), NUM_VECTORS, 0, error
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
         );
         CATCH_REQUIRE(index != nullptr);
 
@@ -412,8 +331,46 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(deleted_count == 0);
 
         svs_index_free(index);
-        svs_index_builder_free(builder);
-        svs_algorithm_free(algorithm);
-        svs_error_free(error);
     }
+
+    CATCH_SECTION("Dynamic Index Save and Load") {
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+
+        // Create temporary directory for saving index
+        TempDir temp_dir;
+        auto temp_path = temp_dir.path();
+
+        // Save the index to disk
+        const char* directory = temp_path.c_str();
+        bool success = svs_index_save(index, directory, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Load the index back
+        svs_index_h loaded_index =
+            svs_index_load_dynamic(builder, directory, BLOCK_SIZE, error);
+        CATCH_REQUIRE(loaded_index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Perform search on loaded index
+        std::vector<float> queries;
+        generate_test_data(queries, 2, DIMENSION);
+
+        svs_search_results_t results =
+            svs_index_search(loaded_index, queries.data(), 2, K, nullptr, error);
+        CATCH_REQUIRE(results != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results->num_queries == 2);
+
+        svs_search_results_free(results);
+        svs_index_free(loaded_index);
+        svs_index_free(index);
+    }
+
+    svs_index_builder_free(builder);
+    svs_algorithm_free(algorithm);
+    svs_error_free(error);
 }

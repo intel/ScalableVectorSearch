@@ -23,7 +23,7 @@ The tests are built as part of the C API build process. To build them:
 ```bash
 # From the build directory
 cmake -DSVS_BUILD_C_API_TESTS=ON ..
-make svs_c_api_tests
+make svs_c_api_test
 ```
 
 To disable building tests:
@@ -37,41 +37,41 @@ cmake -DSVS_BUILD_C_API_TESTS=OFF ..
 ### Run all tests
 
 ```bash
-./svs_c_api_tests
+./svs_c_api_test
 ```
 
 ### Run specific test cases
 
 ```bash
 # Run error handling tests only
-./svs_c_api_tests "[c_api][error]"
+./svs_c_api_test "[c_api][error]"
 
 # Run algorithm tests only
-./svs_c_api_tests "[c_api][algorithm]"
+./svs_c_api_test "[c_api][algorithm]"
 
 # Run all index tests
-./svs_c_api_tests "[c_api][index]"
+./svs_c_api_test "[c_api][index]"
 
 # Run dynamic index tests
-./svs_c_api_tests "[c_api][dynamic]"
+./svs_c_api_test "[c_api][dynamic]"
 ```
 
 ### Run with verbose output
 
 ```bash
-./svs_c_api_tests -s
+./svs_c_api_test -s
 ```
 
 ### List all available tests
 
 ```bash
-./svs_c_api_tests --list-tests
+./svs_c_api_test --list-tests
 ```
 
 ### Run with CTest
 
 ```bash
-ctest -R svs_c_api_tests
+ctest -R svs_c_api_test
 ```
 
 ## Test Coverage

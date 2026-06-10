@@ -69,9 +69,6 @@ set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVER
 target_link_libraries(${TARGET_NAME} PRIVATE
     svs::svs
 )
-if (SVS_EXPERIMENTAL_LINK_STATIC_MKL)
-    link_mkl_static(${TARGET_NAME})
-endif()
 
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     message(STATUS "Enabling LVQ/LeanVec support in C API")
@@ -95,7 +92,9 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
             svs::svs
             svs_compile_options
         )
-        link_mkl_static(${TARGET_NAME})
+        if(SVS_EXPERIMENTAL_LINK_STATIC_MKL)
+            link_mkl_static(${TARGET_NAME})
+        endif()
     elseif(TARGET svs::svs)
         message(FATAL_ERROR
             "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
@@ -191,8 +190,34 @@ install(FILES
 )
 
 # Build tests if requested
-option(SVS_BUILD_C_API_TESTS "Build C API tests" ON)
+if(DEFINED SVS_BUILD_TESTS)
+    option(SVS_BUILD_C_API_TESTS "Build C API tests" ${SVS_BUILD_TESTS})
+else()
+    option(SVS_BUILD_C_API_TESTS "Build C API tests" OFF)
+endif()
+
+
 if(SVS_BUILD_C_API_TESTS)
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        target_compile_options(${TARGET_NAME} PRIVATE --coverage)
+        target_link_libraries(${TARGET_NAME} PRIVATE --coverage)
+        # add coverage target
+        add_custom_target(clean_coverage
+            COMMAND ${CMAKE_COMMAND} -E echo "Cleaning coverage data..."
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} find . -name "*.gcda" -delete
+            COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/coverage.info
+            COMMENT "Cleaning coverage data..."
+        )
+        add_custom_target(coverage
+            COMMAND ${CMAKE_COMMAND} -E echo "Generating coverage report..."
+            COMMAND ${CMAKE_COMMAND} -E env GCOV_PREFIX=${CMAKE_BINARY_DIR}/coverage GCOV_PREFIX_STRIP=1 ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/coverage
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --capture --directory . --output-file coverage.info
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --remove coverage.info '/usr/*' --output-file coverage.info
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --remove coverage.info '*/_deps/*' --output-file coverage.info
+            COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_BINARY_DIR} lcov --list coverage.info
+            COMMENT "Generating code coverage report..."
+        )
+    endif()
     add_subdirectory(tests)
 endif()
 
