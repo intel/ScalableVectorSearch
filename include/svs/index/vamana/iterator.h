@@ -257,13 +257,13 @@ template <typename Index, typename QueryType> class BatchIterator {
 
         bool restart_search_copy = std::exchange(restart_search_, true);
 
-        // Hold the search lock (resize_mutex_ shared for a dynamic index;
-        // so a concurrent add_points/compact cannot reallocate the
-        // buffers under us. The guard is released at the end of this scope —
-        // begore acquiring the translation lock. The two locks must
-        // never be held nested in resize->translator order: that would invert
-        // the global lock order (compact -> translator -> resize) and deadlock
-        // against add_points.
+        // Hold the search lock (compact_mutex_ shared for a dynamic index; a
+        // no-op for a static one) so a concurrent compact() cannot free the
+        // segments under us. add_points growth is lock-free (grow-stable
+        // storage). The guard is released at the end of this scope — before
+        // acquiring the translation lock. The two locks must never be held
+        // nested in the translator-before-compact order: that would invert the
+        // global lock order (compact -> translator) and deadlock against compact.
         {
             [[maybe_unused]] auto search_guard = parent_->lock_for_search();
             parent_->experimental_escape_hatch([&]<std::integral I>(

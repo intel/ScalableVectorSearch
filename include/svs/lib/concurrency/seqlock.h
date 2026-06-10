@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "svs/lib/segmented_vector.h"
+
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -130,7 +132,10 @@ class SeqLockArray {
     size_t capacity() const { return counters_.capacity(); }
 
   private:
-    std::vector<SeqLockCounter> counters_;
+    // Grow-stable storage: appending counters never relocates existing ones, so a
+    // concurrent lock-free reader (greedy_search reading seq_counters_[i]) is safe
+    // against a writer's grow. See svs/lib/segmented_vector.h.
+    lib::SegmentedVector<SeqLockCounter> counters_;
 };
 
 } // namespace svs

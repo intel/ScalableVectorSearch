@@ -23,6 +23,7 @@
 #include "svs/lib/concurrency/atomic_span.h"
 #include "svs/lib/concurrency/seqlock.h"
 #include "svs/lib/saveload.h"
+#include "svs/lib/segmented_vector.h"
 #include "svs/lib/spinlock.h"
 
 #include <algorithm>
@@ -442,7 +443,10 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     data_type data_;
     Idx max_degree_;
     SeqLockArray seq_counters_;
-    std::vector<SpinLock> node_locks_;
+    // Grow-stable: a concurrent add_points Phase 3 backprop locks node_locks_[other]
+    // lock-free while another add grows the array; segmented storage keeps existing
+    // locks at stable addresses. See svs/lib/segmented_vector.h.
+    lib::SegmentedVector<SpinLock> node_locks_;
 };
 
 /////

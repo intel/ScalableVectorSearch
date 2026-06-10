@@ -43,6 +43,7 @@
 #include "svs/index/vamana/vamana_build.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/preprocessor.h"
+#include "svs/lib/segmented_vector.h"
 #include "svs/lib/threads.h"
 
 namespace svs::index::vamana {
@@ -107,7 +108,7 @@ inline constexpr std::string_view name(SlotMetadata metadata) {
 
 class ValidBuilder {
   public:
-    ValidBuilder(const std::vector<SlotMetadata>& status)
+    ValidBuilder(const lib::SegmentedVector<SlotMetadata>& status)
         : status_{status} {}
 
     template <typename I>
@@ -125,7 +126,7 @@ class ValidBuilder {
     }
 
   private:
-    const std::vector<SlotMetadata>& status_;
+    const lib::SegmentedVector<SlotMetadata>& status_;
 };
 
 template <graphs::MemoryGraph Graph, typename Data, typename Dist>
@@ -171,7 +172,9 @@ class MutableVamanaIndex {
     graph_type graph_;
     data_type data_;
     entry_point_type entry_point_;
-    std::vector<SlotMetadata> status_;
+    // Grow-stable per-slot metadata: search reads status_[i] lock-free via ValidBuilder
+    // while a concurrent add_points grows it. See svs/lib/segmented_vector.h.
+    lib::SegmentedVector<SlotMetadata> status_;
     size_t first_empty_ = 0;
     IDTranslator translator_;
     // Count of Valid slots. Maintained atomically in add_points/delete_entry.
@@ -182,16 +185,20 @@ class MutableVamanaIndex {
     // shared for reads (delete/search). Wrapped in unique_ptr for movability.
     std::unique_ptr<std::shared_mutex> translator_mutex_{
         std::make_unique<std::shared_mutex>()};
-    // Reserves slot ownership against compact(). Writers (add_points,
-    // delete_entries, consolidate) hold this shared for the duration of
-    // their call; compact() holds it exclusive.
+    // Reserves slot ownership against compact(). Search and the other readers
+    // (get_distance/reconstruct_at/batch-iterator) hold this shared so that
+    // compact()'s shrink — which frees trailing segments of the grow-stable
+    // containers — drains in-flight readers before destroying storage.
+    // Writers (add_points, delete_entries, consolidate) also hold it shared;
+    // compact() holds it exclusive.
+    //
+    // No resize_mutex_ is needed: data_/graph_/seq_counters_/node_locks_/status_
+    // all use lib::SegmentedVector, whose outer storage never relocates on
+    // growth, so a concurrent reader subscript during an add_points grow is
+    // safe without any lock. Lock acquisition order across the codebase:
+    //   compact_mutex_ -> translator_mutex_   (never reversed)
     std::unique_ptr<std::shared_mutex> compact_mutex_{
         std::make_unique<std::shared_mutex>()};
-    // Protects the size of data_/graph_/seq_counters_/node_locks_/status_
-    // underlying std::vector storage.
-    // Lock acquisition order across the codebase:
-    //   compact_mutex_ -> translator_mutex_ -> resize_mutex_   (never reversed)
-    std::unique_ptr<std::shared_mutex> resize_mutex_{std::make_unique<std::shared_mutex>()};
 
     // Thread local data structures.
     distance_type distance_;
@@ -504,6 +511,8 @@ class MutableVamanaIndex {
     /// @brief Get the raw data for external id `e`.
     ///
     auto get_datum(size_t e) const {
+        // Lock order: compact_mutex_ then translator_mutex_ (global order).
+        std::shared_lock compact_lock{*compact_mutex_};
         std::shared_lock lock{*translator_mutex_};
         if (!translator_.has_external(e)) {
             throw ANNEXCEPTION("External ID {} not found in index!", e);
@@ -523,16 +532,17 @@ class MutableVamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     ValidBuilder internal_search_builder() const { return ValidBuilder{status_}; }
 
-    /// @brief RAII reader lock guarding data_/graph_ against reallocation by
-    /// add_points/compact. Used by BatchIterator::next() to protect the greedy
-    /// traversal — mirrors the shared lock taken by search().
+    /// @brief RAII reader lock guarding data_/graph_ against compact()'s shrink
+    /// (which frees segments). Used by BatchIterator::next() to protect the
+    /// greedy traversal — mirrors the shared lock taken by search(). Growth by
+    /// add_points needs no lock (grow-stable SegmentedVector storage).
     ///
     /// Acquire this only around graph traversal, and release it before
     /// acquiring lock_for_translation(): the two must never be held nested in
-    /// the resize->translator order, which would invert the global lock order
-    /// (compact -> translator -> resize) and deadlock against add_points.
+    /// the compact->translator order reversed, which would invert the global
+    /// lock order (compact -> translator) and deadlock against compact.
     [[nodiscard]] std::shared_lock<std::shared_mutex> lock_for_search() const {
-        return std::shared_lock<std::shared_mutex>(*resize_mutex_);
+        return std::shared_lock<std::shared_mutex>(*compact_mutex_);
     }
 
     /// @brief RAII reader lock guarding translator_ against erase/remap by
@@ -575,7 +585,9 @@ class MutableVamanaIndex {
         scratchspace_type& scratch,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) const {
-        std::shared_lock resize_lock{*resize_mutex_};
+        // Hold compact_mutex_ shared so compact()'s shrink can't free segments
+        // mid-traversal. add_points growth is lock-free (grow-stable storage).
+        std::shared_lock compact_lock{*compact_mutex_};
         extensions::single_search(
             data_,
             scratch.buffer,
@@ -594,7 +606,10 @@ class MutableVamanaIndex {
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
         {
-            std::shared_lock resize_lock{*resize_mutex_};
+            // compact_mutex_ shared: blocks compact()'s segment-freeing shrink
+            // during the traversal. Released before translate_to_external() takes
+            // translator_mutex_ to keep the compact->translator lock order.
+            std::shared_lock compact_lock{*compact_mutex_};
             threads::parallel_for(
                 threadpool_,
                 threads::StaticPartition{queries.size()},
@@ -771,22 +786,14 @@ class MutableVamanaIndex {
                 size_t needed = num_points - slots.size();
                 size_t current_size = data_.size();
                 size_t new_size = current_size + needed;
-                // Take resize_mutex_ exclusive only if at least one container
-                // would need to grow its outer storage.
-                const bool needs_realloc = new_size > data_.capacity() ||
-                                           new_size > graph_.capacity() ||
-                                           new_size > status_.capacity();
-
-                if (needs_realloc) {
-                    std::lock_guard resize_lock{*resize_mutex_};
-                    data_.resize(new_size);
-                    graph_.unsafe_resize(new_size);
-                    status_.resize(new_size, SlotMetadata::Empty);
-                } else {
-                    data_.resize(new_size);
-                    graph_.unsafe_resize(new_size);
-                    status_.resize(new_size, SlotMetadata::Empty);
-                }
+                // Grow lock-free: the containers are grow-stable SegmentedVectors,
+                // so a concurrent search subscripting an index < its observed size
+                // is unaffected by this append (new segments are published, then
+                // size is bumped). Already serialized against other writers by the
+                // translator_mutex_ exclusive lock held across this block.
+                data_.resize(new_size);
+                graph_.unsafe_resize(new_size);
+                status_.resize(new_size, SlotMetadata::Empty);
 
                 threads::UnitRange<size_t> extra_points{
                     current_size, current_size + needed};
@@ -1061,12 +1068,11 @@ class MutableVamanaIndex {
         ///// Finishing steps.
         {
             std::lock_guard lock{*translator_mutex_};
-            // Resize the graph and data.
-            {
-                std::lock_guard resize_lock{*resize_mutex_};
-                graph_.unsafe_resize(max_index);
-                data_.resize(max_index);
-            }
+            // Shrink the graph and data. compact_mutex_ is held exclusive for the
+            // whole compact(), so all in-flight readers have drained — freeing
+            // trailing segments here cannot dangle a concurrent search.
+            graph_.unsafe_resize(max_index);
+            data_.resize(max_index);
             first_empty_ = max_index;
 
             // Compact metadata and ID remapping.
@@ -1082,10 +1088,7 @@ class MutableVamanaIndex {
                     translator_.remap_internal_id(old_id, new_id);
                 }
             }
-            {
-                std::lock_guard resize_lock{*resize_mutex_};
-                status_.resize(max_index);
-            }
+            status_.resize(max_index);
 
             // Update entry points. If an entry point is no longer present
             // (e.g. it was Deleted prior to compact), fall back to internal
@@ -1208,9 +1211,9 @@ class MutableVamanaIndex {
                 translator_.delete_internal(deleted_internal_ids, false);
             }
             // Set all `Deleted` slots to `Empty`.
-            for (auto& status : status_) {
-                if (status == SlotMetadata::Deleted) {
-                    status = SlotMetadata::Empty;
+            for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
+                if (status_[i] == SlotMetadata::Deleted) {
+                    status_[i] = SlotMetadata::Empty;
                 }
             }
         }
@@ -1370,8 +1373,11 @@ class MutableVamanaIndex {
             );
         }
 
+        // Lock order: compact_mutex_ then translator_mutex_ (global order).
+        // compact_mutex_ shared guards data_/graph_ against compact()'s shrink;
+        // translator_mutex_ shared guards the ID translation reads below.
+        std::shared_lock compact_lock{*compact_mutex_};
         std::shared_lock lock{*translator_mutex_};
-        std::shared_lock resize_lock{*resize_mutex_};
 
         // Bounds checking.
         for (size_t i = 0; i < ids_size; ++i) {
@@ -1509,8 +1515,11 @@ class MutableVamanaIndex {
     /// @brief Compute the distance between an external vector and a vector in the index.
     template <typename ExternalId, typename Query>
     double get_distance(const ExternalId& external_id, const Query& query) const {
+        // Lock order: compact_mutex_ then translator_mutex_ (global order).
+        // compact_mutex_ shared guards data_ against compact()'s shrink;
+        // translator_mutex_ shared guards the ID translation read.
+        std::shared_lock compact_lock{*compact_mutex_};
         std::shared_lock lock{*translator_mutex_};
-        std::shared_lock resize_lock{*resize_mutex_};
 
         // Check if the external ID exists
         if (!has_id(external_id)) {
