@@ -52,7 +52,7 @@ namespace svs::lib {
 /// This mirrors the std::vector subset used by the dynamic Vamana index: ``operator[]``,
 /// ``size``, ``capacity``, ``resize(n)``, ``resize(n, fill)``, ``shrink_to(n)``.
 ///
-template <typename T, std::size_t SegmentSize = 128> class SegmentedVector {
+template <typename T, std::size_t SegmentSize = 512> class SegmentedVector {
     static_assert(SegmentSize > 0, "SegmentSize must be positive");
     static constexpr std::size_t kDirBuckets = 64;
 
