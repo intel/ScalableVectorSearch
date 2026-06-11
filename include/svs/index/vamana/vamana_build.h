@@ -131,6 +131,16 @@ template <typename Idx> class BackedgeBuffer {
     void add_edge(Idx src, Idx dst) {
         // Get the bucket that the source vertex belongs to.
         size_t bucket = src / bucket_size_;
+        // The bucket array is sized once from the graph size snapshotted at
+        // VamanaBuilder construction. A concurrent add_points may have grown the
+        // graph past that snapshot, so a greedy-search neighbor `src` can fall
+        // beyond our bucket range. That node belongs to another in-flight add and
+        // gets its own back-edges from that add's builder; drop the overflow edge
+        // here rather than indexing out of bounds — consistent with the
+        // best-effort dropping already done on AddEdgeResult::Full.
+        if (bucket >= buckets_.size()) {
+            return;
+        }
         // Lock the bucket and update the adjacency list.
         std::lock_guard lock(bucket_locks_.at(bucket));
 

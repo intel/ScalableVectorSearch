@@ -192,13 +192,19 @@ class MutableVamanaIndex {
     // Writers (add_points, delete_entries, consolidate) also hold it shared;
     // compact() holds it exclusive.
     //
-    // No resize_mutex_ is needed: data_/graph_/seq_counters_/node_locks_/status_
-    // all use lib::SegmentedVector, whose outer storage never relocates on
-    // growth, so a concurrent reader subscript during an add_points grow is
-    // safe without any lock. Lock acquisition order across the codebase:
+    // Lock acquisition order across the codebase:
+    //   compact_mutex_ -> slot_alloc_mutex_   (never reversed)
     //   compact_mutex_ -> translator_mutex_   (never reversed)
+    // slot_alloc_mutex_ and translator_mutex_ are never held simultaneously
+    // (add_points takes them sequentially), so they have no relative order.
     std::unique_ptr<std::shared_mutex> compact_mutex_{
         std::make_unique<std::shared_mutex>()};
+    // Writer-only mutex serializing slot allocation in add_points: the Empty-slot
+    // scan, container growth, Pending stamp, and first_empty_ update. No reader
+    // ever takes it, so the O(status_.size()) scan does not block delete/search
+    // translator readers. Held only by add_points (and never together with
+    // translator_mutex_).
+    std::unique_ptr<std::mutex> slot_alloc_mutex_{std::make_unique<std::mutex>()};
 
     // Thread local data structures.
     distance_type distance_;
@@ -755,15 +761,18 @@ class MutableVamanaIndex {
         // exclusive and so will block until every in-flight add finishes.
         std::shared_lock compact_lock{*compact_mutex_};
 
-        // Phase 1: Metadata bookkeeping under lock — slot allocation, resize,
-        // translator update, Pending stamp, first_empty_ update. The data
-        // copy and adjacency clearing are deferred to Phase 2 below and
-        // run lock-free against the reserved Pending slots, which are
-        // invisible to search (status_ != Valid) and reserved against other
-        // writers (Empty-slot scan skips Pending).
+        // Phase 1: Slot allocation under slot_alloc_mutex_ (writer-only; does
+        // not block delete/search translation). Scan for Empty slots, grow if
+        // short, stamp the reserved slots Pending, and advance first_empty_.
+        //
+        // Order is load-bearing: publishing the reservation (Pending)
+        // before the mapping means a concurrent delete_entries(E) for an id
+        // still mid-add sees has_external(E)==false and correctly no-ops,
+        // rather than counting a delete that the Empty->Pending->Valid slot
+        // would silently swallow.
         std::vector<size_t> slots{};
         {
-            std::lock_guard lock{*translator_mutex_};
+            std::lock_guard lock{*slot_alloc_mutex_};
 
             // Gather all empty slots.
             slots.reserve(num_points);
@@ -786,11 +795,10 @@ class MutableVamanaIndex {
                 size_t needed = num_points - slots.size();
                 size_t current_size = data_.size();
                 size_t new_size = current_size + needed;
-                // Grow lock-free: the containers are grow-stable SegmentedVectors,
-                // so a concurrent search subscripting an index < its observed size
-                // is unaffected by this append (new segments are published, then
-                // size is bumped). Already serialized against other writers by the
-                // translator_mutex_ exclusive lock held across this block.
+                // Grow lock-free w.r.t. readers: the containers are grow-stable
+                // SegmentedVectors, so a concurrent search subscripting an index
+                // < its observed size is unaffected by this append. Serialized
+                // against other writers by slot_alloc_mutex_ held across this block.
                 data_.resize(new_size);
                 graph_.unsafe_resize(new_size);
                 status_.resize(new_size, SlotMetadata::Empty);
@@ -801,26 +809,12 @@ class MutableVamanaIndex {
             }
             assert(slots.size() == num_points);
 
-            // Update the id translation. An existing mapping is stale only if
-            // the old slot is Deleted (delete_entries defers translator
-            // cleanup; consolidate normally drains those entries). A Pending
-            // slot belongs to an in-flight adder and must not be treated as
-            // stale — that would clobber the other adder's mapping.
-            translator_
-                .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
-                    return std::atomic_ref<SlotMetadata>(
-                               const_cast<SlotMetadata&>(status_[internal])
-                           )
-                               .load(std::memory_order_acquire) == SlotMetadata::Deleted;
-                });
-
-            // Stamp the reserved slots as Pending before releasing the lock.
-            // Pending signals "reserved by an in-flight add; do not touch"
-            // to concurrent consolidate, delete, and add. Once stamped, the
-            // copy_points/clear_lists below can run without the lock because
-            // (a) other writers' Empty-slot scans skip Pending, and (b)
-            // searches' ValidBuilder filters non-Valid slots from results.
-            // Promoted to Valid after VamanaBuilder::construct finishes below.
+            // Stamp the reserved slots as Pending. Pending signals "reserved by
+            // an in-flight add; do not touch" to concurrent consolidate, delete,
+            // and add. Once stamped, the copy_points/clear_lists below can run
+            // without the lock because (a) other writers' Empty-slot scans skip
+            // Pending, and (b) searches' ValidBuilder filters non-Valid slots
+            // from results. Promoted to Valid after VamanaBuilder::construct.
             for (auto s : slots) {
                 std::atomic_ref<SlotMetadata>(status_[s])
                     .store(SlotMetadata::Pending, std::memory_order_release);
@@ -831,15 +825,27 @@ class MutableVamanaIndex {
             }
         }
 
-        // Phase 2: Lock-free data copy and adjacency clearing.
+        // Phase 2: Publish the id translation under translator_mutex_ exclusive
+        // A Pending slot belongs to an in-flight adder and must
+        // not be treated as stale — that would clobber the other adder's mapping.
+        {
+            std::lock_guard lock{*translator_mutex_};
+            translator_
+                .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
+                    return std::atomic_ref<SlotMetadata>(
+                               const_cast<SlotMetadata&>(status_[internal])
+                           )
+                               .load(std::memory_order_acquire) == SlotMetadata::Deleted;
+                });
+        }
+
+        // Phase 3: Lock-free data copy and adjacency clearing.
         // Slots are Pending: invisible to search (ValidBuilder filters),
         // reserved against other writers (Empty-slot scan skips Pending).
-        // Must complete before Phase 3 — VamanaBuilder reads data_ for
-        // distance computations against the new slots.
         copy_points(points, slots);
         clear_lists(slots);
 
-        // Phase 3: Graph construction — runs without lock.
+        // Phase 4: Graph construction — runs without lock.
         // VamanaBuilder::construct() is thread-safe via per-node spinlock+seqlock.
         // note: VamanaBuilder constructor asserts graph_.n_nodes() == data_.size().
         // Both are grown together under the lock above, so this is always consistent.

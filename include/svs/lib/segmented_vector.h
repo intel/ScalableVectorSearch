@@ -18,10 +18,11 @@
 
 #include "svs/lib/boundscheck.h"
 
+#include <algorithm>
 #include <atomic>
 #include <bit>
 #include <cstddef>
-#include <memory>
+#include <new>
 #include <stdexcept>
 #include <utility>
 
@@ -30,31 +31,46 @@ namespace svs::lib {
 ///
 /// @brief An unbounded, grow-stable vector for single-writer/many-reader use.
 ///
-/// Elements live in fixed-size, heap-allocated segments that are never moved once
-/// allocated. The *directory* of segment pointers uses a power-of-two bucket layout
-/// (Dechev et al. "lock-free dynamic array") so it, too, never relocates: a constant
-/// ``kDirBuckets`` (= 64) top-level array of bucket pointers, where directory bucket
-/// ``k`` holds ``1 << k`` segment pointers. Segment index ``s`` lives in directory
-/// bucket ``floor(log2(s + 1))``. Sixty-four buckets address ``2^64`` segments, so
-/// there is no practical size cap.
+/// Two-level "lock-free dynamic array" (Dechev et al.). A fixed top-level directory of
+/// ``kDirBuckets`` bucket pointers; directory bucket ``k`` is a single contiguous
+/// heap array of ``kFirstBucket << k`` elements (the first bucket holds ``kFirstBucket``,
+/// each subsequent bucket doubles). Grouping elements into chunks of ``kFirstBucket`` and
+/// applying the power-of-two layout to the chunk index gives: ``q = i / kFirstBucket``,
+/// ``bucket = floor(log2(q + 1))``, with the bucket's first global index
+/// ``kFirstBucket * (2^bucket - 1)``. Sixty-four buckets address far more than any real
+/// dataset, so there is no practical size cap.
+///
+/// The directory array is a fixed member (never relocates), and each bucket array is
+/// allocated once and never moved or reallocated. Therefore the address of any element
+/// ``i < size()`` is stable for the lifetime of that element — a concurrent reader
+/// indexing element ``i`` is unaffected by appends that grow the structure past ``i``.
 ///
 /// Concurrency contract:
-/// * **One writer at a time.** ``resize`` / ``shrink_to`` (the only operations that
-///   change the structure) must be serialized by the caller (e.g. under a mutex).
-/// * **Many concurrent readers.** ``operator[]`` and ``size`` may run concurrently with
-///   a writer's ``resize`` *grow*: new segments and directory buckets are published with
-///   release stores, ``size_`` is bumped last, and readers acquire-load. A reader that
-///   only touches indices ``< size()`` it observed never sees a half-published segment.
-/// * **Shrink frees storage.** ``shrink_to`` destroys trailing segments; a reader holding
-///   a reference to a freed segment would dangle. The caller must drain readers (e.g. via
-///   an exclusive lock) before calling ``shrink_to``.
+/// * **One writer at a time.** ``resize`` / ``push_back`` / ``pop_back`` / ``shrink_to``
+///   (the only operations that change the structure) must be serialized by the caller
+///   (e.g. under a mutex).
+/// * **Many concurrent readers.** ``operator[]`` and ``size`` may run concurrently with a
+///   writer's *grow*: a new bucket is allocated and its elements constructed, the bucket
+///   pointer is published with a release store, and ``size_`` is bumped last (release). A
+///   reader does an acquire load of ``size_`` then an acquire load of the bucket pointer,
+///   so for any ``i < size()`` it observes, the bucket and element are fully published.
+/// * **Shrink frees storage.** ``shrink_to`` destroys trailing elements and frees buckets
+///   that lie entirely above the new size; a reader holding a reference to a freed element
+///   would dangle, so the caller must drain readers (e.g. via an exclusive lock) first.
 ///
 /// This mirrors the std::vector subset used by the dynamic Vamana index: ``operator[]``,
-/// ``size``, ``capacity``, ``resize(n)``, ``resize(n, fill)``, ``shrink_to(n)``.
+/// ``at``, ``size``, ``empty``, ``capacity``, ``resize(n)``, ``resize(n, fill)``,
+/// ``push_back``, ``pop_back``, ``shrink_to(n)``.
 ///
-template <typename T, std::size_t SegmentSize = 512> class SegmentedVector {
-    static_assert(SegmentSize > 0, "SegmentSize must be positive");
+template <typename T> class SegmentedVector {
     static constexpr std::size_t kDirBuckets = 64;
+    // Number of elements in the first directory bucket. Bucket ``k`` then holds
+    // ``kFirstBucket << k`` elements, so a small first bucket means many tiny
+    // allocations near the start while a large one front-loads capacity.
+    static constexpr std::size_t kFirstBucket = 1;
+    static_assert(
+        (kFirstBucket & (kFirstBucket - 1)) == 0, "kFirstBucket must be a power of two"
+    );
 
   public:
     using value_type = T;
@@ -89,14 +105,12 @@ template <typename T, std::size_t SegmentSize = 512> class SegmentedVector {
     ///
     /// @brief Access element ``i``. Precondition: ``i < size()``.
     ///
-    /// Safe to call concurrently with a writer's grow ``resize``, provided ``i`` was
-    /// ``< size()`` as observed by the reader.
+    /// Safe to call concurrently with a writer's grow ``resize``/``push_back``, provided
+    /// ``i`` was ``< size()`` as observed by the reader.
     ///
     const_reference operator[](size_type i) const noexcept {
-        auto [b, bo] = locate_segment_(i / SegmentSize);
-        SegmentPtr* bucket = dir_[b].load(std::memory_order_acquire);
-        T* seg = bucket[bo].ptr.load(std::memory_order_acquire);
-        return seg[i % SegmentSize];
+        auto [b, off] = locate_(i);
+        return dir_[b].load(std::memory_order_acquire)[off];
     }
     reference operator[](size_type i) noexcept {
         const auto& self = *this;
@@ -121,8 +135,8 @@ template <typename T, std::size_t SegmentSize = 512> class SegmentedVector {
     bool empty() const noexcept { return size() == 0; }
 
     /// @brief Logical capacity: number of elements addressable without allocating a new
-    /// segment. Equals ``allocated_segments * SegmentSize``.
-    size_type capacity() const noexcept { return allocated_segments_ * SegmentSize; }
+    /// bucket. With ``m`` buckets this is ``kFirstBucket * (2^m - 1)``.
+    size_type capacity() const noexcept { return bucket_first_index_(allocated_buckets_); }
 
     /// @brief Grow or shrink the logical size. New elements are default-constructed.
     /// Single-writer; concurrent readers safe on grow (see class contract).
@@ -133,203 +147,177 @@ template <typename T, std::size_t SegmentSize = 512> class SegmentedVector {
 
     /// @brief Append one element, move-*constructing* it into the new slot.
     ///
-    /// Grows logical size by one, allocating a new segment if needed. The slot is
-    /// constructed in place via T's move constructor (the slot's default-constructed value
-    /// is destroyed first), so types whose move-*assignment* is unavailable or expensive
-    /// (e.g. DenseArray, whose move-assign compares allocators) still work. The new slot is
-    /// published (segment first, then ``size_``) so a concurrent reader that observes the
-    /// new ``size()`` sees the constructed value. Single-writer.
+    /// Grows logical size by one, allocating a new bucket if needed. The element is
+    /// constructed in place via T's move constructor, so types whose move-*assignment* is
+    /// unavailable or expensive (e.g. DenseArray, whose move-assign compares allocators)
+    /// still work. The element is published (bucket pointer first, then ``size_``) so a
+    /// concurrent reader that observes the new ``size()`` sees the constructed value.
+    /// Single-writer.
     void push_back(T&& value) {
         size_type i = size_.load(std::memory_order_relaxed);
-        size_type seg = i / SegmentSize;
-        if (seg >= allocated_segments_) {
-            ensure_segment_(seg, nullptr);
-            allocated_segments_ = seg + 1;
-        }
-        T* slot = slot_ptr_(i);
-        slot->~T();
-        new (slot) T(std::move(value));
+        auto [b, off] = locate_(i);
+        T* bucket = ensure_bucket_(b);
+        new (&bucket[off]) T(std::move(value));
         size_.store(i + 1, std::memory_order_release);
     }
 
-    /// @brief Drop the last element (logical only; does not free the segment).
-    /// Single-writer; caller must have drained readers if a segment is later freed.
+    /// @brief Drop the last element, destroying it (logical only; does not free the
+    /// bucket). Single-writer; caller must have drained readers if a bucket is later freed.
     void pop_back() {
         size_type i = size_.load(std::memory_order_relaxed);
         if (i > 0) {
+            auto [b, off] = locate_(i - 1);
+            dir_[b].load(std::memory_order_relaxed)[off].~T();
             size_.store(i - 1, std::memory_order_release);
         }
     }
 
-    /// @brief Shrink to ``n`` elements, freeing now-empty trailing segments.
-    /// Single-writer and the caller must have drained concurrent readers.
+    /// @brief Shrink to ``n`` elements, destroying the dropped elements and freeing buckets
+    /// that lie entirely above ``n``. Single-writer; caller must have drained readers.
     void shrink_to(size_type n) {
-        if (n > size_.load(std::memory_order_relaxed)) {
+        size_type old = size_.load(std::memory_order_relaxed);
+        if (n >= old) {
             return;
         }
+        // Stop readers from seeing the elements about to be destroyed.
         size_.store(n, std::memory_order_release);
-        // Free whole segments strictly above the one containing the last live element.
-        size_type needed_segments = (n + SegmentSize - 1) / SegmentSize;
-        free_segments_from_(needed_segments);
+        destroy_range_(n, old);
+        free_buckets_above_(n);
     }
 
   private:
-    struct SegmentPtr {
-        std::atomic<T*> ptr{nullptr};
-    };
-
-    // Directory bucket ``k`` holds ``1 << k`` SegmentPtr entries.
-    std::atomic<SegmentPtr*> dir_[kDirBuckets] = {};
+    // Fixed top-level directory. Bucket k (when non-null) is a contiguous heap array of
+    // (kFirstBucket << k) elements; the elements with global index < size_ are constructed.
+    std::atomic<T*> dir_[kDirBuckets] = {};
     std::atomic<size_type> size_{0};
-    size_type allocated_segments_{0};
+    size_type allocated_buckets_{0};
 
-    static constexpr std::pair<size_type, size_type> locate_segment_(size_type seg
-    ) noexcept {
-        // Segment ``seg`` lives in directory bucket floor(log2(seg+1)); the offset within
-        // that bucket is (seg+1) - 2^bucket. Bucket ``k`` has capacity ``1 << k``.
-        size_type p = seg + 1;
-        size_type bucket = static_cast<size_type>(std::bit_width(p)) - 1;
-        size_type offset = p - (size_type{1} << bucket);
-        return {bucket, offset};
+    // Number of elements held by bucket ``b`` (= kFirstBucket << b).
+    static constexpr size_type bucket_size_(size_type b) noexcept {
+        return kFirstBucket << b;
     }
 
-    // Raw address of slot ``i`` (no atomic publication semantics; single-writer use).
-    T* slot_ptr_(size_type i) noexcept {
-        auto [b, bo] = locate_segment_(i / SegmentSize);
-        SegmentPtr* bucket = dir_[b].load(std::memory_order_relaxed);
-        T* seg = bucket[bo].ptr.load(std::memory_order_relaxed);
-        return &seg[i % SegmentSize];
+    // First global element index held by bucket ``b`` (= kFirstBucket * (2^b - 1)).
+    static constexpr size_type bucket_first_index_(size_type b) noexcept {
+        return kFirstBucket * ((size_type{1} << b) - 1);
     }
 
-    // Ensure directory bucket ``bucket`` is allocated (single-writer).
-    SegmentPtr* ensure_dir_bucket_(size_type bucket) {
-        SegmentPtr* b = dir_[bucket].load(std::memory_order_relaxed);
-        if (b == nullptr) {
-            b = new SegmentPtr[size_type{1} << bucket];
-            dir_[bucket].store(b, std::memory_order_release);
-        }
-        return b;
+    // Map element index ``i`` to (bucket, offset-within-bucket). Group elements into
+    // chunks of kFirstBucket, then apply the power-of-two bucket layout to the chunk
+    // index: q = i / kFirstBucket; bucket = floor(log2(q+1)); the bucket's first global
+    // index is kFirstBucket * (2^bucket - 1).
+    static constexpr std::pair<size_type, size_type> locate_(size_type i) noexcept {
+        size_type q = i / kFirstBucket;
+        size_type bucket = static_cast<size_type>(std::bit_width(q + 1)) - 1;
+        return {bucket, i - bucket_first_index_(bucket)};
     }
 
-    // Allocate + construct segment ``seg`` if not present and publish it (single-writer).
-    // ``fill`` is nullptr for default-construction.
-    void ensure_segment_(size_type seg, const T* fill) {
-        auto [bucket, offset] = locate_segment_(seg);
-        SegmentPtr* b = ensure_dir_bucket_(bucket);
-        if (b[offset].ptr.load(std::memory_order_relaxed) != nullptr) {
-            return;
-        }
-        T* seg_data = static_cast<T*>(::operator new[](SegmentSize * sizeof(T)));
-        if (fill == nullptr) {
-            for (size_type j = 0; j < SegmentSize; ++j) {
-                new (&seg_data[j]) T();
-            }
-        } else {
-            for (size_type j = 0; j < SegmentSize; ++j) {
-                new (&seg_data[j]) T(*fill);
+    // Ensure bucket ``b`` is allocated (single-writer) and return its base pointer. The
+    // bucket's elements are raw storage until constructed by the caller; the pointer is
+    // published with release so readers that later observe a matching size see it.
+    T* ensure_bucket_(size_type b) {
+        T* bucket = dir_[b].load(std::memory_order_relaxed);
+        if (bucket == nullptr) {
+            bucket = static_cast<T*>(::operator new[](bucket_size_(b) * sizeof(T)));
+            dir_[b].store(bucket, std::memory_order_release);
+            if (b + 1 > allocated_buckets_) {
+                allocated_buckets_ = b + 1;
             }
         }
-        b[offset].ptr.store(seg_data, std::memory_order_release);
+        return bucket;
+    }
+
+    // Construct elements [from, to) in place (single-writer). ``fill`` is nullptr for
+    // default-construction. Allocates buckets as needed.
+    void construct_range_(size_type from, size_type to, const T* fill) {
+        for (size_type i = from; i < to; ++i) {
+            auto [b, off] = locate_(i);
+            T* bucket = ensure_bucket_(b);
+            if (fill == nullptr) {
+                new (&bucket[off]) T();
+            } else {
+                new (&bucket[off]) T(*fill);
+            }
+        }
+    }
+
+    // Destroy elements [from, to) (single-writer). Does not free buckets.
+    void destroy_range_(size_type from, size_type to) {
+        for (size_type i = from; i < to; ++i) {
+            auto [b, off] = locate_(i);
+            dir_[b].load(std::memory_order_relaxed)[off].~T();
+        }
     }
 
     void resize_impl_(size_type n, const T* fill) {
-        size_type old_size = size_.load(std::memory_order_relaxed);
-        if (n <= old_size) {
-            // Pure logical shrink (no segment freeing — use shrink_to for that).
-            size_.store(n, std::memory_order_release);
+        size_type old = size_.load(std::memory_order_relaxed);
+        if (n == old) {
             return;
         }
-        size_type needed_segments = (n + SegmentSize - 1) / SegmentSize;
-        for (size_type s = allocated_segments_; s < needed_segments; ++s) {
-            ensure_segment_(s, fill);
+        if (n < old) {
+            // Logical-only shrink (no bucket freeing — use shrink_to for reclamation),
+            // but still destroy the dropped elements to run their destructors.
+            size_.store(n, std::memory_order_release);
+            destroy_range_(n, old);
+            return;
         }
-        // For the fill variant, also fill the new tail of the last previously-allocated
-        // segment (elements in [old_size, allocated_segments_*SegmentSize)). New segments
-        // were already fully fill-constructed above; default-constructed segments need no
-        // tail handling.
-        if (fill != nullptr && old_size < allocated_segments_ * SegmentSize) {
-            size_type stop = std::min(n, allocated_segments_ * SegmentSize);
-            for (size_type i = old_size; i < stop; ++i) {
-                (*this)[i] = *fill;
-            }
-        }
-        if (needed_segments > allocated_segments_) {
-            allocated_segments_ = needed_segments;
-        }
-        // Publish the new size last so readers that observe it see fully-built segments.
+        // Grow: construct the new elements, then publish the new size last so a reader
+        // that observes it sees fully-constructed elements in published buckets.
+        construct_range_(old, n, fill);
         size_.store(n, std::memory_order_release);
     }
 
-    // Free all segments with index >= ``from`` and release any directory buckets that
-    // become entirely empty. Single-writer; readers must be drained.
-    void free_segments_from_(size_type from) {
-        for (size_type s = from; s < allocated_segments_; ++s) {
-            auto [bucket, offset] = locate_segment_(s);
-            SegmentPtr* b = dir_[bucket].load(std::memory_order_relaxed);
-            if (b == nullptr) {
-                continue;
+    // Free every bucket whose entire index range lies at or above ``n`` (single-writer;
+    // readers drained). A bucket straddling ``n`` keeps its allocation.
+    void free_buckets_above_(size_type n) {
+        for (size_type b = allocated_buckets_; b-- > 0;) {
+            if (bucket_first_index_(b) < n) {
+                break; // this and all lower buckets contain live (or kept) elements
             }
-            T* seg_data = b[offset].ptr.load(std::memory_order_relaxed);
-            if (seg_data != nullptr) {
-                for (size_type j = 0; j < SegmentSize; ++j) {
-                    seg_data[j].~T();
-                }
-                ::operator delete[](static_cast<void*>(seg_data));
-                b[offset].ptr.store(nullptr, std::memory_order_relaxed);
+            T* bucket = dir_[b].load(std::memory_order_relaxed);
+            if (bucket != nullptr) {
+                ::operator delete[](static_cast<void*>(bucket));
+                dir_[b].store(nullptr, std::memory_order_relaxed);
             }
-        }
-        // Release directory buckets whose entire range is now above ``from``.
-        for (size_type bucket = 0; bucket < kDirBuckets; ++bucket) {
-            SegmentPtr* b = dir_[bucket].load(std::memory_order_relaxed);
-            if (b == nullptr) {
-                continue;
-            }
-            size_type bucket_first_seg = (size_type{1} << bucket) - 1;
-            if (bucket_first_seg >= from) {
-                delete[] b;
-                dir_[bucket].store(nullptr, std::memory_order_relaxed);
-            }
-        }
-        if (from < allocated_segments_) {
-            allocated_segments_ = from;
+            allocated_buckets_ = b;
         }
     }
 
     void destroy_all_() {
-        free_segments_from_(0);
+        size_type n = size_.load(std::memory_order_relaxed);
+        destroy_range_(0, n);
+        for (size_type b = 0; b < allocated_buckets_; ++b) {
+            T* bucket = dir_[b].load(std::memory_order_relaxed);
+            if (bucket != nullptr) {
+                ::operator delete[](static_cast<void*>(bucket));
+                dir_[b].store(nullptr, std::memory_order_relaxed);
+            }
+        }
         size_.store(0, std::memory_order_relaxed);
-        allocated_segments_ = 0;
+        allocated_buckets_ = 0;
     }
 
     void copy_from_(const SegmentedVector& other) {
         size_type n = other.size_.load(std::memory_order_relaxed);
         for (size_type i = 0; i < n; ++i) {
-            // Append via copy-construction so element types whose copy/move-assignment is
-            // unavailable still work (mirrors push_back's in-place construction).
-            size_type seg = i / SegmentSize;
-            if (seg >= allocated_segments_) {
-                ensure_segment_(seg, nullptr);
-                allocated_segments_ = seg + 1;
-            }
-            T* slot = slot_ptr_(i);
-            slot->~T();
-            new (slot) T(other[i]);
+            auto [b, off] = locate_(i);
+            T* bucket = ensure_bucket_(b);
+            new (&bucket[off]) T(other[i]);
         }
         size_.store(n, std::memory_order_release);
     }
 
     void steal_from_(SegmentedVector& other) noexcept {
-        for (size_type bucket = 0; bucket < kDirBuckets; ++bucket) {
-            dir_[bucket].store(
-                other.dir_[bucket].load(std::memory_order_relaxed),
-                std::memory_order_relaxed
+        for (size_type b = 0; b < kDirBuckets; ++b) {
+            dir_[b].store(
+                other.dir_[b].load(std::memory_order_relaxed), std::memory_order_relaxed
             );
-            other.dir_[bucket].store(nullptr, std::memory_order_relaxed);
+            other.dir_[b].store(nullptr, std::memory_order_relaxed);
         }
         size_.store(other.size_.load(std::memory_order_relaxed), std::memory_order_relaxed);
-        allocated_segments_ = other.allocated_segments_;
+        allocated_buckets_ = other.allocated_buckets_;
         other.size_.store(0, std::memory_order_relaxed);
-        other.allocated_segments_ = 0;
+        other.allocated_buckets_ = 0;
     }
 };
 
@@ -337,6 +325,6 @@ template <typename T, std::size_t SegmentSize = 512> class SegmentedVector {
 
 namespace svs {
 // Opt SegmentedVector into svs::getindex's optional bounds checking.
-template <typename T, std::size_t SegmentSize>
-inline constexpr bool enable_boundschecking<lib::SegmentedVector<T, SegmentSize>> = true;
+template <typename T>
+inline constexpr bool enable_boundschecking<lib::SegmentedVector<T>> = true;
 } // namespace svs

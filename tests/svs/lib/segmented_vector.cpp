@@ -27,9 +27,9 @@
 
 namespace {
 
-// Small segment size so even modest element counts exercise many segments and
-// several directory buckets.
-using SmallVec = svs::lib::SegmentedVector<int, 4>;
+// Even modest element counts exercise many directory buckets, since bucket k holds
+// only 1<<k elements (bucket 0 holds 1, bucket 1 holds 2, ...).
+using SmallVec = svs::lib::SegmentedVector<int>;
 
 } // namespace
 
@@ -82,7 +82,8 @@ CATCH_TEST_CASE("SegmentedVector basic semantics", "[core][segmented_vector]") {
         }
     }
 
-    CATCH_SECTION("logical shrink via resize then regrow") {
+    CATCH_SECTION("shrink via resize destroys dropped elements; regrow default-constructs"
+    ) {
         SmallVec v(50);
         for (size_t i = 0; i < 50; ++i) {
             v[i] = static_cast<int>(i);
@@ -92,11 +93,15 @@ CATCH_TEST_CASE("SegmentedVector basic semantics", "[core][segmented_vector]") {
         for (size_t i = 0; i < 10; ++i) {
             CATCH_REQUIRE(v[i] == static_cast<int>(i));
         }
-        // Regrow: previously-allocated segments are reused, values intact below 50.
+        // Regrow: std::vector-like semantics — the dropped range was destroyed on
+        // shrink, so the regrown tail is default-constructed (0), not the old values.
         v.resize(50);
         CATCH_REQUIRE(v.size() == 50);
-        for (size_t i = 0; i < 50; ++i) {
+        for (size_t i = 0; i < 10; ++i) {
             CATCH_REQUIRE(v[i] == static_cast<int>(i));
+        }
+        for (size_t i = 10; i < 50; ++i) {
+            CATCH_REQUIRE(v[i] == 0);
         }
     }
 
@@ -173,7 +178,7 @@ CATCH_TEST_CASE(
 // no tolerance. This both (a) catches use-after-free / torn outer-pointer reads on grow
 // and (b) is a hard value invariant. Under TSan it must report no data races.
 CATCH_TEST_CASE("SegmentedVector concurrent grow and read", "[core][segmented_vector]") {
-    using Vec = svs::lib::SegmentedVector<int, 64>;
+    using Vec = svs::lib::SegmentedVector<int>;
     constexpr size_t kInitial = 100;
     constexpr size_t kFinal = 200000;
     constexpr size_t kReaders = 8;

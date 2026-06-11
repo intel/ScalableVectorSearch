@@ -955,10 +955,9 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     // Grow-stable directory of fixed-size blocks: appending a block never relocates the
     // existing block wrappers (or the heap buffers they point to), so a concurrent
     // lock-free reader subscripting blocks_[block_id] is safe against a writer growing the
-    // dataset. Element addressing (block_id, data_id) is unchanged; only the outer
-    // pointer directory is segmented. Small segment size since block counts are modest.
-    // See svs/lib/segmented_vector.h.
-    lib::SegmentedVector<array_type, 1> blocks_;
+    // dataset. Element addressing (block_id, data_id) is unchanged; only the outer block
+    // directory is grow-stable (2-level lock-free array). See svs/lib/segmented_vector.h.
+    lib::SegmentedVector<array_type> blocks_;
     size_t dimensions_;
     size_t size_;
     Blocked<Alloc> allocator_;
