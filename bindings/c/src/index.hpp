@@ -23,12 +23,14 @@
 #include <svs/concepts/data.h>
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
+#include <svs/lib/misc.h>
 #include <svs/orchestrators/dynamic_vamana.h>
 #include <svs/orchestrators/vamana.h>
 
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <vector>
 
 namespace svs::c_runtime {
 struct Index {
@@ -155,11 +157,19 @@ struct DynamicIndexVamana : public DynamicIndex {
     }
 
     size_t delete_points(std::span<const size_t> ids) override {
-        auto old_size = index.size();
-        index.delete_points(ids);
-        // TODO: This is a bit of a hack - we should ideally return the number of points
-        // actually deleted, but for now we can just return index size change.
-        return old_size - index.size();
+        std::vector<size_t> ids_to_delete;
+        ids_to_delete.reserve(ids.size());
+
+        for (auto id : ids) {
+            if (index.has_id(id)) {
+                ids_to_delete.push_back(id);
+            }
+        }
+
+        if (!ids_to_delete.empty()) {
+            index.delete_points(svs::lib::as_const_span(ids_to_delete));
+        }
+        return ids_to_delete.size();
     }
 
     bool has_id(size_t id) const override { return index.has_id(id); }
