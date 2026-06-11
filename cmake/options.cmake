@@ -201,14 +201,19 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "In
     endif()
 endif()
 
-# Provide better diagnostics for broken templates.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    target_compile_options(
-        svs_compile_options
-        INTERFACE
-        -fconcepts-diagnostics-depth=10
-        -ftemplate-backtrace-limit=0
-    )
+    # Provide better diagnostics for broken templates.
+    # These flags are gcc-only; clang-tidy uses the clang frontend to parse the
+    # compile command and would error with "unknown argument", so skip them when
+    # clang-tidy is enabled.
+    if (NOT SVS_EXPERIMENTAL_CLANG_TIDY)
+        target_compile_options(
+            svs_compile_options
+            INTERFACE
+            -fconcepts-diagnostics-depth=10
+            -ftemplate-backtrace-limit=0
+        )
+    endif()
 
     if (CMAKE_CXX_COMPILER_VERSION GREATER_EQUAL 12.0)
         # GCC-12 throws errors in its own intrinsics library with uninitialized variables.

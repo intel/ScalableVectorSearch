@@ -65,6 +65,8 @@ class DynamicVamanaIndexImpl {
         }
     }
 
+    virtual ~DynamicVamanaIndexImpl() = default;
+
     size_t size() const { return impl_ ? impl_->size() : 0; }
 
     size_t blocksize_bytes() const { return 1u << dynamic_index_params_.blocksize_exp; }

@@ -32,8 +32,7 @@
 
 namespace svs {
 namespace runtime {
-namespace v0 {
-
+SVS_DECLARE_NAMESPACE_VERSION(0) {
 class OptionalBool {
     enum class Value : int8_t { Undef = -1, True = 1, False = 0 };
     Value value_;
@@ -206,7 +205,6 @@ struct SVS_RUNTIME_API_INTERFACE ResultsAllocator {
         return this->allocate(result_counts);
     }
 };
-
-} // namespace v0
+} // SVS_DECLARE_NAMESPACE_VERSION(0)
 } // namespace runtime
 } // namespace svs
