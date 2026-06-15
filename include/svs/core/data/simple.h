@@ -34,6 +34,7 @@
 #include "svs/lib/uuid.h"
 
 // stdlib
+#include <optional>
 #include <span>
 #include <type_traits>
 
@@ -644,7 +645,7 @@ struct BlockingParameters {
 
   public:
     lib::PowerOfTwo blocksize_bytes = default_blocksize_bytes;
-    lib::PowerOfTwo blocksize_elements{0};
+    std::optional<lib::PowerOfTwo> blocksize_elements = std::nullopt;
 };
 
 template <typename Alloc> class Blocked {
@@ -953,8 +954,8 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
     // If blocking parameters has non-zero blocsize_elements, use it
     // directly. Otherwise, compute blocksize based on blocksize_bytes.
     static lib::PowerOfTwo compute_blocksize(const Blocked<Alloc>& alloc, size_t dim) {
-        if (alloc.parameters().blocksize_elements.raw() != 0) {
-            return alloc.parameters().blocksize_elements;
+        if (alloc.parameters().blocksize_elements.has_value()) {
+            return alloc.parameters().blocksize_elements.value();
         } else {
             return lib::prevpow2(
                 alloc.parameters().blocksize_bytes.value() / (sizeof(T) * dim)
