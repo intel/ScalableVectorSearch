@@ -12,6 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Two build modes: subdirectory of bindings/cpp (legacy), or standalone against an
+# installed svs_runtime tree (used by CI to test pre-built conda artifacts).
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.21)
+    project(svs_runtime_tests LANGUAGES CXX)
+    option(SVS_RUNTIME_ENABLE_IVF "Build IVF tests (must match the runtime library's IVF setting)" ON)
+    find_package(svs_runtime REQUIRED)
+    set(SVS_RUNTIME_TEST_TARGET svs::svs_runtime)
+else()
+    set(SVS_RUNTIME_TEST_TARGET svs_runtime)
+endif()
+
 include(FetchContent)
 
 # Configure Catch2 for unit testing
@@ -52,7 +64,7 @@ add_executable(svs_runtime_test ${TEST_SOURCES})
 
 # Link with the runtime library
 target_link_libraries(svs_runtime_test PRIVATE
-    svs_runtime
+    ${SVS_RUNTIME_TEST_TARGET}
     Catch2::Catch2WithMain
 )
 

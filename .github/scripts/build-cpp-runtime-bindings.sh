@@ -27,44 +27,41 @@ else
     exit 1
 fi
 
-# Create build+install directories for cpp runtime bindings
-rm -rf /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindings
-mkdir -p /workspace/bindings/cpp/build_cpp_bindings /workspace/install_cpp_bindings
-
-# Build and install runtime bindings library
-cd /workspace/bindings/cpp/build_cpp_bindings
-
-# Set default cmake args and add SVS_URL if specified
-CMAKE_ARGS=(
-    "-DSVS_BUILD_RUNTIME_TESTS=ON"
-    "-DCMAKE_INSTALL_PREFIX=/workspace/install_cpp_bindings"
-    "-DCMAKE_INSTALL_LIBDIR=lib"
-    "-DSVS_RUNTIME_ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON}"
-    "-DSVS_RUNTIME_ENABLE_IVF=ON"
-)
-
-if [ -n "$SVS_URL" ]; then
-    CMAKE_ARGS+=("-DSVS_URL=$SVS_URL")
-fi
-
-# Build and install runtime bindings library (from bindings/cpp)
-CC=gcc CXX=g++ cmake .. "${CMAKE_ARGS[@]}"
-cmake --build . -j
-cmake --install .
-
-# Build conda package for cpp runtime bindings
 source /opt/conda/etc/profile.d/conda.sh
-cd /workspace
-# Free disk space by removing large build artifacts not needed for ctest or conda build.
-# Keep the test binary (tests/) so the workflow can run ctest in a subsequent step.
-find /workspace/bindings/cpp/build_cpp_bindings -name '*.o' -delete 2>/dev/null || true
-find /workspace/bindings/cpp/build_cpp_bindings -name '*.a' -delete 2>/dev/null || true
-find /workspace/bindings/cpp/build_cpp_bindings -name '*.so*' -not -path '*/tests/*' -not -name 'libsvs_runtime*' -delete 2>/dev/null || true
-# Use /workspace for temp files to avoid filling up /tmp during LTO compilation
-mkdir -p /workspace/tmp
-TMPDIR=/workspace/tmp ENABLE_LVQ_LEANVEC=${ENABLE_LVQ_LEANVEC:-ON} SVS_URL="${SVS_URL}" SUFFIX="${SUFFIX}" conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
 
-# Create tarball with symlink for compatibility
-cd /workspace/install_cpp_bindings && \
-ln -s lib lib64 && \
+rm -rf /workspace/conda-bld /workspace/install_cpp_bindings /workspace/build_cpp_bindings_tests
+mkdir -p /workspace/conda-bld /workspace/install_cpp_bindings /workspace/build_cpp_bindings_tests
+
+# Single LTO build of libsvs_runtime via the conda recipe. The resulting .conda
+# is the canonical artifact; the standalone tarball below is a re-pack of its
+# install tree, so the two distribution methods ship byte-identical libraries.
+cd /workspace
+mkdir -p /workspace/tmp
+TMPDIR=/workspace/tmp \
+ENABLE_LVQ_LEANVEC="${ENABLE_LVQ_LEANVEC:-ON}" \
+SVS_URL="${SVS_URL}" \
+SUFFIX="${SUFFIX}" \
+    conda build bindings/cpp/conda-recipe --output-folder /workspace/conda-bld
+
+# Extract the conda payload into a plain install prefix; conda-package-handling
+# is part of the base conda env.
+CONDA_PKG=$(ls /workspace/conda-bld/linux-64/libsvs-runtime-*.conda | head -n 1)
+if [ -z "${CONDA_PKG}" ]; then
+    echo "ERROR: conda-build did not produce a libsvs-runtime package"
+    exit 1
+fi
+/opt/conda/bin/python -m conda_package_handling.api extract "${CONDA_PKG}" --dest /workspace/install_cpp_bindings
+# Drop conda-only metadata so the tarball matches a plain `cmake --install` tree.
+rm -rf /workspace/install_cpp_bindings/info
+
+# Tests are built separately against the installed prefix so they don't trigger a
+# second LTO link of libsvs_runtime.
+cd /workspace/build_cpp_bindings_tests
+CC=gcc CXX=g++ cmake /workspace/bindings/cpp/tests \
+    -Dsvs_runtime_DIR=/workspace/install_cpp_bindings/lib/cmake/svs_runtime \
+    -DSVS_RUNTIME_ENABLE_IVF=ON
+cmake --build . -j
+
+# Tarball the install tree (the recipe already includes the lib64 -> lib symlink).
+cd /workspace/install_cpp_bindings
 tar -czvf /workspace/svs-cpp-runtime-bindings${SUFFIX}.tar.gz .

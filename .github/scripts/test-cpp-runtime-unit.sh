@@ -21,7 +21,7 @@ if [ -f /opt/intel/oneapi/setvars.sh ]; then
     source /opt/intel/oneapi/setvars.sh 2>/dev/null || true
 fi
 
-CTEST_DIR="bindings/cpp/build_cpp_bindings/tests"
+CTEST_DIR="build_cpp_bindings_tests"
 
 # Check if running on Intel hardware or if LVQ/LeanVec is not enabled
 if grep -q "GenuineIntel" /proc/cpuinfo || [ "${ENABLE_LVQ_LEANVEC}" != "ON" ]; then
