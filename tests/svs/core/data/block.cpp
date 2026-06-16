@@ -225,7 +225,7 @@ CATCH_TEST_CASE("Testing Blocked Data", "[core][data][blocked]") {
         test_blocked<5>();
     }
 
-    CATCH_SECTION("Diffrent Blocksizes for blocksize_bytes") {
+    CATCH_SECTION("Different Blocksizes for blocksize_bytes") {
         // When BlockingParameters::blocksize_bytes is used (no explicit
         // blocksize_elements), the computed blocksize() depends on the per-element byte
         // size, i.e. sizeof(T) * dimensions. The same BlockingParameters therefore
@@ -294,7 +294,7 @@ CATCH_TEST_CASE("Testing Blocked Data", "[core][data][blocked]") {
         CATCH_REQUIRE(graph_data.blocksize().value() == 8 * vec_data.blocksize().value());
     }
 
-    // This why to properly predict memory consumption of blocked datasets, we should
+    // This is why, to properly predict memory consumption of blocked datasets, we should
     // directly manage blocksize_elements instead of blocksize_bytes, since the former
     // directly controls the number of elements per block, while the latter only indirectly
     // controls it through the element size.

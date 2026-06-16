@@ -951,7 +951,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
   private:
     // Helper static function to compute blocksize value.
-    // If blocking parameters has non-zero blocsize_elements, use it
+    // If blocking parameters have defined blocksize_elements, use it
     // directly. Otherwise, compute blocksize based on blocksize_bytes.
     static lib::PowerOfTwo compute_blocksize(const Blocked<Alloc>& alloc, size_t dim) {
         if (alloc.parameters().blocksize_elements.has_value()) {
