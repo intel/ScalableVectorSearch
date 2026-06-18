@@ -63,7 +63,7 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
         });
     }
 
-    size_t blocksize_bytes() const noexcept { return impl_->blocksize_bytes(); }
+    size_t blocksize_bytes() const noexcept override { return impl_->blocksize_bytes(); }
 
     StorageKind get_current_storage_kind() const noexcept override {
         return impl_->get_current_storage_kind();
@@ -121,6 +121,22 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 
     Status save(std::ostream& out) const noexcept override {
         return runtime_error_wrapper([&] { impl_->save(out); });
+    }
+
+    Status
+    get_distance(size_t id, const float* query, float* distance) const noexcept override {
+        return runtime_error_wrapper([&] {
+            std::span<const float> q{query, impl_->dimensions()};
+            *distance = static_cast<float>(impl_->get_distance(id, q));
+        });
+    }
+
+    Status reconstruct_at(size_t n, const size_t* ids, float* output) noexcept override {
+        return runtime_error_wrapper([&] {
+            svs::data::SimpleDataView<float> dst{output, n, impl_->dimensions()};
+            std::span<const size_t> id_span{ids, n};
+            impl_->reconstruct_at(dst, id_span);
+        });
     }
 };
 } // namespace

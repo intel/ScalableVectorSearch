@@ -21,17 +21,20 @@
 #include "svs/core/allocator.h"
 #include "svs/core/compact.h"
 #include "svs/core/data/io.h"
+#include "svs/core/io/memstream.h"
 
 #include "svs/lib/array.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/datatype.h"
 #include "svs/lib/memory.h"
+#include "svs/lib/misc.h"
 #include "svs/lib/prefetch.h"
 #include "svs/lib/saveload.h"
 #include "svs/lib/threads.h"
 #include "svs/lib/uuid.h"
 
 // stdlib
+#include <optional>
 #include <span>
 #include <type_traits>
 
@@ -461,10 +464,7 @@ class SimpleData {
     /// svs::lib::load_from_disk<svs::data::SimpleData<T, Extent>>("directory");
     /// @endcode
     ///
-    static SimpleData
-    load(const lib::LoadTable& table, const allocator_type& allocator = {})
-        requires(!is_view)
-    {
+    static SimpleData load(const lib::LoadTable& table, const allocator_type& allocator) {
         return GenericSerializer::load<T>(
             table, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
@@ -472,18 +472,53 @@ class SimpleData {
         );
     }
 
+    static SimpleData load(const lib::LoadTable& table)
+        requires(!is_view)
+    {
+        return load(table, allocator_type{});
+    }
+
+    static SimpleData load(const lib::LoadTable& SVS_UNUSED(table))
+        requires(is_view)
+    {
+        throw ANNEXCEPTION(
+            "Trying to load a SimpleData view without an istream. This is not supported "
+            "since views are compatible only with in-memory streams."
+        );
+    }
+
     static SimpleData load(
         const lib::ContextFreeLoadTable& table,
         std::istream& is,
-        const allocator_type& allocator = {}
-    )
-        requires(!is_view)
-    {
+        const allocator_type& allocator
+    ) {
         return GenericSerializer::load<T>(
             table, is, lib::Lazy([&](size_t n_elements, size_t n_dimensions) {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
+    }
+
+    static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
+        requires(!is_view)
+    {
+        return load(table, is, allocator_type{});
+    }
+
+    static SimpleData load(const lib::ContextFreeLoadTable& table, std::istream& is)
+        requires(is_view)
+    {
+        static_assert(
+            std::is_same_v<allocator_type, io::MemoryStreamAllocator<T>>,
+            "SimpleData views must use the MemoryStreamAllocator."
+        );
+        if (!io::is_memory_stream(is)) {
+            throw ANNEXCEPTION(
+                "Trying to load a SimpleData view from a non-memory stream istream. This "
+                "is not supported since views are compatible only with in-memory streams."
+            );
+        }
+        return load(table, is, allocator_type{is});
     }
 
     ///
@@ -610,6 +645,7 @@ struct BlockingParameters {
 
   public:
     lib::PowerOfTwo blocksize_bytes = default_blocksize_bytes;
+    std::optional<lib::PowerOfTwo> blocksize_elements = std::nullopt;
 };
 
 template <typename Alloc> class Blocked {
@@ -642,6 +678,16 @@ template <typename Alloc> class Blocked {
 template <typename Alloc> inline constexpr bool is_blocked_v = false;
 template <typename Alloc> inline constexpr bool is_blocked_v<Blocked<Alloc>> = true;
 
+} // namespace data
+
+namespace lib::detail {
+// Allow rebinding of allocators through the Blocked wrapper.
+template <typename To, typename Alloc> struct AllocatorRebinder<To, data::Blocked<Alloc>> {
+    using type = data::Blocked<rebind_allocator_t<To, Alloc>>;
+};
+} // namespace lib::detail
+
+namespace data {
 ///
 /// @brief A specialization of ``SimpleData`` for large-scale dynamic datasets.
 ///
@@ -675,9 +721,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
     ///// Constructors
     SimpleData(size_t n_elements, size_t n_dimensions, const Blocked<Alloc>& alloc)
-        : blocksize_{lib::prevpow2(
-              alloc.parameters().blocksize_bytes.value() / (sizeof(T) * n_dimensions)
-          )}
+        : blocksize_{compute_blocksize(alloc, n_dimensions)}
         , blocks_{}
         , dimensions_{n_dimensions}
         , size_{n_elements}
@@ -903,6 +947,20 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
+    }
+
+  private:
+    // Helper static function to compute blocksize value.
+    // If blocking parameters have defined blocksize_elements, use it
+    // directly. Otherwise, compute blocksize based on blocksize_bytes.
+    static lib::PowerOfTwo compute_blocksize(const Blocked<Alloc>& alloc, size_t dim) {
+        if (alloc.parameters().blocksize_elements.has_value()) {
+            return alloc.parameters().blocksize_elements.value();
+        } else {
+            return lib::prevpow2(
+                alloc.parameters().blocksize_bytes.value() / (sizeof(T) * dim)
+            );
+        }
     }
 
   private:

@@ -29,6 +29,10 @@ class IVFInterface {
     ///// Backend information interface
     virtual std::string experimental_backend_string() const = 0;
 
+    ///// Intra-query (cluster-level) parallelism
+    virtual size_t get_num_intra_query_threads() const = 0;
+    virtual void set_num_intra_query_threads(size_t count) = 0;
+
     ///// Distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
 
@@ -71,6 +75,14 @@ class IVFImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     ///// Backend Information Interface
     [[nodiscard]] std::string experimental_backend_string() const override {
         return std::string{typename_impl.begin(), typename_impl.end() - 1};
+    }
+
+    ///// Intra-query (cluster-level) parallelism
+    [[nodiscard]] size_t get_num_intra_query_threads() const override {
+        return impl().get_num_intra_query_threads();
+    }
+    void set_num_intra_query_threads(size_t count) override {
+        impl().set_num_intra_query_threads(count);
     }
 
     ///// Distance Calculation
@@ -144,6 +156,14 @@ class IVF : public manager::IndexManager<IVFInterface> {
     ///// Backend String
     std::string experimental_backend_string() const {
         return impl_->experimental_backend_string();
+    }
+
+    ///// Intra-query (cluster-level) threading
+    size_t get_num_intra_query_threads() const {
+        return impl_->get_num_intra_query_threads();
+    }
+    void set_num_intra_query_threads(size_t count) {
+        impl_->set_num_intra_query_threads(count);
     }
 
     ///// Distance Calculation
