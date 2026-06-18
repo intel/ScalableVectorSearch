@@ -108,8 +108,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
     ) override {
         assert(storage::is_leanvec_storage(this->storage_kind_));
         if (this->deferred_compression_enabled() &&
-            data.size() <
-                this->dynamic_index_params_.deferred_compression_threshold) {
+            data.size() < this->dynamic_index_params_.deferred_compression_threshold) {
             // Delegate the build to the base class (which builds with the
             // uncompressed `initial_storage_kind`) and let our overridden
             // `setup_deferred_compression_swap` install a LeanVec-aware swap closure.
@@ -154,15 +153,10 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
         // Capture LeanVec training data by value so the closure does not depend on
         // the lifetime of `*this` for those parameters.
         LeanVecTrainer trainer{leanvec_dims_, leanvec_matrices_};
-        storage::dispatch_storage_kind<allocator_type>(
-            initial_kind,
-            [&](auto&& tag) {
-                using Tag = std::decay_t<decltype(tag)>;
-                this->install_swap_closure_with_trainer<Tag>(
-                    blocksize_bytes, trainer
-                );
-            }
-        );
+        storage::dispatch_storage_kind<allocator_type>(initial_kind, [&](auto&& tag) {
+            using Tag = std::decay_t<decltype(tag)>;
+            this->install_swap_closure_with_trainer<Tag>(blocksize_bytes, trainer);
+        });
     }
 
   protected:
@@ -183,9 +177,8 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
             svs::leanvec::IsLeanDataset<typename TargetTag::type>;
 
         template <typename TargetTag, typename Source, typename Pool, typename Alloc>
-        auto operator()(
-            TargetTag, const Source& source, Pool& pool, const Alloc& allocator
-        ) const {
+        auto operator()(TargetTag, const Source& source, Pool& pool, const Alloc& allocator)
+            const {
             using TargetData = typename TargetTag::type;
             if constexpr (svs::leanvec::IsLeanDataset<TargetData>) {
                 size_t d = leanvec_dims;
@@ -193,12 +186,7 @@ struct DynamicVamanaIndexLeanVecImpl : public DynamicVamanaIndexImpl {
                     d = (source.dimensions() + 1) / 2;
                 }
                 return TargetData::reduce(
-                    source,
-                    leanvec_matrices,
-                    pool,
-                    0,
-                    svs::lib::MaybeStatic{d},
-                    allocator
+                    source, leanvec_matrices, pool, 0, svs::lib::MaybeStatic{d}, allocator
                 );
             } else {
                 static_assert(

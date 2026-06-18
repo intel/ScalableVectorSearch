@@ -160,16 +160,14 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// returned pointer (e.g. by destroying the `DynamicVamana` while the pointer is
     /// in use).
     template <lib::TypeList QueryTypes, typename Impl> Impl* get_typed_impl() {
-        auto* concrete =
-            dynamic_cast<DynamicVamanaImpl<QueryTypes, Impl>*>(impl_.get());
+        auto* concrete = dynamic_cast<DynamicVamanaImpl<QueryTypes, Impl>*>(impl_.get());
         if (concrete == nullptr) {
             return nullptr;
         }
         return &concrete->impl();
     }
 
-    template <lib::TypeList QueryTypes, typename Impl>
-    const Impl* get_typed_impl() const {
+    template <lib::TypeList QueryTypes, typename Impl> const Impl* get_typed_impl() const {
         const auto* concrete =
             dynamic_cast<const DynamicVamanaImpl<QueryTypes, Impl>*>(impl_.get());
         if (concrete == nullptr) {
