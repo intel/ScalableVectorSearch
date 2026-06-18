@@ -1517,9 +1517,7 @@ DelayedSwapObservation add_in_two_halves(
     auto kind_before = index.get_current_storage_kind();
 
     status = index.add(
-        n_total - first_chunk,
-        ids.data() + first_chunk,
-        flat_data.data() + first_chunk * d
+        n_total - first_chunk, ids.data() + first_chunk, flat_data.data() + first_chunk * d
     );
     CATCH_REQUIRE(status.ok());
     auto kind_after = index.get_current_storage_kind();
@@ -1530,8 +1528,7 @@ DelayedSwapObservation add_in_two_halves(
 } // namespace
 
 CATCH_TEST_CASE(
-    "Deferred compression FP32 -> LVQ4x8 via runtime",
-    "[runtime][deferred_compression]"
+    "Deferred compression FP32 -> LVQ4x8 via runtime", "[runtime][deferred_compression]"
 ) {
     const auto& test_data = get_test_data();
     const size_t threshold = test_n / 2;
@@ -1553,7 +1550,8 @@ CATCH_TEST_CASE(
         dyn_params
     );
     if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
-             svs::runtime::v0::StorageKind::LVQ4x8)
+             svs::runtime::v0::StorageKind::LVQ4x8
+        )
              .ok()) {
         CATCH_REQUIRE(!status.ok());
         return;
@@ -1562,9 +1560,7 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(index != nullptr);
 
     // Before any add: nothing built yet, current kind is the initial kind.
-    CATCH_REQUIRE(
-        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32
-    );
+    CATCH_REQUIRE(index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32);
 
     auto obs = add_in_two_halves(*index, test_data, test_n, test_d, first_chunk);
     CATCH_REQUIRE(obs.kind_before_swap == svs::runtime::v0::StorageKind::FP32);
@@ -1575,16 +1571,14 @@ CATCH_TEST_CASE(
     const int k = 5;
     std::vector<float> distances(nq * k);
     std::vector<size_t> labels(nq * k);
-    status =
-        index->search(nq, test_data.data(), k, distances.data(), labels.data());
+    status = index->search(nq, test_data.data(), k, distances.data(), labels.data());
     CATCH_REQUIRE(status.ok());
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 }
 
 CATCH_TEST_CASE(
-    "Deferred compression FP32 -> LeanVec4x8 via runtime",
-    "[runtime][deferred_compression]"
+    "Deferred compression FP32 -> LeanVec4x8 via runtime", "[runtime][deferred_compression]"
 ) {
     const auto& test_data = get_test_data();
     const size_t threshold = test_n / 2;
@@ -1607,7 +1601,8 @@ CATCH_TEST_CASE(
         dyn_params
     );
     if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
-             svs::runtime::v0::StorageKind::LeanVec4x8)
+             svs::runtime::v0::StorageKind::LeanVec4x8
+        )
              .ok()) {
         CATCH_REQUIRE(!status.ok());
         return;
@@ -1615,9 +1610,7 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(status.ok());
     CATCH_REQUIRE(index != nullptr);
 
-    CATCH_REQUIRE(
-        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32
-    );
+    CATCH_REQUIRE(index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32);
 
     auto obs = add_in_two_halves(*index, test_data, test_n, test_d, first_chunk);
     CATCH_REQUIRE(obs.kind_before_swap == svs::runtime::v0::StorageKind::FP32);
@@ -1627,8 +1620,7 @@ CATCH_TEST_CASE(
     const int k = 5;
     std::vector<float> distances(nq * k);
     std::vector<size_t> labels(nq * k);
-    status =
-        index->search(nq, test_data.data(), k, distances.data(), labels.data());
+    status = index->search(nq, test_data.data(), k, distances.data(), labels.data());
     CATCH_REQUIRE(status.ok());
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
@@ -1655,7 +1647,8 @@ CATCH_TEST_CASE(
         dyn_params
     );
     if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
-             svs::runtime::v0::StorageKind::LVQ4x8)
+             svs::runtime::v0::StorageKind::LVQ4x8
+        )
              .ok()) {
         CATCH_REQUIRE(!status.ok());
         return;
@@ -1730,7 +1723,8 @@ CATCH_TEST_CASE(
         dyn_params
     );
     if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
-             svs::runtime::v0::StorageKind::LVQ4x8)
+             svs::runtime::v0::StorageKind::LVQ4x8
+        )
              .ok()) {
         CATCH_REQUIRE(!status.ok());
         return;
@@ -1738,9 +1732,7 @@ CATCH_TEST_CASE(
     CATCH_REQUIRE(status.ok());
 
     // Pre-add: index reports initial kind.
-    CATCH_REQUIRE(
-        index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32
-    );
+    CATCH_REQUIRE(index->get_current_storage_kind() == svs::runtime::v0::StorageKind::FP32);
 
     std::vector<size_t> ids(test_n);
     std::iota(ids.begin(), ids.end(), 0);
@@ -1756,8 +1748,7 @@ CATCH_TEST_CASE(
     const int k = 5;
     std::vector<float> distances(nq * k);
     std::vector<size_t> labels(nq * k);
-    status =
-        index->search(nq, test_data.data(), k, distances.data(), labels.data());
+    status = index->search(nq, test_data.data(), k, distances.data(), labels.data());
     CATCH_REQUIRE(status.ok());
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);

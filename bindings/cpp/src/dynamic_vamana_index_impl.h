@@ -544,8 +544,7 @@ class DynamicVamanaIndexImpl {
             labels,
             blocksize_bytes
         ));
-        if (deferred_compression_enabled() &&
-            build_kind != storage_kind_) {
+        if (deferred_compression_enabled() && build_kind != storage_kind_) {
             setup_deferred_compression_swap(build_kind, blocksize_bytes);
         }
     }
@@ -560,13 +559,10 @@ class DynamicVamanaIndexImpl {
     virtual void setup_deferred_compression_swap(
         StorageKind initial_kind, lib::PowerOfTwo blocksize_bytes
     ) {
-        storage::dispatch_storage_kind<allocator_type>(
-            initial_kind,
-            [&](auto&& tag) {
-                using Tag = std::decay_t<decltype(tag)>;
-                this->install_swap_closure<Tag>(blocksize_bytes);
-            }
-        );
+        storage::dispatch_storage_kind<allocator_type>(initial_kind, [&](auto&& tag) {
+            using Tag = std::decay_t<decltype(tag)>;
+            this->install_swap_closure<Tag>(blocksize_bytes);
+        });
     }
 
     // Constructor used during loading
@@ -666,8 +662,7 @@ class DynamicVamanaIndexImpl {
             return storage_kind_;
         }
         // If the user requested an untrained target there's nothing to delay.
-        if (storage_kind_ == StorageKind::FP32 ||
-            storage_kind_ == StorageKind::FP16) {
+        if (storage_kind_ == StorageKind::FP32 || storage_kind_ == StorageKind::FP16) {
             return storage_kind_;
         }
         return dynamic_index_params_.initial_storage_kind;
@@ -702,9 +697,7 @@ class DynamicVamanaIndexImpl {
     /// `initial_storage_kind` is one of those.
     template <typename SourceTag>
     void install_swap_closure(lib::PowerOfTwo blocksize_bytes) {
-        install_swap_closure_with_trainer<SourceTag>(
-            blocksize_bytes, DefaultTrainer{}
-        );
+        install_swap_closure_with_trainer<SourceTag>(blocksize_bytes, DefaultTrainer{});
     }
 
     /// @brief Install a swap closure that uses a caller-supplied trainer callable
@@ -715,9 +708,8 @@ class DynamicVamanaIndexImpl {
     /// ``typename decltype(target_tag)::type``. Used by `DynamicVamanaIndexLeanVecImpl`
     /// to inject pre-trained LeanVec matrices and a user-specified ``leanvec_dims``.
     template <typename SourceTag, typename Trainer>
-    void install_swap_closure_with_trainer(
-        lib::PowerOfTwo blocksize_bytes, Trainer trainer
-    ) {
+    void
+    install_swap_closure_with_trainer(lib::PowerOfTwo blocksize_bytes, Trainer trainer) {
         if constexpr (is_uncompressed_source_tag_v<SourceTag>) {
             const auto target_kind = storage_kind_;
             swap_to_target_fn_ =
@@ -788,9 +780,7 @@ class DynamicVamanaIndexImpl {
     /// with the trained `Data` type, reusing graph + translator + status + entry-point.
     template <typename SourceTag, typename Trainer>
     void do_swap_to_target_storage(
-        StorageKind target_kind,
-        lib::PowerOfTwo blocksize_bytes,
-        const Trainer& trainer
+        StorageKind target_kind, lib::PowerOfTwo blocksize_bytes, const Trainer& trainer
     ) {
         using SourceData = typename SourceTag::type;
         using Graph = svs::graphs::SimpleBlockedGraph<uint32_t>;
@@ -805,8 +795,7 @@ class DynamicVamanaIndexImpl {
             using SourceIndex =
                 svs::index::vamana::MutableVamanaIndex<Graph, SourceData, Dist>;
 
-            auto* concrete =
-                impl_->template get_typed_impl<QueryTypes, SourceIndex>();
+            auto* concrete = impl_->template get_typed_impl<QueryTypes, SourceIndex>();
             if (concrete == nullptr) {
                 throw StatusException{
                     ErrorCode::RUNTIME_ERROR,
@@ -821,67 +810,58 @@ class DynamicVamanaIndexImpl {
             // Then build the compressed dataset and transplant onto a new
             // MutableVamanaIndex via the friendly transplant ctor (which moves out
             // of `*concrete` internally).
-            storage::dispatch_storage_kind<allocator_type>(
-                target_kind,
-                [&](auto&& target_tag) {
-                    using TargetTag = std::decay_t<decltype(target_tag)>;
-                    if constexpr (!is_trainable_target_tag_v<TargetTag> ||
-                                  !Trainer::template supports<TargetTag>) {
-                        // Either the target storage isn't a trainable kind (FP32 /
-                        // FP16) or the active trainer doesn't support this target
-                        // (e.g. the LeanVec subclass's trainer doesn't handle SQ /
-                        // LVQ targets). Both are configuration errors caught at
-                        // construction time, so this branch is unreachable in
-                        // practice; we simply avoid instantiating the body.
-                        throw StatusException{
-                            ErrorCode::INVALID_ARGUMENT,
-                            "Deferred compression: trainer does not support the "
-                            "configured target storage kind"};
-                    } else {
-                        using TargetData = typename TargetTag::type;
-                        using TargetAlloc = typename TargetTag::allocator_type;
+            storage::dispatch_storage_kind<
+                allocator_type>(target_kind, [&](auto&& target_tag) {
+                using TargetTag = std::decay_t<decltype(target_tag)>;
+                if constexpr (!is_trainable_target_tag_v<TargetTag> || !Trainer::template supports<TargetTag>) {
+                    // Either the target storage isn't a trainable kind (FP32 /
+                    // FP16) or the active trainer doesn't support this target
+                    // (e.g. the LeanVec subclass's trainer doesn't handle SQ /
+                    // LVQ targets). Both are configuration errors caught at
+                    // construction time, so this branch is unreachable in
+                    // practice; we simply avoid instantiating the body.
+                    throw StatusException{
+                        ErrorCode::INVALID_ARGUMENT,
+                        "Deferred compression: trainer does not support the "
+                        "configured target storage kind"};
+                } else {
+                    using TargetData = typename TargetTag::type;
+                    using TargetAlloc = typename TargetTag::allocator_type;
 
-                        auto allocator =
-                            storage::make_allocator<TargetAlloc>(blocksize_bytes);
+                    auto allocator = storage::make_allocator<TargetAlloc>(blocksize_bytes);
 
-                        // Train the compressed dataset directly from the source
-                        // dataset using the caller-supplied trainer. The default
-                        // trainer dispatches to each backend's native factory; the
-                        // LeanVec subclass uses a trainer that injects pre-trained
-                        // matrices and ``leanvec_dims``.
-                        TargetData new_data = trainer(
-                            TargetTag{},
-                            concrete->view_data(),
-                            train_pool,
-                            allocator
-                        );
+                    // Train the compressed dataset directly from the source
+                    // dataset using the caller-supplied trainer. The default
+                    // trainer dispatches to each backend's native factory; the
+                    // LeanVec subclass uses a trainer that injects pre-trained
+                    // matrices and ``leanvec_dims``.
+                    TargetData new_data =
+                        trainer(TargetTag{}, concrete->view_data(), train_pool, allocator);
 
-                        // Construct the new MutableVamanaIndex via the transplant
-                        // constructor. The ctor moves out of `*concrete` internally
-                        // (graph / status / entry-point / translator / distance /
-                        // build & search params), so this single call replaces the
-                        // explicit release_*() shuffle.
-                        using TargetIndex = svs::index::vamana::
-                            MutableVamanaIndex<Graph, TargetData, Dist>;
-                        auto new_index = TargetIndex{
-                            typename TargetIndex::TransplantTag{},
-                            std::move(*concrete),
-                            std::move(new_data),
-                            default_threadpool()
-                        };
+                    // Construct the new MutableVamanaIndex via the transplant
+                    // constructor. The ctor moves out of `*concrete` internally
+                    // (graph / status / entry-point / translator / distance /
+                    // build & search params), so this single call replaces the
+                    // explicit release_*() shuffle.
+                    using TargetIndex =
+                        svs::index::vamana::MutableVamanaIndex<Graph, TargetData, Dist>;
+                    auto new_index = TargetIndex{
+                        typename TargetIndex::TransplantTag{},
+                        std::move(*concrete),
+                        std::move(new_data),
+                        default_threadpool()};
 
-                        // Reseat `impl_` with a freshly type-erased DynamicVamana
-                        // around the new compressed-backend index. Destroying the
-                        // old `impl_` also destroys the (now moved-from) source
-                        // MutableVamanaIndex.
-                        impl_ = std::make_unique<svs::DynamicVamana>(
-                            svs::DynamicVamana::AssembleTag{},
-                            QueryTypes{},
-                            std::move(new_index)
-                        );
-                    } // end of `if constexpr (is_trainable_target_tag_v<TargetTag>)`
-                }
-            );
+                    // Reseat `impl_` with a freshly type-erased DynamicVamana
+                    // around the new compressed-backend index. Destroying the
+                    // old `impl_` also destroys the (now moved-from) source
+                    // MutableVamanaIndex.
+                    impl_ = std::make_unique<svs::DynamicVamana>(
+                        svs::DynamicVamana::AssembleTag{},
+                        QueryTypes{},
+                        std::move(new_index)
+                    );
+                } // end of `if constexpr (is_trainable_target_tag_v<TargetTag>)`
+            });
         });
     }
 
@@ -894,9 +874,8 @@ class DynamicVamanaIndexImpl {
         static constexpr bool supports = is_trainable_target_tag_v<TargetTag>;
 
         template <typename TargetTag, typename Source, typename Pool, typename Alloc>
-        auto operator()(
-            TargetTag, const Source& source, Pool& pool, const Alloc& allocator
-        ) const {
+        auto operator()(TargetTag, const Source& source, Pool& pool, const Alloc& allocator)
+            const {
             using TargetData = typename TargetTag::type;
             if constexpr (svs::quantization::scalar::IsSQData<TargetData>) {
                 return TargetData::compress(source, pool, allocator);

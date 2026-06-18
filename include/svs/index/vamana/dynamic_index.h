@@ -418,11 +418,8 @@ class MutableVamanaIndex {
     )
         : MutableVamanaIndex(
               tag,
-              _take_transplant_inputs<SourceData>(
-                  std::move(source), std::move(new_data)
-              ),
-              threads::ThreadPoolHandle{
-                  threads::as_threadpool(std::move(threadpool))},
+              _take_transplant_inputs<SourceData>(std::move(source), std::move(new_data)),
+              threads::ThreadPoolHandle{threads::as_threadpool(std::move(threadpool))},
               std::move(logger)
           ) {}
 
