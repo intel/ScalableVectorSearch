@@ -46,7 +46,7 @@ class IP {
   public:
     template <typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b, size_t N) {
-        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512_path_supported(), 1)) {
             return IPImpl<Dynamic, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                 a, b, lib::MaybeStatic(N)
             );
@@ -63,7 +63,7 @@ class IP {
 
     template <size_t N, typename Ea, typename Eb>
     static constexpr float compute(const Ea* a, const Eb* b) {
-        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512f_supported(), 1)) {
+        if (__builtin_expect(svs::detail::avx_runtime_flags.is_avx512_path_supported(), 1)) {
             if constexpr (is_dim_supported<N>()) {
                 return IPImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512>::compute(
                     a, b, lib::MaybeStatic<N>()

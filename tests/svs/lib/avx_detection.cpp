@@ -29,6 +29,15 @@ CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
               << svs::detail::avx_runtime_flags.is_avx512f_supported() << "\n";
     std::cout << "AVX512VNNI: " << std::boolalpha
               << svs::detail::avx_runtime_flags.is_avx512vnni_supported() << "\n";
+    std::cout << "AVX10: " << std::boolalpha
+              << svs::detail::avx_runtime_flags.is_avx10_supported() << " (version "
+              << svs::detail::avx_runtime_flags.avx10_version_supported() << ")\n";
+
+    // Holds on any host but becomes a real detection check under AVX10 emulation (SDE
+    // gnr/dmr): an AVX10/512 part must enable the AVX-512 dispatch path.
+    if (svs::detail::avx_runtime_flags.is_avx10_supported()) {
+        CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512_path_supported());
+    }
 
 #ifdef __x86_64__
     CATCH_SECTION("Patching") {
@@ -38,6 +47,31 @@ CATCH_TEST_CASE("AVX detection", "[lib][lib-avx-detection]") {
         mutable_flags.avx512f = false;
         CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512f_supported() == false);
         mutable_flags.avx512f = original;
+    }
+
+    CATCH_SECTION("AVX10 routes through the AVX-512 path") {
+        auto& mutable_flags =
+            const_cast<svs::detail::AVXRuntimeFlags&>(svs::detail::avx_runtime_flags);
+        auto original_f = mutable_flags.avx512f;
+        auto original_version = mutable_flags.avx10_version;
+        auto original_512 = mutable_flags.avx10_512;
+
+        // An AVX10/512 part that no longer enumerates the legacy AVX512F bit must still
+        // be routed to the AVX-512 kernels.
+        mutable_flags.avx512f = false;
+        mutable_flags.avx10_version = 1;
+        mutable_flags.avx10_512 = true;
+        CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx10_supported() == true);
+        CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512_path_supported() == true);
+
+        // AVX10 without 512-bit support does not enable the 512-bit kernels.
+        mutable_flags.avx10_512 = false;
+        CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx10_supported() == false);
+        CATCH_REQUIRE(svs::detail::avx_runtime_flags.is_avx512_path_supported() == false);
+
+        mutable_flags.avx512f = original_f;
+        mutable_flags.avx10_version = original_version;
+        mutable_flags.avx10_512 = original_512;
     }
 #endif
 }
