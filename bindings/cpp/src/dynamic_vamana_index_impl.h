@@ -830,13 +830,30 @@ class DynamicVamanaIndexImpl {
 
                     auto allocator = storage::make_allocator<TargetAlloc>(blocksize_bytes);
 
-                    // Train the compressed dataset directly from the source
-                    // dataset using the caller-supplied trainer. The default
-                    // trainer dispatches to each backend's native factory; the
-                    // LeanVec subclass uses a trainer that injects pre-trained
-                    // matrices and ``leanvec_dims``.
-                    TargetData new_data =
-                        trainer(TargetTag{}, concrete->view_data(), train_pool, allocator);
+                    // The prebuilt SVS shared library only instantiates the training
+                    // factories (LeanDataset::reduce / LVQDataset::compress /
+                    // SQ::compress) for a `ConstSimpleDataView<float>` source -- the
+                    // same type the eager build path feeds through `make_storage`.
+                    // The live dynamic dataset is block-allocated (and may be FP16),
+                    // so materialize a contiguous `float` copy and hand the trainer a
+                    // view over it. This keeps the factory call resolving to an
+                    // already-compiled instantiation and avoids undefined references
+                    // when linking against the shared library.
+                    const auto& source_blocked = concrete->view_data();
+                    auto source_contiguous = svs::data::SimpleData<float>{
+                        source_blocked.size(), source_blocked.dimensions()};
+                    for (size_t i = 0, n = source_blocked.size(); i < n; ++i) {
+                        source_contiguous.set_datum(i, source_blocked.get_datum(i));
+                    }
+
+                    // Train the compressed dataset from the materialized source view
+                    // using the caller-supplied trainer. The default trainer
+                    // dispatches to each backend's native factory; the LeanVec
+                    // subclass uses a trainer that injects pre-trained matrices and
+                    // ``leanvec_dims``.
+                    TargetData new_data = trainer(
+                        TargetTag{}, source_contiguous.cview(), train_pool, allocator
+                    );
 
                     // Construct the new MutableVamanaIndex via the transplant
                     // constructor. The ctor moves out of `*concrete` internally
