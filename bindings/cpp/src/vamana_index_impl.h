@@ -74,6 +74,8 @@ class VamanaIndexImpl {
 
     size_t size() const { return impl_ ? get_impl()->size() : 0; }
 
+    size_t get_memory_usage() const { return impl_ ? get_impl()->get_memory_usage() : 0; }
+
     size_t dimensions() const { return dim_; }
 
     MetricType metric_type() const { return metric_type_; }

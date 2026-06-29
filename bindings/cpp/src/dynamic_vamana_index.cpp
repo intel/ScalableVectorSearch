@@ -65,6 +65,8 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 
     size_t blocksize_bytes() const noexcept override { return impl_->blocksize_bytes(); }
 
+    size_t get_memory_usage() const noexcept override { return impl_->get_memory_usage(); }
+
     Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
         return runtime_error_wrapper([&] {

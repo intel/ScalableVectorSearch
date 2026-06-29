@@ -104,6 +104,8 @@ struct VamanaIndexManagerBase : public VamanaIndex {
             impl_->reconstruct_at(dst, id_span);
         });
     }
+
+    size_t get_memory_usage() const noexcept override { return impl_->get_memory_usage(); }
 };
 } // namespace
 
