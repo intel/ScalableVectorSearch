@@ -50,6 +50,8 @@ class VamanaInterface {
 
     virtual size_t get_graph_max_degree() const = 0;
 
+    virtual size_t get_memory_usage() const = 0;
+
     virtual void set_construction_window_size(size_t window_size) = 0;
     virtual size_t get_construction_window_size() const = 0;
 
@@ -126,6 +128,8 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
     float get_alpha() const override { return impl().get_alpha(); }
 
     size_t get_graph_max_degree() const override { return impl().get_graph_max_degree(); }
+
+    size_t get_memory_usage() const override { return impl().get_memory_usage(); }
 
     void set_construction_window_size(size_t window_size) override {
         impl().set_construction_window_size(window_size);
@@ -320,6 +324,9 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     /// @copydoc svs::index::vamana::VamanaIndex::get_graph_max_degree
     size_t get_graph_max_degree() const { return impl_->get_graph_max_degree(); }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::get_memory_usage
+    size_t get_memory_usage() const { return impl_->get_memory_usage(); }
 
     /// @copydoc svs::index::vamana::VamanaIndex::set_construction_window_size
     size_t get_construction_window_size() const {

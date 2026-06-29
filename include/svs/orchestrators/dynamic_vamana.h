@@ -198,6 +198,9 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
     /// @copydoc svs::index::vamana::MutableVamanaIndex::get_graph_max_degree
     size_t get_graph_max_degree() const { return impl_->get_graph_max_degree(); }
 
+    /// @copydoc svs::index::vamana::MutableVamanaIndex::get_memory_usage
+    size_t get_memory_usage() const { return impl_->get_memory_usage(); }
+
     /// @copydoc svs::index::vamana::MutableVamanaIndex::set_construction_window_size
     size_t get_construction_window_size() const {
         return impl_->get_construction_window_size();

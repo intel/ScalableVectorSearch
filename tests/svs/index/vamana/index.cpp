@@ -186,6 +186,42 @@ CATCH_TEST_CASE("Static VamanaIndex Per-Index Logging", "[logging]") {
     CATCH_REQUIRE(captured_logs[2].find("Batch Size:") != std::string::npos);
 }
 
+CATCH_TEST_CASE("Vamana Index Memory Usage", "[vamana][index]") {
+    const size_t N = 128;
+    using Eltype = float;
+    const size_t graph_max_degree = 64;
+    auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
+    const size_t data_size = data.size();
+    const size_t element_size = data.element_size();
+
+    auto graph = svs::graphs::SimpleGraph<uint32_t>(data.size(), graph_max_degree);
+    svs::distance::DistanceL2 distance_function;
+    uint32_t entry_point = 0;
+    auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    svs::index::vamana::VamanaBuildParameters buildParams(
+        1.2, graph_max_degree, 10, 20, 10, true
+    );
+    svs::index::vamana::VamanaIndex index(
+        buildParams,
+        std::move(graph),
+        std::move(data),
+        entry_point,
+        distance_function,
+        std::move(threadpool)
+    );
+
+    auto breakdown = index.get_memory_breakdown();
+    // The total must equal the sum of the parts and the plumbed total accessor.
+    CATCH_REQUIRE(breakdown.total() == index.get_memory_usage());
+    // Both the graph and the vector data must contribute allocated bytes.
+    CATCH_REQUIRE(breakdown.graph_bytes > 0);
+    CATCH_REQUIRE(breakdown.data_bytes > 0);
+    // Lower-bound sanity: capacity-based data bytes must cover every live vector.
+    CATCH_REQUIRE(breakdown.data_bytes >= data_size * element_size);
+    CATCH_REQUIRE(index.get_memory_usage() > 0);
+}
+
 CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {
     const size_t N = 128;
     using Eltype = float;

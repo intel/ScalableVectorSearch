@@ -364,3 +364,31 @@ CATCH_TEST_CASE(
         }
     }
 }
+
+CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index]") {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = test_dataset::data_blocked_f32();
+    const size_t data_size = data.size();
+    const size_t element_size = data.element_size();
+    std::vector<size_t> indices(data_size);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    auto breakdown = index.get_memory_breakdown();
+    // The total must equal the sum of the parts and the plumbed total accessor.
+    CATCH_REQUIRE(breakdown.total() == index.get_memory_usage());
+    // Graph, vector data, and dynamic metadata must all contribute allocated bytes.
+    CATCH_REQUIRE(breakdown.graph_bytes > 0);
+    CATCH_REQUIRE(breakdown.data_bytes > 0);
+    // The dynamic index always carries slot-status, entry-point, and translator metadata.
+    CATCH_REQUIRE(breakdown.metadata_bytes > 0);
+    // Lower-bound sanity: capacity-based data bytes must cover every live vector.
+    CATCH_REQUIRE(breakdown.data_bytes >= data_size * element_size);
+    CATCH_REQUIRE(index.get_memory_usage() > 0);
+}
