@@ -588,6 +588,15 @@ template <typename Distance> class DecompressionAdaptor {
         inner_.fix_argument(view());
     }
 
+    // template <typename T, size_t Extent>
+    // requires (!std::is_integral_v<T>)
+    // void fix_argument(std::span<const T, Extent> left) {
+    //     // Convert the query to float
+    //     decompressed_.resize(left.size());
+    //     auto decompressed_view = data::SimpleDataView<float>(decompressed_.data(), 1,
+    //     left.size()); decompressed_view.set_datum(0, left); inner_.fix_argument(view());
+    // }
+
     template <typename Right> float compute(const Right& right) const {
         return distance::compute(inner_, view(), right);
     }
