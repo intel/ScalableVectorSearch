@@ -31,6 +31,39 @@
 
 namespace {
 
+// Allocator class which records allocated bytes
+template <typename T> class RecordingAllocator {
+  public:
+    using value_type = T;
+
+    RecordingAllocator() = default;
+
+    T* allocate(size_t n) {
+        *allocated_bytes += n * sizeof(T);
+        return static_cast<T*>(::operator new(n * sizeof(T)));
+    }
+
+    void deallocate(T* p, size_t n) {
+        *allocated_bytes -= n * sizeof(T);
+        ::operator delete(p);
+    }
+
+    template <typename U> bool operator==(const RecordingAllocator<U>& other) const {
+        return allocated_bytes == other.allocated_bytes;
+    }
+    template <typename U> bool operator!=(const RecordingAllocator<U>& other) const {
+        return !(*this == other);
+    }
+
+    template <typename U>
+    RecordingAllocator(const RecordingAllocator<U>& other)
+        : allocated_bytes(other.allocated_bytes) {}
+
+    size_t& allocated() { return *allocated_bytes; }
+
+    std::shared_ptr<size_t> allocated_bytes = std::make_shared<size_t>(0);
+};
+
 template <typename T> bool is_blocked(const T&) { return false; }
 template <typename T, size_t N> bool is_blocked(const svs::data::BlockedData<T, N>&) {
     return true;
@@ -152,9 +185,15 @@ CATCH_TEST_CASE("Testing Blocked Data", "[core][data][blocked]") {
         using T = svs::data::BlockingParameters;
         auto p = T{};
         CATCH_REQUIRE(p.blocksize_bytes == T::default_blocksize_bytes);
+        CATCH_REQUIRE(p.blocksize_elements == std::nullopt);
 
         p = T{.blocksize_bytes = svs::lib::PowerOfTwo(10)};
         CATCH_REQUIRE(p.blocksize_bytes == svs::lib::PowerOfTwo(10));
+        CATCH_REQUIRE(p.blocksize_elements == std::nullopt);
+
+        p = T{.blocksize_elements = svs::lib::PowerOfTwo(9)};
+        CATCH_REQUIRE(p.blocksize_bytes == T::default_blocksize_bytes);
+        CATCH_REQUIRE(p.blocksize_elements == svs::lib::PowerOfTwo(9));
     }
 
     CATCH_SECTION("Blocked Allocator") {
@@ -184,5 +223,129 @@ CATCH_TEST_CASE("Testing Blocked Data", "[core][data][blocked]") {
     CATCH_SECTION("Basic Functionality") {
         test_blocked();
         test_blocked<5>();
+    }
+
+    CATCH_SECTION("Different Blocksizes for blocksize_bytes") {
+        // When BlockingParameters::blocksize_bytes is used (no explicit
+        // blocksize_elements), the computed blocksize() depends on the per-element byte
+        // size, i.e. sizeof(T) * dimensions. The same BlockingParameters therefore
+        // produces very different blocksize_ values for datasets with different element
+        // types and dimensionalities.
+
+        // 1 MiB block
+        auto parameters =
+            svs::data::BlockingParameters{.blocksize_bytes = svs::lib::PowerOfTwo(20)};
+
+        size_t num_elements = 10;
+        size_t vector_dims = 1024 + 1 + sizeof(float) * 2; // quantized vectors
+        size_t graph_degree = 32;
+        size_t graph_dims = graph_degree + 1; // +1 for edges counter
+
+        RecordingAllocator<std::byte> byte_alloc;
+        RecordingAllocator<std::uint32_t> int_alloc;
+
+        auto vec_alloc = svs::data::Blocked(parameters, byte_alloc);
+        auto graph_alloc = svs::data::Blocked(parameters, int_alloc);
+
+        auto vec_data = svs::data::SimpleData<std::byte, svs::Dynamic, decltype(vec_alloc)>(
+            num_elements, vector_dims, vec_alloc
+        );
+        auto graph_data =
+            svs::data::SimpleData<uint32_t, svs::Dynamic, decltype(graph_alloc)>(
+                num_elements, graph_dims, graph_alloc
+            );
+
+        // Both datasets are configured with the same blocksize_bytes (1 MiB).
+        CATCH_REQUIRE(vec_data.blocksize_bytes() == graph_data.blocksize_bytes());
+        CATCH_REQUIRE(vec_data.blocksize_bytes().value() == (size_t(1) << 20));
+
+        // Per-element byte sizes differ by 64x (1033 vs 132).
+        CATCH_REQUIRE(vec_data.element_size() == sizeof(std::byte) * vector_dims); // 1033
+        CATCH_REQUIRE(graph_data.element_size() == sizeof(uint32_t) * graph_dims); //  132
+
+        // Imagine that we are going to predict memory consumption based on element size and
+        // a blocksize.
+        auto index_element_size = graph_data.element_size() + vec_data.element_size();
+        // We have just 10 vectors - this should trigger allocation of 1 block for graph and
+        // 1 block for vectors, since both blocksizes are larger than 1. We are assuming
+        // that the blocksize in elements looks like:
+        auto blocksize_elements = parameters.blocksize_bytes.value() /
+                                  vec_data.element_size(); // 1048576 / 1033 = 1014
+        // This is not correct, because the actual block size in elements is computed as the
+        // previous power of two of this value, which is 512 for vectors and 4096 for
+        // graphs. So, if we use the same blocksize_bytes to predict memory consumption, we
+        // will get different results for different element sizes, which is not what we
+        // want.
+        auto expected_memory_consumption =
+            blocksize_elements *
+            index_element_size; // 1014 * (1033 + 132) = 1014 * 1165 = 1,180,310
+
+        auto actual_memory_consumption = byte_alloc.allocated() + int_alloc.allocated();
+        CATCH_REQUIRE(expected_memory_consumption != actual_memory_consumption);
+
+        // So, if we add 520 vectors to an index, we will get 1 block for graph and 2 blocks
+        // for vectors. Which means, we have different numbers of blocks for the same number
+        // of elements, even though the same BlockingParameters were used.
+        vec_data.resize(520);
+        graph_data.resize(520);
+        CATCH_REQUIRE(vec_data.num_blocks() != graph_data.num_blocks());
+
+        // It is because the graph blocksize_ is 8x larger than the vector blocksize_.
+        CATCH_REQUIRE(graph_data.blocksize().value() == 8 * vec_data.blocksize().value());
+    }
+
+    // This is why, to properly predict memory consumption of blocked datasets, we should
+    // directly manage blocksize_elements instead of blocksize_bytes, since the former
+    // directly controls the number of elements per block, while the latter only indirectly
+    // controls it through the element size.
+    CATCH_SECTION("Explicit blocksize_elements") {
+        auto parameters = svs::data::BlockingParameters{
+            .blocksize_elements = svs::lib::PowerOfTwo(9) // 512 elements per block
+        };
+
+        size_t num_elements = 10;
+        size_t vector_dims = 1024 + 1 + sizeof(float) * 2; // quantized vectors
+        size_t graph_degree = 32;
+        size_t graph_dims = graph_degree + 1; // +1 for edges counter
+
+        RecordingAllocator<std::byte> byte_alloc;
+        RecordingAllocator<std::uint32_t> int_alloc;
+
+        auto vec_alloc = svs::data::Blocked(parameters, byte_alloc);
+        auto graph_alloc = svs::data::Blocked(parameters, int_alloc);
+
+        auto vec_data = svs::data::SimpleData<std::byte, svs::Dynamic, decltype(vec_alloc)>(
+            num_elements, vector_dims, vec_alloc
+        );
+        auto graph_data =
+            svs::data::SimpleData<uint32_t, svs::Dynamic, decltype(graph_alloc)>(
+                num_elements, graph_dims, graph_alloc
+            );
+
+        // Per-element byte sizes differ by 64x (1033 vs 132).
+        CATCH_REQUIRE(vec_data.element_size() == sizeof(std::byte) * vector_dims); // 1033
+        CATCH_REQUIRE(graph_data.element_size() == sizeof(uint32_t) * graph_dims); //  132
+
+        // Both datasets are configured with the same blocksize_elements (512).
+        CATCH_REQUIRE(vec_data.blocksize().value() == graph_data.blocksize().value());
+
+        // Imagine that we are going to predict memory consumption based on element size and
+        // a blocksize.
+        auto index_element_size = graph_data.element_size() + vec_data.element_size();
+        // We have just 10 vectors - this should trigger allocation of 1 block for graph and
+        // 1 block for vectors, since both blocksizes are larger than 10. So we can expect
+        // the memory consumption for 1 block in both datasets is:
+        auto expected_memory_consumption =
+            parameters.blocksize_elements.value() * index_element_size;
+
+        auto actual_memory_consumption = byte_alloc.allocated() + int_alloc.allocated();
+        CATCH_REQUIRE(expected_memory_consumption == actual_memory_consumption);
+
+        // So, if we add 520 vectors to an index, we will get 2 blocks for graph and 2
+        // blocks for vectors. Which means, we have same number of blocks for the same
+        // number of elements.
+        vec_data.resize(520);
+        graph_data.resize(520);
+        CATCH_REQUIRE(vec_data.num_blocks() == graph_data.num_blocks());
     }
 }
