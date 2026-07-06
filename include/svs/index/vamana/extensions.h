@@ -737,7 +737,7 @@ class TransactionData {
     const_value_type get_datum(size_t i) const {
         auto point_index = get_point_index(i);
         if (point_index != out_of_points_id) {
-            return points_.get_datum(point_index);
+            return data_points_.get_datum(point_index);
         } else {
             return data_.get_datum(i);
         }
@@ -745,7 +745,7 @@ class TransactionData {
     void prefetch(size_t i) const {
         auto point_index = get_point_index(i);
         if (point_index != out_of_points_id) {
-            points_.prefetch(point_index);
+            data_points_.prefetch(point_index);
         } else {
             data_.prefetch(i);
         }
@@ -787,14 +787,30 @@ struct TransactionDataBuilder {
 inline constexpr TransactionDataBuilder transaction_data_builder{};
 
 template <typename Data, data::ImmutableMemoryDataset Points, threads::ThreadPool Pool>
-TransactionData<Data, Points, const Points&> svs_invoke(
+auto svs_invoke(
     svs::tag_t<transaction_data_builder>,
     const Data& data,
     const Points& points,
     std::span<size_t> slots,
-    Pool& SVS_UNUSED(pool)
+    Pool& pool
 ) {
-    return TransactionData<Data, Points, const Points&>(data, points, points, slots);
+    assert(points.size() == slots.size() && "Points and slots must have the same size");
+    using data_element_type = typename Data::element_type;
+    constexpr size_t extent = Data::extent;
+    using data_points_type = data::SimpleData<data_element_type, extent>;
+
+    auto data_points =
+        data_points_type{points.size(), svs::lib::MaybeStatic<extent>(data.dimensions())};
+    svs::threads::parallel_for(
+        pool,
+        svs::threads::StaticPartition(points.size()),
+        [&](auto is, auto SVS_UNUSED(tid)) {
+            for (auto i : is) {
+                data_points.set_datum(i, points.get_datum(i));
+            }
+        }
+    );
+    return TransactionData(data, points, std::move(data_points), slots);
 }
 
 /// @brief Implementation for transaction dataset/vamana build adaptors.

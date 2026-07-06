@@ -696,6 +696,9 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
   public:
     ///// Static Members
 
+    /// The static dimensionality of the underlying data.
+    static constexpr size_t extent = Extent;
+
     ///
     /// Default block size in bytes.
     ///
