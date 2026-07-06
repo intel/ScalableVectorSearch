@@ -864,13 +864,14 @@ class MutableVamanaIndex {
         );
     }
 
-    template <typename DataWrapper, class ExternalIds>
-    void add_points_commit(
+    template <class ExternalIds, typename DataWrapper>
+    std::vector<size_t> add_points_commit(
         const ExternalIds& external_ids,
-        DataWrapper& data_wrapper,
-        TransactionGraph<graph_type>& graph_wrapper,
-        std::vector<size_t>& slots
+        const std::tuple<DataWrapper, TransactionGraph<graph_type>, std::vector<size_t>>&
+            changes
     ) {
+        auto& [data_wrapper, graph_wrapper, slots] = changes;
+
         // Try to update the id translation now that we have internal ids.
         // If this fails, we still haven't mutated the index data structure so we're safe
         // to throw an exception.
@@ -893,6 +894,7 @@ class MutableVamanaIndex {
         if (!slots.empty()) {
             first_empty_ = std::max(first_empty_, slots.back() + 1);
         }
+        return slots;
     }
 
     ///
@@ -915,10 +917,8 @@ class MutableVamanaIndex {
     std::vector<size_t> add_points(
         const Points& points, const ExternalIds& external_ids, bool reuse_empty = false
     ) {
-        auto [data_wrapper, graph_wrapper, slots] =
-            add_points_compute_changes(points, external_ids, reuse_empty);
-        add_points_commit(external_ids, data_wrapper, graph_wrapper, slots);
-        return slots;
+        auto changes = add_points_compute_changes(points, external_ids, reuse_empty);
+        return add_points_commit(external_ids, changes);
     }
 
     ///
