@@ -797,10 +797,13 @@ auto svs_invoke(
     assert(points.size() == slots.size() && "Points and slots must have the same size");
     using data_element_type = typename Data::element_type;
     constexpr size_t extent = Data::extent;
-    using data_points_type = data::SimpleData<data_element_type, extent>;
+    using allocator_type = typename data::remove_blocked_t<typename Data::allocator_type>;
+    using data_points_type = data::SimpleData<data_element_type, extent, allocator_type>;
 
-    auto data_points =
-        data_points_type{points.size(), svs::lib::MaybeStatic<extent>(data.dimensions())};
+    auto data_points = data_points_type{
+        points.size(),
+        svs::lib::MaybeStatic<extent>(data.dimensions()),
+        data::remove_blocked(data.get_allocator())};
     svs::threads::parallel_for(
         pool,
         svs::threads::StaticPartition(points.size()),
@@ -814,10 +817,7 @@ auto svs_invoke(
 }
 
 /// @brief Implementation for transaction dataset/vamana build adaptors.
-template <
-    /*typename TransactionData, */ typename InnerAdaptor,
-    typename Distance,
-    bool RebuildNeighbour = false>
+template <typename InnerAdaptor, typename Distance, bool RebuildNeighbour = false>
 struct TransactionBuildAdaptor {
   public:
     using inner_adaptor_type = InnerAdaptor;

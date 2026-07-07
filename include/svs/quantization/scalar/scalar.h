@@ -391,6 +391,7 @@ class SQDataset {
         , bias_(bias)
         , data_{std::move(data)} {}
 
+    const allocator_type& get_allocator() const { return data_.get_allocator(); }
     size_t size() const { return data_.size(); }
     size_t dimensions() const { return data_.dimensions(); }
     size_t element_size() const { return sizeof(element_type) * dimensions(); }

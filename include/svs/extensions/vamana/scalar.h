@@ -183,14 +183,17 @@ auto svs_invoke(
     Pool& pool
 ) {
     using element_type = typename Data::element_type;
-    using points_type = SQDataset<element_type, Data::extent, lib::Allocator<element_type>>;
+    using points_type = SQDataset<
+        element_type,
+        Data::extent,
+        data::remove_blocked_t<typename Data::allocator_type>>;
     using compressor_type =
         detail::Compressor<element_type, typename points_type::data_type>;
 
     const auto scale = data.get_scale();
     const auto bias = data.get_bias();
     auto compressor = compressor_type{scale, bias};
-    auto compressed = compressor(points, pool, lib::Allocator<element_type>{});
+    auto compressed = compressor(points, pool, data::remove_blocked(data.get_allocator()));
     return TransactionData(
         data, points, points_type{std::move(compressed), scale, bias}, slots
     );
