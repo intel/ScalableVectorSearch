@@ -171,11 +171,13 @@ Status DynamicVamanaIndex::check_params(
     constexpr static size_t kMaxBlockSizeExp = 30; // 1GB
     constexpr static size_t kMinBlockSizeExp = 12; // 4KB
 
-    if (dynamic_index_params.blocksize_exp > kMaxBlockSizeExp)
+    if (dynamic_index_params.blocksize_exp > kMaxBlockSizeExp) {
         return Status(ErrorCode::INVALID_ARGUMENT, "Blocksize is too large");
+    }
 
-    if (dynamic_index_params.blocksize_exp < kMinBlockSizeExp)
+    if (dynamic_index_params.blocksize_exp < kMinBlockSizeExp) {
         return Status(ErrorCode::INVALID_ARGUMENT, "Blocksize is too small");
+    }
 
     return Status_Ok;
 }
