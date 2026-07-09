@@ -74,19 +74,6 @@ inline svs::DistanceType to_svs_distance(MetricType metric) {
     throw ANNEXCEPTION("unreachable reached"); // Make GCC happy
 }
 
-// Forward to the underlying index's get_memory_usage() when the linked SVS
-// provides it. The LVQ/LeanVec runtime variant links a pre-built SVS package
-// that may predate get_memory_usage(); in that case report 0 rather than
-// failing to compile. The value becomes accurate once the pinned SVS package
-// is updated to a build that includes the method.
-template <typename Index> size_t index_memory_usage(const Index& index) {
-    if constexpr (requires { index.get_memory_usage(); }) {
-        return index.get_memory_usage();
-    } else {
-        return 0;
-    }
-}
-
 class StatusException : public svs::lib::ANNException {
   public:
     StatusException(const svs::runtime::ErrorCode& code, const std::string& message)
