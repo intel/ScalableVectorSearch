@@ -181,7 +181,8 @@ class MultiMutableVamanaIndex {
     distance_type distance_;
     // Wrapped in unique_ptr so this class stays movable (std::atomic and
     // std::shared_mutex are neither copyable nor movable); the VecSim serializer
-    // move-constructs MultiMutableVamanaIndex via make_unique<impl_type>(std::move(loaded)).
+    // move-constructs MultiMutableVamanaIndex via
+    // make_unique<impl_type>(std::move(loaded)).
     std::unique_ptr<std::atomic<external_id_type>> counter_{
         std::make_unique<std::atomic<external_id_type>>(0)};
     std::unique_ptr<ParentIndex> index_{nullptr};
