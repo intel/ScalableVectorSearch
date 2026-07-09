@@ -191,13 +191,18 @@ CATCH_TEST_CASE("Vamana Index Memory Usage", "[vamana][index]") {
     using Eltype = float;
     const size_t graph_max_degree = 64;
     auto data = svs::data::SimpleData<Eltype, N>::load(test_dataset::data_svs_file());
-    const size_t data_size = data.size();
-    const size_t element_size = data.element_size();
 
     auto graph = svs::graphs::SimpleGraph<uint32_t>(data.size(), graph_max_degree);
     svs::distance::DistanceL2 distance_function;
     uint32_t entry_point = 0;
     auto threadpool = svs::threads::DefaultThreadPool(1);
+
+    // Compute the expected allocated bytes directly from each container's own
+    // capacity()/element_size() before they are moved into the index, so the test pins
+    // the exact value rather than a lower bound.
+    const size_t expected_data_bytes = data.capacity() * data.element_size();
+    const size_t expected_graph_bytes =
+        graph.get_data().capacity() * graph.get_data().element_size();
 
     svs::index::vamana::VamanaBuildParameters buildParams(
         1.2, graph_max_degree, 10, 20, 10, true
@@ -211,15 +216,14 @@ CATCH_TEST_CASE("Vamana Index Memory Usage", "[vamana][index]") {
         std::move(threadpool)
     );
 
-    auto breakdown = index.get_memory_breakdown();
-    // The total must equal the sum of the parts and the plumbed total accessor.
-    CATCH_REQUIRE(breakdown.total() == index.get_memory_usage());
-    // Both the graph and the vector data must contribute allocated bytes.
-    CATCH_REQUIRE(breakdown.graph_bytes > 0);
-    CATCH_REQUIRE(breakdown.data_bytes > 0);
-    // Lower-bound sanity: capacity-based data bytes must cover every live vector.
-    CATCH_REQUIRE(breakdown.data_bytes >= data_size * element_size);
-    CATCH_REQUIRE(index.get_memory_usage() > 0);
+    const size_t expected_metadata_bytes = sizeof(uint32_t);
+    const size_t expected_total_bytes =
+        expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
+
+    // Static get_memory_usage() should exactly match the capacity-based bytes implied by
+    // the input graph, input data, and one entry-point id.
+    const size_t usage = index.get_memory_usage();
+    CATCH_REQUIRE(usage == expected_total_bytes);
 }
 
 CATCH_TEST_CASE("Vamana Index Save and Load", "[vamana][index][saveload]") {

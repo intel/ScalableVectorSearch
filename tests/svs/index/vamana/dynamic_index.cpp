@@ -371,7 +371,9 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
 
     auto data = test_dataset::data_blocked_f32();
     const size_t data_size = data.size();
-    const size_t element_size = data.element_size();
+    // Expected data bytes are capacity-based; capture them before the dataset is moved
+    // into the index so the test can pin the exact value.
+    const size_t expected_data_bytes = data.capacity() * data.element_size();
     std::vector<size_t> indices(data_size);
     std::iota(indices.begin(), indices.end(), 0);
 
@@ -380,15 +382,20 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
         parameters, std::move(data), indices, Distance(), num_threads
     );
 
-    auto breakdown = index.get_memory_breakdown();
-    // The total must equal the sum of the parts and the plumbed total accessor.
-    CATCH_REQUIRE(breakdown.total() == index.get_memory_usage());
-    // Graph, vector data, and dynamic metadata must all contribute allocated bytes.
-    CATCH_REQUIRE(breakdown.graph_bytes > 0);
-    CATCH_REQUIRE(breakdown.data_bytes > 0);
-    // The dynamic index always carries slot-status, entry-point, and translator metadata.
-    CATCH_REQUIRE(breakdown.metadata_bytes > 0);
-    // Lower-bound sanity: capacity-based data bytes must cover every live vector.
-    CATCH_REQUIRE(breakdown.data_bytes >= data_size * element_size);
-    CATCH_REQUIRE(index.get_memory_usage() > 0);
+    const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
+                                        index.view_graph().get_data().element_size();
+    using Index = decltype(index);
+    const size_t expected_metadata_bytes =
+        data_size * sizeof(svs::index::vamana::SlotMetadata) +
+        sizeof(typename Index::internal_id_type) +
+        2 * indices.size() *
+            (sizeof(typename Index::external_id_type) +
+             sizeof(typename Index::internal_id_type));
+    const size_t expected_total_bytes =
+        expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
+
+    // Dynamic get_memory_usage() should exactly match the capacity-based graph and data
+    // bytes plus the deterministic metadata implied by the input ids.
+    const size_t usage = index.get_memory_usage();
+    CATCH_REQUIRE(usage == expected_total_bytes);
 }

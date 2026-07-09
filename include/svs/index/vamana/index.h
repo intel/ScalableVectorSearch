@@ -177,28 +177,6 @@ struct VamanaIndexParameters {
     operator==(const VamanaIndexParameters&, const VamanaIndexParameters&) = default;
 };
 
-///
-/// @brief Detailed breakdown of the memory allocated by a Vamana index.
-///
-/// All quantities are reported in bytes and reflect the number of bytes the underlying
-/// containers have *allocated* (their capacity), not just the bytes occupied by the live
-/// elements. The index over-allocates storage in blocks, and that reserved overhead is
-/// included here on purpose so that integrators can report the true memory footprint.
-///
-struct VamanaMemoryUsage {
-    /// Bytes allocated for the graph adjacency lists.
-    size_t graph_bytes = 0;
-    /// Bytes allocated for the vector dataset.
-    size_t data_bytes = 0;
-    /// Bytes allocated for dynamic metadata (slot status, entry-point list, and the
-    /// external/internal ID translation maps). Zero for the static index aside from its
-    /// entry-point list.
-    size_t metadata_bytes = 0;
-
-    /// @brief Return the total number of allocated bytes across all components.
-    size_t total() const { return graph_bytes + data_bytes + metadata_bytes; }
-};
-
 namespace detail {
 
 /// @brief Return the number of bytes allocated for the backing storage of ``dataset``.
@@ -784,25 +762,17 @@ class VamanaIndex {
     /// @brief Get the ``graph_max_degree`` that was used for graph construction.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return a detailed breakdown of the bytes allocated by this index.
-    ///
-    /// All quantities are capacity-based (the bytes the containers have reserved), not
-    /// live-element counts. The static index has no slot-status or ID-translation
-    /// metadata, so ``metadata_bytes`` accounts only for the entry-point list.
-    VamanaMemoryUsage get_memory_breakdown() const {
-        VamanaMemoryUsage usage{};
-        usage.graph_bytes = detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = detail::dataset_allocated_bytes(data_);
-        usage.metadata_bytes =
-            entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        return usage;
-    }
-
     /// @brief Return the total number of bytes allocated by this index.
     ///
-    /// This is the sum of the graph storage, vector data, and dynamic metadata reported
-    /// by ``get_memory_breakdown``.
-    size_t get_memory_usage() const { return get_memory_breakdown().total(); }
+    /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
+    /// data, and the entry-point list (the static index has no slot-status or
+    /// ID-translation metadata). Capacity-based accounting includes the block
+    /// over-allocation so integrators can report the true memory footprint.
+    size_t get_memory_usage() const {
+        return detail::dataset_allocated_bytes(graph_.get_data()) +
+               detail::dataset_allocated_bytes(data_) +
+               entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
+    }
 
     /// @brief Get the max candidate pool size that was used for graph construction.
     size_t get_max_candidates() const { return build_parameters_.max_candidate_pool_size; }
