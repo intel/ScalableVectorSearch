@@ -321,27 +321,34 @@ class MutableVamanaIndex {
     /// @brief Get the ``graph_max_degree`` used while mutating the graph.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the total number of bytes allocated by this index.
+    /// @brief Return the bytes allocated by each index component.
     ///
     /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
     /// data, and the dynamic metadata (per-slot status, entry-point list, and the
     /// external/internal ID translation maps). Capacity-based accounting includes the
     /// block over-allocation so integrators can report the true memory footprint.
-    size_t get_memory_usage() const {
-        size_t total = detail::dataset_allocated_bytes(graph_.get_data()) +
-                       detail::dataset_allocated_bytes(data_);
-        total += status_.capacity() * sizeof(SlotMetadata);
-        total += entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
+    MemoryBreakdown get_memory_breakdown() const {
+        MemoryBreakdown usage{};
+        usage.graph_bytes = detail::dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = detail::dataset_allocated_bytes(data_);
+
+        size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
+        metadata_bytes +=
+            entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
         // The IDTranslator holds two tsl::robin_map instances (external->internal and
         // internal->external), neither of which exposes its allocated byte count. We
         // approximate the storage as the id pair held in each of the two directions. This
         // ignores the maps' load-factor slack and control bytes, so it is an estimate of
         // the hash-map overhead that is accurate to within a few percent.
-        total += 2 * translator_.size() *
-                 (sizeof(IDTranslator::external_id_type) +
-                  sizeof(IDTranslator::internal_id_type));
-        return total;
+        metadata_bytes += 2 * translator_.size() *
+                          (sizeof(IDTranslator::external_id_type) +
+                           sizeof(IDTranslator::internal_id_type));
+        usage.metadata_bytes = metadata_bytes;
+        return usage;
     }
+
+    /// @brief Return the total number of bytes allocated by this index.
+    size_t get_memory_usage() const { return get_memory_breakdown().total(); }
 
     /// @brief Get the max candidate pool size used while mutating the graph.
     size_t get_max_candidates() const { return max_candidates_; }

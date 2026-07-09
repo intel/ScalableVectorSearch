@@ -396,6 +396,11 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
 
     // Dynamic get_memory_usage() should exactly match the capacity-based graph and data
     // bytes plus the deterministic metadata implied by the input ids.
+    const auto breakdown = index.get_memory_breakdown();
+    CATCH_REQUIRE(breakdown.graph_bytes == expected_graph_bytes);
+    CATCH_REQUIRE(breakdown.data_bytes == expected_data_bytes);
+    CATCH_REQUIRE(breakdown.metadata_bytes == expected_metadata_bytes);
+    CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
     const size_t usage = index.get_memory_usage();
     CATCH_REQUIRE(usage == expected_total_bytes);
 }

@@ -50,6 +50,14 @@ struct VamanaSearchParameters {
 };
 } // namespace detail
 
+struct MemoryBreakdown {
+    size_t graph_bytes = 0;
+    size_t data_bytes = 0;
+    size_t metadata_bytes = 0;
+
+    size_t total() const { return graph_bytes + data_bytes + metadata_bytes; }
+};
+
 // Abstract interface for Vamana-based indices.
 struct SVS_RUNTIME_API VamanaIndex {
     virtual ~VamanaIndex();
@@ -92,6 +100,9 @@ struct SVS_RUNTIME_API VamanaIndex {
 
     // Return the index memory usage in bytes.
     virtual size_t get_memory_usage() const noexcept = 0;
+
+    // Return the bytes allocated by each index component.
+    virtual Status get_memory_breakdown(MemoryBreakdown* out) const noexcept = 0;
 
     // Utility function to check storage kind support
     static Status check_storage_kind(StorageKind storage_kind) noexcept;

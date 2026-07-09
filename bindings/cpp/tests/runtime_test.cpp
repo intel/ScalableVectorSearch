@@ -1511,8 +1511,20 @@ CATCH_TEST_CASE("GetMemoryUsageDynamic", "[runtime][memory]") {
     status = index->add(test_n, labels.data(), test_data.data());
     CATCH_REQUIRE(status.ok());
 
-    // After adding points, the index must report a non-zero memory usage.
-    CATCH_REQUIRE(index->get_memory_usage() > 0);
+    // After adding points, the index must report non-zero memory usage and the
+    // component breakdown must sum to the same value.
+    const auto dynamic_usage = index->get_memory_usage();
+    CATCH_REQUIRE(dynamic_usage > 0);
+    svs::runtime::v0::MemoryBreakdown dynamic_breakdown{};
+    status = index->get_memory_breakdown(&dynamic_breakdown);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(dynamic_breakdown.graph_bytes > 0);
+    CATCH_REQUIRE(dynamic_breakdown.data_bytes > 0);
+    CATCH_REQUIRE(dynamic_breakdown.metadata_bytes > 0);
+    CATCH_REQUIRE(dynamic_breakdown.total() == dynamic_usage);
+    status = index->get_memory_breakdown(nullptr);
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(status.code == svs::runtime::v0::ErrorCode::INVALID_ARGUMENT);
 
     svs::runtime::v0::DynamicVamanaIndex::destroy(index);
 
@@ -1584,8 +1596,17 @@ CATCH_TEST_CASE("GetMemoryUsageStatic", "[runtime][static_vamana][memory]") {
     status = index->add(test_n, test_data.data());
     CATCH_REQUIRE(status.ok());
 
-    // After adding points, the static index must report a non-zero memory usage.
-    CATCH_REQUIRE(index->get_memory_usage() > 0);
+    // After adding points, the static index must report non-zero memory usage and the
+    // component breakdown must sum to the same value.
+    const auto static_usage = index->get_memory_usage();
+    CATCH_REQUIRE(static_usage > 0);
+    svs::runtime::v0::MemoryBreakdown static_breakdown{};
+    status = index->get_memory_breakdown(&static_breakdown);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(static_breakdown.graph_bytes > 0);
+    CATCH_REQUIRE(static_breakdown.data_bytes > 0);
+    CATCH_REQUIRE(static_breakdown.metadata_bytes > 0);
+    CATCH_REQUIRE(static_breakdown.total() == static_usage);
 
     svs::runtime::v0::VamanaIndex::destroy(index);
 }

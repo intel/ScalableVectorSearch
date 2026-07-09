@@ -195,6 +195,14 @@ template <typename Dataset> size_t dataset_allocated_bytes(const Dataset& datase
 
 } // namespace detail
 
+struct MemoryBreakdown {
+    size_t graph_bytes = 0;
+    size_t data_bytes = 0;
+    size_t metadata_bytes = 0;
+
+    size_t total() const { return graph_bytes + data_bytes + metadata_bytes; }
+};
+
 ///
 /// @brief Search scratchspace used by the Vamana index.
 ///
@@ -762,17 +770,23 @@ class VamanaIndex {
     /// @brief Get the ``graph_max_degree`` that was used for graph construction.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the total number of bytes allocated by this index.
+    /// @brief Return the bytes allocated by each index component.
     ///
     /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
     /// data, and the entry-point list (the static index has no slot-status or
     /// ID-translation metadata). Capacity-based accounting includes the block
     /// over-allocation so integrators can report the true memory footprint.
-    size_t get_memory_usage() const {
-        return detail::dataset_allocated_bytes(graph_.get_data()) +
-               detail::dataset_allocated_bytes(data_) +
-               entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
+    MemoryBreakdown get_memory_breakdown() const {
+        MemoryBreakdown usage{};
+        usage.graph_bytes = detail::dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = detail::dataset_allocated_bytes(data_);
+        usage.metadata_bytes =
+            entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
+        return usage;
     }
+
+    /// @brief Return the total number of bytes allocated by this index.
+    size_t get_memory_usage() const { return get_memory_breakdown().total(); }
 
     /// @brief Get the max candidate pool size that was used for graph construction.
     size_t get_max_candidates() const { return build_parameters_.max_candidate_pool_size; }
