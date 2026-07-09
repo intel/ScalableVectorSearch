@@ -18,6 +18,10 @@
 #include "svs/index/vamana/dynamic_index.h"
 #include "svs/index/vamana/iterator.h"
 
+#include <atomic>
+#include <memory>
+#include <shared_mutex>
+
 namespace svs::index::vamana {
 
 /// @brief A multi-vector batch iterator for retrieving neighbors with unique labels from
@@ -175,22 +179,42 @@ class MultiMutableVamanaIndex {
 
   private:
     distance_type distance_;
-    external_id_type counter_{0};
+    // Wrapped in unique_ptr so this class stays movable (std::atomic and
+    // std::shared_mutex are neither copyable nor movable); the VecSim serializer
+    // move-constructs MultiMutableVamanaIndex via make_unique<impl_type>(std::move(loaded)).
+    std::unique_ptr<std::atomic<external_id_type>> counter_{
+        std::make_unique<std::atomic<external_id_type>>(0)};
     std::unique_ptr<ParentIndex> index_{nullptr};
     label_to_external_type label_to_external_;
     external_to_label_type external_to_label_;
+    // Guard the label<->external id translation maps for concurrent add/delete/search.
+    std::unique_ptr<std::shared_mutex> l2e_mutex_{std::make_unique<std::shared_mutex>()};
+    std::unique_ptr<std::shared_mutex> e2l_mutex_{std::make_unique<std::shared_mutex>()};
 
     template <class Labels>
     void
     prepare_added_id_by_label(const Labels& labels, std::vector<external_id_type>& adds) {
         for (const auto l : labels) {
-            if (label_to_external_.find(l) == label_to_external_.end()) {
-                label_to_external_.insert({l, std::vector<external_id_type>{}});
+            // Ensure a bucket exists for this label (it may be new).
+            {
+                l2e_mutex_->lock_shared();
+                bool missing = label_to_external_.find(l) == label_to_external_.end();
+                l2e_mutex_->unlock_shared();
+                if (missing) {
+                    std::lock_guard lock{*l2e_mutex_};
+                    label_to_external_.insert({l, std::vector<external_id_type>{}});
+                }
             }
 
-            size_t new_external_id = counter_++;
-            label_to_external_[l].push_back(new_external_id);
-            external_to_label_.insert({new_external_id, l});
+            size_t new_external_id = counter_->fetch_add(1, std::memory_order_relaxed);
+            {
+                std::lock_guard lock{*l2e_mutex_};
+                label_to_external_[l].push_back(new_external_id);
+            }
+            {
+                std::lock_guard lock{*e2l_mutex_};
+                external_to_label_.insert({new_external_id, l});
+            }
             adds.push_back(new_external_id);
         }
     }
@@ -332,6 +356,7 @@ class MultiMutableVamanaIndex {
     template <typename Query>
     double get_distance(label_type label, const Query& query) const {
         double best = INVALID_DISTANCE;
+        std::shared_lock l2e_lock{*l2e_mutex_};
         auto it = label_to_external_.find(label);
 
         if (it != label_to_external_.end()) {
@@ -379,15 +404,21 @@ class MultiMutableVamanaIndex {
     template <typename T> size_t delete_entries(const T& labels) {
         std::vector<external_id_type> deletes;
 
-        for (auto& label : labels) {
-            auto it = label_to_external_.find(label);
-            if (it != label_to_external_.end()) {
-                auto& externals = (*it).second;
-                deletes.insert(deletes.end(), externals.begin(), externals.end());
-                for (auto& ext : externals) {
-                    external_to_label_.erase(ext);
+        {
+            std::lock_guard l2e_lock{*l2e_mutex_};
+            for (auto& label : labels) {
+                auto it = label_to_external_.find(label);
+                if (it != label_to_external_.end()) {
+                    auto& externals = (*it).second;
+                    deletes.insert(deletes.end(), externals.begin(), externals.end());
+                    {
+                        std::lock_guard e2l_lock{*e2l_mutex_};
+                        for (auto& ext : externals) {
+                            external_to_label_.erase(ext);
+                        }
+                    }
+                    label_to_external_.erase(it);
                 }
-                label_to_external_.erase(it);
             }
         }
         index_->delete_entries(deletes);
@@ -481,12 +512,16 @@ class MultiMutableVamanaIndex {
     }
 
     bool has_id(size_t e) const {
+        std::shared_lock l2e_lock{*l2e_mutex_};
         return label_to_external_.find(e) != label_to_external_.end();
     }
 
     size_t size() const { return index_->size(); }
 
-    size_t labelcount() const { return label_to_external_.size(); }
+    size_t labelcount() const {
+        std::shared_lock l2e_lock{*l2e_mutex_};
+        return label_to_external_.size();
+    }
 
     // scrathspace from parent index
     scratchspace_type scratchspace(const search_parameters_type& sp) const {
@@ -498,6 +533,7 @@ class MultiMutableVamanaIndex {
 
     // translate internal id -> external id -> label
     label_type translate_internal_id(Idx i) const {
+        std::shared_lock e2l_lock{*e2l_mutex_};
         return external_to_label_.at(index_->translate_internal_id(i));
     }
 
@@ -507,6 +543,7 @@ class MultiMutableVamanaIndex {
     ///     each external ID in the index.
     ///
     template <typename F> void on_ids(F&& f) const {
+        std::shared_lock l2e_lock{*l2e_mutex_};
         for (auto pair : label_to_external_) {
             f(pair.first);
         }

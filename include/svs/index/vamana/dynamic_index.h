@@ -911,7 +911,11 @@ class MutableVamanaIndex {
             if (!translator_.has_external(i)) {
                 continue; // Already deleted + consolidated, or never existed.
             }
-            delete_entry(translator_.get_internal(i));
+            auto internal = translator_.get_internal(i);
+            if (is_deleted(internal)) {
+                continue; // Already soft-deleted, translator entry not yet consolidated.
+            }
+            delete_entry(internal);
             ++deleted;
         }
         // Don't erase translator entries here — concurrent search may still
