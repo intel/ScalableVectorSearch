@@ -149,9 +149,9 @@ class IDTranslator {
     ///     ID is considered stale by the caller (e.g. the associated slot has been
     ///     marked for deletion but the translator entry was not yet cleaned up).
     ///
-    /// Throws if an external ID already maps to a non-stale internal ID (i.e. the
-    /// user is trying to re-insert a live mapping). In this case, the translator is
-    /// left partially modified — prior successful replacements are not rolled back.
+    /// Throws if an external ID already maps to a non-stale internal ID.
+    ///  The batch is validated in full before any mutation, so on throw the
+    /// translation maps are left unmodified.
     ///
     /// @param external Container of external IDs to insert.
     /// @param internal Container of internal IDs to insert (same length as external).
@@ -181,17 +181,21 @@ class IDTranslator {
             throw ANNEXCEPTION("Internal IDs contain repeat elements!");
         }
 
+        // Validation pass
+        for (auto e = ext_begin; e != ext_end; ++e) {
+            auto found = external_to_internal_.find(*e);
+            if (found != external_to_internal_.end() && !is_stale(found->second)) {
+                throw ANNEXCEPTION("Index already contains external ID {}!", *e);
+            }
+        }
+
+        // Commit pass
         auto e = ext_begin;
         auto i = int_begin;
         for (; e != ext_end; ++e, ++i) {
             auto found = external_to_internal_.find(*e);
             if (found != external_to_internal_.end()) {
-                auto old_internal = found->second;
-                if (!is_stale(old_internal)) {
-                    throw ANNEXCEPTION("Index already contains external ID {}!", *e);
-                }
-                // Stale — erase reverse mapping; forward will be overwritten below.
-                internal_to_external_.erase(old_internal);
+                internal_to_external_.erase(found->second);
             }
             insert_translation(*e, *i);
         }

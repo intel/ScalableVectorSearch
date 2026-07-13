@@ -828,7 +828,10 @@ class MutableVamanaIndex {
         // Phase 2: Publish the id translation under translator_mutex_ exclusive
         // A Pending slot belongs to an in-flight adder and must
         // not be treated as stale — that would clobber the other adder's mapping.
-        {
+        //
+        // replace_stale_and_insert throws if any external id already
+        // maps to a live slot.
+        try {
             std::lock_guard lock{*translator_mutex_};
             translator_
                 .replace_stale_and_insert(external_ids, slots, [this](auto internal) {
@@ -837,6 +840,16 @@ class MutableVamanaIndex {
                            )
                                .load(std::memory_order_acquire) == SlotMetadata::Deleted;
                 });
+        } catch (...) {
+            std::lock_guard lock{*slot_alloc_mutex_};
+            for (auto s : slots) {
+                std::atomic_ref<SlotMetadata>(status_[s])
+                    .store(SlotMetadata::Empty, std::memory_order_release);
+            }
+            if (!slots.empty()) {
+                first_empty_ = std::min(first_empty_, slots.front());
+            }
+            throw;
         }
 
         // Phase 3: Lock-free data copy and adjacency clearing.
