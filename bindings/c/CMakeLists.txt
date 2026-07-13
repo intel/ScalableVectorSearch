@@ -201,6 +201,9 @@ endif()
 
 
 if(SVS_BUILD_C_API_TESTS)
+    # Add test to CTest
+    include(CTest)
+    enable_testing()
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_options(${TARGET_NAME} PRIVATE --coverage)
         target_link_options(${TARGET_NAME} PRIVATE --coverage)
