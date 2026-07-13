@@ -77,11 +77,11 @@ class LeanVecDataBuilder {
     }
 };
 
-template <size_t I1, size_t I2, typename Allocator>
+template <size_t I1, size_t I2, typename Alloc>
 struct lib::
-    DispatchConverter<const c_runtime::Storage*, LeanVecDataBuilder<I1, I2, Allocator>> {
+    DispatchConverter<const c_runtime::Storage*, LeanVecDataBuilder<I1, I2, Alloc>> {
     using From = const svs::c_runtime::Storage*;
-    using To = LeanVecDataBuilder<I1, I2, Allocator>;
+    using To = LeanVecDataBuilder<I1, I2, Alloc>;
 
     static int64_t match(From from) {
         if (from->kind == SVS_STORAGE_KIND_LEANVEC) {
