@@ -133,11 +133,16 @@ inline float cosine_distance(const float* a, const float* b, size_t dim) {
     return dot_product / (std::sqrt(norm_a) * std::sqrt(norm_b));
 }
 
-inline bool check_storage_support(svs_storage_h storage, svs_error_h error) {
+inline void check_storage_support(svs_storage_h storage, svs_error_h error) {
     if (storage == nullptr) {
         auto code = svs_error_get_code(error);
-        return code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW;
-    } else {
-        return svs_error_ok(error) == true;
+        if (code == SVS_ERROR_NOT_IMPLEMENTED) {
+            CATCH_SKIP("Storage kind is not implemented, skipping test.");
+            return; // Skip the test
+        } else if (code == SVS_ERROR_UNSUPPORTED_HW) {
+            CATCH_SKIP("Storage kind is not supported, skipping test.");
+            return; // Skip the test
+        }
     }
+    CATCH_REQUIRE(svs_error_ok(error) == true); // Fail the test for other errors
 }

@@ -49,6 +49,17 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
+    - name: Install OpenMP runtime
+      env:
+        CXX: ${{ matrix.cxx }}
+      run: |
+        sudo apt-get update
+        # The default libgomp shipped with GCC does not match the clang
+        # toolchain, so install the LLVM OpenMP runtime (libomp) for clang.
+        if [[ "${CXX}" == clang* ]]; then
+          sudo apt-get install -y libomp-15-dev
+        fi
+
     - name: Configure build
       working-directory: ${{ runner.temp }}
       env:
