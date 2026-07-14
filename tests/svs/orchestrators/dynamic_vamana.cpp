@@ -145,7 +145,7 @@ CATCH_TEST_CASE("DynamicVamana Memory Usage", "[managers][dynamic_vamana]") {
         build_params, std::move(first_data), first_ids, distance, num_threads
     );
 
-    const size_t usage_before = index.get_memory_usage();
+    const size_t usage_before = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage_before > 0);
 
     // Add the second half of the dataset (external IDs half .. n-1).
@@ -159,6 +159,6 @@ CATCH_TEST_CASE("DynamicVamana Memory Usage", "[managers][dynamic_vamana]") {
     index.add_points(second_data.cview(), second_ids);
 
     // Adding points must increase the reported allocation.
-    const size_t usage_after = index.get_memory_usage();
+    const size_t usage_after = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage_after > usage_before);
 }

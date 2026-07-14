@@ -177,24 +177,6 @@ struct VamanaIndexParameters {
     operator==(const VamanaIndexParameters&, const VamanaIndexParameters&) = default;
 };
 
-namespace detail {
-
-/// @brief Return the number of bytes allocated for the backing storage of ``dataset``.
-///
-/// Capacity-based accounting (the bytes the containers have reserved) is used whenever the
-/// dataset exposes a ``capacity()`` accessor (e.g. flat and blocked ``SimpleData``), so
-/// that block over-allocation is reflected. Datasets that do not expose ``capacity()``
-/// fall back to the number of live elements.
-template <typename Dataset> size_t dataset_allocated_bytes(const Dataset& dataset) {
-    if constexpr (requires(const Dataset& d) { d.capacity(); }) {
-        return dataset.capacity() * dataset.element_size();
-    } else {
-        return dataset.size() * dataset.element_size();
-    }
-}
-
-} // namespace detail
-
 struct MemoryBreakdown {
     size_t graph_bytes = 0;
     size_t data_bytes = 0;
@@ -778,15 +760,12 @@ class VamanaIndex {
     /// over-allocation so integrators can report the true memory footprint.
     MemoryBreakdown get_memory_breakdown() const {
         MemoryBreakdown usage{};
-        usage.graph_bytes = detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = detail::dataset_allocated_bytes(data_);
+        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
+        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
         usage.metadata_bytes =
             entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
         return usage;
     }
-
-    /// @brief Return the total number of bytes allocated by this index.
-    size_t get_memory_usage() const { return get_memory_breakdown().total(); }
 
     /// @brief Get the max candidate pool size that was used for graph construction.
     size_t get_max_candidates() const { return build_parameters_.max_candidate_pool_size; }

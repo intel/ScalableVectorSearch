@@ -401,6 +401,6 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
     CATCH_REQUIRE(breakdown.data_bytes == expected_data_bytes);
     CATCH_REQUIRE(breakdown.metadata_bytes == expected_metadata_bytes);
     CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
-    const size_t usage = index.get_memory_usage();
+    const size_t usage = index.get_memory_breakdown().total();
     CATCH_REQUIRE(usage == expected_total_bytes);
 }

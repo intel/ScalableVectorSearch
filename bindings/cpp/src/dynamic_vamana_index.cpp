@@ -215,8 +215,9 @@ Status DynamicVamanaIndex::build(
     *index = nullptr;
 
     auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
-    if (!status.ok())
+    if (!status.ok()) {
         return status;
+    }
 
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
@@ -306,8 +307,9 @@ Status DynamicVamanaIndexLeanVec::build(
     *index = nullptr;
 
     auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
-    if (!status.ok())
+    if (!status.ok()) {
         return status;
+    }
 
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
@@ -338,8 +340,9 @@ Status DynamicVamanaIndexLeanVec::build(
     *index = nullptr;
 
     auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
-    if (!status.ok())
+    if (!status.ok()) {
         return status;
+    }
 
     return runtime_error_wrapper([&] {
         auto training_data_impl =

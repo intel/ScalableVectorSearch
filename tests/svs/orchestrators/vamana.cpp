@@ -126,7 +126,7 @@ CATCH_TEST_CASE("Vamana Memory Usage", "[managers][vamana]") {
         distance,
         num_threads
     );
-    const size_t full_usage = full.get_memory_usage();
+    const size_t full_usage = full.get_memory_breakdown().total();
     CATCH_REQUIRE(full_usage > 0);
 
     // Monotonicity: an index built over fewer vectors must allocate fewer bytes.
@@ -139,7 +139,7 @@ CATCH_TEST_CASE("Vamana Memory Usage", "[managers][vamana]") {
     svs::Vamana half = svs::Vamana::build<float>(
         build_params, std::move(half_data), distance, num_threads
     );
-    const size_t half_usage = half.get_memory_usage();
+    const size_t half_usage = half.get_memory_breakdown().total();
     CATCH_REQUIRE(half_usage > 0);
     CATCH_REQUIRE(full_usage > half_usage);
 }
