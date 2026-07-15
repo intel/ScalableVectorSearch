@@ -1016,6 +1016,15 @@ class MutableVamanaIndex {
         // continues to run.
         std::lock_guard compact_lock{*compact_mutex_};
 
+        // Consolidate first, under the same exclusive lock. This folds any
+        // outstanding soft-deletes into the graph.
+        consolidate_locked();
+        compact_locked(batch_size);
+    }
+
+    // Body of compact() with no compact_mutex_ locking. The caller MUST hold
+    // compact_mutex_ exclusive
+    void compact_locked(Idx batch_size = 1'000) {
         // Step 1: Compute a prefix-sum matching each valid internal index to its new
         // internal index.
         //
@@ -1188,6 +1197,13 @@ class MutableVamanaIndex {
     ///// Mutation
     void consolidate() {
         std::shared_lock compact_lock{*compact_mutex_};
+        consolidate_locked();
+    }
+
+    // Body of consolidate() with no compact_mutex_ locking. The caller holds
+    // compact_mutex_ (shared for a standalone consolidate; exclusive when invoked
+    // from compact()).
+    void consolidate_locked() {
         auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
         std::function<bool(size_t)> valid = [&](size_t i) {
             return !(this->is_deleted(i));
