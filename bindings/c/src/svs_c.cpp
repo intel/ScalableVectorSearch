@@ -821,3 +821,59 @@ svs_index_set_num_threads(svs_index_h index, size_t num_threads, svs_error_h out
         false
     );
 }
+
+extern "C" bool
+svs_index_element_size(svs_index_h index, size_t* out_bytes, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_bytes);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            *out_bytes = index_ptr->element_size();
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool
+svs_index_get_memory_usage(svs_index_h index, size_t* out_bytes, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_bytes);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            auto breakdown = index_ptr->get_memory_breakdown();
+            *out_bytes = breakdown.total();
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_get_memory_breakdown(
+    svs_index_h index, svs_memory_breakdown_t* out_breakdown, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_breakdown);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            auto breakdown = index_ptr->get_memory_breakdown();
+            out_breakdown->graph_bytes = breakdown.graph_bytes;
+            out_breakdown->data_bytes = breakdown.data_bytes;
+            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
+            return true;
+        },
+        out_err,
+        false
+    );
+}

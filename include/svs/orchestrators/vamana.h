@@ -101,6 +101,10 @@ class VamanaInterface {
 
     // Non-templated virtual method for distance calculation
     virtual double get_distance(size_t id, const AnonymousArray<1>& query) const = 0;
+
+    ///// Memory accounting
+    virtual size_t element_size() const = 0;
+    virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
 };
 
 template <lib::TypeList QueryTypes, typename Impl, typename IFace = VamanaInterface>
@@ -267,6 +271,12 @@ class VamanaImpl : public manager::ManagerImpl<QueryTypes, Impl, IFace> {
             }
         );
     }
+
+    size_t element_size() const override { return impl().element_size(); }
+
+    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
+        return impl().get_memory_breakdown();
+    }
 };
 
 ///// Forward declarations
@@ -378,6 +388,14 @@ class Vamana : public manager::IndexManager<VamanaInterface> {
 
     void reconstruct_at(data::SimpleDataView<float> data, std::span<const uint64_t> ids) {
         impl_->reconstruct_at(data, ids);
+    }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::element_size
+    size_t element_size() const { return impl_->element_size(); }
+
+    /// @copydoc svs::index::vamana::VamanaIndex::get_memory_breakdown
+    svs::index::vamana::MemoryBreakdown get_memory_breakdown() const {
+        return impl_->get_memory_breakdown();
     }
 
     ///

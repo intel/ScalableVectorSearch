@@ -97,6 +97,13 @@ struct svs_search_results {
     float* distances;          /// Distances to the nearest neighbors
 };
 
+/// @brief Structure to hold memory breakdown for an index
+struct svs_memory_breakdown {
+    size_t graph_bytes;    /// Allocated bytes for the graph structure
+    size_t data_bytes;     /// Allocated bytes for the data vectors
+    size_t metadata_bytes; /// Allocated bytes for metadata (entry points, status, etc.)
+};
+
 // Handle typedefs; "_h" suffix indicates a handle to an opaque struct
 typedef struct svs_error_desc* svs_error_h;
 typedef struct svs_index* svs_index_h;
@@ -114,6 +121,7 @@ typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 
 typedef struct svs_threadpool_interface* svs_threadpool_i;
 typedef struct svs_search_results* svs_search_results_t;
+typedef struct svs_memory_breakdown svs_memory_breakdown_t;
 
 /// @brief Create an error handle
 /// @return A handle to the created error object
@@ -526,6 +534,37 @@ SVS_API bool svs_index_get_num_threads(
 /// - SVS_ERROR_RUNTIME for other runtime failures
 SVS_API bool svs_index_set_num_threads(
     svs_index_h index, size_t num_threads, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the element size (bytes per vector) for the index
+/// @param index The index handle
+/// @param out_bytes Pointer to store the element size in bytes
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_element_size(
+    svs_index_h index, size_t* out_bytes, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the total memory usage of the index in bytes
+/// @param index The index handle
+/// @param out_bytes Pointer to store the total memory usage in bytes
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks This returns the sum of graph_bytes + data_bytes + metadata_bytes
+SVS_API bool svs_index_get_memory_usage(
+    svs_index_h index, size_t* out_bytes, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get the memory breakdown for the index
+/// @param index The index handle
+/// @param out_breakdown Pointer to store the memory breakdown structure
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @remarks The breakdown reports allocated memory for graph, data, and metadata
+/// components. Uses capacity-based accounting for datasets that support it, reflecting
+/// the true memory footprint including over-allocation.
+SVS_API bool svs_index_get_memory_breakdown(
+    svs_index_h index, svs_memory_breakdown_t* out_breakdown, svs_error_h out_err /*=NULL*/
 );
 
 #ifdef __cplusplus
