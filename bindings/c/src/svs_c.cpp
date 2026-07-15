@@ -565,6 +565,22 @@ extern "C" svs_search_results_t svs_index_search(
     svs_search_params_h search_params,
     svs_error_h out_err
 ) {
+    // Deprecated: delegate to svs_index_search_topK without an ID filter to avoid
+    // duplicating the search and result-marshalling logic.
+    return svs_index_search_topK(
+        index, queries, num_queries, k, search_params, nullptr, out_err
+    );
+}
+
+extern "C" svs_search_results_t svs_index_search_topK(
+    svs_index_h index,
+    const float* queries,
+    size_t num_queries,
+    size_t k,
+    svs_search_params_h search_params,
+    svs_id_filter_interface* id_filter,
+    svs_error_h out_err
+) {
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() {
@@ -579,8 +595,13 @@ extern "C" svs_search_results_t svs_index_search(
                 queries, num_queries, index_ptr->dimensions()
             );
 
+            IDFilterAdapter id_filter_adapter(id_filter);
+
             auto search_results = index_ptr->search(
-                queries_view, k, search_params == nullptr ? nullptr : search_params->impl
+                queries_view,
+                k,
+                search_params == nullptr ? nullptr : search_params->impl,
+                id_filter == nullptr ? nullptr : &id_filter_adapter
             );
 
             svs_search_results_t results =

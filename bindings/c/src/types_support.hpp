@@ -55,5 +55,47 @@ inline svs::DataType to_data_type(svs_data_type_t data_type) {
     }
 }
 
+struct IDFilterInterface {
+    virtual ~IDFilterInterface() = default;
+    virtual bool is_member(size_t id) const = 0;
+    // filter_rate() returns the estimated selectivity of the filter, i.e., the fraction of
+    // IDs that are expected to pass the filter. A value of 0.01 indicates that 1% of IDs
+    // are expected to pass, while a value of 1.0 indicates that all IDs are expected to
+    // pass. If the filter does not provide an estimate, it should return 0.0.
+    virtual float filter_rate() const = 0;
+    bool operator()(size_t id) const { return is_member(id); }
+};
+
+struct IDFilterAdapter : public IDFilterInterface {
+    const svs_id_filter_interface* c_filter;
+
+    IDFilterAdapter(const svs_id_filter_interface* filter)
+        : c_filter(filter) {
+        if (c_filter != nullptr) {
+            const auto rate = c_filter->filter_rate;
+            if (rate < 0.0f || rate > 1.0f) {
+                throw std::invalid_argument(
+                    "Filter rate must be between 0.0 and 1.0, inclusive."
+                );
+            }
+        }
+    }
+
+    bool is_member(size_t id) const override {
+        if (c_filter == nullptr || c_filter->ops.is_member == nullptr) {
+            return true; // If no filter is provided, consider all IDs as valid
+        }
+        return c_filter->ops.is_member(c_filter->self, id);
+    }
+
+    float filter_rate() const override {
+        // If no filter is provided or the filter rate is NaN, return 0.0
+        if (c_filter == nullptr || std::isnan(c_filter->filter_rate)) {
+            return 0.0f; // If no filter is provided, return 0.0
+        }
+        return c_filter->filter_rate;
+    }
+};
+
 } // namespace c_runtime
 } // namespace svs

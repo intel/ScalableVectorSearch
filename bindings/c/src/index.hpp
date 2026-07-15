@@ -18,6 +18,7 @@
 #include "svs/c_api/svs_c.h"
 
 #include "algorithm.hpp"
+#include "filtered_search.hpp"
 #include "threadpool.hpp"
 
 #include <svs/concepts/data.h>
@@ -33,6 +34,7 @@
 #include <vector>
 
 namespace svs::c_runtime {
+
 struct Index {
     svs_algorithm_type algorithm;
     ThreadPoolBuilder pool_builder;
@@ -43,7 +45,8 @@ struct Index {
     virtual svs::QueryResult<size_t> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
-        const std::shared_ptr<Algorithm::SearchParams>& search_params
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter = nullptr
     ) = 0;
     virtual void save(const std::filesystem::path& directory) = 0;
     virtual size_t dimensions() const = 0;
@@ -77,7 +80,8 @@ struct IndexVamana : public Index {
     svs::QueryResult<size_t> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
-        const std::shared_ptr<Algorithm::SearchParams>& search_params
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter
     ) override {
         auto vamana_search_params =
             std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
@@ -88,7 +92,21 @@ struct IndexVamana : public Index {
             params = vamana_search_params->get_search_parameters();
         }
 
-        index.search(results.view(), queries, params);
+        if (id_filter == nullptr) {
+            index.search(results.view(), queries, params);
+            return results;
+        }
+
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<size_t> dist(0, index.size() - 1);
+        auto sample_generator = [&]() -> size_t { return dist(rng); };
+
+        auto batch_hint =
+            std::max(num_neighbors, params.buffer_config_.get_search_window_size());
+
+        filtered_topk_search(
+            index, results, queries, batch_hint, id_filter, sample_generator
+        );
         return results;
     }
 
@@ -117,15 +135,24 @@ struct IndexVamana : public Index {
 
 struct DynamicIndexVamana : public DynamicIndex {
     svs::DynamicVamana index;
+    size_t max_id = 0; // Track the maximum ID added to the index
     DynamicIndexVamana(svs::DynamicVamana&& index, ThreadPoolBuilder pool_builder)
         : DynamicIndex(SVS_ALGORITHM_TYPE_VAMANA, pool_builder)
-        , index(std::move(index)) {}
+        , index(std::move(index)) {
+        auto all_ids = this->index.all_ids();
+        assert(
+            !all_ids.empty() &&
+            "DynamicVamana index should have at least one ID after construction."
+        );
+        max_id = all_ids.empty() ? 0 : *std::max_element(all_ids.begin(), all_ids.end());
+    }
     ~DynamicIndexVamana() = default;
 
     svs::QueryResult<size_t> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
-        const std::shared_ptr<Algorithm::SearchParams>& search_params
+        const std::shared_ptr<Algorithm::SearchParams>& search_params,
+        const IDFilterInterface* id_filter
     ) override {
         auto vamana_search_params =
             std::static_pointer_cast<AlgorithmVamana::SearchParams>(search_params);
@@ -136,7 +163,30 @@ struct DynamicIndexVamana : public DynamicIndex {
             params = vamana_search_params->get_search_parameters();
         }
 
-        index.search(results.view(), queries, params);
+        if (id_filter == nullptr) {
+            index.search(results.view(), queries, params);
+            return results;
+        }
+
+        std::mt19937 rng(42);
+        std::uniform_int_distribution<size_t> dist(0, max_id);
+        auto sample_generator = [&]() -> size_t {
+            static constexpr size_t max_attempts = 4;
+            for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
+                size_t id = dist(rng);
+                if (index.has_id(id)) {
+                    return id;
+                }
+            }
+            return static_cast<size_t>(-1); // Return an invalid ID if no valid ID is found
+        };
+
+        auto batch_hint =
+            std::max(num_neighbors, params.buffer_config_.get_search_window_size());
+
+        filtered_topk_search(
+            index, results, queries, batch_hint, id_filter, sample_generator
+        );
         return results;
     }
 
@@ -149,6 +199,8 @@ struct DynamicIndexVamana : public DynamicIndex {
     size_t add_points(
         svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
     ) override {
+        // Track the maximum ID added to the index for ids generator
+        max_id = std::max(max_id, *std::max_element(ids.begin(), ids.end()));
         auto old_size = index.size();
         index.add_points(new_points, ids);
         // TODO: This is a bit of a hack - we should ideally return the number of points
