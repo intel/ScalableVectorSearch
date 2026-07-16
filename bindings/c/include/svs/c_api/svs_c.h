@@ -427,6 +427,17 @@ SVS_API svs_search_results_t svs_index_search(
 );
 
 /// @brief TopK search the index with the provided queries and an optional ID filter
+/// @details Performs a TopK search on the index with the provided queries and an optional
+/// ID filter. The ID filter allows for filtering the search results based on specific IDs,
+/// enabling more targeted searches. If the ID filter is NULL, the search will return the
+/// top K results. If ID filter is provided, only the results that pass the filter will be
+/// returned. The function returns a pointer to the search results structure, which contains
+/// the indices and distances of the nearest neighbors for each query. If ID filter is
+/// provided with `filter_rate > 0.0` then the function will account for the actual filter
+/// hit rate during the search. If the actual observed filter hit rate is less than the
+/// provided `filter_rate` value, the function returns an empty result set.
+/// @note The search results structure must be freed using svs_search_results_free() to
+/// avoid memory leaks.
 /// @param index The index handle
 /// @param queries Pointer to the query data (float array)
 /// @param num_queries The number of query vectors
