@@ -368,7 +368,8 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(success);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(element_size > 0);
-        CATCH_REQUIRE(element_size == DIMENSION * sizeof(float));
+        // element_size now returns data + graph adjacency row (per-vector bytes)
+        CATCH_REQUIRE(element_size > DIMENSION * sizeof(float));
 
         // Test get_memory_usage
         size_t memory_usage = 0;

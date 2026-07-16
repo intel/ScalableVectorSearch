@@ -625,7 +625,11 @@ class VamanaIndex {
     size_t dimensions() const { return data_.dimensions(); }
 
     /// @brief Return the element size (bytes per vector) for the indexed data.
-    size_t element_size() const { return data_.element_size(); }
+    ///
+    /// Returns the per-vector memory footprint = dataset row + graph adjacency row.
+    size_t element_size() const {
+        return data_.element_size() + graph_.get_data().element_size();
+    }
 
     /// @brief Return memory breakdown for the index.
     ///
