@@ -262,9 +262,6 @@ class DynamicVamana : public manager::IndexManager<DynamicVamanaInterface> {
         impl_->reconstruct_at(data, ids);
     }
 
-    /// @copydoc svs::index::vamana::MutableVamanaIndex::element_size
-    size_t element_size() const { return impl_->element_size(); }
-
     /// @copydoc svs::index::vamana::MutableVamanaIndex::get_memory_breakdown
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const {
         return impl_->get_memory_breakdown();

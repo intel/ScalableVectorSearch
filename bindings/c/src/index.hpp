@@ -52,7 +52,6 @@ struct Index {
     reconstruct_at(svs::data::SimpleDataView<float> dst, std::span<const size_t> ids) = 0;
     virtual size_t get_num_threads() const = 0;
     virtual void set_num_threads(size_t num_threads) = 0;
-    virtual size_t element_size() const = 0;
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
 };
 
@@ -115,8 +114,6 @@ struct IndexVamana : public Index {
         pool_builder.resize(num_threads);
         index.set_threadpool(pool_builder.build());
     }
-
-    size_t element_size() const override { return index.element_size(); }
 
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         return index.get_memory_breakdown();
@@ -207,8 +204,6 @@ struct DynamicIndexVamana : public DynamicIndex {
         pool_builder.resize(num_threads);
         index.set_threadpool(pool_builder.build());
     }
-
-    size_t element_size() const override { return index.element_size(); }
 
     svs::index::vamana::MemoryBreakdown get_memory_breakdown() const override {
         return index.get_memory_breakdown();

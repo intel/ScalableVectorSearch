@@ -536,15 +536,6 @@ SVS_API bool svs_index_set_num_threads(
     svs_index_h index, size_t num_threads, svs_error_h out_err /*=NULL*/
 );
 
-/// @brief Get the element size (bytes per vector) for the index
-/// @param index The index handle
-/// @param out_bytes Pointer to store the element size in bytes
-/// @param out_err An optional error handle to capture errors
-/// @return true on success, false on failure
-SVS_API bool svs_index_element_size(
-    svs_index_h index, size_t* out_bytes, svs_error_h out_err /*=NULL*/
-);
-
 /// @brief Get the total memory usage of the index in bytes
 /// @param index The index handle
 /// @param out_bytes Pointer to store the total memory usage in bytes

@@ -449,13 +449,6 @@ class MutableVamanaIndex {
     ///
     size_t dimensions() const { return data_.dimensions(); }
 
-    /// @brief Return the element size (bytes per vector) for the indexed data.
-    ///
-    /// Returns the per-vector memory footprint = dataset row + graph adjacency row.
-    size_t element_size() const {
-        return data_.element_size() + graph_.get_data().element_size();
-    }
-
     /// @brief Return memory breakdown for the index.
     ///
     /// Reports the allocated memory for graph, data, and metadata components. Uses

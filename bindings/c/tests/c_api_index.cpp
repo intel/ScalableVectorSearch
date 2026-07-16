@@ -740,15 +740,6 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
         CATCH_REQUIRE(index != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
-        // Test element_size
-        size_t element_size = 0;
-        success = svs_index_element_size(index, &element_size, error);
-        CATCH_REQUIRE(success);
-        CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(element_size > 0);
-        // element_size now returns data + graph adjacency row (per-vector bytes)
-        CATCH_REQUIRE(element_size > DIMENSION * sizeof(float));
-
         // Test get_memory_usage
         size_t memory_usage = 0;
         success = svs_index_get_memory_usage(index, &memory_usage, error);
@@ -770,20 +761,8 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
             breakdown.graph_bytes + breakdown.data_bytes + breakdown.metadata_bytes;
         CATCH_REQUIRE(total == memory_usage);
 
-        // Test null-arg handling for element_size
-        svs_error_h error2 = svs_error_create();
-        success = svs_index_element_size(nullptr, &element_size, error2);
-        CATCH_REQUIRE(success == false);
-        CATCH_REQUIRE(svs_error_ok(error2) == false);
-        svs_error_free(error2);
-
-        error2 = svs_error_create();
-        success = svs_index_element_size(index, nullptr, error2);
-        CATCH_REQUIRE(success == false);
-        svs_error_free(error2);
-
         // Test null-arg handling for get_memory_usage
-        error2 = svs_error_create();
+        svs_error_h error2 = svs_error_create();
         success = svs_index_get_memory_usage(nullptr, &memory_usage, error2);
         CATCH_REQUIRE(success == false);
         svs_error_free(error2);
