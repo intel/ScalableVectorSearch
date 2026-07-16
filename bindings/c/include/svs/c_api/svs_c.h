@@ -127,6 +127,7 @@ typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 
 typedef struct svs_threadpool_interface* svs_threadpool_i;
+typedef struct svs_id_filter_interface* svs_id_filter_i;
 typedef struct svs_search_results* svs_search_results_t;
 
 /// @brief Create an error handle
@@ -440,7 +441,7 @@ SVS_API svs_search_results_t svs_index_search_topK(
     size_t num_queries,
     size_t k,
     svs_search_params_h search_params /*=NULL*/,
-    svs_id_filter_interface* id_filter /*=NULL*/,
+    svs_id_filter_i id_filter /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 

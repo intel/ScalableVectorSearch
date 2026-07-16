@@ -67,9 +67,9 @@ struct IDFilterInterface {
 };
 
 struct IDFilterAdapter : public IDFilterInterface {
-    const svs_id_filter_interface* c_filter;
+    const svs_id_filter_i c_filter;
 
-    IDFilterAdapter(const svs_id_filter_interface* filter)
+    IDFilterAdapter(const svs_id_filter_i filter)
         : c_filter(filter) {
         if (c_filter != nullptr) {
             const auto rate = c_filter->filter_rate;

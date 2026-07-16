@@ -578,7 +578,7 @@ extern "C" svs_search_results_t svs_index_search_topK(
     size_t num_queries,
     size_t k,
     svs_search_params_h search_params,
-    svs_id_filter_interface* id_filter,
+    svs_id_filter_i id_filter,
     svs_error_h out_err
 ) {
     using namespace svs::c_runtime;
