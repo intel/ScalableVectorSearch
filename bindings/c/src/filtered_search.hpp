@@ -67,8 +67,9 @@ inline size_t estimate_initial_batch_size(
     assert(id_filter != nullptr);
     const auto filter_rate = id_filter->filter_rate();
     if (filter_rate <= 0.0f) {
-        return hint; // If filter rate is 0.0 or negative, return the hint as the initial
-                     // batch size
+        // If filter rate is 0.0 or negative, return the `hint` as the initial batch size -
+        // clamped to `limit` to avoid oversizing.
+        return std::min(hint, limit);
     }
 
     auto sample_size =
@@ -142,7 +143,7 @@ void filtered_topk_search(
         id_filter,
         sample_generator,
         MIN_SAMPLE_SIZE,
-        queries.size(),
+        num_neighbors,
         initial_batch_hint,
         index_size
     );
