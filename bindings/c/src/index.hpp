@@ -136,6 +136,7 @@ struct IndexVamana : public Index {
 
 struct DynamicIndexVamana : public DynamicIndex {
     svs::DynamicVamana index;
+    size_t min_id = 0; // Track the minimum ID added to the index
     size_t max_id = 0; // Track the maximum ID added to the index
     DynamicIndexVamana(svs::DynamicVamana&& index, ThreadPoolBuilder pool_builder)
         : DynamicIndex(SVS_ALGORITHM_TYPE_VAMANA, pool_builder)
@@ -145,7 +146,9 @@ struct DynamicIndexVamana : public DynamicIndex {
             !all_ids.empty() &&
             "DynamicVamana index should have at least one ID after construction."
         );
-        max_id = all_ids.empty() ? 0 : *std::max_element(all_ids.begin(), all_ids.end());
+        auto [min_it, max_it] = std::minmax_element(all_ids.begin(), all_ids.end());
+        min_id = (min_it == all_ids.end()) ? 0 : *min_it;
+        max_id = (max_it == all_ids.end()) ? 0 : *max_it;
     }
     ~DynamicIndexVamana() = default;
 
@@ -170,9 +173,21 @@ struct DynamicIndexVamana : public DynamicIndex {
         }
 
         std::mt19937 rng(42);
-        std::uniform_int_distribution<size_t> dist(0, max_id);
+        std::uniform_int_distribution<size_t> dist(min_id, max_id);
+        // DynamicVamana index IDs provided by user and may have any values and gaps, so we
+        // need to sample until we find a valid ID.
+        // The most reliable way would be get all IDs and sample from them, but that may be
+        // expensive for large indexes. So we sample from the range of IDs and check if they
+        // exist in the index. If not, we sample again. We limit the number of attempts to
+        // avoid infinite loops in case of sparse IDs. The maximum number of
+        // attempts is set to the ratio of the ID range to the index size, or at least 4
+        // attempts. This ensures that we have a reasonable chance of finding a valid ID
+        // without excessive sampling.
+        // Note: (index.size() + 1) - to avoid division by zero in case the index is empty.
+        const size_t max_attempts =
+            std::max((max_id - min_id) / (index.size() + 1), size_t{4});
+
         auto sample_generator = [&]() -> size_t {
-            static constexpr size_t max_attempts = 4;
             for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
                 size_t id = dist(rng);
                 if (index.has_id(id)) {
@@ -201,7 +216,13 @@ struct DynamicIndexVamana : public DynamicIndex {
         svs::data::ConstSimpleDataView<float> new_points, std::span<const size_t> ids
     ) override {
         // Track the maximum ID added to the index for ids generator
-        max_id = std::max(max_id, *std::max_element(ids.begin(), ids.end()));
+        auto [min_it, max_it] = std::minmax_element(ids.begin(), ids.end());
+        if (min_it != ids.end()) {
+            min_id = std::min(min_id, *min_it);
+        }
+        if (max_it != ids.end()) {
+            max_id = std::max(max_id, *max_it);
+        }
         auto old_size = index.size();
         index.add_points(new_points, ids);
         // TODO: This is a bit of a hack - we should ideally return the number of points
