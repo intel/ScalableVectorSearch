@@ -355,6 +355,38 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         svs_index_free(index);
     }
 
+    CATCH_SECTION("Memory Accounting Functions") {
+        // Build dynamic index
+        svs_index_h index = svs_index_build_dynamic(
+            builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+        );
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Test get_memory_usage
+        size_t memory_usage = 0;
+        success = svs_index_get_memory_usage(index, &memory_usage, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(memory_usage > 0);
+
+        // Test get_memory_breakdown
+        svs_memory_breakdown_t breakdown;
+        success = svs_index_get_memory_breakdown(index, &breakdown, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(breakdown.graph_bytes > 0);
+        CATCH_REQUIRE(breakdown.data_bytes > 0);
+        CATCH_REQUIRE(breakdown.metadata_bytes > 0);
+
+        // Verify that breakdown.total() == memory_usage
+        size_t total =
+            breakdown.graph_bytes + breakdown.data_bytes + breakdown.metadata_bytes;
+        CATCH_REQUIRE(total == memory_usage);
+
+        svs_index_free(index);
+    }
+
     svs_index_builder_free(builder);
     svs_algorithm_free(algorithm);
     svs_error_free(error);

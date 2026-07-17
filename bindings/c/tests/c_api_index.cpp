@@ -760,6 +760,80 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+
+    CATCH_SECTION("Memory Accounting Functions") {
+        svs_error_h error = svs_error_create();
+
+        // Create algorithm
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Create builder
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        bool success =
+            svs_index_builder_set_threadpool(builder, SVS_THREADPOOL_KIND_NATIVE, 4, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Build index
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        // Test get_memory_usage
+        size_t memory_usage = 0;
+        success = svs_index_get_memory_usage(index, &memory_usage, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(memory_usage > 0);
+
+        // Test get_memory_breakdown
+        svs_memory_breakdown_t breakdown;
+        success = svs_index_get_memory_breakdown(index, &breakdown, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(breakdown.graph_bytes > 0);
+        CATCH_REQUIRE(breakdown.data_bytes > 0);
+        CATCH_REQUIRE(breakdown.metadata_bytes >= 0);
+
+        // Verify that breakdown.total() == memory_usage
+        size_t total =
+            breakdown.graph_bytes + breakdown.data_bytes + breakdown.metadata_bytes;
+        CATCH_REQUIRE(total == memory_usage);
+
+        // Test null-arg handling for get_memory_usage
+        svs_error_h error2 = svs_error_create();
+        success = svs_index_get_memory_usage(nullptr, &memory_usage, error2);
+        CATCH_REQUIRE(success == false);
+        svs_error_free(error2);
+
+        error2 = svs_error_create();
+        success = svs_index_get_memory_usage(index, nullptr, error2);
+        CATCH_REQUIRE(success == false);
+        svs_error_free(error2);
+
+        // Test null-arg handling for get_memory_breakdown
+        error2 = svs_error_create();
+        success = svs_index_get_memory_breakdown(nullptr, &breakdown, error2);
+        CATCH_REQUIRE(success == false);
+        svs_error_free(error2);
+
+        error2 = svs_error_create();
+        success = svs_index_get_memory_breakdown(index, nullptr, error2);
+        CATCH_REQUIRE(success == false);
+        svs_error_free(error2);
+
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
 }
 
 namespace {
