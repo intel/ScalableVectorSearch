@@ -166,8 +166,15 @@ int main() {
 
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results =
-        svs_index_search(index, queries, NUM_QUERIES, K, NULL /* search_params */, error);
+    results = svs_index_search_topK(
+        index,
+        queries,
+        NUM_QUERIES,
+        K,
+        NULL /* search_params */,
+        NULL /* id_filter */,
+        error
+    );
     if (!results) {
         fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
         ret = 1;
@@ -208,8 +215,15 @@ int main() {
     printf(
         "Searching loaded index for %d queries for top-%d neighbors...\n", NUM_QUERIES, K
     );
-    loaded_results =
-        svs_index_search(index, queries, NUM_QUERIES, K, NULL /* search_params */, error);
+    loaded_results = svs_index_search_topK(
+        index,
+        queries,
+        NUM_QUERIES,
+        K,
+        NULL /* search_params */,
+        NULL /* id_filter */,
+        error
+    );
     if (!loaded_results) {
         fprintf(
             stderr, "Failed to search loaded index: %s\n", svs_error_get_message(error)

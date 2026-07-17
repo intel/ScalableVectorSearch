@@ -35,3 +35,12 @@
 #else
 #define SVS_API SVS_HELPER_DLL_IMPORT
 #endif
+
+// Mark an API as deprecated, optionally providing a message for callers.
+#if defined _WIN32 || defined __CYGWIN__
+#define SVS_DEPRECATED(msg) __declspec(deprecated(msg))
+#elif defined __GNUC__ || defined __clang__
+#define SVS_DEPRECATED(msg) __attribute__((deprecated(msg)))
+#else
+#define SVS_DEPRECATED(msg)
+#endif
