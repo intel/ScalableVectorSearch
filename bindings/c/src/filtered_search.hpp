@@ -34,6 +34,14 @@
 
 namespace svs::c_runtime {
 
+/// @brief Estimate the batch size for filtered search based on the number of total
+/// candidates, hits, goal, hint, and limit.
+/// @param total The total number of candidates.
+/// @param hits The number of filter hits.
+/// @param goal The target number of hits to achieve.
+/// @param hint A hint for the batch size - usually based on prior knowledge.
+/// @param limit The maximum allowed batch size. E.g. index size.
+/// @return The estimated batch size.
 inline size_t
 estimate_batch_size(size_t total, size_t hits, size_t goal, size_t hint, size_t limit) {
     assert(total >= hits);
@@ -47,6 +55,12 @@ estimate_batch_size(size_t total, size_t hits, size_t goal, size_t hint, size_t 
     return std::min(estimated, limit);
 }
 
+/// @brief Check if the actual hit rate is sufficient based on the minimum required filter
+/// rate.
+/// @param total The total number of candidates.
+/// @param hits The number of filter hits.
+/// @param filter_rate The minimum required filter rate.
+/// @return True if the hit rate is sufficient, false otherwise.
 inline bool hit_rate_sufficient(size_t total, size_t hits, float filter_rate) {
     // by default, assume that the hit rate is sufficient
     if (filter_rate <= 0.0f || total == 0) {
@@ -56,6 +70,15 @@ inline bool hit_rate_sufficient(size_t total, size_t hits, float filter_rate) {
     return hit_rate >= filter_rate;
 }
 
+/// @brief Estimate the initial batch size for filtered search based on the actual filter
+/// rate by generating sample IDs and filtering them through the ID filter.
+/// @param id_filter The ID filter interface.
+/// @param sample_generator A function that generates sample IDs.
+/// @param min_sample_size The minimum sample size to consider.
+/// @param goal The target number of hits to achieve - usually is K (from TopK).
+/// @param hint A hint for the batch size - usually based on prior knowledge.
+/// @param limit The maximum allowed batch size. E.g. index size.
+/// @return The estimated initial batch size, or 0 if the hit rate is insufficient.
 inline size_t estimate_initial_batch_size(
     const IDFilterInterface* id_filter,
     std::function<size_t()> sample_generator,
@@ -95,6 +118,10 @@ inline size_t estimate_initial_batch_size(
     return estimate_batch_size(sample_size, hits, goal, hint, limit);
 }
 
+/// @brief Pad the result with empty neighbors starting from a specific index.
+/// @param result The query result to pad.
+/// @param query_index The index of the query within the result.
+/// @param neighbor_start The starting index of neighbors to pad.
 inline void
 pad_result(svs::QueryResult<size_t>& result, size_t query_index, size_t neighbor_start) {
     assert(query_index < result.n_queries());
@@ -108,6 +135,9 @@ pad_result(svs::QueryResult<size_t>& result, size_t query_index, size_t neighbor
     }
 }
 
+/// @brief Set the query result to an empty state, with all distances set to infinity and
+/// all indices set to -1.
+/// @param result The query result to set as empty.
 inline void set_empty_result(svs::QueryResult<size_t>& result) {
     std::fill(
         result.distances().begin(),
