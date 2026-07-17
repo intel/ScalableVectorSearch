@@ -71,8 +71,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         CATCH_REQUIRE(svs_error_ok(error));
 
         // Perform search
-        svs_search_results_t results =
-            svs_index_search(index, queries.data(), NUM_QUERIES, K, search_params, error);
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, search_params, nullptr, error
+        );
         CATCH_REQUIRE(results != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
 
@@ -126,8 +127,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         CATCH_REQUIRE(index != nullptr);
 
         // Search without explicit search parameters (uses defaults)
-        svs_search_results_t results =
-            svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, nullptr, nullptr, error
+        );
         CATCH_REQUIRE(results != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
@@ -165,8 +167,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
         CATCH_REQUIRE(index != nullptr);
 
-        svs_search_results_t results =
-            svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, nullptr, nullptr, error
+        );
         CATCH_REQUIRE(results != nullptr);
         CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
 
@@ -209,8 +212,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             CATCH_REQUIRE(index != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
 
-            svs_search_results_t results =
-                svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+            svs_search_results_t results = svs_index_search_topK(
+                index, queries.data(), NUM_QUERIES, K, nullptr, nullptr, error
+            );
             CATCH_REQUIRE(results != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
             CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
@@ -267,10 +271,49 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         CATCH_REQUIRE(svs_error_ok(error));
 
         // Verify index works with custom threadpool
-        svs_search_results_t results =
-            svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, nullptr, nullptr, error
+        );
         CATCH_REQUIRE(results != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_search_results_free(results);
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Deprecated svs_index_search wrapper") {
+        svs_error_h error = svs_error_create();
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+
+        // Intentionally exercise the deprecated API to ensure the wrapper still delegates
+        // correctly to svs_index_search_topK.
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+        svs_search_results_t results =
+            svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+        CATCH_REQUIRE(results != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
 
         svs_search_results_free(results);
         svs_index_free(index);
@@ -376,8 +419,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         size_t k_values[] = {1, 5, 10, 20};
         for (size_t i = 0; i < sizeof(k_values) / sizeof(k_values[0]); ++i) {
             size_t k = k_values[i];
-            svs_search_results_t results =
-                svs_index_search(index, queries.data(), NUM_QUERIES, k, nullptr, error);
+            svs_search_results_t results = svs_index_search_topK(
+                index, queries.data(), NUM_QUERIES, k, nullptr, nullptr, error
+            );
             CATCH_REQUIRE(results != nullptr);
             CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
 
@@ -412,8 +456,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
 
         // Perform multiple searches
         for (size_t i = 0; i < 3; ++i) {
-            svs_search_results_t results =
-                svs_index_search(index, queries.data(), NUM_QUERIES, K, nullptr, error);
+            svs_search_results_t results = svs_index_search_topK(
+                index, queries.data(), NUM_QUERIES, K, nullptr, nullptr, error
+            );
             CATCH_REQUIRE(results != nullptr);
             CATCH_REQUIRE(svs_error_ok(error));
             CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
@@ -471,8 +516,9 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         std::vector<float> queries;
         generate_test_data(queries, 2, DIMENSION);
 
-        svs_search_results_t results =
-            svs_index_search(loaded_index, queries.data(), 2, K, nullptr, error);
+        svs_search_results_t results = svs_index_search_topK(
+            loaded_index, queries.data(), 2, K, nullptr, nullptr, error
+        );
         CATCH_REQUIRE(results != nullptr);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(results->num_queries == 2);
@@ -783,6 +829,160 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
         CATCH_REQUIRE(success == false);
         svs_error_free(error2);
 
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+}
+
+namespace {
+
+// ID filter callback: accepts odd IDs only (~50% selectivity).
+bool filter_is_odd(void* /*self*/, size_t id) { return (id % 2) == 1; }
+
+// ID filter callback: accepts IDs strictly below the threshold stored in `self`.
+// Used to model a restrictive, low-selectivity filter.
+bool filter_below_threshold(void* self, size_t id) {
+    return id < *static_cast<const size_t*>(self);
+}
+
+} // namespace
+
+CATCH_TEST_CASE("C API Filtered Search topK", "[c_api][index][search][filter]") {
+    const size_t NUM_VECTORS = 1000;
+    const size_t NUM_QUERIES = 5;
+    const size_t DIMENSION = 32;
+    const size_t K = 10;
+    const size_t NUM_THREADS = 4;
+
+    std::vector<float> data;
+    std::vector<float> queries;
+    generate_test_data(data, NUM_VECTORS, DIMENSION);
+    generate_test_data(queries, NUM_QUERIES, DIMENSION);
+
+    CATCH_SECTION("Normal filter for odd IDs") {
+        svs_error_h error = svs_error_create();
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_search_params_h search_params = svs_search_params_create_vamana(50, error);
+        CATCH_REQUIRE(search_params != nullptr);
+
+        // ~50% of the IDs pass the filter. Provide a conservative filter_rate estimate
+        // (below the true selectivity) so the search is not short-circuited.
+        svs_id_filter_interface id_filter{};
+        id_filter.ops.is_member = &filter_is_odd;
+        id_filter.self = nullptr;
+        id_filter.filter_rate = 0.4f;
+
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, search_params, &id_filter, error
+        );
+        CATCH_REQUIRE(results != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
+
+        for (size_t q = 0; q < NUM_QUERIES; ++q) {
+            CATCH_REQUIRE(results->results_per_query[q] == K);
+            for (size_t j = 0; j < K; ++j) {
+                size_t idx = results->indices[q * K + j];
+                // Every neighbor must be a valid, in-range odd ID.
+                CATCH_REQUIRE(idx != static_cast<size_t>(-1));
+                CATCH_REQUIRE(idx < NUM_VECTORS);
+                CATCH_REQUIRE((idx % 2) == 1);
+                // Distances must be finite and non-decreasing.
+                CATCH_REQUIRE(std::isfinite(results->distances[q * K + j]));
+                if (j > 0) {
+                    CATCH_REQUIRE(
+                        results->distances[q * K + j] >= results->distances[q * K + j - 1]
+                    );
+                }
+            }
+        }
+
+        svs_search_results_free(results);
+        svs_search_params_free(search_params);
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Low-rate (restrictive) filter") {
+        svs_error_h error = svs_error_create();
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        CATCH_REQUIRE(algorithm != nullptr);
+
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        CATCH_REQUIRE(builder != nullptr);
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_search_params_h search_params = svs_search_params_create_vamana(100, error);
+        CATCH_REQUIRE(search_params != nullptr);
+
+        // Only the lowest 10% of the IDs pass the filter. Provide a conservative
+        // filter_rate (below the true selectivity) so the search keeps iterating instead
+        // of giving up early.
+        size_t max_valid_id = NUM_VECTORS / 10;
+        svs_id_filter_interface id_filter{};
+        id_filter.ops.is_member = &filter_below_threshold;
+        id_filter.self = &max_valid_id;
+        id_filter.filter_rate = 0.05f;
+
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, search_params, &id_filter, error
+        );
+        CATCH_REQUIRE(results != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
+
+        size_t total_found = 0;
+        for (size_t q = 0; q < NUM_QUERIES; ++q) {
+            CATCH_REQUIRE(results->results_per_query[q] == K);
+            for (size_t j = 0; j < K; ++j) {
+                size_t idx = results->indices[q * K + j];
+                // Padding (unspecified) entries are allowed for a restrictive filter, but
+                // any specified neighbor must pass the filter predicate.
+                if (idx != static_cast<size_t>(-1)) {
+                    CATCH_REQUIRE(idx < max_valid_id);
+                    CATCH_REQUIRE(std::isfinite(results->distances[q * K + j]));
+                    ++total_found;
+                }
+            }
+        }
+        // The restrictive filter still has plenty of matching vectors, so the search must
+        // return at least some valid neighbors.
+        CATCH_REQUIRE(total_found > 0);
+
+        svs_search_results_free(results);
+        svs_search_params_free(search_params);
         svs_index_free(index);
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);

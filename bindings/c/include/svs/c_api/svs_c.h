@@ -89,6 +89,20 @@ struct svs_threadpool_interface {
     void* self;
 };
 
+struct svs_id_filter_interface_ops {
+    bool (*is_member)(void* self, size_t id);
+};
+
+struct svs_id_filter_interface {
+    struct svs_id_filter_interface_ops ops;
+    void* self;
+    // filter_rate provides the estimated selectivity of the filter, i.e., the fraction of
+    // IDs that are expected to pass the filter. A value of 0.01 indicates that 1% of IDs
+    // are expected to pass, while a value of 1.0 indicates that all IDs are expected to
+    // pass. If the filter does not provide an estimate, it should be set to 0.0.
+    float filter_rate;
+};
+
 /// @brief Structure to hold search results
 struct svs_search_results {
     size_t num_queries;        /// Number of query vectors
@@ -120,6 +134,7 @@ typedef enum svs_data_type svs_data_type_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 
 typedef struct svs_threadpool_interface* svs_threadpool_i;
+typedef struct svs_id_filter_interface* svs_id_filter_i;
 typedef struct svs_search_results* svs_search_results_t;
 typedef struct svs_memory_breakdown svs_memory_breakdown_t;
 
@@ -406,12 +421,46 @@ SVS_API void svs_index_free(svs_index_h index);
 /// @param search_params The search parameters handle (can be NULL for defaults)
 /// @param out_err An optional error handle to capture errors
 /// @return A pointer to the search results structure
+/// @deprecated Use svs_index_search_topK() instead, which additionally supports an
+/// optional ID filter. This function is equivalent to calling svs_index_search_topK()
+/// with a NULL id_filter.
+SVS_DEPRECATED("Use svs_index_search_topK() instead")
 SVS_API svs_search_results_t svs_index_search(
     svs_index_h index,
     const float* queries,
     size_t num_queries,
     size_t k,
     svs_search_params_h search_params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief TopK search the index with the provided queries and an optional ID filter
+/// @details Performs a TopK search on the index with the provided queries and an optional
+/// ID filter. The ID filter allows for filtering the search results based on specific IDs,
+/// enabling more targeted searches. If the ID filter is NULL, the search will return the
+/// top K results. If ID filter is provided, only the results that pass the filter will be
+/// returned. The function returns a pointer to the search results structure, which contains
+/// the indices and distances of the nearest neighbors for each query. If ID filter is
+/// provided with `filter_rate > 0.0` then the function will account for the actual filter
+/// hit rate during the search. If the actual observed filter hit rate is less than the
+/// provided `filter_rate` value, the function returns an empty result set.
+/// @note The search results structure must be freed using svs_search_results_free() to
+/// avoid memory leaks.
+/// @param index The index handle
+/// @param queries Pointer to the query data (float array)
+/// @param num_queries The number of query vectors
+/// @param k The number of nearest neighbors to retrieve per query
+/// @param search_params The search parameters handle (can be NULL for defaults)
+/// @param id_filter The ID filter interface (can be NULL for no filtering)
+/// @param out_err An optional error handle to capture errors
+/// @return A pointer to the search results structure
+SVS_API svs_search_results_t svs_index_search_topK(
+    svs_index_h index,
+    const float* queries,
+    size_t num_queries,
+    size_t k,
+    svs_search_params_h search_params /*=NULL*/,
+    svs_id_filter_i id_filter /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 

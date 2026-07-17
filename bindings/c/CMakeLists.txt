@@ -24,6 +24,7 @@ set(SVS_C_API_HEADERS
 set(SVS_C_API_SOURCES
     src/algorithm.hpp
     src/error.hpp
+    src/filtered_search.hpp
     src/index.hpp
     src/index_builder.hpp
     src/storage.hpp
