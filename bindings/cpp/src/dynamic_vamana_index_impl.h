@@ -388,7 +388,18 @@ class DynamicVamanaIndexImpl {
                 ErrorCode::NOT_INITIALIZED, "Cannot serialize: SVS index not initialized."};
         }
 
-        impl_->save(out);
+        // save() internally runs consolidate()/compact() over the thread pool. The OpenMP
+        // pool is not fork-safe, so under Valkey BGSAVE (save in a forked child) those
+        // parallel regions hang or corrupt the heap. Run the save single-threaded and
+        // restore the operational pool afterwards for the foreground-SAVE case. See #332.
+        impl_->set_threadpool(svs::threads::SequentialThreadPool{});
+        try {
+            impl_->save(out);
+        } catch (...) {
+            impl_->set_threadpool(default_threadpool());
+            throw;
+        }
+        impl_->set_threadpool(default_threadpool());
     }
 
   protected:
