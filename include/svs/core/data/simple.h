@@ -34,6 +34,7 @@
 #include "svs/lib/uuid.h"
 
 // stdlib
+#include <optional>
 #include <span>
 #include <type_traits>
 
@@ -644,33 +645,35 @@ struct BlockingParameters {
 
   public:
     lib::PowerOfTwo blocksize_bytes = default_blocksize_bytes;
+    std::optional<lib::PowerOfTwo> blocksize_elements = std::nullopt;
 };
 
-template <typename Alloc> class Blocked {
+template <typename Alloc> class Blocked : public Alloc {
   public:
     using allocator_type = Alloc;
-    const allocator_type& get_allocator() const { return allocator_; }
+    using value_type = typename std::allocator_traits<allocator_type>::value_type;
+    const allocator_type& get_allocator() const { return *this; }
     const BlockingParameters& parameters() const { return parameters_; }
 
     constexpr Blocked() = default;
     explicit Blocked(const allocator_type& alloc)
-        : allocator_{alloc} {}
+        : allocator_type{alloc} {}
     explicit Blocked(const BlockingParameters& parameters)
-        : parameters_{parameters} {}
+        : allocator_type{}
+        , parameters_{parameters} {}
     explicit Blocked(const BlockingParameters& parameters, const allocator_type& alloc)
-        : parameters_{parameters}
-        , allocator_{alloc} {}
+        : allocator_type{alloc}
+        , parameters_{parameters} {}
 
     // Enable rebinding of allocators.
     template <typename U> friend class Blocked;
     template <typename U>
     Blocked(const Blocked<U>& other)
-        : parameters_{other.parameters_}
-        , allocator_{other.allocator_} {}
+        : allocator_type{other.get_allocator()}
+        , parameters_{other.parameters_} {}
 
   private:
     BlockingParameters parameters_{};
-    Alloc allocator_{};
 };
 
 template <typename Alloc> inline constexpr bool is_blocked_v = false;
@@ -719,9 +722,7 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
 
     ///// Constructors
     SimpleData(size_t n_elements, size_t n_dimensions, const Blocked<Alloc>& alloc)
-        : blocksize_{lib::prevpow2(
-              alloc.parameters().blocksize_bytes.value() / (sizeof(T) * n_dimensions)
-          )}
+        : blocksize_{compute_blocksize(alloc, n_dimensions)}
         , blocks_{}
         , dimensions_{n_dimensions}
         , size_{n_elements}
@@ -947,6 +948,20 @@ class SimpleData<T, Extent, Blocked<Alloc>> {
                 return SimpleData(n_elements, n_dimensions, allocator);
             })
         );
+    }
+
+  private:
+    // Helper static function to compute blocksize value.
+    // If blocking parameters have defined blocksize_elements, use it
+    // directly. Otherwise, compute blocksize based on blocksize_bytes.
+    static lib::PowerOfTwo compute_blocksize(const Blocked<Alloc>& alloc, size_t dim) {
+        if (alloc.parameters().blocksize_elements.has_value()) {
+            return alloc.parameters().blocksize_elements.value();
+        } else {
+            return lib::prevpow2(
+                alloc.parameters().blocksize_bytes.value() / (sizeof(T) * dim)
+            );
+        }
     }
 
   private:

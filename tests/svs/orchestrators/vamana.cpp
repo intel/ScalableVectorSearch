@@ -107,3 +107,39 @@ CATCH_TEST_CASE("Vamana Build", "[managers][vamana][build]") {
         }
     }
 }
+
+CATCH_TEST_CASE("Vamana Memory Usage", "[managers][vamana]") {
+    auto distance = svs::distance::DistanceL2();
+    auto expected_result = test_dataset::vamana::expected_build_results(
+        distance, svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+    auto build_params = expected_result.build_parameters_.value();
+    size_t num_threads = 2;
+
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    const size_t full_size = data.size();
+
+    // Build a full index and assert the reported allocation is non-zero.
+    svs::Vamana full = svs::Vamana::build<float>(
+        build_params,
+        svs::data::SimpleData<float>::load(test_dataset::data_svs_file()),
+        distance,
+        num_threads
+    );
+    const size_t full_usage = full.get_memory_breakdown().total();
+    CATCH_REQUIRE(full_usage > 0);
+
+    // Monotonicity: an index built over fewer vectors must allocate fewer bytes.
+    const size_t half_size = full_size / 2;
+    CATCH_REQUIRE(half_size > 0);
+    auto half_data = svs::data::SimpleData<float>(half_size, data.dimensions());
+    for (size_t i = 0; i < half_size; ++i) {
+        half_data.set_datum(i, data.get_datum(i));
+    }
+    svs::Vamana half = svs::Vamana::build<float>(
+        build_params, std::move(half_data), distance, num_threads
+    );
+    const size_t half_usage = half.get_memory_breakdown().total();
+    CATCH_REQUIRE(half_usage > 0);
+    CATCH_REQUIRE(full_usage > half_usage);
+}

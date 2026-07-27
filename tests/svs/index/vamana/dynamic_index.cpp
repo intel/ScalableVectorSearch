@@ -364,3 +364,43 @@ CATCH_TEST_CASE(
         }
     }
 }
+
+CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index]") {
+    const size_t num_threads = 2;
+    using Distance = svs::distance::DistanceL2;
+
+    auto data = test_dataset::data_blocked_f32();
+    const size_t data_size = data.size();
+    // Expected data bytes are capacity-based; capture them before the dataset is moved
+    // into the index so the test can pin the exact value.
+    const size_t expected_data_bytes = data.capacity() * data.element_size();
+    std::vector<size_t> indices(data_size);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    svs::index::vamana::VamanaBuildParameters parameters{1.2, 64, 10, 20, 10, true};
+    auto index = svs::index::vamana::MutableVamanaIndex(
+        parameters, std::move(data), indices, Distance(), num_threads
+    );
+
+    const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
+                                        index.view_graph().get_data().element_size();
+    using Index = decltype(index);
+    const size_t expected_metadata_bytes =
+        data_size * sizeof(svs::index::vamana::SlotMetadata) +
+        sizeof(typename Index::internal_id_type) +
+        2 * indices.size() *
+            (sizeof(typename Index::external_id_type) +
+             sizeof(typename Index::internal_id_type));
+    const size_t expected_total_bytes =
+        expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
+
+    // Dynamic get_memory_usage() should exactly match the capacity-based graph and data
+    // bytes plus the deterministic metadata implied by the input ids.
+    const auto breakdown = index.get_memory_breakdown();
+    CATCH_REQUIRE(breakdown.graph_bytes == expected_graph_bytes);
+    CATCH_REQUIRE(breakdown.data_bytes == expected_data_bytes);
+    CATCH_REQUIRE(breakdown.metadata_bytes == expected_metadata_bytes);
+    CATCH_REQUIRE(breakdown.total() == expected_total_bytes);
+    const size_t usage = index.get_memory_breakdown().total();
+    CATCH_REQUIRE(usage == expected_total_bytes);
+}
