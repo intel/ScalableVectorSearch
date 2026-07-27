@@ -176,7 +176,9 @@ class GraphConsolidator {
         , threadpool_{threadpool}
         , distance_{distance}
         , params_{params} {
-        assert(graph.n_nodes() == data.size());
+        // consolidate can observe an in-flight add_points that has
+        // already grown `data` but not yet `graph`
+        assert(graph.n_nodes() <= data.size());
     }
 
     ///

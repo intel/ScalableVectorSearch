@@ -61,7 +61,6 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
         size_t batch_size,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())
     ) {
-        const auto& external_to_label = index_.get_external_to_label_lookup();
         auto results_copy = results_;
         results_.clear();
         get_results_from_extra(batch_size);
@@ -74,7 +73,7 @@ template <typename Index, typename QueryType> class MultiBatchIterator {
                 throw error;
             }
             for (auto& result : batch_iterator_) {
-                auto label = external_to_label.at(result.id());
+                auto label = index_.external_to_label(result.id());
                 auto found_in_returned = returned_.find(label);
                 auto new_result = Neighbor<label_type>{label, result.distance()};
 
@@ -188,6 +187,12 @@ class MultiMutableVamanaIndex {
     std::unique_ptr<ParentIndex> index_{nullptr};
     label_to_external_type label_to_external_;
     external_to_label_type external_to_label_;
+    // External IDs that have been soft-deleted (removed from the live label maps
+    // above) but not yet consolidated in the parent index. Keyed by the label they
+    // belonged to so that consolidate(labels) can recover them; the parent index
+    // erases its translator entries only during (full or partial) consolidation.
+    // Guarded by l2e_mutex_.
+    label_to_external_type pending_deletes_;
     // Guard the label<->external id translation maps for concurrent add/delete/search.
     std::unique_ptr<std::shared_mutex> l2e_mutex_{std::make_unique<std::shared_mutex>()};
     std::unique_ptr<std::shared_mutex> e2l_mutex_{std::make_unique<std::shared_mutex>()};
@@ -418,6 +423,10 @@ class MultiMutableVamanaIndex {
                             external_to_label_.erase(ext);
                         }
                     }
+                    // Remember the soft-deleted externals under their label so a
+                    // later consolidate(labels) can consolidate just these points.
+                    auto& pending = pending_deletes_[label];
+                    pending.insert(pending.end(), externals.begin(), externals.end());
                     label_to_external_.erase(it);
                 }
             }
@@ -475,9 +484,40 @@ class MultiMutableVamanaIndex {
         return;
     }
 
-    void compact(Idx batch_size = 1'000) { index_->compact(batch_size); }
+    void compact(Idx batch_size = 1'000) {
+        index_->compact(batch_size);
+        // compact() fully consolidates, reclaiming every soft-deleted point.
+        std::lock_guard l2e_lock{*l2e_mutex_};
+        pending_deletes_.clear();
+    }
 
-    void consolidate() { index_->consolidate(); }
+    void consolidate() {
+        index_->consolidate();
+        // Full consolidation reclaims every soft-deleted point.
+        std::lock_guard l2e_lock{*l2e_mutex_};
+        pending_deletes_.clear();
+    }
+
+    // Consolidate only the soft-deleted vectors belonging to the listed `labels`.
+    // Mirrors delete_entries(labels): `labels` is any iterable of label values.
+    // Vectors soft-deleted under other labels remain in the graph and navigable
+    // until a later consolidate(). Returns the number of external vectors
+    // consolidated (a label may map to several vectors).
+    template <typename T> size_t consolidate(const T& labels) {
+        std::vector<external_id_type> externals;
+        {
+            std::lock_guard l2e_lock{*l2e_mutex_};
+            for (auto& label : labels) {
+                auto it = pending_deletes_.find(label);
+                if (it == pending_deletes_.end()) {
+                    continue; // No soft-deleted vectors pending for this label.
+                }
+                externals.insert(externals.end(), it->second.begin(), it->second.end());
+                pending_deletes_.erase(it);
+            }
+        }
+        return index_->consolidate(externals);
+    }
 
     template <typename QueryType>
     auto make_batch_iterator(
@@ -536,6 +576,12 @@ class MultiMutableVamanaIndex {
     label_type translate_internal_id(Idx i) const {
         std::shared_lock e2l_lock{*e2l_mutex_};
         return external_to_label_.at(index_->translate_internal_id(i));
+    }
+
+    // Thread-safe external id -> label lookup.
+    label_type external_to_label(external_id_type external_id) const {
+        std::shared_lock e2l_lock{*e2l_mutex_};
+        return external_to_label_.at(external_id);
     }
 
     /// @brief Call the functor with all labels in the index.

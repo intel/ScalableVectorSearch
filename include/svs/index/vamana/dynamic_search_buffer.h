@@ -92,9 +92,15 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
     vector_type candidates_{};
     // An optional visited filter.
     std::optional<filter_type> visited_{std::nullopt};
+    // Reusable scratch for greedy_search's validated adjacency-list snapshot.
+    std::vector<Idx> neighbor_scratch_{};
 
   public:
     MutableBuffer() = default;
+
+    /// @brief Reusable scratch storage for a validated snapshot of a node's adjacency
+    /// list during greedy search.
+    std::vector<Idx>& neighbor_scratch() { return neighbor_scratch_; }
 
     /// Construct a new buffer with the given buffer configuration.
     explicit MutableBuffer(
@@ -480,6 +486,14 @@ template <typename Idx, typename Cmp = std::less<>> class MutableBuffer {
             // Maintain 5A
             // Invariant 6 has not activated.
             roi_end_ = size();
+
+            // Maintain best_unvisited_ invariant.
+            // Recompute it from scratch, mirroring the 5B branch below.
+            for (best_unvisited_ = 0; best_unvisited_ < roi_end_; ++best_unvisited_) {
+                if (!candidates_[best_unvisited_].visited()) {
+                    break;
+                }
+            }
             return;
         }
 

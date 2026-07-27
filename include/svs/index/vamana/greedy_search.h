@@ -151,6 +151,9 @@ void greedy_search(
         initializer(search_buffer, computer, graph, builder, search_tracker);
     }
 
+    // Reusable holder for a validated snapshot of a node's adjacency list.
+    auto& neighbors = search_buffer.neighbor_scratch();
+
     // Main search routine.
     while (!search_buffer.done()) {
         // Check if request to cancel the search
@@ -161,6 +164,7 @@ void greedy_search(
         const auto& node = search_buffer.next();
         auto node_id = node.id();
 
+        // Take a consistent snapshot of the node's adjacency list under the SeqLock.
         for (;;) { // SeqLock retry loop
             auto maybe_seq = graph.seq_counters()[node_id].read_begin();
             if (!maybe_seq) {
@@ -168,55 +172,53 @@ void greedy_search(
                 continue;
             }
 
-            // Get the adjacency list for this vertex and prepare prefetching logic.
-            auto neighbors = graph.get_node(node_id);
-            const size_t num_neighbors = neighbors.size();
-            search_tracker.visited(Neighbor<I>{node}, num_neighbors);
+            auto node_neighbors = graph.get_node(node_id);
+            neighbors.assign(node_neighbors.begin(), node_neighbors.end());
 
-            auto prefetcher = lib::make_prefetcher(
-                lib::PrefetchParameters{
-                    prefetch_parameters.lookahead, prefetch_parameters.step},
-                num_neighbors,
-                [&](size_t i) { accessor.prefetch(dataset, neighbors[i]); },
-                [&](size_t i) {
-                    // Perform the visited set enabled check just once.
-                    if (search_buffer.visited_set_enabled()) {
-                        // Prefetch next bucket so it's (hopefully) in the cache when
-                        // we next consult the visited filter.
-                        if (i + 1 < num_neighbors) {
-                            search_buffer.unsafe_prefetch_visited(neighbors[i + 1]);
-                        }
-                        return !search_buffer.unsafe_is_visited(neighbors[i]);
-                    }
-
-                    // Otherwise, always prefetch the next data item.
-                    return true;
-                }
-            );
-
-            ///// Neighbor expansion.
-            prefetcher();
-            for (auto id : neighbors) {
-                if (search_buffer.emplace_visited(id)) {
-                    continue;
-                }
-
-                // Run the prefetcher.
-                prefetcher();
-
-                // Compute distance and update search buffer.
-                auto dist =
-                    distance::compute(distance_function, query, accessor(dataset, id));
-                search_buffer.insert(builder(id, dist));
-            }
-
-            // Validate that no concurrent write occurred during the read.
             if (graph.seq_counters()[node_id].read_validate(*maybe_seq)) {
-                break; // Consistent read — proceed to the next node.
+                break; // Consistent snapshot — safe to use.
             }
             detail::pause();
-            // Retry: stale entries from the invalid read remain in the search buffer.
-            // They have valid IDs and distances, and insert() deduplicates by ID.
+        }
+
+        // Prepare prefetching logic over the validated snapshot.
+        const size_t num_neighbors = neighbors.size();
+        search_tracker.visited(Neighbor<I>{node}, num_neighbors);
+
+        auto prefetcher = lib::make_prefetcher(
+            lib::PrefetchParameters{
+                prefetch_parameters.lookahead, prefetch_parameters.step},
+            num_neighbors,
+            [&](size_t i) { accessor.prefetch(dataset, neighbors[i]); },
+            [&](size_t i) {
+                // Perform the visited set enabled check just once.
+                if (search_buffer.visited_set_enabled()) {
+                    // Prefetch next bucket so it's (hopefully) in the cache when
+                    // we next consult the visited filter.
+                    if (i + 1 < num_neighbors) {
+                        search_buffer.unsafe_prefetch_visited(neighbors[i + 1]);
+                    }
+                    return !search_buffer.unsafe_is_visited(neighbors[i]);
+                }
+
+                // Otherwise, always prefetch the next data item.
+                return true;
+            }
+        );
+
+        ///// Neighbor expansion.
+        prefetcher();
+        for (auto id : neighbors) {
+            if (search_buffer.emplace_visited(id)) {
+                continue;
+            }
+
+            // Run the prefetcher.
+            prefetcher();
+
+            // Compute distance and update search buffer.
+            auto dist = distance::compute(distance_function, query, accessor(dataset, id));
+            search_buffer.insert(builder(id, dist));
         }
     }
 }

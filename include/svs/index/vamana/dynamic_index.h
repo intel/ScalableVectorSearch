@@ -1008,17 +1008,11 @@ class MutableVamanaIndex {
     ///     improve performance but requires more working memory.
     ///
     void compact(Idx batch_size = 1'000) {
-        // Exclusive against all writers (add_points/delete_entries/consolidate).
-        // shared_mutex semantics ensure that by the time we acquire the lock,
-        // every prior writer has released its shared lock — including
-        // add_points's lock-free Phase 2-4. After acquisition, no new writer
-        // can start until we release. Search does not take this mutex and
-        // continues to run.
         std::lock_guard compact_lock{*compact_mutex_};
 
         // Consolidate first, under the same exclusive lock. This folds any
         // outstanding soft-deletes into the graph.
-        consolidate_locked();
+        consolidate_locked([this](size_t i) { return this->is_deleted(i); });
         compact_locked(batch_size);
     }
 
@@ -1197,32 +1191,35 @@ class MutableVamanaIndex {
     ///// Mutation
     void consolidate() {
         std::shared_lock compact_lock{*compact_mutex_};
-        consolidate_locked();
+        consolidate_locked([this](size_t i) { return this->is_deleted(i); });
     }
 
-    // Body of consolidate() with no compact_mutex_ locking. The caller holds
-    // compact_mutex_ (shared for a standalone consolidate; exclusive when invoked
-    // from compact()).
-    void consolidate_locked() {
-        auto check_is_deleted = [&](size_t i) { return this->is_deleted(i); };
+    // Body of consolidate()/consolidate(ids) with no compact_mutex_ locking. The
+    // caller holds compact_mutex_. `should_remove(i)` returns true for the internal
+    // slots to prune out of the graph and reclaim; those slots must currently be
+    // SlotMetadata::Deleted. Full consolidation passes is_deleted; partial
+    // consolidation passes a predicate matching only the requested targets.
+    template <typename Fn> void consolidate_locked(Fn&& should_remove) {
+        // Entry-point candidacy: a replacement must be live (not soft-deleted) and
+        // not itself about to be removed.
         std::function<bool(size_t)> valid = [&](size_t i) {
-            return !(this->is_deleted(i));
+            return !should_remove(i) && !this->is_deleted(i);
         };
 
-        // Determine if the entry point is deleted.
+        // Determine if the entry point is being removed.
         // If so - we need to pick a new one.
         assert(entry_point_.size() == 1);
         auto entry_point = entry_point_[0];
-        if (status_.at(entry_point) == SlotMetadata::Deleted) {
+        if (should_remove(entry_point)) {
             svs::logging::debug(logger_, "Replacing entry point.");
             auto new_entry_point =
                 extensions::compute_entry_point(data_, threadpool_, valid);
             svs::logging::debug(logger_, "New point: {}", new_entry_point);
-            assert(!is_deleted(new_entry_point));
+            assert(valid(new_entry_point));
             entry_point_[0] = new_entry_point;
         }
 
-        // Perform graph consolidation.
+        // Perform graph consolidation, treating should_remove(i) slots as deleted.
         svs::index::vamana::consolidate(
             graph_,
             data_,
@@ -1231,31 +1228,72 @@ class MutableVamanaIndex {
             max_candidates_,
             alpha_,
             distance_,
-            check_is_deleted
+            should_remove
         );
 
-        // After consolidation - clean up deleted slots under lock.
+        // After consolidation - clean up the removed slots under lock.
         {
             std::lock_guard lock{*translator_mutex_};
-            // Erase translator entries for deleted slots (deferred from delete_entries).
+            // Erase translator entries for removed slots (deferred from delete_entries).
             // Skip entries already absent — add_points with replace_stale_and_insert
             // may have reassigned the external ID and erased the stale reverse entry.
             std::vector<size_t> deleted_internal_ids;
             for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-                if (status_[i] == SlotMetadata::Deleted && translator_.has_internal(i)) {
+                if (status_[i] == SlotMetadata::Deleted && should_remove(i) &&
+                    translator_.has_internal(i)) {
                     deleted_internal_ids.push_back(i);
                 }
             }
             if (!deleted_internal_ids.empty()) {
                 translator_.delete_internal(deleted_internal_ids, false);
             }
-            // Set all `Deleted` slots to `Empty`.
+            // Set removed `Deleted` slots to `Empty`.
             for (size_t i = 0, imax = status_.size(); i < imax; ++i) {
-                if (status_[i] == SlotMetadata::Deleted) {
+                if (status_[i] == SlotMetadata::Deleted && should_remove(i)) {
                     status_[i] = SlotMetadata::Empty;
                 }
             }
         }
+    }
+
+    ///
+    /// @brief Consolidate only the soft-deleted entries listed in `ids`.
+    ///
+    /// * Listed IDs to be removed must have been previously soft-deleted via
+    ///   `delete_entries`. IDs that are not currently soft-deleted (never existed,
+    ///   already consolidated, or still Valid/Pending) are skipped.
+    ///
+    /// * For each consolidated ID, no live node retains an edge to it, its
+    ///   translator entry is erased, and its slot is set to `Empty`.
+    ///
+    /// @returns The number of listed IDs that were consolidated.
+    ///
+    template <typename T> size_t consolidate(const T& ids) {
+        std::shared_lock compact_lock{*compact_mutex_};
+
+        // Collect the internal slots of the listed, already-soft-deleted IDs.
+        tsl::robin_set<Idx> targets{};
+        {
+            std::shared_lock lock{*translator_mutex_};
+            for (auto i : ids) {
+                if (!translator_.has_external(i)) {
+                    continue; // Already consolidated, or never existed.
+                }
+                auto internal = translator_.get_internal(i);
+                if (!is_deleted(internal)) {
+                    continue; // Not soft-deleted — nothing to consolidate.
+                }
+                targets.insert(lib::narrow_cast<Idx>(internal));
+            }
+        }
+
+        if (targets.empty()) {
+            return 0;
+        }
+        consolidate_locked([&](size_t i) {
+            return targets.contains(lib::narrow_cast<Idx>(i));
+        });
+        return targets.size();
     }
 
     ///// Saving

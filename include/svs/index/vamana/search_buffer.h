@@ -478,6 +478,10 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
         return visited_->emplace(i);
     }
 
+    /// @brief Reusable scratch storage for a validated snapshot of a node's adjacency
+    /// list during greedy search.
+    std::vector<Idx>& neighbor_scratch() { return neighbor_scratch_; }
+
   private:
     // The comparison functor.
     [[no_unique_address]] Cmp compare_ = Cmp{};
@@ -494,6 +498,8 @@ template <typename Idx, typename Cmp = std::less<>> class SearchBuffer {
     // The visited set. Implemented as a `std::optional` to allow enablind and disabling
     // without always requiring allocation of the data structure.
     std::optional<set_type> visited_{std::nullopt};
+    // Reusable scratch for greedy_search's validated adjacency-list snapshot.
+    std::vector<Idx> neighbor_scratch_ = {};
 };
 
 } // namespace svs::index::vamana
