@@ -40,17 +40,25 @@
 #endif // SVS_LEANVEC_HEADER
 
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
+#include <utility>
 
 namespace svs {
 
 template <size_t I1, size_t I2, typename Allocator = svs::lib::Allocator<std::byte>>
 class LeanVecDataBuilder {
     size_t leanvec_dims_;
+    // Pre-trained (e.g. out-of-distribution) matrices; empty for PCA reduction.
+    std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices_;
 
   public:
-    LeanVecDataBuilder(size_t leanvec_dims)
-        : leanvec_dims_(leanvec_dims) {}
+    LeanVecDataBuilder(
+        size_t leanvec_dims,
+        std::optional<svs::leanvec::LeanVecMatrices<svs::Dynamic>> matrices = std::nullopt
+    )
+        : leanvec_dims_(leanvec_dims)
+        , matrices_(std::move(matrices)) {}
 
     using data_type = svs::leanvec::LeanDataset<
         svs::leanvec::UsingLVQ<I1>,
@@ -67,7 +75,7 @@ class LeanVecDataBuilder {
         const allocator_type& allocator = {}
     ) {
         return data_type::reduce(
-            view, std::nullopt, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}, allocator
+            view, matrices_, pool, 0, svs::lib::MaybeStatic{leanvec_dims_}, allocator
         );
     }
 
@@ -95,6 +103,11 @@ struct lib::
 
     static To convert(From from) {
         auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
+        if (leanvec->training_data) {
+            return To{
+                leanvec->training_data->leanvec_dims(),
+                leanvec->training_data->matrices()};
+        }
         return To{leanvec->lenavec_dims};
     }
 };

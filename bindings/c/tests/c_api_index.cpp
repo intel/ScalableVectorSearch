@@ -250,6 +250,107 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
         svs_error_free(error);
     }
 
+    CATCH_SECTION("Index Build and Search with LeanVec OOD Training Data") {
+        svs_error_h error = svs_error_create();
+
+        const size_t leanvec_dims = DIMENSION / 2;
+
+        // Train out-of-distribution matrices from the data and a sample of queries.
+        svs_leanvec_training_data_h training_data = svs_leanvec_training_data_build(
+            DIMENSION, NUM_VECTORS, data.data(), NUM_QUERIES, queries.data(), leanvec_dims,
+            error
+        );
+
+        // LeanVec is only available on supported hardware/builds; skip otherwise.
+        if (training_data == nullptr) {
+            auto code = svs_error_get_code(error);
+            CATCH_REQUIRE(
+                (code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW)
+            );
+            svs_error_free(error);
+            return;
+        }
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_storage_h storage = svs_storage_create_leanvec(
+            leanvec_dims, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
+        );
+        CATCH_REQUIRE(storage != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+
+        bool success = svs_index_builder_set_threadpool(
+            builder, SVS_THREADPOOL_KIND_NATIVE, NUM_THREADS, error
+        );
+        CATCH_REQUIRE(success);
+
+        success = svs_index_builder_set_storage(builder, storage, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        success =
+            svs_index_builder_set_leanvec_training_data(builder, training_data, error);
+        CATCH_REQUIRE(success);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+        CATCH_REQUIRE(index != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+
+        svs_search_results_t results = svs_index_search_topK(
+            index, queries.data(), NUM_QUERIES, K, nullptr, nullptr, error
+        );
+        CATCH_REQUIRE(results != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
+        CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
+        for (size_t i = 0; i < NUM_QUERIES; ++i) {
+            CATCH_REQUIRE(results->results_per_query[i] == K);
+        }
+
+        svs_search_results_free(results);
+        svs_index_free(index);
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_storage_free(storage);
+        svs_leanvec_training_data_free(training_data);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("LeanVec training data on non-LeanVec storage is rejected") {
+        svs_error_h error = svs_error_create();
+
+        svs_leanvec_training_data_h training_data = svs_leanvec_training_data_build(
+            DIMENSION, NUM_VECTORS, data.data(), 0, nullptr, DIMENSION / 2, error
+        );
+        if (training_data == nullptr) {
+            auto code = svs_error_get_code(error);
+            CATCH_REQUIRE(
+                (code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW)
+            );
+            svs_error_free(error);
+            return;
+        }
+
+        svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+        svs_index_builder_h builder = svs_index_builder_create(
+            SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+        );
+        // Default storage is simple float32, not LeanVec.
+        bool success =
+            svs_index_builder_set_leanvec_training_data(builder, training_data, error);
+        CATCH_REQUIRE(success == false);
+        CATCH_REQUIRE(svs_error_get_code(error) == SVS_ERROR_INVALID_ARGUMENT);
+
+        svs_index_builder_free(builder);
+        svs_algorithm_free(algorithm);
+        svs_leanvec_training_data_free(training_data);
+        svs_error_free(error);
+    }
+
     CATCH_SECTION("Index with Custom Threadpool") {
         svs_error_h error = svs_error_create();
 

@@ -125,6 +125,7 @@ typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
 typedef struct svs_storage* svs_storage_h;
 typedef struct svs_search_params* svs_search_params_h;
+typedef struct svs_leanvec_training_data* svs_leanvec_training_data_h;
 
 // Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
@@ -305,6 +306,31 @@ SVS_API svs_storage_h svs_storage_create_sq(
 /// @param storage The storage handle to free
 SVS_API void svs_storage_free(svs_storage_h storage);
 
+/// @brief Train LeanVec dimensionality-reduction matrices from a data sample
+/// @param dim The dimensionality of the data (and training queries)
+/// @param num_vectors The number of data vectors in x
+/// @param x Pointer to the data vectors [num_vectors x dim] (float array)
+/// @param num_queries The number of training queries in x_q (0 for in-distribution)
+/// @param x_q Pointer to the training queries [num_queries x dim], or NULL. When
+/// provided, matrices are trained out-of-distribution (OOD) using these queries;
+/// when num_queries is 0 or x_q is NULL, in-distribution (PCA) matrices are computed.
+/// @param leanvec_dims The reduced number of LeanVec dimensions
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the trained LeanVec matrices
+SVS_API svs_leanvec_training_data_h svs_leanvec_training_data_build(
+    size_t dim,
+    size_t num_vectors,
+    const float* x,
+    size_t num_queries,
+    const float* x_q /*=NULL*/,
+    size_t leanvec_dims,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Free the LeanVec training data handle
+/// @param training_data The training data handle to free
+SVS_API void svs_leanvec_training_data_free(svs_leanvec_training_data_h training_data);
+
 /// @brief Create an index builder configuration
 /// @param metric The distance metric to use
 /// @param dimension The dimensionality of the vectors
@@ -331,6 +357,20 @@ SVS_API void svs_index_builder_free(svs_index_builder_h builder);
 /// @return true on success, false on failure
 SVS_API bool svs_index_builder_set_storage(
     svs_index_builder_h builder, svs_storage_h storage, svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Attach trained LeanVec matrices to the index builder
+/// @param builder The index builder handle
+/// @param training_data The trained LeanVec matrices to use when reducing the data.
+/// Only applies when the builder's storage is configured for LeanVec; the reduced
+/// dataset is built using these matrices instead of computing PCA matrices at build
+/// time. Pass NULL to clear a previously attached training data.
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_set_leanvec_training_data(
+    svs_index_builder_h builder,
+    svs_leanvec_training_data_h training_data,
+    svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Set the thread pool configuration for the index builder

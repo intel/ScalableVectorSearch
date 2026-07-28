@@ -24,6 +24,10 @@
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#include "leanvec_training_data.hpp"
+#endif
+
 #include <filesystem>
 #include <memory>
 #include <numeric>
@@ -53,6 +57,12 @@ struct svs_search_params {
 
 struct svs_storage {
     std::shared_ptr<svs::c_runtime::Storage> impl;
+};
+
+struct svs_leanvec_training_data {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+    std::shared_ptr<const svs::c_runtime::LeanVecTrainingData> impl;
+#endif
 };
 
 extern "C" svs_algorithm_h svs_algorithm_create_vamana(
@@ -342,6 +352,63 @@ svs_storage_create_sq(svs_data_type_t data_type, svs_error_h out_err) {
 
 extern "C" void svs_storage_free(svs_storage_h storage) { delete storage; }
 
+extern "C" svs_leanvec_training_data_h svs_leanvec_training_data_build(
+    size_t dim,
+    size_t num_vectors,
+    const float* x,
+    size_t num_queries,
+    const float* x_q,
+    size_t leanvec_dims,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() -> svs_leanvec_training_data_h {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+            EXPECT_ARG_GT_THAN(dim, 0);
+            EXPECT_ARG_GT_THAN(num_vectors, 0);
+            EXPECT_ARG_NOT_NULL(x);
+            EXPECT_ARG_GT_THAN(leanvec_dims, 0);
+            EXPECT_ARG_GE_THAN(dim, leanvec_dims);
+            INVALID_ARGUMENT_IF(
+                (num_queries > 0 && x_q == nullptr),
+                "x_q should not be NULL when num_queries is greater than 0"
+            );
+
+            auto data = svs::data::ConstSimpleDataView<float>(x, num_vectors, dim);
+            // A zero-sized view selects the in-distribution (PCA) path.
+            auto queries = svs::data::ConstSimpleDataView<float>(
+                x_q, (x_q == nullptr) ? 0 : num_queries, dim
+            );
+
+            auto pool = ThreadPoolBuilder{}.build();
+            auto training_data = std::make_shared<const LeanVecTrainingData>(
+                data, queries, leanvec_dims, pool
+            );
+
+            auto result = new svs_leanvec_training_data;
+            result->impl = std::move(training_data);
+            return result;
+#else
+            (void)dim;
+            (void)num_vectors;
+            (void)x;
+            (void)num_queries;
+            (void)x_q;
+            (void)leanvec_dims;
+            throw svs::c_runtime::not_implemented(
+                "LeanVec training data is not implemented in this build"
+            );
+#endif
+        },
+        out_err
+    );
+}
+
+extern "C" void svs_leanvec_training_data_free(svs_leanvec_training_data_h training_data) {
+    delete training_data;
+}
+
 extern "C" svs_index_builder_h svs_index_builder_create(
     svs_distance_metric_t metric,
     size_t dimension,
@@ -381,6 +448,37 @@ extern "C" bool svs_index_builder_set_storage(
             EXPECT_ARG_NOT_NULL(storage);
             builder->impl->set_storage(storage->impl);
             return true;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_index_builder_set_leanvec_training_data(
+    svs_index_builder_h builder,
+    svs_leanvec_training_data_h training_data,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() -> bool {
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+            EXPECT_ARG_NOT_NULL(builder);
+            auto storage =
+                std::dynamic_pointer_cast<StorageLeanVec>(builder->impl->storage);
+            INVALID_ARGUMENT_IF(
+                (storage == nullptr),
+                "LeanVec training data can only be set on LeanVec storage"
+            );
+            storage->training_data =
+                (training_data == nullptr) ? nullptr : training_data->impl;
+            return true;
+#else
+            (void)builder;
+            (void)training_data;
+            throw svs::c_runtime::not_implemented(
+                "LeanVec training data is not implemented in this build"
+            );
+#endif
         },
         out_err
     );

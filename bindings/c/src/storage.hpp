@@ -25,10 +25,13 @@
 #include <svs/lib/type_traits.h>
 
 #ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+#include "leanvec_training_data.hpp"
+
 #include <svs/cpuid.h>
 #endif
 
 #include <filesystem>
+#include <memory>
 #include <stdexcept>
 
 namespace svs {
@@ -59,6 +62,11 @@ struct StorageLeanVec : public Storage {
     size_t lenavec_dims;
     size_t primary_bits;
     size_t secondary_bits;
+#ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
+    // Pre-trained reduction matrices; when set, they are used instead of PCA
+    // matrices computed at build time (enables out-of-distribution LeanVec).
+    std::shared_ptr<const LeanVecTrainingData> training_data;
+#endif
 
     StorageLeanVec(size_t lenavec_dims, svs_data_type_t primary, svs_data_type_t secondary)
         : Storage{SVS_STORAGE_KIND_LEANVEC}
