@@ -477,12 +477,16 @@ CATCH_TEST_CASE("MutableVamana Index Memory Usage", "[graph_index][dynamic_index
     const size_t expected_graph_bytes = index.view_graph().get_data().capacity() *
                                         index.view_graph().get_data().element_size();
     using Index = decltype(index);
-    const size_t expected_metadata_bytes =
-        data_size * sizeof(svs::index::vamana::SlotMetadata) +
-        sizeof(typename Index::internal_id_type) +
-        2 * indices.size() *
-            (sizeof(typename Index::external_id_type) +
-             sizeof(typename Index::internal_id_type));
+    // The per-slot status array is a SegmentedVector, whose capacity rounds up to the
+    // power-of-two bucket layout rather than tracking size() exactly.
+    const size_t expected_status_bytes =
+        svs::lib::SegmentedVector<svs::index::vamana::SlotMetadata>(data_size).capacity() *
+        sizeof(svs::index::vamana::SlotMetadata);
+    const size_t expected_metadata_bytes = expected_status_bytes +
+                                           sizeof(typename Index::internal_id_type) +
+                                           2 * indices.size() *
+                                               (sizeof(typename Index::external_id_type) +
+                                                sizeof(typename Index::internal_id_type));
     const size_t expected_total_bytes =
         expected_data_bytes + expected_graph_bytes + expected_metadata_bytes;
 
