@@ -52,7 +52,7 @@ class LeanVecTrainingData {
         : leanvec_dims_{leanvec_dims}
         , matrices_{
               queries.size() == 0 ? compute_pca(data, leanvec_dims, pool)
-                                   : compute_ood(data, queries, leanvec_dims, pool)} {}
+                                  : compute_ood(data, queries, leanvec_dims, pool)} {}
 
     size_t leanvec_dims() const { return leanvec_dims_; }
     const matrices_type& matrices() const { return matrices_; }

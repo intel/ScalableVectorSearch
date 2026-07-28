@@ -105,8 +105,7 @@ struct lib::
         auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
         if (leanvec->training_data) {
             return To{
-                leanvec->training_data->leanvec_dims(),
-                leanvec->training_data->matrices()};
+                leanvec->training_data->leanvec_dims(), leanvec->training_data->matrices()};
         }
         return To{leanvec->lenavec_dims};
     }

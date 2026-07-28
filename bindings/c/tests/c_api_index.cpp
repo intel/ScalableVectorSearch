@@ -257,7 +257,12 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
 
         // Train out-of-distribution matrices from the data and a sample of queries.
         svs_leanvec_training_data_h training_data = svs_leanvec_training_data_build(
-            DIMENSION, NUM_VECTORS, data.data(), NUM_QUERIES, queries.data(), leanvec_dims,
+            DIMENSION,
+            NUM_VECTORS,
+            data.data(),
+            NUM_QUERIES,
+            queries.data(),
+            leanvec_dims,
             error
         );
 
