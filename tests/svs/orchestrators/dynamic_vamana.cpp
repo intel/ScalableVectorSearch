@@ -118,3 +118,47 @@ CATCH_TEST_CASE("DynamicVamana Build", "[managers][dynamic_vamana][build]") {
         }
     }
 }
+
+CATCH_TEST_CASE("DynamicVamana Memory Usage", "[managers][dynamic_vamana]") {
+    auto distance = svs::distance::DistanceL2();
+    auto expected_result = test_dataset::vamana::expected_build_results(
+        distance, svsbenchmark::Uncompressed(svs::DataType::float32)
+    );
+    auto build_params = expected_result.build_parameters_.value();
+    size_t num_threads = 2;
+
+    auto data = svs::data::SimpleData<float>::load(test_dataset::data_svs_file());
+    const size_t n = data.size();
+    const size_t half = n / 2;
+    CATCH_REQUIRE(half > 0);
+    CATCH_REQUIRE(n - half > 0);
+
+    // Build the index over the first half of the dataset (external IDs 0 .. half-1).
+    auto first_data = svs::data::SimpleData<float>(half, data.dimensions());
+    for (size_t i = 0; i < half; ++i) {
+        first_data.set_datum(i, data.get_datum(i));
+    }
+    std::vector<size_t> first_ids(half);
+    std::iota(first_ids.begin(), first_ids.end(), 0);
+
+    svs::DynamicVamana index = svs::DynamicVamana::build<float>(
+        build_params, std::move(first_data), first_ids, distance, num_threads
+    );
+
+    const size_t usage_before = index.get_memory_breakdown().total();
+    CATCH_REQUIRE(usage_before > 0);
+
+    // Add the second half of the dataset (external IDs half .. n-1).
+    const size_t rest = n - half;
+    auto second_data = svs::data::SimpleData<float>(rest, data.dimensions());
+    for (size_t i = 0; i < rest; ++i) {
+        second_data.set_datum(i, data.get_datum(half + i));
+    }
+    std::vector<size_t> second_ids(rest);
+    std::iota(second_ids.begin(), second_ids.end(), half);
+    index.add_points(second_data.cview(), second_ids);
+
+    // Adding points must increase the reported allocation.
+    const size_t usage_after = index.get_memory_breakdown().total();
+    CATCH_REQUIRE(usage_after > usage_before);
+}

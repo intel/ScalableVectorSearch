@@ -104,6 +104,17 @@ struct VamanaIndexManagerBase : public VamanaIndex {
             impl_->reconstruct_at(dst, id_span);
         });
     }
+
+    size_t get_memory_usage() const noexcept override { return impl_->get_memory_usage(); }
+
+    Status get_memory_breakdown(MemoryBreakdown* out) const noexcept override {
+        if (out == nullptr) {
+            return Status(
+                ErrorCode::INVALID_ARGUMENT, "memory breakdown output must not be null"
+            );
+        }
+        return runtime_error_wrapper([&] { impl_->get_memory_breakdown(*out); });
+    }
 };
 } // namespace
 

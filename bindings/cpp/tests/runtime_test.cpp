@@ -1483,3 +1483,130 @@ CATCH_TEST_CASE("ReconstructAtStatic", "[runtime][static_vamana]") {
 
     svs::runtime::v0::VamanaIndex::destroy(index);
 }
+
+CATCH_TEST_CASE("GetMemoryUsageDynamic", "[runtime][memory]") {
+    const auto& test_data = get_test_data();
+    svs::runtime::v0::DynamicVamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    if (!svs::runtime::v0::DynamicVamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::FP32
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    std::vector<size_t> labels(test_n);
+    std::iota(labels.begin(), labels.end(), 0);
+
+    status = index->add(test_n, labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // After adding points, the index must report non-zero memory usage and the
+    // component breakdown must sum to the same value.
+    const auto dynamic_usage = index->get_memory_usage();
+    CATCH_REQUIRE(dynamic_usage > 0);
+    svs::runtime::v0::MemoryBreakdown dynamic_breakdown{};
+    status = index->get_memory_breakdown(&dynamic_breakdown);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(dynamic_breakdown.graph_bytes > 0);
+    CATCH_REQUIRE(dynamic_breakdown.data_bytes > 0);
+    CATCH_REQUIRE(dynamic_breakdown.metadata_bytes > 0);
+    CATCH_REQUIRE(dynamic_breakdown.total() == dynamic_usage);
+    status = index->get_memory_breakdown(nullptr);
+    CATCH_REQUIRE(!status.ok());
+    CATCH_REQUIRE(status.code == svs::runtime::v0::ErrorCode::INVALID_ARGUMENT);
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(index);
+
+    // A larger index (more points) should use at least as much memory as a
+    // smaller one built with the same storage kind / parameters.
+    svs::runtime::v0::DynamicVamanaIndex* small_index = nullptr;
+    status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &small_index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(small_index != nullptr);
+
+    const size_t small_n = test_n / 2;
+    std::vector<size_t> small_labels(small_n);
+    std::iota(small_labels.begin(), small_labels.end(), 0);
+    status = small_index->add(small_n, small_labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+    const size_t small_usage = small_index->get_memory_usage();
+    CATCH_REQUIRE(small_usage > 0);
+
+    svs::runtime::v0::DynamicVamanaIndex* large_index = nullptr;
+    status = svs::runtime::v0::DynamicVamanaIndex::build(
+        &large_index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(large_index != nullptr);
+    std::vector<size_t> large_labels(test_n);
+    std::iota(large_labels.begin(), large_labels.end(), 0);
+    status = large_index->add(test_n, large_labels.data(), test_data.data());
+    CATCH_REQUIRE(status.ok());
+    const size_t large_usage = large_index->get_memory_usage();
+    CATCH_REQUIRE(large_usage > 0);
+
+    CATCH_REQUIRE(large_usage >= small_usage);
+
+    svs::runtime::v0::DynamicVamanaIndex::destroy(small_index);
+    svs::runtime::v0::DynamicVamanaIndex::destroy(large_index);
+}
+
+CATCH_TEST_CASE("GetMemoryUsageStatic", "[runtime][static_vamana][memory]") {
+    const auto& test_data = get_test_data();
+    svs::runtime::v0::VamanaIndex* index = nullptr;
+    svs::runtime::v0::VamanaIndex::BuildParams build_params{64};
+    svs::runtime::v0::Status status = svs::runtime::v0::VamanaIndex::build(
+        &index,
+        test_d,
+        svs::runtime::v0::MetricType::L2,
+        svs::runtime::v0::StorageKind::FP32,
+        build_params
+    );
+    if (!svs::runtime::v0::VamanaIndex::check_storage_kind(
+             svs::runtime::v0::StorageKind::FP32
+        )
+             .ok()) {
+        CATCH_REQUIRE(!status.ok());
+        CATCH_SKIP("Storage kind is not supported, skipping test.");
+    }
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(index != nullptr);
+
+    status = index->add(test_n, test_data.data());
+    CATCH_REQUIRE(status.ok());
+
+    // After adding points, the static index must report non-zero memory usage and the
+    // component breakdown must sum to the same value.
+    const auto static_usage = index->get_memory_usage();
+    CATCH_REQUIRE(static_usage > 0);
+    svs::runtime::v0::MemoryBreakdown static_breakdown{};
+    status = index->get_memory_breakdown(&static_breakdown);
+    CATCH_REQUIRE(status.ok());
+    CATCH_REQUIRE(static_breakdown.graph_bytes > 0);
+    CATCH_REQUIRE(static_breakdown.data_bytes > 0);
+    CATCH_REQUIRE(static_breakdown.metadata_bytes > 0);
+    CATCH_REQUIRE(static_breakdown.total() == static_usage);
+
+    svs::runtime::v0::VamanaIndex::destroy(index);
+}
