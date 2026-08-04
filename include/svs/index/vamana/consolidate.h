@@ -313,7 +313,7 @@ class GraphConsolidator {
 
                 if (graph_.seq_counters()[src].read_validate(*maybe_seq)) {
                     // Consistent read — commit the results.
-                    // update_buffer.insert(i, final_candidates);
+                    update_buffer.insert(i, final_candidates);
                     break;
                 }
                 svs::detail::pause();
@@ -358,7 +358,6 @@ class GraphConsolidator {
         assert(reverse_edges != nullptr);
 
         tsl::robin_set<size_t> work{};
-        std::vector<I> buf{};
         for (auto d : deleted_ids) {
             const auto& neighbors = graph_.get_node(lib::narrow_cast<I>(d));
             for (auto a : neighbors) {
@@ -367,18 +366,10 @@ class GraphConsolidator {
                     work.insert(a);
                 }
             }
-            reverse_edges->collect(lib::narrow_cast<I>(d), buf);
-            for (auto m : buf) {
-                if (!is_deleted(m)) {
-                    work.insert(m);
-                }
-            }
+            reverse_edges->collect(lib::narrow_cast<I>(d), work, is_deleted);
             reverse_edges->reset_node(lib::narrow_cast<I>(d));
         }
-        // return std::vector<size_t>(work.begin(), work.end());
-        std::vector<size_t> work_ids(work.begin(), work.end());
-        std::sort(work_ids.begin(), work_ids.end());
-        return work_ids;
+        return std::vector<size_t>(work.begin(), work.end());
     }
 
     ///
