@@ -189,11 +189,9 @@ class GraphConsolidator {
     /// @param neighbors The current neighbors of the vertex being processed.
     /// @param is_deleted Callable functor returning `true` of a vertex is deleted.
     ///
-    template <typename Deleted>
+    template <typename Neighbors, typename Deleted>
     void populate_candidates(
-        set_type& all_candidates,
-        const graph_neighbor_container& neighbors,
-        const Deleted& is_deleted
+        set_type& all_candidates, const Neighbors& neighbors, const Deleted& is_deleted
     ) const {
         all_candidates.clear();
         for (auto dst : neighbors) {
@@ -243,9 +241,9 @@ class GraphConsolidator {
         std::sort(valid_candidates.begin(), valid_candidates.end(), Compare{});
     }
 
-    template <typename Deleted>
+    template <typename GlobalIds, typename Deleted>
     void generate_updates(
-        const threads::UnitRange<size_t>& global_ids,
+        const GlobalIds& global_ids,
         const threads::UnitRange<size_t>& local_ids,
         BulkUpdate<I>& update_buffer,
         ConsolidateThreadLocal<I>& tls,
@@ -315,7 +313,7 @@ class GraphConsolidator {
 
                 if (graph_.seq_counters()[src].read_validate(*maybe_seq)) {
                     // Consistent read — commit the results.
-                    update_buffer.insert(i, final_candidates);
+                    // update_buffer.insert(i, final_candidates);
                     break;
                 }
                 svs::detail::pause();
@@ -327,9 +325,10 @@ class GraphConsolidator {
     ///
     /// Write pending updates to the graph.
     ///
+    template <typename GlobalIds>
     void apply_updates(
         BulkUpdate<I>& update_buffer,
-        const threads::UnitRange<size_t>& global_ids,
+        const GlobalIds& global_ids,
         const threads::UnitRange<size_t>& local_ids
     ) {
         for (auto i : local_ids) {
@@ -339,7 +338,113 @@ class GraphConsolidator {
         }
     }
 
-    template <typename Delete> void operator()(const Delete& is_deleted) {
+    ///
+    /// Gather a superset of the live nodes with an edge to some deleted node in `D`.
+    ///
+    /// The in-neighbors of a deleted `d` are contained in `out(d) union R(d)`, so we hand
+    /// the driver every non-deleted node from both. No `has_edge` verification: `out(d)`
+    /// over-includes pure out-neighbors and `R(d)` may hold stale entries, but the driver
+    /// no-ops any node with no deleted neighbor.
+    ///
+    /// Reverse-edge cleanup for the vanishing slot `d`:
+    /// * `R(d)` (the `a -> d` edges) is cleared wholesale by `reset_node(d)`.
+    /// * For each `a` in `out(d)`, the edge `d -> a` recorded `d` in `R(a)`; once `d`'s
+    ///   slot is reused that entry would be a stale reference, so remove it here.
+    ///
+    template <typename DeletedSet, typename Deleted>
+    std::vector<size_t>
+    gather_work_set(const DeletedSet& deleted_ids, const Deleted& is_deleted) const {
+        auto* reverse_edges = graph_.reverse_edges();
+        assert(reverse_edges != nullptr);
+
+        tsl::robin_set<size_t> work{};
+        std::vector<I> buf{};
+        for (auto d : deleted_ids) {
+            const auto& neighbors = graph_.get_node(lib::narrow_cast<I>(d));
+            for (auto a : neighbors) {
+                reverse_edges->remove(lib::narrow_cast<I>(d), a);
+                if (!is_deleted(a)) {
+                    work.insert(a);
+                }
+            }
+            reverse_edges->collect(lib::narrow_cast<I>(d), buf);
+            for (auto m : buf) {
+                if (!is_deleted(m)) {
+                    work.insert(m);
+                }
+            }
+            reverse_edges->reset_node(lib::narrow_cast<I>(d));
+        }
+        // return std::vector<size_t>(work.begin(), work.end());
+        std::vector<size_t> work_ids(work.begin(), work.end());
+        std::sort(work_ids.begin(), work_ids.end());
+        return work_ids;
+    }
+
+    ///
+    /// Run the generate/apply driver over an explicit list of node ids `work_ids`.
+    ///
+    template <typename Deleted>
+    void run_driver(const std::vector<size_t>& work_ids, const Deleted& is_deleted) {
+        const size_t num_work = work_ids.size();
+        const size_t update_batch_size = std::min(params_.update_batch_size, num_work);
+        const size_t thread_batch_size = 500;
+
+        // Size the update buffer to the work-set, not the 200k batch constant.
+        BulkUpdate<I> update_buffer{update_batch_size, params_.prune_to};
+        threads::SequentialTLS<ConsolidateThreadLocal<I>> tls{threadpool_.size()};
+
+        size_t start = 0;
+        while (start < num_work) {
+            size_t stop = std::min(num_work, start + update_batch_size);
+            auto global_ids =
+                std::span<const size_t>(work_ids).subspan(start, stop - start);
+            threads::UnitRange<size_t> local_range{0, global_ids.size()};
+
+            update_buffer.prepare();
+            threads::parallel_for(
+                threadpool_,
+                threads::DynamicPartition{local_range, thread_batch_size},
+                [&](const auto& local_ids, uint64_t tid) {
+                    auto& thread_local_scratch = tls.at(tid);
+                    generate_updates(
+                        global_ids,
+                        threads::UnitRange(local_ids),
+                        update_buffer,
+                        thread_local_scratch,
+                        is_deleted
+                    );
+                }
+            );
+
+            threads::parallel_for(
+                threadpool_,
+                threads::DynamicPartition{local_range, thread_batch_size},
+                [&](const auto& local_ids, uint64_t /*tid*/) {
+                    apply_updates(update_buffer, global_ids, threads::UnitRange(local_ids));
+                }
+            );
+
+            start = stop;
+        }
+    }
+
+    ///
+    /// Reverse-edge-driven consolidation: process only the in-neighbors of the deleted
+    /// nodes `deleted_ids`, discovered via the graph's reverse-edge index.
+    ///
+    template <typename DeletedSet, typename Deleted>
+    void operator()(const DeletedSet& deleted_ids, const Deleted& is_deleted) {
+        auto work_ids = gather_work_set(deleted_ids, is_deleted);
+        assert(int(work_ids.size()) > -1);
+        run_driver(work_ids, is_deleted);
+    }
+
+    ///
+    /// Full-scan consolidation: examine every node. Used when the reverse-edge index is
+    /// not available.
+    ///
+    template <typename Deleted> void operator()(const Deleted& is_deleted) {
         // Allocate necessary scratch space.
         BulkUpdate<I> update_buffer{params_.update_batch_size, params_.prune_to};
         threads::SequentialTLS<ConsolidateThreadLocal<I>> tls{threadpool_.size()};
@@ -404,6 +509,33 @@ void consolidate(
     ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
     auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
     consolidator(is_deleted);
+}
+
+///
+/// Reverse-edge-driven consolidation over an explicit deleted set `deleted_ids`. Requires
+/// `graph.reverse_edges() != nullptr`; only the in-neighbors of `deleted_ids` are visited.
+///
+template <
+    graphs::MemoryGraph Graph,
+    data::ImmutableMemoryDataset Data,
+    threads::ThreadPool Pool,
+    typename Distance,
+    typename DeletedSet,
+    typename Deleted>
+void consolidate(
+    Graph& graph,
+    const Data& data,
+    Pool& threadpool,
+    size_t prune_to,
+    size_t max_candidate_pool_size,
+    float alpha,
+    const Distance& distance,
+    const DeletedSet& deleted_ids,
+    Deleted&& is_deleted
+) {
+    ConsolidationParameters params{200'000, prune_to, max_candidate_pool_size, alpha};
+    auto consolidator = GraphConsolidator{graph, data, threadpool, distance, params};
+    consolidator(deleted_ids, is_deleted);
 }
 
 } // namespace svs::index::vamana

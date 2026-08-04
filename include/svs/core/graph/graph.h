@@ -18,6 +18,7 @@
 
 #include "svs/concepts/graph.h"
 #include "svs/core/data/simple.h"
+#include "svs/core/graph/reverse_edges.h"
 #include "svs/lib/algorithms.h"
 #include "svs/lib/boundscheck.h"
 #include "svs/lib/concurrency/atomic_span.h"
@@ -25,13 +26,17 @@
 #include "svs/lib/saveload.h"
 #include "svs/lib/segmented_vector.h"
 #include "svs/lib/spinlock.h"
+#include "svs/lib/threads.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <memory>
 #include <span>
 #include <type_traits>
+#include <vector>
 
 namespace svs::graphs {
 
@@ -207,41 +212,12 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
 
     /// @copydoc replace_node(Idx,const std::vector<Idx>&)
     void replace_node(Idx i, std::span<const Idx> new_neighbors) {
-        std::lock_guard lock{node_locks_[i]};
-        std::span<Idx> raw_data = data_.get_datum(i);
-
-        // Clamp the number of elements to copy to the maximum out degree to correctly
-        // handle the case where the caller passes in too many neighbors.
-        //
-        // In this case, we take the first `max_degree_` number of elements.
-        Idx elements_to_copy =
-            std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
-
-        auto seq = seq_counters_[i].begin_write();
-        for (Idx j = 0; j < elements_to_copy; ++j) {
-            std::atomic_ref<Idx>(raw_data[1 + j])
-                .store(new_neighbors[j], std::memory_order_relaxed);
-        }
-        std::atomic_ref<Idx>(raw_data[0])
-            .store(elements_to_copy, std::memory_order_relaxed);
-        seq_counters_[i].end_write(seq);
+        replace_node_impl(i, new_neighbors);
     }
 
     /// @copydoc replace_node(Idx,const std::vector<Idx>&)
     void replace_node(Idx i, AtomicSpan<const Idx> new_neighbors) {
-        std::lock_guard lock{node_locks_[i]};
-        std::span<Idx> raw_data = data_.get_datum(i);
-        Idx elements_to_copy =
-            std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
-
-        auto seq = seq_counters_[i].begin_write();
-        for (Idx j = 0; j < elements_to_copy; ++j) {
-            std::atomic_ref<Idx>(raw_data[1 + j])
-                .store(new_neighbors[j], std::memory_order_relaxed);
-        }
-        std::atomic_ref<Idx>(raw_data[0])
-            .store(elements_to_copy, std::memory_order_relaxed);
-        seq_counters_[i].end_write(seq);
+        replace_node_impl(i, new_neighbors);
     }
 
     ///
@@ -316,6 +292,9 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         std::atomic_ref<Idx>(raw_data.front()).store(new_size, std::memory_order_relaxed);
 
         seq_counters_[src].end_write(seq);
+        if (reverse_edges_) {
+            reverse_edges_->record(src, dst);
+        }
         return AddEdgeResult::Added;
     }
 
@@ -339,11 +318,57 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         data_.resize(new_size);
         seq_counters_.resize(new_size);
         node_locks_.resize(new_size);
+        if (reverse_edges_) {
+            reverse_edges_->resize(new_size);
+        }
     }
     void add_node() { unsafe_resize(n_nodes() + 1); }
 
     /// @brief Access the per-node sequence lock counters for concurrent read validation.
     const SeqLockArray& seq_counters() const { return seq_counters_; }
+
+    ///
+    /// @brief Enable maintenance of the per-node reverse-edge (in-neighbor) index.
+    ///
+    /// Off by default (null): every graph mutator hook is then a single null check, and
+    /// the static index / compaction scratch graphs pay nothing. Enabled only by the
+    /// dynamic index.
+    ///
+    void enable_reverse_edges() {
+        reverse_edges_ = std::make_unique<ReverseEdges<Idx>>(n_nodes());
+    }
+
+    ReverseEdges<Idx>* reverse_edges() { return reverse_edges_.get(); }
+    const ReverseEdges<Idx>* reverse_edges() const { return reverse_edges_.get(); }
+
+    ///
+    /// @brief Rebuild the reverse-edge index from the current (quiescent) graph.
+    ///
+    /// Re-derives the asymmetric-only in-neighbor set: records ``src`` into ``R(dst)`` for
+    /// every edge ``src -> dst`` with no reverse edge ``dst -> src``. Must be called with
+    /// no concurrent graph mutation (load, post-build, post-compact).
+    ///
+    template <threads::ThreadPool Pool> void rebuild_reverse_edges(Pool& threadpool) {
+        if (!reverse_edges_) {
+            return;
+        }
+        reverse_edges_->reset();
+        threads::parallel_for(
+            threadpool,
+            threads::StaticPartition{threads::UnitRange<size_t>{0, n_nodes()}},
+            [&](const auto& is, uint64_t /*tid*/) {
+                for (auto src : is) {
+                    for (auto dst : get_node(lib::narrow_cast<Idx>(src))) {
+                        if (!has_edge(dst, lib::narrow_cast<Idx>(src))) {
+                            reverse_edges_->record(
+                                lib::narrow_cast<Idx>(src), lib::narrow_cast<Idx>(dst)
+                            );
+                        }
+                    }
+                }
+            }
+        );
+    }
 
     ///// Saving
     static constexpr lib::Version save_version = lib::Version(0, 0, 0);
@@ -439,6 +464,56 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
         );
     }
 
+  private:
+    template <typename Span> void replace_node_impl(Idx i, const Span& new_neighbors) {
+        std::span<const Idx> old_snapshot{};
+        std::array<Idx, MAX_STACK_DEGREE> old_buffer;
+        Idx old_size = 0;
+
+        std::lock_guard lock{node_locks_[i]};
+        std::span<Idx> raw_data = data_.get_datum(i);
+
+        if (reverse_edges_) {
+            old_size = std::atomic_ref<Idx>(raw_data[0]).load(std::memory_order_relaxed);
+            old_size = std::min({old_size, max_degree_, Idx{MAX_STACK_DEGREE}});
+            for (Idx j = 0; j < old_size; ++j) {
+                old_buffer[j] =
+                    std::atomic_ref<Idx>(raw_data[1 + j]).load(std::memory_order_relaxed);
+            }
+            old_snapshot = std::span<const Idx>(old_buffer.data(), old_size);
+        }
+
+        // Clamp the number of elements to copy to the maximum out degree to correctly
+        // handle the case where the caller passes in too many neighbors.
+        Idx elements_to_copy =
+            std::min(max_degree_, lib::narrow_cast<Idx>(new_neighbors.size()));
+
+        auto seq = seq_counters_[i].begin_write();
+        for (Idx j = 0; j < elements_to_copy; ++j) {
+            std::atomic_ref<Idx>(raw_data[1 + j])
+                .store(new_neighbors[j], std::memory_order_relaxed);
+        }
+        std::atomic_ref<Idx>(raw_data[0])
+            .store(elements_to_copy, std::memory_order_relaxed);
+        seq_counters_[i].end_write(seq);
+
+        if (reverse_edges_) {
+            for (Idx j = 0; j < elements_to_copy; ++j) {
+                Idx dst = new_neighbors[j];
+                bool existed = std::find(old_snapshot.begin(), old_snapshot.end(), dst) !=
+                               old_snapshot.end();
+                if (!existed) {
+                    reverse_edges_->record(i, dst);
+                }
+            }
+        }
+    }
+
+    // Upper bound on adjacency degree we snapshot on the stack for the reverse-edge diff.
+    // Graphs with larger degree still work; the diff is simply skipped past this bound
+    // (over-recording, never under-recording, preserving completeness).
+    static constexpr Idx MAX_STACK_DEGREE = 256;
+
   protected:
     data_type data_;
     Idx max_degree_;
@@ -447,6 +522,8 @@ template <std::unsigned_integral Idx, data::MemoryDataset Data> class SimpleGrap
     // lock-free while another add grows the array; segmented storage keeps existing
     // locks at stable addresses. See svs/lib/segmented_vector.h.
     lib::SegmentedVector<SpinLock> node_locks_;
+    // Per-node in-neighbor index. Null (disabled) unless the owning index enables it.
+    std::unique_ptr<ReverseEdges<Idx>> reverse_edges_ = nullptr;
 };
 
 /////
