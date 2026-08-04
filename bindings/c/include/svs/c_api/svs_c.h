@@ -331,6 +331,22 @@ SVS_API svs_leanvec_training_data_h svs_leanvec_training_data_build(
 /// @param training_data The training data handle to free
 SVS_API void svs_leanvec_training_data_free(svs_leanvec_training_data_h training_data);
 
+/// @brief Create a LeanVec storage configuration from pre-trained matrices
+/// @param training_data The trained LeanVec matrices to use when reducing the data,
+/// instead of computing PCA matrices at build time. The number of LeanVec dimensions
+/// is taken from the training data. The storage retains a reference to the trained
+/// matrices, so the training data handle may be freed once this call returns.
+/// @param primary The data type of the primary quantization
+/// @param secondary The data type of the secondary quantization
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the created LeanVec storage
+SVS_API svs_storage_h svs_storage_create_leanvec_trained(
+    svs_leanvec_training_data_h training_data,
+    svs_data_type_t primary,
+    svs_data_type_t secondary,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Create an index builder configuration
 /// @param metric The distance metric to use
 /// @param dimension The dimensionality of the vectors
@@ -357,20 +373,6 @@ SVS_API void svs_index_builder_free(svs_index_builder_h builder);
 /// @return true on success, false on failure
 SVS_API bool svs_index_builder_set_storage(
     svs_index_builder_h builder, svs_storage_h storage, svs_error_h out_err /*=NULL*/
-);
-
-/// @brief Attach trained LeanVec matrices to the index builder
-/// @param builder The index builder handle
-/// @param training_data The trained LeanVec matrices to use when reducing the data.
-/// Only applies when the builder's storage is configured for LeanVec; the reduced
-/// dataset is built using these matrices instead of computing PCA matrices at build
-/// time. Pass NULL to clear a previously attached training data.
-/// @param out_err An optional error handle to capture errors
-/// @return true on success, false on failure
-SVS_API bool svs_index_builder_set_leanvec_training_data(
-    svs_index_builder_h builder,
-    svs_leanvec_training_data_h training_data,
-    svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Set the thread pool configuration for the index builder

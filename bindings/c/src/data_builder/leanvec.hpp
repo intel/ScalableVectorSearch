@@ -103,11 +103,12 @@ struct lib::
 
     static To convert(From from) {
         auto leanvec = static_cast<const c_runtime::StorageLeanVec*>(from);
+        // `leanvec_dims` is taken from the training data at storage construction,
+        // so it is authoritative in both cases.
         if (leanvec->training_data) {
-            return To{
-                leanvec->training_data->leanvec_dims(), leanvec->training_data->matrices()};
+            return To{leanvec->leanvec_dims, leanvec->training_data->matrices()};
         }
-        return To{leanvec->lenavec_dims};
+        return To{leanvec->leanvec_dims};
     }
 };
 
