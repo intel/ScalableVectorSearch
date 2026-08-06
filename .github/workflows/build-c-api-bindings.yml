@@ -17,7 +17,7 @@ name: Build and test C API bindings
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
   workflow_dispatch:
 
@@ -26,57 +26,98 @@ permissions:
 
 # This allows a subsequently queued workflow run to interrupt previous runs
 concurrency:
-  group: ${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}
+  group: '${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}'
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: ${{ matrix.cxx }}, ${{ matrix.build_type }}
+  build-c-api-bindings:
+    name: Build and unit tests for C API (${{ matrix.name }})
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        build_type: [RelWithDebInfo]
-        cxx: [g++-11, g++-12, clang++-15]
+        # Mirrors build-cpp-runtime-bindings.yml.
         include:
-        - cxx: g++-11
-          cc: gcc-11
-        - cxx: g++-12
-          cc: gcc-12
-        - cxx: clang++-15
-          cc: clang-15
+          - name: "with static library"
+            enable_lvq_leanvec: "ON"
+            require_lto: "ON"
+            suffix: ""
+          - name: "public only"
+            enable_lvq_leanvec: "OFF"
+            require_lto: "OFF"
+            suffix: "-public-only"
       fail-fast: false
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-    - name: Install OpenMP runtime
-      env:
-        CXX: ${{ matrix.cxx }}
-      run: |
-        sudo apt-get update
-        # The default libgomp shipped with GCC does not match the clang
-        # toolchain, so install the LLVM OpenMP runtime (libomp) for clang.
-        if [[ "${CXX}" == clang* ]]; then
-          sudo apt-get install -y libomp-15-dev
-        fi
+      - name: Build Docker image
+        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
 
-    - name: Configure build
-      working-directory: ${{ runner.temp }}
-      env:
-        CXX: ${{ matrix.cxx }}
-        CC: ${{ matrix.cc }}
-        TEMP_WORKSPACE: ${{ runner.temp }}
-      run: |
-        cmake -B${TEMP_WORKSPACE}/build -S${GITHUB_WORKSPACE}/bindings/c \
-              -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DSVS_BUILD_C_API_TESTS=ON
+      - name: Build C API bindings in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
+            -e REQUIRE_LTO_ARCHIVE=${{ matrix.require_lto }} \
+            -e SUFFIX=${{ matrix.suffix }} \
+            svs-manylinux228:latest \
+            /bin/bash .github/scripts/build-c-api-bindings.sh
 
-    - name: Build C API, tests and samples
-      working-directory: ${{ runner.temp }}/build
-      run: make -j$(nproc)
+      - name: Upload C API bindings artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: svs-c-api${{ matrix.suffix }}
+          path: svs-c-api${{ matrix.suffix }}.tar.gz
+          retention-days: 7
 
-    - name: Run C API tests
-      env:
-        CTEST_OUTPUT_ON_FAILURE: 1
-      working-directory: ${{ runner.temp }}/build
-      run: ctest -C ${{ matrix.build_type }} --output-on-failure
+      # Run unit tests that were built as part of this job
+      - name: Run unit tests in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            svs-manylinux228:latest \
+            /bin/bash /workspace/.github/scripts/test-c-api-unit.sh
+
+  # Run integration tests against the packaged artifact. Eventually this should
+  # run the setup and test scope of the actual downstream integrations; for now it
+  # just confirms the tarball is functional - it installs, exports only the svs_*
+  # C ABI, and can be consumed from a standalone C project.
+  test:
+    name: Integration tests for C API (${{ matrix.name }})
+    needs: build-c-api-bindings
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: "with static library"
+            suffix: ""
+          - name: "public only"
+            suffix: "-public-only"
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+
+      # Need to download for a new job
+      - name: Download C API package
+        uses: actions/download-artifact@v8
+        with:
+          name: svs-c-api${{ matrix.suffix }}
+          path: c_api_artifact
+
+      - name: List available artifacts
+        run: ls -la c_api_artifact/
+
+      - name: Test packaged C API in Docker container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e SUFFIX=${{ matrix.suffix }} \
+            svs-manylinux228:latest \
+            /bin/bash .github/scripts/test-c-api-bindings.sh

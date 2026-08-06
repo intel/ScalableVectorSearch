@@ -133,11 +133,32 @@ inline float cosine_distance(const float* a, const float* b, size_t dim) {
     return dot_product / (std::sqrt(norm_a) * std::sqrt(norm_b));
 }
 
+/// Check that a compressed-storage constructor behaved as this build should.
+///
+/// Previously this accepted SVS_ERROR_NOT_IMPLEMENTED unconditionally, which made
+/// every LVQ/LeanVec assertion pass vacuously in a public build - the tests could
+/// not distinguish "compression works" from "compression is absent". The expected
+/// outcome depends on how the library was configured:
+///
+///   * compression compiled in  -> success, or SVS_ERROR_UNSUPPORTED_HW when the
+///     host CPU lacks the required ISA. NOT_IMPLEMENTED is a failure here.
+///   * compression compiled out -> exactly SVS_ERROR_NOT_IMPLEMENTED. Silently
+///     succeeding would mean the build flag did not take effect.
 inline bool check_storage_support(svs_storage_h storage, svs_error_h error) {
-    if (storage == nullptr) {
-        auto code = svs_error_get_code(error);
-        return code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW;
-    } else {
+#ifdef SVS_TEST_EXPECT_LVQ_LEANVEC
+    if (storage != nullptr) {
         return svs_error_ok(error) == true;
     }
+    // Accept only a genuine hardware limitation, never a missing implementation.
+    return svs_error_get_code(error) == SVS_ERROR_UNSUPPORTED_HW;
+#else
+    if (storage != nullptr) {
+        return false; // compression should not be available in a public build
+    }
+    return svs_error_get_code(error) == SVS_ERROR_NOT_IMPLEMENTED;
+#endif
 }
+
+/// True when compressed storage is expected to be usable on this host, so callers
+/// can skip the build/search portion of a test that cannot run.
+inline bool storage_usable(svs_storage_h storage) { return storage != nullptr; }
