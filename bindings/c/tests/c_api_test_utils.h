@@ -90,12 +90,17 @@ generate_test_data(std::vector<float>& data, size_t num_vectors, size_t dimensio
 // Sequential threadpool for testing
 inline size_t sequential_tp_size(void* /*self*/) { return 1; }
 
-inline void sequential_tp_parallel_for(
-    void* /*self*/, void (*func)(void*, size_t), void* svs_param, size_t n
+inline bool sequential_tp_parallel_for(
+    void* /*self*/,
+    void (*func)(void*, size_t),
+    void* svs_param,
+    size_t n,
+    svs_error_h /*out_err*/
 ) {
     for (size_t i = 0; i < n; ++i) {
         func(svs_param, i);
     }
+    return true;
 }
 
 // Helper to calculate Euclidean distance

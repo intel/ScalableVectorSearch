@@ -33,7 +33,10 @@ class ThreadPoolBuilder {
             if (impl == nullptr) {
                 throw std::invalid_argument("Custom threadpool pointer cannot be null.");
             }
-            if (impl->ops.size == nullptr || impl->ops.parallel_for == nullptr) {
+            if (impl->ops == nullptr) {
+                throw std::invalid_argument("Custom threadpool is not initialized.");
+            }
+            if (impl->ops->size == nullptr || impl->ops->parallel_for == nullptr) {
                 throw std::invalid_argument(
                     "Custom threadpool interface has null function pointers."
                 );
@@ -45,21 +48,46 @@ class ThreadPoolBuilder {
             : impl{validate(impl)} {}
 
         size_t size() const {
-            assert(impl != nullptr);
-            return impl->ops.size(impl->self);
+            assert(impl != nullptr && impl->ops != nullptr && impl->ops->size != nullptr);
+            return impl->ops->size(impl->self);
         }
 
         void parallel_for(std::function<void(size_t)> f, size_t n) const {
-            assert(impl != nullptr);
-            impl->ops.parallel_for(
-                impl->self,
-                [](void* svs_param, size_t i) {
-                    auto& func = *static_cast<std::function<void(size_t)>*>(svs_param);
-                    func(i);
-                },
-                &f,
-                n
+            assert(
+                impl != nullptr && impl->ops != nullptr &&
+                impl->ops->parallel_for != nullptr
             );
+            std::vector<std::exception_ptr> exceptions(n);
+            auto svs_param = std::make_pair(&f, &exceptions);
+            svs_error_desc impl_error{
+                SVS_ERROR_UNKNOWN, "Unknown error in custom threadpool parallel_for"};
+            if (!impl->ops->parallel_for(
+                    impl->self,
+                    [](void* svs_param, size_t i) {
+                        auto& [func, exceptions] = *static_cast<std::pair<
+                            std::function<void(size_t)>*,
+                            std::vector<std::exception_ptr>*>*>(svs_param);
+                        try {
+                            (*func)(i);
+                        } catch (...) { (*exceptions)[i] = std::current_exception(); }
+                    },
+                    &svs_param,
+                    n,
+                    &impl_error
+                )) {
+                throw std::runtime_error(
+                    "Custom threadpool parallel_for failed: (" +
+                    std::to_string(impl_error.code) + ") " + impl_error.message
+                );
+            }
+            auto it = std::find_if(
+                exceptions.begin(),
+                exceptions.end(),
+                [](const std::exception_ptr& e) { return static_cast<bool>(e); }
+            );
+            if (it != exceptions.end()) {
+                std::rethrow_exception(*it);
+            }
         }
 
         svs_threadpool_i impl;
@@ -98,7 +126,7 @@ class ThreadPoolBuilder {
 
     size_t get_threads_num() const {
         if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
-            return user_threadpool->ops.size(user_threadpool->self);
+            return user_threadpool->ops->size(user_threadpool->self);
         }
         return num_threads;
     }

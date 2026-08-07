@@ -68,33 +68,37 @@ struct IDFilterInterface {
 
 struct IDFilterAdapter : public IDFilterInterface {
     const svs_id_filter_i c_filter;
+    float filter_rate_value; // Caching the filter rate value
 
     IDFilterAdapter(const svs_id_filter_i filter)
-        : c_filter(filter) {
+        : c_filter(filter)
+        , filter_rate_value(0.0f) {
         if (c_filter != nullptr) {
-            const auto rate = c_filter->filter_rate;
-            if (rate < 0.0f || rate > 1.0f) {
+            if (c_filter->ops == nullptr) {
+                throw std::invalid_argument("Custom ID filter is not initialized.");
+            }
+            if (c_filter->ops->is_member == nullptr) {
                 throw std::invalid_argument(
-                    "Filter rate must be between 0.0 and 1.0, inclusive."
+                    "Custom ID filter is missing the is_member function."
                 );
+            }
+            if (c_filter->ops->filter_rate != nullptr) {
+                filter_rate_value = c_filter->ops->filter_rate(c_filter->self);
+                if (filter_rate_value < 0.0f || filter_rate_value > 1.0f) {
+                    throw std::invalid_argument(
+                        "Filter rate must be between 0.0 and 1.0, inclusive."
+                    );
+                }
             }
         }
     }
 
     bool is_member(size_t id) const override {
-        if (c_filter == nullptr || c_filter->ops.is_member == nullptr) {
-            return true; // If no filter is provided, consider all IDs as valid
-        }
-        return c_filter->ops.is_member(c_filter->self, id);
+        // If no filter is provided, consider all IDs as valid
+        return c_filter != nullptr ? c_filter->ops->is_member(c_filter->self, id) : true;
     }
 
-    float filter_rate() const override {
-        // If no filter is provided or the filter rate is NaN, return 0.0
-        if (c_filter == nullptr || std::isnan(c_filter->filter_rate)) {
-            return 0.0f; // If no filter is provided, return 0.0
-        }
-        return c_filter->filter_rate;
-    }
+    float filter_rate() const override { return filter_rate_value; }
 };
 
 } // namespace c_runtime

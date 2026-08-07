@@ -18,11 +18,13 @@
 
 #include "svs_c_config.h"
 
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <stdbool.h>
-#include <stddef.h>
 
 enum svs_error_code {
     SVS_OK = 0,
@@ -35,6 +37,8 @@ enum svs_error_code {
     SVS_ERROR_INVALID_OPERATION = 8,
     SVS_ERROR_UNKNOWN = 1000
 };
+
+typedef struct svs_error_desc* svs_error_h;
 
 enum svs_distance_metric {
     SVS_DISTANCE_METRIC_EUCLIDEAN = 0,
@@ -49,13 +53,22 @@ enum svs_algorithm_type {
 };
 
 enum svs_data_type {
-    SVS_DATA_TYPE_VOID = 0,
-    SVS_DATA_TYPE_FLOAT32 = 32,
-    SVS_DATA_TYPE_FLOAT16 = 16,
-    SVS_DATA_TYPE_INT8 = 8,
-    SVS_DATA_TYPE_UINT8 = SVS_DATA_TYPE_INT8 - 1,
-    SVS_DATA_TYPE_INT4 = 4,
-    SVS_DATA_TYPE_UINT4 = SVS_DATA_TYPE_INT4 - 1
+    SVS_DATA_TYPE_NONE = 0,
+    SVS_DATA_TYPE_VOID = SVS_DATA_TYPE_NONE,
+    SVS_DATA_TYPE_FLOAT64,
+    SVS_DATA_TYPE_FLOAT32,
+    SVS_DATA_TYPE_FLOAT16,
+    SVS_DATA_TYPE_BLOAT16,
+    SVS_DATA_TYPE_INT64,
+    SVS_DATA_TYPE_UINT64,
+    SVS_DATA_TYPE_INT32,
+    SVS_DATA_TYPE_UINT32,
+    SVS_DATA_TYPE_INT16,
+    SVS_DATA_TYPE_UINT16,
+    SVS_DATA_TYPE_INT8,
+    SVS_DATA_TYPE_UINT8,
+    SVS_DATA_TYPE_INT4,
+    SVS_DATA_TYPE_UINT4
 };
 
 enum svs_storage_kind {
@@ -72,54 +85,262 @@ enum svs_threadpool_kind {
     SVS_THREADPOOL_KIND_CUSTOM = 3
 };
 
+/// @brief Operations table for a custom thread pool interface
+/// @remarks The user must ensure that the thread pool implementation is thread-safe and
+/// that the provided function pointers remain valid for the lifetime of the thread pool
+/// interface.
+///
+/// @var svs_threadpool_interface_ops::version
+///   Version of the thread pool interface.
+/// @var svs_threadpool_interface_ops::struct_size
+///   Size of the structure, used for versioning and compatibility checks.
+/// @var svs_threadpool_interface_ops::size
+///   Function pointer to retrieve the number of threads in the thread pool.
+///   @param self Pointer to the thread pool instance.
+///   @return Number of threads in the thread pool.
+///
+/// @var svs_threadpool_interface_ops::parallel_for
+///   Function pointer to execute a function in parallel across the thread pool.
+///   The user is responsible for ensuring that @p func and @p svs_param remain valid
+///   for the duration of the parallel execution. The implementation must call @p func
+///   exactly once for each index in [0, n). If @p func signals failure via @p out_err,
+///   the parallel execution should be aborted.
+///   @param self Pointer to the thread pool instance.
+///   @param func Function pointer to execute per iteration. Takes a user data pointer
+///     (@p svs_param) and a zero-based iteration index (@p i).
+///   @param svs_param Pointer to user-defined data passed to each @p func invocation.
+///   @param n Number of iterations to execute in parallel.
+///   @param out_err Handle to capture any error that occurs during execution. User code may
+///   call svs_set_error() to set the error code and message if an error occurs.
+///   @return @c true if all iterations completed successfully, @c false otherwise.
 // clang-format off
 struct svs_threadpool_interface_ops {
+    uint32_t version;
+    size_t struct_size;
     size_t (*size)(void* self);
-    void (*parallel_for)(
+    bool (*parallel_for)(
         void* self,
-        void (*func)(void* svs_param, size_t n),
+        void (*func)(void* svs_param, size_t i),
         void* svs_param,
-        size_t n
+        size_t n,
+        svs_error_h out_err
     );
 };
 // clang-format on
 
+/// @brief Macro to create a user-defined thread pool interface operations structure
+/// @param size_func Function pointer to retrieve the number of threads in the thread pool
+/// @param parallel_for_func Function pointer to execute a function in parallel across the
+/// thread pool
+#define SVS_INIT_THREADPOOL_OPS(size_func, parallel_for_func)                           \
+    {                                                                                   \
+        .version = SVS_C_API_VERSION,                                                   \
+        .struct_size = sizeof(struct svs_threadpool_interface_ops), .size = &size_func, \
+        .parallel_for = &parallel_for_func                                              \
+    }
+
+/// @brief Structure representing a custom thread pool interface
+/// @var svs_threadpool_interface_ops::ops
+///   Function pointers for the thread pool operations.
+/// @var svs_threadpool_interface_ops::self
+///   Pointer to the user-defined thread pool instance. This pointer is passed to the
+///   function pointers in @p ops when they are called.
 struct svs_threadpool_interface {
-    struct svs_threadpool_interface_ops ops;
+    struct svs_threadpool_interface_ops* ops;
     void* self;
 };
 
+/// @brief Operations table for a custom ID filter interface
+/// @remarks The user must ensure that the ID filter implementation is thread-safe and
+/// that the provided function pointers remain valid for the lifetime of the ID filter
+/// interface.
+/// @var svs_id_filter_interface_ops::version
+///   Version of the ID filter interface.
+/// @var svs_id_filter_interface_ops::struct_size
+///   Size of the structure, used for versioning and compatibility checks.
+/// @var svs_id_filter_interface_ops::is_member
+///   Function pointer to check if a given ID is a member of the filter.
+/// @var svs_id_filter_interface_ops::filter_rate
+///   Optional function pointer to get the estimated selectivity of the filter, i.e., the
+///   fraction of IDs that are expected to pass the filter. A value of 0.01 indicates that
+///   1% of IDs are expected to pass, while a value of 1.0 indicates that all IDs are
+///   expected to pass. If the filter does not provide an estimate, it should be set to NULL
+///   or return 0.0.
 struct svs_id_filter_interface_ops {
+    uint32_t version;
+    size_t struct_size;
     bool (*is_member)(void* self, size_t id);
+    float (*filter_rate)(void* self);
 };
 
+/// @brief Macro to create a user-defined ID filter interface operations structure
+/// @param is_member_func Function pointer to check if a given ID is a member of the filter
+/// @param filter_rate_func Optional function pointer to get the estimated selectivity of
+/// the filter
+#define SVS_INIT_ID_FILTER_OPS(is_member_func, filter_rate_func)       \
+    {                                                                  \
+        .version = SVS_C_API_VERSION,                                  \
+        .struct_size = sizeof(struct svs_id_filter_interface_ops),     \
+        .is_member = &is_member_func, .filter_rate = &filter_rate_func \
+    }
+
+/// @brief Structure representing a custom ID filter interface
+/// @var svs_id_filter_interface::ops
+///   Function pointers for the ID filter operations.
+/// @var svs_id_filter_interface::self
+///  Pointer to the user-defined ID filter instance. This pointer is passed to the
+///  function pointers in @p ops when they are called.
 struct svs_id_filter_interface {
-    struct svs_id_filter_interface_ops ops;
+    struct svs_id_filter_interface_ops* ops;
     void* self;
-    // filter_rate provides the estimated selectivity of the filter, i.e., the fraction of
-    // IDs that are expected to pass the filter. A value of 0.01 indicates that 1% of IDs
-    // are expected to pass, while a value of 1.0 indicates that all IDs are expected to
-    // pass. If the filter does not provide an estimate, it should be set to 0.0.
-    float filter_rate;
 };
 
-/// @brief Structure to hold search results
+/// @brief Macro to create a user-defined interface implementation structure
+/// @param user_ptr Pointer to the user-defined object
+/// @param vtable Function pointers for the interface operations
+/// @return A fully initialized interface implementation structure
+#define SVS_MAKE_INTERFACE(user_ptr, vtable) \
+    { .ops = &vtable, .self = (void*)(user_ptr) }
+
+/// @brief Structure to hold search results in a compressed sparse row (CSR) layout.
+///
+/// Row @p q (results for query @p q) occupies half-open range
+/// [@p offsets[q], @p offsets[q+1]) in @p indices and @p distances. This supports
+/// variadic per-query result counts (filtered search, range search) while keeping
+/// the data flat and cache-friendly. For fixed top-k searches @p offsets[q] equals
+/// @p q * k, so the classical @p indices[q*k+j] / @p distances[q*k+j] access pattern
+/// remains valid.
+///
+/// Ownership: when @p owns_buffers is true the library allocated @p offsets,
+/// @p indices, @p distances and svs_search_results_free() will release them.
+/// When false, the caller is responsible for the storage; svs_search_results_free()
+/// only resets the descriptor. On zero-initialized objects the free call is a no-op.
+///
+/// Buffer reuse: passing the same object to consecutive search calls lets the
+/// library reuse existing library-owned buffers whenever capacity is sufficient;
+/// steady-state batches of equal shape allocate only on the first call.
+///
+/// @var svs_search_results::version
+///   API version at which the struct was initialized (SVS_C_API_VERSION).
+/// @var svs_search_results::struct_size
+///   Size of this structure, used for versioning and forward compatibility.
+/// @var svs_search_results::num_queries
+///   Number of populated rows (queries) in this result set.
+/// @var svs_search_results::total_results
+///   Total number of populated results; equals offsets[num_queries].
+/// @var svs_search_results::offsets
+///   Row start offsets, length @p num_queries + 1. Monotonically non-decreasing.
+/// @var svs_search_results::indices
+///   Neighbor IDs, length @p total_results.
+/// @var svs_search_results::distances
+///   Neighbor distances, length @p total_results.
+/// @var svs_search_results::offsets_capacity
+///   Number of elements allocated in @p offsets.
+/// @var svs_search_results::results_capacity
+///   Number of elements allocated in @p indices and @p distances.
+/// @var svs_search_results::owns_buffers
+///   True if the library owns @p offsets, @p indices, and @p distances and must
+///   free them; false if the buffers are caller-provided.
 struct svs_search_results {
-    size_t num_queries;        /// Number of query vectors
-    size_t* results_per_query; /// Number of results per query
-    size_t* indices;           /// Indices of the nearest neighbors
-    float* distances;          /// Distances to the nearest neighbors
+    uint32_t version;
+    size_t struct_size;
+
+    size_t num_queries;
+    size_t total_results;
+    size_t* offsets;
+    size_t* indices;
+    float* distances;
+
+    size_t offsets_capacity;
+    size_t results_capacity;
+    bool owns_buffers;
 };
+
+/// @brief Macro to initialize a svs_search_results structure with default values
+#define SVS_INIT_SEARCH_RESULTS()                                                       \
+    {                                                                                   \
+        .version = SVS_C_API_VERSION, .struct_size = sizeof(struct svs_search_results), \
+        .num_queries = 0, .total_results = 0, .offsets = NULL, .indices = NULL,         \
+        .distances = NULL, .offsets_capacity = 0, .results_capacity = 0,                \
+        .owns_buffers = false                                                           \
+    }
+
+/// @brief Initialize a svs_search_results structure with caller-provided buffers.
+///
+/// Ownership stays with the caller (owns_buffers = false); svs_search_results_free()
+/// will not release the buffers. The library reuses these buffers on search calls
+/// as long as their capacities are sufficient; otherwise the call fails without
+/// reallocating caller-owned storage.
+///
+/// @param p_offsets   Pointer to caller-owned offsets buffer (size_t[p_offsets_cap]).
+///                    Must hold at least @p num_queries + 1 elements at call time.
+/// @param p_indices   Pointer to caller-owned indices buffer (size_t[p_results_cap]).
+/// @param p_distances Pointer to caller-owned distances buffer (float[p_results_cap]).
+/// @param p_offsets_cap Number of elements allocated in @p p_offsets.
+/// @param p_results_cap Number of elements allocated in @p p_indices and @p p_distances.
+/// @example
+/// size_t offsets[NQ + 1];
+/// size_t indices[NQ * K];
+/// float distances[NQ * K];
+/// svs_search_results_t results = SVS_INIT_SEARCH_RESULTS_WITH_BUFFERS(
+///     offsets, indices, distances, NQ + 1, NQ * K
+/// );
+#define SVS_INIT_SEARCH_RESULTS_WITH_BUFFERS(                                           \
+    p_offsets, p_indices, p_distances, p_offsets_cap, p_results_cap                     \
+)                                                                                       \
+    {                                                                                   \
+        .version = SVS_C_API_VERSION, .struct_size = sizeof(struct svs_search_results), \
+        .num_queries = 0, .total_results = 0, .offsets = (p_offsets),                   \
+        .indices = (p_indices), .distances = (p_distances),                             \
+        .offsets_capacity = (p_offsets_cap), .results_capacity = (p_results_cap),       \
+        .owns_buffers = false                                                           \
+    }
+
+/// @brief Convenience accessor for one query's row (O(1)).
+/// @param results Pointer to a populated search results structure.
+/// @param q Zero-based query index; must be < @p results->num_queries.
+/// @param out_ids Optional out pointer to the first neighbor ID for query @p q.
+/// @param out_distances Optional out pointer to the first neighbor distance for
+///   query @p q.
+/// @param out_count Optional out pointer to the number of results for query @p q.
+static inline void svs_search_results_row(
+    const struct svs_search_results* results,
+    size_t q,
+    const size_t** out_ids,
+    const float** out_distances,
+    size_t* out_count
+) {
+    size_t begin = results->offsets[q];
+    size_t end = results->offsets[q + 1];
+    if (out_ids) {
+        *out_ids = results->indices + begin;
+    }
+    if (out_distances) {
+        *out_distances = results->distances + begin;
+    }
+    if (out_count) {
+        *out_count = end - begin;
+    }
+}
 
 /// @brief Structure to hold memory breakdown for an index
 struct svs_memory_breakdown {
+    uint32_t version; /// Version of the memory breakdown structure
+    size_t
+        struct_size; /// Size of the structure, used for versioning and compatibility checks
     size_t graph_bytes;    /// Allocated bytes for the graph structure
     size_t data_bytes;     /// Allocated bytes for the data vectors
     size_t metadata_bytes; /// Allocated bytes for metadata (entry points, status, etc.)
 };
 
+/// @brief Macro to initialize a svs_memory_breakdown structure with default values
+#define SVS_INIT_MEMORY_BREAKDOWN()                                                       \
+    {                                                                                     \
+        .version = SVS_C_API_VERSION, .struct_size = sizeof(struct svs_memory_breakdown), \
+        .graph_bytes = 0, .data_bytes = 0, .metadata_bytes = 0                            \
+    }
+
 // Handle typedefs; "_h" suffix indicates a handle to an opaque struct
-typedef struct svs_error_desc* svs_error_h;
 typedef struct svs_index* svs_index_h;
 typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
@@ -131,16 +352,42 @@ typedef enum svs_error_code svs_error_code_t;
 typedef enum svs_distance_metric svs_distance_metric_t;
 typedef enum svs_algorithm_type svs_algorithm_type_t;
 typedef enum svs_data_type svs_data_type_t;
+typedef enum svs_storage_kind svs_storage_kind_t;
 typedef enum svs_threadpool_kind svs_threadpool_kind_t;
 
+typedef struct svs_threadpool_interface_ops svs_threadpool_ops_t;
+typedef struct svs_threadpool_interface svs_threadpool_t;
 typedef struct svs_threadpool_interface* svs_threadpool_i;
+
+typedef struct svs_id_filter_interface_ops svs_id_filter_ops_t;
+typedef struct svs_id_filter_interface svs_id_filter_t;
 typedef struct svs_id_filter_interface* svs_id_filter_i;
-typedef struct svs_search_results* svs_search_results_t;
+
+typedef struct svs_search_results svs_search_results_t;
 typedef struct svs_memory_breakdown svs_memory_breakdown_t;
 
+/// @brief Get SVS version information
+/// @return An integer representing the version of the SVS library, encoded as (major << 16)
+/// | (minor << 8) | patch
+SVS_API uint32_t svs_get_version();
+
+/// @brief Get SVS version string
+/// @return A string representing the version of the SVS library in "major.minor.patch"
+/// format
+SVS_API const char* svs_get_version_string();
+
 /// @brief Create an error handle
-/// @return A handle to the created error object
+/// @return A handle to the created error object or NULL if creation failed (e.g., due to
+/// memory allocation failure)
 SVS_API svs_error_h svs_error_create();
+
+/// @brief Set an error code and message in the error handle
+/// @param err The error handle to set
+/// @param code The error code to set
+/// @param message A string describing the error
+/// @return true if the error was set successfully, false if failed (e.g., if the error
+/// handle is NULL)
+SVS_API bool svs_error_set(svs_error_h err, svs_error_code_t code, const char* message);
 
 /// @brief Check if the error handle indicates success
 /// @param err The error handle to check
@@ -155,6 +402,7 @@ SVS_API svs_error_code_t svs_error_get_code(svs_error_h err);
 /// @brief Get the error message from the error handle
 /// @param err The error handle
 /// @return A string describing the error
+/// @remarks The returned string is valid until the error handle is freed or modified.
 SVS_API const char* svs_error_get_message(svs_error_h err);
 
 /// @brief Free the error handle
@@ -172,6 +420,15 @@ SVS_API svs_algorithm_h svs_algorithm_create_vamana(
     size_t build_window_size,
     size_t search_window_size,
     svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Get algorithm type from an algorithm handle
+/// @param algorithm The algorithm handle
+/// @param out_type Pointer to store the retrieved algorithm type
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_algorithm_get_type(
+    svs_algorithm_h algorithm, svs_algorithm_type_t* out_type, svs_error_h out_err /*=NULL*/
 );
 
 /// @brief Free the algorithm configuration handle
@@ -301,6 +558,15 @@ SVS_API svs_storage_h svs_storage_create_sq(
     svs_data_type_t data_type, svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Get the kind of storage configuration
+/// @param storage The storage handle
+/// @param out_kind Pointer to store the retrieved storage kind
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_storage_get_kind(
+    svs_storage_h storage, svs_storage_kind_t* out_kind, svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Free the storage handle
 /// @param storage The storage handle to free
 SVS_API void svs_storage_free(svs_storage_h storage);
@@ -413,60 +679,75 @@ SVS_API svs_index_h svs_index_load_dynamic(
 /// @param index The index handle to free
 SVS_API void svs_index_free(svs_index_h index);
 
-/// @brief Search the index with the provided queries
-/// @param index The index handle
-/// @param queries Pointer to the query data (float array)
-/// @param num_queries The number of query vectors
-/// @param k The number of nearest neighbors to retrieve per query
-/// @param search_params The search parameters handle (can be NULL for defaults)
-/// @param out_err An optional error handle to capture errors
-/// @return A pointer to the search results structure
-/// @deprecated Use svs_index_search_topK() instead, which additionally supports an
-/// optional ID filter. This function is equivalent to calling svs_index_search_topK()
-/// with a NULL id_filter.
-SVS_DEPRECATED("Use svs_index_search_topK() instead")
-SVS_API svs_search_results_t svs_index_search(
-    svs_index_h index,
-    const float* queries,
-    size_t num_queries,
-    size_t k,
-    svs_search_params_h search_params /*=NULL*/,
-    svs_error_h out_err /*=NULL*/
-);
-
 /// @brief TopK search the index with the provided queries and an optional ID filter
 /// @details Performs a TopK search on the index with the provided queries and an optional
 /// ID filter. The ID filter allows for filtering the search results based on specific IDs,
 /// enabling more targeted searches. If the ID filter is NULL, the search will return the
 /// top K results. If ID filter is provided, only the results that pass the filter will be
-/// returned. The function returns a pointer to the search results structure, which contains
-/// the indices and distances of the nearest neighbors for each query. If ID filter is
-/// provided with `filter_rate > 0.0` then the function will account for the actual filter
-/// hit rate during the search. If the actual observed filter hit rate is less than the
-/// provided `filter_rate` value, the function returns an empty result set.
-/// @note The search results structure must be freed using svs_search_results_free() to
-/// avoid memory leaks.
+/// returned. Results are written into @p out_results in CSR layout (see
+/// svs_search_results); library-owned buffers are reused across calls when their
+/// capacity suffices. If ID filter is provided with `filter_rate > 0.0` then the
+/// function will account for the actual filter hit rate during the search. If the
+/// actual observed filter hit rate is less than the provided `filter_rate` value, the
+/// function returns an empty result set.
+/// @note After use, release library-owned buffers with svs_search_results_free().
 /// @param index The index handle
 /// @param queries Pointer to the query data (float array)
 /// @param num_queries The number of query vectors
 /// @param k The number of nearest neighbors to retrieve per query
+/// @param out_results Pointer to a caller-provided results structure (typically
+///   initialized with SVS_INIT_SEARCH_RESULTS()). See svs_search_results for
+///   ownership and buffer-reuse semantics.
 /// @param search_params The search parameters handle (can be NULL for defaults)
 /// @param id_filter The ID filter interface (can be NULL for no filtering)
 /// @param out_err An optional error handle to capture errors
-/// @return A pointer to the search results structure
-SVS_API svs_search_results_t svs_index_search_topK(
+/// @return true on success, false on failure
+SVS_API bool svs_index_search_topk(
     svs_index_h index,
     const float* queries,
     size_t num_queries,
     size_t k,
+    svs_search_results_t* out_results,
     svs_search_params_h search_params /*=NULL*/,
     svs_id_filter_i id_filter /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 
-/// @brief Free the search results structure
-/// @param results The search results structure to release
-SVS_API void svs_search_results_free(svs_search_results_t results);
+/// @brief Search the index with the provided queries
+/// @param index The index handle
+/// @param queries Pointer to the query data (float array)
+/// @param num_queries The number of query vectors
+/// @param k The number of nearest neighbors to retrieve per query
+/// @param out_results Pointer to a caller-provided results structure (typically
+///   initialized with SVS_INIT_SEARCH_RESULTS()). See svs_search_results for
+///   ownership and buffer-reuse semantics.
+/// @param search_params The search parameters handle (can be NULL for defaults)
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+/// @deprecated Use svs_index_search_topk() instead, which additionally supports an
+/// optional ID filter. This function is equivalent to calling svs_index_search_topk()
+/// with a NULL id_filter.
+SVS_DEPRECATED("Use svs_index_search_topk() instead")
+static inline bool svs_index_search(
+    svs_index_h index,
+    const float* queries,
+    size_t num_queries,
+    size_t k,
+    svs_search_results_t* out_results,
+    svs_search_params_h search_params /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
+) {
+    return svs_index_search_topk(
+        index, queries, num_queries, k, out_results, search_params, NULL, out_err
+    );
+}
+
+/// @brief Release library-owned buffers held by a search results structure and
+/// reset it to the SVS_INIT_SEARCH_RESULTS() state.
+/// @param results Pointer to the results structure. Safe on NULL, on
+/// zero-initialized objects, and on caller-owned buffers (in which case only the
+/// descriptor is reset). Safe to call multiple times.
+SVS_API void svs_search_results_free(svs_search_results_t* results);
 
 /// @brief Save the index to disk
 /// @param index The index handle
@@ -481,13 +762,16 @@ svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err /*=
 /// @param new_points Pointer to the new vector data (float array)
 /// @param ids Pointer to the new vector IDs (size_t array)
 /// @param num_vectors The number of new vectors to add
+/// @param out_added_count Optional pointer to store the number of successfully added
+/// vectors
 /// @param out_err An optional error handle to capture errors
-/// @return number of points successfully added, or (size_t)-1 on failure
-SVS_API size_t svs_index_dynamic_add_points(
+/// @return true on success, false on failure
+SVS_API bool svs_index_dynamic_add_points(
     svs_index_h index,
     const float* new_points,
     const size_t* ids,
     size_t num_vectors,
+    size_t* out_added_count /*=NULL*/,
     svs_error_h out_err /*=NULL*/
 );
 
@@ -495,11 +779,18 @@ SVS_API size_t svs_index_dynamic_add_points(
 /// @param index The dynamic index handle
 /// @param ids Pointer to the vector IDs to delete (size_t array)
 /// @param num_ids The number of vector IDs to delete
+/// @param out_deleted_count Optional pointer to store the number of successfully deleted
+/// vectors
 /// @param out_err An optional error handle to capture errors
-/// @return number of points successfully deleted, or (size_t)-1 on failure
-SVS_API size_t svs_index_dynamic_delete_points(
-    svs_index_h index, const size_t* ids, size_t num_ids, svs_error_h out_err /*=NULL*/
+/// @return true on success, false on failure
+SVS_API bool svs_index_dynamic_delete_points(
+    svs_index_h index,
+    const size_t* ids,
+    size_t num_ids,
+    size_t* out_deleted_count /*=NULL*/,
+    svs_error_h out_err /*=NULL*/
 );
+
 /// @brief Check if a dynamic index has a specific ID
 /// @param index The dynamic index handle
 /// @param id The vector ID to check for

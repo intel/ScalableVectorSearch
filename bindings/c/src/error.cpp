@@ -19,10 +19,22 @@
 
 #include <string>
 
-extern "C" svs_error_h svs_error_create() { return new svs_error_desc{SVS_OK, "Success"}; }
-extern "C" bool svs_error_ok(svs_error_h err) { return err->code == SVS_OK; }
-extern "C" svs_error_code_t svs_error_get_code(svs_error_h err) { return err->code; }
+extern "C" svs_error_h svs_error_create() { return new svs_error_desc{}; }
+extern "C" bool svs_error_set(svs_error_h err, svs_error_code_t code, const char* message) {
+    if (!err) {
+        return false;
+    }
+    try {
+        err->message = message != nullptr ? message : "";
+    } catch (const std::exception& e) { return false; }
+    err->code = code;
+    return true;
+}
+extern "C" bool svs_error_ok(svs_error_h err) { return err && err->code == SVS_OK; }
+extern "C" svs_error_code_t svs_error_get_code(svs_error_h err) {
+    return err ? err->code : SVS_ERROR_INVALID_ARGUMENT;
+}
 extern "C" const char* svs_error_get_message(svs_error_h err) {
-    return err->message.c_str();
+    return err ? err->message.c_str() : "Invalid error handle";
 }
 extern "C" void svs_error_free(svs_error_h err) { delete err; }

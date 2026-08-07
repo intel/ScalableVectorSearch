@@ -121,9 +121,10 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
             new_ids[i] = NUM_VECTORS + i;
         }
 
-        size_t added_count = svs_index_dynamic_add_points(
-            index, new_data.data(), new_ids.data(), num_new_points, error
-        );
+        size_t added_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_add_points(
+            index, new_data.data(), new_ids.data(), num_new_points, &added_count, error
+        ));
         CATCH_REQUIRE(added_count == num_new_points);
         CATCH_REQUIRE(svs_error_ok(error));
 
@@ -148,8 +149,10 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         size_t ids_to_delete[] = {0, 5, 10};
         size_t num_to_delete = 3;
 
-        size_t deleted_count =
-            svs_index_dynamic_delete_points(index, ids_to_delete, num_to_delete, error);
+        size_t deleted_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            index, ids_to_delete, num_to_delete, &deleted_count, error
+        ));
         CATCH_REQUIRE(deleted_count == num_to_delete);
         CATCH_REQUIRE(svs_error_ok(error));
 
@@ -179,15 +182,17 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
 
         // Delete some points
         size_t ids_to_delete[] = {0, 1};
-        svs_index_dynamic_delete_points(index, ids_to_delete, 2, error);
+        svs_index_dynamic_delete_points(index, ids_to_delete, 2, nullptr, error);
         CATCH_REQUIRE(svs_error_ok(error));
 
         // Add new points with the deleted IDs
         std::vector<float> new_data;
         generate_test_data(new_data, 2, DIMENSION);
 
-        size_t added_count =
-            svs_index_dynamic_add_points(index, new_data.data(), ids_to_delete, 2, error);
+        size_t added_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_add_points(
+            index, new_data.data(), ids_to_delete, 2, &added_count, error
+        ));
         CATCH_REQUIRE(added_count == 2);
         CATCH_REQUIRE(svs_error_ok(error));
 
@@ -214,10 +219,12 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         std::vector<size_t> new_ids = {NUM_VECTORS, NUM_VECTORS + 1};
         generate_test_data(new_data, 2, DIMENSION);
 
-        svs_index_dynamic_add_points(index, new_data.data(), new_ids.data(), 2, error);
+        svs_index_dynamic_add_points(
+            index, new_data.data(), new_ids.data(), 2, nullptr, error
+        );
 
         size_t ids_to_delete[] = {0, 1};
-        svs_index_dynamic_delete_points(index, ids_to_delete, 2, error);
+        svs_index_dynamic_delete_points(index, ids_to_delete, 2, nullptr, error);
 
         // Consolidate the index
         bool success = svs_index_dynamic_consolidate(index, error);
@@ -240,7 +247,7 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
 
         // Delete some points
         size_t ids_to_delete[] = {0, 1, 2};
-        svs_index_dynamic_delete_points(index, ids_to_delete, 3, error);
+        svs_index_dynamic_delete_points(index, ids_to_delete, 3, nullptr, error);
         CATCH_REQUIRE(svs_error_ok(error));
 
         // Consolidate the index
@@ -266,30 +273,33 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         std::vector<float> new_data;
         std::vector<size_t> new_ids = {NUM_VECTORS, NUM_VECTORS + 1, NUM_VECTORS + 2};
         generate_test_data(new_data, 3, DIMENSION);
-        svs_index_dynamic_add_points(index, new_data.data(), new_ids.data(), 3, error);
+        svs_index_dynamic_add_points(
+            index, new_data.data(), new_ids.data(), 3, nullptr, error
+        );
 
         // Delete some points
         size_t ids_to_delete[] = {0, 1};
-        svs_index_dynamic_delete_points(index, ids_to_delete, 2, error);
+        svs_index_dynamic_delete_points(index, ids_to_delete, 2, nullptr, error);
 
         // Perform search
         std::vector<float> queries;
         generate_test_data(queries, 2, DIMENSION);
 
-        svs_search_results_t results =
-            svs_index_search_topK(index, queries.data(), 2, K, nullptr, nullptr, error);
-        CATCH_REQUIRE(results != nullptr);
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            index, queries.data(), 2, K, &results, nullptr, nullptr, error
+        ));
         CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(results->num_queries == 2);
+        CATCH_REQUIRE(results.num_queries == 2);
 
         // Verify deleted IDs don't appear in results
-        for (size_t i = 0; i < results->num_queries * K; ++i) {
-            size_t result_id = results->indices[i];
+        for (size_t i = 0; i < results.num_queries * K; ++i) {
+            size_t result_id = results.indices[i];
             CATCH_REQUIRE(result_id != 0);
             CATCH_REQUIRE(result_id != 1);
         }
 
-        svs_search_results_free(results);
+        svs_search_results_free(&results);
         svs_index_free(index);
     }
 
@@ -301,15 +311,19 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
 
         // Try to delete non-existing ID
         size_t non_existing_id = NUM_VECTORS + 1000;
-        size_t deleted_count =
-            svs_index_dynamic_delete_points(index, &non_existing_id, 1, error);
+        size_t deleted_count = 0;
+        CATCH_REQUIRE(svs_index_dynamic_delete_points(
+            index, &non_existing_id, 1, &deleted_count, error
+        ));
         // Should return 0 for non-existing ID and no error
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(deleted_count == 0);
 
         // Try to delete mix of existing and non-existing IDs
         size_t ids_to_delete[] = {0, non_existing_id};
-        deleted_count = svs_index_dynamic_delete_points(index, ids_to_delete, 2, error);
+        CATCH_REQUIRE(
+            svs_index_dynamic_delete_points(index, ids_to_delete, 2, &deleted_count, error)
+        );
         // Should return 1 for the existing ID and no error
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(deleted_count == 1);
@@ -343,19 +357,19 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         std::vector<float> queries;
         generate_test_data(queries, 2, DIMENSION);
 
-        svs_search_results_t results = svs_index_search_topK(
-            loaded_index, queries.data(), 2, K, nullptr, nullptr, error
-        );
-        CATCH_REQUIRE(results != nullptr);
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            loaded_index, queries.data(), 2, K, &results, nullptr, nullptr, error
+        ));
         CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(results->num_queries == 2);
+        CATCH_REQUIRE(results.num_queries == 2);
 
-        svs_search_results_free(results);
+        svs_search_results_free(&results);
         svs_index_free(loaded_index);
         svs_index_free(index);
     }
 
-    CATCH_SECTION("Memory Accounting Functions") {
+    CATCH_SECTION("Dynamic Index Memory Accounting") {
         // Build dynamic index
         svs_index_h index = svs_index_build_dynamic(
             builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
@@ -371,7 +385,7 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(memory_usage > 0);
 
         // Test get_memory_breakdown
-        svs_memory_breakdown_t breakdown;
+        svs_memory_breakdown_t breakdown = SVS_INIT_MEMORY_BREAKDOWN();
         success = svs_index_get_memory_breakdown(index, &breakdown, error);
         CATCH_REQUIRE(success);
         CATCH_REQUIRE(svs_error_ok(error));
@@ -402,6 +416,10 @@ bool filter_is_odd(void* /*self*/, size_t id) { return (id % 2) == 1; }
 bool filter_below_threshold(void* self, size_t id) {
     return id < *static_cast<const size_t*>(self);
 }
+
+// Estimated selectivity callbacks (conservative estimates below true rates).
+float filter_rate_odd(void* /*self*/) { return 0.4f; }
+float filter_rate_low(void* /*self*/) { return 0.05f; }
 
 } // namespace
 
@@ -451,37 +469,43 @@ CATCH_TEST_CASE(
 
         // ~50% of the IDs pass the filter. Provide a conservative filter_rate estimate
         // (below the true selectivity) so the search is not short-circuited.
-        svs_id_filter_interface id_filter{};
-        id_filter.ops.is_member = &filter_is_odd;
-        id_filter.self = nullptr;
-        id_filter.filter_rate = 0.4f;
+        svs_id_filter_interface_ops odd_ops =
+            SVS_INIT_ID_FILTER_OPS(filter_is_odd, filter_rate_odd);
+        svs_id_filter_interface id_filter = SVS_MAKE_INTERFACE(nullptr, odd_ops);
 
-        svs_search_results_t results = svs_index_search_topK(
-            index, queries.data(), NUM_QUERIES, K, search_params, &id_filter, error
-        );
-        CATCH_REQUIRE(results != nullptr);
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            index,
+            queries.data(),
+            NUM_QUERIES,
+            K,
+            &results,
+            search_params,
+            &id_filter,
+            error
+        ));
         CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
+        CATCH_REQUIRE(results.num_queries == NUM_QUERIES);
 
         for (size_t q = 0; q < NUM_QUERIES; ++q) {
-            CATCH_REQUIRE(results->results_per_query[q] == K);
+            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] == K);
             for (size_t j = 0; j < K; ++j) {
-                size_t idx = results->indices[q * K + j];
+                size_t idx = results.indices[q * K + j];
                 // Every neighbor must be a valid, in-range odd ID.
                 CATCH_REQUIRE(idx != static_cast<size_t>(-1));
                 CATCH_REQUIRE(idx < NUM_VECTORS);
                 CATCH_REQUIRE((idx % 2) == 1);
                 // Distances must be finite and non-decreasing.
-                CATCH_REQUIRE(std::isfinite(results->distances[q * K + j]));
+                CATCH_REQUIRE(std::isfinite(results.distances[q * K + j]));
                 if (j > 0) {
                     CATCH_REQUIRE(
-                        results->distances[q * K + j] >= results->distances[q * K + j - 1]
+                        results.distances[q * K + j] >= results.distances[q * K + j - 1]
                     );
                 }
             }
         }
 
-        svs_search_results_free(results);
+        svs_search_results_free(&results);
         svs_search_params_free(search_params);
         svs_index_free(index);
         svs_index_builder_free(builder);
@@ -518,28 +542,34 @@ CATCH_TEST_CASE(
         // filter_rate (below the true selectivity) so the search keeps iterating instead
         // of giving up early.
         size_t max_valid_id = NUM_VECTORS / 10;
-        svs_id_filter_interface id_filter{};
-        id_filter.ops.is_member = &filter_below_threshold;
-        id_filter.self = &max_valid_id;
-        id_filter.filter_rate = 0.05f;
+        svs_id_filter_interface_ops low_ops =
+            SVS_INIT_ID_FILTER_OPS(filter_below_threshold, filter_rate_low);
+        svs_id_filter_interface id_filter = SVS_MAKE_INTERFACE(&max_valid_id, low_ops);
 
-        svs_search_results_t results = svs_index_search_topK(
-            index, queries.data(), NUM_QUERIES, K, search_params, &id_filter, error
-        );
-        CATCH_REQUIRE(results != nullptr);
+        svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+        CATCH_REQUIRE(svs_index_search_topk(
+            index,
+            queries.data(),
+            NUM_QUERIES,
+            K,
+            &results,
+            search_params,
+            &id_filter,
+            error
+        ));
         CATCH_REQUIRE(svs_error_ok(error));
-        CATCH_REQUIRE(results->num_queries == NUM_QUERIES);
+        CATCH_REQUIRE(results.num_queries == NUM_QUERIES);
 
         size_t total_found = 0;
         for (size_t q = 0; q < NUM_QUERIES; ++q) {
-            CATCH_REQUIRE(results->results_per_query[q] == K);
+            CATCH_REQUIRE(results.offsets[q + 1] - results.offsets[q] == K);
             for (size_t j = 0; j < K; ++j) {
-                size_t idx = results->indices[q * K + j];
+                size_t idx = results.indices[q * K + j];
                 // Padding (unspecified) entries are allowed for a restrictive filter, but
                 // any specified neighbor must pass the filter predicate.
                 if (idx != static_cast<size_t>(-1)) {
                     CATCH_REQUIRE(idx < max_valid_id);
-                    CATCH_REQUIRE(std::isfinite(results->distances[q * K + j]));
+                    CATCH_REQUIRE(std::isfinite(results.distances[q * K + j]));
                     ++total_found;
                 }
             }
@@ -548,7 +578,7 @@ CATCH_TEST_CASE(
         // return at least some valid neighbors.
         CATCH_REQUIRE(total_found > 0);
 
-        svs_search_results_free(results);
+        svs_search_results_free(&results);
         svs_search_params_free(search_params);
         svs_index_free(index);
         svs_index_builder_free(builder);

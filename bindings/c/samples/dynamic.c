@@ -36,21 +36,19 @@ void generate_random_data(float* data, size_t count, size_t dim) {
 
 size_t sequential_tp_size(void* self) { return 1; }
 
-void sequential_tp_parallel_for(
-    void* self, void (*func)(void*, size_t), void* svs_param, size_t n
+bool sequential_tp_parallel_for(
+    void* self, void (*func)(void*, size_t), void* svs_param, size_t n, svs_error_h out_err
 ) {
     for (size_t i = 0; i < n; ++i) {
         func(svs_param, i);
     }
+    return true;
 }
 
-static struct svs_threadpool_interface sequential_threadpool = {
-    {
-        &sequential_tp_size,
-        &sequential_tp_parallel_for,
-    },
-    NULL,
-};
+static svs_threadpool_ops_t sequential_tp_ops =
+    SVS_INIT_THREADPOOL_OPS(sequential_tp_size, sequential_tp_parallel_for);
+
+static svs_threadpool_t sequential_threadpool = SVS_MAKE_INTERFACE(NULL, sequential_tp_ops);
 
 int main() {
     int ret = 0;
@@ -65,7 +63,7 @@ int main() {
     svs_index_builder_h builder = NULL;
     svs_index_h index = NULL;
     svs_search_params_h search_params = NULL;
-    svs_search_results_t results = NULL;
+    svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
 
     // Allocate random data
     data = (float*)malloc(NUM_VECTORS * DIMENSION * sizeof(float));
@@ -194,21 +192,22 @@ int main() {
 
     // Add more points to the index
     printf("Adding %d more vectors to the index...\n", TAILING_VECTORS);
-    size_t num_added = svs_index_dynamic_add_points(
-        index,
-        data + INITIAL_VECTORS * DIMENSION,
-        ids + INITIAL_VECTORS,
-        TAILING_VECTORS,
-        error
-    );
-    if (num_added == (size_t)-1) {
+    size_t num_added = 0;
+    if (!svs_index_dynamic_add_points(
+            index,
+            data + INITIAL_VECTORS * DIMENSION,
+            ids + INITIAL_VECTORS,
+            TAILING_VECTORS,
+            &num_added,
+            error
+        )) {
         fprintf(
             stderr, "Failed to add points to index: %s\n", svs_error_get_message(error)
         );
         ret = 1;
         goto cleanup;
     }
-    printf("Points added successfully!\n");
+    printf("Added %zu points successfully!\n", num_added);
 
     // Search params
     search_params = svs_search_params_create_vamana(100, error);
@@ -222,10 +221,16 @@ int main() {
 
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results = svs_index_search_topK(
-        index, queries, NUM_QUERIES, K, search_params, NULL /* id_filter */, error
-    );
-    if (!results) {
+    if (!svs_index_search_topk(
+            index,
+            queries,
+            NUM_QUERIES,
+            K,
+            &results,
+            search_params,
+            NULL /* id_filter */,
+            error
+        )) {
         fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
@@ -233,21 +238,17 @@ int main() {
     printf("Search completed successfully!\n");
 
     // Print results
-    size_t offset = 0;
-    for (size_t q = 0; q < results->num_queries; q++) {
+    for (size_t q = 0; q < results.num_queries; q++) {
+        const size_t* ids;
+        const float* dists;
+        size_t count;
+        svs_search_results_row(&results, q, &ids, &dists, &count);
         printf("Query %zu results:\n", q);
-        for (size_t i = 0; i < results->results_per_query[q]; i++) {
-            printf(
-                "  [%zu] id=%zu, distance=%.4f\n",
-                i,
-                results->indices[offset + i],
-                results->distances[offset + i]
-            );
+        for (size_t i = 0; i < count; i++) {
+            printf("  [%zu] id=%zu, distance=%.4f\n", i, ids[i], dists[i]);
         }
-        offset += results->results_per_query[q];
     }
-    svs_search_results_free(results);
-    results = NULL;
+    svs_search_results_free(&results);
 
     // Delete some points
     printf(
@@ -255,10 +256,14 @@ int main() {
         DELETE_VECTORS_BEGIN,
         DELETE_VECTORS_END - 1
     );
-    size_t num_deleted = svs_index_dynamic_delete_points(
-        index, ids + DELETE_VECTORS_BEGIN, DELETE_VECTORS_END - DELETE_VECTORS_BEGIN, error
-    );
-    if (num_deleted == (size_t)-1) {
+    size_t num_deleted = 0;
+    if (!svs_index_dynamic_delete_points(
+            index,
+            ids + DELETE_VECTORS_BEGIN,
+            DELETE_VECTORS_END - DELETE_VECTORS_BEGIN,
+            &num_deleted,
+            error
+        )) {
         fprintf(
             stderr, "Failed to delete points from index: %s\n", svs_error_get_message(error)
         );
@@ -269,10 +274,16 @@ int main() {
 
     // Search again after deletion
     printf("Searching again after deletion...\n");
-    results = svs_index_search_topK(
-        index, queries, NUM_QUERIES, K, search_params, NULL /* id_filter */, error
-    );
-    if (!results) {
+    if (!svs_index_search_topk(
+            index,
+            queries,
+            NUM_QUERIES,
+            K,
+            &results,
+            search_params,
+            NULL /* id_filter */,
+            error
+        )) {
         fprintf(
             stderr,
             "Failed to search index after deletion: %s\n",
@@ -285,16 +296,17 @@ int main() {
 
     // Validate that deleted points are not returned in search results
     printf("Validating results after deletion...\n");
-    offset = 0;
-    for (size_t q = 0; q < results->num_queries; q++) {
-        for (size_t i = 0; i < results->results_per_query[q]; i++) {
-            size_t id = results->indices[offset + i];
+    for (size_t q = 0; q < results.num_queries; q++) {
+        const size_t* ids;
+        size_t count;
+        svs_search_results_row(&results, q, &ids, NULL, &count);
+        for (size_t i = 0; i < count; i++) {
+            size_t id = ids[i];
             if (id >= DELETE_VECTORS_BEGIN && id < DELETE_VECTORS_END) {
                 fprintf(stderr, "Error: Deleted id %zu returned in search results!\n", id);
                 ret = 1;
             }
         }
-        offset += results->results_per_query[q];
     }
 
     // Check if specific IDs exist in the index
@@ -406,7 +418,7 @@ int main() {
 
 cleanup:
     // Cleanup
-    svs_search_results_free(results);
+    svs_search_results_free(&results);
     svs_search_params_free(search_params);
     svs_index_free(index);
     svs_index_builder_free(builder);
