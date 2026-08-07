@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <iterator>
 #include <span>
+#include <atomic>
 #ifdef __SSE__
 #include <x86intrin.h>
 #endif
@@ -56,27 +57,18 @@ template <typename T, size_t Extent> void prefetch_l0(std::span<T, Extent> span)
         );
     }
 
-    // GCC 12.x (all point releases 12.1-12.4, verified) collapses this counted prefetch
-    // loop to a SINGLE prefetch: only the first cacheline of each vector is warmed and the
-    // rest are demand-loaded cold from DRAM -> large L3-miss / memory-stall regression in
-    // greedy_search. GCC 11 and >=13 are unaffected. NOTE: `#pragma GCC unroll` fixes the
-    // isolated loop but does NOT survive the real inlining chain (accessor.prefetch ->
-    // SimpleData::prefetch -> lib::prefetch) in this codebase — the collapse still happens.
-    // The volatile inline asm below is what actually forces every prefetch to be emitted
-    // in the built module (measured: restores gcc11-level cache misses and ~93% of the QPS
-    // gap). It is x86-only; the portable _mm_prefetch path is kept for non-x86.
-    // Cleanest alternative for users: build with GCC != 12.x (11.x or >=13.x).
-#if defined(__SSE__)
-    for (size_t i = 0; i < num_prefetches; ++i) {
-        const std::byte* p = base + CACHELINE_BYTES * i;
-        asm volatile("prefetcht0 %0" : : "m"(*p));
-    }
-    asm volatile("" : : "r"(num_prefetches) : "memory");
-#else
+    // GCC 12.x (all point releases 12.1-12.4) drops the per-cacheline prefetches from this
+    // loop in the greedy_search hot path: only the first cacheline of each vector is warmed,
+    // the rest load cold from DRAM -> ~35x more L3 misses, ~24% slower search (GCC 11 and >=13
+    // unaffected; not observed with Clang/ICX). The loop survives GCC's GIMPLE passes intact;
+    // the collapse is an RTL-backend decision, so #pragma GCC unroll does not help. A no-op
+    // signal fence per iteration is enough to stop the backend folding the prefetches away.
+    // Standard ISO C++ (portable, generates no code); restores the full prefetch loop on GCC 12.x
+    // and recovers ~97% of the lost throughput. Alternative: build with GCC != 12.x.
     for (size_t i = 0; i < num_prefetches; ++i) {
         prefetch_l0(base + CACHELINE_BYTES * i);
+        std::atomic_signal_fence(std::memory_order_seq_cst);
     }
-#endif
 }
 
 // Default prefetching to L0
