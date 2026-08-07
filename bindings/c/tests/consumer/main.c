@@ -68,20 +68,14 @@ int main(void) {
     printf("%-24s available\n", "simple/float32");
     svs_storage_free(simple);
 
-    svs_error_free(error);
-    error = svs_error_create();
     report("sq/int8", svs_storage_create_sq(SVS_DATA_TYPE_INT8, error), error);
 
-    svs_error_free(error);
-    error = svs_error_create();
     report(
         "lvq/int8",
         svs_storage_create_lvq(SVS_DATA_TYPE_INT8, SVS_DATA_TYPE_VOID, error),
         error
     );
 
-    svs_error_free(error);
-    error = svs_error_create();
     report(
         "leanvec/int8",
         svs_storage_create_leanvec(64, SVS_DATA_TYPE_INT8, SVS_DATA_TYPE_INT8, error),

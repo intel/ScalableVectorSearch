@@ -143,8 +143,6 @@ int main() {
                 "storage.\n",
                 svs_error_get_message(error)
             );
-            svs_error_free(error);
-            error = svs_error_create();
             storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
         }
     }
