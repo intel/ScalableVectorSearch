@@ -56,23 +56,16 @@ template <typename T, size_t Extent> void prefetch_l0(std::span<T, Extent> span)
         );
     }
 
-    // NOTE (GCC 12.x workaround): GCC 12.x collapses this counted prefetch loop to a
-    // single prefetch (it drops the per-cacheline prefetches), so only the first cacheline
-    // of each vector is warmed and the rest are demand-loaded cold -> large L3-miss / stall
-    // regression in greedy_search. GCC 11 and >=13 emit the full loop. The volatile inline
-    // asm below forces every iteration's prefetch to be emitted on x86; the portable
-    // _mm_prefetch path is kept for non-x86.
-#if defined(__SSE__)
-    for (size_t i = 0; i < num_prefetches; ++i) {
-        const std::byte* p = base + CACHELINE_BYTES * i;
-        asm volatile("prefetcht0 %0" : : "m"(*p));
-    }
-    asm volatile("" : : "r"(num_prefetches) : "memory");
-#else
+    // GCC 12.x collapses this counted prefetch loop to a single prefetch (it drops the
+    // per-cacheline prefetches), leaving all but the first cacheline of each vector to be
+    // demand-loaded cold -> large L3-miss / memory-stall regression in greedy_search.
+    // GCC 11 and >=13 are unaffected. `#pragma GCC unroll` keeps the full loop under 12.x
+    // and is portable: it stays on the _mm_prefetch path (a no-op on non-x86) and is a
+    // no-op hint for compilers that don't recognize it (e.g. Clang honors it, others ignore).
+#pragma GCC unroll 16
     for (size_t i = 0; i < num_prefetches; ++i) {
         prefetch_l0(base + CACHELINE_BYTES * i);
     }
-#endif
 }
 
 // Default prefetching to L0
