@@ -57,14 +57,8 @@ template <typename T, size_t Extent> void prefetch_l0(std::span<T, Extent> span)
         );
     }
 
-    // GCC 12.x (all point releases 12.1-12.4) drops the per-cacheline prefetches from this
-    // loop in the greedy_search hot path: only the first cacheline of each vector is warmed,
-    // the rest load cold from DRAM -> ~35x more L3 misses, ~24% slower search (GCC 11 and >=13
-    // unaffected; not observed with Clang/ICX). The loop survives GCC's GIMPLE passes intact;
-    // the collapse is an RTL-backend decision, so #pragma GCC unroll does not help. A no-op
-    // signal fence per iteration is enough to stop the backend folding the prefetches away.
-    // Standard ISO C++ (portable, generates no code); restores the full prefetch loop on GCC 12.x
-    // and recovers ~97% of the lost throughput. Alternative: build with GCC != 12.x.
+    // The fence is a no-op at runtime; without it GCC 12 drops all but the first
+    // prefetch here, so neighbor vectors load cold from DRAM and search slows ~24%.
     for (size_t i = 0; i < num_prefetches; ++i) {
         prefetch_l0(base + CACHELINE_BYTES * i);
         std::atomic_signal_fence(std::memory_order_seq_cst);
