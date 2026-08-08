@@ -18,10 +18,10 @@
 
 #include "svs/lib/misc.h"
 
+#include <atomic>
 #include <cstdint>
 #include <iterator>
 #include <span>
-#include <atomic>
 #ifdef __SSE__
 #include <x86intrin.h>
 #endif
