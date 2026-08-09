@@ -146,7 +146,7 @@ void heuristic_prune_neighbors(
         distance::maybe_fix_argument(distance_function, query);
         result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
         for (size_t t = start + 1; t < poolsize; ++t) {
-            if (excluded(pruned[t])) {
+            if (pruned[t] == PruneState::Pruned) {
                 continue;
             }
 
