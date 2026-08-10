@@ -155,7 +155,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-2026-05-06-1253.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.4.0/svs-shared-library.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)
