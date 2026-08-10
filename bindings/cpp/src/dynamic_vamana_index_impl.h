@@ -69,6 +69,22 @@ class DynamicVamanaIndexImpl {
 
     size_t size() const { return impl_ ? impl_->size() : 0; }
 
+    size_t get_memory_usage() const {
+        return impl_ ? impl_->get_memory_breakdown().total() : 0;
+    }
+
+    void get_memory_breakdown(MemoryBreakdown& out) const {
+        if (!impl_) {
+            out = MemoryBreakdown{};
+            return;
+        }
+
+        auto breakdown = impl_->get_memory_breakdown();
+        out.graph_bytes = breakdown.graph_bytes;
+        out.data_bytes = breakdown.data_bytes;
+        out.metadata_bytes = breakdown.metadata_bytes;
+    }
+
     size_t blocksize_bytes() const { return 1u << dynamic_index_params_.blocksize_exp; }
 
     size_t dimensions() const { return dim_; }

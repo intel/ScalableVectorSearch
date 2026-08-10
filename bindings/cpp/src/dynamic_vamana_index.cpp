@@ -65,6 +65,17 @@ struct DynamicVamanaIndexManagerBase : public DynamicVamanaIndex {
 
     size_t blocksize_bytes() const noexcept override { return impl_->blocksize_bytes(); }
 
+    size_t get_memory_usage() const noexcept override { return impl_->get_memory_usage(); }
+
+    Status get_memory_breakdown(MemoryBreakdown* out) const noexcept override {
+        if (out == nullptr) {
+            return Status(
+                ErrorCode::INVALID_ARGUMENT, "memory breakdown output must not be null"
+            );
+        }
+        return runtime_error_wrapper([&] { impl_->get_memory_breakdown(*out); });
+    }
+
     Status
     remove_selected(size_t* num_removed, const IDFilter& selector) noexcept override {
         return runtime_error_wrapper([&] {
@@ -160,11 +171,13 @@ Status DynamicVamanaIndex::check_params(
     constexpr static size_t kMaxBlockSizeExp = 30; // 1GB
     constexpr static size_t kMinBlockSizeExp = 12; // 4KB
 
-    if (dynamic_index_params.blocksize_exp > kMaxBlockSizeExp)
+    if (dynamic_index_params.blocksize_exp > kMaxBlockSizeExp) {
         return Status(ErrorCode::INVALID_ARGUMENT, "Blocksize is too large");
+    }
 
-    if (dynamic_index_params.blocksize_exp < kMinBlockSizeExp)
+    if (dynamic_index_params.blocksize_exp < kMinBlockSizeExp) {
         return Status(ErrorCode::INVALID_ARGUMENT, "Blocksize is too small");
+    }
 
     return Status_Ok;
 }
@@ -202,8 +215,9 @@ Status DynamicVamanaIndex::build(
     *index = nullptr;
 
     auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
-    if (!status.ok())
+    if (!status.ok()) {
         return status;
+    }
 
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
@@ -293,8 +307,9 @@ Status DynamicVamanaIndexLeanVec::build(
     *index = nullptr;
 
     auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
-    if (!status.ok())
+    if (!status.ok()) {
         return status;
+    }
 
     return runtime_error_wrapper([&] {
         auto impl = std::make_unique<Impl>(
@@ -325,8 +340,9 @@ Status DynamicVamanaIndexLeanVec::build(
     *index = nullptr;
 
     auto status = DynamicVamanaIndex::check_params(dynamic_index_params);
-    if (!status.ok())
+    if (!status.ok()) {
         return status;
+    }
 
     return runtime_error_wrapper([&] {
         auto training_data_impl =
