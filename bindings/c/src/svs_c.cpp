@@ -565,6 +565,22 @@ extern "C" svs_search_results_t svs_index_search(
     svs_search_params_h search_params,
     svs_error_h out_err
 ) {
+    // Deprecated: delegate to svs_index_search_topK without an ID filter to avoid
+    // duplicating the search and result-marshalling logic.
+    return svs_index_search_topK(
+        index, queries, num_queries, k, search_params, nullptr, out_err
+    );
+}
+
+extern "C" svs_search_results_t svs_index_search_topK(
+    svs_index_h index,
+    const float* queries,
+    size_t num_queries,
+    size_t k,
+    svs_search_params_h search_params,
+    svs_id_filter_i id_filter,
+    svs_error_h out_err
+) {
     using namespace svs::c_runtime;
     return wrap_exceptions(
         [&]() {
@@ -579,8 +595,13 @@ extern "C" svs_search_results_t svs_index_search(
                 queries, num_queries, index_ptr->dimensions()
             );
 
+            IDFilterAdapter id_filter_adapter(id_filter);
+
             auto search_results = index_ptr->search(
-                queries_view, k, search_params == nullptr ? nullptr : search_params->impl
+                queries_view,
+                k,
+                search_params == nullptr ? nullptr : search_params->impl,
+                id_filter == nullptr ? nullptr : &id_filter_adapter
             );
 
             svs_search_results_t results =
@@ -815,6 +836,45 @@ svs_index_set_num_threads(svs_index_h index, size_t num_threads, svs_error_h out
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
             index_ptr->set_num_threads(num_threads);
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool
+svs_index_get_memory_usage(svs_index_h index, size_t* out_bytes, svs_error_h out_err) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_bytes);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            auto breakdown = index_ptr->get_memory_breakdown();
+            *out_bytes = breakdown.total();
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_get_memory_breakdown(
+    svs_index_h index, svs_memory_breakdown_t* out_breakdown, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(index);
+            EXPECT_ARG_NOT_NULL(out_breakdown);
+            auto& index_ptr = index->impl;
+            INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            auto breakdown = index_ptr->get_memory_breakdown();
+            out_breakdown->graph_bytes = breakdown.graph_bytes;
+            out_breakdown->data_bytes = breakdown.data_bytes;
+            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
             return true;
         },
         out_err,

@@ -153,6 +153,21 @@ class VectorDataLoader {
 
 // Matching rule for uncompressed data.
 namespace data::detail {
+
+/// @brief Return the number of bytes allocated for the backing storage of ``dataset``.
+///
+/// Capacity-based accounting (the bytes the containers have reserved) is used whenever the
+/// dataset exposes a ``capacity()`` accessor (e.g. flat and blocked ``SimpleData``), so
+/// that block over-allocation is reflected. Datasets that do not expose ``capacity()``
+/// fall back to the number of live elements.
+template <typename Dataset> size_t dataset_allocated_bytes(const Dataset& dataset) {
+    if constexpr (requires(const Dataset& d) { d.capacity(); }) {
+        return dataset.capacity() * dataset.element_size();
+    } else {
+        return dataset.size() * dataset.element_size();
+    }
+}
+
 template <typename T, size_t Extent> int64_t check_match(svs::DataType type, size_t dims) {
     // If the types don't match - then there is no match.
     if (type != svs::datatype_v<T>) {

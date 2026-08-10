@@ -222,7 +222,9 @@ int main() {
 
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results = svs_index_search(index, queries, NUM_QUERIES, K, search_params, error);
+    results = svs_index_search_topK(
+        index, queries, NUM_QUERIES, K, search_params, NULL /* id_filter */, error
+    );
     if (!results) {
         fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
         ret = 1;
@@ -267,7 +269,9 @@ int main() {
 
     // Search again after deletion
     printf("Searching again after deletion...\n");
-    results = svs_index_search(index, queries, NUM_QUERIES, K, search_params, error);
+    results = svs_index_search_topK(
+        index, queries, NUM_QUERIES, K, search_params, NULL /* id_filter */, error
+    );
     if (!results) {
         fprintf(
             stderr,
