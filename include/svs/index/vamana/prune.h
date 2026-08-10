@@ -129,7 +129,6 @@ void heuristic_prune_neighbors(
     }
 
     auto pruned = std::vector<PruneState>(poolsize, PruneState::Available);
-
     // the first round
     size_t start = 0;
     while (result.size() < max_result_size && start < poolsize) {
@@ -166,39 +165,38 @@ void heuristic_prune_neighbors(
         ++start;
     }
 
-    // Reset candidate elements for the next round.
-    for (auto& state : pruned) {
-        state = reenable(state);
-    }
-
     // the second round
     start = 0;
     while (result.size() < max_result_size && start < poolsize) {
         auto id = pool[start].id();
-        if (excluded(pruned[start]) || id == current_node_id) {
+        if (pruned[start] != PruneState::Candidate || id == current_node_id) {
             ++start;
             continue;
         }
-        pruned[start] = PruneState::Added;
 
         // Only once we know this item needs to be processed to we retrieve
         // the corresponding data and perform preprocessing.
         const auto& query = accessor(dataset, id);
         distance::maybe_fix_argument(distance_function, query);
-        result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
-        for (size_t t = start + 1; t < poolsize; ++t) {
-            if (excluded(pruned[t])) {
+
+        const auto& candidate = pool[start];
+        for (size_t t = 0; t < start; ++t) {
+            if (pruned[t] != PruneState::Candidate) {
                 continue;
             }
 
-            const auto& candidate = pool[t];
             auto djk = distance::compute(
-                distance_function, query, accessor(dataset, candidate.id())
+                distance_function, query, accessor(dataset, pool[t].id())
             );
 
             if (cmp(alpha * djk, candidate.distance())) {
-                pruned[t] = PruneState::Pruned;
+                pruned[start] = PruneState::Pruned;
+                break;
             }
+        }
+
+        if (pruned[start] == PruneState::Candidate) {
+            result.push_back(detail::construct_as(lib::Type<I>(), pool[start]));
         }
         ++start;
     }
