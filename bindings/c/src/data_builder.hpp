@@ -19,3 +19,11 @@
 #include "data_builder/lvq.hpp"
 #include "data_builder/simple.hpp"
 #include "data_builder/sq.hpp"
+#include "storage.hpp"
+
+namespace svs::c_runtime {
+size_t estimate_data_size(const Storage* storage, size_t num_vectors, size_t dimension);
+size_t estimate_data_size_blocked(
+    const Storage* storage, size_t num_vectors, size_t dimension, size_t blocksize_bytes
+);
+} // namespace svs::c_runtime

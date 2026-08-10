@@ -73,6 +73,48 @@ class LVQDataBuilder {
     load(const std::filesystem::path& path, const allocator_type& allocator = {}) {
         return svs::lib::load_from_disk<data_type>(path, allocator);
     }
+
+    static constexpr size_t primary_element_size(size_t dimension, size_t alignment = 0) {
+        using primary_type = typename data_type::primary_type;
+        using layout_type = typename primary_type::helper_type;
+        using layout_dims_type = svs::lib::MaybeStatic<data_type::extent>;
+        const auto layout_dims = layout_dims_type{dimension};
+        return primary_type::compute_data_dimensions(layout_type{layout_dims}, alignment);
+    }
+
+    static constexpr size_t residual_element_size(size_t dims) {
+        if constexpr (ResidualBits == 0) {
+            return 0;
+        } else {
+            using residual_type = typename data_type::residual_type;
+            using dims_type = svs::lib::MaybeStatic<data_type::extent>;
+            auto residual_dims = dims_type{dims};
+            return residual_type::total_bytes(residual_dims);
+        }
+    }
+
+    size_t estimate_size(
+        size_t num_vectors, size_t dimension, const allocator_type& allocator = {}
+    ) const {
+        const size_t alignment = 0; // Assuming no specific alignment for estimation
+
+        const auto primary_element_sz = primary_element_size(dimension, alignment);
+        const auto primary_size =
+            svs::c_runtime::adjust_blocked_size(num_vectors, primary_element_sz, allocator);
+
+        const auto residual_element_sz = residual_element_size(dimension);
+        const auto residual_size = svs::c_runtime::adjust_blocked_size(
+            num_vectors, residual_element_sz, allocator
+        );
+
+        const size_t num_centroids = 1; // Assuming 1 centroid for estimation
+        const auto centroid_size =
+            sizeof(typename data_type::centroid_type::element_type) * dimension;
+
+        const auto total_size =
+            primary_size + residual_size + num_centroids * centroid_size;
+        return total_size;
+    }
 };
 
 template <size_t PrimaryBits, size_t ResidualBits, typename Alloc>
