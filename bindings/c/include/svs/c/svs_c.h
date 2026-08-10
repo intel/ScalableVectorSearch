@@ -696,6 +696,37 @@ SVS_API bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Estimate the memory usage of an index based on the builder configuration and
+/// number of vectors
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_estimate_memory(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Estimate the memory usage of a dynamic index based on the builder configuration,
+/// number of vectors, and block size
+/// @param builder The index builder handle
+/// @param num_vectors The number of vectors to be indexed
+/// @param blocksize_bytes The block size in bytes for dynamic index building (0 for
+/// default)
+/// @param out_breakdown Pointer to a structure to hold the memory breakdown
+/// @param out_err An optional error handle to capture errors
+/// @return true on success, false on failure
+SVS_API bool svs_index_builder_estimate_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    size_t blocksize_bytes,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err /*=NULL*/
+);
+
 /// @brief Build an index from the provided data
 /// @param builder The index builder handle
 /// @param data Pointer to the vector data (float array)

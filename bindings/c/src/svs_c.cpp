@@ -458,6 +458,55 @@ extern "C" bool svs_index_builder_set_threadpool_custom(
     );
 }
 
+extern "C" bool svs_index_builder_estimate_memory(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(out_breakdown);
+            EXPECT_ARG_GT_THAN(num_vectors, 0);
+            auto breakdown = builder->impl->estimate_memory(num_vectors);
+            out_breakdown->graph_bytes = breakdown.graph_bytes;
+            out_breakdown->data_bytes = breakdown.data_bytes;
+            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
+extern "C" bool svs_index_builder_estimate_memory_dynamic(
+    svs_index_builder_h builder,
+    size_t num_vectors,
+    size_t blocksize_bytes,
+    svs_memory_breakdown_t* out_breakdown,
+    svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(builder);
+            EXPECT_ARG_NOT_NULL(out_breakdown);
+            EXPECT_ARG_GT_THAN(num_vectors, 0);
+            EXPECT_ARG_GT_THAN(blocksize_bytes, 0);
+            auto breakdown =
+                builder->impl->estimate_memory_dynamic(num_vectors, blocksize_bytes);
+            out_breakdown->graph_bytes = breakdown.graph_bytes;
+            out_breakdown->data_bytes = breakdown.data_bytes;
+            out_breakdown->metadata_bytes = breakdown.metadata_bytes;
+            return true;
+        },
+        out_err,
+        false
+    );
+}
+
 extern "C" svs_index_h svs_index_build(
     svs_index_builder_h builder, const float* data, size_t num_vectors, svs_error_h out_err
 ) {
