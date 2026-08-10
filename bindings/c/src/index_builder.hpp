@@ -18,6 +18,7 @@
 #include "svs/c_api/svs_c.h"
 
 #include "algorithm.hpp"
+#include "data_builder.hpp"
 #include "dispatcher_dynamic_vamana.hpp"
 #include "dispatcher_vamana.hpp"
 #include "index.hpp"
@@ -29,6 +30,8 @@
 #include <svs/core/distance.h>
 #include <svs/core/query_result.h>
 #include <svs/index/vamana/build_params.h>
+#include <svs/index/vamana/dynamic_index.h>
+#include <svs/index/vamana/index.h>
 #include <svs/lib/float16.h>
 #include <svs/orchestrators/vamana.h>
 
@@ -151,6 +154,89 @@ struct IndexBuilder {
             return index;
         }
         return nullptr;
+    }
+
+    // Estimate the memory a built static Vamana + Simple-storage index would consume
+    // for `num_vectors` vectors. Mirrors the accounting done by
+    // svs::index::vamana::MutableVamanaIndex::get_memory_breakdown().
+    svs::index::vamana::MemoryBreakdown estimate_memory(size_t num_vectors) const {
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Memory estimation is currently supported only for Vamana algorithm"
+        );
+        NOT_IMPLEMENTED_IF(
+            storage->kind != SVS_STORAGE_KIND_SIMPLE,
+            "Memory estimation is currently supported only for Simple storage"
+        );
+        auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
+        svs::index::vamana::MemoryBreakdown breakdown{};
+
+        // Graph: SimpleData<uint32_t> with num_vectors rows and (max_degree + 1) cols;
+        // the +1 slot stores the per-node neighbor count.
+        using index_type = uint32_t;
+        const size_t max_degree = vamana_algorithm->build_parameters().graph_max_degree;
+        using graph_builder_type = svs::SimpleDataBuilder<index_type>;
+        breakdown.graph_bytes =
+            graph_builder_type{}.estimate_size(num_vectors, (max_degree + 1));
+
+        // Data: SimpleData<T> with num_vectors rows and `dimension` cols.
+        breakdown.data_bytes = estimate_data_size(storage.get(), num_vectors, dimension);
+        // Metadata: single entry point held as Idx.
+        breakdown.metadata_bytes = sizeof(index_type);
+        return breakdown;
+    }
+
+    // Estimate the memory a built dynamic Vamana + Simple-storage index would consume
+    // for `num_vectors` vectors. Mirrors the accounting done by
+    // svs::index::vamana::MutableVamanaIndex::get_memory_breakdown().
+    svs::index::vamana::MemoryBreakdown
+    estimate_memory_dynamic(size_t num_vectors, size_t blocksize_bytes) const {
+        NOT_IMPLEMENTED_IF(
+            algorithm->type != SVS_ALGORITHM_TYPE_VAMANA,
+            "Memory estimation is currently supported only for Vamana algorithm"
+        );
+        NOT_IMPLEMENTED_IF(
+            storage->kind != SVS_STORAGE_KIND_SIMPLE,
+            "Memory estimation is currently supported only for Simple storage"
+        );
+        auto vamana_algorithm = std::static_pointer_cast<AlgorithmVamana>(algorithm);
+        svs::index::vamana::MemoryBreakdown breakdown{};
+        // Graph: SimpleBlockedData<uint32_t> with num_vectors rows and (max_degree + 1)
+        // cols; the +1 slot stores the per-node neighbor count.
+        using index_type = uint32_t;
+        const size_t max_degree = vamana_algorithm->build_parameters().graph_max_degree;
+
+        using allocator_type = svs::data::Blocked<svs::lib::Allocator<index_type>>;
+        using graph_builder_type = svs::SimpleDataBuilder<index_type, allocator_type>;
+
+        svs::data::BlockingParameters blocking_params{};
+        if (blocksize_bytes != 0) {
+            blocking_params.blocksize_bytes = svs::lib::prevpow2(blocksize_bytes);
+        }
+        auto allocator = allocator_type{blocking_params};
+
+        breakdown.graph_bytes =
+            graph_builder_type{}.estimate_size(num_vectors, (max_degree + 1), allocator);
+
+        // Data: SimpleData<T> with num_vectors rows and `dimension` cols.
+        breakdown.data_bytes = estimate_data_size_blocked(
+            storage.get(), num_vectors, dimension, blocksize_bytes
+        );
+
+        // Metadata: single entry point held as Idx, plus the SlotMetadata vector, plus the
+        // IDTranslator maps.
+        size_t metadata_bytes =
+            sizeof(index_type) + sizeof(svs::index::vamana::SlotMetadata) * num_vectors;
+        // The IDTranslator holds two tsl::robin_map instances (external->internal and
+        // internal->external), neither of which exposes its allocated byte count. We
+        // approximate the storage as the id pair held in each of the two directions. This
+        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
+        // the hash-map overhead that is accurate to within a few percent.
+        metadata_bytes += 2 * num_vectors *
+                          (sizeof(IDTranslator::external_id_type) +
+                           sizeof(IDTranslator::internal_id_type));
+        breakdown.metadata_bytes = metadata_bytes;
+        return breakdown;
     }
 };
 } // namespace svs::c_runtime

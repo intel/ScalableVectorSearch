@@ -97,5 +97,22 @@ struct IDFilterAdapter : public IDFilterInterface {
     }
 };
 
+template <typename Alloc>
+size_t
+adjust_blocked_size(size_t num_vectors, size_t element_size, const Alloc& allocator) {
+    if constexpr (svs::data::is_blocked_v<Alloc>) {
+        // If using blocked allocator, account for block size overhead
+        // following the same logic as in SimpleData .ctor for Blocked allocators
+        assert(element_size > 0);
+        const auto blocksize =
+            lib::prevpow2(allocator.parameters().blocksize_bytes.value() / element_size);
+        size_t elements_per_block = blocksize.value();
+        size_t num_blocks = lib::div_round_up(num_vectors, elements_per_block);
+        return num_blocks * blocksize.value();
+    } else {
+        return num_vectors * element_size;
+    }
+}
+
 } // namespace c_runtime
 } // namespace svs
