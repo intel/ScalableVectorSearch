@@ -342,14 +342,7 @@ class GraphConsolidator {
     /// Gather a superset of the live nodes with an edge to some deleted node in `D`.
     ///
     /// The in-neighbors of a deleted `d` are contained in `out(d) union R(d)`, so we hand
-    /// the driver every non-deleted node from both. No `has_edge` verification: `out(d)`
-    /// over-includes pure out-neighbors and `R(d)` may hold stale entries, but the driver
-    /// no-ops any node with no deleted neighbor.
-    ///
-    /// Reverse-edge cleanup for the vanishing slot `d`:
-    /// * `R(d)` (the `a -> d` edges) is cleared wholesale by `reset_node(d)`.
-    /// * For each `a` in `out(d)`, the edge `d -> a` recorded `d` in `R(a)`; once `d`'s
-    ///   slot is reused that entry would be a stale reference, so remove it here.
+    /// the driver every non-deleted node from both.
     ///
     template <typename DeletedSet, typename Deleted>
     std::vector<size_t>
