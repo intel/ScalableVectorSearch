@@ -59,10 +59,10 @@ template <Arithmetic T, typename Allocator = svs::lib::Allocator<T>> class SQDat
     }
 };
 
-template <Arithmetic T, typename Allocator>
-struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Allocator>> {
+template <Arithmetic T, typename Alloc>
+struct lib::DispatchConverter<const c_runtime::Storage*, SQDataBuilder<T, Alloc>> {
     using From = const svs::c_runtime::Storage*;
-    using To = SQDataBuilder<T, Allocator>;
+    using To = SQDataBuilder<T, Alloc>;
 
     static int64_t match(From from) {
         if (from->kind == SVS_STORAGE_KIND_SQ) {

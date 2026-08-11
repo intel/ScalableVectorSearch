@@ -120,6 +120,23 @@ int main() {
 
     // storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
 
+    // LeanVec/LVQ are only available in builds that include the compression
+    // backend. When they are unavailable the build reports NOT_IMPLEMENTED (or
+    // UNSUPPORTED_HW on hardware lacking the required ISA); fall back to simple
+    // storage so this sample stays runnable against a public build.
+    if (!storage) {
+        svs_error_code_t code = svs_error_get_code(error);
+        if (code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW) {
+            fprintf(
+                stderr,
+                "LeanVec storage unavailable (%s); falling back to simple float32 "
+                "storage.\n",
+                svs_error_get_message(error)
+            );
+            storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT32, error);
+        }
+    }
+
     if (!storage) {
         fprintf(stderr, "Failed to create storage: %s\n", svs_error_get_message(error));
         ret = 1;

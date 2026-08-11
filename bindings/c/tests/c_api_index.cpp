@@ -235,16 +235,21 @@ CATCH_TEST_CASE("C API Index Build and Search", "[c_api][index][build][search]")
             DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
         );
         CATCH_REQUIRE(check_storage_support(storage, error) == true);
-        run_build_and_search(storage);
+        if (storage_usable(storage)) {
+            run_build_and_search(storage);
+        }
 
         // LVQ: primary = int4, residual = int8
         storage = svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error);
         CATCH_REQUIRE(check_storage_support(storage, error) == true);
-        run_build_and_search(storage);
+        if (storage_usable(storage)) {
+            run_build_and_search(storage);
+        }
 
-        // Scalar Quantization: int8
+        // Scalar Quantization is available in every build - require it to work.
         storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
-        CATCH_REQUIRE(check_storage_support(storage, error) == true);
+        CATCH_REQUIRE(storage != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
         run_build_and_search(storage);
 
         svs_error_free(error);
