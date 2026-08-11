@@ -75,12 +75,12 @@ class LVQDataBuilder {
     }
 };
 
-template <size_t PrimaryBits, size_t ResidualBits, typename Allocator>
+template <size_t PrimaryBits, size_t ResidualBits, typename Alloc>
 struct lib::DispatchConverter<
     const c_runtime::Storage*,
-    LVQDataBuilder<PrimaryBits, ResidualBits, Allocator>> {
+    LVQDataBuilder<PrimaryBits, ResidualBits, Alloc>> {
     using From = const svs::c_runtime::Storage*;
-    using To = LVQDataBuilder<PrimaryBits, ResidualBits, Allocator>;
+    using To = LVQDataBuilder<PrimaryBits, ResidualBits, Alloc>;
 
     static int64_t match(From from) {
         if (from->kind == SVS_STORAGE_KIND_LVQ) {

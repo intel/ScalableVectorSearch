@@ -132,8 +132,10 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
     CATCH_SECTION("Scalar Quantization Storage UINT8") {
         svs_error_h error = svs_error_create();
 
+        // Scalar quantization is part of the public build - always expect success.
         svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_UINT8, error);
-        CATCH_REQUIRE(check_storage_support(storage, error) == true);
+        CATCH_REQUIRE(storage != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
 
         svs_storage_free(storage);
         svs_error_free(error);
@@ -142,8 +144,10 @@ CATCH_TEST_CASE("C API Storage", "[c_api][storage]") {
     CATCH_SECTION("Scalar Quantization Storage INT8") {
         svs_error_h error = svs_error_create();
 
+        // Scalar quantization is part of the public build - always expect success.
         svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
-        CATCH_REQUIRE(check_storage_support(storage, error) == true);
+        CATCH_REQUIRE(storage != nullptr);
+        CATCH_REQUIRE(svs_error_ok(error));
 
         svs_storage_free(storage);
         svs_error_free(error);
