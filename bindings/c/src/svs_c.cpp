@@ -470,7 +470,7 @@ extern "C" bool svs_index_builder_estimate_memory(
             EXPECT_ARG_NOT_NULL(builder);
             EXPECT_ARG_NOT_NULL(out_breakdown);
             EXPECT_ARG_GT_THAN(num_vectors, 0);
-            auto breakdown = builder->impl->estimate_memory(num_vectors);
+            auto breakdown = builder->impl->estimate_memory_breakdown(num_vectors);
             out_breakdown->graph_bytes = breakdown.graph_bytes;
             out_breakdown->data_bytes = breakdown.data_bytes;
             out_breakdown->metadata_bytes = breakdown.metadata_bytes;
@@ -495,8 +495,9 @@ extern "C" bool svs_index_builder_estimate_memory_dynamic(
             EXPECT_ARG_NOT_NULL(out_breakdown);
             EXPECT_ARG_GT_THAN(num_vectors, 0);
             EXPECT_ARG_GT_THAN(blocksize_bytes, 0);
-            auto breakdown =
-                builder->impl->estimate_memory_dynamic(num_vectors, blocksize_bytes);
+            auto breakdown = builder->impl->estimate_memory_breakdown_dynamic(
+                num_vectors, blocksize_bytes
+            );
             out_breakdown->graph_bytes = breakdown.graph_bytes;
             out_breakdown->data_bytes = breakdown.data_bytes;
             out_breakdown->metadata_bytes = breakdown.metadata_bytes;

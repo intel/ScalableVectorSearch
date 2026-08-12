@@ -52,11 +52,18 @@ class LVQDataBuilder {
   public:
     LVQDataBuilder() {}
 
+    // Follow the logic of svs::leanvec::detail::PickContainer which looks like:
+    // "Use Turbo-encoding for 4-bit LVQ."
+    using Sequential = svs::quantization::lvq::Sequential;
+    using Turbo16x8 = svs::quantization::lvq::Turbo<16, 8>;
+    template <size_t Primary, size_t Residual>
+    using AutoStrategy = std::conditional_t<(Primary == 4), Turbo16x8, Sequential>;
+
     using data_type = svs::quantization::lvq::LVQDataset<
         PrimaryBits,
         ResidualBits,
         svs::Dynamic,
-        svs::quantization::lvq::Sequential,
+        AutoStrategy<PrimaryBits, ResidualBits>,
         Allocator>;
     using allocator_type = Allocator;
 
@@ -107,9 +114,13 @@ class LVQDataBuilder {
             num_vectors, residual_element_sz, allocator
         );
 
+        // Assuming a single centroid for estimation purposes
         const size_t num_centroids = 1; // Assuming 1 centroid for estimation
-        const auto centroid_size =
-            sizeof(typename data_type::centroid_type::element_type) * dimension;
+        // TODO: Fix the actual memory breakdown reported by index by implementing
+        // dataset_allocated_bytes() specialization for LVQDataset.
+        const size_t centroid_size = 0; // Skipping centroids for estimation
+        // const auto centroid_size =
+        //     sizeof(typename data_type::centroid_type::element_type) * dimension;
 
         const auto total_size =
             primary_size + residual_size + num_centroids * centroid_size;

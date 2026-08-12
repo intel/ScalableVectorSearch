@@ -112,7 +112,7 @@ adjust_blocked_size(size_t num_vectors, size_t element_size, const Alloc& alloca
             lib::prevpow2(allocator.parameters().blocksize_bytes.value() / element_size);
         size_t elements_per_block = blocksize.value();
         size_t num_blocks = lib::div_round_up(num_vectors, elements_per_block);
-        return num_blocks * blocksize.value();
+        return num_blocks * blocksize.value() * element_size;
     } else {
         return num_vectors * element_size;
     }
