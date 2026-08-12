@@ -16,11 +16,28 @@
 
 #pragma once
 
-#include "svs_c_config.h"
+#include "svs/c_api/svs_c_config.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+// SVS C API requires a C99 or later compiler, or a C++20 or later compiler. If the
+// compiler does not meet these requirements, a compilation error will be generated with a
+// clear message indicating the required standard version.
+#if defined(__cplusplus)
+#if __cplusplus < 202002L
+#error \
+    "svs_c.h requires C++20 or later (designated initializers in SVS_INIT_* / SVS_MAKE_INTERFACE)."
+#endif
+#elif defined(__STDC_VERSION__)
+#if __STDC_VERSION__ < 199901L
+#error \
+    "svs_c.h requires C99 or later (designated initializers in SVS_INIT_* / SVS_MAKE_INTERFACE)."
+#endif
+#else
+#error "svs_c.h requires C99 or later, or C++20 or later."
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,7 +75,7 @@ enum svs_data_type {
     SVS_DATA_TYPE_FLOAT64,
     SVS_DATA_TYPE_FLOAT32,
     SVS_DATA_TYPE_FLOAT16,
-    SVS_DATA_TYPE_BLOAT16,
+    SVS_DATA_TYPE_BFLOAT16,
     SVS_DATA_TYPE_INT64,
     SVS_DATA_TYPE_UINT64,
     SVS_DATA_TYPE_INT32,
@@ -111,7 +128,7 @@ enum svs_threadpool_kind {
 ///   @param svs_param Pointer to user-defined data passed to each @p func invocation.
 ///   @param n Number of iterations to execute in parallel.
 ///   @param out_err Handle to capture any error that occurs during execution. User code may
-///   call svs_set_error() to set the error code and message if an error occurs.
+///   call svs_error_set() to set the error code and message if an error occurs.
 ///   @return @c true if all iterations completed successfully, @c false otherwise.
 // clang-format off
 struct svs_threadpool_interface_ops {
@@ -220,6 +237,13 @@ struct svs_id_filter_interface {
 /// library reuse existing library-owned buffers whenever capacity is sufficient;
 /// steady-state batches of equal shape allocate only on the first call.
 ///
+/// Forward-compatibility contract: On any write to this OUT struct, the library
+/// only touches fields covered by the caller-supplied @p struct_size. A caller
+/// compiled against an older header will never observe writes beyond its known
+/// fields. Any optional field added in a future API version is written only when
+/// the caller opts in by supplying a large-enough @p struct_size (e.g. via the
+/// SVS_INIT_SEARCH_RESULTS() macro from the newer header).
+///
 /// @var svs_search_results::version
 ///   API version at which the struct was initialized (SVS_C_API_VERSION).
 /// @var svs_search_results::struct_size
@@ -310,6 +334,18 @@ static inline void svs_search_results_row(
     const float** out_distances,
     size_t* out_count
 ) {
+    if (q >= results->num_queries) {
+        if (out_ids) {
+            *out_ids = NULL;
+        }
+        if (out_distances) {
+            *out_distances = NULL;
+        }
+        if (out_count) {
+            *out_count = 0;
+        }
+        return;
+    }
     size_t begin = results->offsets[q];
     size_t end = results->offsets[q + 1];
     if (out_ids) {
@@ -321,9 +357,17 @@ static inline void svs_search_results_row(
     if (out_count) {
         *out_count = end - begin;
     }
+    return;
 }
 
-/// @brief Structure to hold memory breakdown for an index
+/// @brief Structure to hold memory breakdown for an index.
+///
+/// Forward-compatibility contract: On any write to this OUT struct, the library
+/// only touches fields covered by the caller-supplied @p struct_size. A caller
+/// compiled against an older header will never observe writes beyond its known
+/// fields. Any optional field added in a future API version is written only when
+/// the caller opts in by supplying a large-enough @p struct_size (e.g. via the
+/// SVS_INIT_MEMORY_BREAKDOWN() macro from the newer header).
 struct svs_memory_breakdown {
     uint32_t version; /// Version of the memory breakdown structure
     size_t
@@ -713,6 +757,13 @@ SVS_API bool svs_index_search_topk(
     svs_error_h out_err /*=NULL*/
 );
 
+/// @brief Release library-owned buffers held by a search results structure and
+/// reset it to the SVS_INIT_SEARCH_RESULTS() state.
+/// @param results Pointer to the results structure. Safe on NULL, on
+/// zero-initialized objects, and on caller-owned buffers (in which case only the
+/// descriptor is reset). Safe to call multiple times.
+SVS_API void svs_search_results_free(svs_search_results_t* results);
+
 /// @brief Search the index with the provided queries
 /// @param index The index handle
 /// @param queries Pointer to the query data (float array)
@@ -741,13 +792,6 @@ static inline bool svs_index_search(
         index, queries, num_queries, k, out_results, search_params, NULL, out_err
     );
 }
-
-/// @brief Release library-owned buffers held by a search results structure and
-/// reset it to the SVS_INIT_SEARCH_RESULTS() state.
-/// @param results Pointer to the results structure. Safe on NULL, on
-/// zero-initialized objects, and on caller-owned buffers (in which case only the
-/// descriptor is reset). Safe to call multiple times.
-SVS_API void svs_search_results_free(svs_search_results_t* results);
 
 /// @brief Save the index to disk
 /// @param index The index handle

@@ -16,12 +16,7 @@
 
 #pragma once
 
-// TODO: use cmakedefine and cmake configure_file
-// #define SVS_C_API_VERSION ((MAJOR << 16) | (MINOR << 8) | PATCH)
-#define SVS_C_API_VERSION ((0 << 16) | (4 << 8) | 0)
-#define SVS_GET_VERSION_MAJOR(version) ((version >> 16) & 0xFF)
-#define SVS_GET_VERSION_MINOR(version) ((version >> 8) & 0xFF)
-#define SVS_GET_VERSION_PATCH(version) (version & 0xFF)
+#include "svs/c_api/svs_c_version.h"
 
 // All symbols shall be internal unless marked as SVS_API
 #if defined _WIN32 || defined __CYGWIN__

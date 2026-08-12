@@ -24,6 +24,7 @@
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <numeric>
@@ -55,15 +56,9 @@ struct svs_storage {
     std::shared_ptr<svs::c_runtime::Storage> impl;
 };
 
-extern "C" uint32_t svs_get_version() {
-    return (SVS_VERSION_MAJOR << 16) | (SVS_VERSION_MINOR << 8) | SVS_VERSION_PATCH;
-}
+extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
 
-#define SVS_VERSION_STRING_HELPER(major, minor, patch) #major "." #minor "." #patch
-#define SVS_VERSION_STRING \
-    SVS_VERSION_STRING_HELPER(SVS_VERSION_MAJOR, SVS_VERSION_MINOR, SVS_VERSION_PATCH)
-
-extern "C" const char* svs_get_version_string() { return SVS_VERSION_STRING; }
+extern "C" const char* svs_get_version_string() { return SVS_C_API_VERSION_STRING; }
 
 extern "C" svs_algorithm_h svs_algorithm_create_vamana(
     size_t graph_degree,
@@ -382,7 +377,7 @@ extern "C" SVS_API bool svs_storage_get_kind(
 
 extern "C" void svs_storage_free(svs_storage_h storage) { delete storage; }
 
-svs_index_builder_h svs_index_builder_create(
+extern "C" svs_index_builder_h svs_index_builder_create(
     svs_distance_metric_t metric,
     size_t dimension,
     svs_algorithm_h algorithm,
@@ -706,15 +701,14 @@ extern "C" void svs_search_results_free(svs_search_results_t* results) {
     if (results == nullptr) {
         return;
     }
-    if (results->owns_buffers) {
-        delete[] results->offsets;
-        delete[] results->indices;
-        delete[] results->distances;
-    }
-    results->version = SVS_C_API_VERSION;
-    results->struct_size = sizeof(svs_search_results_t);
     results->num_queries = 0;
     results->total_results = 0;
+    if (!results->owns_buffers) {
+        return; // caller-owned: leave pointers/capacities intact.
+    }
+    delete[] results->offsets;
+    delete[] results->indices;
+    delete[] results->distances;
     results->offsets = nullptr;
     results->indices = nullptr;
     results->distances = nullptr;
@@ -971,6 +965,10 @@ extern "C" bool svs_index_get_memory_breakdown(
             INVALID_ARGUMENT_IF(
                 out_breakdown->version > svs_get_version(),
                 "Incompatible svs_memory_breakdown_t version"
+            );
+            INVALID_ARGUMENT_IF(
+                out_breakdown->struct_size > sizeof(svs_memory_breakdown_t),
+                "Incompatible svs_memory_breakdown_t struct_size"
             );
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
