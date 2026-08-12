@@ -15,7 +15,7 @@
  */
 
 // C API
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"

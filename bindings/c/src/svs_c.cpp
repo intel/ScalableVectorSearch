@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
 #include "error.hpp"

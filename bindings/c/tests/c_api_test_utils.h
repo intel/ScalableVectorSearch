@@ -15,7 +15,7 @@
 #pragma once
 
 // C API
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 // Standard library
 #include <cmath>

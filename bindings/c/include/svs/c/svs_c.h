@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "svs/c_api/svs_c_config.h"
+#include "svs/c/svs_c_config.h"
 
 #include <stdbool.h>
 #include <stddef.h>

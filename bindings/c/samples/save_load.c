@@ -19,7 +19,7 @@
 // required for mkdtemp
 #define _GNU_SOURCE
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 #include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>

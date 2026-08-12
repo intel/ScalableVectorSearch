@@ -31,7 +31,7 @@ For the design rationale, naming conventions, and full API reference see
 ## Public Headers
 
 ```c
-#include "svs/c_api/svs_c.h"           // Main C API
+#include "svs/c/svs_c.h"           // Main C API
 ```
 
 ## Building and Consuming
@@ -72,7 +72,7 @@ is below the required version.
 ## Quick Start
 
 ```c
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 #include <stdio.h>
 #include <stdlib.h>
 

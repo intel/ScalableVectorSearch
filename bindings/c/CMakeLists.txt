@@ -19,15 +19,15 @@ set(TARGET_NAME svs_c_api)
 include(GNUInstallDirs)
 
 set(SVS_C_API_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
-set(SVS_C_API_VERSION_HEADER "${SVS_C_API_GENERATED_INCLUDE_DIR}/svs/c_api/svs_c_version.h")
+set(SVS_C_API_VERSION_HEADER "${SVS_C_API_GENERATED_INCLUDE_DIR}/svs/c/svs_c_version.h")
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/svs/c_api/svs_c_version.h.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/svs/c/svs_c_version.h.in"
     "${SVS_C_API_VERSION_HEADER}"
 )
 
 set(SVS_C_API_HEADERS
-    include/svs/c_api/svs_c_config.h
-    include/svs/c_api/svs_c.h
+    include/svs/c/svs_c_config.h
+    include/svs/c/svs_c.h
     ${SVS_C_API_VERSION_HEADER}
 )
 
@@ -192,11 +192,11 @@ install(TARGETS ${TARGET_NAME}
     EXPORT ${SVS_C_API_EXPORT_NAME}
     COMPONENT ${SVS_C_API_COMPONENT_NAME}
     LIBRARY DESTINATION lib
-    PUBLIC_HEADER DESTINATION include/svs/c_api
+    PUBLIC_HEADER DESTINATION include/svs/c
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(DIRECTORY include/svs/c_api
+install(DIRECTORY include/svs/c
     COMPONENT ${SVS_C_API_COMPONENT_NAME}
     DESTINATION include/svs
     FILES_MATCHING PATTERN "*.h"
