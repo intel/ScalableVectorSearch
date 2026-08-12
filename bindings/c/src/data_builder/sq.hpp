@@ -64,7 +64,10 @@ template <Arithmetic T, typename Allocator = svs::lib::Allocator<T>> class SQDat
         const auto element_size = sizeof(typename data_type::element_type) * dimension;
         const auto data_size =
             svs::c_runtime::adjust_blocked_size(num_vectors, element_size, allocator);
-        return data_size + sizeof(float) * 2; // Add size of scale and bias
+        // TODO: Fix the actual memory breakdown reported by index by implementing
+        // dataset_allocated_bytes() specialization for SQDataset.
+        const size_t scale_bias_size = 0; // sizeof(float) * 2;
+        return data_size + scale_bias_size;
     }
 };
 
