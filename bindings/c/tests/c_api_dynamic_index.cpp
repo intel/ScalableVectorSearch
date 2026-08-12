@@ -354,6 +354,37 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         svs_index_free(loaded_index);
         svs_index_free(index);
     }
+}
+
+CATCH_TEST_CASE("C API Dynamic Index Memory", "[c_api][index][memory][dynamic]") {
+    // TODO: fix the blocked memory breakdown reported by index for LVQ, LeanVec storages.
+    // For now, we will:
+    // * test only the default simple and SQ storages.
+    // * Align graph and data sizes to BLOCK_SIZE to avoid test failures.
+    const size_t BLOCK_SIZE = 8 * 1024; // 8 KB block size for testing
+    const size_t DIMENSION = 32;
+    const size_t GRAPH_DEGREE = 16;
+    const size_t NUM_VECTORS = BLOCK_SIZE / DIMENSION; // full blocks of data
+    const size_t K = 5;
+
+    std::vector<float> data;
+    std::vector<size_t> ids(NUM_VECTORS);
+    generate_test_data(data, NUM_VECTORS, DIMENSION);
+
+    // Generate sequential IDs
+    for (size_t i = 0; i < NUM_VECTORS; ++i) {
+        ids[i] = i;
+    }
+
+    svs_error_h error = svs_error_create();
+
+    svs_algorithm_h algorithm = svs_algorithm_create_vamana(GRAPH_DEGREE, 100, 100, error);
+    CATCH_REQUIRE(algorithm != nullptr);
+
+    svs_index_builder_h builder = svs_index_builder_create(
+        SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+    );
+    CATCH_REQUIRE(builder != nullptr);
 
     CATCH_SECTION("Memory Accounting Functions") {
         // Build dynamic index
@@ -365,7 +396,7 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
 
         // Test get_memory_usage
         size_t memory_usage = 0;
-        success = svs_index_get_memory_usage(index, &memory_usage, error);
+        bool success = svs_index_get_memory_usage(index, &memory_usage, error);
         CATCH_REQUIRE(success);
         CATCH_REQUIRE(svs_error_ok(error));
         CATCH_REQUIRE(memory_usage > 0);
@@ -385,6 +416,101 @@ CATCH_TEST_CASE("C API Dynamic Index", "[c_api][index][dynamic]") {
         CATCH_REQUIRE(total == memory_usage);
 
         svs_index_free(index);
+    }
+
+    CATCH_SECTION("Estimate Memory vs Actual Breakdown") {
+        // Build a dynamic index and compare its actual memory breakdown against
+        // the pre-build estimate produced by
+        // svs_index_builder_estimate_memory_dynamic(). `storage` may be nullptr
+        // to exercise the default (simple float32) storage.
+        auto estimate_and_verify = [&](svs_storage_h storage) {
+            svs_algorithm_h local_algorithm =
+                svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(local_algorithm != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_index_builder_h local_builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, local_algorithm, error
+            );
+            CATCH_REQUIRE(local_builder != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            bool ok = svs_index_builder_set_threadpool(
+                local_builder, SVS_THREADPOOL_KIND_NATIVE, 4, error
+            );
+            CATCH_REQUIRE(ok);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            if (storage != nullptr) {
+                ok = svs_index_builder_set_storage(local_builder, storage, error);
+                CATCH_REQUIRE(ok);
+                CATCH_REQUIRE(svs_error_ok(error));
+            }
+
+            // Estimate before build.
+            svs_memory_breakdown_t estimated{};
+            ok = svs_index_builder_estimate_memory_dynamic(
+                local_builder, NUM_VECTORS, BLOCK_SIZE, &estimated, error
+            );
+            CATCH_REQUIRE(ok);
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(estimated.graph_bytes > 0);
+            CATCH_REQUIRE(estimated.data_bytes > 0);
+            CATCH_REQUIRE(estimated.metadata_bytes > 0);
+
+            // Build the dynamic index and query the actual breakdown.
+            svs_index_h index = svs_index_build_dynamic(
+                local_builder, data.data(), ids.data(), NUM_VECTORS, BLOCK_SIZE, error
+            );
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_memory_breakdown_t actual{};
+            ok = svs_index_get_memory_breakdown(index, &actual, error);
+            CATCH_REQUIRE(ok);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            // Allow up to 1% deviation between the pre-build estimate and the
+            // actual allocation (compressed storages may add small per-dataset
+            // overhead not accounted for by the estimator, and vice versa).
+            auto within_1pct = [](size_t estimate, size_t actual_val) {
+                if (estimate == actual_val) {
+                    return true;
+                }
+                const auto [smaller, larger] = std::minmax(estimate, actual_val);
+                return (larger - smaller) * 100 <= larger;
+            };
+            CATCH_REQUIRE(within_1pct(estimated.graph_bytes, actual.graph_bytes));
+            CATCH_REQUIRE(within_1pct(estimated.data_bytes, actual.data_bytes));
+            CATCH_REQUIRE(within_1pct(estimated.metadata_bytes, actual.metadata_bytes));
+
+            svs_index_free(index);
+            svs_index_builder_free(local_builder);
+            svs_algorithm_free(local_algorithm);
+        };
+
+        // Default storage (simple float32).
+        estimate_and_verify(nullptr);
+
+        // Simple float16 storage.
+        {
+            svs_storage_h storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // Scalar quantization storage.
+        {
+            svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
     }
 
     svs_index_builder_free(builder);

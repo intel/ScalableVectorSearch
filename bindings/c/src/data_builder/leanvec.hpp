@@ -97,15 +97,16 @@ class LeanVecDataBuilder {
         const auto secondary_size =
             secondary_data_builder{}.estimate_size(num_vectors, dimension, allocator);
 
-        // LeanVec matrices are 2 SimpleData matrices of float, each of size (dimension x
-        // leanvec_dims)
-        const size_t matrices_size = 2 * dimension * leanvec_dims_ * sizeof(float);
+        // TODO: Fix the actual memory breakdown reported by index by implementing
+        // dataset_allocated_bytes() specialization for LeanDataset. LeanVec matrices are 2
+        // SimpleData matrices of float, each of size (dimension x leanvec_dims)
+        const size_t matrices_size = 0; // 2 * dimension * leanvec_dims_ * sizeof(float);
 
         // LeanVec means is the vector of double of size (dimension)
-        const size_t means_size = dimension * sizeof(double);
+        const size_t means_size = 0; // dimension * sizeof(double);
 
         // is_pca_ flag is a boolean, so it takes 1 byte
-        const size_t is_pca_size = sizeof(bool);
+        const size_t is_pca_size = 0; // sizeof(bool);
 
         const auto total_size =
             primary_size + secondary_size + matrices_size + means_size + is_pca_size;

@@ -49,4 +49,13 @@ svs::DynamicVamana dispatch_dynamic_vamana_index_load(
     size_t blocksize_bytes
 );
 
+svs::index::vamana::MemoryBreakdown dispatch_dynamic_vamana_memory_estimate(
+    const svs::index::vamana::VamanaBuildParameters& build_params,
+    size_t num_vectors,
+    size_t dimension,
+    const Storage* storage,
+    svs::DistanceType distance_type,
+    size_t blocksize_bytes
+);
+
 } // namespace svs::c_runtime
