@@ -29,7 +29,7 @@ namespace svs::c_runtime {
 
 class ThreadPoolBuilder {
     struct CustomThreadPool {
-        static svs_threadpool_i validate(svs_threadpool_i impl) {
+        static void validate(svs_threadpool_i impl) {
             if (impl == nullptr) {
                 throw std::invalid_argument("Custom threadpool pointer cannot be null.");
             }
@@ -41,28 +41,23 @@ class ThreadPoolBuilder {
                     "Custom threadpool interface has null function pointers."
                 );
             }
-            return impl;
         }
 
-        CustomThreadPool(svs_threadpool_i impl)
-            : impl{validate(impl)} {}
+        // Holds a value copy of the user's ops table; only `self` is referenced and
+        // must outlive the pool.
+        CustomThreadPool(const svs_threadpool_interface_ops& ops, void* self)
+            : ops_{ops}
+            , self_{self} {}
 
-        size_t size() const {
-            assert(impl != nullptr && impl->ops != nullptr && impl->ops->size != nullptr);
-            return impl->ops->size(impl->self);
-        }
+        size_t size() const { return ops_.size(self_); }
 
         void parallel_for(std::function<void(size_t)> f, size_t n) const {
-            assert(
-                impl != nullptr && impl->ops != nullptr &&
-                impl->ops->parallel_for != nullptr
-            );
             std::vector<std::exception_ptr> exceptions(n);
             auto svs_param = std::make_pair(&f, &exceptions);
             svs_error_desc impl_error{
                 SVS_ERROR_UNKNOWN, "Unknown error in custom threadpool parallel_for"};
-            if (!impl->ops->parallel_for(
-                    impl->self,
+            if (!ops_.parallel_for(
+                    self_,
                     [](void* svs_param, size_t i) {
                         auto& [func, exceptions] = *static_cast<std::pair<
                             std::function<void(size_t)>*,
@@ -90,12 +85,15 @@ class ThreadPoolBuilder {
             }
         }
 
-        svs_threadpool_i impl;
+        svs_threadpool_interface_ops ops_;
+        void* self_;
     };
 
     svs_threadpool_kind kind;
     size_t num_threads;
-    svs_threadpool_i user_threadpool;
+    // Owned copy of the user's threadpool vtable; `user_self_` is referenced only.
+    svs_threadpool_interface_ops user_ops_{};
+    void* user_self_ = nullptr;
 
   public:
     ThreadPoolBuilder()
@@ -103,8 +101,7 @@ class ThreadPoolBuilder {
 
     ThreadPoolBuilder(svs_threadpool_kind kind, size_t num_threads)
         : kind(kind)
-        , num_threads(kind == SVS_THREADPOOL_KIND_SINGLE_THREAD ? 1 : num_threads)
-        , user_threadpool(nullptr) {
+        , num_threads(kind == SVS_THREADPOOL_KIND_SINGLE_THREAD ? 1 : num_threads) {
         if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
             throw std::invalid_argument(
                 "SVS_THREADPOOL_KIND_CUSTOM cannot be built automatically."
@@ -114,19 +111,23 @@ class ThreadPoolBuilder {
 
     ThreadPoolBuilder(svs_threadpool_i pool)
         : kind(SVS_THREADPOOL_KIND_CUSTOM)
-        , num_threads(0)
-        , user_threadpool(CustomThreadPool::validate(pool)) {}
+        , num_threads(0) {
+        CustomThreadPool::validate(pool);
+        // Copy the vtable so the caller may free/modify `pool` and its ops table on
+        // return; `self` is referenced and must outlive the builder and its indices.
+        user_ops_ = *pool->ops;
+        user_self_ = pool->self;
+    }
 
     static size_t default_threads_num() {
         return std::max(size_t{1}, size_t{std::thread::hardware_concurrency()});
     }
 
     svs_threadpool_kind get_kind() const { return kind; }
-    svs_threadpool_i get_user_threadpool() const { return user_threadpool; }
 
     size_t get_threads_num() const {
         if (kind == SVS_THREADPOOL_KIND_CUSTOM) {
-            return user_threadpool->ops->size(user_threadpool->self);
+            return user_ops_.size(user_self_);
         }
         return num_threads;
     }
@@ -156,8 +157,7 @@ class ThreadPoolBuilder {
             case SVS_THREADPOOL_KIND_SINGLE_THREAD:
                 return ThreadPoolHandle(SequentialThreadPool());
             case SVS_THREADPOOL_KIND_CUSTOM:
-                assert(user_threadpool != nullptr);
-                return ThreadPoolHandle(CustomThreadPool{this->user_threadpool});
+                return ThreadPoolHandle(CustomThreadPool{user_ops_, user_self_});
             default:
                 throw std::invalid_argument("Unknown svs_threadpool_kind value.");
         }

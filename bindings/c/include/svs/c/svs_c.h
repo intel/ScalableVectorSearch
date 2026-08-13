@@ -43,6 +43,9 @@
 extern "C" {
 #endif
 
+/// @brief Error codes returned by the API and stored in svs_error_h handles.
+/// @remarks Values are stable across API versions: existing codes are never renumbered;
+/// new codes are only appended. Do not assume the set is contiguous.
 enum svs_error_code {
     SVS_OK = 0,
     SVS_ERROR_GENERIC = 1,
@@ -57,37 +60,55 @@ enum svs_error_code {
 
 typedef struct svs_error_desc* svs_error_h;
 
+/// @brief Distance metric used to compare vectors.
 enum svs_distance_metric {
     SVS_DISTANCE_METRIC_EUCLIDEAN = 0,
     SVS_DISTANCE_METRIC_COSINE = 1,
     SVS_DISTANCE_METRIC_DOT_PRODUCT = 2
 };
 
+/// @brief Index search algorithm kind.
 enum svs_algorithm_type {
     SVS_ALGORITHM_TYPE_VAMANA = 0,
     SVS_ALGORITHM_TYPE_FLAT = 1,
     SVS_ALGORITHM_TYPE_IVF = 2,
 };
 
+/// @brief Element data type for vectors and quantization configurations.
+/// @remarks Each value encodes its category, sub-kind, and bit-width so it can be
+/// classified directly with bitwise operations:
+///   - bits 0-7   element width in bits: @c (dt & 0xFF)
+///   - bits 8-11  category: @c ((dt >> 8) & 0xF) — 0 = none, 1 = unsigned integer,
+///                2 = signed integer, 3 = floating-point
+///   - bits 12-15 variant: @c ((dt >> 12) & 0xF) — 0 for the default, distinguishes
+///                types sharing the same category and width (e.g. 1 marks bfloat16
+///                apart from float16)
+/// So a value is @c ((variant << 12) | (category << 8) | bits). Values are stable across
+/// API versions: existing values are never changed; new types are added with a fresh
+/// encoding.
 enum svs_data_type {
-    SVS_DATA_TYPE_NONE = 0,
-    SVS_DATA_TYPE_VOID = SVS_DATA_TYPE_NONE,
-    SVS_DATA_TYPE_FLOAT64,
-    SVS_DATA_TYPE_FLOAT32,
-    SVS_DATA_TYPE_FLOAT16,
-    SVS_DATA_TYPE_BFLOAT16,
-    SVS_DATA_TYPE_INT64,
-    SVS_DATA_TYPE_UINT64,
-    SVS_DATA_TYPE_INT32,
-    SVS_DATA_TYPE_UINT32,
-    SVS_DATA_TYPE_INT16,
-    SVS_DATA_TYPE_UINT16,
-    SVS_DATA_TYPE_INT8,
-    SVS_DATA_TYPE_UINT8,
-    SVS_DATA_TYPE_INT4,
-    SVS_DATA_TYPE_UINT4
+    SVS_DATA_TYPE_NONE = 0, ///< Unspecified / absent type (e.g. "no residual" in LVQ)
+    SVS_DATA_TYPE_VOID = SVS_DATA_TYPE_NONE, ///< Alias of SVS_DATA_TYPE_NONE
+
+    SVS_DATA_TYPE_UINT4 = (0 << 12) | (1 << 8) | 4,
+    SVS_DATA_TYPE_UINT8 = (0 << 12) | (1 << 8) | 8,
+    SVS_DATA_TYPE_UINT16 = (0 << 12) | (1 << 8) | 16,
+    SVS_DATA_TYPE_UINT32 = (0 << 12) | (1 << 8) | 32,
+    SVS_DATA_TYPE_UINT64 = (0 << 12) | (1 << 8) | 64,
+
+    SVS_DATA_TYPE_INT4 = (0 << 12) | (2 << 8) | 4,
+    SVS_DATA_TYPE_INT8 = (0 << 12) | (2 << 8) | 8,
+    SVS_DATA_TYPE_INT16 = (0 << 12) | (2 << 8) | 16,
+    SVS_DATA_TYPE_INT32 = (0 << 12) | (2 << 8) | 32,
+    SVS_DATA_TYPE_INT64 = (0 << 12) | (2 << 8) | 64,
+
+    SVS_DATA_TYPE_FLOAT16 = (0 << 12) | (3 << 8) | 16,
+    SVS_DATA_TYPE_BFLOAT16 = (1 << 12) | (3 << 8) | 16,
+    SVS_DATA_TYPE_FLOAT32 = (0 << 12) | (3 << 8) | 32,
+    SVS_DATA_TYPE_FLOAT64 = (0 << 12) | (3 << 8) | 64
 };
 
+/// @brief Vector storage / compression scheme.
 enum svs_storage_kind {
     SVS_STORAGE_KIND_SIMPLE = 0,
     SVS_STORAGE_KIND_LEANVEC = 1,
@@ -95,6 +116,7 @@ enum svs_storage_kind {
     SVS_STORAGE_KIND_SQ = 3
 };
 
+/// @brief Thread pool implementation used for parallel operations.
 enum svs_threadpool_kind {
     SVS_THREADPOOL_KIND_NATIVE = 0,
     SVS_THREADPOOL_KIND_OMP = 1,
@@ -369,9 +391,8 @@ static inline void svs_search_results_row(
 /// the caller opts in by supplying a large-enough @p struct_size (e.g. via the
 /// SVS_INIT_MEMORY_BREAKDOWN() macro from the newer header).
 struct svs_memory_breakdown {
-    uint32_t version; /// Version of the memory breakdown structure
-    size_t
-        struct_size; /// Size of the structure, used for versioning and compatibility checks
+    uint32_t version;      /// Version of the memory breakdown structure
+    size_t struct_size;    /// Size of the structure, used for versioning
     size_t graph_bytes;    /// Allocated bytes for the graph structure
     size_t data_bytes;     /// Allocated bytes for the data vectors
     size_t metadata_bytes; /// Allocated bytes for metadata (entry points, status, etc.)
@@ -385,6 +406,11 @@ struct svs_memory_breakdown {
     }
 
 // Handle typedefs; "_h" suffix indicates a handle to an opaque struct
+///
+/// @remarks Thread-safety: unless a specific function documents otherwise, handles
+/// (svs_error_h, svs_index_h, svs_index_builder_h, svs_algorithm_h, svs_storage_h,
+/// svs_search_params_h) are not internally synchronized. Do not operate on the same
+/// handle from multiple threads concurrently without external synchronization.
 typedef struct svs_index* svs_index_h;
 typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
@@ -423,6 +449,8 @@ SVS_API const char* svs_get_version_string();
 /// @brief Create an error handle
 /// @return A handle to the created error object or NULL if creation failed (e.g., due to
 /// memory allocation failure)
+/// @remarks If this returns NULL, the value may still be passed as the optional @c out_err
+/// argument to other API functions; error details simply will not be captured.
 SVS_API svs_error_h svs_error_create();
 
 /// @brief Set an error code and message in the error handle
@@ -661,6 +689,9 @@ SVS_API bool svs_index_builder_set_threadpool(
 /// @param pool The custom thread pool interface
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @remarks The builder copies @p pool (the interface struct and its ops table) by value
+/// before returning, so the caller may free or modify @p pool and its ops table once this
+/// call returns.
 SVS_API bool svs_index_builder_set_threadpool_custom(
     svs_index_builder_h builder, svs_threadpool_i pool, svs_error_h out_err /*=NULL*/
 );
@@ -671,6 +702,9 @@ SVS_API bool svs_index_builder_set_threadpool_custom(
 /// @param num_vectors The number of vectors in the data
 /// @param out_err An optional error handle to capture errors
 /// @return A handle to the built index
+/// @remarks @p data is a row-major array of @p num_vectors * dimension floats (dimension
+/// as passed to svs_index_builder_create). The data is copied into the index's internal
+/// storage, so the caller may free or modify @p data once this call returns.
 SVS_API svs_index_h svs_index_build(
     svs_index_builder_h builder,
     const float* data,
@@ -688,6 +722,8 @@ SVS_API svs_index_h svs_index_build(
 /// default)
 /// @param out_err An optional error handle to capture errors
 /// @return A handle to the built dynamic index
+/// @remarks Both @p data and @p ids are copied into the index's internal storage; the
+/// caller may free or modify them once this call returns.
 SVS_API svs_index_h svs_index_build_dynamic(
     svs_index_builder_h builder,
     const float* data,
@@ -899,6 +935,9 @@ SVS_API bool svs_index_dynamic_compact(
 /// @param out_num_threads Pointer to store the retrieved number of threads
 /// @param out_err An optional error handle to capture errors
 /// @return true on success, false on failure
+/// @error On failure, if out_err is provided, it will contain:
+/// - SVS_ERROR_INVALID_ARGUMENT if index or out_num_threads is NULL
+/// - SVS_ERROR_RUNTIME for other runtime failures
 SVS_API bool svs_index_get_num_threads(
     svs_index_h index, size_t* out_num_threads, svs_error_h out_err /*=NULL*/
 );
