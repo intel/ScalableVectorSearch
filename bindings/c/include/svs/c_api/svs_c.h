@@ -125,6 +125,7 @@ typedef struct svs_index_builder* svs_index_builder_h;
 typedef struct svs_algorithm* svs_algorithm_h;
 typedef struct svs_storage* svs_storage_h;
 typedef struct svs_search_params* svs_search_params_h;
+typedef struct svs_leanvec_training_data* svs_leanvec_training_data_h;
 
 // Fully defined types; "_t" suffix indicates a fully defined struct
 typedef enum svs_error_code svs_error_code_t;
@@ -304,6 +305,47 @@ SVS_API svs_storage_h svs_storage_create_sq(
 /// @brief Free the storage handle
 /// @param storage The storage handle to free
 SVS_API void svs_storage_free(svs_storage_h storage);
+
+/// @brief Train LeanVec dimensionality-reduction matrices from a data sample
+/// @param dim The dimensionality of the data (and training queries)
+/// @param num_vectors The number of data vectors in x
+/// @param x Pointer to the data vectors [num_vectors x dim] (float array)
+/// @param num_queries The number of training queries in x_q (0 for in-distribution)
+/// @param x_q Pointer to the training queries [num_queries x dim], or NULL. When
+/// provided, matrices are trained out-of-distribution (OOD) using these queries;
+/// when num_queries is 0 or x_q is NULL, in-distribution (PCA) matrices are computed.
+/// @param leanvec_dims The reduced number of LeanVec dimensions
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the trained LeanVec matrices
+SVS_API svs_leanvec_training_data_h svs_leanvec_training_data_build(
+    size_t dim,
+    size_t num_vectors,
+    const float* x,
+    size_t num_queries,
+    const float* x_q /*=NULL*/,
+    size_t leanvec_dims,
+    svs_error_h out_err /*=NULL*/
+);
+
+/// @brief Free the LeanVec training data handle
+/// @param training_data The training data handle to free
+SVS_API void svs_leanvec_training_data_free(svs_leanvec_training_data_h training_data);
+
+/// @brief Create a LeanVec storage configuration from pre-trained matrices
+/// @param training_data The trained LeanVec matrices to use when reducing the data,
+/// instead of computing PCA matrices at build time. The number of LeanVec dimensions
+/// is taken from the training data. The storage retains a reference to the trained
+/// matrices, so the training data handle may be freed once this call returns.
+/// @param primary The data type of the primary quantization
+/// @param secondary The data type of the secondary quantization
+/// @param out_err An optional error handle to capture errors
+/// @return A handle to the created LeanVec storage
+SVS_API svs_storage_h svs_storage_create_leanvec_trained(
+    svs_leanvec_training_data_h training_data,
+    svs_data_type_t primary,
+    svs_data_type_t secondary,
+    svs_error_h out_err /*=NULL*/
+);
 
 /// @brief Create an index builder configuration
 /// @param metric The distance metric to use

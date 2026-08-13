@@ -437,8 +437,20 @@ svs_storage_h svs_storage_create_lvq(
 );
 
 // LeanVec two-level hierarchical storage
+// Reduction matrices are computed from the dataset (PCA) at build time.
 svs_storage_h svs_storage_create_leanvec(
     size_t leanvec_dims,       // Primary dimensions (usually much smaller)
+    svs_data_type_t primary,   // Primary storage type
+    svs_data_type_t secondary, // Secondary/residual storage type
+    svs_error_h out_err
+);
+
+// LeanVec storage using matrices trained up front, e.g. out-of-distribution
+// matrices learned from a sample of queries. `leanvec_dims` comes from the
+// training data. The storage keeps its own reference to the matrices, so the
+// training data handle may be freed as soon as this returns.
+svs_storage_h svs_storage_create_leanvec_trained(
+    svs_leanvec_training_data_h training_data,
     svs_data_type_t primary,   // Primary storage type
     svs_data_type_t secondary, // Secondary/residual storage type
     svs_error_h out_err
