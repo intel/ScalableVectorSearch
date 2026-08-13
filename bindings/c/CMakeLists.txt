@@ -49,7 +49,10 @@ target_include_directories(${TARGET_NAME} PRIVATE
 )
 
 find_package(OpenMP REQUIRED)
-target_link_libraries(${TARGET_NAME} PUBLIC OpenMP::OpenMP_CXX)
+# PRIVATE: OpenMP is an implementation detail linked into the shared library.
+# Exporting it would force consumers of the C ABI to resolve a C++ OpenMP
+# target they never asked for.
+target_link_libraries(${TARGET_NAME} PRIVATE OpenMP::OpenMP_CXX)
 
 target_compile_options(${TARGET_NAME} PRIVATE
     -DSVS_ENABLE_OMP=1
@@ -61,7 +64,10 @@ if(UNIX AND NOT APPLE)
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
 endif()
 
-target_compile_features(${TARGET_NAME} INTERFACE cxx_std_20)
+# C++20 is required to build this library, but not to consume it: the public
+# surface is a C ABI. Keep the requirement PRIVATE so that pure-C consumers are
+# not forced to compile as C++20.
+target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
 if (NOT DEFINED SVS_CXX_STANDARD OR SVS_CXX_STANDARD STREQUAL "")
     set(SVS_CXX_STANDARD 20)
 endif()
@@ -74,6 +80,11 @@ set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVER
 target_link_libraries(${TARGET_NAME} PRIVATE
     svs::svs
 )
+
+# The non-LTO fallback below is correct but slower, so nothing fails and CI stays
+# green. Set this where the LTO archive is the point (CI) to make the drop an error.
+option(SVS_REQUIRE_LTO_ARCHIVE
+    "Fail instead of warn when the compiler cannot consume the LVQ/LeanVec LTO archive" OFF)
 
 if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     message(STATUS "Enabling LVQ/LeanVec support in C API")
@@ -108,20 +119,34 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
         if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "11.2" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11.3")
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-02-05-1017.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-lto-nightly-2026-07-21-127.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         else()
-            message(WARNING
+            # The fallback is correct but slower, so nothing downstream fails and CI
+            # stays green. Set SVS_REQUIRE_LTO_ARCHIVE=ON where the LTO archive is
+            # the point (the containerised CI job) to make the drop an error.
+            if(SVS_REQUIRE_LTO_ARCHIVE)
+                set(SVS_LTO_MESSAGE_LEVEL FATAL_ERROR)
+            else()
+                set(SVS_LTO_MESSAGE_LEVEL WARNING)
+            endif()
+            message(${SVS_LTO_MESSAGE_LEVEL}
                 "Pre-built LVQ/LeanVec SVS library requires GCC/G++ v.11.2 to apply LTO optimizations."
                 "Current compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
             )
-            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/nightly/svs-shared-library-nightly-2026-02-05-1017.tar.gz"
+            set(SVS_URL "https://github.com/intel/ScalableVectorSearch/releases/download/v0.4.0/svs-shared-library.tar.gz"
                 CACHE STRING "URL to download SVS shared library")
         endif()
         include(FetchContent)
+        # DOWNLOAD_EXTRACT_TIMESTAMP needs CMake 3.24+; 3.22 is still around locally.
+        set(SVS_FETCH_EXTRA_ARGS)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+            list(APPEND SVS_FETCH_EXTRA_ARGS DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+        endif()
         FetchContent_Declare(
             svs
             URL ${SVS_URL}
+            ${SVS_FETCH_EXTRA_ARGS}
         )
         FetchContent_MakeAvailable(svs)
         list(APPEND CMAKE_PREFIX_PATH "${svs_SOURCE_DIR}")
@@ -203,6 +228,9 @@ endif()
 
 
 if(SVS_BUILD_C_API_TESTS)
+    # Add test to CTest
+    include(CTest)
+    enable_testing()
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_options(${TARGET_NAME} PRIVATE --coverage)
         target_link_options(${TARGET_NAME} PRIVATE --coverage)

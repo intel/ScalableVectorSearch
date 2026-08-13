@@ -61,10 +61,10 @@ class SimpleDataBuilder {
     }
 };
 
-template <Arithmetic T, typename Allocator>
-struct lib::DispatchConverter<const c_runtime::Storage*, SimpleDataBuilder<T, Allocator>> {
+template <Arithmetic T, typename Alloc>
+struct lib::DispatchConverter<const c_runtime::Storage*, SimpleDataBuilder<T, Alloc>> {
     using From = const svs::c_runtime::Storage*;
-    using To = SimpleDataBuilder<T, Allocator>;
+    using To = SimpleDataBuilder<T, Alloc>;
 
     static int64_t match(From from) {
         if constexpr (svs::is_arithmetic_v<T>) {

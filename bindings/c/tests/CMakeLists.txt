@@ -61,6 +61,12 @@ target_link_libraries(${TARGET_NAME} PRIVATE
     Catch2::Catch2WithMain
 )
 
+# Tell the tests which storage backends this build is expected to provide, so
+# LVQ/LeanVec assertions are real instead of accepting NOT_IMPLEMENTED.
+if(SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
+    target_compile_definitions(${TARGET_NAME} PRIVATE SVS_TEST_EXPECT_LVQ_LEANVEC)
+endif()
+
 # Set C++ standard
 target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
 set_target_properties(${TARGET_NAME} PROPERTIES
