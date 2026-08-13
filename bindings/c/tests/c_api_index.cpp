@@ -765,6 +765,14 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
         svs_algorithm_free(algorithm);
         svs_error_free(error);
     }
+}
+
+CATCH_TEST_CASE("C API Index Memory", "[c_api][index][memory]") {
+    const size_t NUM_VECTORS = 1000;
+    const size_t DIMENSION = 32;
+
+    std::vector<float> data;
+    generate_test_data(data, NUM_VECTORS, DIMENSION);
 
     CATCH_SECTION("Memory Accounting Functions") {
         svs_error_h error = svs_error_create();
@@ -837,6 +845,136 @@ CATCH_TEST_CASE("C API Threadpool Management", "[c_api][index][threadpool]") {
         svs_index_free(index);
         svs_index_builder_free(builder);
         svs_algorithm_free(algorithm);
+        svs_error_free(error);
+    }
+
+    CATCH_SECTION("Estimate Memory vs Actual Breakdown") {
+        svs_error_h error = svs_error_create();
+
+        // Build an index and compare its actual memory breakdown against the
+        // pre-build estimate produced by svs_index_builder_estimate_memory().
+        // `storage` may be nullptr to exercise the default (simple float32) storage.
+        auto estimate_and_verify = [&](svs_storage_h storage) {
+            svs_algorithm_h algorithm = svs_algorithm_create_vamana(16, 32, 50, error);
+            CATCH_REQUIRE(algorithm != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_index_builder_h builder = svs_index_builder_create(
+                SVS_DISTANCE_METRIC_EUCLIDEAN, DIMENSION, algorithm, error
+            );
+            CATCH_REQUIRE(builder != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            bool success = svs_index_builder_set_threadpool(
+                builder, SVS_THREADPOOL_KIND_NATIVE, 4, error
+            );
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            if (storage != nullptr) {
+                success = svs_index_builder_set_storage(builder, storage, error);
+                CATCH_REQUIRE(success);
+                CATCH_REQUIRE(svs_error_ok(error));
+            }
+
+            // Estimate before build.
+            svs_memory_breakdown_t estimated{};
+            success =
+                svs_index_builder_estimate_memory(builder, NUM_VECTORS, &estimated, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+            CATCH_REQUIRE(estimated.graph_bytes > 0);
+            CATCH_REQUIRE(estimated.data_bytes > 0);
+            CATCH_REQUIRE(estimated.metadata_bytes > 0);
+
+            // Build the index and query the actual breakdown.
+            svs_index_h index = svs_index_build(builder, data.data(), NUM_VECTORS, error);
+            CATCH_REQUIRE(index != nullptr);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            svs_memory_breakdown_t actual{};
+            success = svs_index_get_memory_breakdown(index, &actual, error);
+            CATCH_REQUIRE(success);
+            CATCH_REQUIRE(svs_error_ok(error));
+
+            // Allow up to 1% deviation between the pre-build estimate and the
+            // actual allocation (compressed storages may add small per-dataset
+            // overhead not accounted for by the estimator, and vice versa).
+            auto within_1pct = [](size_t estimate, size_t actual_val) {
+                if (estimate == actual_val) {
+                    return true;
+                }
+                const auto [smaller, larger] = std::minmax(estimate, actual_val);
+                return (larger - smaller) * 100 <= larger;
+            };
+            CATCH_REQUIRE(within_1pct(estimated.graph_bytes, actual.graph_bytes));
+            CATCH_REQUIRE(estimated.data_bytes == actual.data_bytes);
+            CATCH_REQUIRE(within_1pct(estimated.data_bytes, actual.data_bytes));
+            CATCH_REQUIRE(within_1pct(estimated.metadata_bytes, actual.metadata_bytes));
+
+            svs_index_free(index);
+            svs_index_builder_free(builder);
+            svs_algorithm_free(algorithm);
+        };
+
+        // Default storage (simple float32).
+        estimate_and_verify(nullptr);
+
+        // Simple float16 storage.
+        {
+            svs_storage_h storage = svs_storage_create_simple(SVS_DATA_TYPE_FLOAT16, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // Scalar quantization storage
+        {
+            svs_storage_h storage = svs_storage_create_sq(SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // LVQ: primary = int4, residual = int8.
+        {
+            svs_storage_h storage =
+                svs_storage_create_lvq(SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error);
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // LeanVec: leanvec_dims = DIMENSION / 2, primary = int4, secondary = int8.
+        {
+            svs_storage_h storage = svs_storage_create_leanvec(
+                DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT8, error
+            );
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
+        // LeanVec: leanvec_dims = DIMENSION / 2, primary = int4, secondary = int4.
+        {
+            svs_storage_h storage = svs_storage_create_leanvec(
+                DIMENSION / 2, SVS_DATA_TYPE_INT4, SVS_DATA_TYPE_INT4, error
+            );
+            CATCH_REQUIRE(check_storage_support(storage, error) == true);
+            if (storage != nullptr) {
+                estimate_and_verify(storage);
+                svs_storage_free(storage);
+            }
+        }
+
         svs_error_free(error);
     }
 }
