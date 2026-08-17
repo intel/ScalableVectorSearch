@@ -45,7 +45,7 @@ Configure and build from the top of the ScalableVectorSearch tree; the C API is
 picked up as a subdirectory under `bindings/c`:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S bindings/c -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target svs_c_api
 cmake --install build
 ```

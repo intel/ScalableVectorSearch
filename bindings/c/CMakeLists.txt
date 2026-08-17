@@ -76,10 +76,17 @@ if(UNIX AND NOT APPLE)
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
 endif()
 
-# C++20 is required to build this library, but not to consume it: the public
-# surface is a C ABI. Keep the requirement PRIVATE so that pure-C consumers are
-# not forced to compile as C++20.
-target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
+# C++20 is required to *build* this library.
+# Propagate language standards to consumers of the public C ABI header so their
+# user code is compiled at a supported standard:
+#   - C consumers   -> C99 or later
+#   - C++ consumers -> C++20 or later
+# These meta-features are language-specific, so a pure-C consumer is held to C99
+# only and is never forced to compile as C++20.
+target_compile_features(${TARGET_NAME}
+    PUBLIC cxx_std_20
+    INTERFACE c_std_99
+)
 if (NOT DEFINED SVS_CXX_STANDARD OR SVS_CXX_STANDARD STREQUAL "")
     set(SVS_CXX_STANDARD 20)
 endif()
@@ -264,4 +271,6 @@ if(SVS_BUILD_C_API_TESTS)
     add_subdirectory(tests)
 endif()
 
-add_subdirectory(samples)
+if(SVS_BUILD_EXAMPLES)
+    add_subdirectory(samples)
+endif()
