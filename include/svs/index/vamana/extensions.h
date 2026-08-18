@@ -27,6 +27,9 @@
 #include "svs/lib/preprocessor.h"
 #include "svs/lib/threads.h"
 
+#include <mutex>
+#include <shared_mutex>
+
 namespace svs::index::vamana::extensions {
 
 /////
@@ -659,6 +662,240 @@ double svs_invoke(
     // Compute the distance using the appropriate distance function
     auto dist = svs::distance::compute(dist_f, query, indexed_span);
     return static_cast<double>(dist);
+}
+
+template <
+    data::ImmutableMemoryDataset Data,
+    data::ImmutableMemoryDataset Points,
+    typename DataPoints>
+class TransactionData {
+  public:
+    static constexpr size_t out_of_points_id = std::numeric_limits<size_t>::max();
+
+    using points_type = Points;
+    using const_point_type = typename Points::const_value_type;
+
+    using value_type = typename Data::value_type;
+    using const_value_type = typename Data::const_value_type;
+
+    TransactionData(
+        const Data& data,
+        const Points& points,
+        DataPoints data_points,
+        std::span<size_t> slots
+    )
+        : data_(data)
+        , points_(points)
+        , data_points_(std::move(data_points))
+        , slots_(slots.begin(), slots.end()) {
+        // slots to be divided to 2 parts: 1: slots within data_.size() and 2: slots with
+        // index >= data_.size() appropriate info should be stored in fields to allow point
+        // index computation in form: if id >= data_.size() then compute points index in
+        // form: id - data_.size() + out_of_data_slots_begin else compute points index in
+        // form: std::lower_bound(slots_.begin(), slots_.end(), id) - slots_.begin()
+        out_of_data_slots_begin_ =
+            std::lower_bound(slots_.begin(), slots_.end(), data_.size()) - slots_.begin();
+        assert(std::is_sorted(slots_.begin(), slots_.end()) && "Slots must be sorted");
+    }
+
+    const Data& get_data() const { return data_; }
+
+    // Get the index of the point corresponding to the given index' id.
+    size_t get_point_index(size_t id) const {
+        // find id in slots
+        if (id >= data_.size()) [[likely]] {
+            auto point_index = id - data_.size() + out_of_data_slots_begin_;
+            assert(point_index < points_.size() && "Point index out of bounds");
+            if (point_index < points_.size()) [[likely]] {
+                return point_index;
+            }
+        } else {
+            auto it = std::lower_bound(slots_.begin(), slots_.end(), id);
+            if (it != slots_.end() && *it == id) {
+                return std::distance(slots_.begin(), it);
+            }
+        }
+        return out_of_points_id;
+    }
+
+    const_point_type get_point(size_t id) const {
+        auto point_index = get_point_index(id);
+        if (point_index == out_of_points_id) {
+            throw std::out_of_range("ID not found in transaction data points");
+        }
+        return points_.get_datum(point_index);
+    }
+
+    const points_type& get_points() const { return points_; }
+    size_t num_points() const { return points_.size(); }
+    size_t get_slot(size_t i) const { return slots_[i]; }
+
+    size_t size() const {
+        return std::max(data_.size(), slots_.empty() ? 0 : slots_.back() + 1);
+    }
+    size_t dimensions() const { return data_.dimensions(); }
+    const_value_type get_datum(size_t i) const {
+        auto point_index = get_point_index(i);
+        if (point_index != out_of_points_id) {
+            return data_points_.get_datum(point_index);
+        } else {
+            return data_.get_datum(i);
+        }
+    }
+    void prefetch(size_t i) const {
+        auto point_index = get_point_index(i);
+        if (point_index != out_of_points_id) {
+            data_points_.prefetch(point_index);
+        } else {
+            data_.prefetch(i);
+        }
+    }
+
+    template <typename TargetData> void copy_points(TargetData& target_data) const {
+        assert(
+            &target_data == &data_ && "Target data must be the same as the original data"
+        );
+        auto new_size = slots_.back() + 1;
+        if (new_size > target_data.size()) {
+            target_data.resize(new_size);
+        }
+        for (size_t i = 0; i < points_.size(); ++i) {
+            target_data.set_datum(slots_[i], points_.get_datum(i));
+        }
+    }
+
+  private:
+    const Data& data_;
+    const Points& points_;
+    const DataPoints data_points_;
+    std::vector<size_t> slots_;
+    size_t out_of_data_slots_begin_;
+};
+
+struct TransactionDataBuilder {
+    template <
+        data::ImmutableMemoryDataset Data,
+        data::ImmutableMemoryDataset Points,
+        threads::ThreadPool Pool>
+    auto operator()(
+        const Data& data, const Points& points, std::span<size_t> slots, Pool& pool
+    ) const {
+        return svs_invoke(*this, data, points, slots, pool);
+    }
+};
+
+inline constexpr TransactionDataBuilder transaction_data_builder{};
+
+template <typename Data, data::ImmutableMemoryDataset Points, threads::ThreadPool Pool>
+auto svs_invoke(
+    svs::tag_t<transaction_data_builder>,
+    const Data& data,
+    const Points& points,
+    std::span<size_t> slots,
+    Pool& pool
+) {
+    assert(points.size() == slots.size() && "Points and slots must have the same size");
+    using data_element_type = typename Data::element_type;
+    constexpr size_t extent = Data::extent;
+    using allocator_type = typename data::remove_blocked_t<typename Data::allocator_type>;
+    using data_points_type = data::SimpleData<data_element_type, extent, allocator_type>;
+
+    auto data_points = data_points_type{
+        points.size(),
+        svs::lib::MaybeStatic<extent>(data.dimensions()),
+        data::remove_blocked(data.get_allocator())};
+    svs::threads::parallel_for(
+        pool,
+        svs::threads::StaticPartition(points.size()),
+        [&](auto is, auto SVS_UNUSED(tid)) {
+            for (auto i : is) {
+                data_points.set_datum(i, points.get_datum(i));
+            }
+        }
+    );
+    return TransactionData(data, points, std::move(data_points), slots);
+}
+
+/// @brief Implementation for transaction dataset/vamana build adaptors.
+template <typename InnerAdaptor, typename Distance, bool RebuildNeighbour = false>
+struct TransactionBuildAdaptor {
+  public:
+    using inner_adaptor_type = InnerAdaptor;
+    //    using transaction_data_type = TransactionData;
+
+    TransactionBuildAdaptor(
+        /*const TransactionData& data, */ Distance search_distance,
+        InnerAdaptor inner_adaptor
+    )
+        : /*data_(data)
+        , */
+        search_distance_(std::move(search_distance))
+        , inner_adaptor_(std::move(inner_adaptor)) {}
+
+    using search_distance_type = Distance;
+    using general_distance_type = typename InnerAdaptor::general_distance_type;
+
+    // Helper template
+    template <typename Data> using const_point_type = typename Data::const_point_type;
+
+    template <typename Data>
+    const_point_type<Data> access_query_for_graph_search(const Data& data, size_t i) const {
+        return data.get_point(i);
+    }
+
+    auto graph_search_accessor() const { return inner_adaptor_.graph_search_accessor(); }
+
+    search_distance_type& graph_search_distance() { return search_distance_; }
+
+    general_distance_type& general_distance() { return inner_adaptor_.general_distance(); }
+
+    auto general_accessor() const { return inner_adaptor_.general_accessor(); }
+
+    template <typename Data>
+    SVS_FORCE_INLINE const const_point_type<Data>& modify_post_search_query(
+        const Data& SVS_UNUSED(data),
+        size_t SVS_UNUSED(i),
+        const const_point_type<Data>& pre_search_query
+    ) const {
+        return pre_search_query;
+    }
+
+    static constexpr bool refix_argument_after_search =
+        inner_adaptor_type::refix_argument_after_search;
+
+    template <typename Data, NeighborLike N> //, typename Q>
+    SVS_FORCE_INLINE Neighbor<typename N::index_type> post_search_modify(
+        const Data& data,
+        general_distance_type& SVS_UNUSED(d),
+        const const_point_type<Data>& query,
+        // const Q& query,
+        const N& n
+    ) const {
+        if constexpr (RebuildNeighbour) {
+            auto id = n.id();
+            return Neighbor(
+                id, distance::compute(search_distance_, query, data.get_datum(id))
+            );
+        } else {
+            return n;
+        }
+    }
+
+  private:
+    // const transaction_data_type& data_;
+    Distance search_distance_;
+    inner_adaptor_type inner_adaptor_;
+};
+
+// Default to the ``TransactionBuildAdaptor``.
+template <typename Data, typename Points, typename Distance>
+auto svs_invoke(
+    svs::tag_t<build_adaptor>,
+    const TransactionData<Data, Points, const Points&>& data,
+    const Distance& distance
+) {
+    return TransactionBuildAdaptor{
+        /*data, */ distance, build_adaptor(data.get_data(), distance)};
 }
 
 } // namespace svs::index::vamana::extensions

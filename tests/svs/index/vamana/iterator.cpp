@@ -243,7 +243,7 @@ struct DynamicChecker {
 
 } // namespace
 
-CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator]") {
+CATCH_TEST_CASE("Vamana Iterator", "[index][vamana][iterator][dynamic]") {
     // This tests the general behavior of the iterator for correctness.
     // It is not concerned with whether the returned neighbors are accurate.
     //
