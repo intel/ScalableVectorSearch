@@ -174,7 +174,12 @@ void add_points(
             "Expected IDs to be the same length as the number of rows in points!"
         );
     }
-    index.add_points(data_view(py_data), std::span(ids.data(), ids.size()), reuse_empty);
+    auto data = data_view(py_data);
+    auto id_span = std::span(ids.data(), ids.size());
+    {
+        py::gil_scoped_release release;
+        index.add_points(data, id_span, reuse_empty);
+    }
 }
 
 const char* ADD_POINTS_DOCSTRING = R"(
@@ -381,8 +386,18 @@ void wrap(py::module& m) {
 
     add_dynamic_vamana_properties(vamana);
 
-    vamana.def("consolidate", &svs::DynamicVamana::consolidate, CONSOLIDATE_DOCSTRING);
-    vamana.def("compact", &svs::DynamicVamana::compact, COMPACT_DOCSTRING);
+    vamana.def(
+        "consolidate",
+        &svs::DynamicVamana::consolidate,
+        py::call_guard<py::gil_scoped_release>(),
+        CONSOLIDATE_DOCSTRING
+    );
+    vamana.def(
+        "compact",
+        &svs::DynamicVamana::compact,
+        py::call_guard<py::gil_scoped_release>(),
+        COMPACT_DOCSTRING
+    );
 
     // Reloading
     vamana.def(
@@ -435,7 +450,11 @@ void wrap(py::module& m) {
     vamana.def(
         "delete",
         [](svs::DynamicVamana& index, const py_contiguous_array_t<size_t>& ids) {
-            index.delete_points(as_span(ids));
+            auto id_span = as_span(ids);
+            {
+                py::gil_scoped_release release;
+                index.delete_points(id_span);
+            }
         },
         py::arg("ids"),
         DELETE_DOCSTRING

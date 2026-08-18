@@ -50,6 +50,15 @@
 
 namespace svs::graphs {
 
+/// Outcome of `MemoryGraph::add_edge(src, dst)`. Distinguishes three cases so callers
+/// can route dropped edges (e.g. to a backedge buffer) without a TOCTOU race between a
+/// pre-check and the insert.
+enum class AddEdgeResult : uint8_t {
+    Added,         // Edge was inserted.
+    AlreadyExists, // Edge was already present (or self-loop). Not inserted.
+    Full,          // Node's adjacency list is at max_degree. Edge NOT inserted.
+};
+
 // clang-format off
 
 ///
@@ -135,12 +144,13 @@ template <ImmutableMemoryGraph G> using index_type_t = typename G::index_type;
 /// @code{.cpp}
 /// template <typename T>
 /// concept MemoryGraph = requires(T& g, const T& const_g) {
-///     // Add an edge to the graph.
-///     // Must return the out degree of `src` after adding the edge `src -> dst`.
-///     // If adding the edge would result in the graph exceeding its maximum degree,
-///     // implementations are free to not add this edge.
+///     // Add an edge to the graph atomically. Returns an AddEdgeResult indicating:
+///     //   Added          - edge was inserted
+///     //   AlreadyExists  - edge was already present (or self-loop); no insert
+///     //   Full           - node is at max_degree; edge NOT inserted (caller should
+///     //                    route to an overflow buffer if needed)
 ///     requires requires(index_type_t<T> src, index_type_t<T> dst) {
-///         { g.add_edge(src, dst) } -> std::convertible_to<size_t>;
+///         { g.add_edge(src, dst) } -> std::convertible_to<AddEdgeResult>;
 ///     };
 ///
 ///     // Completely clear the adjacency list for vertex ``i``.
@@ -164,7 +174,7 @@ template <typename T>
 concept MemoryGraph = requires(T& g, const T& const_g) {
     // Adding an edge.
     requires requires(index_type_t<T> src, index_type_t<T> dst) {
-        { g.add_edge(src, dst) } -> std::convertible_to<size_t>;
+        { g.add_edge(src, dst) } -> std::convertible_to<AddEdgeResult>;
     };
 
     // Clear adjacency list.

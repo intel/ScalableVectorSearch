@@ -473,6 +473,13 @@ class VamanaIndex {
     // This is an internal method, mostly used to help implement the batch iterator.
     static NeighborBuilder internal_search_builder() { return NeighborBuilder(); }
 
+    // The static index is immutable after construction, so the batch iterator
+    // needs no locking. These return an empty guard so BatchIterator::next()
+    // can take the locks uniformly across static and dynamic indexes
+    struct NullLockGuard {};
+    [[nodiscard]] NullLockGuard lock_for_search() const { return {}; }
+    [[nodiscard]] NullLockGuard lock_for_translation() const { return {}; }
+
     auto greedy_search_closure(
         GreedySearchPrefetchParameters prefetch_parameters,
         const lib::DefaultPredicate& cancel = lib::Returns(lib::Const<false>())

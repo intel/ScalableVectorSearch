@@ -159,6 +159,46 @@ CATCH_TEST_CASE("Translation Table", "[core][translation]") {
             check(translator, external_ids, internal_ids);
         }
 
+        CATCH_SECTION("replace_stale_and_insert is transactional on a live duplicate") {
+            // Batch: a fresh external id followed by a live (non-stale) duplicate.
+            // The whole batch must be validated before any mutation, so the throw
+            // leaves the translator byte-for-byte unchanged — in particular the
+            // fresh id `100` must NOT have been committed.
+            auto add_external = std::vector<uint64_t>{100, 8}; // 8 already exists
+            auto add_internal = std::vector<uint32_t>{50, 60};
+            auto never_stale = [](uint32_t) { return false; };
+
+            CATCH_REQUIRE_THROWS_AS(
+                translator.replace_stale_and_insert(
+                    add_external, add_internal, never_stale
+                ),
+                svs::ANNException
+            );
+
+            CATCH_REQUIRE_FALSE(translator.has_external(100)); // not committed
+            CATCH_REQUIRE_FALSE(translator.has_internal(50));
+            check(translator, external_ids, internal_ids); // unchanged
+        }
+
+        CATCH_SECTION("replace_stale_and_insert replaces a stale mapping") {
+            // Mark internal 20 (external 4) stale; re-add external 4 at a new
+            // internal id plus a genuinely fresh id. Both should commit.
+            auto add_external = std::vector<uint64_t>{4, 100};
+            auto add_internal = std::vector<uint32_t>{50, 60};
+            auto stale_if_20 = [](uint32_t i) { return i == 20; };
+
+            CATCH_REQUIRE_NOTHROW(
+                translator.replace_stale_and_insert(add_external, add_internal, stale_if_20)
+            );
+
+            CATCH_REQUIRE(translator.get_internal(4) == 50);
+            CATCH_REQUIRE(translator.get_internal(100) == 60);
+            CATCH_REQUIRE(translator.get_external(50) == 4);
+            CATCH_REQUIRE(translator.get_external(60) == 100);
+            // Old internal 20 no longer maps back to any external.
+            CATCH_REQUIRE_FALSE(translator.has_internal(20));
+        }
+
         CATCH_SECTION("Repeat Internal IDs") {
             auto external_mismatch_ids = std::vector<uint64_t>{10, 12, 14};
             auto internal_mismatch_ids = std::vector<uint32_t>{50, 10, 70};
