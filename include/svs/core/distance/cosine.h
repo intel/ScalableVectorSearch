@@ -383,6 +383,11 @@ struct CosineSimilarityImpl<N, Float16, Float16, AVX_AVAILABILITY::AVX512> {
 
 #endif
 
+// Everything not natively overridden in avx512_fp16.cpp reuses the AVX512 implementation.
+template <size_t N, typename Ea, typename Eb>
+struct CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512_FP16>
+    : CosineSimilarityImpl<N, Ea, Eb, AVX_AVAILABILITY::AVX512> {};
+
 /////
 ///// Intel(R) AVX2 Implementations
 /////
