@@ -17,7 +17,7 @@
 
 #ifdef SVS_RUNTIME_ENABLE_LVQ_LEANVEC
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 #include "storage.hpp"
 #include "types_support.hpp"

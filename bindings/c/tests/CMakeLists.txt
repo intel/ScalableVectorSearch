@@ -75,11 +75,6 @@ set_target_properties(${TARGET_NAME} PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
-# Include directories
-target_include_directories(${TARGET_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
-)
-
 # Add test to CTest
 include(CTest)
 enable_testing()

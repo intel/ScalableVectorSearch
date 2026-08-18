@@ -321,12 +321,12 @@ class MutableVamanaIndex {
     /// @brief Get the ``graph_max_degree`` used while mutating the graph.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the bytes allocated by each index component.
+    /// @brief Return memory breakdown for the index.
     ///
-    /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
-    /// data, and the dynamic metadata (per-slot status, entry-point list, and the
-    /// external/internal ID translation maps). Capacity-based accounting includes the
-    /// block over-allocation so integrators can report the true memory footprint.
+    /// Reports the allocated memory for graph, data, and metadata components. Uses
+    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
+    /// over-allocation is reflected. Metadata includes status array, entry points, and an
+    /// estimated size of the ID translation maps (external/internal ID translation maps).
     MemoryBreakdown get_memory_breakdown() const {
         MemoryBreakdown usage{};
         usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
@@ -474,32 +474,6 @@ class MutableVamanaIndex {
     /// this generalized somewhat.
     ///
     size_t dimensions() const { return data_.dimensions(); }
-
-    /// @brief Return memory breakdown for the index.
-    ///
-    /// Reports the allocated memory for graph, data, and metadata components. Uses
-    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
-    /// over-allocation is reflected. Metadata includes status array, entry points, and an
-    /// estimated size of the ID translation maps (external/internal ID translation maps).
-    MemoryBreakdown get_memory_breakdown() const {
-        MemoryBreakdown usage{};
-        usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
-        usage.data_bytes = svs::data::detail::dataset_allocated_bytes(data_);
-
-        size_t metadata_bytes = status_.capacity() * sizeof(SlotMetadata);
-        metadata_bytes +=
-            entry_point_.capacity() * sizeof(typename entry_point_type::value_type);
-        // The IDTranslator holds two tsl::robin_map instances (external->internal and
-        // internal->external), neither of which exposes its allocated byte count. We
-        // approximate the storage as the id pair held in each of the two directions. This
-        // ignores the maps' load-factor slack and control bytes, so it is an estimate of
-        // the hash-map overhead that is accurate to within a few percent.
-        metadata_bytes += 2 * translator_.size() *
-                          (sizeof(IDTranslator::external_id_type) +
-                           sizeof(IDTranslator::internal_id_type));
-        usage.metadata_bytes = metadata_bytes;
-        return usage;
-    }
 
     // Return a `greedy_search` compatible builder for this index.
     // This is an internal method, mostly used to help implement the batch iterator.

@@ -15,7 +15,7 @@
  */
 
 // C API
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 // catch2
 #include "catch2/catch_test_macros.hpp"
@@ -142,8 +142,10 @@ CATCH_TEST_CASE("C API Index Builder", "[c_api][index_builder]") {
             svs_index_builder_create(SVS_DISTANCE_METRIC_EUCLIDEAN, 128, algorithm, error);
         CATCH_REQUIRE(builder != nullptr);
 
-        struct svs_threadpool_interface custom_pool = {
-            {sequential_tp_size, sequential_tp_parallel_for}, nullptr};
+        struct svs_threadpool_interface_ops custom_ops =
+            SVS_INIT_THREADPOOL_OPS(sequential_tp_size, sequential_tp_parallel_for);
+        struct svs_threadpool_interface custom_pool =
+            SVS_MAKE_INTERFACE(nullptr, custom_ops);
 
         bool success =
             svs_index_builder_set_threadpool_custom(builder, &custom_pool, error);

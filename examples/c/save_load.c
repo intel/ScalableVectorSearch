@@ -14,13 +14,21 @@
  * limitations under the License.
  */
 
-#include "svs/c_api/svs_c.h"
+// required for nftw
+#define _XOPEN_SOURCE 500
+// required for mkdtemp
+#define _GNU_SOURCE
+
+#include "svs/c/svs_c.h"
+#include <ftw.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 #define NUM_VECTORS 10000
-#define NUM_QUERIES 5
+#define NUM_QUERIES 1
 #define DIMENSION 128
 #define K 10
 
@@ -30,23 +38,22 @@ void generate_random_data(float* data, size_t count, size_t dim) {
     }
 }
 
-size_t sequential_tp_size(void* self) { return 1; }
-
-void sequential_tp_parallel_for(
-    void* self, void (*func)(void*, size_t), void* svs_param, size_t n
+int nftw_callback(
+    const char* fpath, const struct stat* sb, int typeflag, struct FTW* ftwbuf
 ) {
-    for (size_t i = 0; i < n; ++i) {
-        func(svs_param, i);
+    if (typeflag == FTW_DP) {
+        // directory, remove it
+        return rmdir(fpath);
+    } else {
+        // file, remove it
+        return unlink(fpath);
     }
 }
 
-static struct svs_threadpool_interface sequential_threadpool = {
-    {
-        &sequential_tp_size,
-        &sequential_tp_parallel_for,
-    },
-    NULL,
-};
+int remove_directory_recursive(const char* path) {
+    // remove the directory and its contents using function nftw()
+    return nftw(path, nftw_callback, 64, FTW_DEPTH | FTW_PHYS);
+}
 
 int main() {
     int ret = 0;
@@ -59,7 +66,10 @@ int main() {
     svs_storage_h storage = NULL;
     svs_index_builder_h builder = NULL;
     svs_index_h index = NULL;
-    svs_search_results_t results = NULL;
+    svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
+    char tmp_dir_template[] = "svs_index_XXXXXX";
+    char* tmp_dir = NULL;
+    svs_search_results_t loaded_results = SVS_INIT_SEARCH_RESULTS();
 
     // Allocate random data
     data = (float*)malloc(NUM_VECTORS * DIMENSION * sizeof(float));
@@ -161,13 +171,6 @@ int main() {
         goto cleanup;
     }
 
-    // Set custom sequential threadpool
-    if (!svs_index_builder_set_threadpool_custom(builder, &sequential_threadpool, error)) {
-        fprintf(stderr, "Failed to set threadpool: %s\n", svs_error_get_message(error));
-        ret = 1;
-        goto cleanup;
-    }
-
     // Build index
     printf("Building index with %d vectors of dimension %d...\n", NUM_VECTORS, DIMENSION);
     index = svs_index_build(builder, data, NUM_VECTORS, error);
@@ -178,48 +181,123 @@ int main() {
     }
     printf("Index built successfully!\n");
 
-    // Search params
-    svs_search_params_h search_params = svs_search_params_create_vamana(100, error);
-    if (!search_params) {
-        fprintf(
-            stderr, "Failed to create search params: %s\n", svs_error_get_message(error)
-        );
-        ret = 1;
-        goto cleanup;
-    }
-
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results = svs_index_search_topK(
-        index, queries, NUM_QUERIES, K, search_params, NULL /* id_filter */, error
-    );
-    if (!results) {
+    if (!svs_index_search_topk(
+            index,
+            queries,
+            NUM_QUERIES,
+            K,
+            &results,
+            NULL /* search_params */,
+            NULL /* id_filter */,
+            error
+        )) {
         fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
     }
     printf("Search completed successfully!\n");
 
-    // Print results
+    // Create temporary directory for saving the index
+    tmp_dir = mkdtemp(tmp_dir_template);
+    if (!tmp_dir) {
+        fprintf(stderr, "Failed to create temporary directory\n");
+        ret = 1;
+        goto cleanup;
+    }
+
+    printf("Saving index to directory: %s\n", tmp_dir);
+    // Save the index to disk
+    if (!svs_index_save(index, tmp_dir, error)) {
+        fprintf(stderr, "Failed to save index: %s\n", svs_error_get_message(error));
+        ret = 1;
+        goto cleanup;
+    }
+    printf("Index saved successfully!\n");
+
+    svs_index_free(index);
+    index = NULL;
+    // Load the index from disk
+    printf("Loading index from directory: %s\n", tmp_dir);
+    index = svs_index_load(builder, tmp_dir, error);
+    if (!index) {
+        fprintf(stderr, "Failed to load index: %s\n", svs_error_get_message(error));
+        ret = 1;
+        goto cleanup;
+    }
+    printf("Index loaded successfully!\n");
+
+    // Search the loaded index
+    printf(
+        "Searching loaded index for %d queries for top-%d neighbors...\n", NUM_QUERIES, K
+    );
+    if (!svs_index_search_topk(
+            index,
+            queries,
+            NUM_QUERIES,
+            K,
+            &loaded_results,
+            NULL /* search_params */,
+            NULL /* id_filter */,
+            error
+        )) {
+        fprintf(
+            stderr, "Failed to search loaded index: %s\n", svs_error_get_message(error)
+        );
+        ret = 1;
+        goto cleanup;
+    }
+    printf("Search on loaded index completed successfully!\n");
+
+    // Compare results
+    if (results.num_queries != loaded_results.num_queries) {
+        fprintf(
+            stderr, "Mismatch in number of queries between original and loaded results\n"
+        );
+        ret = 1;
+        goto cleanup;
+    }
+
     size_t offset = 0;
-    for (size_t q = 0; q < results->num_queries; q++) {
+    for (size_t q = 0; q < results.num_queries; q++) {
+        size_t count = results.offsets[q + 1] - results.offsets[q];
+        size_t loaded_count = loaded_results.offsets[q + 1] - loaded_results.offsets[q];
+        if (count != loaded_count) {
+            fprintf(stderr, "Mismatch in number of results for query %zu\n", q);
+            ret = 1;
+            goto cleanup;
+        }
         printf("Query %zu results:\n", q);
-        for (size_t i = 0; i < results->results_per_query[q]; i++) {
+        for (size_t i = 0; i < count; i++) {
+            if (results.indices[offset + i] != loaded_results.indices[offset + i]) {
+                fprintf(
+                    stderr, "Mismatch in neighbor indices for query %zu, result %zu\n", q, i
+                );
+                ret = 1;
+                goto cleanup;
+            }
             printf(
-                "  [%zu] id=%zu, distance=%.4f\n",
+                "  [%zu] id=%zu, distance=%.4f, diff=%.4f\n",
                 i,
-                results->indices[offset + i],
-                results->distances[offset + i]
+                results.indices[offset + i],
+                results.distances[offset + i],
+                results.distances[offset + i] - loaded_results.distances[offset + i]
             );
         }
-        offset += results->results_per_query[q];
+        offset += count;
     }
 
     printf("Done!\n");
 
 cleanup:
     // Cleanup
-    svs_search_results_free(results);
+    if (tmp_dir) {
+        // remove the temporary directory and its contents
+        remove_directory_recursive(tmp_dir);
+    }
+    svs_search_results_free(&results);
+    svs_search_results_free(&loaded_results);
     svs_index_free(index);
     svs_index_builder_free(builder);
     svs_storage_free(storage);

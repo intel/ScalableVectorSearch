@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
 #include "filtered_search.hpp"
@@ -32,6 +32,7 @@
 #include <memory>
 #include <random>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace svs::c_runtime {
@@ -43,7 +44,7 @@ struct Index {
         : algorithm(algorithm)
         , pool_builder(pool_builder) {}
     virtual ~Index() = default;
-    virtual svs::QueryResult<size_t> search(
+    virtual std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
@@ -79,7 +80,8 @@ struct IndexVamana : public Index {
         : Index{SVS_ALGORITHM_TYPE_VAMANA, pool_builder}
         , index(std::move(index)) {}
     ~IndexVamana() = default;
-    svs::QueryResult<size_t> search(
+
+    std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
@@ -96,7 +98,8 @@ struct IndexVamana : public Index {
 
         if (id_filter == nullptr) {
             index.search(results.view(), queries, params);
-            return results;
+            // assuming all neighbors found
+            return {results, std::vector<size_t>(queries.size(), num_neighbors)};
         }
 
         std::mt19937 rng(42);
@@ -106,10 +109,10 @@ struct IndexVamana : public Index {
         auto batch_hint =
             std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
-        filtered_topk_search(
+        auto found_neighbors_per_query = filtered_topk_search(
             index, results, queries, batch_hint, id_filter, sample_generator
         );
-        return results;
+        return {results, found_neighbors_per_query};
     }
 
     void save(const std::filesystem::path& directory) override {
@@ -157,7 +160,7 @@ struct DynamicIndexVamana : public DynamicIndex {
     }
     ~DynamicIndexVamana() = default;
 
-    svs::QueryResult<size_t> search(
+    std::pair<svs::QueryResult<size_t>, std::vector<size_t>> search(
         svs::data::ConstSimpleDataView<float> queries,
         size_t num_neighbors,
         const std::shared_ptr<Algorithm::SearchParams>& search_params,
@@ -174,7 +177,7 @@ struct DynamicIndexVamana : public DynamicIndex {
 
         if (id_filter == nullptr) {
             index.search(results.view(), queries, params);
-            return results;
+            return {results, std::vector<size_t>(queries.size(), num_neighbors)};
         }
 
         std::mt19937 rng(42);
@@ -205,10 +208,10 @@ struct DynamicIndexVamana : public DynamicIndex {
         auto batch_hint =
             std::max(num_neighbors, params.buffer_config_.get_search_window_size());
 
-        filtered_topk_search(
+        auto found_neighbors_per_query = filtered_topk_search(
             index, results, queries, batch_hint, id_filter, sample_generator
         );
-        return results;
+        return {results, found_neighbors_per_query};
     }
 
     void save(const std::filesystem::path& directory) override {

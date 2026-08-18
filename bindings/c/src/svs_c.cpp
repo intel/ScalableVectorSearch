@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 #include "algorithm.hpp"
 #include "error.hpp"
@@ -24,6 +24,7 @@
 #include "threadpool.hpp"
 #include "types_support.hpp"
 
+#include <cstddef>
 #include <filesystem>
 #include <memory>
 #include <numeric>
@@ -55,6 +56,10 @@ struct svs_storage {
     std::shared_ptr<svs::c_runtime::Storage> impl;
 };
 
+extern "C" uint32_t svs_get_version() { return SVS_C_API_VERSION; }
+
+extern "C" const char* svs_get_version_string() { return SVS_C_API_VERSION_STRING; }
+
 extern "C" svs_algorithm_h svs_algorithm_create_vamana(
     size_t graph_degree,
     size_t build_window_size,
@@ -73,6 +78,21 @@ extern "C" svs_algorithm_h svs_algorithm_create_vamana(
             auto result = new svs_algorithm;
             result->impl = algorithm;
             return result;
+        },
+        out_err
+    );
+}
+
+extern "C" bool svs_algorithm_get_type(
+    svs_algorithm_h algorithm, svs_algorithm_type_t* out_type, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(algorithm);
+            EXPECT_ARG_NOT_NULL(out_type);
+            *out_type = algorithm->impl->type;
+            return true;
         },
         out_err
     );
@@ -340,6 +360,21 @@ svs_storage_create_sq(svs_data_type_t data_type, svs_error_h out_err) {
     );
 }
 
+extern "C" SVS_API bool svs_storage_get_kind(
+    svs_storage_h storage, svs_storage_kind_t* out_kind, svs_error_h out_err
+) {
+    using namespace svs::c_runtime;
+    return wrap_exceptions(
+        [&]() {
+            EXPECT_ARG_NOT_NULL(storage);
+            EXPECT_ARG_NOT_NULL(out_kind);
+            *out_kind = storage->impl->kind;
+            return true;
+        },
+        out_err
+    );
+}
+
 extern "C" void svs_storage_free(svs_storage_h storage) { delete storage; }
 
 extern "C" svs_index_builder_h svs_index_builder_create(
@@ -557,26 +592,64 @@ svs_index_load(svs_index_builder_h builder, const char* directory, svs_error_h o
 
 extern "C" void svs_index_free(svs_index_h index) { delete index; }
 
-extern "C" svs_search_results_t svs_index_search(
-    svs_index_h index,
-    const float* queries,
-    size_t num_queries,
-    size_t k,
-    svs_search_params_h search_params,
-    svs_error_h out_err
+namespace {
+
+// Ensures out_results has at least `min_capacity` results and
+// `min_offsets_capacity` offset entries; grows library-owned buffers as needed.
+// For caller-owned buffers, insufficient capacity is a hard error.
+inline void ensure_search_results_capacity(
+    svs_search_results_t* r, size_t min_offsets_capacity, size_t min_results_capacity
 ) {
-    // Deprecated: delegate to svs_index_search_topK without an ID filter to avoid
-    // duplicating the search and result-marshalling logic.
-    return svs_index_search_topK(
-        index, queries, num_queries, k, search_params, nullptr, out_err
-    );
+    if (r->owns_buffers) {
+        if (r->offsets_capacity < min_offsets_capacity) {
+            delete[] r->offsets;
+            r->offsets = nullptr;
+            r->offsets_capacity = 0;
+            r->offsets = new size_t[min_offsets_capacity];
+            r->offsets_capacity = min_offsets_capacity;
+        }
+        if (r->results_capacity < min_results_capacity) {
+            delete[] r->indices;
+            delete[] r->distances;
+            r->indices = nullptr;
+            r->distances = nullptr;
+            r->results_capacity = 0;
+            // Use temporary unique_ptr to ensure exception safety during allocation.
+            auto indices = std::make_unique_for_overwrite<size_t[]>(min_results_capacity);
+            auto distances = std::make_unique_for_overwrite<float[]>(min_results_capacity);
+            r->indices = indices.release();
+            r->distances = distances.release();
+            r->results_capacity = min_results_capacity;
+        }
+    } else if (r->offsets == nullptr && r->indices == nullptr && r->distances == nullptr) {
+        // Descriptor was zero-initialized: take ownership and allocate.
+        // Use temporary unique_ptr to ensure exception safety during allocation.
+        auto offsets = std::make_unique_for_overwrite<size_t[]>(min_offsets_capacity);
+        auto indices = std::make_unique_for_overwrite<size_t[]>(min_results_capacity);
+        auto distances = std::make_unique_for_overwrite<float[]>(min_results_capacity);
+        r->offsets = offsets.release();
+        r->offsets_capacity = min_offsets_capacity;
+        r->indices = indices.release();
+        r->distances = distances.release();
+        r->results_capacity = min_results_capacity;
+        r->owns_buffers = true;
+    } else {
+        INVALID_ARGUMENT_IF(
+            r->offsets_capacity < min_offsets_capacity ||
+                r->results_capacity < min_results_capacity,
+            "Caller-provided svs_search_results buffers are too small"
+        );
+    }
 }
 
-extern "C" svs_search_results_t svs_index_search_topK(
+} // namespace
+
+extern "C" bool svs_index_search_topk(
     svs_index_h index,
     const float* queries,
     size_t num_queries,
     size_t k,
+    svs_search_results_t* out_results,
     svs_search_params_h search_params,
     svs_id_filter_i id_filter,
     svs_error_h out_err
@@ -588,8 +661,19 @@ extern "C" svs_search_results_t svs_index_search_topK(
             EXPECT_ARG_NOT_NULL(queries);
             EXPECT_ARG_GT_THAN(num_queries, 0);
             EXPECT_ARG_GT_THAN(k, 0);
+            EXPECT_ARG_NOT_NULL(out_results);
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
+            INVALID_ARGUMENT_IF(
+                out_results->version > svs_get_version(),
+                "Incompatible svs_search_results_t version"
+            );
+            INVALID_ARGUMENT_IF(
+                out_results->struct_size > sizeof(svs_search_results_t),
+                "Incompatible svs_search_results_t struct_size"
+            );
+            // Early fail if no enough capacity in caller-owned buffers.
+            ensure_search_results_capacity(out_results, num_queries + 1, num_queries * k);
 
             auto queries_view = svs::data::ConstSimpleDataView<float>(
                 queries, num_queries, index_ptr->dimensions()
@@ -597,43 +681,55 @@ extern "C" svs_search_results_t svs_index_search_topK(
 
             IDFilterAdapter id_filter_adapter(id_filter);
 
-            auto search_results = index_ptr->search(
+            auto [search_results, found_neighbors_per_query] = index_ptr->search(
                 queries_view,
                 k,
                 search_params == nullptr ? nullptr : search_params->impl,
                 id_filter == nullptr ? nullptr : &id_filter_adapter
             );
 
-            svs_search_results_t results =
-                new svs_search_results{0, nullptr, nullptr, nullptr};
+            out_results->num_queries = num_queries;
+            out_results->total_results = std::accumulate(
+                found_neighbors_per_query.begin(),
+                found_neighbors_per_query.end(),
+                size_t{0}
+            );
 
-            results->num_queries = num_queries;
-            results->results_per_query = new size_t[num_queries];
-            results->indices = new size_t[num_queries * k];
-            results->distances = new float[num_queries * k];
-
+            size_t result_index = 0;
             for (size_t i = 0; i < num_queries; ++i) {
-                results->results_per_query[i] = k;
-                for (size_t j = 0; j < k; ++j) {
-                    results->indices[i * k + j] = search_results.index(i, j);
-                    results->distances[i * k + j] = search_results.distance(i, j);
+                out_results->offsets[i] = result_index;
+                for (size_t j = 0; j < found_neighbors_per_query[i]; ++j) {
+                    out_results->indices[result_index] = search_results.index(i, j);
+                    out_results->distances[result_index] = search_results.distance(i, j);
+                    ++result_index;
                 }
             }
+            out_results->offsets[num_queries] = result_index; // sentinel
 
-            return results;
+            return true;
         },
         out_err
     );
 }
 
-extern "C" void svs_search_results_free(svs_search_results_t results) {
+extern "C" void svs_search_results_free(svs_search_results_t* results) {
     if (results == nullptr) {
         return;
     }
-    delete[] results->results_per_query;
+    results->num_queries = 0;
+    results->total_results = 0;
+    if (!results->owns_buffers) {
+        return; // caller-owned: leave pointers/capacities intact.
+    }
+    delete[] results->offsets;
     delete[] results->indices;
     delete[] results->distances;
-    delete results;
+    results->offsets = nullptr;
+    results->indices = nullptr;
+    results->distances = nullptr;
+    results->offsets_capacity = 0;
+    results->results_capacity = 0;
+    results->owns_buffers = false;
 }
 
 extern "C" bool
@@ -650,11 +746,12 @@ svs_index_save(svs_index_h index, const char* directory, svs_error_h out_err) {
     );
 }
 
-extern "C" size_t svs_index_dynamic_add_points(
+extern "C" bool svs_index_dynamic_add_points(
     svs_index_h index,
     const float* new_points,
     const size_t* ids,
     size_t num_vectors,
+    size_t* out_added_count,
     svs_error_h out_err
 ) {
     using namespace svs::c_runtime;
@@ -671,15 +768,23 @@ extern "C" size_t svs_index_dynamic_add_points(
             auto src_data = svs::data::ConstSimpleDataView<float>(
                 new_points, num_vectors, dynamic_index_ptr->dimensions()
             );
-            return dynamic_index_ptr->add_points(src_data, std::span(ids, num_vectors));
+            auto added_count =
+                dynamic_index_ptr->add_points(src_data, std::span(ids, num_vectors));
+            if (out_added_count) {
+                *out_added_count = added_count;
+            }
+            return true;
         },
-        out_err,
-        static_cast<size_t>(-1)
+        out_err
     );
 }
 
-extern "C" size_t svs_index_dynamic_delete_points(
-    svs_index_h index, const size_t* ids, size_t num_ids, svs_error_h out_err
+extern "C" bool svs_index_dynamic_delete_points(
+    svs_index_h index,
+    const size_t* ids,
+    size_t num_ids,
+    size_t* out_deleted_count,
+    svs_error_h out_err
 ) {
     using namespace svs::c_runtime;
     return wrap_exceptions(
@@ -691,10 +796,13 @@ extern "C" size_t svs_index_dynamic_delete_points(
             INVALID_ARGUMENT_IF(
                 dynamic_index_ptr == nullptr, "Index does not support dynamic updates"
             );
-            return dynamic_index_ptr->delete_points(std::span(ids, num_ids));
+            auto deleted_count = dynamic_index_ptr->delete_points(std::span(ids, num_ids));
+            if (out_deleted_count) {
+                *out_deleted_count = deleted_count;
+            }
+            return true;
         },
-        out_err,
-        static_cast<size_t>(-1)
+        out_err
     );
 }
 
@@ -869,6 +977,14 @@ extern "C" bool svs_index_get_memory_breakdown(
         [&]() {
             EXPECT_ARG_NOT_NULL(index);
             EXPECT_ARG_NOT_NULL(out_breakdown);
+            INVALID_ARGUMENT_IF(
+                out_breakdown->version > svs_get_version(),
+                "Incompatible svs_memory_breakdown_t version"
+            );
+            INVALID_ARGUMENT_IF(
+                out_breakdown->struct_size > sizeof(svs_memory_breakdown_t),
+                "Incompatible svs_memory_breakdown_t struct_size"
+            );
             auto& index_ptr = index->impl;
             INVALID_ARGUMENT_IF(index_ptr == nullptr, "Invalid index handle");
             auto breakdown = index_ptr->get_memory_breakdown();
