@@ -18,6 +18,7 @@
 
 #include "svs/lib/misc.h"
 
+#include <atomic>
 #include <cstdint>
 #include <iterator>
 #include <span>
@@ -56,8 +57,11 @@ template <typename T, size_t Extent> void prefetch_l0(std::span<T, Extent> span)
         );
     }
 
+    // The fence is a no-op at runtime; without it GCC 12 drops all but the first
+    // prefetch here, so neighbor vectors load cold from DRAM and search slows ~24%.
     for (size_t i = 0; i < num_prefetches; ++i) {
         prefetch_l0(base + CACHELINE_BYTES * i);
+        std::atomic_signal_fence(std::memory_order_seq_cst);
     }
 }
 
