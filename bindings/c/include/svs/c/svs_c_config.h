@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "svs/c/svs_c_version.h"
+
 // All symbols shall be internal unless marked as SVS_API
 #if defined _WIN32 || defined __CYGWIN__
 #define SVS_HELPER_DLL_IMPORT __declspec(dllimport)

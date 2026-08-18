@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 #include <stdexcept>
 #include <string>
@@ -24,8 +24,8 @@
 
 // C API error structure
 struct svs_error_desc {
-    svs_error_code_t code;
-    std::string message;
+    svs_error_code_t code = SVS_OK;
+    std::string message = "Success";
 };
 
 #define SET_ERROR(err, c, msg)      \

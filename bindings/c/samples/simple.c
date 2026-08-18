@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -32,21 +32,19 @@ void generate_random_data(float* data, size_t count, size_t dim) {
 
 size_t sequential_tp_size(void* self) { return 1; }
 
-void sequential_tp_parallel_for(
-    void* self, void (*func)(void*, size_t), void* svs_param, size_t n
+bool sequential_tp_parallel_for(
+    void* self, void (*func)(void*, size_t), void* svs_param, size_t n, svs_error_h out_err
 ) {
     for (size_t i = 0; i < n; ++i) {
         func(svs_param, i);
     }
+    return true;
 }
 
-static struct svs_threadpool_interface sequential_threadpool = {
-    {
-        &sequential_tp_size,
-        &sequential_tp_parallel_for,
-    },
-    NULL,
-};
+static svs_threadpool_ops_t sequential_tp_ops =
+    SVS_INIT_THREADPOOL_OPS(sequential_tp_size, sequential_tp_parallel_for);
+
+static svs_threadpool_t sequential_threadpool = SVS_MAKE_INTERFACE(NULL, sequential_tp_ops);
 
 int main() {
     int ret = 0;
@@ -59,7 +57,7 @@ int main() {
     svs_storage_h storage = NULL;
     svs_index_builder_h builder = NULL;
     svs_index_h index = NULL;
-    svs_search_results_t results = NULL;
+    svs_search_results_t results = SVS_INIT_SEARCH_RESULTS();
 
     // Allocate random data
     data = (float*)malloc(NUM_VECTORS * DIMENSION * sizeof(float));
@@ -190,10 +188,17 @@ int main() {
 
     // Search
     printf("Searching %d queries for top-%d neighbors...\n", NUM_QUERIES, K);
-    results = svs_index_search_topK(
-        index, queries, NUM_QUERIES, K, search_params, NULL /* id_filter */, error
-    );
-    if (!results) {
+
+    if (!svs_index_search_topk(
+            index,
+            queries,
+            NUM_QUERIES,
+            K,
+            &results,
+            search_params,
+            NULL /* id_filter */,
+            error
+        )) {
         fprintf(stderr, "Failed to search index: %s\n", svs_error_get_message(error));
         ret = 1;
         goto cleanup;
@@ -201,25 +206,22 @@ int main() {
     printf("Search completed successfully!\n");
 
     // Print results
-    size_t offset = 0;
-    for (size_t q = 0; q < results->num_queries; q++) {
+    for (size_t q = 0; q < results.num_queries; q++) {
+        const size_t* ids;
+        const float* dists;
+        size_t count;
+        svs_search_results_row(&results, q, &ids, &dists, &count);
         printf("Query %zu results:\n", q);
-        for (size_t i = 0; i < results->results_per_query[q]; i++) {
-            printf(
-                "  [%zu] id=%zu, distance=%.4f\n",
-                i,
-                results->indices[offset + i],
-                results->distances[offset + i]
-            );
+        for (size_t i = 0; i < count; i++) {
+            printf("  [%zu] id=%zu, distance=%.4f\n", i, ids[i], dists[i]);
         }
-        offset += results->results_per_query[q];
     }
 
     printf("Done!\n");
 
 cleanup:
     // Cleanup
-    svs_search_results_free(results);
+    svs_search_results_free(&results);
     svs_index_free(index);
     svs_index_builder_free(builder);
     svs_storage_free(storage);

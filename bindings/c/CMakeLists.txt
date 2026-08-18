@@ -16,9 +16,19 @@ cmake_minimum_required(VERSION 3.21)
 project(svs_c_api VERSION 0.4.0 LANGUAGES CXX C)
 set(TARGET_NAME svs_c_api)
 
+include(GNUInstallDirs)
+
+set(SVS_C_API_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+set(SVS_C_API_VERSION_HEADER "${SVS_C_API_GENERATED_INCLUDE_DIR}/svs/c/svs_c_version.h")
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/svs/c/svs_c_version.h.in"
+    "${SVS_C_API_VERSION_HEADER}"
+)
+
 set(SVS_C_API_HEADERS
-    include/svs/c_api/svs_c_config.h
-    include/svs/c_api/svs_c.h
+    include/svs/c/svs_c_config.h
+    include/svs/c/svs_c.h
+    ${SVS_C_API_VERSION_HEADER}
 )
 
 set(SVS_C_API_SOURCES
@@ -42,9 +52,12 @@ add_library(${TARGET_NAME} SHARED
     ${SVS_C_API_SOURCES}
 )
 
-target_include_directories(${TARGET_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_include_directories(${TARGET_NAME}
+    PUBLIC
+        $<BUILD_INTERFACE:${SVS_C_API_GENERATED_INCLUDE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 find_package(OpenMP REQUIRED)
@@ -63,10 +76,17 @@ if(UNIX AND NOT APPLE)
     target_link_options(${TARGET_NAME} PRIVATE "SHELL:-Wl,--exclude-libs,ALL")
 endif()
 
-# C++20 is required to build this library, but not to consume it: the public
-# surface is a C ABI. Keep the requirement PRIVATE so that pure-C consumers are
-# not forced to compile as C++20.
-target_compile_features(${TARGET_NAME} PRIVATE cxx_std_20)
+# C++20 is required to *build* this library.
+# Propagate language standards to consumers of the public C ABI header so their
+# user code is compiled at a supported standard:
+#   - C consumers   -> C99 or later
+#   - C++ consumers -> C++20 or later
+# These meta-features are language-specific, so a pure-C consumer is held to C99
+# only and is never forced to compile as C++20.
+target_compile_features(${TARGET_NAME}
+    PUBLIC cxx_std_20
+    INTERFACE c_std_99
+)
 if (NOT DEFINED SVS_CXX_STANDARD OR SVS_CXX_STANDARD STREQUAL "")
     set(SVS_CXX_STANDARD 20)
 endif()
@@ -170,8 +190,6 @@ else()
 endif()
 
 # Installing
-include(GNUInstallDirs)
-
 set(SVS_C_API_EXPORT_NAME ${TARGET_NAME})
 set(VERSION_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/${SVS_C_API_EXPORT_NAME}ConfigVersion.cmake")
 set(SVS_C_API_CONFIG_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/svs_c_api)
@@ -181,11 +199,11 @@ install(TARGETS ${TARGET_NAME}
     EXPORT ${SVS_C_API_EXPORT_NAME}
     COMPONENT ${SVS_C_API_COMPONENT_NAME}
     LIBRARY DESTINATION lib
-    PUBLIC_HEADER DESTINATION include/svs/c_api
+    PUBLIC_HEADER DESTINATION include/svs/c
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
-install(DIRECTORY include/svs/c_api
+install(DIRECTORY include/svs/c
     COMPONENT ${SVS_C_API_COMPONENT_NAME}
     DESTINATION include/svs
     FILES_MATCHING PATTERN "*.h"
@@ -253,4 +271,6 @@ if(SVS_BUILD_C_API_TESTS)
     add_subdirectory(tests)
 endif()
 
-add_subdirectory(samples)
+if(SVS_BUILD_EXAMPLES)
+    add_subdirectory(samples)
+endif()

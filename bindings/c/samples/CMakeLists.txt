@@ -18,10 +18,6 @@ foreach(SAMPLE_NAME simple save_load dynamic)
     add_executable(${SAMPLE_TARGET} ${SAMPLE_NAME}.c)
 
     target_link_libraries(${SAMPLE_TARGET} PRIVATE svs_c_api)
-
-    target_include_directories(${SAMPLE_TARGET} PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include
-    )
 endforeach(SAMPLE_NAME)
 
 add_custom_target(c_api_samples ALL DEPENDS ${SAMPLE_TARGETS})

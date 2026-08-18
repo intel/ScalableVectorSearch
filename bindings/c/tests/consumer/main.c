@@ -24,7 +24,7 @@
  * capability a downstream integration has to branch on today.
  */
 
-#include "svs/c_api/svs_c.h"
+#include "svs/c/svs_c.h"
 
 #include <stdio.h>
 #include <stdlib.h>
