@@ -40,10 +40,11 @@ echo "compiler: $(${CXX:-c++} --version | head -1)"
 
 rm -rf "${BUILD_DIR}" "${INSTALL_DIR}"
 
-cmake -B"${BUILD_DIR}" -S"${WORKSPACE}/bindings/c" \
+cmake -B"${BUILD_DIR}" -S"${WORKSPACE}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
     -DCMAKE_INSTALL_LIBDIR=lib \
+    -DSVS_BUILD_C_API=ON \
     -DSVS_BUILD_C_API_TESTS=ON \
     -DSVS_BUILD_EXAMPLES=ON \
     -DSVS_RUNTIME_ENABLE_LVQ_LEANVEC="${ENABLE_LVQ_LEANVEC}" \

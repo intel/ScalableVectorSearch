@@ -94,11 +94,22 @@ endif()
 ##### Build Objects
 #####
 
+if(SVS_BUILD_C_API)
+    add_subdirectory(bindings/c)
+    if(SVS_BUILD_C_API_TESTS)
+        include(CTest)
+        enable_testing()
+    endif()
+endif()
+
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)
 endif()
 
 if(SVS_BUILD_TESTS)
+    # Add test to CTest
+    include(CTest)
+    enable_testing()
     add_subdirectory(tests)
 endif()
 

@@ -270,7 +270,3 @@ if(SVS_BUILD_C_API_TESTS)
     endif()
     add_subdirectory(tests)
 endif()
-
-if(SVS_BUILD_EXAMPLES)
-    add_subdirectory(samples)
-endif()

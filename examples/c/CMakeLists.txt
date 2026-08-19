@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+project(svs_c_api_samples LANGUAGES C)
 foreach(SAMPLE_NAME simple save_load dynamic)
     set(SAMPLE_TARGET c_api_${SAMPLE_NAME})
     list(APPEND SAMPLE_TARGETS ${SAMPLE_TARGET})
