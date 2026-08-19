@@ -133,7 +133,7 @@ if (SVS_RUNTIME_ENABLE_LVQ_LEANVEC)
     elseif(TARGET svs::svs)
         message(FATAL_ERROR
             "Pre-built LVQ/LeanVec SVS library cannot be used in SVS main build. "
-            "Please build SVS Runtime using bindings/cpp directory as CMake source root."
+            "Please build SVS C API using bindings/c directory as CMake source root."
         )
     else()
         # Links to LTO-enabled static library, requires GCC/G++ 11.2
@@ -272,5 +272,8 @@ if(SVS_BUILD_C_API_TESTS)
 endif()
 
 if(SVS_BUILD_EXAMPLES)
-    add_subdirectory(samples)
+    add_subdirectory(
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../examples/c"
+        "${CMAKE_CURRENT_BINARY_DIR}/samples"
+    )
 endif()
