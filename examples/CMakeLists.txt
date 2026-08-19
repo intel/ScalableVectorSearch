@@ -13,3 +13,7 @@
 # limitations under the License.
 
 add_subdirectory(cpp)
+
+if(SVS_BUILD_C_API)
+    add_subdirectory(c)
+endif()

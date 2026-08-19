@@ -42,6 +42,6 @@ ctest --test-dir "${BUILD_DIR}" --output-on-failure --no-tests=error
 # exit once already, so they are part of the gate.
 for sample in c_api_simple c_api_save_load c_api_dynamic; do
     echo "::group::${sample}"
-    "${BUILD_DIR}/samples/${sample}"
+    "${BUILD_DIR}/examples/c/${sample}"
     echo "::endgroup::"
 done

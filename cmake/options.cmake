@@ -31,6 +31,11 @@ option(SVS_BUILD_BINARIES
     OFF # enabled by default
 )
 
+option(SVS_BUILD_C_API
+    "Build C API bindings"
+    OFF # disabled by default
+)
+
 option(SVS_BUILD_TESTS
     "Build the unit test suite."
     OFF # disabled by default

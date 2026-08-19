@@ -94,6 +94,10 @@ endif()
 ##### Build Objects
 #####
 
+if(SVS_BUILD_C_API)
+    add_subdirectory(bindings/c)
+endif()
+
 if(SVS_BUILD_BINARIES)
     add_subdirectory(utils)
 endif()
