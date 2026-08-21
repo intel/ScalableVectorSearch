@@ -50,6 +50,7 @@ class VamanaInterface {
 
     virtual size_t get_graph_max_degree() const = 0;
 
+    ///// Memory accounting
     virtual svs::index::vamana::MemoryBreakdown get_memory_breakdown() const = 0;
 
     virtual void set_construction_window_size(size_t window_size) = 0;

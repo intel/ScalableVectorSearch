@@ -1,4 +1,4 @@
-# Copyright 2025 Intel Corporation
+# Copyright 2026 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build and test C++ Runtime Bindings
+name: Build and test C API bindings
 
 on:
   push:
@@ -30,11 +30,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-cpp-runtime-bindings:
-    name: Build and unit tests for C++ runtime bindings
+  build-c-api-bindings:
+    name: Build and unit tests for C API (${{ matrix.name }})
     runs-on: ubuntu-22.04
     strategy:
       matrix:
+        # Mirrors build-cpp-runtime-bindings.yml.
         include:
           - name: "with static library"
             enable_lvq_leanvec: "ON"
@@ -50,10 +51,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build Docker image
-        run: |
-          docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
 
-      - name: Build libraries in Docker container
+      - name: Build C API bindings in Docker container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -62,20 +62,13 @@ jobs:
             -e REQUIRE_LTO_ARCHIVE=${{ matrix.require_lto }} \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash .github/scripts/build-cpp-runtime-bindings.sh
+            /bin/bash .github/scripts/build-c-api-bindings.sh
 
-      - name: Upload cpp runtime bindings artifacts
+      - name: Upload C API bindings artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: svs-cpp-runtime-bindings${{ matrix.suffix }}
-          path: svs-cpp-runtime-bindings${{ matrix.suffix }}.tar.gz
-          retention-days: 7  # Reduce retention due to size
-
-      - name: Upload conda package artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: libsvs-runtime-conda${{ matrix.suffix }}
-          path: conda-bld/linux-64/libsvs-runtime-*.conda
+          name: svs-c-api${{ matrix.suffix }}
+          path: svs-c-api${{ matrix.suffix }}.tar.gz
           retention-days: 7
 
       # Run unit tests that were built as part of this job
@@ -84,14 +77,16 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
-            -e ENABLE_LVQ_LEANVEC=${{ matrix.enable_lvq_leanvec }} \
             svs-manylinux228:latest \
-            /bin/bash /workspace/.github/scripts/test-cpp-runtime-unit.sh
+            /bin/bash /workspace/.github/scripts/test-c-api-unit.sh
 
-  # Run full test script using the built artifacts
+  # Run integration tests against the packaged artifact. Eventually this should
+  # run the setup and test scope of the actual downstream integrations; for now it
+  # just confirms the tarball is functional - it installs, exports only the svs_*
+  # C ABI, and can be consumed from a standalone C project.
   test:
-    name: Integration tests for C++ runtime
-    needs: build-cpp-runtime-bindings
+    name: Integration tests for C API (${{ matrix.name }})
+    needs: build-c-api-bindings
     runs-on: ubuntu-22.04
     strategy:
       matrix:
@@ -106,26 +101,23 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build Docker image
-        run: |
-          docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
+        run: docker build -t svs-manylinux228:latest -f docker/x86_64/manylinux228/Dockerfile .
 
       # Need to download for a new job
-      - name: Download conda package
+      - name: Download C API package
         uses: actions/download-artifact@v8
         with:
-          name: libsvs-runtime-conda${{ matrix.suffix }}
-          path: runtime_conda
+          name: svs-c-api${{ matrix.suffix }}
+          path: c_api_artifact
 
       - name: List available artifacts
-        run: |
-          ls -la runtime_conda/
+        run: ls -la c_api_artifact/
 
-      - name: Test in Docker container
+      - name: Test packaged C API in Docker container
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            -v ${{ github.workspace }}/runtime_conda:/runtime_conda \
             -w /workspace \
             -e SUFFIX=${{ matrix.suffix }} \
             svs-manylinux228:latest \
-            /bin/bash .github/scripts/test-faiss.sh
+            /bin/bash .github/scripts/test-c-api-bindings.sh

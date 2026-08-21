@@ -177,6 +177,9 @@ struct VamanaIndexParameters {
     operator==(const VamanaIndexParameters&, const VamanaIndexParameters&) = default;
 };
 
+///
+/// @brief Memory breakdown for Vamana index.
+///
 struct MemoryBreakdown {
     size_t graph_bytes = 0;
     size_t data_bytes = 0;
@@ -752,12 +755,12 @@ class VamanaIndex {
     /// @brief Get the ``graph_max_degree`` that was used for graph construction.
     size_t get_graph_max_degree() const { return graph_.max_degree(); }
 
-    /// @brief Return the bytes allocated by each index component.
+    /// @brief Return memory breakdown for the index.
     ///
-    /// Reports the capacity-based bytes reserved by the graph adjacency lists, the vector
-    /// data, and the entry-point list (the static index has no slot-status or
-    /// ID-translation metadata). Capacity-based accounting includes the block
-    /// over-allocation so integrators can report the true memory footprint.
+    /// Reports the allocated memory for graph, data, and metadata components. Uses
+    /// capacity-based accounting for datasets that expose ``capacity()``, so that block
+    /// over-allocation is reflected. Metadata includes entry points. Integrators can use
+    /// this to report the true memory footprint of the index.
     MemoryBreakdown get_memory_breakdown() const {
         MemoryBreakdown usage{};
         usage.graph_bytes = svs::data::detail::dataset_allocated_bytes(graph_.get_data());
