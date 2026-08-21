@@ -27,12 +27,11 @@ set(SVS_DISPATCH_SURFACE_FILE "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}"
     CACHE FILEPATH
     "Declaration of the ahead-of-time distance-kernel dispatch surface"
 )
-if(NOT EXISTS "${SVS_DISPATCH_SURFACE_FILE}")
-    message(FATAL_ERROR
-        "SVS_DISPATCH_SURFACE_FILE does not exist: ${SVS_DISPATCH_SURFACE_FILE}"
-    )
-endif()
-include("${SVS_DISPATCH_SURFACE_FILE}")
+
+# Reads the declaration and rejects it if it is malformed. Also runnable on its
+# own -- see .github/scripts/check_dispatch_surface.sh.
+set(SVS_X86_SRC_DIR "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
+include("${CMAKE_CURRENT_LIST_DIR}/validate-dispatch-surface.cmake")
 
 file(REAL_PATH "${SVS_DISPATCH_SURFACE_FILE}" svs_surface_real)
 file(REAL_PATH "${SVS_DEFAULT_DISPATCH_SURFACE_FILE}" svs_default_surface_real)
@@ -54,92 +53,15 @@ set_property(
 )
 
 #####
-##### Validate the extent list
-#####
-
-if(NOT SVS_SUPPORTED_DIMS)
-    message(FATAL_ERROR
-        "SVS_SUPPORTED_DIMS is empty in ${SVS_DISPATCH_SURFACE_FILE}. At least "
-        "one fixed extent is required."
-    )
-endif()
-
-foreach(dim IN LISTS SVS_SUPPORTED_DIMS)
-    if(NOT dim MATCHES "^[1-9][0-9]*$")
-        message(FATAL_ERROR
-            "SVS_SUPPORTED_DIMS contains '${dim}', which is not a positive "
-            "integer. svs::Dynamic is required and is appended automatically, "
-            "so it must not be listed."
-        )
-    endif()
-endforeach()
-
-set(svs_dims_sorted ${SVS_SUPPORTED_DIMS})
-list(REMOVE_DUPLICATES svs_dims_sorted)
-list(LENGTH SVS_SUPPORTED_DIMS svs_dims_given)
-list(LENGTH svs_dims_sorted svs_dims_unique)
-if(NOT svs_dims_given EQUAL svs_dims_unique)
-    message(FATAL_ERROR
-        "SVS_SUPPORTED_DIMS contains duplicate extents. Every extent must "
-        "appear exactly once."
-    )
-endif()
-
-# svs::Dynamic is mandatory: it is what serves every dimensionality without a
-# fixed-extent kernel, and the library is incorrect without it.
-set(svs_dim_list ${SVS_SUPPORTED_DIMS} "svs::Dynamic")
-list(LENGTH svs_dim_list SVS_GEN_DIM_COUNT)
-
-#####
-##### Validate the ISA levels
-#####
-
-if(NOT SVS_ISA_LEVELS)
-    message(FATAL_ERROR "SVS_ISA_LEVELS is empty in ${SVS_DISPATCH_SURFACE_FILE}.")
-endif()
-
-set(svs_seen_levels)
-set(svs_seen_infixes)
-foreach(level_spec IN LISTS SVS_ISA_LEVELS)
-    string(REPLACE "|" ";" level_fields "${level_spec}")
-    list(LENGTH level_fields nfields)
-    if(NOT nfields EQUAL 3)
-        message(FATAL_ERROR
-            "Malformed SVS_ISA_LEVELS entry '${level_spec}': expected exactly "
-            "three '|'-separated fields <enumerator>|<instruction budget>|<TU infix>."
-        )
-    endif()
-    list(GET level_fields 0 level)
-    list(GET level_fields 1 arch)
-    list(GET level_fields 2 infix)
-    foreach(field level arch infix)
-        if(NOT ${field})
-            message(FATAL_ERROR
-                "Malformed SVS_ISA_LEVELS entry '${level_spec}': ${field} is empty."
-            )
-        endif()
-    endforeach()
-    if(level IN_LIST svs_seen_levels)
-        message(FATAL_ERROR "Duplicate ISA level '${level}' in SVS_ISA_LEVELS.")
-    endif()
-    if(infix IN_LIST svs_seen_infixes)
-        message(FATAL_ERROR
-            "Duplicate TU infix '${infix}' in SVS_ISA_LEVELS; infixes name "
-            "generated files and must be unique."
-        )
-    endif()
-    list(APPEND svs_seen_levels ${level})
-    list(APPEND svs_seen_infixes ${infix})
-endforeach()
-
-#####
-##### Generate the header
+##### Build the macro bodies
 #####
 
 # Line continuations are emitted with a trailing backslash; the generated macros
 # are one logical line each.
+set(SVS_GEN_DIM_COUNT ${SVS_DIM_COUNT})
+
 set(SVS_GEN_DIM_LOOP "\\\n")
-foreach(dim IN LISTS svs_dim_list)
+foreach(dim IN LISTS SVS_DIM_LIST)
     string(APPEND SVS_GEN_DIM_LOOP "    M(${dim}) \\\n")
 endforeach()
 string(APPEND SVS_GEN_DIM_LOOP "    /* end */")
@@ -147,7 +69,6 @@ string(APPEND SVS_GEN_DIM_LOOP "    /* end */")
 set(SVS_GEN_TARGET_LOOP "\\\n")
 set(SVS_GEN_LEVEL_LOOP "\\\n")
 set(SVS_DISPATCH_TU_SPECS)
-set(svs_x86_src_dir "${PROJECT_SOURCE_DIR}/include/svs/multi-arch/x86")
 foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     string(REPLACE "|" ";" level_fields "${level_spec}")
     list(GET level_fields 0 level)
@@ -155,22 +76,15 @@ foreach(level_spec IN LISTS SVS_ISA_LEVELS)
     list(GET level_fields 2 infix)
 
     string(APPEND SVS_GEN_LEVEL_LOOP "    M(${level}) \\\n")
-    foreach(dim IN LISTS svs_dim_list)
+    foreach(dim IN LISTS SVS_DIM_LIST)
         string(APPEND SVS_GEN_TARGET_LOOP "    M(${dim}, ${level}) \\\n")
     endforeach()
 
-    # One translation unit per level, named after the level's infix. The file
-    # itself is short -- it loops over the generated extent list -- but it is
-    # committed rather than generated, because the private repository compiles
-    # these sources by path.
-    set(tu_src "${svs_x86_src_dir}/${infix}.cpp")
-    if(NOT EXISTS "${tu_src}")
-        message(FATAL_ERROR
-            "ISA level '${level}' has no translation unit: expected ${tu_src}. "
-            "Adding a level to SVS_ISA_LEVELS requires creating that file."
-        )
-    endif()
-    list(APPEND SVS_DISPATCH_TU_SPECS "${tu_src}|${level}|${arch}|${infix}")
+    # One translation unit per level, committed rather than generated because the
+    # downstream repository compiles these sources by path. Validation checks it exists.
+    list(APPEND SVS_DISPATCH_TU_SPECS
+        "${SVS_X86_SRC_DIR}/${infix}.cpp|${level}|${arch}|${infix}"
+    )
     list(APPEND svs_level_report
         "AVX_AVAILABILITY::${level} -march=${arch} ${infix}.cpp"
     )
@@ -217,7 +131,7 @@ endif()
 list(LENGTH SVS_ISA_LEVELS svs_level_count)
 string(REPLACE ";" " " svs_dims_display "${SVS_SUPPORTED_DIMS}")
 message(STATUS
-    "Dispatch surface: ${SVS_GEN_DIM_COUNT} extents x ${svs_level_count} ISA levels"
+    "Dispatch surface: ${SVS_DIM_COUNT} extents x ${svs_level_count} ISA levels"
 )
 message(STATUS "  extents: ${svs_dims_display} svs::Dynamic")
 foreach(entry IN LISTS svs_level_report)
