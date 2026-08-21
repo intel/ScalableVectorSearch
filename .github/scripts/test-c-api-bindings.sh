@@ -39,6 +39,7 @@ fi
 
 INSTALL_DIR="${STAGE_DIR}/install"
 CONSUMER_BUILD="${STAGE_DIR}/consumer-build"
+EXAMPLES_BUILD="${STAGE_DIR}/examples-build"
 
 rm -rf "${STAGE_DIR}"
 mkdir -p "${INSTALL_DIR}"
@@ -83,3 +84,16 @@ cmake -B"${CONSUMER_BUILD}" -S"${WORKSPACE}/bindings/c/tests/consumer" \
 cmake --build "${CONSUMER_BUILD}"
 
 LD_LIBRARY_PATH="${LIBDIR}" "${CONSUMER_BUILD}/c_api_consumer"
+
+# Build and run the examples
+cmake -B"${EXAMPLES_BUILD}" -S"${WORKSPACE}/examples/c" \
+    -DCMAKE_PREFIX_PATH="${INSTALL_DIR}"
+cmake --build "${EXAMPLES_BUILD}"
+
+for example in c_api_simple c_api_save_load c_api_dynamic; do
+    echo "::group::${example}"
+    # Run from the build directory: save_load creates its index in the working
+    # directory, which must be writable.
+    (cd "${EXAMPLES_BUILD}" && LD_LIBRARY_PATH="${LIBDIR}" "./${example}")
+    echo "::endgroup::"
+done
