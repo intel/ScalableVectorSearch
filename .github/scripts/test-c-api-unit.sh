@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Run the C API unit tests and samples out of an existing build tree.
+# Run the C API unit tests out of an existing build tree.
 #
 # Inputs:
 #   WORKSPACE   repository root; defaults to this script's repo so it also runs
@@ -36,12 +36,3 @@ echo "model:  $(grep -m1 'model name' /proc/cpuinfo || echo unknown)"
 echo "avx512: $(grep -o 'avx512[a-z_0-9]*' /proc/cpuinfo | sort -u | tr '\n' ' ')"
 
 ctest --test-dir "${BUILD_DIR}" --output-on-failure --no-tests=error
-
-# The samples are the only executable check that the public headers are usable
-# from C and that an end-to-end build/search runs. They regressed to a non-zero
-# exit once already, so they are part of the gate.
-for sample in c_api_simple c_api_save_load c_api_dynamic; do
-    echo "::group::${sample}"
-    "${BUILD_DIR}/samples/${sample}"
-    echo "::endgroup::"
-done

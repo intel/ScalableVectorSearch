@@ -121,7 +121,7 @@ int main() {
     // LeanVec/LVQ are only available in builds that include the compression
     // backend. When they are unavailable the build reports NOT_IMPLEMENTED (or
     // UNSUPPORTED_HW on hardware lacking the required ISA); fall back to simple
-    // storage so this sample stays runnable against a public build.
+    // storage so this example stays runnable against a public build.
     if (!storage) {
         svs_error_code_t code = svs_error_get_code(error);
         if (code == SVS_ERROR_NOT_IMPLEMENTED || code == SVS_ERROR_UNSUPPORTED_HW) {

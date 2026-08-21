@@ -274,6 +274,6 @@ endif()
 if(SVS_BUILD_EXAMPLES)
     add_subdirectory(
         "${CMAKE_CURRENT_SOURCE_DIR}/../../examples/c"
-        "${CMAKE_CURRENT_BINARY_DIR}/samples"
+        "${CMAKE_CURRENT_BINARY_DIR}/examples"
     )
 endif()
