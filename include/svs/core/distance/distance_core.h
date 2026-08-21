@@ -21,6 +21,9 @@
 #include "svs/lib/saveload.h"
 #include "svs/lib/type_traits.h"
 
+// The extent list and the ISA levels, generated from cmake/dispatch-surface.cmake.
+#include "svs/core/distance/dispatch_surface.h"
+
 #include <cmath>
 #include <span>
 
@@ -28,9 +31,17 @@ namespace svs::distance {
 
 enum class AVX_AVAILABILITY { NONE, AVX2, AVX512 };
 
-constexpr std::array<size_t, 9> supported_dim_list{
-    64, 96, 100, 128, 160, 200, 512, 768, svs::Dynamic};
+/// The extents that have a fixed-extent kernel, including svs::Dynamic.
+#define SVS_DIM_LIST_ENTRY(N) N,
+constexpr std::array<size_t, SVS_SUPPORTED_DIM_COUNT> supported_dim_list{
+    SVS_FOR_EACH_SUPPORTED_DIM(SVS_DIM_LIST_ENTRY)};
+#undef SVS_DIM_LIST_ENTRY
 
+/// Whether N has a fixed-extent kernel.
+///
+/// This is not a capability test: every dimensionality is supported. An extent
+/// that answers `false` here dispatches to the svs::Dynamic kernel instead of a
+/// fully unrolled one.
 template <size_t N> constexpr bool is_dim_supported() {
     for (auto i : supported_dim_list) {
         if (i == N) {
